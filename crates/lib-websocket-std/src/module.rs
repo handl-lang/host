@@ -43,7 +43,7 @@ fn inner() -> Arc<Mutex<Inner>> {
 struct Client {
     url: String,
     tx: tokio_mpsc::UnboundedSender<TungsteniteMessage>,
-    rx: Mutex<mpsc::Receiver<NonFunctionValue>>,
+    rx: Arc<Mutex<mpsc::Receiver<NonFunctionValue>>>,
 }
 
 struct Server {
@@ -273,7 +273,7 @@ impl Function<NonFunctionValue> for ClientNew {
                 Client {
                     url: String::new(),
                     tx: tokio_mpsc::unbounded_channel().0,
-                    rx: Mutex::new(mpsc::channel().1),
+                    rx: Arc::new(Mutex::new(mpsc::channel().1)),
                 },
             );
             id
@@ -345,7 +345,7 @@ impl Function<NonFunctionValue> for ClientConnect {
         )))?;
         client.url = url_string;
         client.tx = cmd_tx;
-        *client.rx.get_mut().unwrap() = std_rx;
+        client.rx = Arc::new(Mutex::new(std_rx));
 
         Ok(NonFunctionValue::new(JsonValue::Null))
     }
@@ -396,17 +396,20 @@ impl Function<NonFunctionValue> for ClientRecv {
     ) -> Result<NonFunctionValue, Error> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
 
-        let inner = inner();
-        let guard = inner.lock().unwrap();
-        let clients = guard.clients.lock().unwrap();
-        let client = clients.get(&id).ok_or(Error::PrimitiveError(format!(
-            "unknown websocket client: {id}"
-        )))?;
-        let value = client
-            .rx
+        let rx = {
+            let inner = inner();
+            let guard = inner.lock().unwrap();
+            let clients = guard.clients.lock().unwrap();
+            let client = clients.get(&id).ok_or(Error::PrimitiveError(format!(
+                "unknown websocket client: {id}"
+            )))?;
+            client.rx.clone()
+        };
+
+        let value = rx
             .lock()
             .unwrap()
-            .try_recv()
+            .recv()
             .unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null));
         Ok(value)
     }
@@ -722,5 +725,77 @@ mod tests {
 
         let c = socket_addr("127.0.0.1:12345").unwrap();
         assert_eq!(c.port(), 12345);
+    }
+
+    #[test]
+    fn client_server_echo_roundtrip() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WebsocketRfcStdModule;
+
+        let server_id = m
+            .function("server")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
+
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [
+                {"name": "conn", "schema": null},
+                {"name": "msg", "schema": null},
+            ],
+            "body": "msg",
+        }));
+
+        let url = m
+            .function("listen")
+            .unwrap()
+            .call(
+                &[
+                    server_id.clone(),
+                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    handler,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+
+        let client = m
+            .function("client")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
+
+        m.function("connect")
+            .unwrap()
+            .call(&[client.clone(), url], &mut ctx)
+            .unwrap();
+
+        m.function("send")
+            .unwrap()
+            .call(
+                &[client.clone(), NonFunctionValue::new(serde_json::json!("hello"))],
+                &mut ctx,
+            )
+            .unwrap();
+
+        let msg = m
+            .function("recv")
+            .unwrap()
+            .call(&[client.clone()], &mut ctx)
+            .unwrap();
+
+        assert_eq!(msg.inner().get("text"), Some(&serde_json::json!("hello")));
+
+        m.function("close")
+            .unwrap()
+            .call(&[client], &mut ctx)
+            .unwrap();
+
+        m.function("stop")
+            .unwrap()
+            .call(&[server_id], &mut ctx)
+            .unwrap();
     }
 }

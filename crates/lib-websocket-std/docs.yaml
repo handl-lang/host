@@ -1,0 +1,4 @@
+category:
+  slug: websocket_rfc
+  title: WebSocket (RFC 6455)
+  description: Real WebSocket frame, message, and client/server handling using tokio-tungstenite.
