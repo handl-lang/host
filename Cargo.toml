@@ -40,6 +40,8 @@ members = [
   "crates/source",
   "crates/typecheck-core",
   "crates/vm-host-eval",
+  "crates/vm-config",
+  "crates/vm-server",
   "crates/host-cli",
   "crates/vm-type",
   "crates/lexer",
@@ -175,6 +177,8 @@ handl-vm-backend-rust-interpreter = { path = "crates/vm-backend-rust-interpreter
 handl-source = { path = "crates/source" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-vm-host-eval = { path = "crates/vm-host-eval" }
+handl-vm-config = { path = "crates/vm-config" }
+handl-vm-server = { path = "crates/vm-server" }
 handl-typecheck-core = { path = "crates/typecheck-core" }
 handl-vm-type = { path = "crates/vm-type" }
 handl-lexer = { path = "crates/lexer" }

@@ -47,15 +47,23 @@ websocket_rfc:
   recv:
     description: Receive a message from a client.
     details: |
-      `websocket_rfc.recv(client)` blocks until the next message arrives and returns it.
-    signature: 'websocket_rfc.recv(client: object) -> any'
+      `websocket_rfc.recv(client, timeout)` receives the next message.
+      - If `timeout` is omitted, `recv` blocks indefinitely.
+      - If `timeout` is `0` or negative, `recv` is non-blocking and returns `null` if nothing is queued.
+      - If `timeout` is positive, `recv` waits up to that many seconds and returns `null` on timeout.
+    signature: 'websocket_rfc.recv(client: object, timeout?: number) -> any'
     params:
     - name: client
       type: object
       description: the client object
+    - name: timeout
+      type: number
+      description: optional timeout in seconds
     return_value: any
     examples:
     - 'websocket_rfc.recv(s)'
+    - 'websocket_rfc.recv(s, 0)'
+    - 'websocket_rfc.recv(s, 5)'
     see: []
   close:
     description: Close a client connection.

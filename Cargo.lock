@@ -2210,6 +2210,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-vm-config"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-archive-tar",
+ "handl-lib-collections",
+ "handl-lib-compress-gzip",
+ "handl-lib-crypto",
+ "handl-lib-datetime",
+ "handl-lib-intl",
+ "handl-lib-ip",
+ "handl-lib-kv",
+ "handl-lib-kv-hashmap",
+ "handl-lib-stats",
+ "handl-lib-unicode",
+ "handl-lib-utils",
+ "handl-lib-websocket",
+ "handl-lib-websocket-whatwg",
+ "handl-vm",
+ "handl-vm-backend-rust-interpreter",
+ "handl-vm-common",
+ "handl-vm-host-eval",
+ "handl-vm-values-json",
+]
+
+[[package]]
 name = "handl-vm-host-eval"
 version = "0.1.0"
 dependencies = [
@@ -2217,6 +2242,40 @@ dependencies = [
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
+]
+
+[[package]]
+name = "handl-vm-server"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-archive-tar",
+ "handl-lib-collections",
+ "handl-lib-compress-gzip",
+ "handl-lib-crypto",
+ "handl-lib-datetime",
+ "handl-lib-http-client",
+ "handl-lib-http-client-std",
+ "handl-lib-http-server",
+ "handl-lib-http-server-std",
+ "handl-lib-intl",
+ "handl-lib-ip",
+ "handl-lib-kv",
+ "handl-lib-kv-hashmap",
+ "handl-lib-os",
+ "handl-lib-os-std",
+ "handl-lib-otlp-std",
+ "handl-lib-rand",
+ "handl-lib-stats",
+ "handl-lib-test",
+ "handl-lib-unicode",
+ "handl-lib-utils",
+ "handl-lib-websocket-std",
+ "handl-lib-websocket-whatwg",
+ "handl-vm",
+ "handl-vm-backend-rust-interpreter",
+ "handl-vm-common",
+ "handl-vm-host-eval",
+ "handl-vm-values-json",
 ]
 
 [[package]]
@@ -3872,6 +3931,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-rustls"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
+dependencies = [
+ "rustls",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-tungstenite"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3879,8 +3948,12 @@ checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -3976,6 +4049,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.8",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "utf-8",

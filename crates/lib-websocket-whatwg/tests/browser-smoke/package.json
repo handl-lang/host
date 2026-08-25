@@ -1,0 +1,13 @@
+{
+  "name": "websocket-whatwg-browser-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "server": "bun server.ts",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

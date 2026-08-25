@@ -397,6 +397,7 @@ impl Function<NonFunctionValue> for ClientRecv {
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
+        let timeout = args.get(1).and_then(|v| v.as_number());
 
         let rx = {
             let inner = inner();
@@ -408,11 +409,15 @@ impl Function<NonFunctionValue> for ClientRecv {
             client.rx.clone()
         };
 
-        let value = rx
-            .lock()
-            .unwrap()
-            .recv()
-            .unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null));
+        let rx = rx.lock().unwrap();
+        let value = match timeout {
+            None => rx.recv().ok().unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)),
+            Some(t) if t <= 0.0 => rx.try_recv().unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null)),
+            Some(t) => match rx.recv_timeout(std::time::Duration::from_secs_f64(t)) {
+                Ok(v) => v,
+                Err(_) => NonFunctionValue::new(JsonValue::Null),
+            },
+        };
         Ok(value)
     }
 }
