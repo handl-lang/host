@@ -5,5 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-lib-encoding = { path = "../lib-encoding" }
+handl-vm.workspace = true
+handl-vm-common.workspace = true
+handl-vm-values-json.workspace = true
 base64 = "0.22"
 serde_json = "1"

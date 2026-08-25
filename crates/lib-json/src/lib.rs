@@ -43,6 +43,49 @@ impl Serializer for Json {
     }
 }
 
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::NonFunctionValue;
+
+/// The `json` module.
+///
+/// Exposes `json` as a zero-arg function that returns the serializer name
+/// so it can be passed to `serialize.serialize`/`serialize.deserialize`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct JsonModule;
+
+impl Module for JsonModule {
+    fn name(&self) -> &str {
+        "json"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "json" => Some(&JsonName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct JsonName;
+
+impl Function<NonFunctionValue> for JsonName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+        Ok(NonFunctionValue::new("json"))
+    }
+}
+
 impl Encoder<Value> for JsonEncoder {
     type Output = String;
 

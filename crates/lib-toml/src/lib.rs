@@ -44,6 +44,49 @@ impl Serializer for Toml {
     }
 }
 
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::NonFunctionValue;
+
+/// The `toml` module.
+///
+/// Exposes `toml` as a zero-arg function that returns the serializer name
+/// so it can be passed to `serialize.serialize`/`serialize.deserialize`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TomlModule;
+
+impl Module for TomlModule {
+    fn name(&self) -> &str {
+        "toml"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "toml" => Some(&TomlName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TomlName;
+
+impl Function<NonFunctionValue> for TomlName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+        Ok(NonFunctionValue::new("toml"))
+    }
+}
+
 impl Encoder<Value> for TomlEncoder {
     type Output = String;
 

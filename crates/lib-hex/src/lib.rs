@@ -3,6 +3,9 @@
 //! Hexadecimal encoding for the handl runtime.
 
 use handl_lib_encoding::{Encoding, EncodingError};
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value;
 
 /// Hexadecimal encoding.
@@ -29,5 +32,44 @@ impl Encoding for Hex {
             EncodingError::Message(format!("hex decode is not valid utf-8: {e}"))
         })?;
         Ok(Value::String(out))
+    }
+}
+
+/// The `hex` module.
+///
+/// Exposes `hex` as a zero-arg function that returns the codec name
+/// so it can be passed to `encoding.encode`/`encoding.decode`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HexModule;
+
+impl Module for HexModule {
+    fn name(&self) -> &str {
+        "hex"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "hex" => Some(&HexName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HexName;
+
+impl Function<NonFunctionValue> for HexName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+        Ok(NonFunctionValue::new("hex"))
     }
 }

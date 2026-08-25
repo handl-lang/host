@@ -44,6 +44,49 @@ impl Serializer for Yaml {
     }
 }
 
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::NonFunctionValue;
+
+/// The `yaml` module.
+///
+/// Exposes `yaml` as a zero-arg function that returns the serializer name
+/// so it can be passed to `serialize.serialize`/`serialize.deserialize`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct YamlModule;
+
+impl Module for YamlModule {
+    fn name(&self) -> &str {
+        "yaml"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "yaml" => Some(&YamlName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct YamlName;
+
+impl Function<NonFunctionValue> for YamlName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+        Ok(NonFunctionValue::new("yaml"))
+    }
+}
+
 impl Encoder<Value> for YamlEncoder {
     type Output = String;
 
