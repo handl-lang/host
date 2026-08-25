@@ -1248,4 +1248,106 @@ mod tests {
 
         m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
     }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn connect_to_invalid_url_fails() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
+        let result = m
+            .function("connect")
+            .unwrap()
+            .call(
+                &[
+                    client,
+                    NonFunctionValue::new(serde_json::json!("not-a-url")),
+                ],
+                &mut ctx,
+            );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn send_to_unknown_client_fails() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let result = m
+            .function("send")
+            .unwrap()
+            .call(
+                &[
+                    NonFunctionValue::new(serde_json::json!({"client_id": 99999})),
+                    NonFunctionValue::new(serde_json::json!("hello")),
+                ],
+                &mut ctx,
+            );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn recv_from_unknown_client_fails() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let result = m
+            .function("recv")
+            .unwrap()
+            .call(
+                &[NonFunctionValue::new(serde_json::json!({"client_id": 99999}))],
+                &mut ctx,
+            );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn socket_addr_http_scheme_rejected() {
+        assert!(socket_addr("http://127.0.0.1").is_err());
+    }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn build_tls_config_rejects_invalid_pem() {
+        assert!(build_tls_config("not a cert", "not a key").is_err());
+    }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn listen_wss_requires_cert_config() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let result = m.function("listen").unwrap().call(
+            &[
+                server_id,
+                NonFunctionValue::new(serde_json::json!("wss://127.0.0.1:0")),
+                handler,
+            ],
+            &mut ctx,
+        );
+
+        assert!(result.is_err());
+    }
 }
