@@ -479,60 +479,6 @@ impl Function<NonFunctionValue> for Slugify {
 }
 
 #[derive(Clone, Copy)]
-pub struct UnescapeHtml;
-impl Function<NonFunctionValue> for UnescapeHtml {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let input = require_one_string(args)?;
-        let unescaped = input
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#x27;", "'")
-            .replace("&#x2F;", "/")
-            .replace("&#39;", "'")
-            .replace("&#47;", "/");
-        Ok(s(unescaped))
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct UnescapeUrl;
-impl Function<NonFunctionValue> for UnescapeUrl {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let input = require_one_string(args)?;
-        let bytes = input.as_bytes();
-        let mut result = Vec::with_capacity(bytes.len());
-        let mut i = 0;
-        while i < bytes.len() {
-            if bytes[i] == b'%' && i + 2 < bytes.len() {
-                let hex = &input[i + 1..i + 3];
-                if let Ok(byte) = u8::from_str_radix(hex, 16) {
-                    result.push(byte);
-                    i += 3;
-                    continue;
-                }
-            }
-            result.push(bytes[i]);
-            i += 1;
-        }
-        let decoded = String::from_utf8(result).map_err(|_| Error::TypeMismatch {
-            expected: "valid UTF-8 after URL decoding",
-            got: "invalid UTF-8 sequence",
-        })?;
-        Ok(s(decoded))
-    }
-}
-
-#[derive(Clone, Copy)]
 pub struct WordWrap;
 impl Function<NonFunctionValue> for WordWrap {
     fn call(

@@ -13,8 +13,7 @@ pub use case::{CamelCase, Capitalize, KebabCase, PascalCase, SnakeCase, TitleCas
 pub use search::{Contains, Count, EndsWith, Find, Levenshtein, RFind, Similarity, StartsWith};
 pub use transform::{
     CharAt, Join, Lines, PadLeft, PadRight, Repeat, Replace, ReplaceFirst, Slice, Slugify, Split,
-    SplitAt, SplitWhitespace, StripPrefix, StripSuffix, Truncate, UnescapeHtml, UnescapeUrl,
-    WordWrap,
+    SplitAt, SplitWhitespace, StripPrefix, StripSuffix, Truncate, WordWrap,
 };
 
 use handl_vm::Function;
@@ -76,8 +75,6 @@ impl Module for StrModule {
             "split_whitespace" => Some(&SplitWhitespace),
             "truncate" => Some(&Truncate),
             "slugify" => Some(&Slugify),
-            "unescape_html" => Some(&UnescapeHtml),
-            "unescape_url" => Some(&UnescapeUrl),
             "word_wrap" => Some(&WordWrap),
             // case
             "capitalize" => Some(&Capitalize),

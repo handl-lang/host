@@ -23,8 +23,7 @@
 //!   `str.is_empty`, `str.equals`, `str.bytes`, `str.is_alpha`,
 //!   `str.is_numeric`, `str.is_alphanumeric`, `str.levenshtein`,
 //!   `str.similarity`, `str.split_whitespace`, `str.truncate`,
-//!   `str.slugify`, `str.unescape_html`,
-//!   `str.unescape_url`, `str.word_wrap`
+//!   `str.slugify`, `str.word_wrap`
 //! - [`ArrayModule`] — `array.length`, `array.reverse`, `array.concat`,
 //!   `array.contains`, `array.index_of`, `array.slice`, `array.first`,
 //!   `array.last`, `array.sort`, `array.flatten`, `array.deep_flatten`,
