@@ -6,25 +6,40 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_lib_ws_rfc::module::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
-use handl_vm::{Context, Eval, Function};
+use handl_vm::{Context, Function};
+#[cfg(feature = "server")]
+use handl_vm::Eval;
+#[cfg(feature = "server")]
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::Module;
+#[cfg(feature = "server")]
 use handl_vm_host_eval::EvalHost;
-use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_vm_values_json::{Error, NonFunctionValue};
+#[cfg(feature = "server")]
+use handl_vm_values_json::FunctionValue;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
+#[cfg(feature = "server")]
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
-use tokio::net::TcpListener;
+#[cfg(feature = "client")]
 use tokio::runtime::Runtime;
-use tokio::sync::{mpsc as tokio_mpsc, oneshot};
+#[cfg(feature = "client")]
+use tokio::sync::mpsc as tokio_mpsc;
+#[cfg(feature = "server")]
+use tokio::net::TcpListener;
+#[cfg(feature = "server")]
+use tokio::sync::oneshot;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
-static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 static INNER: OnceLock<Arc<Mutex<Inner>>> = OnceLock::new();
 
+#[cfg(feature = "client")]
+static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+#[cfg(feature = "client")]
 fn runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -40,12 +55,14 @@ fn inner() -> Arc<Mutex<Inner>> {
         .clone()
 }
 
+#[cfg(feature = "client")]
 struct Client {
     url: String,
     tx: tokio_mpsc::UnboundedSender<TungsteniteMessage>,
     rx: Arc<Mutex<mpsc::Receiver<NonFunctionValue>>>,
 }
 
+#[cfg(feature = "server")]
 struct Server {
     addr: String,
     handler: Option<FunctionValue>,
@@ -56,8 +73,11 @@ struct Server {
 
 struct Inner {
     next_id: AtomicUsize,
+    #[cfg(feature = "client")]
     clients: Mutex<HashMap<usize, Client>>,
+    #[cfg(feature = "server")]
     servers: Mutex<HashMap<usize, Server>>,
+    #[cfg(feature = "server")]
     eval: Arc<CanonicalEval<EvalHost>>,
 }
 
@@ -65,8 +85,11 @@ impl Inner {
     fn new() -> Self {
         Self {
             next_id: AtomicUsize::new(1),
+            #[cfg(feature = "client")]
             clients: Mutex::new(HashMap::new()),
+            #[cfg(feature = "server")]
             servers: Mutex::new(HashMap::new()),
+            #[cfg(feature = "server")]
             eval: Arc::new(CanonicalEval::new(EvalHost::default(), None, None)),
         }
     }
@@ -87,15 +110,33 @@ impl Module for WsRfcNativeModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        match name {
+        #[cfg(feature = "client")]
+        let client: Option<&dyn Function<NonFunctionValue>> = match name {
             "client" => Some(&ClientNew),
             "connect" => Some(&ClientConnect),
             "send" => Some(&ClientSend),
             "recv" => Some(&ClientRecv),
             "close" => Some(&ClientClose),
+            _ => None,
+        };
+        #[cfg(feature = "server")]
+        let server: Option<&dyn Function<NonFunctionValue>> = match name {
             "server" => Some(&ServerNew),
             "listen" => Some(&ServerListen),
             "stop" => Some(&ServerStop),
+            _ => None,
+        };
+
+        #[cfg(feature = "client")]
+        if client.is_some() {
+            return client;
+        }
+        #[cfg(feature = "server")]
+        if server.is_some() {
+            return server;
+        }
+
+        match name {
             "frame.encode" => Some(&FrameEncode),
             "frame.decode" => Some(&FrameDecode),
             "message.from_frame" => Some(&MessageFromFrame),
@@ -229,6 +270,7 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
     ))
 }
 
+#[cfg(feature = "server")]
 fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
     if let Ok(sa) = addr.parse::<SocketAddr>() {
         return Ok(sa);
@@ -250,9 +292,11 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
     Ok(ip)
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy)]
 struct ClientNew;
 
+#[cfg(feature = "client")]
 impl Function<NonFunctionValue> for ClientNew {
     fn call(
         &self,
@@ -288,9 +332,11 @@ impl Function<NonFunctionValue> for ClientNew {
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy)]
 struct ClientConnect;
 
+#[cfg(feature = "client")]
 impl Function<NonFunctionValue> for ClientConnect {
     fn call(
         &self,
@@ -353,9 +399,11 @@ impl Function<NonFunctionValue> for ClientConnect {
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy)]
 struct ClientSend;
 
+#[cfg(feature = "client")]
 impl Function<NonFunctionValue> for ClientSend {
     fn call(
         &self,
@@ -387,9 +435,11 @@ impl Function<NonFunctionValue> for ClientSend {
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy)]
 struct ClientRecv;
 
+#[cfg(feature = "client")]
 impl Function<NonFunctionValue> for ClientRecv {
     fn call(
         &self,
@@ -422,9 +472,11 @@ impl Function<NonFunctionValue> for ClientRecv {
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy)]
 struct ClientClose;
 
+#[cfg(feature = "client")]
 impl Function<NonFunctionValue> for ClientClose {
     fn call(
         &self,
@@ -444,9 +496,11 @@ impl Function<NonFunctionValue> for ClientClose {
     }
 }
 
+#[cfg(feature = "server")]
 #[derive(Clone, Copy)]
 struct ServerNew;
 
+#[cfg(feature = "server")]
 impl Function<NonFunctionValue> for ServerNew {
     fn call(
         &self,
@@ -484,9 +538,11 @@ impl Function<NonFunctionValue> for ServerNew {
     }
 }
 
+#[cfg(feature = "server")]
 #[derive(Clone, Copy)]
 struct ServerListen;
 
+#[cfg(feature = "server")]
 impl Function<NonFunctionValue> for ServerListen {
     fn call(
         &self,
@@ -571,9 +627,11 @@ impl Function<NonFunctionValue> for ServerListen {
     }
 }
 
+#[cfg(feature = "server")]
 #[derive(Clone, Copy)]
 struct ServerStop;
 
+#[cfg(feature = "server")]
 impl Function<NonFunctionValue> for ServerStop {
     fn call(
         &self,
@@ -598,6 +656,7 @@ impl Function<NonFunctionValue> for ServerStop {
     }
 }
 
+#[cfg(feature = "server")]
 async fn run_server(
     bind_addr: SocketAddr,
     std_tx: mpsc::Sender<NonFunctionValue>,
@@ -643,6 +702,7 @@ async fn run_server(
     }
 }
 
+#[cfg(feature = "server")]
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     std_tx: mpsc::Sender<NonFunctionValue>,
@@ -722,6 +782,7 @@ mod tests {
         assert_eq!(back, value);
     }
 
+    #[cfg(feature = "server")]
     #[test]
     fn socket_addr_accepts_literal_and_whatwg() {
         let a = socket_addr("127.0.0.1:0").unwrap();
@@ -734,6 +795,7 @@ mod tests {
         assert_eq!(c.port(), 12345);
     }
 
+    #[cfg(all(feature = "client", feature = "server"))]
     #[test]
     fn client_server_echo_roundtrip() {
         use handl_vm_values_json::CanonicalContext;
@@ -806,6 +868,7 @@ mod tests {
             .unwrap();
     }
 
+    #[cfg(feature = "server")]
     #[test]
     fn socket_addr_default_ports() {
         let ws = socket_addr("ws://127.0.0.1").unwrap();
@@ -815,11 +878,13 @@ mod tests {
         assert_eq!(wss.port(), 443);
     }
 
+    #[cfg(feature = "server")]
     #[test]
     fn socket_addr_rejects_garbage() {
         assert!(socket_addr("not-an-address").is_err());
     }
 
+    #[cfg(feature = "client")]
     #[test]
     fn recv_unconnected_client_returns_null() {
         use handl_vm_values_json::CanonicalContext;
@@ -842,6 +907,7 @@ mod tests {
         assert!(msg.inner().is_null());
     }
 
+    #[cfg(feature = "server")]
     #[test]
     fn listen_to_invalid_addr_fails() {
         use handl_vm_values_json::CanonicalContext;

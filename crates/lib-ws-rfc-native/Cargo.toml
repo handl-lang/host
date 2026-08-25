@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 description = "Native RFC 6455 WebSocket client/server using tokio-tungstenite."
 
+[features]
+default = ["client", "server"]
+client = []
+server = []
+
 [dependencies]
 handl-lib-ws-rfc.workspace = true
 handl-vm.workspace = true
