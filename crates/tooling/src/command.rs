@@ -106,4 +106,17 @@ pub trait CommandProvider: Send + Sync {
         args: &[String],
         host: &ToolingHost,
     ) -> Result<Value, PlatformError>;
+
+    /// Runs the given command with an owned tooling host.
+    ///
+    /// The default implementation delegates to [`CommandProvider::run`], borrowing the host.
+    /// Providers that need to consume the host (e.g. the stdio LSP server) should override this.
+    fn run_owned(
+        &self,
+        command: &str,
+        args: Vec<String>,
+        host: ToolingHost,
+    ) -> Result<Value, PlatformError> {
+        self.run(command, &args, &host)
+    }
 }

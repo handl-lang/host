@@ -394,4 +394,14 @@ impl CommandProvider for LspCommandProvider {
     ) -> Result<serde_json::Value, PlatformError> {
         Ok(serde_json::Value::Null)
     }
+
+    fn run_owned(
+        &self,
+        _command: &str,
+        _args: Vec<String>,
+        host: ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        run_stdio(host).map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        Ok(serde_json::Value::Null)
+    }
 }

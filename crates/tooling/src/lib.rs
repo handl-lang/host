@@ -99,6 +99,25 @@ impl ToolingHost {
         Err(PlatformError::UnknownCapability(command.into()))
     }
 
+    /// Dispatches a CLI command to the appropriate provider, consuming the host.
+    ///
+    /// This is used for commands such as `lsp` that need to take ownership of the
+    /// tooling host (e.g. to run a long-lived stdio server).
+    pub fn run_cli_owned(mut self, command: &str, args: Vec<String>) -> Result<serde_json::Value, PlatformError> {
+        let idx = self.command_providers.iter().position(|p| {
+            p.commands()
+                .iter()
+                .any(|s| s.name == command || s.aliases.iter().any(|a| a == command))
+        });
+        match idx {
+            Some(i) => {
+                let provider = self.command_providers.remove(i);
+                provider.run_owned(command, args, self)
+            }
+            None => Err(PlatformError::UnknownCapability(command.into())),
+        }
+    }
+
     /// Returns completion candidates at `pos` in `source`.
     pub fn complete(&self, source: &str, pos: usize) -> Result<Vec<CompletionItem>, PlatformError> {
         match &self.completion {
