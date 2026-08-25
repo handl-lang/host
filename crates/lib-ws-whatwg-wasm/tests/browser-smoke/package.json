@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build-wasm": "cd ../.. && wasm-pack build --target web --out-dir tests/browser-smoke/pkg --no-typescript",
     "server": "bun server.ts",
     "test": "playwright test",
     "test:headed": "playwright test --headed"

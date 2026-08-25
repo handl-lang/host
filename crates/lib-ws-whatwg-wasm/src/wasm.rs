@@ -3,7 +3,7 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
 use js_sys::{ArrayBuffer, Uint8Array};
 use serde_json::Value as JsonValue;
 use std::cell::{Cell, RefCell};
@@ -338,4 +338,60 @@ impl Module for WsWhatwgWasmModule {
             _ => None,
         }
     }
+}
+
+fn js_err(e: Error) -> JsValue {
+    JsValue::from_str(&e.to_string())
+}
+
+#[wasm_bindgen]
+pub fn ws_whatwg_wasm_connect(url: &str) -> Result<JsValue, JsValue> {
+    let mut ctx = CanonicalContext::new();
+    let value = ConnectionConnect
+        .call(&[NonFunctionValue::new(JsonValue::String(url.to_string()))], &mut ctx)
+        .map_err(js_err)?;
+    let json = serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    Ok(JsValue::from_str(&json))
+}
+
+#[wasm_bindgen]
+pub fn ws_whatwg_wasm_send(connection_id: usize, msg_json: &str) -> Result<(), JsValue> {
+    let msg: JsonValue =
+        serde_json::from_str(msg_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let mut ctx = CanonicalContext::new();
+    ConnectionSend
+        .call(
+            &[
+                NonFunctionValue::new(JsonValue::Number(serde_json::Number::from(connection_id))),
+                NonFunctionValue::new(msg),
+            ],
+            &mut ctx,
+        )
+        .map_err(js_err)?;
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub fn ws_whatwg_wasm_recv(connection_id: usize) -> Result<JsValue, JsValue> {
+    let mut ctx = CanonicalContext::new();
+    let value = ConnectionRecv
+        .call(
+            &[NonFunctionValue::new(JsonValue::Number(serde_json::Number::from(connection_id)))],
+            &mut ctx,
+        )
+        .map_err(js_err)?;
+    let json = serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    Ok(JsValue::from_str(&json))
+}
+
+#[wasm_bindgen]
+pub fn ws_whatwg_wasm_close(connection_id: usize) -> Result<(), JsValue> {
+    let mut ctx = CanonicalContext::new();
+    ConnectionClose
+        .call(
+            &[NonFunctionValue::new(JsonValue::Number(serde_json::Number::from(connection_id)))],
+            &mut ctx,
+        )
+        .map_err(js_err)?;
+    Ok(())
 }
