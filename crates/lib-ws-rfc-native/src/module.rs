@@ -28,11 +28,15 @@ use tokio::runtime::Runtime;
 #[cfg(feature = "client")]
 use tokio::sync::mpsc as tokio_mpsc;
 #[cfg(feature = "server")]
+use tokio::io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "server")]
 use tokio::net::TcpListener;
 #[cfg(feature = "server")]
 use tokio::sync::oneshot;
 #[cfg(feature = "server")]
 use tokio::sync::Semaphore;
+#[cfg(feature = "server")]
+use tokio_rustls::TlsAcceptor;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
@@ -68,6 +72,8 @@ struct Client {
 struct Server {
     addr: String,
     handler: Option<FunctionValue>,
+    tls: Option<Arc<tokio_rustls::rustls::ServerConfig>>,
+    max_connections: usize,
     _incoming: Mutex<mpsc::Receiver<NonFunctionValue>>,
     _shutdown: Mutex<Option<oneshot::Sender<()>>>,
     _handle: Mutex<Option<std::thread::JoinHandle<()>>>,
@@ -292,6 +298,28 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
         .next()
         .ok_or(Error::PrimitiveError("could not resolve address".to_string()))?;
     Ok(ip)
+}
+
+#[cfg(feature = "server")]
+fn build_tls_config(cert_pem: &str, key_pem: &str) -> Result<Arc<tokio_rustls::rustls::ServerConfig>, Error> {
+    use tokio_rustls::rustls::pki_types::CertificateDer;
+
+    let mut cert_reader = cert_pem.as_bytes();
+    let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut cert_reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| Error::PrimitiveError(format!("tls cert parse: {e}")))?;
+
+    let mut key_reader = key_pem.as_bytes();
+    let key = rustls_pemfile::private_key(&mut key_reader)
+        .map_err(|e| Error::PrimitiveError(format!("tls key parse: {e}")))?
+        .ok_or_else(|| Error::PrimitiveError("no private key found".to_string()))?;
+
+    let config = tokio_rustls::rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .map_err(|e| Error::PrimitiveError(format!("tls config build: {e}")))?;
+
+    Ok(Arc::new(config))
 }
 
 #[cfg(feature = "client")]
@@ -525,6 +553,8 @@ impl Function<NonFunctionValue> for ServerNew {
                 Server {
                     addr: String::new(),
                     handler: None,
+                    tls: None,
+                    max_connections: 1024,
                     _incoming: Mutex::new(mpsc::channel().1),
                     _shutdown: Mutex::new(None),
                     _handle: Mutex::new(None),
@@ -564,7 +594,43 @@ impl Function<NonFunctionValue> for ServerListen {
             expected: "function",
             got: "non-function",
         })?;
+        let is_wss = addr.starts_with("wss://");
         let bind_addr = socket_addr(addr)?;
+
+        let (tls, max_connections) = if let Some(arg) = args.get(3) {
+            let obj = arg.inner().as_object().ok_or(Error::TypeMismatch {
+                expected: "object",
+                got: "non-object",
+            })?;
+            let cert = obj.get("cert").and_then(|v| v.as_str());
+            let key = obj.get("key").and_then(|v| v.as_str());
+            let tls = match (cert, key, is_wss) {
+                (Some(c), Some(k), true) => Some(build_tls_config(c, k)?),
+                (Some(_), _, false) | (_, Some(_), false) => {
+                    return Err(Error::PrimitiveError(
+                        "tls cert/key require wss:// address".to_string(),
+                    ));
+                }
+                _ if is_wss => {
+                    return Err(Error::PrimitiveError(
+                        "wss:// requires cert and key in config".to_string(),
+                    ));
+                }
+                _ => None,
+            };
+            let max = obj
+                .get("max_connections")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as usize)
+                .unwrap_or(1024);
+            (tls, max)
+        } else if is_wss {
+            return Err(Error::PrimitiveError(
+                "wss:// requires a config object with cert and key".to_string(),
+            ));
+        } else {
+            (None, 1024)
+        };
 
         let (std_tx, std_rx) = mpsc::channel::<NonFunctionValue>();
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -578,17 +644,19 @@ impl Function<NonFunctionValue> for ServerListen {
                 "unknown websocket server: {id}"
             )))?;
             server.handler = Some(handler);
+            server.tls = tls.clone();
+            server.max_connections = max_connections;
             *server._incoming.get_mut().unwrap() = std_rx;
             let next_conn_id = Arc::new(AtomicUsize::new(1));
             (guard.eval.clone(), next_conn_id)
         };
 
-        let handler = {
+        let (handler, tls, max_connections) = {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let mut servers = guard.servers.lock().unwrap();
             let server = servers.get_mut(&id).unwrap();
-            server.handler.clone()
+            (server.handler.clone(), server.tls.clone(), server.max_connections)
         };
 
         let handle = std::thread::spawn(move || {
@@ -604,6 +672,8 @@ impl Function<NonFunctionValue> for ServerListen {
                 handler,
                 eval,
                 next_conn_id,
+                tls,
+                max_connections,
             ));
         });
 
@@ -622,9 +692,10 @@ impl Function<NonFunctionValue> for ServerListen {
             }
         }
 
+        let scheme = if is_wss { "wss" } else { "ws" };
         Ok(NonFunctionValue::new(JsonValue::String(format!(
-            "ws://{}",
-            local_addr
+            "{}://{}",
+            scheme, local_addr
         ))))
     }
 }
@@ -667,6 +738,8 @@ async fn run_server(
     handler: Option<FunctionValue>,
     eval: Arc<CanonicalEval<EvalHost>>,
     next_conn_id: Arc<AtomicUsize>,
+    tls: Option<Arc<tokio_rustls::rustls::ServerConfig>>,
+    max_connections: usize,
 ) {
     let listener = match TcpListener::bind(bind_addr).await {
         Ok(l) => l,
@@ -679,9 +752,9 @@ async fn run_server(
     };
     let _ = local_addr_tx.send(local_addr);
 
-    const MAX_CONNECTIONS: usize = 1024;
-    let sem = Arc::new(Semaphore::new(MAX_CONNECTIONS));
+    let sem = Arc::new(Semaphore::new(max_connections));
     let mut join_set = tokio::task::JoinSet::new();
+    let acceptor = tls.map(TlsAcceptor::from);
 
     loop {
         tokio::select! {
@@ -696,10 +769,25 @@ async fn run_server(
                     let handler = handler.clone();
                     let eval = eval.clone();
                     let next_conn_id = next_conn_id.clone();
-                    join_set.spawn(async move {
-                        let _permit = permit;
-                        handle_connection(stream, std_tx, handler, eval, next_conn_id).await;
-                    });
+                    if let Some(acceptor) = acceptor.clone() {
+                        match acceptor.accept(stream).await {
+                            Ok(tls_stream) => {
+                                join_set.spawn(async move {
+                                    let _permit = permit;
+                                    handle_connection(tls_stream, std_tx, handler, eval, next_conn_id).await;
+                                });
+                            }
+                            Err(_) => {
+                                drop(permit);
+                                continue;
+                            }
+                        }
+                    } else {
+                        join_set.spawn(async move {
+                            let _permit = permit;
+                            handle_connection(stream, std_tx, handler, eval, next_conn_id).await;
+                        });
+                    }
                 }
                 Err(_) => break,
             }
@@ -712,13 +800,15 @@ async fn run_server(
 }
 
 #[cfg(feature = "server")]
-async fn handle_connection(
-    stream: tokio::net::TcpStream,
+async fn handle_connection<S>(
+    stream: S,
     std_tx: mpsc::Sender<NonFunctionValue>,
     handler: Option<FunctionValue>,
     eval: Arc<CanonicalEval<EvalHost>>,
     next_conn_id: Arc<AtomicUsize>,
-) {
+) where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
         return;
     };
@@ -1046,5 +1136,81 @@ mod tests {
             .unwrap();
 
         assert!(msg.inner().is_null());
+    }
+
+    #[cfg(all(feature = "client", feature = "server"))]
+    #[test]
+    fn wss_server_echo_roundtrip() {
+        use handl_vm_values_json::CanonicalContext;
+        use tokio::runtime::Runtime;
+        use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+        use tokio_rustls::rustls::pki_types::ServerName;
+
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string(), "127.0.0.1".to_string()]).unwrap();
+        let cert_pem = cert.cert.pem();
+        let key_pem = cert.key_pair.serialize_pem();
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let url = m
+            .function("listen")
+            .unwrap()
+            .call(
+                &[
+                    server_id.clone(),
+                    NonFunctionValue::new(serde_json::json!("wss://127.0.0.1:0")),
+                    handler,
+                    NonFunctionValue::new(serde_json::json!({
+                        "cert": cert_pem,
+                        "key": key_pem,
+                    })),
+                ],
+                &mut ctx,
+            )
+            .unwrap()
+            .inner()
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let reply = Runtime::new().unwrap().block_on(async {
+            let mut roots = RootCertStore::empty();
+            let mut reader = cert_pem.as_bytes();
+            for cert in rustls_pemfile::certs(&mut reader)
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+            {
+                roots.add(cert).unwrap();
+            }
+            let client_config = ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth();
+            let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config));
+
+            let bind = url.strip_prefix("wss://").unwrap().parse::<std::net::SocketAddr>().unwrap();
+            let tcp = tokio::net::TcpStream::connect(bind).await.unwrap();
+            let server_name = ServerName::IpAddress(std::net::Ipv4Addr::new(127, 0, 0, 1).into());
+            let tls = connector.connect(server_name, tcp).await.unwrap();
+
+            let (mut ws, _) = tokio_tungstenite::client_async(url.as_str(), tls)
+                .await
+                .unwrap();
+
+            ws.send(TungsteniteMessage::Text("hello".to_string())).await.unwrap();
+            let reply = ws.next().await.unwrap().unwrap();
+            let _ = ws.close(None).await;
+            reply
+        });
+
+        assert_eq!(tungstenite_to_json(reply), serde_json::json!({"text": "hello"}));
+
+        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
     }
 }
