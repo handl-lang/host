@@ -1,0 +1,4 @@
+category:
+  slug: kv
+  title: KV
+  description: Key/value store interface.

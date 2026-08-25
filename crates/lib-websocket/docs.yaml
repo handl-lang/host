@@ -1,0 +1,4 @@
+category:
+  slug: websocket
+  title: WebSocket
+  description: WebSocket frame and message handling.

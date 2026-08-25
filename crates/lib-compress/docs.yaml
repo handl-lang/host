@@ -1,0 +1,4 @@
+category:
+  slug: compress
+  title: Compress
+  description: Compression traits and error types.

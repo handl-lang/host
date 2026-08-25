@@ -1,0 +1,4 @@
+category:
+  slug: otlp
+  title: OTLP
+  description: OpenTelemetry protocol support.
