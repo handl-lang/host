@@ -74,8 +74,8 @@ impl Plugin for SharedPlugin {
         &self.manifest.provides
     }
 
-    fn metadata(&self, _capability: &CapabilityId) -> Option<serde_json::Value> {
-        None
+    fn metadata(&self, capability: &CapabilityId) -> Option<serde_json::Value> {
+        self.manifest.provides.contains(capability).then(|| self.manifest.metadata.clone())
     }
 
     fn run(

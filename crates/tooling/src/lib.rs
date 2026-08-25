@@ -1,7 +1,8 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{Diagnostic, Diagnostics, Formatter, Stmt};
 use handl_kit_canonical::CanonicalKit;
-use handl_platform::PlatformError;
+use handl_loader::LoaderRegistry;
+use handl_platform::{PlatformError, PluginManifest};
 use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_fmt_statements::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
@@ -30,6 +31,7 @@ pub struct ToolingHost {
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
     command_providers: Vec<Box<dyn CommandProvider>>,
+    loaders: LoaderRegistry,
 }
 
 impl ToolingHost {
@@ -49,6 +51,7 @@ impl ToolingHost {
             document_symbols: None,
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
             command_providers: Vec::new(),
+            loaders: LoaderRegistry::new(),
         }
     }
 
@@ -80,6 +83,23 @@ impl ToolingHost {
     pub fn with_command_provider(mut self, provider: Box<dyn CommandProvider>) -> Self {
         self.command_providers.push(provider);
         self
+    }
+
+    /// Sets the loader registry used to load external plugins.
+    pub fn with_loader_registry(mut self, registry: LoaderRegistry) -> Self {
+        self.loaders = registry;
+        self
+    }
+
+    /// Loads an external plugin using the loader registry and registers a
+    /// command provider for any capability whose metadata declares a command.
+    pub fn load_plugin(&mut self, manifest: &PluginManifest) -> Result<(), PlatformError> {
+        let plugin = self.loaders.load(manifest)?;
+        let provider = crate::command::PluginCommandProvider::new(plugin);
+        if !provider.commands().is_empty() {
+            self.command_providers.push(Box::new(provider));
+        }
+        Ok(())
     }
 
     /// Returns the merged command specs from all registered command providers.

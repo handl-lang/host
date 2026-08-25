@@ -7,6 +7,7 @@ edition.workspace = true
 handl-expr.workspace = true
 handl-ast-canonical.workspace = true
 handl-kit-canonical.workspace = true
+handl-loader.workspace = true
 handl-plugin-fmt-expression.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-plugin-fmt-statements.workspace = true
@@ -16,6 +17,7 @@ handl-vm-values-json.workspace = true
 serde_json = "1"
 
 [dev-dependencies]
+handl-loader-native.workspace = true
 handl-plugin-lsp-completion.workspace = true
 handl-plugin-lsp-goto.workspace = true
 handl-plugin-lsp-symbols.workspace = true

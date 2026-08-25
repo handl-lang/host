@@ -1,5 +1,6 @@
-use handl_platform::PlatformError;
+use handl_platform::{CapabilityId, CapabilityRequest, PlatformError, Plugin, PluginContext};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::io::Read;
 
 use crate::ToolingHost;
@@ -118,5 +119,92 @@ pub trait CommandProvider: Send + Sync {
         host: ToolingHost,
     ) -> Result<Value, PlatformError> {
         self.run(command, &args, &host)
+    }
+}
+
+/// A command provider that dispatches to an externally loaded `Box<dyn Plugin>`
+/// by mapping capabilities whose metadata declares a `command` field.
+pub struct PluginCommandProvider {
+    plugin: Box<dyn Plugin>,
+    specs: Vec<CommandSpec>,
+    by_command: HashMap<String, CapabilityId>,
+}
+
+impl PluginCommandProvider {
+    pub fn new(plugin: Box<dyn Plugin>) -> Self {
+        let mut specs = Vec::new();
+        let mut by_command = HashMap::new();
+
+        for cap in plugin.capabilities() {
+            let Some(meta) = plugin.metadata(cap) else {
+                continue;
+            };
+            let Some(command) = meta.get("command").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let description = meta
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let aliases: Vec<String> = meta
+                .get("aliases")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .unwrap_or_default();
+
+            let mut spec = CommandSpec::new(command, description);
+            for alias in &aliases {
+                spec = spec.alias(alias);
+            }
+            spec = spec.arg(
+                ArgSpec::new("args")
+                    .description("Command arguments")
+                    .multiple()
+                    .allow_hyphen_values(),
+            );
+
+            specs.push(spec);
+            by_command.insert(command.to_string(), cap.clone());
+            for alias in &aliases {
+                by_command.insert(alias.clone(), cap.clone());
+            }
+        }
+
+        Self {
+            plugin,
+            specs,
+            by_command,
+        }
+    }
+}
+
+impl CommandProvider for PluginCommandProvider {
+    fn commands(&self) -> Vec<CommandSpec> {
+        self.specs.clone()
+    }
+
+    fn run(&self, command: &str, args: &[String], _host: &ToolingHost) -> Result<Value, PlatformError> {
+        let capability = self
+            .by_command
+            .get(command)
+            .ok_or_else(|| PlatformError::UnknownCapability(command.into()))?;
+
+        let mut plugins = handl_platform::PluginRegistry::new();
+        let mut kits = handl_platform::KitRegistry::new();
+        let mut extensions = handl_platform::ExtensionRegistry::new();
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+            extensions: &mut extensions,
+        };
+
+        let request = CapabilityRequest {
+            capability: capability.clone(),
+            payload: serde_json::json!({ "args": args }),
+        };
+
+        let response = self.plugin.run(&request, &mut ctx)?;
+        Ok(response.0)
     }
 }
