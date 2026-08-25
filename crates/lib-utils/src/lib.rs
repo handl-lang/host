@@ -2,7 +2,7 @@
 //!
 //! Standard library modules for the handl runtime.
 //!
-//! Provides concrete [`Module`] implementations with useful functions for
+//! Provides concrete [`Module`](handl_vm_common::Module) implementations with useful functions for
 //! expressions and interpolation:
 //!
 //! - [`MathModule`] — `math.abs`, `math.floor`, `math.ceil`, `math.round`,
@@ -43,8 +43,6 @@
 //! - [`SetModule`] — `set.unique`, `set.union`, `set.intersection`,
 //!   `set.difference`, `set.symmetric_difference`, `set.without`,
 //!   `set.unique_by`
-//! - [`TemplateModule`] — `template.render`, `template.compile`,
-//!   `template.escape`
 //! - [`BoolModule`] — `bool.and`, `bool.or`, `bool.not`, `bool.xor`,
 //!   `bool.nand`, `bool.nor`, `bool.implies`, `bool.eq`
 //! - [`CmpModule`] — `cmp.eq`, `cmp.ne`, `cmp.lt`, `cmp.le`, `cmp.gt`,
@@ -106,7 +104,6 @@ mod result;
 mod set;
 pub(crate) mod shared;
 mod r#str;
-mod template;
 mod r#type;
 
 pub use array::ArrayModule;
@@ -120,5 +117,4 @@ pub use option::OptionModule;
 pub use result::ResultModule;
 pub use set::SetModule;
 pub use r#str::StrModule;
-pub use template::TemplateModule;
 pub use r#type::TypeModule;
