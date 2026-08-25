@@ -1213,4 +1213,39 @@ mod tests {
 
         m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
     }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn listen_accepts_max_connections_config() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let url = m
+            .function("listen")
+            .unwrap()
+            .call(
+                &[
+                    server_id.clone(),
+                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    handler,
+                    NonFunctionValue::new(serde_json::json!({
+                        "max_connections": 2,
+                    })),
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+
+        assert!(url.inner().as_str().unwrap().starts_with("ws://"));
+
+        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
+    }
 }
