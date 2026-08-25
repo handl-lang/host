@@ -3,7 +3,7 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_vm::{Context, Function};
 use handl_vm_values_json::{Error, NonFunctionValue};
-use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
+use js_sys::{ArrayBuffer, Uint8Array};
 use serde_json::Value as JsonValue;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;

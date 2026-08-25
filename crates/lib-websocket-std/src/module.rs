@@ -6,9 +6,11 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_lib_websocket::module::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
-use handl_vm::{Context, Function};
+use handl_vm::{Context, Eval, Function};
+use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::Module;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_vm_host_eval::EvalHost;
+use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -46,6 +48,7 @@ struct Client {
 
 struct Server {
     addr: String,
+    handler: Option<FunctionValue>,
     _incoming: Mutex<mpsc::Receiver<NonFunctionValue>>,
     _shutdown: Mutex<Option<oneshot::Sender<()>>>,
     _handle: Mutex<Option<std::thread::JoinHandle<()>>>,
@@ -55,6 +58,7 @@ struct Inner {
     next_id: AtomicUsize,
     clients: Mutex<HashMap<usize, Client>>,
     servers: Mutex<HashMap<usize, Server>>,
+    eval: Arc<CanonicalEval<EvalHost>>,
 }
 
 impl Inner {
@@ -63,6 +67,7 @@ impl Inner {
             next_id: AtomicUsize::new(1),
             clients: Mutex::new(HashMap::new()),
             servers: Mutex::new(HashMap::new()),
+            eval: Arc::new(CanonicalEval::new(EvalHost::default(), None, None)),
         }
     }
 
@@ -453,6 +458,7 @@ impl Function<NonFunctionValue> for ServerNew {
                 id,
                 Server {
                     addr: String::new(),
+                    handler: None,
                     _incoming: Mutex::new(mpsc::channel().1),
                     _shutdown: Mutex::new(None),
                     _handle: Mutex::new(None),
@@ -486,32 +492,72 @@ impl Function<NonFunctionValue> for ServerListen {
 
         let id = parse_id(&args[0], "server_id")?;
         let addr = require_string_at(args, 1)?;
-        let _handler = &args[2];
+        let handler = FunctionValue::from_json(args[2].inner()).ok_or(Error::TypeMismatch {
+            expected: "function",
+            got: "non-function",
+        })?;
         let bind_addr = socket_addr(addr)?;
 
         let (std_tx, std_rx) = mpsc::channel::<NonFunctionValue>();
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+        let (local_addr_tx, local_addr_rx) = mpsc::channel::<SocketAddr>();
+
+        let (eval, next_conn_id) = {
+            let inner = inner();
+            let guard = inner.lock().unwrap();
+            let mut servers = guard.servers.lock().unwrap();
+            let server = servers.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+                "unknown websocket server: {id}"
+            )))?;
+            server.handler = Some(handler);
+            *server._incoming.get_mut().unwrap() = std_rx;
+            let next_conn_id = Arc::new(AtomicUsize::new(1));
+            (guard.eval.clone(), next_conn_id)
+        };
+
+        let handler = {
+            let inner = inner();
+            let guard = inner.lock().unwrap();
+            let mut servers = guard.servers.lock().unwrap();
+            let server = servers.get_mut(&id).unwrap();
+            server.handler.clone()
+        };
 
         let handle = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("tokio server runtime");
-            rt.block_on(run_server(bind_addr, std_tx, shutdown_rx));
+            rt.block_on(run_server(
+                bind_addr,
+                std_tx,
+                shutdown_rx,
+                local_addr_tx,
+                handler,
+                eval,
+                next_conn_id,
+            ));
         });
 
-        let inner = inner();
-        let guard = inner.lock().unwrap();
-        let mut servers = guard.servers.lock().unwrap();
-        let server = servers.get_mut(&id).ok_or(Error::PrimitiveError(format!(
-            "unknown websocket server: {id}"
-        )))?;
-        server.addr = addr.to_string();
-        *server._incoming.get_mut().unwrap() = std_rx;
-        *server._shutdown.get_mut().unwrap() = Some(shutdown_tx);
-        *server._handle.get_mut().unwrap() = Some(handle);
+        let local_addr = local_addr_rx.recv().map_err(|_| {
+            Error::PrimitiveError("websocket server failed to bind".to_string())
+        })?;
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        {
+            let inner = inner();
+            let guard = inner.lock().unwrap();
+            let mut servers = guard.servers.lock().unwrap();
+            if let Some(server) = servers.get_mut(&id) {
+                server.addr = local_addr.to_string();
+                *server._shutdown.get_mut().unwrap() = Some(shutdown_tx);
+                *server._handle.get_mut().unwrap() = Some(handle);
+            }
+        }
+
+        Ok(NonFunctionValue::new(JsonValue::String(format!(
+            "ws://{}",
+            local_addr
+        ))))
     }
 }
 
@@ -546,11 +592,21 @@ async fn run_server(
     bind_addr: SocketAddr,
     std_tx: mpsc::Sender<NonFunctionValue>,
     mut shutdown_rx: oneshot::Receiver<()>,
+    local_addr_tx: mpsc::Sender<SocketAddr>,
+    handler: Option<FunctionValue>,
+    eval: Arc<CanonicalEval<EvalHost>>,
+    next_conn_id: Arc<AtomicUsize>,
 ) {
     let listener = match TcpListener::bind(bind_addr).await {
         Ok(l) => l,
         Err(_) => return,
     };
+
+    let local_addr = match listener.local_addr() {
+        Ok(a) => a,
+        Err(_) => return,
+    };
+    let _ = local_addr_tx.send(local_addr);
 
     let mut join_set = tokio::task::JoinSet::new();
 
@@ -560,16 +616,11 @@ async fn run_server(
             result = listener.accept() => match result {
                 Ok((stream, _)) => {
                     let std_tx = std_tx.clone();
+                    let handler = handler.clone();
+                    let eval = eval.clone();
+                    let next_conn_id = next_conn_id.clone();
                     join_set.spawn(async move {
-                        if let Ok(ws) = tokio_tungstenite::accept_async(stream).await {
-                            let (_, mut read) = ws.split();
-                            while let Some(Ok(msg)) = read.next().await {
-                                let value = NonFunctionValue::new(tungstenite_to_json(msg));
-                                if std_tx.send(value).is_err() {
-                                    break;
-                                }
-                            }
-                        }
+                        handle_connection(stream, std_tx, handler, eval, next_conn_id).await;
                     });
                 }
                 Err(_) => break,
@@ -579,5 +630,97 @@ async fn run_server(
 
     while let Some(res) = join_set.join_next().await {
         let _ = res;
+    }
+}
+
+async fn handle_connection(
+    stream: tokio::net::TcpStream,
+    std_tx: mpsc::Sender<NonFunctionValue>,
+    handler: Option<FunctionValue>,
+    eval: Arc<CanonicalEval<EvalHost>>,
+    next_conn_id: Arc<AtomicUsize>,
+) {
+    let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
+        return;
+    };
+    let (mut write, mut read) = ws.split();
+
+    while let Some(Ok(msg)) = read.next().await {
+        let value = NonFunctionValue::new(tungstenite_to_json(msg));
+        if std_tx.send(value.clone()).is_err() {
+            break;
+        }
+
+        if let Some(fv) = &handler {
+            let conn_id = next_conn_id.fetch_add(1, Ordering::Relaxed);
+            let conn_value = NonFunctionValue::new(serde_json::json!({
+                "connection_id": conn_id,
+            }));
+
+            let mut vars: Vec<(String, NonFunctionValue)> = fv
+                .params
+                .iter()
+                .map(|(name, _)| (name.clone(), NonFunctionValue::new(JsonValue::Null)))
+                .collect();
+            if !vars.is_empty() {
+                vars[0].1 = conn_value;
+            }
+            if vars.len() > 1 {
+                vars[1].1 = value;
+            }
+
+            match eval.eval_expr(&fv.body, &vars) {
+                Ok(result) => match json_to_tungstenite(result.inner()) {
+                    Ok(reply) => {
+                        if write.send(reply).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => continue,
+                },
+                Err(_) => continue,
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_message_roundtrip() {
+        let value = serde_json::json!({"text": "hello"});
+        let msg = json_to_tungstenite(&value).unwrap();
+        let back = tungstenite_to_json(msg);
+        assert_eq!(back, value);
+    }
+
+    #[test]
+    fn binary_message_roundtrip() {
+        let value = serde_json::json!({"binary": BASE64_STANDARD.encode(b"\x00\xff")});
+        let msg = json_to_tungstenite(&value).unwrap();
+        let back = tungstenite_to_json(msg);
+        assert_eq!(back, value);
+    }
+
+    #[test]
+    fn close_message_roundtrip() {
+        let value = serde_json::json!({"close": {"code": 1000, "reason": "bye"}});
+        let msg = json_to_tungstenite(&value).unwrap();
+        let back = tungstenite_to_json(msg);
+        assert_eq!(back, value);
+    }
+
+    #[test]
+    fn socket_addr_accepts_literal_and_whatwg() {
+        let a = socket_addr("127.0.0.1:0").unwrap();
+        assert_eq!(a.ip().to_string(), "127.0.0.1");
+
+        let b = socket_addr("ws://127.0.0.1:12345").unwrap();
+        assert_eq!(b.port(), 12345);
+
+        let c = socket_addr("127.0.0.1:12345").unwrap();
+        assert_eq!(c.port(), 12345);
     }
 }
