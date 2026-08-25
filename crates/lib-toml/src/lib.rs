@@ -4,7 +4,8 @@
 //!
 //! Backed by `toml`.
 
-use handl_lib_serialize::{Decoder, Encoder, SerializeError};
+use handl_lib_serialize::{Decoder, Encoder, SerializeError, Serializer};
+use serde_json::Value as JsonValue;
 use toml::Value;
 
 /// Combined TOML codec.
@@ -29,6 +30,16 @@ impl Encoder<Value> for Toml {
 
 impl Decoder<str, Value> for Toml {
     fn decode(&self, input: &str) -> Result<Value, SerializeError> {
+        toml::from_str(input).map_err(|e| SerializeError::new(e.to_string()))
+    }
+}
+
+impl Serializer for Toml {
+    fn serialize(&self, value: &JsonValue) -> Result<String, SerializeError> {
+        toml::to_string(value).map_err(|e| SerializeError::new(e.to_string()))
+    }
+
+    fn deserialize(&self, input: &str) -> Result<JsonValue, SerializeError> {
         toml::from_str(input).map_err(|e| SerializeError::new(e.to_string()))
     }
 }

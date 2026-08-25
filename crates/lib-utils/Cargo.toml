@@ -6,6 +6,13 @@ edition.workspace = true
 [dependencies]
 handl-ast.workspace = true
 handl-ast-canonical.workspace = true
+handl-lib-base64 = { path = "../lib-base64" }
+handl-lib-encoding = { path = "../lib-encoding" }
+handl-lib-hex = { path = "../lib-hex" }
+handl-lib-json = { path = "../lib-json" }
+handl-lib-serialize = { path = "../lib-serialize" }
+handl-lib-toml = { path = "../lib-toml" }
+handl-lib-yaml = { path = "../lib-yaml" }
 handl-vm-common.workspace = true
 handl-vm.workspace = true
 handl-vm-backend-rust-interpreter.workspace = true

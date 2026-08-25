@@ -6,9 +6,11 @@
 //! shared by the `handl-lib-*` format crates.
 
 pub mod error;
+pub mod serializer;
 pub mod traits;
 
 pub use error::SerializeError;
+pub use serializer::{Serializer, SerializerRegistry};
 pub use traits::{Decoder, Encoder};
 
 /// Serialize a value using the provided encoder.

@@ -4,7 +4,8 @@
 //!
 //! Backed by `serde_yaml`.
 
-use handl_lib_serialize::{Decoder, Encoder, SerializeError};
+use handl_lib_serialize::{Decoder, Encoder, SerializeError, Serializer};
+use serde_json::Value as JsonValue;
 use serde_yaml::Value;
 
 /// Combined YAML codec.
@@ -29,6 +30,16 @@ impl Encoder<Value> for Yaml {
 
 impl Decoder<str, Value> for Yaml {
     fn decode(&self, input: &str) -> Result<Value, SerializeError> {
+        serde_yaml::from_str(input).map_err(|e| SerializeError::new(e.to_string()))
+    }
+}
+
+impl Serializer for Yaml {
+    fn serialize(&self, value: &JsonValue) -> Result<String, SerializeError> {
+        serde_yaml::to_string(value).map_err(|e| SerializeError::new(e.to_string()))
+    }
+
+    fn deserialize(&self, input: &str) -> Result<JsonValue, SerializeError> {
         serde_yaml::from_str(input).map_err(|e| SerializeError::new(e.to_string()))
     }
 }

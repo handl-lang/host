@@ -1351,6 +1351,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-base64"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "handl-lib-encoding",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-lib-collections"
 version = "0.1.0"
 dependencies = [
@@ -1411,6 +1420,23 @@ dependencies = [
  "handl-vm-common",
  "handl-vm-host-canonical",
  "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-lib-encoding"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "handl-lib-hex"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-encoding",
+ "hex",
  "serde_json",
 ]
 
@@ -1578,6 +1604,7 @@ dependencies = [
 name = "handl-lib-serialize"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "thiserror",
 ]
 
@@ -1597,6 +1624,7 @@ name = "handl-lib-toml"
 version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
+ "serde_json",
  "toml",
 ]
 
@@ -1617,6 +1645,13 @@ version = "0.1.0"
 dependencies = [
  "handl-ast",
  "handl-ast-canonical",
+ "handl-lib-base64",
+ "handl-lib-encoding",
+ "handl-lib-hex",
+ "handl-lib-json",
+ "handl-lib-serialize",
+ "handl-lib-toml",
+ "handl-lib-yaml",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -1634,6 +1669,7 @@ name = "handl-lib-yaml"
 version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
+ "serde_json",
  "serde_yaml",
 ]
 

@@ -4,7 +4,7 @@
 //!
 //! Backed by `serde_json`.
 
-use handl_lib_serialize::{Decoder, Encoder, SerializeError};
+use handl_lib_serialize::{Decoder, Encoder, SerializeError, Serializer};
 use serde_json::Value;
 
 /// Combined JSON codec.
@@ -30,6 +30,16 @@ impl Encoder<Value> for Json {
 impl Decoder<str, Value> for Json {
     fn decode(&self, input: &str) -> Result<Value, SerializeError> {
         serde_json::from_str(input).map_err(|e| SerializeError::new(e.to_string()))
+    }
+}
+
+impl Serializer for Json {
+    fn serialize(&self, value: &Value) -> Result<String, SerializeError> {
+        self.encode(value)
+    }
+
+    fn deserialize(&self, input: &str) -> Result<Value, SerializeError> {
+        self.decode(input)
     }
 }
 
