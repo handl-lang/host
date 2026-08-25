@@ -1,10 +1,12 @@
 //! # handl-lib-url-whatwg
 //!
-//! WHATWG URL Standard parsing for the handl runtime.
-//!
-//! Wraps the `url` crate to provide a focused, runtime-friendly API.
+//! WHATWG URL Standard parser for `handl-lib-parse`.
 
-use std::fmt;
+use handl_lib_parse::{ParseError, Parser};
+
+/// Parser for the WHATWG URL Standard.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Whatwg;
 
 /// A parsed URL, aligned with the WHATWG URL Standard.
 #[derive(Clone, Debug)]
@@ -12,27 +14,17 @@ pub struct WebUrl {
     inner: url::Url,
 }
 
-/// Error returned when a string cannot be parsed as a WHATWG URL.
-#[derive(Debug)]
-pub struct WebUrlError {
-    message: String,
-}
-
-impl fmt::Display for WebUrlError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
+impl Parser<str, WebUrl> for Whatwg {
+    fn parse(&self, input: &str) -> Result<WebUrl, ParseError> {
+        let inner = url::Url::parse(input).map_err(|e| ParseError::new(e.to_string()))?;
+        Ok(WebUrl { inner })
     }
 }
 
-impl std::error::Error for WebUrlError {}
-
 impl WebUrl {
     /// Parse a string using the WHATWG URL Standard.
-    pub fn parse(s: &str) -> Result<Self, WebUrlError> {
-        let inner = url::Url::parse(s).map_err(|e| WebUrlError {
-            message: e.to_string(),
-        })?;
-        Ok(Self { inner })
+    pub fn parse(input: &str) -> Result<Self, ParseError> {
+        handl_lib_parse::parse(input, Whatwg)
     }
 
     /// Return the normalized URL as a string.
@@ -77,7 +69,7 @@ mod tests {
 
     #[test]
     fn parses_http_url() {
-        let u = WebUrl::parse("https://example.com:8080/path?a=1#frag").unwrap();
+        let u = handl_lib_parse::parse("https://example.com:8080/path?a=1#frag", Whatwg).unwrap();
         assert_eq!(u.scheme(), "https");
         assert_eq!(u.host(), Some("example.com"));
         assert_eq!(u.port(), Some(8080));
@@ -88,7 +80,7 @@ mod tests {
 
     #[test]
     fn whatwg_normalizes_invalid() {
-        let u = WebUrl::parse("HTtpS://EXAMPLE.com/../a/../b").unwrap();
+        let u = handl_lib_parse::parse("HTtpS://EXAMPLE.com/../a/../b", Whatwg).unwrap();
         assert_eq!(u.scheme(), "https");
         assert_eq!(u.host(), Some("example.com"));
         assert_eq!(u.path(), "/b");
@@ -96,6 +88,6 @@ mod tests {
 
     #[test]
     fn rejects_garbage() {
-        assert!(WebUrl::parse("not a url").is_err());
+        assert!(handl_lib_parse::parse("not a url", Whatwg).is_err());
     }
 }

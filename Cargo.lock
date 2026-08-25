@@ -1399,7 +1399,6 @@ dependencies = [
 name = "handl-lib-crypto"
 version = "0.1.0"
 dependencies = [
- "base64",
  "handl-ast",
  "handl-ast-canonical",
  "handl-vm",
@@ -1597,6 +1596,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-parse"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "handl-lib-rand"
 version = "0.1.0"
 dependencies = [
@@ -1657,6 +1663,7 @@ dependencies = [
 name = "handl-lib-url-rfc"
 version = "0.1.0"
 dependencies = [
+ "handl-lib-parse",
  "iri-string",
 ]
 
@@ -1664,6 +1671,7 @@ dependencies = [
 name = "handl-lib-url-whatwg"
 version = "0.1.0"
 dependencies = [
+ "handl-lib-parse",
  "url",
 ]
 

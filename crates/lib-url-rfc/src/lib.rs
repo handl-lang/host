@@ -1,12 +1,13 @@
 //! # handl-lib-url-rfc
 //!
-//! Strict RFC 3986 URI parsing for the handl runtime.
-//!
-//! Uses `iri-string` to enforce URI-only (ASCII) syntax.
+//! Strict RFC 3986 URI parser for `handl-lib-parse`.
 
-use std::fmt;
-
+use handl_lib_parse::{ParseError, Parser};
 use iri_string::types::UriString;
+
+/// Parser for strict RFC 3986 URIs.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Rfc;
 
 /// A parsed RFC 3986 URI. Non-ASCII characters and malformed percent-encoding are rejected.
 #[derive(Clone, Debug)]
@@ -14,27 +15,19 @@ pub struct Uri {
     inner: UriString,
 }
 
-/// Error returned when a string cannot be parsed as a strict RFC 3986 URI.
-#[derive(Debug)]
-pub struct UriError {
-    message: String,
-}
-
-impl fmt::Display for UriError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
+impl Parser<str, Uri> for Rfc {
+    fn parse(&self, input: &str) -> Result<Uri, ParseError> {
+        let inner = input
+            .parse::<UriString>()
+            .map_err(|e| ParseError::new(e.to_string()))?;
+        Ok(Uri { inner })
     }
 }
 
-impl std::error::Error for UriError {}
-
 impl Uri {
     /// Parse a string using strict RFC 3986 URI rules.
-    pub fn parse(s: &str) -> Result<Self, UriError> {
-        let inner = s.parse::<UriString>().map_err(|e| UriError {
-            message: e.to_string(),
-        })?;
-        Ok(Self { inner })
+    pub fn parse(input: &str) -> Result<Self, ParseError> {
+        handl_lib_parse::parse(input, Rfc)
     }
 
     /// Return the URI as a string.
@@ -74,7 +67,7 @@ mod tests {
 
     #[test]
     fn parses_http_uri() {
-        let u = Uri::parse("https://example.com:8080/path?a=1#frag").unwrap();
+        let u = handl_lib_parse::parse("https://example.com:8080/path?a=1#frag", Rfc).unwrap();
         assert_eq!(u.scheme(), "https");
         assert_eq!(u.authority(), Some("example.com:8080"));
         assert_eq!(u.path(), "/path");
@@ -84,17 +77,17 @@ mod tests {
 
     #[test]
     fn rejects_non_ascii() {
-        assert!(Uri::parse("https://example.com/🦀").is_err());
+        assert!(handl_lib_parse::parse("https://example.com/🦀", Rfc).is_err());
     }
 
     #[test]
     fn rejects_invalid_percent_encoding() {
-        assert!(Uri::parse("https://example.com/%ZZ").is_err());
+        assert!(handl_lib_parse::parse("https://example.com/%ZZ", Rfc).is_err());
     }
 
     #[test]
     fn does_not_normalize_path() {
-        let u = Uri::parse("https://example.com/../a/../b").unwrap();
+        let u = handl_lib_parse::parse("https://example.com/../a/../b", Rfc).unwrap();
         assert_eq!(u.path(), "/../a/../b");
     }
 }

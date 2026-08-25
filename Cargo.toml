@@ -14,6 +14,7 @@ members = [
   "crates/lib-utils",
   "crates/lib-unicode",
   "crates/lib-ip",
+  "crates/lib-parse",
   "crates/lib-url-rfc",
   "crates/lib-url-whatwg",
   "crates/lib-base64",
@@ -130,6 +131,7 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-ip = { path = "crates/lib-ip" }
+handl-lib-parse = { path = "crates/lib-parse" }
 handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
 handl-lib-url-whatwg = { path = "crates/lib-url-whatwg" }
 handl-lib-collections = { path = "crates/lib-collections" }
