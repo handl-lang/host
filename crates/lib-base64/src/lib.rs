@@ -6,7 +6,7 @@ use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_lib_encoding::{Encoding, EncodingError};
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value;
 
 /// Base64 encoding.
@@ -71,25 +71,9 @@ impl Function<NonFunctionValue> for Base64Name {
                 got: args.len(),
             });
         }
-        let encode = FunctionValue {
-            params: vec![("value".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"encoding.encode(value, "base64")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
-        let decode = FunctionValue {
-            params: vec![("value".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"encoding.decode(value, "base64")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
         Ok(NonFunctionValue::new(serde_json::json!({
             "type": "encoding",
             "name": "base64",
-            "encode": encode,
-            "decode": decode
         })))
     }
 }

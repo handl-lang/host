@@ -6,12 +6,9 @@ use handl_vm_common::Module;
 use handl_vm_values_json::NonFunctionValue;
 
 fn codec_name(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFunctionValue>> {
-    if let Some(s) = value.as_str() {
-        return Ok(s.to_string());
-    }
     let obj = value.as_object().ok_or_else(|| handl_vm::Error::TypeMismatch {
-        expected: "string or codec object",
-        got: "non-string, non-object",
+        expected: "codec object",
+        got: "non-object",
     })?;
     let ty = obj
         .get("type")
