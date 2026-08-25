@@ -1599,6 +1599,7 @@ dependencies = [
 name = "handl-lib-parse"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "thiserror",
 ]
 
@@ -1664,7 +1665,12 @@ name = "handl-lib-url-rfc"
 version = "0.1.0"
 dependencies = [
  "handl-lib-parse",
+ "handl-vm",
+ "handl-vm-common",
+ "handl-vm-values-json",
  "iri-string",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1672,6 +1678,11 @@ name = "handl-lib-url-whatwg"
 version = "0.1.0"
 dependencies = [
  "handl-lib-parse",
+ "handl-vm",
+ "handl-vm-common",
+ "handl-vm-values-json",
+ "serde",
+ "serde_json",
  "url",
 ]
 
@@ -1685,8 +1696,11 @@ dependencies = [
  "handl-lib-encoding",
  "handl-lib-hex",
  "handl-lib-json",
+ "handl-lib-parse",
  "handl-lib-serialize",
  "handl-lib-toml",
+ "handl-lib-url-rfc",
+ "handl-lib-url-whatwg",
  "handl-lib-yaml",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",

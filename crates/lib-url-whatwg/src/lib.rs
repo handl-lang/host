@@ -2,7 +2,11 @@
 //!
 //! WHATWG URL Standard parser for `handl-lib-parse`.
 
-use handl_lib_parse::{ParseError, Parser};
+use handl_lib_parse::{DynParser, ParseError, Parser};
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use serde_json::{Value, json};
 
 /// Parser for the WHATWG URL Standard.
 #[derive(Debug, Clone, Copy, Default)]
@@ -18,6 +22,21 @@ impl Parser<str, WebUrl> for Whatwg {
     fn parse(&self, input: &str) -> Result<WebUrl, ParseError> {
         let inner = url::Url::parse(input).map_err(|e| ParseError::new(e.to_string()))?;
         Ok(WebUrl { inner })
+    }
+}
+
+impl DynParser for Whatwg {
+    fn parse(&self, input: &str) -> Result<Value, ParseError> {
+        let u = <Whatwg as Parser<str, WebUrl>>::parse(self, input)?;
+        Ok(json!({
+            "scheme": u.scheme(),
+            "host": u.host(),
+            "port": u.port(),
+            "path": u.path(),
+            "query": u.query(),
+            "fragment": u.fragment(),
+            "href": u.as_str(),
+        }))
     }
 }
 
@@ -63,9 +82,58 @@ impl WebUrl {
     }
 }
 
+/// The `url_whatwg` runtime module.
+pub struct UrlWhatwgModule;
+
+impl Module for UrlWhatwgModule {
+    fn name(&self) -> &str {
+        "url_whatwg"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "url_whatwg" => Some(&UrlWhatwgName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct UrlWhatwgName;
+
+impl Function<NonFunctionValue> for UrlWhatwgName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+
+        let parse_fn = FunctionValue {
+            params: vec![("input".to_string(), Value::Null)],
+            return_schema: None,
+            body: r#"parse.parse(input, "url_whatwg")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
+
+        Ok(NonFunctionValue::new(json!({
+            "type": "parser",
+            "name": "url_whatwg",
+            "parse": parse_fn,
+        })))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_vm_values_json::CanonicalContext;
 
     #[test]
     fn parses_http_url() {
@@ -89,5 +157,22 @@ mod tests {
     #[test]
     fn rejects_garbage() {
         assert!(handl_lib_parse::parse("not a url", Whatwg).is_err());
+    }
+
+    #[test]
+    fn parses_to_value() {
+        let v = DynParser::parse(&Whatwg, "https://example.com:8080/path?a=1#frag").unwrap();
+        assert_eq!(v["scheme"], "https");
+        assert_eq!(v["host"], "example.com");
+        assert_eq!(v["path"], "/path");
+    }
+
+    #[test]
+    fn url_whatwg_object_is_parser() {
+        let mut ctx = CanonicalContext::new();
+        let obj = UrlWhatwgName.call(&[], &mut ctx).unwrap().into_inner();
+        assert_eq!(obj["type"], "parser");
+        assert_eq!(obj["name"], "url_whatwg");
+        assert!(obj.get("parse").is_some());
     }
 }

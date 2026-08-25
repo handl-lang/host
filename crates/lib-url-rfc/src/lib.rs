@@ -2,8 +2,12 @@
 //!
 //! Strict RFC 3986 URI parser for `handl-lib-parse`.
 
-use handl_lib_parse::{ParseError, Parser};
+use handl_lib_parse::{DynParser, ParseError, Parser};
+use handl_vm::{Context, Function};
+use handl_vm_common::Module;
+use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use iri_string::types::UriString;
+use serde_json::{Value, json};
 
 /// Parser for strict RFC 3986 URIs.
 #[derive(Debug, Clone, Copy, Default)]
@@ -21,6 +25,20 @@ impl Parser<str, Uri> for Rfc {
             .parse::<UriString>()
             .map_err(|e| ParseError::new(e.to_string()))?;
         Ok(Uri { inner })
+    }
+}
+
+impl DynParser for Rfc {
+    fn parse(&self, input: &str) -> Result<Value, ParseError> {
+        let u = <Rfc as Parser<str, Uri>>::parse(self, input)?;
+        Ok(json!({
+            "scheme": u.scheme(),
+            "authority": u.authority(),
+            "path": u.path(),
+            "query": u.query(),
+            "fragment": u.fragment(),
+            "href": u.as_str(),
+        }))
     }
 }
 
@@ -61,9 +79,58 @@ impl Uri {
     }
 }
 
+/// The `url_rfc` runtime module.
+pub struct UrlRfcModule;
+
+impl Module for UrlRfcModule {
+    fn name(&self) -> &str {
+        "url_rfc"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "url_rfc" => Some(&UrlRfcName),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct UrlRfcName;
+
+impl Function<NonFunctionValue> for UrlRfcName {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        if !args.is_empty() {
+            return Err(handl_vm::Error::ArgumentCount {
+                expected: 0,
+                got: args.len(),
+            });
+        }
+
+        let parse_fn = FunctionValue {
+            params: vec![("input".to_string(), Value::Null)],
+            return_schema: None,
+            body: r#"parse.parse(input, "url_rfc")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
+
+        Ok(NonFunctionValue::new(json!({
+            "type": "parser",
+            "name": "url_rfc",
+            "parse": parse_fn,
+        })))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_vm_values_json::CanonicalContext;
 
     #[test]
     fn parses_http_uri() {
@@ -89,5 +156,22 @@ mod tests {
     fn does_not_normalize_path() {
         let u = handl_lib_parse::parse("https://example.com/../a/../b", Rfc).unwrap();
         assert_eq!(u.path(), "/../a/../b");
+    }
+
+    #[test]
+    fn parses_to_value() {
+        let v = DynParser::parse(&Rfc, "https://example.com:8080/path?a=1#frag").unwrap();
+        assert_eq!(v["scheme"], "https");
+        assert_eq!(v["authority"], "example.com:8080");
+        assert_eq!(v["path"], "/path");
+    }
+
+    #[test]
+    fn url_rfc_object_is_parser() {
+        let mut ctx = CanonicalContext::new();
+        let obj = UrlRfcName.call(&[], &mut ctx).unwrap().into_inner();
+        assert_eq!(obj["type"], "parser");
+        assert_eq!(obj["name"], "url_rfc");
+        assert!(obj.get("parse").is_some());
     }
 }

@@ -3758,34 +3758,45 @@ type:
     return_value: Any
     see: []
     signature: 'type.type_of(value: Any)'
+parse:
+  parse:
+    description: Parse a string using a registered parser.
+    details: Given `input` and `parser`, `parse.parse` dispatches to the registered
+      parser. `parser` can be a parser object (`url_whatwg` or `url_rfc`) or a name
+      string such as `"url_whatwg"` or `"url_rfc"`.
+    examples:
+    - 'parse.parse("https://example.com:8080/path?a=1#frag", url_whatwg)'
+    - 'parse.parse("https://example.com:8080/path?a=1#frag", "url_rfc")'
+    params:
+    - name: input
+      type: String
+      description: the `input` string to parse
+    - name: parser
+      type: String | Object
+      description: a parser name or parser object
+    return_value: Object
+    see: []
+    signature: 'parse.parse(input: String, parser: String | Object)'
 url_whatwg:
-  parse:
-    description: Parse a URL using the WHATWG URL Standard.
-    details: Given `s`, `url_whatwg.parse` returns an object with the parsed URL
-      components. It normalizes invalid input the same way a browser does.
+  url_whatwg:
+    description: Return the WHATWG URL parser object.
+    details: `url_whatwg` returns a parser object for the WHATWG URL Standard. It can
+      be passed to `parse.parse`, or its `parse` method can be called directly.
     examples:
-    - 'url_whatwg.parse("https://example.com:8080/path?a=1#frag")'
-    - 'url_whatwg.parse("HTtpS://EXAMPLE.com/../a/../b")'
-    params:
-    - name: s
-      type: String
-      description: the `s` URL string
+    - 'parse.parse("HTtpS://EXAMPLE.com/../a/../b", url_whatwg)'
+    params: []
     return_value: Object
     see: []
-    signature: 'url_whatwg.parse(s: String)'
+    signature: 'url_whatwg()'
 url_rfc:
-  parse:
-    description: Parse a strict RFC 3986 URI.
-    details: Given `s`, `url_rfc.parse` returns an object with the URI components.
-      It rejects invalid percent-encoding, non-ASCII characters, and relative references.
+  url_rfc:
+    description: Return the strict RFC 3986 URI parser object.
+    details: `url_rfc` returns a parser object for strict RFC 3986 URIs. It can be
+      passed to `parse.parse`, or its `parse` method can be called directly.
     examples:
-    - 'url_rfc.parse("https://example.com:8080/path?a=1#frag")'
-    - 'url_rfc.parse("https://example.com/%ZZ")'
-    params:
-    - name: s
-      type: String
-      description: the `s` URI string
+    - 'parse.parse("https://example.com:8080/path?a=1#frag", url_rfc)'
+    params: []
     return_value: Object
     see: []
-    signature: 'url_rfc.parse(s: String)'
+    signature: 'url_rfc()'
 

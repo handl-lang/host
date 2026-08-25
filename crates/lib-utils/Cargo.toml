@@ -10,8 +10,11 @@ handl-lib-base64 = { path = "../lib-base64" }
 handl-lib-encoding = { path = "../lib-encoding" }
 handl-lib-hex = { path = "../lib-hex" }
 handl-lib-json = { path = "../lib-json" }
+handl-lib-parse = { path = "../lib-parse" }
 handl-lib-serialize = { path = "../lib-serialize" }
 handl-lib-toml = { path = "../lib-toml" }
+handl-lib-url-rfc = { path = "../lib-url-rfc" }
+handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 handl-lib-yaml = { path = "../lib-yaml" }
 handl-vm-common.workspace = true
 handl-vm.workspace = true
