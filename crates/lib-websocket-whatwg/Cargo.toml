@@ -1,0 +1,12 @@
+[package]
+name = "handl-lib-websocket-whatwg"
+version.workspace = true
+edition.workspace = true
+description = "WHATWG WebSocket client module for the handl runtime."
+
+[dependencies]
+handl-vm.workspace = true
+handl-vm-common.workspace = true
+handl-vm-values-json.workspace = true
+serde = "1"
+serde_json = "1"

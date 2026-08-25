@@ -29,11 +29,24 @@ use handl_lib_os_std::{
     StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp,
 };
 use handl_lib_otlp_std::std_otlp_module;
+use handl_lib_archive_tar::TarModule;
+use handl_lib_compress_gzip::GzipModule;
+use handl_lib_ip::IpModule;
 use handl_lib_rand::RandModule;
-use handl_lib_utils::{
-    ArrayModule, BoolModule, CmpModule, FnModule, MathModule, ObjModule, SetModule, StrModule,
-    TypeModule,
+use handl_lib_websocket::WebsocketModule;
+use handl_lib_websocket_whatwg::WebsocketWhatwgModule;
+use handl_lib_stats::StatsModule;
+use handl_lib_test::{
+    AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
 };
+use handl_lib_unicode::UnicodeModule;
+use handl_lib_utils::{
+    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
+    JsonModule, MathModule, MoodModule, OptionModule, ParseModule, ResultModule,
+    SerializeModule, StrModule, TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule,
+    YamlModule,
+};
+use handl_lib_collections::CollectionsModule;
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::ModuleHost;
 use handl_vm_host_eval::EvalHost;
@@ -79,13 +92,37 @@ impl ServerHost {
         let modules = ModuleHost::new()
             .with(MathModule)
             .with(StrModule)
-            .with(ArrayModule)
-            .with(SetModule)
             .with(BoolModule)
             .with(CmpModule)
-            .with(ObjModule)
             .with(FnModule)
             .with(TypeModule)
+            .with(Base64Module)
+            .with(HexModule)
+            .with(JsonModule)
+            .with(TomlModule)
+            .with(YamlModule)
+            .with(UrlRfcModule)
+            .with(UrlWhatwgModule)
+            .with(EncodingModule::new())
+            .with(ParseModule::new())
+            .with(SerializeModule::new())
+            .with(OptionModule)
+            .with(ResultModule)
+            .with(MoodModule)
+            .with(CollectionsModule)
+            .with(UnicodeModule)
+            .with(StatsModule)
+            .with(TestModule)
+            .with(AssertModule)
+            .with(PropertyModule)
+            .with(FuzzModule)
+            .with(SnapshotModule)
+            .with(BenchmarkModule)
+            .with(WebsocketModule)
+            .with(WebsocketWhatwgModule)
+            .with(IpModule)
+            .with(GzipModule)
+            .with(TarModule)
             .with(CryptoModule)
             .with(DateTimeModule)
             .with(IntlModule::new())

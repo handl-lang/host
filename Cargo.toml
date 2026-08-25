@@ -7,6 +7,9 @@ edition = "2024"
 members = [
   "crates/dialect",
   "crates/dialect-canonical",
+  "crates/vocabulary",
+  "crates/plugin-document",
+  "crates/plugin-json-schema",
   "crates/ast",
   "crates/ast-canonical",
   "crates/ast-common",
@@ -91,7 +94,13 @@ members = [
   "crates/parser",
   "crates/parser-canonical",
   "crates/parser-common",
+  "crates/expr",
+  "crates/kit-canonical",
+  "crates/runtime",
+  "crates/plugin-typecheck-core",
+  "crates/plugin-vm-rust",
   "crates/lib-websocket",
+  "crates/lib-websocket-whatwg",
   "crates/lib-compress",
   "crates/lib-compress-gzip",
   "crates/lib-archive",
@@ -105,6 +114,42 @@ members = [
   "crates/handl-reference-gen",
   "crates/platform",
   "crates/platform-tests",
+  "crates/plugin-comments",
+  "crates/plugin-doc-comments",
+  "crates/plugin-numbers",
+  "crates/plugin-strings",
+  "crates/plugin-booleans",
+  "crates/plugin-null",
+  "crates/plugin-bytes",
+  "crates/plugin-comment-tokens",
+  "crates/plugin-identifiers",
+  "crates/plugin-keywords",
+  "crates/plugin-delimiters",
+  "crates/plugin-operators",
+  "crates/plugin-primary-values",
+  "crates/plugin-primary-identifiers",
+  "crates/plugin-primary-arrays",
+  "crates/plugin-primary-objects",
+  "crates/plugin-primary-not",
+  "crates/plugin-primary-typeof",
+  "crates/plugin-primary-parens",
+  "crates/plugin-primary-handle",
+  "crates/plugin-primary-match",
+  "crates/plugin-postfix-calls",
+  "crates/plugin-postfix-index",
+  "crates/plugin-postfix-field",
+  "crates/plugin-postfix-mood",
+  "crates/plugin-function-literals",
+  "crates/plugin-infix-pipe",
+  "crates/plugin-infix-flow",
+  "crates/plugin-infix-fanout",
+  "crates/plugin-infix-ternary",
+  "crates/plugin-infix-assign",
+  "crates/plugin-stmt-let",
+  "crates/plugin-stmt-const",
+  "crates/plugin-stmt-import",
+  "crates/plugin-stmt-export",
+  "crates/plugin-stmt-module",
   "crates/capability-fmt",
   "crates/capability-lint",
   "crates/capability-typecheck",
@@ -115,6 +160,17 @@ members = [
   "crates/capability-kit",
   "crates/capability-plugin",
   "crates/capability-tests",
+  "crates/plugin-fmt-expression",
+  "crates/plugin-fmt-trivia",
+  "crates/plugin-fmt-statements",
+  "crates/plugin-diag-expression",
+  "crates/tooling",
+  "crates/host-lsp",
+  "crates/loader",
+  "crates/loader-native",
+  "crates/loader-wasm",
+  "crates/loader-web",
+  "crates/plugin-native-example",
 ]
 resolver = "3"
 
@@ -125,12 +181,17 @@ edition = "2024"
 [workspace.dependencies]
 handl-dialect = { path = "crates/dialect" }
 handl-dialect-canonical = { path = "crates/dialect-canonical" }
+handl-vocabulary = { path = "crates/vocabulary" }
+handl-plugin-document = { path = "crates/plugin-document" }
+handl-plugin-json-schema = { path = "crates/plugin-json-schema" }
 handl-ast = { path = "crates/ast" }
 handl-ast-canonical = { path = "crates/ast-canonical" }
 handl-ast-common = { path = "crates/ast-common" }
 handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
+handl-lib-websocket = { path = "crates/lib-websocket" }
+handl-lib-websocket-whatwg = { path = "crates/lib-websocket-whatwg" }
 handl-lib-ip = { path = "crates/lib-ip" }
 handl-lib-parse = { path = "crates/lib-parse" }
 handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
@@ -206,11 +267,52 @@ handl-vm-server = { path = "crates/vm-server" }
 handl-lexer = { path = "crates/lexer" }
 handl-lexer-canonical = { path = "crates/lexer-canonical" }
 handl-lexer-common = { path = "crates/lexer-common" }
+handl-expr = { path = "crates/expr" }
+handl-kit-canonical = { path = "crates/kit-canonical" }
+handl-runtime = { path = "crates/runtime" }
+handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
+handl-plugin-vm-rust = { path = "crates/plugin-vm-rust" }
 handl-parser = { path = "crates/parser" }
 handl-parser-canonical = { path = "crates/parser-canonical" }
 handl-parser-common = { path = "crates/parser-common" }
 handl-platform = { path = "crates/platform" }
 handl-platform-tests = { path = "crates/platform-tests" }
+handl-plugin-comments = { path = "crates/plugin-comments" }
+handl-plugin-doc-comments = { path = "crates/plugin-doc-comments" }
+handl-plugin-numbers = { path = "crates/plugin-numbers" }
+handl-plugin-strings = { path = "crates/plugin-strings" }
+handl-plugin-booleans = { path = "crates/plugin-booleans" }
+handl-plugin-null = { path = "crates/plugin-null" }
+handl-plugin-bytes = { path = "crates/plugin-bytes" }
+handl-plugin-comment-tokens = { path = "crates/plugin-comment-tokens" }
+handl-plugin-identifiers = { path = "crates/plugin-identifiers" }
+handl-plugin-keywords = { path = "crates/plugin-keywords" }
+handl-plugin-delimiters = { path = "crates/plugin-delimiters" }
+handl-plugin-operators = { path = "crates/plugin-operators" }
+handl-plugin-primary-values = { path = "crates/plugin-primary-values" }
+handl-plugin-primary-identifiers = { path = "crates/plugin-primary-identifiers" }
+handl-plugin-primary-arrays = { path = "crates/plugin-primary-arrays" }
+handl-plugin-primary-objects = { path = "crates/plugin-primary-objects" }
+handl-plugin-primary-not = { path = "crates/plugin-primary-not" }
+handl-plugin-primary-typeof = { path = "crates/plugin-primary-typeof" }
+handl-plugin-primary-parens = { path = "crates/plugin-primary-parens" }
+handl-plugin-primary-handle = { path = "crates/plugin-primary-handle" }
+handl-plugin-primary-match = { path = "crates/plugin-primary-match" }
+handl-plugin-postfix-calls = { path = "crates/plugin-postfix-calls" }
+handl-plugin-postfix-index = { path = "crates/plugin-postfix-index" }
+handl-plugin-postfix-field = { path = "crates/plugin-postfix-field" }
+handl-plugin-postfix-mood = { path = "crates/plugin-postfix-mood" }
+handl-plugin-function-literals = { path = "crates/plugin-function-literals" }
+handl-plugin-infix-pipe = { path = "crates/plugin-infix-pipe" }
+handl-plugin-infix-flow = { path = "crates/plugin-infix-flow" }
+handl-plugin-infix-fanout = { path = "crates/plugin-infix-fanout" }
+handl-plugin-infix-ternary = { path = "crates/plugin-infix-ternary" }
+handl-plugin-infix-assign = { path = "crates/plugin-infix-assign" }
+handl-plugin-stmt-let = { path = "crates/plugin-stmt-let" }
+handl-plugin-stmt-const = { path = "crates/plugin-stmt-const" }
+handl-plugin-stmt-import = { path = "crates/plugin-stmt-import" }
+handl-plugin-stmt-export = { path = "crates/plugin-stmt-export" }
+handl-plugin-stmt-module = { path = "crates/plugin-stmt-module" }
 handl-capability-fmt = { path = "crates/capability-fmt" }
 handl-capability-lint = { path = "crates/capability-lint" }
 handl-capability-typecheck = { path = "crates/capability-typecheck" }
@@ -221,6 +323,12 @@ handl-capability-extension = { path = "crates/capability-extension" }
 handl-capability-kit = { path = "crates/capability-kit" }
 handl-capability-plugin = { path = "crates/capability-plugin" }
 handl-capability-tests = { path = "crates/capability-tests" }
+handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
+handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
+handl-plugin-fmt-statements = { path = "crates/plugin-fmt-statements" }
+handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
+handl-tooling = { path = "crates/tooling" }
+handl-host-lsp = { path = "crates/host-lsp" }
 serde = "1"
 serde_json = "1"
 rand = "0.9"
@@ -236,6 +344,12 @@ tar = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 pass-lang = "1"
 driver-lang = "1"
+handl-loader = { path = "crates/loader" }
+handl-loader-native = { path = "crates/loader-native" }
+handl-loader-wasm = { path = "crates/loader-wasm" }
+handl-loader-web = { path = "crates/loader-web" }
+native-plugin-example = { path = "crates/plugin-native-example" }
+libloading = "0.8"
 
 [features]
 default = [
