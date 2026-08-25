@@ -1,4 +1,1 @@
-category:
-  slug: base64
-  title: Base64
-  description: Base64 encoding and decoding.
+category: encoding

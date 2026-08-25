@@ -1,4 +1,1 @@
-category:
-  slug: hex
-  title: Hex
-  description: Hexadecimal encoding and decoding.
+category: encoding

@@ -1,4 +1,4 @@
 category:
   slug: encoding
   title: Encoding
-  description: Text encoding utilities.
+  description: Base64, hex, and text encoding utilities.

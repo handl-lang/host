@@ -3,13 +3,12 @@ export default [
     "text": "Archive",
     "collapsed": false,
     "link": "/reference/lib-archive",
-    "items": []
-  },
-  {
-    "text": "Base64",
-    "collapsed": false,
-    "link": "/reference/lib-base64-base64",
-    "items": []
+    "items": [
+      {
+        "text": "Archive (Tar)",
+        "link": "/reference/lib-archive-tar"
+      }
+    ]
   },
   {
     "text": "Collections",
@@ -54,7 +53,12 @@ export default [
     "text": "Compress",
     "collapsed": false,
     "link": "/reference/lib-compress",
-    "items": []
+    "items": [
+      {
+        "text": "Gzip",
+        "link": "/reference/lib-compress-gzip"
+      }
+    ]
   },
   {
     "text": "Crypto",
@@ -72,13 +76,16 @@ export default [
     "text": "Encoding",
     "collapsed": false,
     "link": "/reference/lib-encoding",
-    "items": []
-  },
-  {
-    "text": "Hex",
-    "collapsed": false,
-    "link": "/reference/lib-hex-hex",
-    "items": []
+    "items": [
+      {
+        "text": "Base64",
+        "link": "/reference/lib-base64-base64"
+      },
+      {
+        "text": "Hex",
+        "link": "/reference/lib-hex-hex"
+      }
+    ]
   },
   {
     "text": "Intl",
