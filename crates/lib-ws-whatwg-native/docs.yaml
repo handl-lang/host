@@ -1,0 +1,3 @@
+category: ws_whatwg_native
+description: |
+  Native WHATWG-style WebSocket client backed by `tokio-tungstenite`.

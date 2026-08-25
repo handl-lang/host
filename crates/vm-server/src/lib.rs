@@ -34,7 +34,7 @@ use handl_lib_compress_gzip::GzipModule;
 use handl_lib_ip::IpModule;
 use handl_lib_rand::RandModule;
 use handl_lib_websocket_std::WebsocketRfcStdModule;
-use handl_lib_websocket_whatwg::WebsocketWhatwgModule;
+use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_lib_stats::StatsModule;
 use handl_lib_test::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
@@ -119,7 +119,7 @@ impl ServerHost {
             .with(SnapshotModule)
             .with(BenchmarkModule)
             .with(WebsocketRfcStdModule)
-            .with(WebsocketWhatwgModule)
+            .with(WsWhatwgNativeModule)
             .with(IpModule)
             .with(GzipModule)
             .with(TarModule)

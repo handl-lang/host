@@ -3,6 +3,7 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_vm::{Context, Function};
+use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -339,5 +340,25 @@ impl Function<NonFunctionValue> for ConnectionClose {
         }
 
         Ok(NonFunctionValue::new(JsonValue::Null))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct WsWhatwgNativeModule;
+
+impl Module for WsWhatwgNativeModule {
+    fn name(&self) -> &str {
+        "ws_whatwg_native"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "ws_whatwg_native" => Some(&WebsocketWhatwgName),
+            "connect" => Some(&ConnectionConnect),
+            "send" => Some(&ConnectionSend),
+            "recv" => Some(&ConnectionRecv),
+            "close" => Some(&ConnectionClose),
+            _ => None,
+        }
     }
 }

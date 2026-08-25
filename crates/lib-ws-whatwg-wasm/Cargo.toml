@@ -1,8 +1,8 @@
 [package]
-name = "handl-lib-websocket-whatwg"
+name = "handl-lib-ws-whatwg-wasm"
 version.workspace = true
 edition.workspace = true
-description = "WHATWG WebSocket client module for the handl runtime."
+description = "WASM WHATWG WebSocket client module for the handl runtime."
 
 [dependencies]
 handl-vm.workspace = true
@@ -10,12 +10,6 @@ handl-vm-common.workspace = true
 handl-vm-values-json.workspace = true
 serde = "1"
 serde_json = "1"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-base64.workspace = true
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "macros", "time"] }
-tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
-futures-util = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 base64 = "0.22"

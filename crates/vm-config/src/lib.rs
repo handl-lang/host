@@ -62,7 +62,7 @@ use handl_lib_compress_gzip::GzipModule;
 use handl_lib_ip::IpModule;
 use handl_lib_stats::StatsModule;
 use handl_lib_websocket::WebsocketModule;
-use handl_lib_websocket_whatwg::WebsocketWhatwgModule;
+use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_lib_unicode::UnicodeModule;
 use handl_lib_utils::{
     Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
@@ -149,7 +149,7 @@ impl SandboxHost {
             .with(UnicodeModule)
             .with(StatsModule)
             .with(WebsocketModule)
-            .with(WebsocketWhatwgModule)
+            .with(WsWhatwgNativeModule)
             .with(IpModule)
             .with(GzipModule)
             .with(TarModule)

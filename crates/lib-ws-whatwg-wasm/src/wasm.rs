@@ -2,6 +2,7 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_vm::{Context, Function};
+use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use js_sys::{ArrayBuffer, Uint8Array};
 use serde_json::Value as JsonValue;
@@ -316,5 +317,25 @@ impl Function<NonFunctionValue> for ConnectionClose {
             }
             Ok(NonFunctionValue::new(JsonValue::Null))
         })
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct WsWhatwgWasmModule;
+
+impl Module for WsWhatwgWasmModule {
+    fn name(&self) -> &str {
+        "ws_whatwg_wasm"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "ws_whatwg_wasm" => Some(&WebsocketWhatwgName),
+            "connect" => Some(&ConnectionConnect),
+            "send" => Some(&ConnectionSend),
+            "recv" => Some(&ConnectionRecv),
+            "close" => Some(&ConnectionClose),
+            _ => None,
+        }
     }
 }
