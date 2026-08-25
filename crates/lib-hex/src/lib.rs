@@ -70,6 +70,9 @@ impl Function<NonFunctionValue> for HexName {
                 got: args.len(),
             });
         }
-        Ok(NonFunctionValue::new("hex"))
+        Ok(NonFunctionValue::new(serde_json::json!({
+            "type": "encoding",
+            "name": "hex"
+        })))
     }
 }

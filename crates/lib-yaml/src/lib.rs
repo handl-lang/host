@@ -83,7 +83,10 @@ impl Function<NonFunctionValue> for YamlName {
                 got: args.len(),
             });
         }
-        Ok(NonFunctionValue::new("yaml"))
+        Ok(NonFunctionValue::new(serde_json::json!({
+            "type": "serializer",
+            "name": "yaml"
+        })))
     }
 }
 

@@ -82,7 +82,10 @@ impl Function<NonFunctionValue> for JsonName {
                 got: args.len(),
             });
         }
-        Ok(NonFunctionValue::new("json"))
+        Ok(NonFunctionValue::new(serde_json::json!({
+            "type": "serializer",
+            "name": "json"
+        })))
     }
 }
 

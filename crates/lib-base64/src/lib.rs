@@ -71,6 +71,9 @@ impl Function<NonFunctionValue> for Base64Name {
                 got: args.len(),
             });
         }
-        Ok(NonFunctionValue::new("base64"))
+        Ok(NonFunctionValue::new(serde_json::json!({
+            "type": "encoding",
+            "name": "base64"
+        })))
     }
 }

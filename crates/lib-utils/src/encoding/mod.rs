@@ -6,12 +6,34 @@ use handl_vm_common::Module;
 use handl_vm_values_json::NonFunctionValue;
 
 fn codec_name(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFunctionValue>> {
-    value.as_str().map(String::from).ok_or_else(|| {
-        handl_vm::Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        }
-    })
+    if let Some(s) = value.as_str() {
+        return Ok(s.to_string());
+    }
+    let obj = value.as_object().ok_or_else(|| handl_vm::Error::TypeMismatch {
+        expected: "string or codec object",
+        got: "non-string, non-object",
+    })?;
+    let ty = obj
+        .get("type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| handl_vm::Error::TypeMismatch {
+            expected: "codec object with type",
+            got: "object without type",
+        })?;
+    if ty != "encoding" {
+        return Err(handl_vm::Error::TypeMismatch {
+            expected: "type: encoding",
+            got: "non-encoding",
+        });
+    }
+    let name = obj
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| handl_vm::Error::TypeMismatch {
+            expected: "codec object with name",
+            got: "object without name",
+        })?;
+    Ok(name.to_string())
 }
 
 /// The `encoding` module — generic encoding to/from string forms.
