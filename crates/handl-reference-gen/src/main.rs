@@ -61,6 +61,38 @@ struct ParamDoc {
 
 type FunctionDocsMap = BTreeMap<String, BTreeMap<String, FunctionDocs>>;
 
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum DocsCategory {
+    Slug(String),
+    Full {
+        slug: String,
+        title: String,
+        description: String,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+struct CrateDocsMeta {
+    category: DocsCategory,
+}
+
+fn crate_category(krate: &str) -> Result<(String, bool)> {
+    let crate_dir = krate.strip_prefix("handl-").unwrap_or(krate).to_string();
+    let path = PathBuf::from("crates").join(&crate_dir).join("docs.yaml");
+    if !path.exists() {
+        return Ok((crate_dir, true));
+    }
+    let yaml = fs::read_to_string(&path)
+        .with_context(|| format!("reading docs metadata for {}", krate))?;
+    let meta: CrateDocsMeta = serde_yaml::from_str(&yaml)
+        .with_context(|| format!("parsing docs metadata for {}", krate))?;
+    match meta.category {
+        DocsCategory::Slug(s) => Ok((s, false)),
+        DocsCategory::Full { slug, .. } => Ok((slug, true)),
+    }
+}
+
 fn main() -> Result<()> {
     let catalog_path = std::env::args()
         .nth(1)
@@ -80,14 +112,22 @@ fn main() -> Result<()> {
     let function_docs = load_function_docs()
         .with_context(|| "loading function documentation catalog")?;
 
-    let mut index = String::new();
-    index.push_str("# handl API Reference\n\n");
-    if let Some(first) = catalog.reference.first() {
-        if let Some(desc) = &first.description {
-            index.push_str(&format!("{}\n\n", desc));
-        } else {
-            index.push_str("User-facing reference by domain.\n\n");
+    // Group reference entries by their crate's category.
+    let mut groups: BTreeMap<String, Vec<&Category>> = BTreeMap::new();
+    let mut owner_cat: BTreeMap<String, &Category> = BTreeMap::new();
+    let mut owner_pos: BTreeMap<String, usize> = BTreeMap::new();
+    let mut first_pos: BTreeMap<String, usize> = BTreeMap::new();
+
+    for (i, cat) in catalog.reference.iter().enumerate() {
+        let krate = &cat.include[0].krate;
+        let (slug, is_owner) = crate_category(krate)
+            .with_context(|| format!("loading docs.yaml for {}", krate))?;
+        if is_owner {
+            owner_cat.entry(slug.clone()).or_insert(cat);
+            owner_pos.entry(slug.clone()).or_insert(i);
         }
+        groups.entry(slug.clone()).or_default().push(cat);
+        first_pos.entry(slug.clone()).or_insert(i);
     }
 
     for cat in &catalog.reference {
@@ -95,18 +135,53 @@ fn main() -> Result<()> {
             .with_context(|| format!("generating category {}", cat.slug))?;
         let path = std::path::Path::new(&out_dir).join(format!("{}.md", cat.slug));
         fs::write(&path, cat_md).with_context(|| format!("writing {}", path.display()))?;
+    }
 
-        let desc = cat.description.as_deref().unwrap_or("");
+    let mut index = String::new();
+    index.push_str("# handl API Reference\n\n");
+
+    let mut order: Vec<&String> = groups.keys().collect();
+    order.sort_by_key(|slug| {
+        owner_pos
+            .get(*slug)
+            .or(first_pos.get(*slug))
+            .copied()
+            .unwrap_or(usize::MAX)
+    });
+
+    for slug in order {
+        let top = owner_cat.get(slug).copied().unwrap_or(groups[slug][0]);
+        let desc = top.description.as_deref().unwrap_or("");
         index.push_str(&format!(
             "- [{}](./{}){}\n",
-            cat.title,
-            cat.slug,
+            top.title,
+            top.slug,
             if desc.is_empty() {
                 String::new()
             } else {
                 format!(" — {}", desc)
             }
         ));
+
+        let mut members: Vec<_> = groups[slug]
+            .iter()
+            .filter(|c| c.include[0].krate != top.include[0].krate)
+            .copied()
+            .collect();
+        members.sort_by(|a, b| a.title.cmp(&b.title));
+        for m in members {
+            let desc = m.description.as_deref().unwrap_or("");
+            index.push_str(&format!(
+                "  - [{}](./{}){}\n",
+                m.title,
+                m.slug,
+                if desc.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — {}", desc)
+                }
+            ));
+        }
     }
 
     fs::write(std::path::Path::new(&out_dir).join("index.md"), index)
