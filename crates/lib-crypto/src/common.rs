@@ -3,20 +3,6 @@ use handl_vm_values_json::NonFunctionValue;
 
 use crate::error::CryptoError;
 
-/// Require a string argument at `idx`.
-pub(super) fn require_string(args: &[NonFunctionValue], idx: usize) -> Result<String, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_str()
-        .map(|s| s.to_string())
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
-}
-
 /// Extract bytes from an argument that is either a string (UTF-8) or an
 /// array of integers in the range 0–255.
 pub(super) fn extract_bytes(args: &[NonFunctionValue], idx: usize) -> Result<Vec<u8>, Error> {
@@ -52,9 +38,4 @@ pub(super) fn extract_bytes(args: &[NonFunctionValue], idx: usize) -> Result<Vec
 
 pub(super) fn s(value: impl Into<String>) -> NonFunctionValue {
     NonFunctionValue::new(value.into())
-}
-
-pub(super) fn byte_array(bytes: &[u8]) -> NonFunctionValue {
-    let arr: Vec<serde_json::Value> = bytes.iter().map(|b| serde_json::json!(b)).collect();
-    NonFunctionValue::new(serde_json::Value::Array(arr))
 }
