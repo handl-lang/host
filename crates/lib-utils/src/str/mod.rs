@@ -12,9 +12,9 @@ pub use basic::{
 pub use case::{CamelCase, Capitalize, KebabCase, PascalCase, SnakeCase, TitleCase};
 pub use search::{Contains, Count, EndsWith, Find, Levenshtein, RFind, Similarity, StartsWith};
 pub use transform::{
-    CharAt, EscapeHtml, EscapeUrl, Join, Lines, PadLeft, PadRight, Repeat, Replace, ReplaceFirst,
-    Slice, Slugify, Split, SplitAt, SplitWhitespace, StripPrefix, StripSuffix, Truncate,
-    UnescapeHtml, UnescapeUrl, WordWrap,
+    CharAt, Join, Lines, PadLeft, PadRight, Repeat, Replace, ReplaceFirst, Slice, Slugify, Split,
+    SplitAt, SplitWhitespace, StripPrefix, StripSuffix, Truncate, UnescapeHtml, UnescapeUrl,
+    WordWrap,
 };
 
 use handl_vm::Function;
@@ -76,9 +76,7 @@ impl Module for StrModule {
             "split_whitespace" => Some(&SplitWhitespace),
             "truncate" => Some(&Truncate),
             "slugify" => Some(&Slugify),
-            "escape_html" => Some(&EscapeHtml),
             "unescape_html" => Some(&UnescapeHtml),
-            "escape_url" => Some(&EscapeUrl),
             "unescape_url" => Some(&UnescapeUrl),
             "word_wrap" => Some(&WordWrap),
             // case

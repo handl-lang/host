@@ -479,31 +479,6 @@ impl Function<NonFunctionValue> for Slugify {
 }
 
 #[derive(Clone, Copy)]
-pub struct EscapeHtml;
-impl Function<NonFunctionValue> for EscapeHtml {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let input = require_one_string(args)?;
-        let escaped: String = input
-            .chars()
-            .map(|c| match c {
-                '&' => "&amp;".to_string(),
-                '<' => "&lt;".to_string(),
-                '>' => "&gt;".to_string(),
-                '"' => "&quot;".to_string(),
-                '\'' => "&#x27;".to_string(),
-                '/' => "&#x2F;".to_string(),
-                _ => c.to_string(),
-            })
-            .collect();
-        Ok(s(escaped))
-    }
-}
-
-#[derive(Clone, Copy)]
 pub struct UnescapeHtml;
 impl Function<NonFunctionValue> for UnescapeHtml {
     fn call(
@@ -522,33 +497,6 @@ impl Function<NonFunctionValue> for UnescapeHtml {
             .replace("&#39;", "'")
             .replace("&#47;", "/");
         Ok(s(unescaped))
-    }
-}
-
-fn is_url_unreserved(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'-' || c == b'_' || c == b'.' || c == b'~'
-}
-
-#[derive(Clone, Copy)]
-pub struct EscapeUrl;
-impl Function<NonFunctionValue> for EscapeUrl {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let input = require_one_string(args)?;
-        let escaped: String = input
-            .bytes()
-            .map(|b| {
-                if is_url_unreserved(b) {
-                    (b as char).to_string()
-                } else {
-                    format!("%{b:02X}")
-                }
-            })
-            .collect();
-        Ok(s(escaped))
     }
 }
 

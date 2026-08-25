@@ -2814,27 +2814,6 @@ str:
     return_value: Boolean
     see: []
     signature: "str.equals(value: String)"
-  escape_html:
-    description: Escapes HTML entities in a string.
-    details: ""
-    examples:
-      - str.escape_html('hello world')
-    params:
-      - name: value
-        type: String
-    return_value: String
-    see: []
-    signature: "str.escape_html(value: String)"
-  escape_url:
-    description: Encodes a string as a URL-safe string.
-    details: ""
-    examples: []
-    params:
-      - name: value
-        type: String
-    return_value: String
-    see: []
-    signature: "str.escape_url(value: String)"
   find:
     description: Finds the first matching element in a string.
     details: ""

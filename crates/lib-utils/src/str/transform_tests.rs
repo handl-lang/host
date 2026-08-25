@@ -1064,41 +1064,6 @@ fn slugify_non_string_errors() {
     assert!(matches!(result, Err(Error::TypeMismatch { .. })));
 }
 
-// ── escape_html ─────────────────────────────────────────────────────
-
-#[test]
-fn escape_html_basic() {
-    assert_eq!(
-        call("escape_html", &[s("<div>\"hello\" & 'world' / </div>")]).as_str(),
-        Some("&lt;div&gt;&quot;hello&quot; &amp; &#x27;world&#x27; &#x2F; &lt;&#x2F;div&gt;")
-    );
-}
-
-#[test]
-fn escape_html_no_special_chars() {
-    assert_eq!(
-        call("escape_html", &[s("hello world")]).as_str(),
-        Some("hello world")
-    );
-}
-
-#[test]
-fn escape_html_empty_string() {
-    assert_eq!(call("escape_html", &[s("")]).as_str(), Some(""));
-}
-
-#[test]
-fn escape_html_no_args_errors() {
-    let result = call_err("escape_html", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
-}
-
-#[test]
-fn escape_html_non_string_errors() {
-    let result = call_err("escape_html", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
-}
-
 // ── unescape_html ───────────────────────────────────────────────────
 
 #[test]
@@ -1142,49 +1107,6 @@ fn unescape_html_no_args_errors() {
     assert!(matches!(result, Err(Error::ArgumentCount { .. })));
 }
 
-// ── escape_url ──────────────────────────────────────────────────────
-
-#[test]
-fn escape_url_basic() {
-    assert_eq!(
-        call("escape_url", &[s("hello world")]).as_str(),
-        Some("hello%20world")
-    );
-}
-
-#[test]
-fn escape_url_unreserved_kept() {
-    assert_eq!(
-        call("escape_url", &[s("a-b_c.d~e")]).as_str(),
-        Some("a-b_c.d~e")
-    );
-}
-
-#[test]
-fn escape_url_special_chars() {
-    assert_eq!(
-        call("escape_url", &[s("a&b=c")]).as_str(),
-        Some("a%26b%3Dc")
-    );
-}
-
-#[test]
-fn escape_url_empty_string() {
-    assert_eq!(call("escape_url", &[s("")]).as_str(), Some(""));
-}
-
-#[test]
-fn escape_url_no_args_errors() {
-    let result = call_err("escape_url", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
-}
-
-#[test]
-fn escape_url_non_string_errors() {
-    let result = call_err("escape_url", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
-}
-
 // ── unescape_url ────────────────────────────────────────────────────
 
 #[test]
@@ -1193,13 +1115,6 @@ fn unescape_url_basic() {
         call("unescape_url", &[s("hello%20world")]).as_str(),
         Some("hello world")
     );
-}
-
-#[test]
-fn unescape_url_roundtrip() {
-    let encoded = call("escape_url", &[s("a&b=c/d?e")]);
-    let decoded = call("unescape_url", &[encoded]);
-    assert_eq!(decoded.as_str(), Some("a&b=c/d?e"));
 }
 
 #[test]
