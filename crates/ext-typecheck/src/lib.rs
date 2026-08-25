@@ -1,7 +1,9 @@
+use handl_kit_canonical::CanonicalKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
+use handl_tooling::{read_source_or_stdin, ArgSpec, CommandProvider, CommandSpec};
 
 pub struct TypecheckPlugin {
     capabilities: Vec<CapabilityId>,
@@ -63,6 +65,57 @@ pub fn typecheck(
     let env = handl_vm_type::Env::new();
     let tctx = handl_vm_type::TCtx::new();
     handl_vm_type::synth(&mut ctx, &env, &tctx, term)
+}
+
+impl CommandProvider for TypecheckPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("typecheck", "Typecheck a Handl source file")
+            .arg(ArgSpec::new("file").description("File to typecheck; stdin if omitted"))]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        let source = read_source_or_stdin(args.first().map(|s| s.as_str()))?;
+        let kit = CanonicalKit::new();
+        let parsed = kit.parse_module_recovered(&source);
+        let mut has_errors = parsed
+            .diagnostics
+            .iter()
+            .any(|d| matches!(d.level, handl_expr::DiagnosticLevel::Error));
+
+        for d in &parsed.diagnostics {
+            eprintln!("{}: {}", diagnostic_label(d.level), d.message);
+        }
+
+        match kit.typecheck(&parsed.stmts) {
+            Ok(out) => {
+                if !out.success {
+                    has_errors = true;
+                }
+            }
+            Err(e) => {
+                has_errors = true;
+                eprintln!("error: {e}");
+            }
+        }
+
+        if has_errors {
+            return Err(PlatformError::Plugin("typecheck failed".into()));
+        }
+        Ok(serde_json::json!({"typechecked": true}))
+    }
+}
+
+fn diagnostic_label(level: handl_expr::DiagnosticLevel) -> &'static str {
+    match level {
+        handl_expr::DiagnosticLevel::Error => "error",
+        handl_expr::DiagnosticLevel::Warning => "warning",
+        handl_expr::DiagnosticLevel::Info => "info",
+    }
 }
 
 #[cfg(test)]

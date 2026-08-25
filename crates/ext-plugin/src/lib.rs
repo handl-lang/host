@@ -1,6 +1,7 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext, ProcessPlugin,
 };
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 
 pub struct PluginManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -112,6 +113,22 @@ impl Plugin for PluginManagerPlugin {
             }))),
             _ => Err(PlatformError::InvalidMetadata(format!("unknown action: {action}"))),
         }
+    }
+}
+
+impl CommandProvider for PluginManagerPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("plugin", "Manage plugins")
+            .arg(ArgSpec::new("args").description("Plugin action and arguments").multiple())]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        Ok(serde_json::json!({"plugins": []}))
     }
 }
 

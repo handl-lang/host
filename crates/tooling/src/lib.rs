@@ -7,6 +7,9 @@ use handl_plugin_fmt_statements::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 use handl_vm_values_json::NonFunctionValue;
 
+pub mod command;
+pub use command::*;
+
 pub mod lsp;
 pub use lsp::*;
 
@@ -26,6 +29,7 @@ pub struct ToolingHost {
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
+    command_providers: Vec<Box<dyn CommandProvider>>,
 }
 
 impl ToolingHost {
@@ -44,6 +48,7 @@ impl ToolingHost {
             goto_def: None,
             document_symbols: None,
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
+            command_providers: Vec::new(),
         }
     }
 
@@ -69,6 +74,29 @@ impl ToolingHost {
     pub fn with_incremental_sync_plugin(mut self, plugin: Box<dyn IncrementalSyncPlugin>) -> Self {
         self.incremental_sync = Some(plugin);
         self
+    }
+
+    /// Registers a command provider.
+    pub fn with_command_provider(mut self, provider: Box<dyn CommandProvider>) -> Self {
+        self.command_providers.push(provider);
+        self
+    }
+
+    /// Returns the merged command specs from all registered command providers.
+    pub fn cli_commands(&self) -> Vec<CommandSpec> {
+        self.command_providers.iter().flat_map(|p| p.commands()).collect()
+    }
+
+    /// Dispatches a CLI command to the appropriate provider.
+    pub fn run_cli(&self, command: &str, args: &[String]) -> Result<serde_json::Value, PlatformError> {
+        for provider in &self.command_providers {
+            for spec in provider.commands() {
+                if spec.name == command || spec.aliases.iter().any(|a| a == command) {
+                    return provider.run(command, args, self);
+                }
+            }
+        }
+        Err(PlatformError::UnknownCapability(command.into()))
     }
 
     /// Returns completion candidates at `pos` in `source`.

@@ -2,6 +2,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,
 };
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -131,6 +132,22 @@ impl Plugin for KitManagerPlugin {
             }
             _ => Err(PlatformError::InvalidMetadata(format!("unknown action: {action}"))),
         }
+    }
+}
+
+impl CommandProvider for KitManagerPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("kit", "Manage kits")
+            .arg(ArgSpec::new("args").description("Kit action and arguments").multiple())]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        Ok(serde_json::json!({"kits": []}))
     }
 }
 

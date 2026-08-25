@@ -1,3 +1,4 @@
+use handl_kit_canonical::CanonicalKit;
 use handl_lexer_canonical::CanonicalLexer;
 use handl_parser::Parser;
 use handl_parser_canonical::CanonicalParser;
@@ -5,6 +6,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 use handl_vm_backend_rust_interpreter::{CanonicalContext, Vm};
 use handl_vm_host_eval::EvalHost;
 
@@ -86,6 +88,51 @@ impl Plugin for EvalPlugin {
             .eval(&parsed, &mut ctx)
             .map_err(|e| PlatformError::Plugin(format!("eval error: {e}")))?;
         Ok(CapabilityResponse(result.into_inner()))
+    }
+}
+
+impl CommandProvider for EvalPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("eval", "Evaluate a Handl expression")
+            .arg(ArgSpec::new("expr").description("Expression to evaluate").multiple())]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        if args.is_empty() {
+            return Err(PlatformError::InvalidMetadata(
+                "eval requires an expression".into(),
+            ));
+        }
+        let source = args.join(" ");
+        let kit = CanonicalKit::new();
+        let output = kit.parse_module_recovered(&source);
+        if output
+            .diagnostics
+            .iter()
+            .any(|d| matches!(d.level, handl_expr::DiagnosticLevel::Error))
+        {
+            for d in &output.diagnostics {
+                eprintln!("{}: {}", diagnostic_label(d.level), d.message);
+            }
+            return Err(PlatformError::Plugin("parse error".into()));
+        }
+        let result = kit.eval(&output.stmts)?;
+        let values: Vec<serde_json::Value> =
+            result.values.into_iter().map(|v| v.into_inner()).collect();
+        Ok(serde_json::Value::Array(values))
+    }
+}
+
+fn diagnostic_label(level: handl_expr::DiagnosticLevel) -> &'static str {
+    match level {
+        handl_expr::DiagnosticLevel::Error => "error",
+        handl_expr::DiagnosticLevel::Warning => "warning",
+        handl_expr::DiagnosticLevel::Info => "info",
     }
 }
 

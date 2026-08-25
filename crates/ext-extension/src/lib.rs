@@ -1,6 +1,7 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Extension, PlatformError, Plugin, PluginContext,
 };
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 
 pub struct SimpleExtension {
     id: String,
@@ -132,6 +133,22 @@ impl Plugin for ExtensionManagerPlugin {
             }
             _ => Err(PlatformError::InvalidMetadata(format!("unknown action: {action}"))),
         }
+    }
+}
+
+impl CommandProvider for ExtensionManagerPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("extension", "Manage extensions")
+            .arg(ArgSpec::new("args").description("Extension action and arguments").multiple())]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        Ok(serde_json::json!({"extensions": []}))
     }
 }
 

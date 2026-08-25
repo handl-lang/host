@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::error::Error;
 
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec, DocumentSymbol, TextContentChange, ToolingHost};
 use lsp_server::{Connection, Message, Notification, RequestId, Response};
 
 use handl_expr::{Diagnostic as HandlDiagnostic, DiagnosticLevel};
 use handl_platform::PlatformError;
-use handl_tooling::{DocumentSymbol, TextContentChange, ToolingHost};
 use lsp_types::{
     CompletionItem, Diagnostic as LspDiagnostic, DiagnosticSeverity, DocumentSymbol as LspSymbol,
     Hover, HoverContents, Location as LspLocation, MarkupContent, MarkupKind, Position, Range,
@@ -363,4 +363,35 @@ fn publish_diagnostics(
         }))?;
     }
     Ok(())
+}
+
+/// Command provider that registers the `lsp` CLI command.
+pub struct LspCommandProvider;
+
+impl LspCommandProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for LspCommandProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CommandProvider for LspCommandProvider {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("lsp", "Start the stdio LSP server")
+            .arg(ArgSpec::new("args").description("LSP server arguments").multiple())]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _host: &ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        Ok(serde_json::Value::Null)
+    }
 }

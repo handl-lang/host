@@ -2,6 +2,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
+use handl_tooling::{ArgSpec, CommandProvider, CommandSpec, read_source_or_stdin};
 
 pub struct FmtPlugin {
     capabilities: Vec<CapabilityId>,
@@ -48,6 +49,24 @@ impl Plugin for FmtPlugin {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
         Ok(CapabilityResponse(serde_json::json!({"formatted": true})))
+    }
+}
+
+impl CommandProvider for FmtPlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("fmt", "Format a Handl source file")
+            .arg(ArgSpec::new("file").description("File to format; stdin if omitted"))]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        args: &[String],
+        host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        let source = read_source_or_stdin(args.first().map(|s| s.as_str()))?;
+        let formatted = host.format(&source)?;
+        Ok(serde_json::Value::String(formatted))
     }
 }
 

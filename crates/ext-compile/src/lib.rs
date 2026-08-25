@@ -1,6 +1,7 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
 };
+use handl_tooling::{CommandProvider, CommandSpec};
 
 pub struct CompilePlugin {
     capabilities: Vec<CapabilityId>,
@@ -47,6 +48,21 @@ impl Plugin for CompilePlugin {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
         Ok(CapabilityResponse(serde_json::json!({"compiled": true})))
+    }
+}
+
+impl CommandProvider for CompilePlugin {
+    fn commands(&self) -> Vec<CommandSpec> {
+        vec![CommandSpec::new("compile", "Compile a Handl module")]
+    }
+
+    fn run(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _host: &handl_tooling::ToolingHost,
+    ) -> Result<serde_json::Value, PlatformError> {
+        Ok(serde_json::json!({"compiled": true}))
     }
 }
 

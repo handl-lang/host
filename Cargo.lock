@@ -771,6 +771,7 @@ name = "handl-ext-build"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -779,6 +780,7 @@ name = "handl-ext-compile"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -786,10 +788,13 @@ dependencies = [
 name = "handl-ext-eval"
 version = "0.1.0"
 dependencies = [
+ "handl-expr",
+ "handl-kit-canonical",
  "handl-lexer-canonical",
  "handl-parser",
  "handl-parser-canonical",
  "handl-platform",
+ "handl-tooling",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-host-eval",
  "handl-vm-values-json",
@@ -801,6 +806,7 @@ name = "handl-ext-extension"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -809,6 +815,7 @@ name = "handl-ext-fmt"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -817,6 +824,7 @@ name = "handl-ext-kit"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -825,6 +833,7 @@ name = "handl-ext-lint"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -833,6 +842,7 @@ name = "handl-ext-plugin"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-tooling",
  "serde_json",
 ]
 
@@ -840,7 +850,10 @@ dependencies = [
 name = "handl-ext-typecheck"
 version = "0.1.0"
 dependencies = [
+ "handl-expr",
+ "handl-kit-canonical",
  "handl-platform",
+ "handl-tooling",
  "handl-vm-type",
  "serde_json",
 ]
