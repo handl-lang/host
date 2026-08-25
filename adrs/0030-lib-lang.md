@@ -99,8 +99,10 @@ user-defined functions.
 
 ## Open questions / future ADRs
 
-- The exact domain and public API of `lib-template` (ADR 0008).
-- The escaping interface and where it lives (ADR 0009).
+- The exact domain and public API of `lib-template` is recorded in
+  `adrs/0031-lib-template-and-escaping.md`.
+- The escaping interface and where it lives is a dedicated `lib-escaping` ADR
+  (proposed).
 - Whether `lib-lang` should expose the canonical expression evaluator or a
   separate sandbox-specific evaluator.
 
@@ -109,3 +111,4 @@ user-defined functions.
 - `adrs/0001-lexer-decoupling.md`
 - `adrs/0002-lego-vm-composition.md`
 - `adrs/0004-colorless-execution.md`
+- `adrs/0031-lib-template-and-escaping.md`
