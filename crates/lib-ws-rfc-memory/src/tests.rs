@@ -14,6 +14,14 @@ fn call(name: &str, args: &[NonFunctionValue], ctx: &mut CanonicalContext) -> No
         .unwrap()
 }
 
+fn call_err(name: &str, args: &[NonFunctionValue], ctx: &mut CanonicalContext) {
+    WsRfcModule
+        .function(name)
+        .unwrap()
+        .call(args, ctx)
+        .expect_err(name);
+}
+
 #[test]
 fn client_create_connect_close() {
     let mut ctx = ctx();
@@ -93,4 +101,113 @@ fn message_from_to_frame_roundtrip() {
 
     let back = call("message.to_frame", &[msg], &mut ctx);
     assert!(back.inner().is_string());
+}
+
+#[test]
+fn frame_encode_rejects_invalid_opcode() {
+    let mut ctx = ctx();
+    let frame = NonFunctionValue::new(serde_json::json!({
+        "opcode": "not-a-real-opcode",
+        "payload": "aGVsbG8=",
+    }));
+    call_err("frame.encode", &[frame], &mut ctx);
+}
+
+#[test]
+fn frame_encode_rejects_invalid_base64_payload() {
+    let mut ctx = ctx();
+    let frame = NonFunctionValue::new(serde_json::json!({
+        "opcode": "text",
+        "payload": "!!!",
+    }));
+    call_err("frame.encode", &[frame], &mut ctx);
+}
+
+#[test]
+fn frame_encode_rejects_invalid_mask() {
+    let mut ctx = ctx();
+    let frame = NonFunctionValue::new(serde_json::json!({
+        "opcode": "text",
+        "payload": "aGVsbG8=",
+        "mask": "aGVsbG8=",
+    }));
+    call_err("frame.encode", &[frame], &mut ctx);
+}
+
+#[test]
+fn frame_decode_rejects_non_base64() {
+    let mut ctx = ctx();
+    call_err("frame.decode", &[NonFunctionValue::new(serde_json::json!("not-base64!!!"))], &mut ctx);
+}
+
+#[test]
+fn message_to_frame_rejects_invalid_object() {
+    let mut ctx = ctx();
+    let bad = NonFunctionValue::new(serde_json::json!({"unknown": "value"}));
+    call_err("message.to_frame", &[bad], &mut ctx);
+}
+
+#[test]
+fn message_to_frame_rejects_bad_binary_base64() {
+    let mut ctx = ctx();
+    let bad = NonFunctionValue::new(serde_json::json!({"binary": "not-base64"}));
+    call_err("message.to_frame", &[bad], &mut ctx);
+}
+
+#[test]
+fn client_rejects_arguments() {
+    let mut ctx = ctx();
+    call_err("client", &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+}
+
+#[test]
+fn connect_requires_arguments() {
+    let mut ctx = ctx();
+    let c = call("client", &[], &mut ctx);
+    call_err("connect", &[c], &mut ctx);
+}
+
+#[test]
+fn send_requires_arguments() {
+    let mut ctx = ctx();
+    let c = call("client", &[], &mut ctx);
+    call_err("send", &[c], &mut ctx);
+}
+
+#[test]
+fn recv_requires_arguments() {
+    let mut ctx = ctx();
+    call_err("recv", &[], &mut ctx);
+}
+
+#[test]
+fn close_requires_arguments() {
+    let mut ctx = ctx();
+    call_err("close", &[], &mut ctx);
+}
+
+#[test]
+fn server_rejects_arguments() {
+    let mut ctx = ctx();
+    call_err("server", &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+}
+
+#[test]
+fn listen_requires_arguments() {
+    let mut ctx = ctx();
+    let s = call("server", &[], &mut ctx);
+    call_err("listen", &[s], &mut ctx);
+}
+
+#[test]
+fn stop_requires_arguments() {
+    let mut ctx = ctx();
+    call_err("stop", &[], &mut ctx);
+}
+
+#[test]
+fn frame_decode_rejects_invalid_frame_bytes() {
+    let mut ctx = ctx();
+    let encoded = NonFunctionValue::new(serde_json::json!("aGVsbG8="));
+    call_err("frame.decode", &[encoded], &mut ctx);
 }

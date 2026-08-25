@@ -48,6 +48,42 @@ fn opcode_is_data() {
     assert!(!OpCode::Pong.is_data());
 }
 
+// ── Error ───────────────────────────────────────────────────────────
+
+#[test]
+fn error_display_and_source() {
+    assert_eq!(
+        format!("{}", Error::InvalidOpCode(0x0B)),
+        "invalid websocket opcode: 11"
+    );
+    assert_eq!(format!("{}", Error::InvalidPayloadLength), "invalid payload length");
+    assert_eq!(format!("{}", Error::Incomplete), "incomplete websocket frame");
+    assert_eq!(
+        format!("{}", Error::FragmentedControl),
+        "fragmented or oversized control frame"
+    );
+    assert_eq!(
+        format!("{}", Error::InvalidUtf8),
+        "invalid utf-8 in text frame"
+    );
+    assert_eq!(
+        format!("{}", Error::InvalidCloseFrame),
+        "invalid close frame payload"
+    );
+    assert_eq!(
+        format!("{}", Error::UnexpectedContinuation),
+        "unexpected continuation frame"
+    );
+    assert_eq!(
+        format!("{}", Error::ReservedBits),
+        "reserved bits are not supported"
+    );
+
+    let io = Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "boom"));
+    assert!(std::error::Error::source(&io).is_some());
+    assert!(std::error::Error::source(&Error::InvalidOpCode(0)).is_none());
+}
+
 // ── CloseCode / CloseFrame ──────────────────────────────────────────
 
 #[test]
