@@ -71,4 +71,14 @@ reference:
   include:
   - crate: handl-lib-utils
     reexports_from: set
+- title: URL (WHATWG)
+  slug: url-whatwg
+  description: WHATWG URL Standard parsing.
+  include:
+  - crate: handl-lib-url-whatwg
+- title: URL (RFC 3986)
+  slug: url-rfc
+  description: Strict RFC 3986 URI parsing.
+  include:
+  - crate: handl-lib-url-rfc
 
