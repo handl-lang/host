@@ -25,6 +25,7 @@ pub mod error;
 pub mod frame;
 pub mod mask;
 pub mod message;
+pub mod module;
 pub mod opcode;
 pub mod reassembler;
 
@@ -32,6 +33,7 @@ pub use close::{CloseCode, CloseFrame};
 pub use error::Error;
 pub use frame::Frame;
 pub use message::Message;
+pub use module::WebsocketModule;
 pub use opcode::OpCode;
 pub use reassembler::Reassembler;
 

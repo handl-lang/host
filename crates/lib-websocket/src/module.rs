@@ -484,7 +484,7 @@ impl Function<NonFunctionValue> for ServerStop {
 }
 
 #[derive(Clone, Copy)]
-struct FrameEncode;
+pub struct FrameEncode;
 
 impl Function<NonFunctionValue> for FrameEncode {
     fn call(
@@ -499,7 +499,7 @@ impl Function<NonFunctionValue> for FrameEncode {
 }
 
 #[derive(Clone, Copy)]
-struct FrameDecode;
+pub struct FrameDecode;
 
 impl Function<NonFunctionValue> for FrameDecode {
     fn call(
@@ -535,7 +535,7 @@ impl Function<NonFunctionValue> for FrameDecode {
 }
 
 #[derive(Clone, Copy)]
-struct MessageFromFrame;
+pub struct MessageFromFrame;
 
 impl Function<NonFunctionValue> for MessageFromFrame {
     fn call(
@@ -563,7 +563,7 @@ impl Function<NonFunctionValue> for MessageFromFrame {
 }
 
 #[derive(Clone, Copy)]
-struct MessageToFrame;
+pub struct MessageToFrame;
 
 impl Function<NonFunctionValue> for MessageToFrame {
     fn call(

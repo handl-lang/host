@@ -100,6 +100,7 @@ members = [
   "crates/plugin-typecheck-core",
   "crates/plugin-vm-rust",
   "crates/lib-websocket",
+  "crates/lib-websocket-std",
   "crates/lib-websocket-whatwg",
   "crates/lib-compress",
   "crates/lib-compress-gzip",
@@ -164,6 +165,9 @@ members = [
   "crates/plugin-fmt-trivia",
   "crates/plugin-fmt-statements",
   "crates/plugin-diag-expression",
+  "crates/plugin-lsp-completion",
+  "crates/plugin-lsp-goto",
+  "crates/plugin-lsp-symbols",
   "crates/tooling",
   "crates/host-lsp",
   "crates/loader",
@@ -191,6 +195,7 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-websocket = { path = "crates/lib-websocket" }
+handl-lib-websocket-std = { path = "crates/lib-websocket-std" }
 handl-lib-websocket-whatwg = { path = "crates/lib-websocket-whatwg" }
 handl-lib-ip = { path = "crates/lib-ip" }
 handl-lib-parse = { path = "crates/lib-parse" }
@@ -327,6 +332,9 @@ handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
 handl-plugin-fmt-statements = { path = "crates/plugin-fmt-statements" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
+handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
+handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
+handl-plugin-lsp-symbols = { path = "crates/plugin-lsp-symbols" }
 handl-tooling = { path = "crates/tooling" }
 handl-host-lsp = { path = "crates/host-lsp" }
 serde = "1"

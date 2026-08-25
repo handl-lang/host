@@ -109,6 +109,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "assert-json-diff"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e4f2b81832e72834d7518d8487a0396a28cc408186a2e8854c0f98011faf12"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -179,6 +189,12 @@ name = "bytecount"
 version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "175812e0be2bccb6abe50bb8d566126198344f707e304f45c648fd8f2cc0365e"
+
+[[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
@@ -313,7 +329,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
 dependencies = [
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -321,6 +337,15 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
+
+[[package]]
+name = "colored"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
+dependencies = [
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "core-foundation-sys"
@@ -495,6 +520,12 @@ dependencies = [
  "quote",
  "syn 3.0.3",
 ]
+
+[[package]]
+name = "downcast-rs"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
 name = "driver-lang"
@@ -683,6 +714,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
 
 [[package]]
+name = "futures-macro"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -701,6 +743,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-core",
+ "futures-macro",
+ "futures-sink",
  "futures-task",
  "pin-project-lite",
  "slab",
@@ -1045,7 +1089,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1058,7 +1102,7 @@ dependencies = [
  "handl-parser-canonical",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1107,7 +1151,7 @@ dependencies = [
  "handl-compiler-pass-resolve",
  "handl-compiler-pass-typecheck",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1126,7 +1170,7 @@ dependencies = [
  "handl-typegen-import",
  "handl-typegen-key-set-special",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1147,7 +1191,7 @@ dependencies = [
  "handl-typegen-import",
  "handl-typegen-key-set-special",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1164,7 +1208,7 @@ dependencies = [
  "handl-typegen-key-set-special",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1184,7 +1228,7 @@ dependencies = [
  "handl-typegen-import",
  "handl-typegen-key-set-special",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1208,7 +1252,7 @@ dependencies = [
  "handl-typegen-key-set-special",
  "rayon",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1301,7 +1345,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1312,7 +1356,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "toml",
 ]
 
@@ -1325,7 +1369,7 @@ dependencies = [
  "handl-vm-values-json",
  "serde_json",
  "serde_yaml",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1338,6 +1382,9 @@ dependencies = [
  "handl-platform",
  "handl-plugin-diag-expression",
  "handl-plugin-fmt-expression",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-symbols",
  "handl-tooling",
  "lsp-server",
  "lsp-types",
@@ -1428,7 +1475,7 @@ dependencies = [
 name = "handl-lexer"
 version = "0.1.0"
 dependencies = [
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1452,7 +1499,7 @@ name = "handl-lib-archive"
 version = "0.1.0"
 dependencies = [
  "handl-lib-archive-tar",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1466,7 +1513,7 @@ dependencies = [
  "handl-vm-values-json",
  "serde_json",
  "tar",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1500,7 +1547,7 @@ name = "handl-lib-compress"
 version = "0.1.0"
 dependencies = [
  "handl-lib-compress-gzip",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1514,7 +1561,7 @@ dependencies = [
  "handl-vm-common",
  "handl-vm-values-json",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1554,7 +1601,7 @@ name = "handl-lib-encoding"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1709,9 +1756,9 @@ dependencies = [
  "handl-vm-common",
  "handl-vm-values-json",
  "hex",
- "rand",
+ "rand 0.9.5",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1728,7 +1775,7 @@ name = "handl-lib-parse"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1742,7 +1789,7 @@ dependencies = [
  "handl-vm-common",
  "handl-vm-host-eval",
  "handl-vm-values-json",
- "rand",
+ "rand 0.9.5",
  "serde_json",
 ]
 
@@ -1751,7 +1798,7 @@ name = "handl-lib-serialize"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1771,7 +1818,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",
- "rand",
+ "rand 0.9.5",
  "serde_json",
 ]
 
@@ -1860,14 +1907,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-websocket-whatwg"
+name = "handl-lib-websocket-std"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "futures-util",
+ "handl-lib-websocket",
  "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "url",
+]
+
+[[package]]
+name = "handl-lib-websocket-whatwg"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "handl-vm",
+ "handl-vm-common",
+ "handl-vm-values-json",
+ "js-sys",
  "serde",
  "serde_json",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1908,6 +1975,8 @@ dependencies = [
  "handl-loader",
  "handl-platform",
  "serde_json",
+ "wasmi",
+ "wat",
 ]
 
 [[package]]
@@ -1916,7 +1985,9 @@ version = "0.1.0"
 dependencies = [
  "handl-loader",
  "handl-platform",
+ "mockito",
  "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -2025,7 +2096,7 @@ dependencies = [
  "handl-lexer",
  "handl-vm",
  "handl-vm-values-json",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2050,16 +2121,17 @@ dependencies = [
  "handl-ast-common",
  "handl-lexer",
  "proptest",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "toml",
 ]
 
@@ -2240,6 +2312,7 @@ dependencies = [
  "handl-plugin-operators",
  "handl-plugin-primary-identifiers",
  "handl-vm-values-json",
+ "serde_json",
 ]
 
 [[package]]
@@ -2309,6 +2382,40 @@ dependencies = [
  "handl-lexer",
  "handl-lexer-canonical",
  "handl-platform",
+]
+
+[[package]]
+name = "handl-plugin-lsp-completion"
+version = "0.1.0"
+dependencies = [
+ "handl-ast-canonical",
+ "handl-expr",
+ "handl-kit-canonical",
+ "handl-lexer-canonical",
+ "handl-platform",
+ "handl-tooling",
+]
+
+[[package]]
+name = "handl-plugin-lsp-goto"
+version = "0.1.0"
+dependencies = [
+ "handl-expr",
+ "handl-kit-canonical",
+ "handl-lexer-canonical",
+ "handl-platform",
+ "handl-tooling",
+]
+
+[[package]]
+name = "handl-plugin-lsp-symbols"
+version = "0.1.0"
+dependencies = [
+ "handl-expr",
+ "handl-kit-canonical",
+ "handl-lexer-canonical",
+ "handl-platform",
+ "handl-tooling",
 ]
 
 [[package]]
@@ -2438,9 +2545,11 @@ dependencies = [
  "handl-plugin-identifiers",
  "handl-plugin-keywords",
  "handl-plugin-numbers",
+ "handl-plugin-postfix-calls",
  "handl-plugin-primary-identifiers",
  "handl-plugin-primary-parens",
  "handl-plugin-primary-values",
+ "handl-plugin-strings",
  "handl-vm-values-json",
 ]
 
@@ -2473,6 +2582,7 @@ dependencies = [
  "handl-plugin-primary-identifiers",
  "handl-plugin-primary-values",
  "handl-vm-values-json",
+ "serde_json",
 ]
 
 [[package]]
@@ -2718,6 +2828,9 @@ dependencies = [
  "handl-plugin-fmt-expression",
  "handl-plugin-fmt-statements",
  "handl-plugin-fmt-trivia",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-symbols",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -2922,7 +3035,7 @@ dependencies = [
  "handl-lib-test",
  "handl-lib-unicode",
  "handl-lib-utils",
- "handl-lib-websocket",
+ "handl-lib-websocket-std",
  "handl-lib-websocket-whatwg",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
@@ -2942,7 +3055,7 @@ dependencies = [
 name = "handl-vm-type"
 version = "0.1.0"
 dependencies = [
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3583,6 +3696,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indexmap-nostd"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
+
+[[package]]
 name = "iri-string"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3702,6 +3821,12 @@ dependencies = [
  "num-traits",
  "serde_json",
 ]
+
+[[package]]
+name = "leb128fmt"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libc"
@@ -3888,6 +4013,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "mockito"
+version = "1.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90820618712cab19cfc46b274c6c22546a82affcb3c3bdf0f29e3db8e1bb92c0"
+dependencies = [
+ "assert-json-diff",
+ "bytes",
+ "colored",
+ "futures-core",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "log",
+ "pin-project-lite",
+ "rand 0.9.5",
+ "regex",
+ "serde_json",
+ "serde_urlencoded",
+ "similar",
+ "tokio",
+]
+
+[[package]]
 name = "native-plugin-example"
 version = "0.1.0"
 dependencies = [
@@ -4051,6 +4201,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4147,8 +4303,8 @@ dependencies = [
  "bit-vec",
  "bitflags 2.13.1",
  "num-traits",
- "rand",
- "rand_chacha",
+ "rand 0.9.5",
+ "rand_chacha 0.9.0",
  "rand_xorshift",
  "regex-syntax",
  "rusty-fork",
@@ -4185,12 +4341,33 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
+dependencies = [
+ "libc",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9ef1d0d795eb7d84685bca4f72f3649f064e6641543d3a8c415898726a57b41"
 dependencies = [
- "rand_chacha",
- "rand_core",
+ "rand_chacha 0.9.0",
+ "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -4200,7 +4377,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom 0.2.17",
 ]
 
 [[package]]
@@ -4218,7 +4404,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
- "rand_core",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -4428,6 +4614,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4491,6 +4683,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4501,6 +4705,17 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
+]
+
+[[package]]
+name = "sha1"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a978451301f4db1d02937a4ab3ccce137717b81826e79b7d49ffe3244a13c3b8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
 ]
 
 [[package]]
@@ -4527,6 +4742,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
 
 [[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4550,6 +4771,12 @@ dependencies = [
  "libc",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "spin"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
 
 [[package]]
 name = "stable_deref_trait"
@@ -4649,11 +4876,31 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+dependencies = [
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
 version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 2.0.20",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4697,6 +4944,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "socket2",
  "tokio-macros",
@@ -4712,6 +4960,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
 ]
 
 [[package]]
@@ -4795,6 +5055,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.8.8",
+ "sha1",
+ "thiserror 1.0.69",
+ "utf-8",
+]
+
+[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4825,6 +5103,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
+name = "unicode-width"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
+
+[[package]]
 name = "unsafe-libyaml"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4848,6 +5132,8 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "url",
  "webpki-roots 0.26.11",
 ]
@@ -4863,6 +5149,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf16_iter"
@@ -4996,6 +5288,89 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef64dbcc55df09c7e5a46182d181c2cfa3e925f3da937ea764728b4bbb9dcbf"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wasm-encoder"
+version = "0.258.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e974fe6821a8cf64575d51ea2194e2c8f77e7b66e9afe7419ce8a97f9ee0d251"
+dependencies = [
+ "leb128fmt",
+ "wasmparser",
+]
+
+[[package]]
+name = "wasmi"
+version = "0.31.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77a8281d1d660cdf54c76a3efa9ddd0c270cada1383a995db3ccb43d166456c7"
+dependencies = [
+ "smallvec",
+ "spin",
+ "wasmi_arena",
+ "wasmi_core",
+ "wasmparser-nostd",
+]
+
+[[package]]
+name = "wasmi_arena"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "104a7f73be44570cac297b3035d76b169d6599637631cf37a1703326a0727073"
+
+[[package]]
+name = "wasmi_core"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcf1a7db34bff95b85c261002720c00c3a6168256dcb93041d3fa2054d19856a"
+dependencies = [
+ "downcast-rs",
+ "libm",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.258.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9a61719f93a87b16d325921e251800c4833f8fab50fa21c7de73aed50086313"
+dependencies = [
+ "bitflags 2.13.1",
+ "indexmap",
+ "semver",
+]
+
+[[package]]
+name = "wasmparser-nostd"
+version = "0.100.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
+dependencies = [
+ "indexmap-nostd",
+]
+
+[[package]]
+name = "wast"
+version = "258.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97f7defc7ecca8b19ac7f824598eadd0c53985ee00c74060d65051e9da5b58a1"
+dependencies = [
+ "bumpalo",
+ "leb128fmt",
+ "memchr",
+ "unicode-width",
+ "wasm-encoder",
+]
+
+[[package]]
+name = "wat"
+version = "1.258.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7555c008cca87f2ac58d9f83ccda7e7b44611093ce28eb28f052e7c78024b9bf"
+dependencies = [
+ "wast",
 ]
 
 [[package]]
