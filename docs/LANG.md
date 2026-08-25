@@ -64,12 +64,12 @@ Values are JSON-compatible:
 | ------- | -------------------- |
 | null    | `null`               |
 | boolean | `true`, `false`      |
-| number  | `42`, `1.5`, `-3`    |
+| num     | `42`, `1.5`, `-3`    |
 | string  | `"hello"`, `'hello'` |
 | array   | `[1, 2, 3]`          |
 | object  | `{ "key": "value" }` |
 
-Numbers are IEEE 754 doubles (JSON `number`). There is no integer subtype — `42` and `42.0` are the same type.
+num values are IEEE 754 doubles (JSON `number`). There is no integer subtype — `42` and `42.0` are the same type.
 
 ## 4. Expression syntax
 
@@ -80,7 +80,7 @@ Expressions are used inside `${...}` interpolation, `expr:` computed fields, and
 | Literal | Syntax                 | Type    |
 | ------- | ---------------------- | ------- |
 | String  | `"hello"` or `'hello'` | string  |
-| Number  | `42`, `1.5`, `-3`      | number  |
+| num  | `42`, `1.5`, `-3`      | num     |
 | Boolean | `true`, `false`        | boolean |
 | Null    | `null`                 | null    |
 
@@ -313,7 +313,7 @@ Each function argument is evaluated independently:
 | Argument form              | Resolves to                          |
 | -------------------------- | ------------------------------------ |
 | `"literal"` or `'literal'` | String literal                       |
-| `123` or `1.5`             | Number literal                       |
+| `123` or `1.5`             | num literal                       |
 | `true` / `false`           | Boolean literal                      |
 | `null`                     | Null                                 |
 | `${...}`                   | Nested interpolation (recursive)     |
@@ -354,7 +354,7 @@ $:
 **Validation keywords** (non-exhaustive — see the JSON Schema spec for the full list):
 
 - **String**: `minLength`, `maxLength`, `pattern`
-- **Number**: `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`
+- **num**: `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`
 - **Array**: `items`, `prefixItems`, `minItems`, `maxItems`, `uniqueItems`, `contains`
 - **Object**: `required`, `properties`, `patternProperties`, `additionalProperties`, `minProperties`, `maxProperties`
 - **Combinators**: `allOf`, `anyOf`, `oneOf`, `not`
@@ -584,7 +584,7 @@ A `body:` expression is evaluated as follows:
 | Path lookup     | `doc.version`       | Namespace path                          |
 | Shorthand       | `x`                 | `doc.x` (param)                         |
 | String literal  | `"hello"`           | String                                  |
-| Number literal  | `42`                | Number                                  |
+| num literal  | `42`                | num                                  |
 | Boolean literal | `true`              | Boolean                                 |
 
 **Recursion safety:** A depth limit (64) prevents infinite self-reference.
@@ -723,7 +723,7 @@ The type system provides static type checking of handl documents before runtime 
 | Variant        | Meaning                                                                                   |
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `String`       | String type                                                                               |
-| `Number`       | Number type (includes integers — no integer subtyping yet)                                |
+| `num`       | num type (includes integers — no integer subtyping yet)                                |
 | `Boolean`      | Boolean type                                                                              |
 | `Null`         | Null type                                                                                 |
 | `Array(T)`     | Array with element type `T`                                                               |
@@ -831,11 +831,11 @@ Built-in traits (in the default registry):
 
 | Trait          | Implementing types             |
 | -------------- | ------------------------------ |
-| `Numeric`      | `Number`                       |
+| `Numeric`      | `num`                       |
 | `Textual`      | `String`                       |
 | `Boolean`      | `Boolean`                      |
 | `Nullable`     | `Null`                         |
-| `Comparable`   | `String`, `Number`, `Boolean`  |
+| `Comparable`   | `String`, `num`, `Boolean`  |
 | `Serializable` | All types (everything is JSON) |
 
 Hosts can register custom traits via `TraitRegistry::register`.
@@ -913,25 +913,25 @@ This represents `F<T>` — a type application of constructor `F` to argument `T`
 **Identity** — `identity<T>(x: T) -> T`:
 
 - `identity("hello")` → unifies `String` with `T` → `T = String` → returns `String`.
-- `identity(42)` → unifies `Number` with `T` → `T = Number` → returns `Number`.
+- `identity(42)` → unifies `num` with `T` → `T = num` → returns `num`.
 
 **Map** — `map<T, U>(arr: Array<T>, fn: (T) -> U) -> Array<U>`:
 
-- `map(strs, to_len)` where `strs: Array<String>` and `to_len: (String) -> Number`:
+- `map(strs, to_len)` where `strs: Array<String>` and `to_len: (String) -> num`:
   - Unify `Array<String>` with `Array<T>` → `T = String`.
-  - Unify `(String) -> Number` with `(T) -> U` → `T = String` (consistent), `U = Number`.
-  - Return type `Array<U>` → `Array<Number>`.
+  - Unify `(String) -> num` with `(T) -> U` → `T = String` (consistent), `U = num`.
+  - Return type `Array<U>` → `Array<num>`.
 
 **Consistency check** — `apply_fn<T>(x: T, f: (T) -> T) -> T`:
 
-- `apply_fn(str_val, num_fn)` where `str_val: String` and `num_fn: (Number) -> Number`:
+- `apply_fn(str_val, num_fn)` where `str_val: String` and `num_fn: (num) -> num`:
   - Unify `String` with `T` → `T = String`.
-  - Unify `(Number) -> Number` with `(T) -> T` → `T = Number` — **inconsistent** with `T = String`.
+  - Unify `(num) -> num` with `(T) -> T` → `T = num` — **inconsistent** with `T = String`.
   - Unification fails → returns `Unknown`.
 
 **Trait bounds** — `sum<T: Numeric>(a: T, b: T) -> T`:
 
-- `sum(1, 2)` → `T = Number` → `Numeric` bound satisfied → returns `Number`.
+- `sum(1, 2)` → `T = num` → `Numeric` bound satisfied → returns `num`.
 - `sum("a", "b")` → `T = String` → `Numeric` bound violated → returns `Unknown`.
 
 ### 9.7 Per-key type checking

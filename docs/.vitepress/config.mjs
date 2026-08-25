@@ -2,10 +2,11 @@ import { defineConfig } from "vitepress";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "handl",
-  description: "Documentation for handl",
+  title: "Handl",
+  description: "Documentation for Handl",
   // Existing docs reference ./DIALECT which is not present yet
   ignoreDeadLinks: true,
+  appearance: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -48,6 +49,10 @@ export default defineConfig({
       },
     ],
 
-    socialLinks: [{ icon: "github", link: "https://github.com/9aia/peregrin" }],
+    search: {
+      provider: "local",
+    },
+
+    socialLinks: [{ icon: "github", link: "https://github.com/handl-lang" }],
   },
 });

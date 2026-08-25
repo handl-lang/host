@@ -3,8 +3,8 @@
 layout: home
 
 hero:
-  name: "handl Lang"
-  text: "Documentation"
+  name: "Handl Language"
+  text: "Docs"
   tagline: Reference and guides for the handl language
   actions:
     - theme: brand
