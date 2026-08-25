@@ -3147,7 +3147,7 @@ str:
     params:
     - name: parts
       type: Array<String>
-      description: the `parts` Array<String> value
+      description: the `parts` `Array<String>` value
     - name: separator
       type: String
       description: the `separator` String value
@@ -3758,4 +3758,34 @@ type:
     return_value: Any
     see: []
     signature: 'type.type_of(value: Any)'
+url_whatwg:
+  parse:
+    description: Parse a URL using the WHATWG URL Standard.
+    details: Given `s`, `url_whatwg.parse` returns an object with the parsed URL
+      components. It normalizes invalid input the same way a browser does.
+    examples:
+    - 'url_whatwg.parse("https://example.com:8080/path?a=1#frag")'
+    - 'url_whatwg.parse("HTtpS://EXAMPLE.com/../a/../b")'
+    params:
+    - name: s
+      type: String
+      description: the `s` URL string
+    return_value: Object
+    see: []
+    signature: 'url_whatwg.parse(s: String)'
+url_rfc:
+  parse:
+    description: Parse a strict RFC 3986 URI.
+    details: Given `s`, `url_rfc.parse` returns an object with the URI components.
+      It rejects invalid percent-encoding, non-ASCII characters, and relative references.
+    examples:
+    - 'url_rfc.parse("https://example.com:8080/path?a=1#frag")'
+    - 'url_rfc.parse("https://example.com/%ZZ")'
+    params:
+    - name: s
+      type: String
+      description: the `s` URI string
+    return_value: Object
+    see: []
+    signature: 'url_rfc.parse(s: String)'
 
