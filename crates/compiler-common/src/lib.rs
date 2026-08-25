@@ -7,6 +7,10 @@
 //! Use `handl-compiler` for the pipeline abstractions and `handl-compiler-canonical`
 //! for the concrete compiler presets.
 
+pub use handl_compiler::error;
+pub use handl_compiler::pass;
+pub use handl_compiler::{CompilerError, Pass, PassHost};
+
 pub use handl_compiler_pass_extract::ExtractStage;
 pub use handl_compiler_pass_generate::{GenerateFromResolvedStage, GenerateStage};
 pub use handl_compiler_pass_parse::ParseStage;

@@ -4,7 +4,7 @@ use handl_module_resolver_core::ModuleResolver;
 use handl_module_resolver_virtual::VirtualResolver;
 use handl_vm::NonFunctionValue;
 use handl_vm_backend_rust_interpreter::{CanonicalContext, Context, Error, Vm};
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use serde_json::json;
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ fn val(v: impl Into<serde_json::Value>) -> NonFunctionValue {
 #[test]
 fn import_resolves_module_data() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -81,7 +81,7 @@ fn import_returns_cached_on_second_call() {
         resolve_count: resolve_count.clone(),
     };
 
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -101,7 +101,7 @@ fn import_returns_cached_on_second_call() {
 #[test]
 fn import_errors_on_missing_module() {
     let resolver = VirtualResolver::new();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -119,7 +119,7 @@ fn import_errors_on_missing_module() {
 #[test]
 fn import_errors_on_non_string_argument() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -136,7 +136,7 @@ fn import_errors_on_non_string_argument() {
 #[test]
 fn import_errors_on_no_arguments() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -158,7 +158,7 @@ fn import_errors_on_no_arguments() {
 #[test]
 fn inner_host_functions_still_work() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -171,7 +171,7 @@ fn inner_host_functions_still_work() {
 #[test]
 fn inner_host_functions_and_import_coexist() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 
@@ -201,7 +201,7 @@ fn import_with_base_path() {
         }),
     );
 
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver))
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver))
         .with_base_path(std::path::PathBuf::from("/some/dir"));
 
     let vm = Vm::new(host);
@@ -218,7 +218,7 @@ fn import_with_base_path() {
 #[test]
 fn import_empty_module() {
     let resolver = make_resolver();
-    let host = ResolverHost::new(CanonicalHost::default(), Box::new(resolver));
+    let host = ResolverHost::new(EvalHost::default(), Box::new(resolver));
     let vm = Vm::new(host);
     let mut ctx = CanonicalContext::new();
 

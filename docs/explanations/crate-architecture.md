@@ -1,5 +1,18 @@
 # Why the workspace has many small crates
 
+## Platform and capabilities
+
+The platform layer is now a first-class set of crates:
+
+```text
+handl-platform        — core contracts: Capability, Plugin, Host, Boundary, Kit, Extension
+handl-platform-tests  — shared platform test fixtures
+handl-capability-*    — default capability plugins (fmt, lint, typecheck, eval, compile, build, plugin, kit, extension)
+handl-capability-tests — integration tests for the capability system
+```
+
+`crates/cli-plugin` has been removed; its `PluginRegistry` and `CliPlugin` concepts moved into `handl-platform` and were generalized. The CLI now consumes `handl-platform` directly.
+
 The workspace has 40+ crates. This is deliberate. Each crate exists because it has a distinct dependency boundary, a distinct consumer, or a distinct compilation reason.
 
 ## The layering

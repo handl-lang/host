@@ -7,6 +7,9 @@ edition.workspace = true
 handl-vm-values-json.workspace = true
 handl-compiler.workspace = true
 handl-frontend.workspace = true
+handl-platform = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 handl-dialect-canonical.workspace = true

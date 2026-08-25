@@ -21,4 +21,4 @@ serde_json = "1"
 
 [dev-dependencies]
 handl-ast.workspace = true
-handl-vm-host-canonical.workspace = true
+handl-vm-host-eval.workspace = true

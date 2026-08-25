@@ -8,6 +8,9 @@ handl-compiler.workspace = true
 handl-fields.workspace = true
 handl-dialect.workspace = true
 handl-dialect-canonical.workspace = true
+handl-platform = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 handl-frontend.workspace = true

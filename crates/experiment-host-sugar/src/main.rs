@@ -11,7 +11,7 @@ use handl_dialect_canonical::AC_DIALECT;
 use handl_fields::{DEFAULT_NAMESPACE, build_doc_namespace, eval_expression};
 use handl_module_resolver_file::FileResolver;
 use handl_module_resolver_memory::MemoryModuleCache;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 
 fn main() {
     let yaml = r#"
@@ -55,7 +55,7 @@ n: 5
         Rc::new(Box::new(fr) as Box<dyn handl_module_resolver_core::ModuleResolver>),
         Rc::new(RefCell::new(HashMap::new())),
     );
-    let host = CompilerHost::new(CanonicalHost::default(), import, &ns);
+    let host = CompilerHost::new(EvalHost::default(), import, &ns);
 
     println!("\n--- expression ---\n");
 

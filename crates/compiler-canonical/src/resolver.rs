@@ -1,6 +1,6 @@
 //! VM-backed compiler host for field interpolation and computation.
 //!
-//! `CompilerHost` wraps [`handl_vm_host_canonical::CanonicalHost`] and adds `import()`
+//! `CompilerHost` wraps [`handl_vm_host_eval::EvalHost`] and adds `import()`
 //! resolution plus user-defined functions stored in the default namespace
 //! (`doc.<name>` or `doc.functions.<name>`).
 
@@ -14,7 +14,7 @@ use handl_dialect_canonical::AC_DIALECT;
 use handl_fields::{self, DEFAULT_NAMESPACE};
 use handl_module_resolver_core::{ModuleResolver, ResolvedModule};
 use handl_vm::{Context, Function, Host};
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::Error;
 use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
@@ -23,7 +23,7 @@ use serde_json::Value as JsonValue;
 /// behavior: `import()` resolution and user-defined data functions.
 #[derive(Clone)]
 pub struct CompilerHost {
-    default: CanonicalHost,
+    default: EvalHost,
     import: Import,
     data_functions: HashMap<String, DataFunction>,
 }
@@ -31,7 +31,7 @@ pub struct CompilerHost {
 impl CompilerHost {
     /// Creates a new host from a default host, import resolver, base path,
     /// and the current namespaces.
-    pub fn new(default: CanonicalHost, import: Import, namespaces: &handl_fields::Namespaces) -> Self {
+    pub fn new(default: EvalHost, import: Import, namespaces: &handl_fields::Namespaces) -> Self {
         let mut data_functions = HashMap::new();
         if let Some(doc) = namespaces.get(DEFAULT_NAMESPACE) {
             collect_data_functions("", doc, &mut data_functions);

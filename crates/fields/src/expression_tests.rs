@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_helpers::{CanonicalHost, MathHost};
+use crate::test_helpers::{EvalHost, MathHost};
 use crate::types::Namespaces;
 use handl_dialect_canonical::AC_DIALECT;
 use handl_vm_values_json::FunctionValue;
@@ -13,7 +13,7 @@ fn eval_body_user_defined() {
         "mul(x, 2)",
         &params,
         &ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert_eq!(result.unwrap().as_f64(), Some(10.0));
@@ -44,7 +44,7 @@ fn eval_body_with_doc_namespace() {
         "mul(x, doc.version)",
         &params,
         &ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert_eq!(result.unwrap().as_f64(), Some(6.0));
@@ -53,21 +53,21 @@ fn eval_body_with_doc_namespace() {
 #[test]
 fn eval_expression_open_paren_no_close() {
     let ns = Namespaces::new();
-    let result = eval_expression("(", &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = eval_expression("(", &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, None);
 }
 
 #[test]
 fn eval_expression_open_paren_only() {
     let ns = Namespaces::new();
-    let result = eval_expression("foo(", &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = eval_expression("foo(", &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, None);
 }
 
 #[test]
 fn eval_expression_unmatched_parens() {
     let ns = Namespaces::new();
-    let result = eval_expression("foo(bar", &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = eval_expression("foo(bar", &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, None);
 }
 
@@ -82,7 +82,7 @@ fn call_function_value_from_param() {
     };
     ns.insert("doc".to_string(), fn_val.to_json());
 
-    let resolver = CanonicalHost::default();
+    let resolver = EvalHost::default();
     let result = eval_expression("doc(5)", &ns, &resolver, &AC_DIALECT);
     assert_eq!(result.unwrap().as_f64(), Some(10.0));
 }
@@ -100,7 +100,7 @@ fn call_function_value_from_shorthand() {
     doc.insert("transform".to_string(), fn_val.to_json());
     ns.insert("doc".to_string(), serde_json::Value::Object(doc));
 
-    let resolver = CanonicalHost::default();
+    let resolver = EvalHost::default();
     let result = eval_expression("transform(4)", &ns, &resolver, &AC_DIALECT);
     assert_eq!(result.unwrap().as_f64(), Some(12.0));
 }
@@ -118,7 +118,7 @@ fn call_function_value_nested_in_body() {
     doc.insert("double".to_string(), double_fn.to_json());
     ns.insert("doc".to_string(), serde_json::Value::Object(doc));
 
-    let resolver = CanonicalHost::default();
+    let resolver = EvalHost::default();
     let result = eval_expression("mul(double(5), 3)", &ns, &resolver, &AC_DIALECT);
     assert_eq!(result.unwrap().as_f64(), Some(30.0));
 }

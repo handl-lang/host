@@ -423,11 +423,11 @@ use handl_vm::{Function, Host};
 use handl_vm_common::Module;
 
 #[cfg(test)]
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 
 #[cfg(test)]
 pub(crate) struct TestHost {
-    default: CanonicalHost,
+    default: EvalHost,
     math: crate::MathModule,
     str: crate::StrModule,
     array: crate::ArrayModule,
@@ -438,7 +438,7 @@ pub(crate) struct TestHost {
 impl Default for TestHost {
     fn default() -> Self {
         TestHost {
-            default: CanonicalHost::default(),
+            default: EvalHost::default(),
             math: crate::MathModule,
             str: crate::StrModule,
             array: crate::ArrayModule,

@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use handl_ast_canonical::Expr;
 use handl_dialect_canonical::AC_DIALECT;
 use handl_fields::{self, APPLY_FUNCTION, FunctionResolver, Namespaces};
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use handl_vm_backend_rust_interpreter::{CanonicalContext, Context, Error, Eval, Vm};
 
@@ -39,14 +39,14 @@ const MAX_CHAIN: usize = 128;
 /// stopped immediately. A fallback depth limit catches non-cyclic
 /// deep recursion.
 pub struct ExprEval {
-    host: CanonicalHost,
+    host: EvalHost,
     namespaces: Namespaces,
     depth: Cell<usize>,
     call_chain: RefCell<Vec<String>>}
 
 impl ExprEval {
     /// Creates a new evaluator with the given host and namespaces.
-    pub fn new(host: CanonicalHost, namespaces: Namespaces) -> Self {
+    pub fn new(host: EvalHost, namespaces: Namespaces) -> Self {
         ExprEval {
             host,
             namespaces,
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn cycle_detection_catches_direct_recursion() {
-        let host = CanonicalHost::default();
+        let host = EvalHost::default();
         let namespaces = HashMap::new();
         let eval = ExprEval::new(host, namespaces);
 
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn cycle_detection_catches_mutual_recursion() {
-        let host = CanonicalHost::default();
+        let host = EvalHost::default();
         let namespaces = HashMap::new();
         let eval = ExprEval::new(host, namespaces);
 
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn cycle_detection_allows_non_cyclic_calls() {
-        let host = CanonicalHost::default();
+        let host = EvalHost::default();
         let namespaces = HashMap::new();
         let eval = ExprEval::new(host, namespaces);
 
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn cycle_detection_allows_reentry_after_exit() {
-        let host = CanonicalHost::default();
+        let host = EvalHost::default();
         let namespaces = HashMap::new();
         let eval = ExprEval::new(host, namespaces);
 

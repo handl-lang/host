@@ -14,4 +14,4 @@ rand.workspace = true
 [dev-dependencies]
 handl-ast.workspace = true
 handl-ast-canonical.workspace = true
-handl-vm-host-canonical.workspace = true
+handl-vm-host-eval.workspace = true

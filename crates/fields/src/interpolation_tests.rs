@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_helpers::{CanonicalHost, MathHost};
+use crate::test_helpers::{EvalHost, MathHost};
 use crate::types::Namespaces;
 use handl_dialect_canonical::AC_DIALECT;
 
@@ -16,7 +16,7 @@ fn interpolate_basic() {
         "greeting": "hello, ${doc.name}!",
         "home": "${env.HOME}"
     });
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result["greeting"], "hello, alice!");
     assert_eq!(result["home"], "/home/alice");
 }
@@ -30,7 +30,7 @@ fn interpolate_nested() {
     );
 
     let value = serde_json::json!("${doc.author.email}");
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, "alice@example.com");
 }
 
@@ -38,7 +38,7 @@ fn interpolate_nested() {
 fn interpolate_unresolved() {
     let ns = Namespaces::new();
     let value = serde_json::json!("${unknown.key}");
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, "${unknown.key}");
 }
 
@@ -48,7 +48,7 @@ fn interpolate_shorthand() {
     ns.insert("doc".to_string(), serde_json::json!({"name": "alice"}));
 
     let value = serde_json::json!("${name}");
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, "alice");
 }
 
@@ -58,7 +58,7 @@ fn interpolate_function_call() {
     ns.insert("doc".to_string(), serde_json::json!({"version": 3}));
 
     let value = serde_json::json!("${add(1, 2)}");
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, 3.0);
 }
 
@@ -86,7 +86,7 @@ fn interpolate_function_preserves_type() {
     let ns = Namespaces::new();
 
     let value = serde_json::json!("${len(\"hello\")}");
-    let result = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+    let result = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result, 5);
     assert!(result.is_number());
 }
@@ -120,7 +120,7 @@ fn interpolate_scoped_inheritance() {
         &value,
         &ns,
         &inheritable,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
 
@@ -137,7 +137,7 @@ fn interpolate_scoped_empty_inheritable_matches_interpolate() {
 
     let value = serde_json::json!({"greeting": "hello, ${doc.name}!"});
     let result_scoped =
-        interpolate_scoped(&value, &ns, &[], &CanonicalHost::default(), &AC_DIALECT);
-    let result_plain = interpolate(&value, &ns, &CanonicalHost::default(), &AC_DIALECT);
+        interpolate_scoped(&value, &ns, &[], &EvalHost::default(), &AC_DIALECT);
+    let result_plain = interpolate(&value, &ns, &EvalHost::default(), &AC_DIALECT);
     assert_eq!(result_scoped, result_plain);
 }

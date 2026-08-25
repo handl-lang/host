@@ -17,27 +17,27 @@
 //!   inner host and caches results for registered functions.
 //!   Unregistered function lookups delegate to the inner host.
 //!
-//! ## Example: composition with `CanonicalHost`
+//! ## Example: composition with `EvalHost`
 //!
 //! ```ignore
-//! use handl_vm_host_canonical::CanonicalHost;
+//! use handl_vm_host_eval::EvalHost;
 //! use handl_vm_common::capabilities::cache::{CacheHost, CallCache};
 //!
-//! let mut host = CacheHost::new(CanonicalHost::default());
+//! let mut host = CacheHost::new(EvalHost::default());
 //! host.register("fetch", Box::new(FetchFunction)); // cached
-//! // add, mul, etc. delegate to CanonicalHost (uncached)
+//! // add, mul, etc. delegate to EvalHost (uncached)
 //! ```
 //!
 //! ## Example: server → client migration
 //!
 //! ```ignore
-//! use handl_vm_host_canonical::CanonicalHost;
+//! use handl_vm_host_eval::EvalHost;
 //! use handl_vm_common::capabilities::cache::{CacheHost, CallCache};
 //! use handl_vm_backend_rust_interpreter::{Vm, Context, EvalResult, Continuation};
 //! use handl_vm::NonFunctionValue;
 //!
-//! // Server: wrap CanonicalHost, register fetch for caching, evaluate
-//! let mut host = CacheHost::new(CanonicalHost::default());
+//! // Server: wrap EvalHost, register fetch for caching, evaluate
+//! let mut host = CacheHost::new(EvalHost::default());
 //! host.register("fetch", Box::new(FetchFunction)); // yields
 //! let vm = Vm::new(host);
 //! let result = vm.eval_resumable(&expr, &mut ctx, None);
@@ -52,7 +52,7 @@
 //!
 //! // Client: restore cache, resume
 //! let cache = CallCache::from_json(&received_cache_json);
-//! let mut host = CacheHost::with_cache(CanonicalHost::default(), cache);
+//! let mut host = CacheHost::with_cache(EvalHost::default(), cache);
 //! host.register("fetch", Box::new(ClientFetchFunction));
 //! let vm = Vm::new(host);
 //! let cont = Continuation::from_json(&received_cont_json).unwrap();

@@ -1,4 +1,4 @@
-# lib-template and lib-escaping
+# lib-template
 
 ## Status
 
@@ -6,132 +6,108 @@ Proposed
 
 ## Context
 
-ADR 0030 introduces `lib-lang` as the public façade for parsing and evaluating
-Handl code. With that in place, template rendering and output escaping can be
-pulled out of the language runtime and treated as ordinary consumers of the
-language API.
+String templating in the Handl platform needs to move from a monolithic runtime feature to a composable, language-agnostic engine. The current `lib-utils` `TemplateModule` bundles tokenization, expression evaluation, and HTML escaping into a single `template.render` implementation. This makes it hard to support different syntaxes, output contexts, or evaluation strategies without changing the whole module.
 
-Currently `lib-utils` contains `str.escape_html` and `str.escape_url`. These are
-context-sensitive operations (the correct escape rules depend on whether the
-output is HTML, a URL, JavaScript, CSS, etc.) and do not belong in a generic
-string utility module. They also cannot be safely extended in `lib-utils`
-because `lib-utils` is meant for pure string transforms with no knowledge of
-output context.
+We also already have a capable expression evaluation layer in `lib-lang` and the VM. The template engine should not duplicate or depend deeply on that layer; instead, it should be a coordinator that knows how to find code inside text and delegate the actual evaluation.
 
-Similarly, a template engine needs to:
-
-1. Parse a template string into literal and expression tokens.
-2. Evaluate embedded Handl expressions.
-3. Encode the results for the target output context.
-
-Only step 1 is the template engine's own concern. Steps 2 and 3 belong in
-`lib-lang` and `lib-escaping`, respectively. Putting all three in one crate would
-make `lib-template` depend on parser, evaluator, and HTML/URL details at once,
-coupling it to the full compiler and to every escaping context.
+Escaping is similarly a cross-cutting concern. The rules for HTML, URL, JS, CSS, SQL, etc. do not belong to the template engine. They belong in a separate escaping library that the engine can call.
 
 ## Decision
 
-`lib-template` and `lib-escaping` are separate crates. `lib-template` consumes
-`lib-lang` for expression evaluation and `lib-escaping` for output encoding. It
-does not own parsing, evaluation, or escaping.
+`lib-template` is a **pluggable template engine**.
 
-### `lib-escaping`
+It owns the pipeline for turning a template string into output text:
 
-`lib-escaping` is a context-aware escaping library. It owns the escape rules for
-every output context the platform supports, starting with HTML and URL and
-later adding JS, CSS, SQL, etc. It exposes a small, uniform API:
+1. **Tokenizer** — turns the source string into a sequence of tokens (`Text`, `OpenDelimiter`, `CloseDelimiter`, etc.).
+2. **Parser** — builds an AST from tokens (`TextNode`, `InterpolateNode`, `EvaluateNode`, `BlockNode`, `FilteredNode`, etc.).
+3. **Transformer passes** — optional AST-to-AST passes for optimization or user-defined rewriting.
+4. **Renderer** — walks the AST, evaluates embedded expressions through a `RenderContext`, applies escapers, and concatenates the final string.
 
-```rust
-// Concrete context functions
-escaping::html::escape("<script>") // → "&lt;script&gt;"
-escaping::url::escape("a=b&c=d")   // → "a%3Db%26c%3Dd"
+All language-specific, escaping, and syntax concerns are injected via traits and registries. The engine is not tied to Handl delimiters, the Handl evaluator, or any particular escaping context.
 
-// Generic interface for callers that choose a context at runtime
-escaping::escape(value, Context::Html)
-escaping::escape(value, Context::Url)
-```
+### Pluggable pieces
 
-The concrete module layout is `escaping::{html, url, js, css, ...}`. Each
-context is an independent module so callers can depend on only the contexts they
-need, while the top-level `escaping::Context` enum and `escaping::escape`
-dispatcher provide a uniform runtime interface.
+| Component | Injected via | Examples |
+|---|---|---|
+| Delimiter syntax | `Tokenizer` + `Vec<DelimiterRule>` | `<%= ... %>`, `{{ ... }}`, `${ ... }` |
+| Expression evaluation | `RenderContext` trait | `lib-lang`, VM, no-op, sandboxed |
+| Output escaping | `Escaper` registry | HTML, URL, JS, CSS, SQL, none |
+| Value transforms | `Filter` registry | `upper`, `slugify`, `json` |
+| Control flow | `Tag` registry | `if`, `for`, `with` |
 
-`lib-escaping` operates on strings. Callers that have `NonFunctionValue` values
-must coerce them to strings first; the `lib-template` renderer does this after
-evaluating an expression through `lib-lang`.
+### The `RenderContext` boundary
 
-### `lib-template`
-
-`lib-template` is a template renderer. It parses a template string and produces
-output by evaluating Handl expressions through `lib-lang` and escaping the
-results through `lib-escaping`.
+The renderer delegates every embedded expression to a `RenderContext`:
 
 ```rust
-template::render(
-    "Hello <%= name %>, safe: <%- html %>",
-    json!({"name": "Handl", "html": "<b>"}),
-    template::Options {
-        escape: escaping::Context::Html,
-        ..Default::default()
-    },
-)
-// → "Hello Handl, safe: &lt;b&gt;"
+pub trait RenderContext {
+    fn eval_expr(&self, expr: &str, scope: &[(String, Value)]) -> Result<Value, Error>;
+    fn eval_block(&self, tag: &str, args: &[Value], body: &str) -> Result<Option<String>, Error>;
+}
 ```
 
-`lib-template` recognizes three delimiter kinds:
+For the Handl runtime, a `HandlRenderContext` is provided. It parses and evaluates expressions through `lib-lang`. Other hosts can provide a different context without changing `lib-template`.
 
-- `<%= expr %>` — evaluate `expr` and insert the result.
-- `<%- expr %>` — evaluate `expr` and insert the HTML-escaped result (or the
-  result escaped by the configured `Options.escape` context).
-- `<% expr %>` — evaluate `expr` for side effects only, producing no output.
+### Why the engine does not evaluate expressions itself
 
-The default delimiters are `<%=`, `<%-`, and `<%` with `%>` as the close token.
-They can be customized through `Options.delimiters`.
+Embedded expressions are Handl expressions (or whatever language the host uses). The engine calls `RenderContext::eval_expr` for every `<%= ... %>` or `{{ ... }}` region. This keeps the engine language-agnostic and lets it use the same parser, evaluator, and sandbox as any other Handl code.
 
-### Why `lib-template` does not include `template.escape`
+### Why the engine does not escape values itself
 
-A standalone `template.escape` function is not needed. Escaping is a property of
-the output context, not the template engine. Callers use the concrete escaping
-modules (`escaping::html`, `escaping::url`) directly when they need to escape a
-value outside of a template. Inside a template, the renderer applies the
-configured `escaping::Context` automatically.
+Escaping rules depend on the output context (HTML, URL, JS, CSS, SQL, plain text). The engine applies an escaper selected by:
 
-### Why `lib-template` does not evaluate expressions itself
+- the delimiter (`<%- ... %>` selects the configured escape context),
+- an explicit `escape` option passed to `render`,
+- a filter that requests a specific escaper.
 
-Embedded expressions in a template are Handl expressions. `lib-template` calls
-`lib-lang` to parse and evaluate them. This keeps `lib-template` from
-reimplementing the parser or duplicating the canonical expression evaluator, and
-it ensures that the sandboxed VM (see ADR 0030) can be used for template
-evaluation just like any other Handl-in-Handl use case.
+The rules themselves live in `lib-escaping`, which is described in a separate ADR.
+
+### Public API
+
+At the Handl language surface:
+
+```ac
+template.render("Hello, <%= name %>!", {name: "handl"})
+template.render("Safe: <%- html %>", {html: "<script>"})
+template.render("Hi {{ name }}!", {name: "handl"}, {delimiters: {interpolate: ["{{", "}}"]}})
+let greet = template.compile("Hello, <%= name %>!")
+```
+
+At the Rust host surface:
+
+```rust
+let engine = Engine::builder()
+    .tokenizer(HandlTokenizer::default())
+    .evaluator(HandlRenderContext::new(&vm))
+    .escaper(EscaperRegistry::with(html, url))
+    .build();
+```
+
+### Crate boundaries
+
+- `lib-template-core` — tokenizer, parser, AST, renderer, and trait definitions.
+- `lib-template-stdlib` (optional) — built-in filters and tags such as `upper`, `if`, `for`.
+- `lib-template` — the pre-configured Handl-facing crate that `lib-utils` or the VM can use.
+- `lib-escaping` — escaping rules; addressed in a separate ADR.
 
 ## Consequences
 
 ### Positive
 
-- `lib-template` is a thin, focused crate: tokenization, renderer loop, and
-  delimiter configuration only.
-- `lib-escaping` can grow new contexts without touching `lib-template` or
-  `lib-utils`.
-- Escaping rules are centralized and cannot diverge between the template engine,
-  HTTP output, and other emitters.
-- `lib-lang` remains the single source of truth for parsing and evaluation.
-- The existing `str.escape_html` and `str.escape_url` functions can be
-  deprecated and moved to `escaping::html` and `escaping::url`.
+- `lib-template` is no longer a monolithic `render` function.
+- The same core can power Handl templates, email generators, code scaffolding, and other text-assembly use cases.
+- New delimiters, filters, tags, and escapers can be added without touching the engine internals.
+- The engine can be used with or without the Handl VM.
+- `lib-lang` remains the single source of truth for Handl expression evaluation.
 
 ### Trade-offs
 
-- `lib-template` must take a dependency on both `lib-lang` and `lib-escaping`.
-  This is the correct coupling: it needs both to do its job, but neither belongs
-  inside it.
-- Every escaping context is a separate module. This is more files than a single
-  `str.escape_*` function, but it prevents one context from leaking into another.
-- Callers must choose an escaping context explicitly. There is no default
-  "escape everything" behavior; the default for `template.render` is `Html` only
-  because that is the most common template use case, but it can be changed or
-  disabled.
+- The engine is larger than the current `TemplateModule` because it is now a pipeline of traits and registries.
+- Callers must choose an evaluator and escapers explicitly.
+- Control flow inside templates (`if`, `for`) is an extension, not a built-in language feature, which may require more design work.
 
 ## References
 
 - `adrs/0030-lib-lang.md`
-- `crates/lib-utils/src/str/transform.rs` (existing `escape_html` and
-  `escape_url`)
+- `crates/lib-utils/src/template/core.rs` (existing implementation)
+- `project/notes/format-template.md`

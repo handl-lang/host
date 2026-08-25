@@ -20,7 +20,7 @@ use handl_lib_http_server::{
     Handler, HttpMethod, HttpServer, HttpServerError, HttpServerRequest, HttpServerResponse,
 };
 use handl_vm_backend_rust_interpreter::CanonicalEval;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::{Error as VmError, Eval, FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
@@ -56,7 +56,7 @@ struct ServerState {
     runtime: Mutex<Option<ServerRuntime>>,
     local_addr: Mutex<Option<SocketAddr>>,
     config: ServerConfig,
-    eval: Arc<CanonicalEval<CanonicalHost>>,
+    eval: Arc<CanonicalEval<EvalHost>>,
 }
 
 impl Default for ServerState {
@@ -67,7 +67,7 @@ impl Default for ServerState {
             runtime: Mutex::new(None),
             local_addr: Mutex::new(None),
             config: ServerConfig::default(),
-            eval: Arc::new(CanonicalEval::new(CanonicalHost::default(), None, None)),
+            eval: Arc::new(CanonicalEval::new(EvalHost::default(), None, None)),
         }
     }
 }

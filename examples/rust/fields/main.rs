@@ -11,7 +11,8 @@ use std::path::PathBuf;
 use handl_dialect::Schema;
 use handl_dialect_canonical::AC_DIALECT;
 use handl_dialect_canonical::JsonSchema;
-use handl_vm::NonFunctionValue;
+use handl_vm_host_eval::EvalHost;
+use handl_vm_values_json::NonFunctionValue;
 
 fn main() {
     let yaml_path =
@@ -58,7 +59,7 @@ fn main() {
     let interpolated = handl_fields::interpolate(
         data.inner(),
         &namespaces,
-        &handl_fields::NoFunctions,
+        &EvalHost::default(),
         &handl_dialect_canonical::AC_DIALECT,
     );
     let data = NonFunctionValue::new(interpolated);

@@ -3,7 +3,7 @@
 //! A [`Host`] for running untrusted handl expressions in a sandbox.
 //!
 //! Provides only pure (side-effect-free) library modules plus the built-in
-//! [`CanonicalHost`] functions. No I/O, no side effects, no `import()`.
+//! [`EvalHost`] functions. No I/O, no side effects, no `import()`.
 //! Resource limits (scope depth, call count) are enforced via the
 //! [`Context`] returned by [`SandboxHost::new_context`].
 //!
@@ -63,7 +63,7 @@ use handl_lib_utils::{
 };
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::ModuleHost;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::{
     CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
 };
@@ -100,13 +100,13 @@ impl Default for SandboxLimits {
 
 /// A sandboxed host with only pure library modules and resource limits.
 ///
-/// Wraps [`CanonicalHost`] (built-in functions) and a [`ModuleHost`] pre-loaded
+/// Wraps [`EvalHost`] (built-in functions) and a [`ModuleHost`] pre-loaded
 /// with every pure library module. Function lookup checks built-ins first,
 /// then library modules. Use [`new_context`](Self::new_context) to obtain a
 /// [`Context`] with the configured [`SandboxLimits`] applied.
 #[derive(Clone)]
 pub struct SandboxHost {
-    default: CanonicalHost,
+    default: EvalHost,
     modules: ModuleHost,
     limits: SandboxLimits,
 }
@@ -131,7 +131,7 @@ impl SandboxHost {
             .with(KeyValueStoreModule::new(HashKeyValueStore::default()));
 
         SandboxHost {
-            default: CanonicalHost::default(),
+            default: EvalHost::default(),
             modules,
             limits,
         }

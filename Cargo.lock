@@ -541,7 +541,7 @@ dependencies = [
  "handl-module-resolver-file",
  "handl-module-resolver-memory",
  "handl-vm",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -825,7 +825,7 @@ dependencies = [
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
  "handl-vm-config",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -902,7 +902,7 @@ dependencies = [
  "handl-parser-canonical",
  "handl-platform",
  "handl-vm-backend-rust-interpreter",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1063,7 +1063,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-config",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-server",
  "handl-vm-values-json",
  "serde_json",
@@ -1237,7 +1237,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1307,7 +1307,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1373,7 +1373,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1404,7 +1404,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "hex",
  "md-5",
@@ -1422,7 +1422,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1482,7 +1482,7 @@ dependencies = [
  "bytes",
  "handl-lib-http-server",
  "handl-vm-backend-rust-interpreter",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "http-body-util",
  "hyper",
@@ -1504,7 +1504,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "icu",
  "icu_provider",
@@ -1611,7 +1611,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "rand",
  "serde_json",
@@ -1691,7 +1691,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1722,7 +1722,7 @@ dependencies = [
  "handl-dialect-canonical",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -2002,7 +2002,7 @@ version = "0.1.0"
 dependencies = [
  "handl-ast-canonical",
  "handl-vm-backend-rust-interpreter",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "indexmap",
 ]
@@ -2030,7 +2030,7 @@ dependencies = [
  "handl-module-resolver-virtual",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -2048,12 +2048,12 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
 ]
 
 [[package]]
-name = "handl-vm-host-canonical"
+name = "handl-vm-host-eval"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -2083,7 +2083,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
 ]
 
@@ -2108,7 +2108,7 @@ dependencies = [
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
- "handl-vm-host-canonical",
+ "handl-vm-host-eval",
  "handl-vm-values-json",
  "serde_json",
 ]

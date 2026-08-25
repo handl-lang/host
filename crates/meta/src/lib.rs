@@ -12,7 +12,7 @@
 //!
 //! ## Usage
 //!
-//! Use [`MetaHost`] as a drop-in replacement for [`CanonicalHost`] when
+//! Use [`MetaHost`] as a drop-in replacement for [`EvalHost`] when
 //! you want meta functions available in your handl expressions:
 //!
 //! ```ignore

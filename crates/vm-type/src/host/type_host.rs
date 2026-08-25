@@ -5,7 +5,7 @@ use handl_vm::{Function, Host};
 use handl_vm_values_json::NonFunctionValue;
 
 use handl_vm_common::ModuleHost;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 
 use super::functions::{
     AppArgsCompatible, FuncParamsCompatible, ObjEvery, PairSecond, TypeKind, TypeName, ZipAll,
@@ -16,7 +16,7 @@ use super::functions::{
 #[derive(Clone)]
 pub struct TypeHost {
     inner: ModuleHost,
-    default: CanonicalHost,
+    default: EvalHost,
 }
 
 impl TypeHost {
@@ -30,7 +30,7 @@ impl TypeHost {
             .with(TypeHelpersModule);
         TypeHost {
             inner,
-            default: CanonicalHost::default(),
+            default: EvalHost::default(),
         }
     }
 }

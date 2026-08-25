@@ -1,11 +1,13 @@
 use handl_vm::{Context, Function, Host};
 use handl_vm_common::Module;
-use handl_vm_host_canonical::CanonicalHost as BaseHost;
+use handl_vm_host_eval::EvalHost as BaseHost;
 use handl_vm_values_json::Error;
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value as JsonValue;
 
-/// A test host that mirrors the builtins no longer in `handl_vm_host_canonical::CanonicalHost`
+pub use BaseHost as EvalHost;
+
+/// A test host that mirrors the builtins no longer in `handl_vm_host_eval::EvalHost`
 /// by delegating arithmetic and string operations to `handl-lib-utils` modules.
 #[derive(Clone)]
 pub struct FieldsTestHost {

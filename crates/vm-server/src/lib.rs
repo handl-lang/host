@@ -36,7 +36,7 @@ use handl_lib_utils::{
 };
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::ModuleHost;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::{
     CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
 };
@@ -64,11 +64,11 @@ impl Default for ServerLimits {
 
 /// A host with effects: sandbox modules plus HTTP, OS, and random.
 ///
-/// Function lookup checks the built-in [`CanonicalHost`] first, then the
+/// Function lookup checks the built-in [`EvalHost`] first, then the
 /// module host (pure libs, HTTP, OS, random, KV, etc.).
 #[derive(Clone)]
 pub struct ServerHost {
-    default: CanonicalHost,
+    default: EvalHost,
     modules: ModuleHost,
     limits: ServerLimits,
 }
@@ -105,7 +105,7 @@ impl ServerHost {
             .with(std_otlp_module());
 
         ServerHost {
-            default: CanonicalHost::default(),
+            default: EvalHost::default(),
             modules,
             limits,
         }

@@ -8,32 +8,32 @@
 //! Run: `cargo run --example handlers`
 
 use handl_ast_canonical::{Expr, HandlerClause};
-use handl_vm::NonFunctionValue;
-use handl_vm_canonical::{
+use handl_vm_values_json::NonFunctionValue;
+use handl_vm_backend_rust_interpreter::{
     CanonicalContext, Context, Error, Function, Host, Operation, OperationSig, Vm,
 };
 
 // ── functions ─────────────────────────────────────────────────────
 
 struct Add;
-impl Function for Add {
+impl Function<NonFunctionValue> for Add {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let sum: f64 = args.iter().filter_map(|v| v.as_number()).sum();
         Ok(NonFunctionValue::new(sum))
     }
 }
 
 struct Concat;
-impl Function for Concat {
+impl Function<NonFunctionValue> for Concat {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let s: String = args
             .iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
@@ -47,19 +47,19 @@ impl Function for Concat {
 
 /// A fetch operation that always signals (yields to handler).
 struct FetchOp;
-impl Operation for FetchOp {
-    fn signature(&self) -> OperationSig {
+impl Operation<NonFunctionValue> for FetchOp {
+    fn signature(&self) -> OperationSig<NonFunctionValue> {
         OperationSig {
             name: "fetch".to_string(),
-            params: vec![("url".to_string(), serde_json::json!({"type": "string"}))],
-            return_schema: Some(serde_json::json!({"type": "string"})),
+            params: vec![("url".to_string(), NonFunctionValue::new(serde_json::json!({"type": "string"})))],
+            return_schema: Some(NonFunctionValue::new(serde_json::json!({"type": "string"}))),
         }
     }
     fn perform(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         Err(Error::Operation {
             name: "fetch".to_string(),
             args: args.to_vec(),
@@ -75,15 +75,15 @@ struct DemoHost {
     fetch: FetchOp,
 }
 
-impl Host for DemoHost {
-    fn function(&self, name: &str) -> Option<&dyn Function> {
+impl Host<NonFunctionValue> for DemoHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
             "concat" => Some(&self.concat),
             _ => None,
         }
     }
-    fn operation(&self, name: &str) -> Option<&dyn Operation> {
+    fn operation(&self, name: &str) -> Option<&dyn Operation<NonFunctionValue>> {
         match name {
             "fetch" => Some(&self.fetch),
             _ => None,

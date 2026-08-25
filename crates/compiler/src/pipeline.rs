@@ -1,293 +1,177 @@
-//! Pass trait and Pipeline builder.
+//! JSON-oriented, platform-integrated compiler pipeline.
 //!
-//! The pipeline is a sequence of [`Pass`]es that run in order, each
-//! receiving `&mut Compilation` and `&Config`. Passes are the extension
-//! point — custom passes (linting, optimization, JIT) can be added
-//! without modifying the core.
-//!
-//! Built-in pass implementations live in separate crates:
-//!
-//! - `handl-compiler-pass-parse` — `ParsePass`
-//! - `handl-compiler-pass-extract` — `ExtractPass`
-//! - `handl-compiler-pass-resolve` — `ResolvePass`
-//! - `handl-compiler-pass-typecheck` — `TypecheckPass`
-//! - `handl-compiler-pass-generate` — `GeneratePass`
-//!
-//! Presets (typegen, typecheck, full) are provided by `handl-compiler`,
-//! which depends on all pass crates. This crate stays pass-agnostic.
-//!
-//! ## Custom passes
-//!
-//! ```ignore
-//! struct LintPass;
-//! impl Pass for LintPass {
-//!     fn run(&self, compilation: &mut Compilation, config: &Config) -> Result<(), PassError> {
-//!         // read compilation.extracted, emit diagnostics
-//!         Ok(())
-//!     }
-//! }
-//!
-//! let pipeline = Pipeline::new(Config::default_cli())
-//!     .with_pass(ParsePass)
-//!     .with_pass(ExtractPass)
-//!     .with_pass(LintPass)      // custom — no core changes
-//!     .with_pass(TypecheckPass)
-//!     .with_pass(GeneratePass);
-//! ```
-//!
-//! ## Pass groups
-//!
-//! ```ignore
-//! let pipeline = Pipeline::new(config)
-//!     .with_pass(ParsePass)
-//!     .with_pass(ExtractPass)
-//!     .with_pass(PassGroup::new("optimization", vec![
-//!         Box::new(DeadFieldElimPass),
-//!         Box::new(ConstantFoldPass),
-//!     ]))
-//!     .with_pass(GeneratePass);
-//! ```
+//! `PipelineBuilder` collects [`Pass`] objects from a `handl-platform`
+//! `DefaultHost` for each compiler stage and assembles a `Pipeline` that
+//! runs them in order.
 
-use std::time::Instant;
+use std::sync::Arc;
 
-use crate::compilation::{Compilation, Source};
-use crate::config::Config;
-use crate::error::PassError;
-use crate::pass_meta::{PassCategory, PassMetadata};
+use serde_json::Value;
 
-/// A single pipeline stage.
-///
-/// Passes are stateless — all state lives in [`Compilation`].
-/// Config provides the pluggable components (resolver, interpreter, backend).
-pub trait Pass {
-    fn run(&self, compilation: &mut Compilation, config: &Config) -> Result<(), PassError>;
+use crate::{CompilerError, Pass, PassHost};
+use handl_platform::{
+    CapabilityId, CapabilityRequest, CapabilityResponse, DefaultHost, ExtensionRegistry, Host,
+    KitRegistry, Plugin, PluginContext, PluginRegistry,
+};
 
-    /// Whether this pass should run given the current compilation state.
-    ///
-    /// Default implementation always returns `true`. Override to skip
-    /// passes when their preconditions are not met (e.g., skip
-    /// `TypecheckPass` when no `expr` or `arg` keys exist).
-    fn should_run(&self, _compilation: &Compilation, _config: &Config) -> bool {
-        true
-    }
-
-    /// Metadata for diagnostics, ordering validation, and tooling.
-    fn metadata(&self) -> PassMetadata {
-        PassMetadata::default()
-    }
-}
-
-/// A group of passes that runs as a single pass.
-///
-/// Enables composition: "optimization phase" = 3 passes, used as one unit.
-/// Respects `stop_on_error` — if a sub-pass emits error diagnostics
-/// (via `Compilation::emit`) and the group is configured to stop, later
-/// sub-passes are skipped.
-pub struct PassGroup {
-    passes: Vec<Box<dyn Pass>>,
-    metadata: PassMetadata,
-    stop_on_error: bool}
-
-impl PassGroup {
-    pub fn new(name: &'static str, passes: Vec<Box<dyn Pass>>) -> Self {
-        PassGroup {
-            passes,
-            metadata: PassMetadata::new(name),
-            stop_on_error: true}
-    }
-
-    pub fn with_category(mut self, category: PassCategory) -> Self {
-        self.metadata = self.metadata.with_category(category);
-        self
-    }
-
-    /// Set whether this group stops on the first error diagnostic.
-    /// Default: `true`.
-    pub fn stop_on_error(mut self, stop: bool) -> Self {
-        self.stop_on_error = stop;
-        self
-    }
-}
-
-impl Pass for PassGroup {
-    fn run(&self, compilation: &mut Compilation, config: &Config) -> Result<(), PassError> {
-        for pass in &self.passes {
-            if pass.should_run(compilation, config) {
-                pass.run(compilation, config)?;
-                if self.stop_on_error && compilation.has_errors() {
-                    break;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn should_run(&self, compilation: &Compilation, config: &Config) -> bool {
-        self.passes
-            .iter()
-            .any(|p| p.should_run(compilation, config))
-    }
-
-    fn metadata(&self) -> PassMetadata {
-        self.metadata.clone()
-    }
-}
-
-/// A configured pipeline — holds config + ordered passes.
+/// A configured pipeline that runs five stages in order.
 pub struct Pipeline {
-    config: Config,
-    pub(crate) passes: Vec<Box<dyn Pass>>,
-    stop_on_error: bool,
-    auto_validate: bool,
-    instrumented: bool}
+    parse: PassHost,
+    extract: PassHost,
+    resolve: PassHost,
+    typecheck: PassHost,
+    generate: PassHost,
+}
 
 impl Pipeline {
-    pub fn new(config: Config) -> Self {
+    /// Run the five stage pass hosts in order.
+    pub fn run(&self, input: Value) -> Result<Value, CompilerError> {
+        let x = self.parse.run(input)?;
+        let x = self.extract.run(x)?;
+        let x = self.resolve.run(x)?;
+        let x = self.typecheck.run(x)?;
+        self.generate.run(x)
+    }
+}
+
+/// Builder that collects `Pass` objects from a `DefaultHost` and assembles
+/// a `Pipeline`.
+pub struct PipelineBuilder<'h> {
+    host: &'h DefaultHost,
+}
+
+impl<'h> PipelineBuilder<'h> {
+    /// Create a builder tied to the given host.
+    pub fn new(host: &'h DefaultHost) -> Self {
+        Self { host }
+    }
+
+    fn stage_host(&self, stage: &'static str) -> PassHost {
+        let mut host = PassHost::new();
+        let capability = CapabilityId::from(stage);
+        if let Some(plugin) = self.host.plugins().resolve(&capability) {
+            host.register(PlatformPass::new(plugin, capability));
+        }
+        host
+    }
+
+    /// Build the `Pipeline`.
+    pub fn build(self) -> Pipeline {
         Pipeline {
-            config,
-            passes: Vec::new(),
-            stop_on_error: true,
-            auto_validate: true,
-            instrumented: false}
-    }
-
-    /// Add a pass to the end of the pipeline.
-    pub fn with_pass<P: Pass + 'static>(mut self, pass: P) -> Self {
-        self.passes.push(Box::new(pass));
-        self
-    }
-
-    /// Insert a pass before the first existing pass whose metadata
-    /// name matches `target`. Returns an error if `target` is not found.
-    pub fn with_pass_before<P: Pass + 'static>(
-        mut self,
-        target: &str,
-        pass: P,
-    ) -> Result<Self, PassError> {
-        let pos = self
-            .passes
-            .iter()
-            .position(|p| p.metadata().name == target)
-            .ok_or_else(|| {
-                PassError::new(
-                    "pipeline",
-                    format!(
-                        "with_pass_before: target pass '{}' not found in pipeline",
-                        target
-                    ),
-                )
-            })?;
-        self.passes.insert(pos, Box::new(pass));
-        Ok(self)
-    }
-
-    /// Insert a pass after the first existing pass whose metadata
-    /// name matches `target`. Returns an error if `target` is not found.
-    pub fn with_pass_after<P: Pass + 'static>(
-        mut self,
-        target: &str,
-        pass: P,
-    ) -> Result<Self, PassError> {
-        let pos = self
-            .passes
-            .iter()
-            .position(|p| p.metadata().name == target)
-            .ok_or_else(|| {
-                PassError::new(
-                    "pipeline",
-                    format!(
-                        "with_pass_after: target pass '{}' not found in pipeline",
-                        target
-                    ),
-                )
-            })?;
-        self.passes.insert(pos + 1, Box::new(pass));
-        Ok(self)
-    }
-
-    /// Flatten another pipeline's passes into this one.
-    pub fn with_pipeline(mut self, other: Pipeline) -> Self {
-        self.passes.extend(other.passes);
-        self
-    }
-
-    /// Set whether the pipeline stops on the first error or collects
-    /// all diagnostics. Default: `true` (stop on error).
-    pub fn stop_on_error(mut self, stop: bool) -> Self {
-        self.stop_on_error = stop;
-        self
-    }
-
-    /// Enable or disable automatic pass ordering validation before
-    /// `run()`. Default: `true`. When enabled, `run()` returns an error
-    /// if pass ordering is invalid.
-    pub fn auto_validate(mut self, validate: bool) -> Self {
-        self.auto_validate = validate;
-        self
-    }
-
-    /// Enable per-pass timing instrumentation. When enabled, each pass's
-    /// duration is logged via `eprintln!`.
-    pub fn instrumented(mut self, on: bool) -> Self {
-        self.instrumented = on;
-        self
-    }
-
-    /// Validate pass ordering — checks that every consumed IR stage
-    /// is produced by an earlier pass.
-    pub fn validate(&self) -> Result<(), PassError> {
-        let mut produced: Vec<&str> = Vec::new();
-        for pass in &self.passes {
-            let meta = pass.metadata();
-            for consumed in meta.consumes {
-                if !produced.contains(consumed) {
-                    return Err(PassError::new(
-                        "pipeline",
-                        format!(
-                            "pass '{}' consumes '{}' which is not produced by an earlier pass",
-                            meta.name, consumed
-                        ),
-                    ));
-                }
-            }
-            for produces in meta.produces {
-                produced.push(produces);
-            }
+            parse: self.stage_host("parse"),
+            extract: self.stage_host("extract"),
+            resolve: self.stage_host("resolve"),
+            typecheck: self.stage_host("typecheck"),
+            generate: self.stage_host("generate"),
         }
-        Ok(())
+    }
+}
+
+/// A `Pass` adapter that invokes a platform `Plugin` for a single stage.
+struct PlatformPass {
+    plugin: Arc<dyn Plugin>,
+    capability: CapabilityId,
+}
+
+impl PlatformPass {
+    fn new(plugin: Arc<dyn Plugin>, capability: CapabilityId) -> Self {
+        Self { plugin, capability }
+    }
+}
+
+impl Pass for PlatformPass {
+    fn id(&self) -> &str {
+        self.capability.as_str()
     }
 
-    /// Run all passes in order, skipping any whose `should_run` returns false.
-    pub fn run(&self, source: Source) -> Result<Compilation, PassError> {
-        if self.auto_validate {
-            self.validate()?;
+    fn run(&self, input: Value) -> Result<Value, CompilerError> {
+        let request = CapabilityRequest {
+            capability: self.capability.clone(),
+            payload: input,
+        };
+        let mut plugins = PluginRegistry::new();
+        let mut kits = KitRegistry::new();
+        let mut extensions = ExtensionRegistry::new();
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+            extensions: &mut extensions,
+        };
+        match self.plugin.run(&request, &mut ctx) {
+            Ok(CapabilityResponse(output)) => Ok(output),
+            Err(e) => Err(CompilerError::PassFailed(e.to_string())),
         }
+    }
+}
 
-        let mut compilation = Compilation::new(source);
-        for pass in &self.passes {
-            if pass.should_run(&compilation, &self.config) {
-                let name = pass.metadata().name;
-                let start = if self.instrumented {
-                    Some(Instant::now())
-                } else {
-                    None
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::{InProcessPlugin, PluginContext};
+
+    fn stage_plugin(stage: &'static str) -> InProcessPlugin<impl Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, handl_platform::PlatformError>> {
+        InProcessPlugin::new(
+            stage,
+            &[stage.into()],
+            serde_json::json!({"command": stage, "description": "mock"}),
+            move |req, _ctx| {
+                let mut obj = match req.payload.clone() {
+                    Value::Object(m) => m,
+                    _ => serde_json::Map::new(),
                 };
+                obj.insert(stage.to_string(), Value::Bool(true));
+                Ok(CapabilityResponse(Value::Object(obj)))
+            },
+        )
+    }
 
-                pass.run(&mut compilation, &self.config)?;
+    #[test]
+    fn pipeline_runs_registered_stages_in_order() {
+        let mut host = DefaultHost::new();
+        host.register_plugin(stage_plugin("parse"));
+        host.register_plugin(stage_plugin("extract"));
+        host.register_plugin(stage_plugin("resolve"));
+        host.register_plugin(stage_plugin("typecheck"));
+        host.register_plugin(stage_plugin("generate"));
 
-                if let Some(start) = start {
-                    let elapsed = start.elapsed();
-                    if elapsed.as_millis() > 0 {
-                        eprintln!("[pipeline] pass '{}' took {:?}", name, elapsed);
-                    }
-                }
+        let pipeline = PipelineBuilder::new(&host).build();
+        let out = pipeline.run(serde_json::json!({})).unwrap();
 
-                if self.stop_on_error && compilation.has_errors() {
-                    break;
-                }
-            }
-        }
-        compilation.resolve_error_locations();
-        Ok(compilation)
+        assert!(out.get("parse").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("extract").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("resolve").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("typecheck").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("generate").and_then(|v| v.as_bool()).unwrap_or(false));
+    }
+
+    #[test]
+    fn missing_stage_is_pass_through() {
+        let mut host = DefaultHost::new();
+        host.register_plugin(stage_plugin("parse"));
+        host.register_plugin(stage_plugin("generate"));
+
+        let pipeline = PipelineBuilder::new(&host).build();
+        let out = pipeline.run(serde_json::json!({"start": true})).unwrap();
+
+        assert!(out.get("start").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("parse").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("generate").and_then(|v| v.as_bool()).unwrap_or(false));
+        assert!(out.get("extract").is_none());
+    }
+
+    #[test]
+    fn pipeline_error_propagates() {
+        let mut host = DefaultHost::new();
+        host.register_plugin(stage_plugin("parse"));
+        host.register_plugin(InProcessPlugin::new(
+            "extract",
+            &["extract".into()],
+            serde_json::json!({"command": "extract"}),
+            |_req, _ctx| Err(handl_platform::PlatformError::Plugin("fail".to_string())),
+        ));
+
+        let pipeline = PipelineBuilder::new(&host).build();
+        let err = pipeline.run(serde_json::json!({})).unwrap_err();
+        assert!(matches!(err, CompilerError::PassFailed(_)));
     }
 }

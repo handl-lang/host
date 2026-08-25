@@ -7,20 +7,20 @@
 //! Run: `cargo run --example resumable`
 
 use handl_ast_canonical::Expr;
-use handl_vm::NonFunctionValue;
-use handl_vm_canonical::{
+use handl_vm_values_json::NonFunctionValue;
+use handl_vm_backend_rust_interpreter::{
     CanonicalContext, Context, Error, EvalResult, Function, Host, Operation, OperationSig, Vm,
 };
 
 // ── functions ─────────────────────────────────────────────────────
 
 struct Add;
-impl Function for Add {
+impl Function<NonFunctionValue> for Add {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let sum: f64 = args.iter().filter_map(|v| v.as_number()).sum();
         Ok(NonFunctionValue::new(sum))
     }
@@ -29,19 +29,19 @@ impl Function for Add {
 // ── operations ────────────────────────────────────────────────────
 
 struct FetchOp;
-impl Operation for FetchOp {
-    fn signature(&self) -> OperationSig {
+impl Operation<NonFunctionValue> for FetchOp {
+    fn signature(&self) -> OperationSig<NonFunctionValue> {
         OperationSig {
             name: "fetch".to_string(),
-            params: vec![("url".to_string(), serde_json::json!({"type": "string"}))],
-            return_schema: Some(serde_json::json!({"type": "string"})),
+            params: vec![("url".to_string(), NonFunctionValue::new(serde_json::json!({"type": "string"})))],
+            return_schema: Some(NonFunctionValue::new(serde_json::json!({"type": "string"}))),
         }
     }
     fn perform(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         Err(Error::Operation {
             name: "fetch".to_string(),
             args: args.to_vec(),
@@ -51,8 +51,8 @@ impl Operation for FetchOp {
 
 /// A caching fetch — returns a cached value for known URLs.
 struct CachingFetch;
-impl Operation for CachingFetch {
-    fn signature(&self) -> OperationSig {
+impl Operation<NonFunctionValue> for CachingFetch {
+    fn signature(&self) -> OperationSig<NonFunctionValue> {
         OperationSig {
             name: "fetch".to_string(),
             params: vec![],
@@ -62,8 +62,8 @@ impl Operation for CachingFetch {
     fn perform(
         &self,
         _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         Ok(NonFunctionValue::new(42.0))
     }
 }
@@ -74,14 +74,14 @@ struct ServerHost {
     add: Add,
     fetch: FetchOp,
 }
-impl Host for ServerHost {
-    fn function(&self, name: &str) -> Option<&dyn Function> {
+impl Host<NonFunctionValue> for ServerHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
             _ => None,
         }
     }
-    fn operation(&self, name: &str) -> Option<&dyn Operation> {
+    fn operation(&self, name: &str) -> Option<&dyn Operation<NonFunctionValue>> {
         match name {
             "fetch" => Some(&self.fetch),
             _ => None,
@@ -101,14 +101,14 @@ struct ClientHost {
     add: Add,
     fetch: CachingFetch,
 }
-impl Host for ClientHost {
-    fn function(&self, name: &str) -> Option<&dyn Function> {
+impl Host<NonFunctionValue> for ClientHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
             _ => None,
         }
     }
-    fn operation(&self, name: &str) -> Option<&dyn Operation> {
+    fn operation(&self, name: &str) -> Option<&dyn Operation<NonFunctionValue>> {
         match name {
             "fetch" => Some(&self.fetch),
             _ => None,
@@ -167,7 +167,7 @@ fn main() {
     );
 
     // ── Client: resume evaluation ───────────────────────────────
-    let restored = handl_vm_canonical::Continuation::from_json(&cont_json).unwrap();
+    let restored = handl_vm_backend_rust_interpreter::Continuation::from_json(&cont_json).unwrap();
     let client_vm = Vm::new(ClientHost::default());
     let result = client_vm.eval_resumable(&expr, &mut ctx, Some(restored));
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_helpers::CanonicalHost;
+use crate::test_helpers::EvalHost;
 use crate::types::{ArgSpec, ComputedField, Namespaces};
 use handl_dialect_canonical::AC_DIALECT;
 
@@ -18,7 +18,7 @@ fn compute_fields_basic() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -40,7 +40,7 @@ fn compute_fields_path_lookup() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -62,7 +62,7 @@ fn compute_fields_chained() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -85,7 +85,7 @@ fn compute_fields_overrides_existing() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -107,7 +107,7 @@ fn compute_fields_unresolvable() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert_eq!(errors.len(), 1);
@@ -122,7 +122,7 @@ fn compute_fields_empty_is_noop() {
         &mut data,
         &[],
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -144,7 +144,7 @@ fn compute_fields_with_arg_string() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -167,7 +167,7 @@ fn compute_fields_with_arg_number() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -192,7 +192,7 @@ fn compute_fields_with_arg_object_path() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -217,7 +217,7 @@ fn compute_fields_with_arg_array_index() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -240,7 +240,7 @@ fn compute_fields_with_arg_typed_valid() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -263,7 +263,7 @@ fn compute_fields_with_arg_typed_invalid() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert_eq!(errors.len(), 1);
@@ -289,7 +289,7 @@ fn compute_fields_chained_with_stale_data() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -315,7 +315,7 @@ fn compute_fields_arg_without_declaration() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());
@@ -337,7 +337,7 @@ fn compute_fields_without_arg_backward_compat() {
         &mut data,
         &computed,
         &mut ns,
-        &CanonicalHost::default(),
+        &EvalHost::default(),
         &AC_DIALECT,
     );
     assert!(errors.is_empty());

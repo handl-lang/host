@@ -14,7 +14,7 @@ use serde_json::Value as JsonValue;
 /// - Nested calls: `${add(mul(2, 3), 4)}`
 ///
 /// Function calls are resolved via `host`. If no functions are needed,
-/// use `handl_vm_host_canonical::CanonicalHost`.
+/// use `handl_vm_host_eval::EvalHost`.
 pub fn interpolate<H: Host<NonFunctionValue> + Clone + 'static>(
     value: &JsonValue,
     namespaces: &Namespaces,

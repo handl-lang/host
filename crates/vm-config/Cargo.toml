@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-vm-values-json.workspace = true
-handl-vm-host-canonical.workspace = true
+handl-vm-host-eval.workspace = true
 handl-vm-common.workspace = true
 handl-vm.workspace = true
 handl-vm-backend-rust-interpreter.workspace = true

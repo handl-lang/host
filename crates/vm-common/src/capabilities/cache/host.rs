@@ -65,14 +65,14 @@ impl Function<NonFunctionValue> for CachedFunction {
 /// result before resuming (e.g. by calling
 /// [`cache_mut`](Self::cache_mut).`insert(...)`).
 ///
-/// # Example: composition with `CanonicalHost`
+/// # Example: composition with `EvalHost`
 ///
 /// ```ignore
-/// use handl_vm_host_canonical::CanonicalHost;
+/// use handl_vm_host_eval::EvalHost;
 /// use handl_vm_common::capabilities::cache::CacheHost;
 ///
-/// let host = CacheHost::new(CanonicalHost::default());
-/// // add, mul, etc. delegate to CanonicalHost (uncached)
+/// let host = CacheHost::new(EvalHost::default());
+/// // add, mul, etc. delegate to EvalHost (uncached)
 /// // register expensive functions for caching:
 /// // host.register("fetch", Box::new(FetchFunction));
 /// ```

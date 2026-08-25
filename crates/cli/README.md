@@ -1,6 +1,10 @@
 # `handl-cli`
 
-Command-line interface for the handl language. The `handl` binary evaluates, compiles, and type-checks handl programs.
+The `handl` binary is a thin, metadata-driven capability orchestrator. It does
+not hard-code any concrete command. Instead, it loads the default
+`handl_platform::DefaultHost`, reads `CapabilityMetadata` from the plugin
+registry, and dynamically builds `clap` subcommands from the `"command"`,
+`"description"`, and `"aliases"` fields of that metadata.
 
 ## Build
 
@@ -10,67 +14,37 @@ From the workspace root:
 cargo build -p handl-cli
 ```
 
-The binary is available as `target/debug/handl` (or `target/release/handl` with `--release`).
+The binary is available as `target/debug/handl`.
+
+## How it works
+
+1. `main.rs` creates a `DefaultHost` and registers all built-in capability
+   plugins (`fmt`, `lint`, `typecheck`, `eval`, `compile`, `build`,
+   `extension`, `kit`, `plugin`).
+2. `handl_cli::run` builds a root `clap::Command` from the host's
+   `plugins().capabilities()`.
+3. Each capability becomes a subcommand. Trailing positional arguments are
+   collected into a JSON payload `{"args": [...]}` and dispatched through the
+   host's `run` method.
+4. The plugin's `CapabilityResponse` is pretty-printed to `stdout`.
+
+Because command semantics live entirely in the capability plugins, adding a new
+capability only requires registering another plugin with appropriate metadata;
+the CLI binary does not need to change.
 
 ## Usage
 
 ```sh
-handl <COMMAND> [OPTIONS] [INPUT]...
+handl <COMMAND> [ARGS]...
 ```
 
-Input files are passed as positional arguments. If none are given, `stdin` is read once.
-
-## Commands
-
-| Command     | Purpose                                                 |
-| ----------- | ------------------------------------------------------- |
-| `eval`      | Evaluate one or more expressions and print the results. |
-| `compile`   | Compile a single handl expression to a target language. |
-| `typecheck` | Static type-check one or more `$:` declarations.        |
-
-Run `handl --help` or `handl <COMMAND> --help` for full option details.
-
-## Options
-
-### `eval`
-
-- `INPUT...` — Input files. Defaults to `stdin` if omitted.
-- `-f, --format <handl|toml>` — Input format. Defaults to `handl`.
-- `-o, --output <toml>` — Output format. Defaults to `toml`.
-- `-v, --vm <sandbox|server>` — VM host. Defaults to `sandbox`.
-
-### `compile`
-
-- `INPUT` — Input file. Defaults to `stdin` if omitted.
-- `-f, --format <handl>` — Input format. Defaults to `handl`.
-- `-o, --output <PATH>` — Output file. Writes to `stdout` if omitted.
-- `-t, --target <js>` — Target language. Currently only `js` is supported.
-
-### `typecheck`
-
-- `INPUT...` — Input files. Defaults to `stdin` if omitted.
-- `-f, --format <handl|toml>` — Input format. Defaults to `handl`.
-
-## Examples
+Examples:
 
 ```sh
-# Evaluate a single handl file
-handl eval program.handl
-
-# Evaluate multiple handl files
-handl eval file1.handl file2.handl
-
-# Evaluate a TOML file
-handl eval config.toml -f toml
-
-# Compile an handl expression to JavaScript
-handl compile program.handl -t js -o out.js
-
-# Static type-check an handl file
-handl typecheck program.handl
-
-# Static type-check multiple files
-handl typecheck file1.handl file2.handl
+handl fmt
+handl eval 42
+handl plugin add remote
+handl kit add core fmt lint
 ```
 
 ## Tests

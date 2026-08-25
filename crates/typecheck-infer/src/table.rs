@@ -34,7 +34,7 @@ pub struct HostFunctionSigs(pub Vec<RawFnSig>);
 impl HostFunctionSigs {
     /// Default host function signatures for the reference runtime.
     ///
-    /// These mirror `handl_vm_host_canonical::CanonicalHost` (currently `var` and
+    /// These mirror `handl_vm_host_eval::EvalHost` (currently `var` and
     /// `resolve`).
     /// Also includes generic signatures for higher-order array functions
     /// (`array.map`, `array.filter`, `array.reduce`) that are used by

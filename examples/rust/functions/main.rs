@@ -9,19 +9,19 @@
 use std::path::PathBuf;
 
 use handl_ast_canonical::Expr;
-use handl_vm::NonFunctionValue;
-use handl_vm_canonical::{CanonicalContext, Context, Error, Function, Host, Vm};
+use handl_vm_values_json::NonFunctionValue;
+use handl_vm_backend_rust_interpreter::{CanonicalContext, Context, Error, Function, Host, Vm};
 
 // ── functions ───────────────────────────────────────────────────
 
 struct Mul;
 
-impl Function for Mul {
+impl Function<NonFunctionValue> for Mul {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let a = args
             .first()
             .and_then(|v| v.as_number())
@@ -42,12 +42,12 @@ impl Function for Mul {
 
 struct Add;
 
-impl Function for Add {
+impl Function<NonFunctionValue> for Add {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        _ctx: &mut dyn Context,
-    ) -> Result<NonFunctionValue, Error> {
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let a = args
             .first()
             .and_then(|v| v.as_number())
@@ -73,8 +73,8 @@ struct MathHost {
     mul: Mul,
 }
 
-impl Host for MathHost {
-    fn function(&self, name: &str) -> Option<&dyn Function> {
+impl Host<NonFunctionValue> for MathHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
             "mul" => Some(&self.mul),

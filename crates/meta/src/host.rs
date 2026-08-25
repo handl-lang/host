@@ -1,12 +1,12 @@
 use handl_vm::{Function, Host};
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::NonFunctionValue;
 
 use crate::functions::{
     AstArgs, AstIsCall, AstName, AstToString, Eval, IsFunction, Keys, Parse, TypeOf,
 };
 
-/// A host that provides all [`CanonicalHost`] functions plus meta
+/// A host that provides all [`EvalHost`] functions plus meta
 /// functions for reflection, dynamic evaluation, and AST manipulation.
 ///
 /// Meta functions:
@@ -21,7 +21,7 @@ use crate::functions::{
 /// - `ast_is_call(ast)` → boolean
 #[derive(Clone)]
 pub struct MetaHost {
-    default: CanonicalHost,
+    default: EvalHost,
     type_of: TypeOf,
     keys: Keys,
     is_function: IsFunction,
@@ -36,7 +36,7 @@ pub struct MetaHost {
 impl Default for MetaHost {
     fn default() -> Self {
         MetaHost {
-            default: CanonicalHost::default(),
+            default: EvalHost::default(),
             type_of: TypeOf,
             keys: Keys,
             is_function: IsFunction,

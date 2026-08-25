@@ -15,17 +15,17 @@ use handl_typecheck_schema_json::JsonSchemaInterpreter;
 use handl_vm::NonFunctionValue;
 use handl_vm_backend_rust_interpreter::{CanonicalContext, Context, Error, Eval, Vm};
 use handl_vm_common::ModuleHost;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use serde_json::json;
 
 /// Minimal [`Eval`] implementation for integration tests.
 struct TestEval {
-    host: CanonicalHost,
+    host: EvalHost,
     namespaces: Namespaces,
 }
 
 impl TestEval {
-    fn new(host: CanonicalHost, namespaces: Namespaces) -> Self {
+    fn new(host: EvalHost, namespaces: Namespaces) -> Self {
         TestEval { host, namespaces }
     }
 }
@@ -459,7 +459,7 @@ fn e2e_vm_evaluates_generic_map_with_type_args() {
 
     // Set up eval callback for higher-order function body evaluation
     let eval = Box::new(TestEval::new(
-        handl_vm_host_canonical::CanonicalHost::default(),
+        handl_vm_host_eval::EvalHost::default(),
         handl_fields::Namespaces::new(),
     ));
     ctx.set_eval(eval);
@@ -506,7 +506,7 @@ fn e2e_vm_evaluates_generic_filter_with_type_args() {
     let mut ctx = handl_vm::CanonicalContext::new();
 
     let eval = Box::new(TestEval::new(
-        handl_vm_host_canonical::CanonicalHost::default(),
+        handl_vm_host_eval::EvalHost::default(),
         handl_fields::Namespaces::new(),
     ));
     ctx.set_eval(eval);
@@ -553,7 +553,7 @@ fn e2e_vm_evaluates_generic_reduce_with_type_args() {
     let mut ctx = handl_vm::CanonicalContext::new();
 
     let eval = Box::new(TestEval::new(
-        handl_vm_host_canonical::CanonicalHost::default(),
+        handl_vm_host_eval::EvalHost::default(),
         handl_fields::Namespaces::new(),
     ));
     ctx.set_eval(eval);
@@ -611,7 +611,7 @@ fn e2e_unknown_type_args_fall_back_gracefully() {
     let mut ctx = handl_vm::CanonicalContext::new();
 
     let eval = Box::new(TestEval::new(
-        handl_vm_host_canonical::CanonicalHost::default(),
+        handl_vm_host_eval::EvalHost::default(),
         handl_fields::Namespaces::new(),
     ));
     ctx.set_eval(eval);

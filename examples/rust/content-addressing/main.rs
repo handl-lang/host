@@ -7,7 +7,7 @@
 //! Run: `cargo run --example content-addressing`
 
 use handl_store::{DefinitionStore, EvalCache, NameRegistry};
-use handl_vm::FunctionValue;
+use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 
 fn main() {
     println!("=== Content Addressing Demo ===");
@@ -21,12 +21,14 @@ fn main() {
         params: vec![("x".to_string(), serde_json::json!({"type": "number"}))],
         return_schema: Some(serde_json::json!({"type": "number"})),
         body: "mul(x, 2)".to_string(),
+        patterns: vec![],
     };
 
     let increment = FunctionValue {
         params: vec![("x".to_string(), serde_json::json!({"type": "number"}))],
         return_schema: Some(serde_json::json!({"type": "number"})),
         body: "add(x, 1)".to_string(),
+        patterns: vec![],
     };
 
     // Store them — each gets a content-addressed hash
@@ -74,8 +76,8 @@ fn main() {
     // ── Eval cache ───────────────────────────────────────────────
     println!("\n[EvalCache] Caching evaluation results:");
     let mut eval_cache = EvalCache::new();
-    let args = vec![handl_vm::NonFunctionValue::new(21)];
-    eval_cache.insert(&double_hash, &args, handl_vm::NonFunctionValue::new(42.0));
+    let args = vec![NonFunctionValue::new(21)];
+    eval_cache.insert(&double_hash, &args, NonFunctionValue::new(42.0));
 
     let cached = eval_cache.get(&double_hash, &args).unwrap();
     println!("  double(21) → {} (cached)", cached.as_number().unwrap());

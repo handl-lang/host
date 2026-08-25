@@ -22,4 +22,4 @@ handl-typecheck-schema-json.workspace = true
 handl-dialect-canonical.workspace = true
 handl-compiler-canonical.workspace = true
 handl-fields.workspace = true
-handl-vm-host-canonical.workspace = true
+handl-vm-host-eval.workspace = true

@@ -20,7 +20,7 @@
 //! ## Example
 //!
 //! ```ignore
-//! use handl_vm_host_canonical::CanonicalHost;
+//! use handl_vm_host_eval::EvalHost;
 //! use handl_vm_common::capabilities::module::ResolverHost;
 //! use handl_module_resolver_virtual::VirtualResolver;
 //! use handl_vm_backend_rust_interpreter::{CanonicalContext, Vm, Context};
@@ -33,7 +33,7 @@
 //! }));
 //!
 //! let host = ResolverHost::new(
-//!     CanonicalHost::default(),
+//!     EvalHost::default(),
 //!     Box::new(resolver),
 //! );
 //! let vm = Vm::new(host);

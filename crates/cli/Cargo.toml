@@ -8,10 +8,15 @@ name = "handl"
 path = "src/main.rs"
 
 [dependencies]
-handl-cli-plugin.workspace = true
-handl-compiler-backend-js.workspace = true
-handl-compiler-canonical.workspace = true
-handl-lexer-canonical.workspace = true
-handl-parser.workspace = true
-handl-parser-canonical.workspace = true
+handl-platform.workspace = true
+handl-capability-fmt.workspace = true
+handl-capability-lint.workspace = true
+handl-capability-typecheck.workspace = true
+handl-capability-eval.workspace = true
+handl-capability-compile.workspace = true
+handl-capability-build.workspace = true
+handl-capability-extension.workspace = true
+handl-capability-kit.workspace = true
+handl-capability-plugin.workspace = true
 clap = { version = "4", features = ["derive"] }
+serde_json.workspace = true

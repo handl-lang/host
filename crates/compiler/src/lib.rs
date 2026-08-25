@@ -13,6 +13,9 @@
 mod config;
 mod diagnostic;
 pub mod driver;
+pub mod error;
+pub mod pass;
+pub mod pipeline;
 mod source;
 pub mod visitor;
 
@@ -23,5 +26,8 @@ pub use driver::{
     CheckedDoc, DriverDiagnostic, DriverError, DriverPipeline, DriverSeverity, ExtractedDoc,
     ParsedDoc, ResolvedDoc, Session, Stage, Then, TypecheckResult,
 };
+pub use error::CompilerError;
+pub use pass::{Pass, PassHost};
+pub use pipeline::{Pipeline, PipelineBuilder};
 pub use source::Source;
 pub use visitor::{Folder, Visitor, fold_expr, fold_field, walk_expr, walk_extracted, walk_field};

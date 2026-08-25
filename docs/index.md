@@ -19,6 +19,10 @@ features:
     details: Learn the syntax and semantics of handl Lang.
   - title: Runtime
     details: Understand the execution environment and runtime APIs.
+  - title: Platform
+    details: Read how capabilities, plugins, hosts, and boundaries compose.
+    link: /explanations/platform-architecture
+    linkText: Platform architecture
   - title: Examples
     details: See VitePress markdown and API examples.
 ---

@@ -19,7 +19,7 @@ fn main() {
         yaml_path.display()
     );
 
-    let report = handl_compiler::typecheck::run(&yaml_input, "yaml", None).unwrap();
+    let report = handl_compiler_canonical::typecheck::run(&yaml_input, "yaml", None).unwrap();
 
     if report.is_valid() {
         println!("No type errors — generic functions typechecked successfully.");

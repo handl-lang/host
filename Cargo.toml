@@ -63,7 +63,7 @@ members = [
   "crates/typecheck-import",
   "crates/typecheck-schema-json",
   "crates/frontend",
-  "crates/vm-host-canonical",
+  "crates/vm-host-eval",
   "crates/compiler-common",
   "crates/compiler-canonical",
   "crates/compiler-pass-parse",
@@ -167,7 +167,7 @@ handl-source = { path = "crates/source" }
 handl-fields = { path = "crates/fields" }
 handl-cli = { path = "crates/cli" }
 handl-frontend = { path = "crates/frontend" }
-handl-vm-host-canonical = { path = "crates/vm-host-canonical" }
+handl-vm-host-eval = { path = "crates/vm-host-eval" }
 handl-compiler-common = { path = "crates/compiler-common" }
 handl-compiler-canonical = { path = "crates/compiler-canonical" }
 handl-compiler-backend-js = { path = "crates/compiler-backend-js" }
@@ -275,7 +275,7 @@ default = [
 ]
 
 vm = ["handl-vm", "handl-vm-backend-rust-interpreter"]
-host = ["dep:handl-vm-host-canonical", "vm"]
+host = ["dep:handl-vm-host-eval", "vm"]
 json = ["dep:handl-frontend-json"]
 yaml = ["dep:handl-frontend-yaml"]
 toml = ["dep:handl-frontend-toml"]
@@ -337,7 +337,7 @@ handl-dialect-canonical = { workspace = true, optional = true }
 handl-vm-common = { workspace = true, optional = true }
 handl-vm = { workspace = true, optional = true }
 handl-vm-backend-rust-interpreter = { workspace = true, optional = true }
-handl-vm-host-canonical = { workspace = true, optional = true }
+handl-vm-host-eval = { workspace = true, optional = true }
 handl-frontend-json = { workspace = true, optional = true }
 handl-frontend-yaml = { workspace = true, optional = true }
 handl-frontend-toml = { workspace = true, optional = true }

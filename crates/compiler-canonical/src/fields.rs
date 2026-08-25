@@ -6,7 +6,7 @@ use std::rc::Rc;
 use handl_dialect::{Dialect, Schema};
 use handl_dialect_canonical::AC_DIALECT;
 use handl_fields;
-use handl_vm_host_canonical::CanonicalHost;
+use handl_vm_host_eval::EvalHost;
 use handl_vm_values_json::NonFunctionValue;
 
 use crate::resolver::{CompilerHost, Import};
@@ -76,7 +76,7 @@ impl Stage<Config> for FieldsStage {
         );
         namespaces.insert("env".to_string(), handl_fields::build_env_namespace());
 
-        let host = CanonicalHost::default();
+        let host = EvalHost::default();
         let file_resolver = handl_module_resolver_file::FileResolver::with_cache(
             handl_module_resolver_memory::MemoryModuleCache::new(),
         );

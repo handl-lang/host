@@ -513,7 +513,7 @@ fn round_trip_path() {
     assert_eq!(roundtrip.as_str(), Some(original));
 }
 
-// ── MetaHost delegates to CanonicalHost ───────────────────────
+// ── MetaHost delegates to EvalHost ───────────────────────
 
 #[test]
 fn meta_host_provides_default_functions() {
