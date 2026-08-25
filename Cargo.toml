@@ -12,7 +12,6 @@ members = [
   "crates/ast-common",
   "crates/vm-values-json",
   "crates/lib-utils",
-  "crates/lib-utils/bytes",
   "crates/lib-unicode",
   "crates/lib-ip",
   "crates/lib-collections",
@@ -71,7 +70,6 @@ members = [
   "crates/compiler-tests",
   "crates/bench",
   "crates/cli",
-  "crates/cli-plugin",
   "crates/experiment-host-sugar",
   "crates/meta",
   "crates/store",
@@ -98,6 +96,18 @@ members = [
   "crates/lib-toml",
   "crates/lib-yaml",
   "crates/handl-reference-gen",
+  "crates/platform",
+  "crates/platform-tests",
+  "crates/capability-fmt",
+  "crates/capability-lint",
+  "crates/capability-typecheck",
+  "crates/capability-eval",
+  "crates/capability-compile",
+  "crates/capability-build",
+  "crates/capability-extension",
+  "crates/capability-kit",
+  "crates/capability-plugin",
+  "crates/capability-tests",
 ]
 resolver = "3"
 
@@ -113,7 +123,6 @@ handl-ast-canonical = { path = "crates/ast-canonical" }
 handl-ast-common = { path = "crates/ast-common" }
 handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
-handl-lib-utils-bytes = { path = "crates/lib-utils/bytes" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-ip = { path = "crates/lib-ip" }
 handl-lib-collections = { path = "crates/lib-collections" }
@@ -148,7 +157,6 @@ handl-frontend-toml = { path = "crates/frontend-toml" }
 handl-source = { path = "crates/source" }
 handl-fields = { path = "crates/fields" }
 handl-cli = { path = "crates/cli" }
-handl-cli-plugin = { path = "crates/cli-plugin" }
 handl-frontend = { path = "crates/frontend" }
 handl-vm-host-canonical = { path = "crates/vm-host-canonical" }
 handl-compiler-common = { path = "crates/compiler-common" }
@@ -190,6 +198,20 @@ handl-lexer-common = { path = "crates/lexer-common" }
 handl-parser = { path = "crates/parser" }
 handl-parser-canonical = { path = "crates/parser-canonical" }
 handl-parser-common = { path = "crates/parser-common" }
+handl-platform = { path = "crates/platform" }
+handl-platform-tests = { path = "crates/platform-tests" }
+handl-capability-fmt = { path = "crates/capability-fmt" }
+handl-capability-lint = { path = "crates/capability-lint" }
+handl-capability-typecheck = { path = "crates/capability-typecheck" }
+handl-capability-eval = { path = "crates/capability-eval" }
+handl-capability-compile = { path = "crates/capability-compile" }
+handl-capability-build = { path = "crates/capability-build" }
+handl-capability-extension = { path = "crates/capability-extension" }
+handl-capability-kit = { path = "crates/capability-kit" }
+handl-capability-plugin = { path = "crates/capability-plugin" }
+handl-capability-tests = { path = "crates/capability-tests" }
+serde = "1"
+serde_json = "1"
 rand = "0.9"
 hex = "0.4"
 md-5 = "0.10"
@@ -294,9 +316,11 @@ codebase = ["dep:handl-codebase", "store"]
 [dependencies]
 handl-ast.workspace = true
 handl-ast-canonical.workspace = true
+handl-ast-common.workspace = true
 handl-dialect.workspace = true
 handl-vm-values-json.workspace = true
 handl-source.workspace = true
+handl-platform.workspace = true
 
 handl-dialect-canonical = { workspace = true, optional = true }
 handl-vm-common = { workspace = true, optional = true }

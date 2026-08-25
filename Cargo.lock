@@ -779,6 +779,7 @@ version = "0.1.0"
 dependencies = [
  "handl-ast",
  "handl-ast-canonical",
+ "handl-ast-common",
  "handl-codebase",
  "handl-compiler",
  "handl-compiler-canonical",
@@ -811,6 +812,7 @@ dependencies = [
  "handl-module-resolver-memory",
  "handl-module-resolver-noop",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-source",
  "handl-store",
  "handl-typecheck-core",
@@ -874,23 +876,116 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-capability-build"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-compile"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-eval"
+version = "0.1.0"
+dependencies = [
+ "handl-lexer-canonical",
+ "handl-parser",
+ "handl-parser-canonical",
+ "handl-platform",
+ "handl-vm-backend-rust-interpreter",
+ "handl-vm-host-canonical",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-extension"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-kit"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-lint"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-plugin"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-tests"
+version = "0.1.0"
+dependencies = [
+ "handl-capability-build",
+ "handl-capability-compile",
+ "handl-capability-eval",
+ "handl-capability-extension",
+ "handl-capability-fmt",
+ "handl-capability-kit",
+ "handl-capability-lint",
+ "handl-capability-plugin",
+ "handl-capability-typecheck",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-capability-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "handl-cli-plugin",
- "handl-compiler-backend-js",
- "handl-compiler-canonical",
- "handl-lexer-canonical",
- "handl-parser",
- "handl-parser-canonical",
-]
-
-[[package]]
-name = "handl-cli-plugin"
-version = "0.1.0"
-dependencies = [
- "toml",
+ "handl-capability-build",
+ "handl-capability-compile",
+ "handl-capability-eval",
+ "handl-capability-extension",
+ "handl-capability-fmt",
+ "handl-capability-kit",
+ "handl-capability-lint",
+ "handl-capability-plugin",
+ "handl-capability-typecheck",
+ "handl-platform",
+ "serde_json",
 ]
 
 [[package]]
@@ -914,12 +1009,14 @@ dependencies = [
  "handl-dialect",
  "handl-fields",
  "handl-module-resolver-core",
+ "handl-platform",
  "handl-source",
  "handl-typecheck-core",
  "handl-typegen-core",
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -980,6 +1077,8 @@ dependencies = [
  "handl-compiler-pass-parse",
  "handl-compiler-pass-resolve",
  "handl-compiler-pass-typecheck",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -993,9 +1092,12 @@ dependencies = [
  "handl-fields",
  "handl-frontend",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-typecheck-schema-json",
  "handl-typegen-import",
  "handl-typegen-key-set-special",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1009,12 +1111,14 @@ dependencies = [
  "handl-dialect-canonical",
  "handl-frontend",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-typecheck-schema-json",
  "handl-typegen-backend-json-schema",
  "handl-typegen-core",
  "handl-typegen-import",
  "handl-typegen-key-set-special",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1025,10 +1129,13 @@ dependencies = [
  "handl-dialect-canonical",
  "handl-frontend",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-typecheck-schema-json",
  "handl-typegen-import",
  "handl-typegen-key-set-special",
  "handl-vm-values-json",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1041,11 +1148,14 @@ dependencies = [
  "handl-dialect-canonical",
  "handl-frontend",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-typecheck-schema-json",
  "handl-typegen-backend-json-schema",
  "handl-typegen-core",
  "handl-typegen-import",
  "handl-typegen-key-set-special",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1058,6 +1168,7 @@ dependencies = [
  "handl-dialect-canonical",
  "handl-frontend",
  "handl-module-resolver-virtual",
+ "handl-platform",
  "handl-typecheck-core",
  "handl-typecheck-import",
  "handl-typecheck-infer",
@@ -1068,37 +1179,21 @@ dependencies = [
  "handl-typegen-key-set-special",
  "rayon",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
 name = "handl-compiler-tests"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-compiler",
- "handl-compiler-canonical",
+ "handl-compiler-common",
  "handl-compiler-pass-extract",
  "handl-compiler-pass-generate",
  "handl-compiler-pass-parse",
  "handl-compiler-pass-resolve",
  "handl-compiler-pass-typecheck",
- "handl-dialect",
- "handl-dialect-canonical",
- "handl-fields",
- "handl-frontend",
- "handl-frontend-json",
- "handl-frontend-toml",
- "handl-frontend-yaml",
- "handl-module-resolver-virtual",
- "handl-typecheck-core",
- "handl-typecheck-schema-json",
- "handl-typegen-backend-json-schema",
- "handl-typegen-import",
- "handl-typegen-key-set-special",
- "handl-vm",
- "handl-vm-host-canonical",
- "handl-vm-values-json",
- "pass-lang",
+ "handl-platform",
  "serde_json",
 ]
 
@@ -1531,22 +1626,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-utils-bytes"
-version = "0.1.0"
-dependencies = [
- "base64",
- "handl-ast",
- "handl-ast-canonical",
- "handl-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-canonical",
- "handl-vm-values-json",
- "hex",
- "serde_json",
-]
-
-[[package]]
 name = "handl-lib-websocket"
 version = "0.1.0"
 
@@ -1690,6 +1769,23 @@ dependencies = [
  "handl-lexer",
  "proptest",
  "thiserror",
+]
+
+[[package]]
+name = "handl-platform"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "handl-platform-tests"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
 ]
 
 [[package]]
@@ -1885,6 +1981,7 @@ dependencies = [
 name = "handl-vm-host-canonical"
 version = "0.1.0"
 dependencies = [
+ "handl-platform",
  "handl-vm",
  "handl-vm-values-json",
  "serde_json",
@@ -2982,12 +3079,6 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
-
-[[package]]
-name = "pass-lang"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8f333d4b341022d2247969db2139998851a49819ba066ba4b326c3e7f8d16c1"
 
 [[package]]
 name = "percent-encoding"

@@ -29,12 +29,6 @@ reference:
   include:
   - crate: handl-lib-utils
     reexports_from: type
-- title: Bytes
-  slug: bytes
-  description: Byte array utility functions.
-  include:
-  - crate: handl-lib-utils-bytes
-    reexports_from: bytes
 - title: Boolean
   slug: bool
   description: Boolean logic functions.
