@@ -15,7 +15,7 @@ impl Operators {
 }
 
 const OPERATORS: &[(&str, CanonicalKind)] = &[
-    ("||||", CanonicalKind::Parallel),
+    ("|||", CanonicalKind::Parallel),
     ("&&&", CanonicalKind::Fanout),
     (">>>", CanonicalKind::Flow),
     ("<<<", CanonicalKind::Compose),
@@ -60,7 +60,7 @@ mod tests {
         let mut p = ExpressionPipeline::new();
         p.register_token_rule(Box::new(Operators::new()));
 
-        let tokens = p.lex("|> <| >>> <<< &&& |||| .. ... ->").unwrap();
+        let tokens = p.lex("|> <| >>> <<< &&& ||| .. ... ->").unwrap();
         assert_eq!(tokens.len(), 9);
         assert_eq!(tokens[0].kind, CanonicalKind::Pipe);
         assert_eq!(tokens[1].kind, CanonicalKind::BackwardPipe);

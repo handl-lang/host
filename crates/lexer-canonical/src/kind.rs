@@ -104,7 +104,7 @@ pub enum CanonicalKind {
     /// Fanout — `&&&` (arrow combinator).
     Fanout,
 
-    /// Parallel / fanin — `||||` (arrow combinator).
+    /// Parallel / fanin — `|||` (arrow combinator).
     Parallel,
 
     /// Ternary / optional — `?`.
@@ -173,7 +173,7 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::Flow => write!(f, ">>>"),
             CanonicalKind::Compose => write!(f, "<<<"),
             CanonicalKind::Fanout => write!(f, "&&&"),
-            CanonicalKind::Parallel => write!(f, "||||"),
+            CanonicalKind::Parallel => write!(f, "|||"),
             CanonicalKind::Question => write!(f, "?"),
             CanonicalKind::Semicolon => write!(f, ";"),
             CanonicalKind::Range => write!(f, ".."),

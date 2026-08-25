@@ -98,13 +98,6 @@ impl OperatorRule {
                         return Some((start, end + 1, "<<<"));
                     }
                     ('|', '|', '|') => {
-                        // Match `||||` (four pipes) before `|||`.
-                        let mut four = peek.clone();
-                        four.next();
-                        if matches!(four.peek(), Some(&(_, '|'))) {
-                            let end = four.next().unwrap().0;
-                            return Some((start, end + 1, "||||"));
-                        }
                         let end = peek.next().unwrap().0;
                         return Some((start, end + 1, "|||"));
                     }
@@ -215,7 +208,7 @@ impl LexRule<CanonicalKind, DefaultLexError> for OperatorRule {
             ">>>" => CanonicalKind::Flow,
             "<<<" => CanonicalKind::Compose,
             "&&&" => CanonicalKind::Fanout,
-            "||||" => CanonicalKind::Parallel,
+            "|||" => CanonicalKind::Parallel,
             ".." => CanonicalKind::Range,
             "..." => CanonicalKind::Spread,
             _ => return None,
