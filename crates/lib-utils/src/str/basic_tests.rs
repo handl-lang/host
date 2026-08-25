@@ -428,35 +428,6 @@ fn equals_second_arg_non_string_errors() {
     assert!(matches!(result, Err(Error::TypeMismatch { .. })));
 }
 
-// ── bytes ───────────────────────────────────────────────────────────
-
-#[test]
-fn bytes_ascii() {
-    assert_eq!(call("bytes", &[s("hello")]).as_number(), Some(5.0));
-}
-
-#[test]
-fn bytes_empty() {
-    assert_eq!(call("bytes", &[s("")]).as_number(), Some(0.0));
-}
-
-#[test]
-fn bytes_unicode() {
-    assert_eq!(call("bytes", &[s("café")]).as_number(), Some(5.0));
-}
-
-#[test]
-fn bytes_no_args_errors() {
-    let result = call_err("bytes", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
-}
-
-#[test]
-fn bytes_non_string_errors() {
-    let result = call_err("bytes", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
-}
-
 // ── is_alpha ────────────────────────────────────────────────────────
 
 #[test]

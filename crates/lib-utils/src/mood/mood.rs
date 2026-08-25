@@ -33,13 +33,13 @@ fn type_name(value: &NonFunctionValue) -> &'static str {
     } else if value.is_bool() {
         "bool"
     } else if value.is_number() {
-        "number"
+        "num"
     } else if value.is_string() {
-        "string"
+        "str"
     } else if value.is_array() {
-        "array"
+        "arr"
     } else if value.is_object() {
-        "object"
+        "obj"
     } else {
         "unknown"
     }
@@ -48,12 +48,14 @@ fn type_name(value: &NonFunctionValue) -> &'static str {
 fn matches(value: &NonFunctionValue, kind: &str) -> bool {
     if let Some(rest) = kind.strip_prefix("type.") {
         match rest {
+            "any" | "unknown" => true,
+            "never" => false,
             "null" => value.is_null(),
-            "bool" => value.is_bool(),
-            "number" => value.is_number(),
-            "string" => value.is_string(),
-            "array" => value.is_array(),
-            "object" => value.is_object(),
+            "bool" | "boolean" | "bin" => value.is_bool(),
+            "num" | "number" => value.is_number(),
+            "str" | "string" => value.is_string(),
+            "arr" | "array" => value.is_array(),
+            "obj" | "object" => value.is_object(),
             _ => false,
         }
     } else if let Some(rest) = kind.strip_prefix("field.") {

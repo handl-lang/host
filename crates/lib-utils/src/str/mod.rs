@@ -6,8 +6,8 @@ mod search;
 mod transform;
 
 pub use basic::{
-    Bytes, Concat, Equals, IsAlpha, IsAlphanumeric, IsEmpty, IsNumeric, Length, Lower, Reverse,
-    Trim, TrimEnd, TrimMatches, TrimStart, Upper,
+    Concat, Equals, IsAlpha, IsAlphanumeric, IsEmpty, IsNumeric, Length, Lower, Reverse, Trim,
+    TrimEnd, TrimMatches, TrimStart, Upper,
 };
 pub use case::{CamelCase, Capitalize, KebabCase, PascalCase, SnakeCase, TitleCase};
 pub use search::{Contains, Count, EndsWith, Find, Levenshtein, RFind, Similarity, StartsWith};
@@ -45,7 +45,6 @@ impl Module for StrModule {
             "concat" => Some(&Concat),
             "is_empty" => Some(&IsEmpty),
             "equals" => Some(&Equals),
-            "bytes" => Some(&Bytes),
             "is_alpha" => Some(&IsAlpha),
             "is_numeric" => Some(&IsNumeric),
             "is_alphanumeric" => Some(&IsAlphanumeric),

@@ -172,7 +172,7 @@ fn type_of_null() {
 fn type_of_bool() {
     assert_eq!(
         call(&TypeModule, "type_of", &[b(true)]).as_str(),
-        Some("boolean")
+        Some("bool")
     );
 }
 
@@ -180,7 +180,7 @@ fn type_of_bool() {
 fn type_of_number() {
     assert_eq!(
         call(&TypeModule, "type_of", &[n(42.0)]).as_str(),
-        Some("number")
+        Some("num")
     );
 }
 
@@ -188,7 +188,7 @@ fn type_of_number() {
 fn type_of_string() {
     assert_eq!(
         call(&TypeModule, "type_of", &[s("hi")]).as_str(),
-        Some("string")
+        Some("str")
     );
 }
 
@@ -196,7 +196,7 @@ fn type_of_string() {
 fn type_of_array() {
     assert_eq!(
         call(&TypeModule, "type_of", &[arr(&[])]).as_str(),
-        Some("array")
+        Some("arr")
     );
 }
 
@@ -204,7 +204,7 @@ fn type_of_array() {
 fn type_of_object() {
     assert_eq!(
         call(&TypeModule, "type_of", &[obj(&[])]).as_str(),
-        Some("object")
+        Some("obj")
     );
 }
 
@@ -476,7 +476,7 @@ fn vm_is_null_true() {
 fn vm_type_of_number() {
     let expr = Expr::call("type.type_of", vec![Expr::value(n(42.0))]);
     let result = eval_expr(&expr);
-    assert_eq!(result.as_str(), Some("number"));
+    assert_eq!(result.as_str(), Some("num"));
 }
 
 #[test]

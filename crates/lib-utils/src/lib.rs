@@ -27,7 +27,6 @@
 //! - [`ArrayModule`] — `array.length`, `array.reverse`, `array.concat`,
 //!   `array.contains`, `array.index_of`, `array.slice`, `array.first`,
 //!   `array.last`, `array.sort`, `array.flatten`, `array.deep_flatten`,
-//!   `array.sum`, `array.avg`, `array.min`, `array.max`,
 //!   `array.at`, `array.push`, `array.pop`, `array.shift`, `array.fill`,
 //!   `array.take`, `array.drop`, `array.take_while`, `array.drop_while`,
 //!   `array.enumerate`, `array.unzip`, `array.scan`, `array.foldr`,
@@ -57,9 +56,9 @@
 //!   `obj.invert`, `obj.path_or`, `obj.set_path`, `obj.update_path`,
 //!   `obj.size`, `obj.clone_deep`
 //! - [`FnModule`] — `fn.pipe`, `fn.flow`, `fn.compose`, `fn.fanout`,
-//!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.tap`,
-//!   `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`, `fn.unless`,
-//!   `fn.converge`
+//!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.reduce`,
+//!   `fn.tap`, `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`,
+//!   `fn.unless`, `fn.converge`
 //! - [`TypeModule`] — `type.to_string`, `type.to_number`, `type.to_bool`,
 //!   `type.is_null`, `type.is_bool`, `type.is_number`, `type.is_string`,
 //!   `type.is_array`, `type.is_object`, `type.type_of`, `type.is_empty`,

@@ -3,7 +3,6 @@ mod helpers;
 mod higher_order;
 mod iteration;
 mod module;
-mod numeric_aggregates;
 
 pub use module::ArrayModule;
 
@@ -15,7 +14,5 @@ mod basic_operations_tests;
 mod higher_order_tests;
 #[cfg(test)]
 mod iteration_tests;
-#[cfg(test)]
-mod numeric_aggregates_tests;
 #[cfg(test)]
 mod test_helpers;

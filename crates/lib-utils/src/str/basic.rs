@@ -86,19 +86,6 @@ impl Function<NonFunctionValue> for TrimMatches {
 }
 
 #[derive(Clone, Copy)]
-pub struct Bytes;
-impl Function<NonFunctionValue> for Bytes {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let input = require_one_string(args)?;
-        Ok(num(input.len() as f64))
-    }
-}
-
-#[derive(Clone, Copy)]
 pub struct IsAlpha;
 impl Function<NonFunctionValue> for IsAlpha {
     fn call(

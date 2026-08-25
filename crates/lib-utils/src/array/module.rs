@@ -15,7 +15,6 @@ use super::iteration::{
     Dedupe, Drop, DropWhile, Enumerate, FindIndex, FindLast, FindLastIndex, Foldr, InsertAt,
     Intercalate, Intersperse, Prepend, RemoveAt, Scan, Take, TakeWhile, Transpose, Unzip, Windows,
 };
-use super::numeric_aggregates::{Avg, Max, Mean, Median, Min, Product, Stddev, Sum};
 
 /// The `array` module — array utility functions.
 ///
@@ -48,15 +47,6 @@ impl Module for ArrayModule {
             "fill" => Some(&Fill),
             "pop" => Some(&Pop),
             "shift" => Some(&Shift),
-            // numeric_aggregates
-            "sum" => Some(&Sum),
-            "avg" => Some(&Avg),
-            "min" => Some(&Min),
-            "max" => Some(&Max),
-            "product" => Some(&Product),
-            "mean" => Some(&Mean),
-            "median" => Some(&Median),
-            "stddev" => Some(&Stddev),
             // iteration
             "take" => Some(&Take),
             "drop" => Some(&Drop),

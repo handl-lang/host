@@ -54,15 +54,15 @@ impl Function<NonFunctionValue> for TypeOf {
         let type_name = if arg.is_null() {
             "null"
         } else if arg.is_bool() {
-            "boolean"
+            "bool"
         } else if arg.is_number() {
-            "number"
+            "num"
         } else if arg.is_string() {
-            "string"
+            "str"
         } else if arg.is_array() {
-            "array"
+            "arr"
         } else if arg.is_object() {
-            "object"
+            "obj"
         } else {
             "unknown"
         };

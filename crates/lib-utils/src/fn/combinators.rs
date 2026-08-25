@@ -6,8 +6,8 @@ use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
 use crate::shared::{
-    apply_fn, apply_fn2, arr, bind_function_params, is_truthy_fn, require_array,
-    require_function_value, require_functions,
+    apply_fn, apply_fn2, arr, bind_function_params, filter_iter, fold_iter, is_truthy_fn, map_iter,
+    require_array, require_function_and_array, require_function_value, require_functions,
 };
 
 fn substitute_param(body: &str, param: &str, replacement: &str) -> String {
@@ -234,6 +234,62 @@ impl Function<NonFunctionValue> for Apply {
         let call_args = require_array(&args[1])?;
         let vars = bind_function_params(&fn_val, call_args)?;
         Ok(ctx.eval_expr(&fn_val.body, &vars)?)
+    }
+}
+
+// ── map ────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy)]
+pub struct Map;
+impl Function<NonFunctionValue> for Map {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        let (fn_val, array) = require_function_and_array(args)?;
+        let results = map_iter(ctx, &fn_val, array.iter())?;
+        Ok(arr(&results))
+    }
+}
+
+// ── filter ─────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy)]
+pub struct Filter;
+impl Function<NonFunctionValue> for Filter {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        let (fn_val, array) = require_function_and_array(args)?;
+        let results = filter_iter(ctx, &fn_val, array.iter())?;
+        Ok(arr(&results))
+    }
+}
+
+// ── reduce ─────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy)]
+pub struct Reduce;
+impl Function<NonFunctionValue> for Reduce {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        if args.len() < 3 {
+            return Err(Error::ArgumentCount {
+                expected: 3,
+                got: args.len(),
+            });
+        }
+        let fn_val = require_function_value(&args[0])?;
+        let array = require_array(&args[1])?;
+        let init = args[2].inner().clone();
+        let result = fold_iter(ctx, &fn_val, array.iter(), init)?;
+        Ok(NonFunctionValue::new(result))
     }
 }
 

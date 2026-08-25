@@ -42,6 +42,7 @@ impl Module for TypeModule {
             "is_array" => Some(&IsArray),
             "is_object" => Some(&IsObject),
             "type_of" => Some(&TypeOf),
+            "typeof" => Some(&TypeOf),
             "is_empty" => Some(&IsEmpty),
             "is_truthy" => Some(&IsTruthy),
             // utilities

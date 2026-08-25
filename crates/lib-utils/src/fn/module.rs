@@ -3,14 +3,14 @@ use handl_vm_common::Module;
 use handl_vm_values_json::NonFunctionValue;
 
 use crate::r#fn::combinators::{
-    Apply, Choice, Compose, Constantly, Converge, Fanout, Flip, Flow, IfLazy, Match, Partial, Pipe,
-    Tap, Unless, When,
+    Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, IfLazy, Map, Match,
+    Partial, Pipe, Reduce, Tap, Unless, When,
 };
 
 /// The `fn` module — function combinator utilities.
 ///
 /// Provides functions callable as `fn.pipe(v, f, g)`, `fn.compose(f, g)`,
-/// etc. in handl expressions.
+/// `fn.map(f, xs)`, `fn.filter(f, xs)`, `fn.reduce(f, xs, init)`, etc. in handl expressions.
 #[derive(Clone, Copy)]
 pub struct FnModule;
 
@@ -27,6 +27,9 @@ impl Module for FnModule {
             "fanout" => Some(&Fanout),
             "choice" => Some(&Choice),
             "apply" => Some(&Apply),
+            "map" => Some(&Map),
+            "filter" => Some(&Filter),
+            "reduce" => Some(&Reduce),
             "tap" => Some(&Tap),
             "match" => Some(&Match),
             "constantly" => Some(&Constantly),
