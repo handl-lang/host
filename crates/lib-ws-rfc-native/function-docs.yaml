@@ -1,20 +1,20 @@
-websocket_rfc:
+ws_rfc_native:
   client:
     description: Create a new RFC 6455 WebSocket client.
     details: |
-      `websocket_rfc.client()` returns a client object with `client_id`.
-    signature: 'websocket_rfc.client() -> object'
+      `ws_rfc_native.client()` returns a client object with `client_id`.
+    signature: 'ws_rfc_native.client() -> object'
     params: []
     return_value: object
     examples:
-    - 'let s = websocket_rfc.client()'
+    - 'let s = ws_rfc_native.client()'
     see: []
   connect:
     description: Connect a client to a real WebSocket URL.
     details: |
-      `websocket_rfc.connect(client, url)` opens a real TCP/TLS WebSocket connection to `url`.
-      `client` is the object returned by `websocket_rfc.client()`.
-    signature: 'websocket_rfc.connect(client: object, url: string) -> null'
+      `ws_rfc_native.connect(client, url)` opens a real TCP/TLS WebSocket connection to `url`.
+      `client` is the object returned by `ws_rfc_native.client()`.
+    signature: 'ws_rfc_native.connect(client: object, url: string) -> null'
     params:
     - name: client
       type: object
@@ -24,14 +24,14 @@ websocket_rfc:
       description: the WebSocket URL to connect to
     return_value: null
     examples:
-    - 'websocket_rfc.connect(s, "wss://echo.websocket.org/")'
+    - 'ws_rfc_native.connect(s, "wss://echo.websocket.org/")'
     see: []
   send:
     description: Send a message from a client.
     details: |
-      `websocket_rfc.send(client, msg)` sends a message over the real WebSocket connection.
+      `ws_rfc_native.send(client, msg)` sends a message over the real WebSocket connection.
       `msg` may be a string or an object with `text` or `binary` keys.
-    signature: 'websocket_rfc.send(client: object, msg: any) -> null'
+    signature: 'ws_rfc_native.send(client: object, msg: any) -> null'
     params:
     - name: client
       type: object
@@ -41,17 +41,17 @@ websocket_rfc:
       description: the message to send
     return_value: null
     examples:
-    - 'websocket_rfc.send(s, "hello")'
-    - 'websocket_rfc.send(s, { text: "hello" })'
+    - 'ws_rfc_native.send(s, "hello")'
+    - 'ws_rfc_native.send(s, { text: "hello" })'
     see: []
   recv:
     description: Receive a message from a client.
     details: |
-      `websocket_rfc.recv(client, timeout)` receives the next message.
+      `ws_rfc_native.recv(client, timeout)` receives the next message.
       - If `timeout` is omitted, `recv` blocks indefinitely.
       - If `timeout` is `0` or negative, `recv` is non-blocking and returns `null` if nothing is queued.
       - If `timeout` is positive, `recv` waits up to that many seconds and returns `null` on timeout.
-    signature: 'websocket_rfc.recv(client: object, timeout?: number) -> any'
+    signature: 'ws_rfc_native.recv(client: object, timeout?: number) -> any'
     params:
     - name: client
       type: object
@@ -61,40 +61,40 @@ websocket_rfc:
       description: optional timeout in seconds
     return_value: any
     examples:
-    - 'websocket_rfc.recv(s)'
-    - 'websocket_rfc.recv(s, 0)'
-    - 'websocket_rfc.recv(s, 5)'
+    - 'ws_rfc_native.recv(s)'
+    - 'ws_rfc_native.recv(s, 0)'
+    - 'ws_rfc_native.recv(s, 5)'
     see: []
   close:
     description: Close a client connection.
     details: |
-      `websocket_rfc.close(client)` closes the real WebSocket connection and removes the client.
-    signature: 'websocket_rfc.close(client: object) -> null'
+      `ws_rfc_native.close(client)` closes the real WebSocket connection and removes the client.
+    signature: 'ws_rfc_native.close(client: object) -> null'
     params:
     - name: client
       type: object
       description: the client object
     return_value: null
     examples:
-    - 'websocket_rfc.close(s)'
+    - 'ws_rfc_native.close(s)'
     see: []
   server:
     description: Create a new RFC 6455 WebSocket server.
     details: |
-      `websocket_rfc.server()` returns a server object with `server_id`.
-    signature: 'websocket_rfc.server() -> object'
+      `ws_rfc_native.server()` returns a server object with `server_id`.
+    signature: 'ws_rfc_native.server() -> object'
     params: []
     return_value: object
     examples:
-    - 'let srv = websocket_rfc.server()'
+    - 'let srv = ws_rfc_native.server()'
     see: []
   listen:
     description: Start listening on an address.
     details: |
-      `websocket_rfc.listen(server, addr, handler)` starts a real TCP listener and registers a handler.
+      `ws_rfc_native.listen(server, addr, handler)` starts a real TCP listener and registers a handler.
       The handler is a handl function taking `(conn, msg)` and the value it returns is sent back to the client.
       Returns the actual bound `ws://` URL.
-    signature: 'websocket_rfc.listen(server: object, addr: string, handler: function) -> string'
+    signature: 'ws_rfc_native.listen(server: object, addr: string, handler: function) -> string'
     params:
     - name: server
       type: object
@@ -107,63 +107,63 @@ websocket_rfc:
       description: a function (conn, msg) -> reply
     return_value: string
     examples:
-    - 'let url = websocket_rfc.listen(srv, "ws://0.0.0.0:0", fn (conn, msg) -> msg)'
+    - 'let url = ws_rfc_native.listen(srv, "ws://0.0.0.0:0", fn (conn, msg) -> msg)'
     see: []
   stop:
     description: Stop a server.
     details: |
-      `websocket_rfc.stop(server)` stops the listener and removes the server.
-    signature: 'websocket_rfc.stop(server: object) -> null'
+      `ws_rfc_native.stop(server)` stops the listener and removes the server.
+    signature: 'ws_rfc_native.stop(server: object) -> null'
     params:
     - name: server
       type: object
       description: the server object
     return_value: null
     examples:
-    - 'websocket_rfc.stop(srv)'
+    - 'ws_rfc_native.stop(srv)'
     see: []
   frame.encode:
     description: Encode a WebSocket frame object into a base64 string.
     details: |
-      `websocket_rfc.frame.encode(frame)` takes a frame object and returns the wire bytes as a base64 string.
+      `ws_rfc_native.frame.encode(frame)` takes a frame object and returns the wire bytes as a base64 string.
       The frame object must contain:
       - `opcode` (string): one of `text`, `binary`, `close`, `ping`, `pong`
       - `payload` (string, base64, optional): the frame payload, default empty
       - `fin` (bool, optional): the FIN bit, default `true`
       - `mask` (string, base64 of 4 bytes, optional): the masking key
-    signature: 'websocket_rfc.frame.encode(frame: object) -> string'
+    signature: 'ws_rfc_native.frame.encode(frame: object) -> string'
     params:
     - name: frame
       type: object
       description: the frame to encode
     return_value: string
     examples:
-    - 'websocket_rfc.frame.encode({ opcode: "text", payload: "" })'
+    - 'ws_rfc_native.frame.encode({ opcode: "text", payload: "" })'
     see: []
   frame.decode:
     description: Decode a base64 WebSocket frame into a frame object.
     details: |
-      `websocket_rfc.frame.decode(base64)` parses a base64-encoded WebSocket frame and returns an object with
+      `ws_rfc_native.frame.decode(base64)` parses a base64-encoded WebSocket frame and returns an object with
       `opcode`, `payload` (base64), `fin`, `rsv1`, `rsv2`, `rsv3`, and optional `mask` (base64).
-    signature: 'websocket_rfc.frame.decode(base64: string) -> object'
+    signature: 'ws_rfc_native.frame.decode(base64: string) -> object'
     params:
     - name: base64
       type: string
       description: base64-encoded frame bytes
     return_value: object
     examples:
-    - 'websocket_rfc.frame.decode("...")'
+    - 'ws_rfc_native.frame.decode("...")'
     see: []
   message.from_frame:
     description: Convert a WebSocket frame object to a message object.
     details: |
-      `websocket_rfc.message.from_frame(frame)` returns a message object with one of:
+      `ws_rfc_native.message.from_frame(frame)` returns a message object with one of:
       - `{ text: string }`
       - `{ binary: base64 }`
       - `{ ping: base64 }`
       - `{ pong: base64 }`
       - `{ close: null }` or `{ close: { code: number, reason: string } }`
-    signature: 'websocket_rfc.message.from_frame(frame: object) -> object'
+    signature: 'ws_rfc_native.message.from_frame(frame: object) -> object'
     params:
     - name: frame
       type: object
@@ -174,9 +174,9 @@ websocket_rfc:
   message.to_frame:
     description: Convert a WebSocket message object into a base64-encoded frame.
     details: |
-      `websocket_rfc.message.to_frame(message)` takes one of the message objects described for `message.from_frame`
+      `ws_rfc_native.message.to_frame(message)` takes one of the message objects described for `message.from_frame`
       and returns the base64-encoded wire bytes for a single, unmasked frame.
-    signature: 'websocket_rfc.message.to_frame(message: object) -> string'
+    signature: 'ws_rfc_native.message.to_frame(message: object) -> string'
     params:
     - name: message
       type: object

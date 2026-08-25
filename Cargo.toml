@@ -56,7 +56,7 @@ members = [
   "crates/plugin-typecheck-core",
   "crates/plugin-vm-rust",
   "crates/lib-websocket",
-  "crates/lib-websocket-std",
+  "crates/lib-ws-rfc-native",
   "crates/lib-ws-whatwg-native",
   "crates/lib-ws-whatwg-wasm",
   "crates/lib-compress",
@@ -145,7 +145,7 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-websocket = { path = "crates/lib-websocket" }
-handl-lib-websocket-std = { path = "crates/lib-websocket-std" }
+handl-lib-ws-rfc-native = { path = "crates/lib-ws-rfc-native" }
 handl-lib-ws-whatwg-native = { path = "crates/lib-ws-whatwg-native" }
 handl-lib-ws-whatwg-wasm = { path = "crates/lib-ws-whatwg-wasm" }
 handl-lib-ip = { path = "crates/lib-ip" }

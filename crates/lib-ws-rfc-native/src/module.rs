@@ -1,4 +1,4 @@
-//! The `websocket_rfc` handl runtime module backed by `tokio-tungstenite`.
+//! The `ws_rfc_native` handl runtime module backed by `tokio-tungstenite`.
 //!
 //! Provides real TCP/TLS WebSocket clients and servers plus the frame and
 //! message helpers from `handl-lib-websocket`.
@@ -76,14 +76,14 @@ impl Inner {
     }
 }
 
-/// The `websocket_rfc` runtime module with a real `tokio-tungstenite`
+/// The `ws_rfc_native` runtime module with a real `tokio-tungstenite`
 /// client/server backend.
 #[derive(Clone, Copy)]
-pub struct WebsocketRfcStdModule;
+pub struct WsRfcNativeModule;
 
-impl Module for WebsocketRfcStdModule {
+impl Module for WsRfcNativeModule {
     fn name(&self) -> &str {
-        "websocket_rfc"
+        "ws_rfc_native"
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
@@ -739,7 +739,7 @@ mod tests {
         use handl_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
-        let m = WebsocketRfcStdModule;
+        let m = WsRfcNativeModule;
 
         let server_id = m
             .function("server")
@@ -825,7 +825,7 @@ mod tests {
         use handl_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
-        let m = WebsocketRfcStdModule;
+        let m = WsRfcNativeModule;
 
         let client = m
             .function("client")
@@ -847,7 +847,7 @@ mod tests {
         use handl_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
-        let m = WebsocketRfcStdModule;
+        let m = WsRfcNativeModule;
 
         let server_id = m
             .function("server")

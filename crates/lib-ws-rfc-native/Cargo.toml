@@ -1,5 +1,5 @@
 [package]
-name = "handl-lib-websocket-std"
+name = "handl-lib-ws-rfc-native"
 version.workspace = true
 edition.workspace = true
 description = "Native RFC 6455 WebSocket client/server using tokio-tungstenite."

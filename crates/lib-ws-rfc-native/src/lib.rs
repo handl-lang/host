@@ -1,10 +1,10 @@
 //! Native RFC 6455 WebSocket client/server for the handl runtime.
 //!
 //! This crate provides a real `tokio-tungstenite` backend for the
-//! `websocket_rfc` runtime module. It is intended for the `vm-server` and
+//! `ws_rfc_native` runtime module. It is intended for the `vm-server` and
 //! other native hosts; sandboxed `vm-config` hosts should continue to use the
 //! in-memory `handl-lib-websocket` module.
 
 mod module;
 
-pub use module::WebsocketRfcStdModule;
+pub use module::WsRfcNativeModule;

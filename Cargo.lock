@@ -1386,7 +1386,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-websocket-std"
+name = "handl-lib-ws-rfc-native"
 version = "0.1.0"
 dependencies = [
  "base64",
@@ -2284,7 +2284,7 @@ dependencies = [
  "handl-lib-test",
  "handl-lib-unicode",
  "handl-lib-utils",
- "handl-lib-websocket-std",
+ "handl-lib-ws-rfc-native",
  "handl-lib-ws-whatwg-native",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
