@@ -1,0 +1,384 @@
+datetime:
+  from_unix:
+    description: Convert the Unix timestamp `arg0` to a datetime string.
+    details: Return an ISO 8601 datetime string for the Unix timestamp `arg0`.
+    signature: 'datetime.from_unix(arg0: any)'
+    params:
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    return_value: String
+    examples:
+    - datetime.from_unix("x")
+    see: []
+  to_unix:
+    description: Return the result of the `to_unix` function on `datetime`.
+    details: Calls `datetime.to_unix()` with the given arguments and returns a `type.any` result.
+    signature: datetime.to_unix()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  format:
+    description: Return the result of the `format` function on `datetime`.
+    details: Calls `datetime.format()` with the given arguments and returns a `String` result.
+    signature: datetime.format()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  parse:
+    description: Return the result of the `parse` function on `datetime`.
+    details: Calls `datetime.parse()` with the given arguments and returns a `String` result.
+    signature: datetime.parse()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  year:
+    description: Return the result of the `year` function on `datetime`.
+    details: Calls `datetime.year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  month:
+    description: Return the result of the `month` function on `datetime`.
+    details: Calls `datetime.month()` with the given arguments and returns a `type.any` result.
+    signature: datetime.month()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  day:
+    description: Return the result of the `day` function on `datetime`.
+    details: Calls `datetime.day()` with the given arguments and returns a `type.any` result.
+    signature: datetime.day()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  hour:
+    description: Return the result of the `hour` function on `datetime`.
+    details: Calls `datetime.hour()` with the given arguments and returns a `type.any` result.
+    signature: datetime.hour()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  minute:
+    description: Return the result of the `minute` function on `datetime`.
+    details: Calls `datetime.minute()` with the given arguments and returns a `type.any` result.
+    signature: datetime.minute()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  second:
+    description: Return the result of the `second` function on `datetime`.
+    details: Calls `datetime.second()` with the given arguments and returns a `type.any` result.
+    signature: datetime.second()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  weekday:
+    description: Return the result of the `weekday` function on `datetime`.
+    details: Calls `datetime.weekday()` with the given arguments and returns a `type.any` result.
+    signature: datetime.weekday()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  day_of_year:
+    description: Return the result of the `day_of_year` function on `datetime`.
+    details: Calls `datetime.day_of_year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.day_of_year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  week_of_year:
+    description: Return the result of the `week_of_year` function on `datetime`.
+    details: Calls `datetime.week_of_year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.week_of_year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  quarter:
+    description: Return the result of the `quarter` function on `datetime`.
+    details: Calls `datetime.quarter()` with the given arguments and returns a `type.any` result.
+    signature: datetime.quarter()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_leap_year:
+    description: Return the result of the `is_leap_year` function on `datetime`.
+    details: Calls `datetime.is_leap_year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_leap_year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_weekend:
+    description: Return the result of the `is_weekend` function on `datetime`.
+    details: Calls `datetime.is_weekend()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_weekend()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  add_seconds:
+    description: Return the result of the `add_seconds` function on `datetime`.
+    details: Calls `datetime.add_seconds()` with the given arguments and returns a `String` result.
+    signature: datetime.add_seconds()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_minutes:
+    description: Return the result of the `add_minutes` function on `datetime`.
+    details: Calls `datetime.add_minutes()` with the given arguments and returns a `String` result.
+    signature: datetime.add_minutes()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_hours:
+    description: Return the result of the `add_hours` function on `datetime`.
+    details: Calls `datetime.add_hours()` with the given arguments and returns a `String` result.
+    signature: datetime.add_hours()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_days:
+    description: Return the result of the `add_days` function on `datetime`.
+    details: Calls `datetime.add_days()` with the given arguments and returns a `String` result.
+    signature: datetime.add_days()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_weeks:
+    description: Return the result of the `add_weeks` function on `datetime`.
+    details: Calls `datetime.add_weeks()` with the given arguments and returns a `String` result.
+    signature: datetime.add_weeks()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_months:
+    description: Return the result of the `add_months` function on `datetime`.
+    details: Calls `datetime.add_months()` with the given arguments and returns a `String` result.
+    signature: datetime.add_months()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  add_years:
+    description: Return the result of the `add_years` function on `datetime`.
+    details: Calls `datetime.add_years()` with the given arguments and returns a `String` result.
+    signature: datetime.add_years()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  compare:
+    description: Return the result of the `compare` function on `datetime`.
+    details: Calls `datetime.compare()` with the given arguments and returns a `type.any` result.
+    signature: datetime.compare()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_before:
+    description: Return the result of the `is_before` function on `datetime`.
+    details: Calls `datetime.is_before()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_before()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_after:
+    description: Return the result of the `is_after` function on `datetime`.
+    details: Calls `datetime.is_after()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_after()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_equal:
+    description: Return the result of the `is_equal` function on `datetime`.
+    details: Calls `datetime.is_equal()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_equal()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_between:
+    description: Return the result of the `is_between` function on `datetime`.
+    details: Calls `datetime.is_between()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_between()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  is_between_inclusive:
+    description: Return the result of the `is_between_inclusive` function on `datetime`.
+    details: Calls `datetime.is_between_inclusive()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_between_inclusive()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  duration_between:
+    description: Return the result of the `duration_between` function on `datetime`.
+    details: Calls `datetime.duration_between()` with the given arguments and returns a `type.any` result.
+    signature: datetime.duration_between()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  duration_seconds:
+    description: Return the result of the `duration_seconds` function on `datetime`.
+    details: Calls `datetime.duration_seconds()` with the given arguments and returns a `type.any` result.
+    signature: datetime.duration_seconds()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  duration_minutes:
+    description: Return the result of the `duration_minutes` function on `datetime`.
+    details: Calls `datetime.duration_minutes()` with the given arguments and returns a `type.any` result.
+    signature: datetime.duration_minutes()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  duration_hours:
+    description: Return the result of the `duration_hours` function on `datetime`.
+    details: Calls `datetime.duration_hours()` with the given arguments and returns a `type.any` result.
+    signature: datetime.duration_hours()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  duration_days:
+    description: Return the result of the `duration_days` function on `datetime`.
+    details: Calls `datetime.duration_days()` with the given arguments and returns a `type.any` result.
+    signature: datetime.duration_days()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  start_of_day:
+    description: Return the result of the `start_of_day` function on `datetime`.
+    details: Calls `datetime.start_of_day()` with the given arguments and returns a `type.any` result.
+    signature: datetime.start_of_day()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  end_of_day:
+    description: Return the result of the `end_of_day` function on `datetime`.
+    details: Calls `datetime.end_of_day()` with the given arguments and returns a `type.any` result.
+    signature: datetime.end_of_day()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  start_of_hour:
+    description: Return the result of the `start_of_hour` function on `datetime`.
+    details: Calls `datetime.start_of_hour()` with the given arguments and returns a `type.any` result.
+    signature: datetime.start_of_hour()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  end_of_hour:
+    description: Return the result of the `end_of_hour` function on `datetime`.
+    details: Calls `datetime.end_of_hour()` with the given arguments and returns a `type.any` result.
+    signature: datetime.end_of_hour()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  start_of_month:
+    description: Return the result of the `start_of_month` function on `datetime`.
+    details: Calls `datetime.start_of_month()` with the given arguments and returns a `type.any` result.
+    signature: datetime.start_of_month()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  end_of_month:
+    description: Return the result of the `end_of_month` function on `datetime`.
+    details: Calls `datetime.end_of_month()` with the given arguments and returns a `type.any` result.
+    signature: datetime.end_of_month()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  start_of_year:
+    description: Return the result of the `start_of_year` function on `datetime`.
+    details: Calls `datetime.start_of_year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.start_of_year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  end_of_year:
+    description: Return the result of the `end_of_year` function on `datetime`.
+    details: Calls `datetime.end_of_year()` with the given arguments and returns a `type.any` result.
+    signature: datetime.end_of_year()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  to_timezone:
+    description: Return the result of the `to_timezone` function on `datetime`.
+    details: Calls `datetime.to_timezone()` with the given arguments and returns a `String` result.
+    signature: datetime.to_timezone()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  to_utc:
+    description: Return the result of the `to_utc` function on `datetime`.
+    details: Calls `datetime.to_utc()` with the given arguments and returns a `String` result.
+    signature: datetime.to_utc()
+    params: []
+    return_value: String
+    examples: []
+    see: []
+  from_components:
+    description: Return the result of the `from_components` function on `datetime`.
+    details: 'Calls `datetime.from_components(arg0: any, arg1: any, arg2: any)` with the given arguments and returns a `String`
+      result.'
+    signature: 'datetime.from_components(arg0: any, arg1: any, arg2: any)'
+    params:
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    - name: arg1
+      type: any
+      description: the 1th any argument
+    - name: arg2
+      type: any
+      description: the 2th any argument
+    return_value: String
+    examples:
+    - datetime.from_components("x", "x", "x")
+    see: []
+  is_valid:
+    description: Return the result of the `is_valid` function on `datetime`.
+    details: Calls `datetime.is_valid()` with the given arguments and returns a `type.any` result.
+    signature: datetime.is_valid()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []

@@ -1,8 +1,7 @@
 array:
   at:
-    description: Returns the element at the given index of an array.
-    details: Given `arr`, `args`, `array.at` returns the element at the given index
-      of an array. It returns a value of any type.
+    description: Return the element at index `args` in `arr`.
+    details: Access the element at position `args` in `arr`.
     examples: []
     params:
     - name: arr
@@ -15,9 +14,8 @@ array:
     see: []
     signature: 'array.at(arr: Array, ...args: type.any[])'
   chunk:
-    description: Splits an array into fixed-size chunks.
-    details: Given `arr`, `args`, `array.chunk` splits an array into fixed-size chunks.
-      It returns a `Array` value.
+    description: Split `arr` into chunks of size `args`.
+    details: Group the elements of `arr` into arrays of length `args` (the last chunk may be shorter).
     examples:
     - array.chunk([1, 2, 3])
     params:
@@ -31,9 +29,8 @@ array:
     see: []
     signature: 'array.chunk(arr: Array, ...args: type.any[])'
   compact:
-    description: Removes null/empty values from an array.
-    details: Given `arr`, `args`, `array.compact` removes null/empty values from an
-      array. It returns a value of any type.
+    description: Return the result of the `compact` function on `array`.
+    details: 'Calls `array.compact(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -46,9 +43,8 @@ array:
     see: []
     signature: 'array.compact(arr: Array, ...args: type.any[])'
   concat:
-    description: Concatenates multiple values into an array.
-    details: Given `arr`, `args`, `array.concat` concatenates multiple values into
-      an array. It returns a `Array` value.
+    description: Concatenate the given arrays.
+    details: Return a new array containing all elements of the input arrays in order.
     examples:
     - array.concat([1, 2, 3])
     params:
@@ -62,9 +58,8 @@ array:
     see: []
     signature: 'array.concat(arr: Array, ...args: type.any[])'
   contains:
-    description: Checks whether an array contains a value.
-    details: Given `arr`, `args`, `array.contains` checks whether an array contains
-      a value. It returns a value of any type.
+    description: Return `true` if `arr` contains `args`.
+    details: Check whether `arr` contains `args`.
     examples: []
     params:
     - name: arr
@@ -77,9 +72,8 @@ array:
     see: []
     signature: 'array.contains(arr: Array, ...args: type.any[])'
   count_by:
-    description: Groups and counts elements of an array by a key.
-    details: Given `arr`, `args`, `array.count_by` groups and counts elements of an
-      array by a key. It returns a value of any type.
+    description: Return the result of the `count_by` function on `array`.
+    details: 'Calls `array.count_by(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -92,9 +86,8 @@ array:
     see: []
     signature: 'array.count_by(arr: Array, ...args: type.any[])'
   dedupe:
-    description: Removes consecutive duplicate elements from an array.
-    details: Given `arr`, `args`, `array.dedupe` removes consecutive duplicate elements
-      from an array. It returns a value of any type.
+    description: Return the result of the `dedupe` function on `array`.
+    details: 'Calls `array.dedupe(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -107,9 +100,8 @@ array:
     see: []
     signature: 'array.dedupe(arr: Array, ...args: type.any[])'
   deep_flatten:
-    description: Recursively flattens a nested array.
-    details: Given `arr`, `args`, `array.deep_flatten` recursively flattens a nested
-      array. It returns a `Array` value.
+    description: Return the result of the `deep_flatten` function on `array`.
+    details: 'Calls `array.deep_flatten(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.deep_flatten([1, 2, 3])
     params:
@@ -123,9 +115,8 @@ array:
     see: []
     signature: 'array.deep_flatten(arr: Array, ...args: type.any[])'
   drop:
-    description: Returns the elements of an array after the first n.
-    details: Given `arr`, `args`, `array.drop` returns the elements of an array after
-      the first n. It returns a value of any type.
+    description: Return the result of the `drop` function on `array`.
+    details: 'Calls `array.drop(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -138,9 +129,8 @@ array:
     see: []
     signature: 'array.drop(arr: Array, ...args: type.any[])'
   drop_while:
-    description: Drops leading elements of an array while a predicate holds.
-    details: Given `arr`, `args`, `array.drop_while` drops leading elements of an
-      array while a predicate holds. It returns a `Array` value.
+    description: Return the result of the `drop_while` function on `array`.
+    details: 'Calls `array.drop_while(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.drop_while([1, 2, 3])
     params:
@@ -154,9 +144,8 @@ array:
     see: []
     signature: 'array.drop_while(arr: Array, ...args: type.any[])'
   enumerate:
-    description: Returns each element paired with its index.
-    details: Given `arr`, `args`, `array.enumerate` returns each element paired with
-      its index. It returns a value of any type.
+    description: Return the result of the `enumerate` function on `array`.
+    details: 'Calls `array.enumerate(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -169,9 +158,8 @@ array:
     see: []
     signature: 'array.enumerate(arr: Array, ...args: type.any[])'
   every:
-    description: Checks whether all elements of an array satisfy a predicate.
-    details: Given `arr`, `args`, `array.every` checks whether all elements of an
-      array satisfy a predicate. It returns a value of any type.
+    description: Return the result of the `every` function on `array`.
+    details: 'Calls `array.every(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -184,9 +172,8 @@ array:
     see: []
     signature: 'array.every(arr: Array, ...args: type.any[])'
   fill:
-    description: Fills an array with a value.
-    details: Given `arr`, `args`, `array.fill` fills an array with a value. It returns
-      a `Array` value.
+    description: Return the result of the `fill` function on `array`.
+    details: 'Calls `array.fill(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.fill([1, 2, 3])
     params:
@@ -200,9 +187,8 @@ array:
     see: []
     signature: 'array.fill(arr: Array, ...args: type.any[])'
   filter:
-    description: Filters an array by a predicate.
-    details: Given `arr`, `fn`, `array.filter` filters an array by a predicate. It
-      returns a `Array` value.
+    description: Return the result of the `filter` function on `array`.
+    details: 'Calls `array.filter(arr: Array, fn: Function)` with the given arguments and returns a `Array` result.'
     examples:
     - array.filter([1, 2, 3], x => x > 1)
     params:
@@ -216,9 +202,8 @@ array:
     see: []
     signature: 'array.filter(arr: Array, fn: Function)'
   find:
-    description: Finds the first matching element in an array.
-    details: Given `arr`, `fn`, `array.find` finds the first matching element in an
-      array. It returns a value of any type.
+    description: Return the result of the `find` function on `array`.
+    details: 'Calls `array.find(arr: Array, fn: Function)` with the given arguments and returns a `type.any` result.'
     examples:
     - array.find([1, 2, 3], x => x > 1)
     params:
@@ -232,9 +217,9 @@ array:
     see: []
     signature: 'array.find(arr: Array, fn: Function)'
   find_index:
-    description: Returns the index of the first matching element in an array.
-    details: Given `arr`, `args`, `array.find_index` returns the index of the first
-      matching element in an array. It returns a value of any type.
+    description: Return the result of the `find_index` function on `array`.
+    details: 'Calls `array.find_index(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: arr
@@ -247,9 +232,8 @@ array:
     see: []
     signature: 'array.find_index(arr: Array, ...args: type.any[])'
   find_last:
-    description: Finds the last matching element in an array.
-    details: Given `arr`, `fn`, `array.find_last` finds the last matching element
-      in an array. It returns a value of any type.
+    description: Return the result of the `find_last` function on `array`.
+    details: 'Calls `array.find_last(arr: Array, fn: Function)` with the given arguments and returns a `type.any` result.'
     examples:
     - array.find_last([1, 2, 3], x => x > 1)
     params:
@@ -263,9 +247,9 @@ array:
     see: []
     signature: 'array.find_last(arr: Array, fn: Function)'
   find_last_index:
-    description: Returns the index of the last matching element in an array.
-    details: Given `arr`, `args`, `array.find_last_index` returns the index of the
-      last matching element in an array. It returns a value of any type.
+    description: Return the result of the `find_last_index` function on `array`.
+    details: 'Calls `array.find_last_index(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: arr
@@ -278,9 +262,8 @@ array:
     see: []
     signature: 'array.find_last_index(arr: Array, ...args: type.any[])'
   first:
-    description: Returns the first element of an array.
-    details: Given `arr`, `args`, `array.first` returns the first element of an array.
-      It returns a value of any type.
+    description: Return the first element of `arr`.
+    details: Return the first element of `arr`.
     examples: []
     params:
     - name: arr
@@ -293,9 +276,8 @@ array:
     see: []
     signature: 'array.first(arr: Array, ...args: type.any[])'
   flat_map:
-    description: Maps each element and flattens the result by one level.
-    details: Given `arr`, `fn`, `array.flat_map` maps each element and flattens the
-      result by one level. It returns a `Array` value.
+    description: Return the result of the `flat_map` function on `array`.
+    details: 'Calls `array.flat_map(arr: Array, fn: Function)` with the given arguments and returns a `Array` result.'
     examples:
     - array.flat_map([1, 2, 3], x => x > 1)
     params:
@@ -309,9 +291,8 @@ array:
     see: []
     signature: 'array.flat_map(arr: Array, fn: Function)'
   flatten:
-    description: Flattens a nested array by one level.
-    details: Given `arr`, `args`, `array.flatten` flattens a nested array by one level.
-      It returns a `Array` value.
+    description: Return the result of the `flatten` function on `array`.
+    details: 'Calls `array.flatten(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.flatten([1, 2, 3])
     params:
@@ -325,9 +306,9 @@ array:
     see: []
     signature: 'array.flatten(arr: Array, ...args: type.any[])'
   foldr:
-    description: Folds an array from right to left.
-    details: Given `arr`, `fn`, `initial`, `array.foldr` folds an array from right
-      to left. It returns a value of any type.
+    description: Return the result of the `foldr` function on `array`.
+    details: 'Calls `array.foldr(arr: Array, fn: Function, initial: type.any)` with the given arguments and returns a `type.any`
+      result.'
     examples:
     - array.foldr([1, 2, 3], (a, b) => a + b, 0)
     params:
@@ -344,9 +325,8 @@ array:
     see: []
     signature: 'array.foldr(arr: Array, fn: Function, initial: type.any)'
   group_by:
-    description: Groups elements by a key function.
-    details: Given `arr`, `args`, `array.group_by` groups elements by a key function.
-      It returns a value of any type.
+    description: Return the result of the `group_by` function on `array`.
+    details: 'Calls `array.group_by(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -359,9 +339,8 @@ array:
     see: []
     signature: 'array.group_by(arr: Array, ...args: type.any[])'
   index_of:
-    description: Returns the index of a value in an array.
-    details: Given `arr`, `args`, `array.index_of` returns the index of a value in
-      an array. It returns a value of any type.
+    description: Return the index of `args` in `arr`.
+    details: Find the position of `args` within `arr`.
     examples: []
     params:
     - name: arr
@@ -374,9 +353,8 @@ array:
     see: []
     signature: 'array.index_of(arr: Array, ...args: type.any[])'
   insert_at:
-    description: Inserts a value at the given index of an array.
-    details: Given `arr`, `args`, `array.insert_at` inserts a value at the given index
-      of an array. It returns a value of any type.
+    description: Return the result of the `insert_at` function on `array`.
+    details: 'Calls `array.insert_at(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -389,9 +367,8 @@ array:
     see: []
     signature: 'array.insert_at(arr: Array, ...args: type.any[])'
   intercalate:
-    description: Inserts a separator between elements of an array and concatenates.
-    details: Given `arr`, `args`, `array.intercalate` inserts a separator between
-      elements of an array and concatenates. It returns a `Array` value.
+    description: Return the result of the `intercalate` function on `array`.
+    details: 'Calls `array.intercalate(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.intercalate([1, 2, 3])
     params:
@@ -405,9 +382,9 @@ array:
     see: []
     signature: 'array.intercalate(arr: Array, ...args: type.any[])'
   intersperse:
-    description: Inserts a value between elements of an array.
-    details: Given `arr`, `args`, `array.intersperse` inserts a value between elements
-      of an array. It returns a value of any type.
+    description: Return the result of the `intersperse` function on `array`.
+    details: 'Calls `array.intersperse(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: arr
@@ -420,9 +397,8 @@ array:
     see: []
     signature: 'array.intersperse(arr: Array, ...args: type.any[])'
   last:
-    description: Returns the last element of an array.
-    details: Given `arr`, `args`, `array.last` returns the last element of an array.
-      It returns a value of any type.
+    description: Return the last element of `arr`.
+    details: Return the last element of `arr`.
     examples: []
     params:
     - name: arr
@@ -435,9 +411,8 @@ array:
     see: []
     signature: 'array.last(arr: Array, ...args: type.any[])'
   length:
-    description: Returns the number of elements in an array.
-    details: Given `arr`, `array.length` returns the number of elements in an array.
-      It returns a `num` value.
+    description: Return the result of the `length` function on `array`.
+    details: 'Calls `array.length(arr: Array)` with the given arguments and returns a `num` result.'
     examples:
     - array.length([1, 2, 3])
     params:
@@ -448,9 +423,8 @@ array:
     see: []
     signature: 'array.length(arr: Array)'
   map:
-    description: Maps a function over an array.
-    details: Given `arr`, `fn`, `array.map` maps a function over an array. It returns
-      a `Array` value.
+    description: Return the result of the `map` function on `array`.
+    details: 'Calls `array.map(arr: Array, fn: Function)` with the given arguments and returns a `Array` result.'
     examples:
     - array.map([1, 2, 3], x => x > 1)
     params:
@@ -464,9 +438,8 @@ array:
     see: []
     signature: 'array.map(arr: Array, fn: Function)'
   max_by:
-    description: Returns the maximum element of an array by a key function.
-    details: Given `arr`, `args`, `array.max_by` returns the maximum element of an
-      array by a key function. It returns a value of any type.
+    description: Return the result of the `max_by` function on `array`.
+    details: 'Calls `array.max_by(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -479,9 +452,8 @@ array:
     see: []
     signature: 'array.max_by(arr: Array, ...args: type.any[])'
   min_by:
-    description: Returns the minimum element of an array by a key function.
-    details: Given `arr`, `args`, `array.min_by` returns the minimum element of an
-      array by a key function. It returns a value of any type.
+    description: Return the result of the `min_by` function on `array`.
+    details: 'Calls `array.min_by(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -494,9 +466,8 @@ array:
     see: []
     signature: 'array.min_by(arr: Array, ...args: type.any[])'
   partition:
-    description: Splits elements into two arrays based on a predicate.
-    details: Given `arr`, `args`, `array.partition` splits elements into two arrays
-      based on a predicate. It returns a value of any type.
+    description: Return the result of the `partition` function on `array`.
+    details: 'Calls `array.partition(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -509,9 +480,8 @@ array:
     see: []
     signature: 'array.partition(arr: Array, ...args: type.any[])'
   pluck:
-    description: Extracts the value of a key from each object in an array.
-    details: Given `arr`, `args`, `array.pluck` extracts the value of a key from each
-      object in an array. It returns a value of any type.
+    description: Return the result of the `pluck` function on `array`.
+    details: 'Calls `array.pluck(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -524,9 +494,8 @@ array:
     see: []
     signature: 'array.pluck(arr: Array, ...args: type.any[])'
   pop:
-    description: Removes and returns the last element of an array.
-    details: Given `arr`, `args`, `array.pop` removes and returns the last element
-      of an array. It returns a value of any type.
+    description: Remove and return the last element of `arr`.
+    details: Remove the last element from `arr` and return it.
     examples: []
     params:
     - name: arr
@@ -539,9 +508,8 @@ array:
     see: []
     signature: 'array.pop(arr: Array, ...args: type.any[])'
   prepend:
-    description: Prepends an element to an array.
-    details: Given `arr`, `args`, `array.prepend` prepends an element to an array.
-      It returns a `Array` value.
+    description: Return the result of the `prepend` function on `array`.
+    details: 'Calls `array.prepend(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.prepend([1, 2, 3])
     params:
@@ -555,9 +523,8 @@ array:
     see: []
     signature: 'array.prepend(arr: Array, ...args: type.any[])'
   push:
-    description: Appends an element to the end of an array.
-    details: Given `arr`, `args`, `array.push` appends an element to the end of an
-      array. It returns a value of any type.
+    description: Append `args` to `arr`.
+    details: Add `args` to the end of `arr` and return the updated `array`.
     examples: []
     params:
     - name: arr
@@ -570,9 +537,8 @@ array:
     see: []
     signature: 'array.push(arr: Array, ...args: type.any[])'
   range:
-    description: Returns an array of numbers in the given range.
-    details: Given `arr`, `args`, `array.range` returns an array of numbers in the
-      given range. It returns a value of any type.
+    description: Return the result of the `range` function on `array`.
+    details: 'Calls `array.range(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -585,9 +551,9 @@ array:
     see: []
     signature: 'array.range(arr: Array, ...args: type.any[])'
   reduce:
-    description: Reduces an array to a single value.
-    details: Given `arr`, `fn`, `initial`, `array.reduce` reduces an array to a single
-      value. It returns a value of any type.
+    description: Return the result of the `reduce` function on `array`.
+    details: 'Calls `array.reduce(arr: Array, fn: Function, initial: type.any)` with the given arguments and returns a `type.any`
+      result.'
     examples:
     - array.reduce([1, 2, 3], (a, b) => a + b, 0)
     params:
@@ -604,9 +570,8 @@ array:
     see: []
     signature: 'array.reduce(arr: Array, fn: Function, initial: type.any)'
   remove_at:
-    description: Removes the element at the given index of an array.
-    details: Given `arr`, `args`, `array.remove_at` removes the element at the given
-      index of an array. It returns a value of any type.
+    description: Return the result of the `remove_at` function on `array`.
+    details: 'Calls `array.remove_at(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -619,9 +584,8 @@ array:
     see: []
     signature: 'array.remove_at(arr: Array, ...args: type.any[])'
   reverse:
-    description: Reverses an array.
-    details: Given `arr`, `args`, `array.reverse` reverses an array. It returns a
-      `Array` value.
+    description: Return `arr` with its elements in reverse order.
+    details: Return a new collection with the elements of `arr` reversed.
     examples:
     - array.reverse([1, 2, 3])
     params:
@@ -635,9 +599,8 @@ array:
     see: []
     signature: 'array.reverse(arr: Array, ...args: type.any[])'
   scan:
-    description: Returns a running reduction of an array.
-    details: Given `arr`, `args`, `array.scan` returns a running reduction of an array.
-      It returns a value of any type.
+    description: Return the result of the `scan` function on `array`.
+    details: 'Calls `array.scan(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -650,9 +613,8 @@ array:
     see: []
     signature: 'array.scan(arr: Array, ...args: type.any[])'
   shift:
-    description: Removes and returns the first element of an array.
-    details: Given `arr`, `args`, `array.shift` removes and returns the first element
-      of an array. It returns a value of any type.
+    description: Return the result of the `shift` function on `array`.
+    details: 'Calls `array.shift(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -665,9 +627,8 @@ array:
     see: []
     signature: 'array.shift(arr: Array, ...args: type.any[])'
   slice:
-    description: Returns a slice of an array.
-    details: Given `arr`, `args`, `array.slice` returns a slice of an array. It returns
-      a `Array` value.
+    description: Return the result of the `slice` function on `array`.
+    details: 'Calls `array.slice(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.slice([1, 2, 3])
     params:
@@ -681,9 +642,8 @@ array:
     see: []
     signature: 'array.slice(arr: Array, ...args: type.any[])'
   some:
-    description: Checks whether any element of an array satisfies a predicate.
-    details: Given `arr`, `args`, `array.some` checks whether any element of an array
-      satisfies a predicate. It returns a value of any type.
+    description: Return the result of the `some` function on `array`.
+    details: 'Calls `array.some(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -696,9 +656,8 @@ array:
     see: []
     signature: 'array.some(arr: Array, ...args: type.any[])'
   sort:
-    description: Sorts an array.
-    details: Given `arr`, `args`, `array.sort` sorts an array. It returns a `Array`
-      value.
+    description: Return `arr` sorted.
+    details: Return a new collection containing the elements of `arr` sorted.
     examples:
     - array.sort([1, 2, 3])
     params:
@@ -712,9 +671,8 @@ array:
     see: []
     signature: 'array.sort(arr: Array, ...args: type.any[])'
   sort_by:
-    description: Sorts an array by a key function.
-    details: Given `arr`, `args`, `array.sort_by` sorts an array by a key function.
-      It returns a `Array` value.
+    description: Return the result of the `sort_by` function on `array`.
+    details: 'Calls `array.sort_by(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.sort_by([1, 2, 3])
     params:
@@ -728,9 +686,8 @@ array:
     see: []
     signature: 'array.sort_by(arr: Array, ...args: type.any[])'
   sort_by_desc:
-    description: Sorts an array by a key function in descending order.
-    details: Given `arr`, `args`, `array.sort_by_desc` sorts an array by a key function
-      in descending order. It returns a `Array` value.
+    description: Return the result of the `sort_by_desc` function on `array`.
+    details: 'Calls `array.sort_by_desc(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.sort_by_desc([1, 2, 3])
     params:
@@ -744,9 +701,8 @@ array:
     see: []
     signature: 'array.sort_by_desc(arr: Array, ...args: type.any[])'
   take:
-    description: Returns the first n elements of an array.
-    details: Given `arr`, `args`, `array.take` returns the first n elements of an
-      array. It returns a value of any type.
+    description: Return the result of the `take` function on `array`.
+    details: 'Calls `array.take(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -759,9 +715,9 @@ array:
     see: []
     signature: 'array.take(arr: Array, ...args: type.any[])'
   take_while:
-    description: Returns leading elements of an array while a predicate holds.
-    details: Given `arr`, `args`, `array.take_while` returns leading elements of an
-      array while a predicate holds. It returns a value of any type.
+    description: Return the result of the `take_while` function on `array`.
+    details: 'Calls `array.take_while(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: arr
@@ -774,9 +730,8 @@ array:
     see: []
     signature: 'array.take_while(arr: Array, ...args: type.any[])'
   transpose:
-    description: Transposes rows and columns of a nested array.
-    details: Given `arr`, `args`, `array.transpose` transposes rows and columns of
-      a nested array. It returns a `Array` value.
+    description: Return the result of the `transpose` function on `array`.
+    details: 'Calls `array.transpose(arr: Array, ...args: type.any[])` with the given arguments and returns a `Array` result.'
     examples:
     - array.transpose([1, 2, 3])
     params:
@@ -790,9 +745,8 @@ array:
     see: []
     signature: 'array.transpose(arr: Array, ...args: type.any[])'
   unzip:
-    description: Splits an array of pairs into two arrays.
-    details: Given `arr`, `args`, `array.unzip` splits an array of pairs into two
-      arrays. It returns a value of any type.
+    description: Return the result of the `unzip` function on `array`.
+    details: 'Calls `array.unzip(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -805,9 +759,8 @@ array:
     see: []
     signature: 'array.unzip(arr: Array, ...args: type.any[])'
   windows:
-    description: Performs the `windows` operation on an array.
-    details: Given `arr`, `args`, `array.windows` performs the `windows` operation
-      on an array. It returns a value of any type.
+    description: Return the result of the `windows` function on `array`.
+    details: 'Calls `array.windows(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -820,9 +773,8 @@ array:
     see: []
     signature: 'array.windows(arr: Array, ...args: type.any[])'
   zip:
-    description: Combines multiple arrays element-wise.
-    details: Given `arr`, `args`, `array.zip` combines multiple arrays element-wise.
-      It returns a value of any type.
+    description: Return the result of the `zip` function on `array`.
+    details: 'Calls `array.zip(arr: Array, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: arr
@@ -834,117 +786,10 @@ array:
     return_value: type.any
     see: []
     signature: 'array.zip(arr: Array, ...args: type.any[])'
-stats:
-  avg:
-    description: Returns the average of the elements of an stats.
-    details: Given `arr`, `args`, `stats.avg` returns the average of the elements
-      of an stats. It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.avg(arr: Array, ...args: type.any[])'
-  max:
-    description: Returns the maximum value in an stats.
-    details: Given `arr`, `args`, `stats.max` returns the maximum value in an stats.
-      It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.max(arr: Array, ...args: type.any[])'
-  median:
-    description: Returns the median of an array of numbers.
-    details: Given `arr`, `args`, `stats.median` returns the median of an array of
-      numbers. It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.median(arr: Array, ...args: type.any[])'
-  min:
-    description: Returns the minimum value in an stats.
-    details: Given `arr`, `args`, `stats.min` returns the minimum value in an stats.
-      It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.min(arr: Array, ...args: type.any[])'
-  product:
-    description: Returns the product of the elements of an stats.
-    details: Given `arr`, `args`, `stats.product` returns the product of the elements
-      of an stats. It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.product(arr: Array, ...args: type.any[])'
-  stddev:
-    description: Returns the standard deviation of an array of numbers.
-    details: Given `arr`, `args`, `stats.stddev` returns the standard deviation of
-      an array of numbers. It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.stddev(arr: Array, ...args: type.any[])'
-  sum:
-    description: Returns the sum of the elements of an stats.
-    details: Given `arr`, `args`, `stats.sum` returns the sum of the elements of an
-      stats. It returns a value of any type.
-    examples: []
-    params:
-    - name: arr
-      type: Array
-      description: the `arr` Array value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
-    return_value: type.any
-    see: []
-    signature: 'stats.sum(arr: Array, ...args: type.any[])'
 bool:
   and:
-    description: Returns the logical AND of two values.
-    details: Given `a`, `b`, `bool.and` returns the logical and of two values. It
-      returns a `Boolean` value.
+    description: Return the result of the `and` function on `bool`.
+    details: 'Calls `bool.and(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -957,9 +802,8 @@ bool:
     see: []
     signature: 'bool.and(a: Boolean, b: Boolean)'
   eq:
-    description: Checks whether two values are equal.
-    details: Given `a`, `b`, `bool.eq` checks whether two values are equal. It returns
-      a `Boolean` value.
+    description: Return the result of the `eq` function on `bool`.
+    details: 'Calls `bool.eq(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -972,9 +816,8 @@ bool:
     see: []
     signature: 'bool.eq(a: Boolean, b: Boolean)'
   implies:
-    description: Returns whether one value implies another.
-    details: Given `a`, `b`, `bool.implies` returns whether one value implies another.
-      It returns a `Boolean` value.
+    description: Return the result of the `implies` function on `bool`.
+    details: 'Calls `bool.implies(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -987,9 +830,8 @@ bool:
     see: []
     signature: 'bool.implies(a: Boolean, b: Boolean)'
   nand:
-    description: Returns the NAND of two values.
-    details: Given `a`, `b`, `bool.nand` returns the nand of two values. It returns
-      a `Boolean` value.
+    description: Return the result of the `nand` function on `bool`.
+    details: 'Calls `bool.nand(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1002,9 +844,8 @@ bool:
     see: []
     signature: 'bool.nand(a: Boolean, b: Boolean)'
   nor:
-    description: Returns the NOR of two values.
-    details: Given `a`, `b`, `bool.nor` returns the nor of two values. It returns
-      a `Boolean` value.
+    description: Return the result of the `nor` function on `bool`.
+    details: 'Calls `bool.nor(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1017,9 +858,8 @@ bool:
     see: []
     signature: 'bool.nor(a: Boolean, b: Boolean)'
   not:
-    description: Returns the logical negation of a value.
-    details: Given `a`, `b`, `bool.not` returns the logical negation of a value. It
-      returns a `Boolean` value.
+    description: Return the result of the `not` function on `bool`.
+    details: 'Calls `bool.not(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1032,9 +872,8 @@ bool:
     see: []
     signature: 'bool.not(a: Boolean, b: Boolean)'
   or:
-    description: Returns the logical OR of two values.
-    details: Given `a`, `b`, `bool.or` returns the logical or of two values. It returns
-      a `Boolean` value.
+    description: Return the result of the `or` function on `bool`.
+    details: 'Calls `bool.or(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1047,9 +886,8 @@ bool:
     see: []
     signature: 'bool.or(a: Boolean, b: Boolean)'
   xor:
-    description: Returns the logical XOR of two values.
-    details: Given `a`, `b`, `bool.xor` returns the logical xor of two values. It
-      returns a `Boolean` value.
+    description: Return the result of the `xor` function on `bool`.
+    details: 'Calls `bool.xor(a: Boolean, b: Boolean)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1063,9 +901,8 @@ bool:
     signature: 'bool.xor(a: Boolean, b: Boolean)'
 cmp:
   between:
-    description: Checks whether a value lies between two bounds.
-    details: Given `a`, `b`, `cmp.between` checks whether a value lies between two
-      bounds. It returns a `Boolean` value.
+    description: Return the result of the `between` function on `cmp`.
+    details: 'Calls `cmp.between(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1078,9 +915,8 @@ cmp:
     see: []
     signature: 'cmp.between(a: type.any, b: type.any)'
   clamp:
-    description: Constrains a number between a minimum and a maximum.
-    details: Given `a`, `b`, `cmp.clamp` constrains a number between a minimum and
-      a maximum. It returns a value of any type.
+    description: Return the result of the `clamp` function on `cmp`.
+    details: 'Calls `cmp.clamp(a: type.any, b: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: a
@@ -1093,9 +929,8 @@ cmp:
     see: []
     signature: 'cmp.clamp(a: type.any, b: type.any)'
   compare:
-    description: Compares two values and returns their ordering.
-    details: Given `a`, `b`, `cmp.compare` compares two values and returns their ordering.
-      It returns a `num` value.
+    description: Return the result of the `compare` function on `cmp`.
+    details: 'Calls `cmp.compare(a: type.any, b: type.any)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: a
@@ -1108,9 +943,8 @@ cmp:
     see: []
     signature: 'cmp.compare(a: type.any, b: type.any)'
   eq:
-    description: Checks whether two values are equal.
-    details: Given `a`, `b`, `cmp.eq` checks whether two values are equal. It returns
-      a `Boolean` value.
+    description: Return the result of the `eq` function on `cmp`.
+    details: 'Calls `cmp.eq(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1123,9 +957,8 @@ cmp:
     see: []
     signature: 'cmp.eq(a: type.any, b: type.any)'
   ge:
-    description: Checks whether the first value is greater than or equal to the second.
-    details: Given `a`, `b`, `cmp.ge` checks whether the first value is greater than
-      or equal to the second. It returns a `Boolean` value.
+    description: Return the result of the `ge` function on `cmp`.
+    details: 'Calls `cmp.ge(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1138,9 +971,8 @@ cmp:
     see: []
     signature: 'cmp.ge(a: type.any, b: type.any)'
   gt:
-    description: Checks whether the first value is greater than the second.
-    details: Given `a`, `b`, `cmp.gt` checks whether the first value is greater than
-      the second. It returns a `Boolean` value.
+    description: Return the result of the `gt` function on `cmp`.
+    details: 'Calls `cmp.gt(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1153,9 +985,8 @@ cmp:
     see: []
     signature: 'cmp.gt(a: type.any, b: type.any)'
   in_range:
-    description: Checks whether a value lies within the given range.
-    details: Given `a`, `b`, `cmp.in_range` checks whether a value lies within the
-      given range. It returns a `Boolean` value.
+    description: Return the result of the `in_range` function on `cmp`.
+    details: 'Calls `cmp.in_range(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1168,9 +999,8 @@ cmp:
     see: []
     signature: 'cmp.in_range(a: type.any, b: type.any)'
   is_sorted:
-    description: Checks whether an array is sorted.
-    details: Given `a`, `b`, `cmp.is_sorted` checks whether an array is sorted. It
-      returns a `Boolean` value.
+    description: Return the result of the `is_sorted` function on `cmp`.
+    details: 'Calls `cmp.is_sorted(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1183,9 +1013,8 @@ cmp:
     see: []
     signature: 'cmp.is_sorted(a: type.any, b: type.any)'
   is_sorted_desc:
-    description: Checks whether an array is sorted in descending order.
-    details: Given `a`, `b`, `cmp.is_sorted_desc` checks whether an array is sorted
-      in descending order. It returns a `Boolean` value.
+    description: Return the result of the `is_sorted_desc` function on `cmp`.
+    details: 'Calls `cmp.is_sorted_desc(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1198,9 +1027,8 @@ cmp:
     see: []
     signature: 'cmp.is_sorted_desc(a: type.any, b: type.any)'
   le:
-    description: Checks whether the first value is less than or equal to the second.
-    details: Given `a`, `b`, `cmp.le` checks whether the first value is less than
-      or equal to the second. It returns a `Boolean` value.
+    description: Return the result of the `le` function on `cmp`.
+    details: 'Calls `cmp.le(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1213,9 +1041,8 @@ cmp:
     see: []
     signature: 'cmp.le(a: type.any, b: type.any)'
   lt:
-    description: Checks whether the first value is less than the second.
-    details: Given `a`, `b`, `cmp.lt` checks whether the first value is less than
-      the second. It returns a `Boolean` value.
+    description: Return the result of the `lt` function on `cmp`.
+    details: 'Calls `cmp.lt(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1228,9 +1055,8 @@ cmp:
     see: []
     signature: 'cmp.lt(a: type.any, b: type.any)'
   max:
-    description: Returns the larger of two values.
-    details: Given `a`, `b`, `cmp.max` returns the larger of two values. It returns
-      a value of any type.
+    description: Return the max of the values in `a`.
+    details: Compute the max of the numeric values in `a`.
     examples: []
     params:
     - name: a
@@ -1243,9 +1069,8 @@ cmp:
     see: []
     signature: 'cmp.max(a: type.any, b: type.any)'
   min:
-    description: Returns the smaller of two values.
-    details: Given `a`, `b`, `cmp.min` returns the smaller of two values. It returns
-      a value of any type.
+    description: Return the min of the values in `a`.
+    details: Compute the min of the numeric values in `a`.
     examples: []
     params:
     - name: a
@@ -1258,9 +1083,8 @@ cmp:
     see: []
     signature: 'cmp.min(a: type.any, b: type.any)'
   ne:
-    description: Checks whether two values are not equal.
-    details: Given `a`, `b`, `cmp.ne` checks whether two values are not equal. It
-      returns a `Boolean` value.
+    description: Return the result of the `ne` function on `cmp`.
+    details: 'Calls `cmp.ne(a: type.any, b: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: a
@@ -1273,8 +1097,8 @@ cmp:
     see: []
     signature: 'cmp.ne(a: type.any, b: type.any)'
   sort:
-    description: Sorts values.
-    details: Given `a`, `b`, `cmp.sort` sorts values. It returns a value of any type.
+    description: Return `a` sorted.
+    details: Return a new collection containing the elements of `a` sorted.
     examples: []
     params:
     - name: a
@@ -1287,9 +1111,8 @@ cmp:
     see: []
     signature: 'cmp.sort(a: type.any, b: type.any)'
   sort_desc:
-    description: Sorts values by desc.
-    details: Given `a`, `b`, `cmp.sort_desc` sorts values by desc. It returns a value
-      of any type.
+    description: Return the result of the `sort_desc` function on `cmp`.
+    details: 'Calls `cmp.sort_desc(a: type.any, b: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: a
@@ -1303,9 +1126,8 @@ cmp:
     signature: 'cmp.sort_desc(a: type.any, b: type.any)'
 fn:
   apply:
-    description: Performs the `apply` operation on functions.
-    details: Given `fns`, `fn.apply` performs the `apply` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `apply` function on `fn`.
+    details: 'Calls `fn.apply(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1315,9 +1137,8 @@ fn:
     see: []
     signature: 'fn.apply(...fns: Function[])'
   choice:
-    description: Performs the `choice` operation on functions.
-    details: Given `fns`, `fn.choice` performs the `choice` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `choice` function on `fn`.
+    details: 'Calls `fn.choice(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1327,9 +1148,8 @@ fn:
     see: []
     signature: 'fn.choice(...fns: Function[])'
   compose:
-    description: Composes functions from right to left.
-    details: Given `fns`, `fn.compose` composes functions from right to left. It returns
-      a `Function` value.
+    description: Return the result of the `compose` function on `fn`.
+    details: 'Calls `fn.compose(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1339,9 +1159,8 @@ fn:
     see: []
     signature: 'fn.compose(...fns: Function[])'
   constantly:
-    description: Performs the `constantly` operation on functions.
-    details: Given `fns`, `fn.constantly` performs the `constantly` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `constantly` function on `fn`.
+    details: 'Calls `fn.constantly(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1351,9 +1170,8 @@ fn:
     see: []
     signature: 'fn.constantly(...fns: Function[])'
   converge:
-    description: Performs the `converge` operation on functions.
-    details: Given `fns`, `fn.converge` performs the `converge` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `converge` function on `fn`.
+    details: 'Calls `fn.converge(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1363,9 +1181,8 @@ fn:
     see: []
     signature: 'fn.converge(...fns: Function[])'
   fanout:
-    description: Calls multiple functions and returns an array of results.
-    details: Given `fns`, `fn.fanout` calls multiple functions and returns an array
-      of results. It returns a `Function` value.
+    description: Return the result of the `fanout` function on `fn`.
+    details: 'Calls `fn.fanout(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1375,9 +1192,8 @@ fn:
     see: []
     signature: 'fn.fanout(...fns: Function[])'
   flip:
-    description: Performs the `flip` operation on functions.
-    details: Given `fns`, `fn.flip` performs the `flip` operation on functions. It
-      returns a `Function` value.
+    description: Return the result of the `flip` function on `fn`.
+    details: 'Calls `fn.flip(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1387,9 +1203,8 @@ fn:
     see: []
     signature: 'fn.flip(...fns: Function[])'
   flow:
-    description: Composes functions in a flow.
-    details: Given `fns`, `fn.flow` composes functions in a flow. It returns a `Function`
-      value.
+    description: Return the result of the `flow` function on `fn`.
+    details: 'Calls `fn.flow(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1399,9 +1214,8 @@ fn:
     see: []
     signature: 'fn.flow(...fns: Function[])'
   if:
-    description: Performs the `if` operation on functions.
-    details: Given `fns`, `fn.if` performs the `if` operation on functions. It returns
-      a `Function` value.
+    description: Return the result of the `if` function on `fn`.
+    details: 'Calls `fn.if(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1411,9 +1225,8 @@ fn:
     see: []
     signature: 'fn.if(...fns: Function[])'
   match:
-    description: Performs the `match` operation on functions.
-    details: Given `fns`, `fn.match` performs the `match` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `match` function on `fn`.
+    details: 'Calls `fn.match(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1423,9 +1236,8 @@ fn:
     see: []
     signature: 'fn.match(...fns: Function[])'
   partial:
-    description: Performs the `partial` operation on functions.
-    details: Given `fns`, `fn.partial` performs the `partial` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `partial` function on `fn`.
+    details: 'Calls `fn.partial(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1435,9 +1247,8 @@ fn:
     see: []
     signature: 'fn.partial(...fns: Function[])'
   pipe:
-    description: Composes functions from left to right.
-    details: Given `fns`, `fn.pipe` composes functions from left to right. It returns
-      a `Function` value.
+    description: Return the result of the `pipe` function on `fn`.
+    details: 'Calls `fn.pipe(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1447,9 +1258,8 @@ fn:
     see: []
     signature: 'fn.pipe(...fns: Function[])'
   tap:
-    description: Performs the `tap` operation on functions.
-    details: Given `fns`, `fn.tap` performs the `tap` operation on functions. It returns
-      a `Function` value.
+    description: Return the result of the `tap` function on `fn`.
+    details: 'Calls `fn.tap(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1459,9 +1269,8 @@ fn:
     see: []
     signature: 'fn.tap(...fns: Function[])'
   unless:
-    description: Performs the `unless` operation on functions.
-    details: Given `fns`, `fn.unless` performs the `unless` operation on functions.
-      It returns a `Function` value.
+    description: Return the result of the `unless` function on `fn`.
+    details: 'Calls `fn.unless(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1471,9 +1280,8 @@ fn:
     see: []
     signature: 'fn.unless(...fns: Function[])'
   when:
-    description: Performs the `when` operation on functions.
-    details: Given `fns`, `fn.when` performs the `when` operation on functions. It
-      returns a `Function` value.
+    description: Return the result of the `when` function on `fn`.
+    details: 'Calls `fn.when(...fns: Function[])` with the given arguments and returns a `Function` result.'
     examples: []
     params:
     - name: fns
@@ -1483,9 +1291,8 @@ fn:
     see: []
     signature: 'fn.when(...fns: Function[])'
   map:
-    description: Maps a function over the elements of an array.
-    details: Given `f` and `xs`, `fn.map` applies `f` to each element of `xs`.
-      It returns an `Array` value.
+    description: Return the result of the `map` function on `fn`.
+    details: 'Calls `fn.map(f: Function, xs: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: f
@@ -1498,9 +1305,8 @@ fn:
     see: []
     signature: 'fn.map(f: Function, xs: Array)'
   filter:
-    description: Filters an array using a predicate function.
-    details: Given `f` and `xs`, `fn.filter` keeps the elements of `xs` for which
-      `f` returns a truthy value. It returns an `Array` value.
+    description: Return the result of the `filter` function on `fn`.
+    details: 'Calls `fn.filter(f: Function, xs: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: f
@@ -1513,9 +1319,9 @@ fn:
     see: []
     signature: 'fn.filter(f: Function, xs: Array)'
   reduce:
-    description: Reduces an array to a single value using a function.
-    details: Given `f`, `xs`, and `init`, `fn.reduce` folds `f` over `xs` starting
-      with `init`. It returns a `type.any` value.
+    description: Return the result of the `reduce` function on `fn`.
+    details: 'Calls `fn.reduce(f: Function, xs: Array, init: type.any)` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: f
@@ -1532,9 +1338,8 @@ fn:
     signature: 'fn.reduce(f: Function, xs: Array, init: type.any)'
 math:
   abs:
-    description: Returns the absolute value of a number.
-    details: Given `value`, `math.abs` returns the absolute value of a number. It
-      returns a `num` value.
+    description: Return the abs of `value`.
+    details: Compute the mathematical abs of `value`.
     examples:
     - math.abs(-5)
     params:
@@ -1545,9 +1350,8 @@ math:
     see: []
     signature: 'math.abs(value: num)'
   acos:
-    description: Returns the arccosine of a number in radians.
-    details: Given `value`, `math.acos` returns the arccosine of a number in radians.
-      It returns a `num` value.
+    description: Return the result of the `acos` function on `math`.
+    details: 'Calls `math.acos(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1557,9 +1361,8 @@ math:
     see: []
     signature: 'math.acos(value: num)'
   acosh:
-    description: Returns the inverse hyperbolic cosine of a number.
-    details: Given `value`, `math.acosh` returns the inverse hyperbolic cosine of
-      a number. It returns a `num` value.
+    description: Return the result of the `acosh` function on `math`.
+    details: 'Calls `math.acosh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1569,8 +1372,8 @@ math:
     see: []
     signature: 'math.acosh(value: num)'
   add:
-    description: Adds two numbers.
-    details: Given `a`, `b`, `math.add` adds two numbers. It returns a `num` value.
+    description: Return the result of the `add` function on `math`.
+    details: 'Calls `math.add(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.add(10, 3)
     params:
@@ -1584,9 +1387,8 @@ math:
     see: []
     signature: 'math.add(a: num, b: num)'
   asin:
-    description: Returns the arcsine of a number in radians.
-    details: Given `value`, `math.asin` returns the arcsine of a number in radians.
-      It returns a `num` value.
+    description: Return the result of the `asin` function on `math`.
+    details: 'Calls `math.asin(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1596,9 +1398,8 @@ math:
     see: []
     signature: 'math.asin(value: num)'
   asinh:
-    description: Returns the inverse hyperbolic sine of a number.
-    details: Given `value`, `math.asinh` returns the inverse hyperbolic sine of a
-      number. It returns a `num` value.
+    description: Return the result of the `asinh` function on `math`.
+    details: 'Calls `math.asinh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1608,9 +1409,8 @@ math:
     see: []
     signature: 'math.asinh(value: num)'
   atan:
-    description: Returns the arctangent of a number in radians.
-    details: Given `value`, `math.atan` returns the arctangent of a number in radians.
-      It returns a `num` value.
+    description: Return the result of the `atan` function on `math`.
+    details: 'Calls `math.atan(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1620,9 +1420,8 @@ math:
     see: []
     signature: 'math.atan(value: num)'
   atan2:
-    description: Returns the four-quadrant arctangent of y and x.
-    details: Given `value`, `math.atan2` returns the four-quadrant arctangent of y
-      and x. It returns a `num` value.
+    description: Return the result of the `atan2` function on `math`.
+    details: 'Calls `math.atan2(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1632,9 +1431,8 @@ math:
     see: []
     signature: 'math.atan2(value: num)'
   atanh:
-    description: Returns the inverse hyperbolic tangent of a number.
-    details: Given `value`, `math.atanh` returns the inverse hyperbolic tangent of
-      a number. It returns a `num` value.
+    description: Return the result of the `atanh` function on `math`.
+    details: 'Calls `math.atanh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1644,9 +1442,8 @@ math:
     see: []
     signature: 'math.atanh(value: num)'
   cbrt:
-    description: Returns the cube root of a number.
-    details: Given `value`, `math.cbrt` returns the cube root of a number. It returns
-      a `num` value.
+    description: Return the result of the `cbrt` function on `math`.
+    details: 'Calls `math.cbrt(value: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.cbrt(-5)
     params:
@@ -1657,9 +1454,8 @@ math:
     see: []
     signature: 'math.cbrt(value: num)'
   ceil:
-    description: Rounds a number up to the nearest integer.
-    details: Given `value`, `math.ceil` rounds a number up to the nearest integer.
-      It returns a `num` value.
+    description: Return the ceil of `value`.
+    details: Compute the mathematical ceil of `value`.
     examples:
     - math.ceil(-5)
     params:
@@ -1670,9 +1466,8 @@ math:
     see: []
     signature: 'math.ceil(value: num)'
   clamp:
-    description: Constrains a number between a minimum and a maximum.
-    details: Given `value`, `min`, `max`, `math.clamp` constrains a number between
-      a minimum and a maximum. It returns a `num` value.
+    description: Return the result of the `clamp` function on `math`.
+    details: 'Calls `math.clamp(value: num, min: num, max: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.clamp(10, 0, 5) // 5
     params:
@@ -1689,9 +1484,8 @@ math:
     see: []
     signature: 'math.clamp(value: num, min: num, max: num)'
   cos:
-    description: Returns the cosine of an angle in radians.
-    details: Given `value`, `math.cos` returns the cosine of an angle in radians.
-      It returns a `num` value.
+    description: Return the cos of `value`.
+    details: Compute the mathematical cos of `value`.
     examples:
     - math.cos(-5)
     params:
@@ -1702,9 +1496,8 @@ math:
     see: []
     signature: 'math.cos(value: num)'
   cosh:
-    description: Returns the hyperbolic cosine of a number.
-    details: Given `value`, `math.cosh` returns the hyperbolic cosine of a number.
-      It returns a `num` value.
+    description: Return the result of the `cosh` function on `math`.
+    details: 'Calls `math.cosh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1714,9 +1507,8 @@ math:
     see: []
     signature: 'math.cosh(value: num)'
   degrees:
-    description: Converts radians to degrees.
-    details: Given `value`, `math.degrees` converts radians to degrees. It returns
-      a `num` value.
+    description: Return the result of the `degrees` function on `math`.
+    details: 'Calls `math.degrees(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1726,9 +1518,8 @@ math:
     see: []
     signature: 'math.degrees(value: num)'
   div:
-    description: Divides the first number by the second.
-    details: Given `a`, `b`, `math.div` divides the first number by the second. It
-      returns a `num` value.
+    description: Return the result of the `div` function on `math`.
+    details: 'Calls `math.div(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.div(10, 3)
     params:
@@ -1742,18 +1533,16 @@ math:
     see: []
     signature: 'math.div(a: num, b: num)'
   e:
-    description: Returns the constant e.
-    details: Given no arguments, `math.e` returns the constant e. It returns a `num`
-      value.
+    description: Return the result of the `e` function on `math`.
+    details: Calls `math.e()` with the given arguments and returns a `num` result.
     examples: []
     params: []
     return_value: num
     see: []
     signature: math.e()
   exp:
-    description: Returns e raised to the given power.
-    details: Given `value`, `math.exp` returns e raised to the given power. It returns
-      a `num` value.
+    description: Return the exp of `value`.
+    details: Compute the mathematical exp of `value`.
     examples: []
     params:
     - name: value
@@ -1763,9 +1552,8 @@ math:
     see: []
     signature: 'math.exp(value: num)'
   factorial:
-    description: Returns the factorial of a non-negative integer.
-    details: Given `value`, `math.factorial` returns the factorial of a non-negative
-      integer. It returns a `num` value.
+    description: Return the result of the `factorial` function on `math`.
+    details: 'Calls `math.factorial(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1775,9 +1563,8 @@ math:
     see: []
     signature: 'math.factorial(value: num)'
   floor:
-    description: Rounds a number down to the nearest integer.
-    details: Given `value`, `math.floor` rounds a number down to the nearest integer.
-      It returns a `num` value.
+    description: Return the floor of `value`.
+    details: Compute the mathematical floor of `value`.
     examples:
     - math.floor(-5)
     params:
@@ -1788,9 +1575,8 @@ math:
     see: []
     signature: 'math.floor(value: num)'
   floor_div:
-    description: Divides two numbers and rounds the result down to the nearest integer.
-    details: Given `value`, `math.floor_div` divides two numbers and rounds the result
-      down to the nearest integer. It returns a `num` value.
+    description: Return the result of the `floor_div` function on `math`.
+    details: 'Calls `math.floor_div(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1800,9 +1586,8 @@ math:
     see: []
     signature: 'math.floor_div(value: num)'
   fract:
-    description: Returns the fractional part of a number.
-    details: Given `value`, `math.fract` returns the fractional part of a number.
-      It returns a `num` value.
+    description: Return the result of the `fract` function on `math`.
+    details: 'Calls `math.fract(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1812,9 +1597,8 @@ math:
     see: []
     signature: 'math.fract(value: num)'
   gcd:
-    description: Returns the greatest common divisor of two integers.
-    details: Given `a`, `b`, `math.gcd` returns the greatest common divisor of two
-      integers. It returns a `Integer` value.
+    description: Return the result of the `gcd` function on `math`.
+    details: 'Calls `math.gcd(a: Integer, b: Integer)` with the given arguments and returns a `Integer` result.'
     examples:
     - math.gcd(12, 8)
     params:
@@ -1828,9 +1612,8 @@ math:
     see: []
     signature: 'math.gcd(a: Integer, b: Integer)'
   hypot:
-    description: Returns the length of the hypotenuse of a right-angled triangle.
-    details: Given `a`, `b`, `math.hypot` returns the length of the hypotenuse of
-      a right-angled triangle. It returns a `num` value.
+    description: Return the result of the `hypot` function on `math`.
+    details: 'Calls `math.hypot(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: a
@@ -1843,18 +1626,16 @@ math:
     see: []
     signature: 'math.hypot(a: num, b: num)'
   infinity:
-    description: Returns positive infinity.
-    details: Given no arguments, `math.infinity` returns positive infinity. It returns
-      a `num` value.
+    description: Return the result of the `infinity` function on `math`.
+    details: Calls `math.infinity()` with the given arguments and returns a `num` result.
     examples: []
     params: []
     return_value: num
     see: []
     signature: math.infinity()
   is_finite:
-    description: Checks whether a number is finite.
-    details: Given `value`, `math.is_finite` checks whether a number is finite. It
-      returns a `num` value.
+    description: Return the result of the `is_finite` function on `math`.
+    details: 'Calls `math.is_finite(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1864,9 +1645,8 @@ math:
     see: []
     signature: 'math.is_finite(value: num)'
   is_infinite:
-    description: Checks whether a number is infinite.
-    details: Given `value`, `math.is_infinite` checks whether a number is infinite.
-      It returns a `num` value.
+    description: Return the result of the `is_infinite` function on `math`.
+    details: 'Calls `math.is_infinite(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1876,9 +1656,8 @@ math:
     see: []
     signature: 'math.is_infinite(value: num)'
   is_integer:
-    description: Checks whether a number is an integer.
-    details: Given `value`, `math.is_integer` checks whether a number is an integer.
-      It returns a `num` value.
+    description: Return the result of the `is_integer` function on `math`.
+    details: 'Calls `math.is_integer(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1888,9 +1667,8 @@ math:
     see: []
     signature: 'math.is_integer(value: num)'
   is_nan:
-    description: Checks whether a number is NaN.
-    details: Given `value`, `math.is_nan` checks whether a number is nan. It returns
-      a `num` value.
+    description: Return the result of the `is_nan` function on `math`.
+    details: 'Calls `math.is_nan(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1900,9 +1678,8 @@ math:
     see: []
     signature: 'math.is_nan(value: num)'
   lcm:
-    description: Returns the least common multiple of two integers.
-    details: Given `a`, `b`, `math.lcm` returns the least common multiple of two integers.
-      It returns a `Integer` value.
+    description: Return the result of the `lcm` function on `math`.
+    details: 'Calls `math.lcm(a: Integer, b: Integer)` with the given arguments and returns a `Integer` result.'
     examples:
     - math.lcm(12, 8)
     params:
@@ -1916,9 +1693,8 @@ math:
     see: []
     signature: 'math.lcm(a: Integer, b: Integer)'
   lerp:
-    description: Linearly interpolates between two numbers.
-    details: Given `a`, `b`, `t`, `math.lerp` linearly interpolates between two numbers.
-      It returns a `num` value.
+    description: Return the result of the `lerp` function on `math`.
+    details: 'Calls `math.lerp(a: num, b: num, t: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.lerp(0, 100, 0.5) // 50
     params:
@@ -1935,9 +1711,8 @@ math:
     see: []
     signature: 'math.lerp(a: num, b: num, t: num)'
   log:
-    description: Returns the natural logarithm of a number.
-    details: Given `a`, `b`, `math.log` returns the natural logarithm of a number.
-      It returns a `num` value.
+    description: Return the log of `a`.
+    details: Compute the mathematical log of `a`.
     examples: []
     params:
     - name: a
@@ -1950,9 +1725,8 @@ math:
     see: []
     signature: 'math.log(a: num, b: num)'
   log10:
-    description: Returns the base-10 logarithm of a number.
-    details: Given `value`, `math.log10` returns the base-10 logarithm of a number.
-      It returns a `num` value.
+    description: Return the result of the `log10` function on `math`.
+    details: 'Calls `math.log10(value: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.log10(-5)
     params:
@@ -1963,9 +1737,8 @@ math:
     see: []
     signature: 'math.log10(value: num)'
   log2:
-    description: Returns the base-2 logarithm of a number.
-    details: Given `value`, `math.log2` returns the base-2 logarithm of a number.
-      It returns a `num` value.
+    description: Return the result of the `log2` function on `math`.
+    details: 'Calls `math.log2(value: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.log2(-5)
     params:
@@ -1976,9 +1749,8 @@ math:
     see: []
     signature: 'math.log2(value: num)'
   map_range:
-    description: Maps a number from one range to another.
-    details: Given `value`, `math.map_range` maps a number from one range to another.
-      It returns a `num` value.
+    description: Return the result of the `map_range` function on `math`.
+    details: 'Calls `math.map_range(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -1988,9 +1760,8 @@ math:
     see: []
     signature: 'math.map_range(value: num)'
   max:
-    description: Returns the larger of two numbers.
-    details: Given `a`, `b`, `math.max` returns the larger of two numbers. It returns
-      a `num` value.
+    description: Return the max of the values in `a`.
+    details: Compute the max of the numeric values in `a`.
     examples: []
     params:
     - name: a
@@ -2003,9 +1774,8 @@ math:
     see: []
     signature: 'math.max(a: num, b: num)'
   min:
-    description: Returns the smaller of two numbers.
-    details: Given `a`, `b`, `math.min` returns the smaller of two numbers. It returns
-      a `num` value.
+    description: Return the min of the values in `a`.
+    details: Compute the min of the numeric values in `a`.
     examples: []
     params:
     - name: a
@@ -2018,9 +1788,8 @@ math:
     see: []
     signature: 'math.min(a: num, b: num)'
   mod:
-    description: Returns the remainder of the first number divided by the second.
-    details: Given `a`, `b`, `math.mod` returns the remainder of the first number
-      divided by the second. It returns a `num` value.
+    description: Return the result of the `mod` function on `math`.
+    details: 'Calls `math.mod(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: a
@@ -2033,9 +1802,8 @@ math:
     see: []
     signature: 'math.mod(a: num, b: num)'
   mul:
-    description: Multiplies two numbers.
-    details: Given `a`, `b`, `math.mul` multiplies two numbers. It returns a `num`
-      value.
+    description: Return the result of the `mul` function on `math`.
+    details: 'Calls `math.mul(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.mul(10, 3)
     params:
@@ -2049,27 +1817,24 @@ math:
     see: []
     signature: 'math.mul(a: num, b: num)'
   nan:
-    description: Returns the NaN (Not-a-num) value.
-    details: Given no arguments, `math.nan` returns the nan (not-a-number) value.
-      It returns a `num` value.
+    description: Return the result of the `nan` function on `math`.
+    details: Calls `math.nan()` with the given arguments and returns a `num` result.
     examples: []
     params: []
     return_value: num
     see: []
     signature: math.nan()
   pi:
-    description: Returns the constant π.
-    details: Given no arguments, `math.pi` returns the constant π. It returns a `num`
-      value.
+    description: Return the result of the `pi` function on `math`.
+    details: Calls `math.pi()` with the given arguments and returns a `num` result.
     examples: []
     params: []
     return_value: num
     see: []
     signature: math.pi()
   pow:
-    description: Raises a number to the given power.
-    details: Given `a`, `b`, `math.pow` raises a number to the given power. It returns
-      a `num` value.
+    description: Return the result of the `pow` function on `math`.
+    details: 'Calls `math.pow(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: a
@@ -2082,9 +1847,8 @@ math:
     see: []
     signature: 'math.pow(a: num, b: num)'
   radians:
-    description: Converts degrees to radians.
-    details: Given `value`, `math.radians` converts degrees to radians. It returns
-      a `num` value.
+    description: Return the result of the `radians` function on `math`.
+    details: 'Calls `math.radians(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2094,9 +1858,8 @@ math:
     see: []
     signature: 'math.radians(value: num)'
   round:
-    description: Rounds a number to the nearest integer.
-    details: Given `value`, `math.round` rounds a number to the nearest integer. It
-      returns a `num` value.
+    description: Return the round of `value`.
+    details: Compute the mathematical round of `value`.
     examples:
     - math.round(-5)
     params:
@@ -2107,9 +1870,8 @@ math:
     see: []
     signature: 'math.round(value: num)'
   round_to:
-    description: Rounds a number to the given number of decimal places.
-    details: Given `value`, `decimals`, `math.round_to` rounds a number to the given
-      number of decimal places. It returns a `num` value.
+    description: Return the result of the `round_to` function on `math`.
+    details: 'Calls `math.round_to(value: num, decimals: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2122,9 +1884,8 @@ math:
     see: []
     signature: 'math.round_to(value: num, decimals: num)'
   sign:
-    description: Returns -1, 0, or 1 based on the sign of a number.
-    details: Given `value`, `math.sign` returns -1, 0, or 1 based on the sign of a
-      number. It returns a `num` value.
+    description: Return the result of the `sign` function on `math`.
+    details: 'Calls `math.sign(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2134,9 +1895,8 @@ math:
     see: []
     signature: 'math.sign(value: num)'
   sin:
-    description: Returns the sine of an angle in radians.
-    details: Given `value`, `math.sin` returns the sine of an angle in radians. It
-      returns a `num` value.
+    description: Return the sin of `value`.
+    details: Compute the mathematical sin of `value`.
     examples:
     - math.sin(-5)
     params:
@@ -2147,9 +1907,8 @@ math:
     see: []
     signature: 'math.sin(value: num)'
   sinh:
-    description: Returns the hyperbolic sine of a number.
-    details: Given `value`, `math.sinh` returns the hyperbolic sine of a number. It
-      returns a `num` value.
+    description: Return the result of the `sinh` function on `math`.
+    details: 'Calls `math.sinh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2159,9 +1918,8 @@ math:
     see: []
     signature: 'math.sinh(value: num)'
   sqrt:
-    description: Returns the square root of a number.
-    details: Given `value`, `math.sqrt` returns the square root of a number. It returns
-      a `num` value.
+    description: Return the sqrt of `value`.
+    details: Compute the mathematical sqrt of `value`.
     examples:
     - math.sqrt(-5)
     params:
@@ -2172,9 +1930,8 @@ math:
     see: []
     signature: 'math.sqrt(value: num)'
   sub:
-    description: Subtracts the second number from the first.
-    details: Given `a`, `b`, `math.sub` subtracts the second number from the first.
-      It returns a `num` value.
+    description: Return the result of the `sub` function on `math`.
+    details: 'Calls `math.sub(a: num, b: num)` with the given arguments and returns a `num` result.'
     examples:
     - math.sub(10, 3)
     params:
@@ -2188,9 +1945,8 @@ math:
     see: []
     signature: 'math.sub(a: num, b: num)'
   tan:
-    description: Returns the tangent of an angle in radians.
-    details: Given `value`, `math.tan` returns the tangent of an angle in radians.
-      It returns a `num` value.
+    description: Return the tan of `value`.
+    details: Compute the mathematical tan of `value`.
     examples:
     - math.tan(-5)
     params:
@@ -2201,9 +1957,8 @@ math:
     see: []
     signature: 'math.tan(value: num)'
   tanh:
-    description: Returns the hyperbolic tangent of a number.
-    details: Given `value`, `math.tanh` returns the hyperbolic tangent of a number.
-      It returns a `num` value.
+    description: Return the result of the `tanh` function on `math`.
+    details: 'Calls `math.tanh(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2213,18 +1968,16 @@ math:
     see: []
     signature: 'math.tanh(value: num)'
   tau:
-    description: Returns the constant τ (2π).
-    details: Given no arguments, `math.tau` returns the constant τ (2π). It returns
-      a `num` value.
+    description: Return the result of the `tau` function on `math`.
+    details: Calls `math.tau()` with the given arguments and returns a `num` result.
     examples: []
     params: []
     return_value: num
     see: []
     signature: math.tau()
   trunc:
-    description: Removes the fractional part of a number.
-    details: Given `value`, `math.trunc` removes the fractional part of a number.
-      It returns a `num` value.
+    description: Return the result of the `trunc` function on `math`.
+    details: 'Calls `math.trunc(value: num)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -2235,54 +1988,48 @@ math:
     signature: 'math.trunc(value: num)'
 mood:
   cnd:
-    description: Performs the `cnd` operation on a mood value.
-    details: Given no arguments, `mood.cnd` performs the `cnd` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `cnd` function on `mood`.
+    details: Calls `mood.cnd()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
     see: []
     signature: mood.cnd()
   ind:
-    description: Performs the `ind` operation on a mood value.
-    details: Given no arguments, `mood.ind` performs the `ind` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `ind` function on `mood`.
+    details: Calls `mood.ind()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
     see: []
     signature: mood.ind()
   int:
-    description: Performs the `int` operation on a mood value.
-    details: Given no arguments, `mood.int` performs the `int` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `int` function on `mood`.
+    details: Calls `mood.int()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
     see: []
     signature: mood.int()
   neg:
-    description: Performs the `neg` operation on a mood value.
-    details: Given no arguments, `mood.neg` performs the `neg` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `neg` function on `mood`.
+    details: Calls `mood.neg()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
     see: []
     signature: mood.neg()
   norm:
-    description: Performs the `norm` operation on a mood value.
-    details: Given no arguments, `mood.norm` performs the `norm` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `norm` function on `mood`.
+    details: Calls `mood.norm()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
     see: []
     signature: mood.norm()
   pot:
-    description: Performs the `pot` operation on a mood value.
-    details: Given no arguments, `mood.pot` performs the `pot` operation on a mood
-      value. It returns a `Mood` value.
+    description: Return the result of the `pot` function on `mood`.
+    details: Calls `mood.pot()` with the given arguments and returns a `Mood` result.
     examples: []
     params: []
     return_value: Mood
@@ -2290,9 +2037,8 @@ mood:
     signature: mood.pot()
 obj:
   clone_deep:
-    description: Performs the `clone_deep` operation on an object.
-    details: Given `obj`, `args`, `obj.clone_deep` performs the `clone_deep` operation
-      on an object. It returns a value of any type.
+    description: Return the result of the `clone_deep` function on `obj`.
+    details: 'Calls `obj.clone_deep(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2305,9 +2051,8 @@ obj:
     see: []
     signature: 'obj.clone_deep(obj: Object, ...args: type.any[])'
   deep_get:
-    description: Retrieves a nested value by a path of keys.
-    details: Given `obj`, `args`, `obj.deep_get` retrieves a nested value by a path
-      of keys. It returns a value of any type.
+    description: Return the result of the `deep_get` function on `obj`.
+    details: 'Calls `obj.deep_get(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2320,9 +2065,8 @@ obj:
     see: []
     signature: 'obj.deep_get(obj: Object, ...args: type.any[])'
   deep_merge:
-    description: Recursively merges multiple objects.
-    details: Given `obj`, `args`, `obj.deep_merge` recursively merges multiple objects.
-      It returns a value of any type.
+    description: Return the result of the `deep_merge` function on `obj`.
+    details: 'Calls `obj.deep_merge(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2335,9 +2079,8 @@ obj:
     see: []
     signature: 'obj.deep_merge(obj: Object, ...args: type.any[])'
   entries:
-    description: Returns the key-value pairs of an object.
-    details: Given `obj`, `obj.entries` returns the key-value pairs of an object.
-      It returns a `Array` value.
+    description: Return the result of the `entries` function on `obj`.
+    details: 'Calls `obj.entries(obj: Object)` with the given arguments and returns a `Array` result.'
     examples:
     - 'obj.entries({a: 1, b: 2})'
     params:
@@ -2348,9 +2091,9 @@ obj:
     see: []
     signature: 'obj.entries(obj: Object)'
   filter_keys:
-    description: Keeps keys that satisfy a predicate.
-    details: Given `obj`, `args`, `obj.filter_keys` keeps keys that satisfy a predicate.
-      It returns a value of any type.
+    description: Return the result of the `filter_keys` function on `obj`.
+    details: 'Calls `obj.filter_keys(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: obj
@@ -2363,9 +2106,9 @@ obj:
     see: []
     signature: 'obj.filter_keys(obj: Object, ...args: type.any[])'
   filter_values:
-    description: Keeps values that satisfy a predicate.
-    details: Given `obj`, `args`, `obj.filter_values` keeps values that satisfy a
-      predicate. It returns a value of any type.
+    description: Return the result of the `filter_values` function on `obj`.
+    details: 'Calls `obj.filter_values(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: obj
@@ -2378,9 +2121,9 @@ obj:
     see: []
     signature: 'obj.filter_values(obj: Object, ...args: type.any[])'
   from_entries:
-    description: Creates an object from an array of key-value pairs.
-    details: Given `obj`, `args`, `obj.from_entries` creates an object from an array
-      of key-value pairs. It returns a value of any type.
+    description: Return the result of the `from_entries` function on `obj`.
+    details: 'Calls `obj.from_entries(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: obj
@@ -2393,9 +2136,8 @@ obj:
     see: []
     signature: 'obj.from_entries(obj: Object, ...args: type.any[])'
   get:
-    description: Returns the value associated with the given key in an object.
-    details: Given `obj`, `args`, `obj.get` returns the value associated with the
-      given key in an object. It returns a value of any type.
+    description: Return the value associated with `args` in `obj`.
+    details: Look up `args` in `obj` and return the corresponding value.
     examples: []
     params:
     - name: obj
@@ -2408,9 +2150,8 @@ obj:
     see: []
     signature: 'obj.get(obj: Object, ...args: type.any[])'
   get_or:
-    description: Returns the or of an object.
-    details: Given `obj`, `args`, `obj.get_or` returns the or of an object. It returns
-      a value of any type.
+    description: Return the result of the `get_or` function on `obj`.
+    details: 'Calls `obj.get_or(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2423,9 +2164,8 @@ obj:
     see: []
     signature: 'obj.get_or(obj: Object, ...args: type.any[])'
   has_key:
-    description: Checks whether an object has key.
-    details: Given `obj`, `args`, `obj.has_key` checks whether an object has key.
-      It returns a value of any type.
+    description: Return the result of the `has_key` function on `obj`.
+    details: 'Calls `obj.has_key(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2438,9 +2178,8 @@ obj:
     see: []
     signature: 'obj.has_key(obj: Object, ...args: type.any[])'
   invert:
-    description: Performs the `invert` operation on an object.
-    details: Given `obj`, `args`, `obj.invert` performs the `invert` operation on
-      an object. It returns a value of any type.
+    description: Return the result of the `invert` function on `obj`.
+    details: 'Calls `obj.invert(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2453,9 +2192,8 @@ obj:
     see: []
     signature: 'obj.invert(obj: Object, ...args: type.any[])'
   keys:
-    description: Returns the keys of an object.
-    details: Given `obj`, `obj.keys` returns the keys of an object. It returns a `Array`
-      value.
+    description: Return the keys of `obj` as an array.
+    details: Return an array of all keys in `obj`.
     examples:
     - 'obj.keys({a: 1, b: 2})'
     params:
@@ -2466,9 +2204,8 @@ obj:
     see: []
     signature: 'obj.keys(obj: Object)'
   map_keys:
-    description: Maps over the keys of an object.
-    details: Given `obj`, `args`, `obj.map_keys` maps over the keys of an object.
-      It returns a value of any type.
+    description: Return the result of the `map_keys` function on `obj`.
+    details: 'Calls `obj.map_keys(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2481,9 +2218,8 @@ obj:
     see: []
     signature: 'obj.map_keys(obj: Object, ...args: type.any[])'
   map_values:
-    description: Maps over the values of an object.
-    details: Given `obj`, `args`, `obj.map_values` maps over the values of an object.
-      It returns a value of any type.
+    description: Return the result of the `map_values` function on `obj`.
+    details: 'Calls `obj.map_values(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2496,9 +2232,8 @@ obj:
     see: []
     signature: 'obj.map_values(obj: Object, ...args: type.any[])'
   merge:
-    description: Merges two or more an object.
-    details: Given `obj`, `args`, `obj.merge` merges two or more an object. It returns
-      a value of any type.
+    description: Return the result of the `merge` function on `obj`.
+    details: 'Calls `obj.merge(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2511,9 +2246,8 @@ obj:
     see: []
     signature: 'obj.merge(obj: Object, ...args: type.any[])'
   omit:
-    description: Returns an object excluding the selected keys.
-    details: Given `obj`, `args`, `obj.omit` returns an object excluding the selected
-      keys. It returns a value of any type.
+    description: Return the result of the `omit` function on `obj`.
+    details: 'Calls `obj.omit(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2526,9 +2260,8 @@ obj:
     see: []
     signature: 'obj.omit(obj: Object, ...args: type.any[])'
   path_or:
-    description: Performs the `path_or` operation on an object.
-    details: Given `obj`, `args`, `obj.path_or` performs the `path_or` operation on
-      an object. It returns a value of any type.
+    description: Return the result of the `path_or` function on `obj`.
+    details: 'Calls `obj.path_or(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2541,9 +2274,8 @@ obj:
     see: []
     signature: 'obj.path_or(obj: Object, ...args: type.any[])'
   pick:
-    description: Returns an object containing only the selected keys.
-    details: Given `obj`, `args`, `obj.pick` returns an object containing only the
-      selected keys. It returns a value of any type.
+    description: Return the result of the `pick` function on `obj`.
+    details: 'Calls `obj.pick(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2556,9 +2288,8 @@ obj:
     see: []
     signature: 'obj.pick(obj: Object, ...args: type.any[])'
   set:
-    description: Sets the value associated with the given key in an object.
-    details: Given `obj`, `args`, `obj.set` sets the value associated with the given
-      key in an object. It returns a value of any type.
+    description: Set the value for `args` in `obj`.
+    details: Associate `value` with key `args` in `obj` and return the updated `obj`.
     examples: []
     params:
     - name: obj
@@ -2571,9 +2302,8 @@ obj:
     see: []
     signature: 'obj.set(obj: Object, ...args: type.any[])'
   set_path:
-    description: Sets the path of an object.
-    details: Given `obj`, `args`, `obj.set_path` sets the path of an object. It returns
-      a value of any type.
+    description: Return the result of the `set_path` function on `obj`.
+    details: 'Calls `obj.set_path(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2586,9 +2316,8 @@ obj:
     see: []
     signature: 'obj.set_path(obj: Object, ...args: type.any[])'
   size:
-    description: Returns the number of elements in an object.
-    details: Given `obj`, `args`, `obj.size` returns the number of elements in an
-      object. It returns a value of any type.
+    description: Return the result of the `size` function on `obj`.
+    details: 'Calls `obj.size(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2601,9 +2330,8 @@ obj:
     see: []
     signature: 'obj.size(obj: Object, ...args: type.any[])'
   update:
-    description: Updates a value in an object.
-    details: Given `obj`, `args`, `obj.update` updates a value in an object. It returns
-      a value of any type.
+    description: Return the result of the `update` function on `obj`.
+    details: 'Calls `obj.update(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: obj
@@ -2616,9 +2344,9 @@ obj:
     see: []
     signature: 'obj.update(obj: Object, ...args: type.any[])'
   update_path:
-    description: Performs the `update_path` operation on an object.
-    details: Given `obj`, `args`, `obj.update_path` performs the `update_path` operation
-      on an object. It returns a value of any type.
+    description: Return the result of the `update_path` function on `obj`.
+    details: 'Calls `obj.update_path(obj: Object, ...args: type.any[])` with the given arguments and returns a `type.any`
+      result.'
     examples: []
     params:
     - name: obj
@@ -2631,9 +2359,8 @@ obj:
     see: []
     signature: 'obj.update_path(obj: Object, ...args: type.any[])'
   values:
-    description: Returns the values of an object.
-    details: Given `obj`, `obj.values` returns the values of an object. It returns
-      a `Array` value.
+    description: Return the values of `obj` as an array.
+    details: Return an array of all values in `obj`.
     examples:
     - 'obj.values({a: 1, b: 2})'
     params:
@@ -2645,9 +2372,8 @@ obj:
     signature: 'obj.values(obj: Object)'
 option:
   and:
-    description: Returns the logical AND of two values.
-    details: Given `value`, `option.and` returns the logical and of two values. It
-      returns a `Boolean` value.
+    description: Return the result of the `and` function on `option`.
+    details: 'Calls `option.and(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2657,9 +2383,8 @@ option:
     see: []
     signature: 'option.and(value: type.any)'
   and_then:
-    description: Performs the `and_then` operation on an Option.
-    details: Given `value`, `option.and_then` performs the `and_then` operation on
-      an option. It returns a `Boolean` value.
+    description: Return the result of the `and_then` function on `option`.
+    details: 'Calls `option.and_then(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2669,9 +2394,8 @@ option:
     see: []
     signature: 'option.and_then(value: type.any)'
   filter:
-    description: Filters an Option by a predicate.
-    details: Given `value`, `option.filter` filters an option by a predicate. It returns
-      a `Boolean` value.
+    description: Return the result of the `filter` function on `option`.
+    details: 'Calls `option.filter(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2681,9 +2405,8 @@ option:
     see: []
     signature: 'option.filter(value: type.any)'
   flat_map:
-    description: Performs the `flat_map` operation on an Option.
-    details: Given `value`, `option.flat_map` performs the `flat_map` operation on
-      an option. It returns a `Boolean` value.
+    description: Return the result of the `flat_map` function on `option`.
+    details: 'Calls `option.flat_map(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2693,9 +2416,8 @@ option:
     see: []
     signature: 'option.flat_map(value: type.any)'
   is_none:
-    description: Checks whether an Option is None.
-    details: Given `value`, `option.is_none` checks whether an option is none. It
-      returns a `Boolean` value.
+    description: Return the result of the `is_none` function on `option`.
+    details: 'Calls `option.is_none(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2705,9 +2427,8 @@ option:
     see: []
     signature: 'option.is_none(value: type.any)'
   is_some:
-    description: Checks whether an Option is Some.
-    details: Given `value`, `option.is_some` checks whether an option is some. It
-      returns a `Boolean` value.
+    description: Return the result of the `is_some` function on `option`.
+    details: 'Calls `option.is_some(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2717,9 +2438,8 @@ option:
     see: []
     signature: 'option.is_some(value: type.any)'
   map:
-    description: Maps a function over an Option.
-    details: Given `value`, `option.map` maps a function over an option. It returns
-      a `Boolean` value.
+    description: Return the result of the `map` function on `option`.
+    details: 'Calls `option.map(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2729,9 +2449,8 @@ option:
     see: []
     signature: 'option.map(value: type.any)'
   map_or:
-    description: Maps over an Option and transforms or.
-    details: Given `value`, `option.map_or` maps over an option and transforms or.
-      It returns a `Boolean` value.
+    description: Return the result of the `map_or` function on `option`.
+    details: 'Calls `option.map_or(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2741,9 +2460,8 @@ option:
     see: []
     signature: 'option.map_or(value: type.any)'
   none:
-    description: Creates a None value.
-    details: Given `value`, `option.none` creates a none value. It returns a `None`
-      value.
+    description: Return the result of the `none` function on `option`.
+    details: 'Calls `option.none(value: type.any)` with the given arguments and returns a `None` result.'
     examples: []
     params:
     - name: value
@@ -2753,9 +2471,8 @@ option:
     see: []
     signature: 'option.none(value: type.any)'
   or:
-    description: Returns the logical OR of two values.
-    details: Given `value`, `option.or` returns the logical or of two values. It returns
-      a `Boolean` value.
+    description: Return the result of the `or` function on `option`.
+    details: 'Calls `option.or(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2765,9 +2482,8 @@ option:
     see: []
     signature: 'option.or(value: type.any)'
   or_else:
-    description: Performs the `or_else` operation on an Option.
-    details: Given `value`, `option.or_else` performs the `or_else` operation on an
-      option. It returns a `Boolean` value.
+    description: Return the result of the `or_else` function on `option`.
+    details: 'Calls `option.or_else(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2777,9 +2493,8 @@ option:
     see: []
     signature: 'option.or_else(value: type.any)'
   some:
-    description: Checks whether any element satisfies a predicate.
-    details: Given `value`, `option.some` checks whether any element satisfies a predicate.
-      It returns a `Some` value.
+    description: Return the result of the `some` function on `option`.
+    details: 'Calls `option.some(value: type.any)` with the given arguments and returns a `Some` result.'
     examples: []
     params:
     - name: value
@@ -2789,9 +2504,8 @@ option:
     see: []
     signature: 'option.some(value: type.any)'
   unwrap:
-    description: Performs the `unwrap` operation on an Option.
-    details: Given `value`, `option.unwrap` performs the `unwrap` operation on an
-      option. It returns a `Boolean` value.
+    description: Return the result of the `unwrap` function on `option`.
+    details: 'Calls `option.unwrap(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2801,9 +2515,8 @@ option:
     see: []
     signature: 'option.unwrap(value: type.any)'
   unwrap_or:
-    description: Performs the `unwrap_or` operation on an Option.
-    details: Given `value`, `option.unwrap_or` performs the `unwrap_or` operation
-      on an option. It returns a `Boolean` value.
+    description: Return the result of the `unwrap_or` function on `option`.
+    details: 'Calls `option.unwrap_or(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2813,9 +2526,8 @@ option:
     see: []
     signature: 'option.unwrap_or(value: type.any)'
   unwrap_or_else:
-    description: Performs the `unwrap_or_else` operation on an Option.
-    details: Given `value`, `option.unwrap_or_else` performs the `unwrap_or_else`
-      operation on an option. It returns a `Boolean` value.
+    description: Return the result of the `unwrap_or_else` function on `option`.
+    details: 'Calls `option.unwrap_or_else(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2825,9 +2537,8 @@ option:
     see: []
     signature: 'option.unwrap_or_else(value: type.any)'
   xor:
-    description: Returns the logical XOR of two values.
-    details: Given `value`, `option.xor` returns the logical xor of two values. It
-      returns a `Boolean` value.
+    description: Return the result of the `xor` function on `option`.
+    details: 'Calls `option.xor(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2838,9 +2549,8 @@ option:
     signature: 'option.xor(value: type.any)'
 result:
   err:
-    description: Creates an Err value.
-    details: Given `value`, `result.err` creates an err value. It returns a `Err`
-      value.
+    description: Return the result of the `err` function on `result`.
+    details: 'Calls `result.err(value: type.any)` with the given arguments and returns a `Err` result.'
     examples: []
     params:
     - name: value
@@ -2850,9 +2560,8 @@ result:
     see: []
     signature: 'result.err(value: type.any)'
   is_err:
-    description: Checks whether a Result is Err.
-    details: Given `value`, `result.is_err` checks whether a result is err. It returns
-      a `Boolean` value.
+    description: Return the result of the `is_err` function on `result`.
+    details: 'Calls `result.is_err(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2862,9 +2571,8 @@ result:
     see: []
     signature: 'result.is_err(value: type.any)'
   is_ok:
-    description: Checks whether a Result is Ok.
-    details: Given `value`, `result.is_ok` checks whether a result is ok. It returns
-      a `Boolean` value.
+    description: Return the result of the `is_ok` function on `result`.
+    details: 'Calls `result.is_ok(value: type.any)` with the given arguments and returns a `Boolean` result.'
     examples: []
     params:
     - name: value
@@ -2874,8 +2582,8 @@ result:
     see: []
     signature: 'result.is_ok(value: type.any)'
   ok:
-    description: Creates an Ok value.
-    details: Given `value`, `result.ok` creates an ok value. It returns a `Ok` value.
+    description: Return the result of the `ok` function on `result`.
+    details: 'Calls `result.ok(value: type.any)` with the given arguments and returns a `Ok` result.'
     examples: []
     params:
     - name: value
@@ -2886,9 +2594,8 @@ result:
     signature: 'result.ok(value: type.any)'
 set:
   difference:
-    description: Returns the difference of two sets.
-    details: Given `a`, `b`, `set.difference` returns the difference of two sets.
-      It returns a `Array` value.
+    description: Return the result of the `difference` function on `set`.
+    details: 'Calls `set.difference(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2901,9 +2608,8 @@ set:
     see: []
     signature: 'set.difference(a: Array, b: Array)'
   intersection:
-    description: Returns the intersection of two sets.
-    details: Given `a`, `b`, `set.intersection` returns the intersection of two sets.
-      It returns a `Array` value.
+    description: Return the result of the `intersection` function on `set`.
+    details: 'Calls `set.intersection(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2916,9 +2622,8 @@ set:
     see: []
     signature: 'set.intersection(a: Array, b: Array)'
   symmetric_difference:
-    description: Returns the symmetric difference of two sets.
-    details: Given `a`, `b`, `set.symmetric_difference` returns the symmetric difference
-      of two sets. It returns a `Array` value.
+    description: Return the result of the `symmetric_difference` function on `set`.
+    details: 'Calls `set.symmetric_difference(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2931,9 +2636,8 @@ set:
     see: []
     signature: 'set.symmetric_difference(a: Array, b: Array)'
   union:
-    description: Returns the union of two sets.
-    details: Given `a`, `b`, `set.union` returns the union of two sets. It returns
-      a `Array` value.
+    description: Return the result of the `union` function on `set`.
+    details: 'Calls `set.union(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2946,9 +2650,8 @@ set:
     see: []
     signature: 'set.union(a: Array, b: Array)'
   unique:
-    description: Removes duplicate elements from a set.
-    details: Given `a`, `b`, `set.unique` removes duplicate elements from a set. It
-      returns a `Array` value.
+    description: Return the result of the `unique` function on `set`.
+    details: 'Calls `set.unique(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2961,9 +2664,8 @@ set:
     see: []
     signature: 'set.unique(a: Array, b: Array)'
   unique_by:
-    description: Performs the `unique_by` operation on a set.
-    details: Given `a`, `b`, `set.unique_by` performs the `unique_by` operation on
-      a set. It returns a `Array` value.
+    description: Return the result of the `unique_by` function on `set`.
+    details: 'Calls `set.unique_by(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2976,9 +2678,8 @@ set:
     see: []
     signature: 'set.unique_by(a: Array, b: Array)'
   without:
-    description: Returns a set without the given elements.
-    details: Given `a`, `b`, `set.without` returns a set without the given elements.
-      It returns a `Array` value.
+    description: Return the result of the `without` function on `set`.
+    details: 'Calls `set.without(a: Array, b: Array)` with the given arguments and returns a `Array` result.'
     examples: []
     params:
     - name: a
@@ -2992,9 +2693,8 @@ set:
     signature: 'set.without(a: Array, b: Array)'
 str:
   camel_case:
-    description: Converts a string to camelCase.
-    details: Given `value`, `str.camel_case` converts a string to camelcase. It returns
-      a `String` value.
+    description: Return the result of the `camel_case` function on `str`.
+    details: 'Calls `str.camel_case(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.camel_case('hello world')
     params:
@@ -3005,9 +2705,8 @@ str:
     see: []
     signature: 'str.camel_case(value: String)'
   capitalize:
-    description: Capitalizes the first character of a string.
-    details: Given `value`, `str.capitalize` capitalizes the first character of a
-      string. It returns a `String` value.
+    description: Return the result of the `capitalize` function on `str`.
+    details: 'Calls `str.capitalize(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.capitalize('hello world')
     params:
@@ -3018,9 +2717,8 @@ str:
     see: []
     signature: 'str.capitalize(value: String)'
   char_at:
-    description: Returns the character at the given index of a string.
-    details: Given `value`, `index`, `str.char_at` returns the character at the given
-      index of a string. It returns a `String` value.
+    description: Return the result of the `char_at` function on `str`.
+    details: 'Calls `str.char_at(value: String, index: num)` with the given arguments and returns a `String` result.'
     examples:
     - str.char_at('hello', 1)
     params:
@@ -3034,9 +2732,8 @@ str:
     see: []
     signature: 'str.char_at(value: String, index: num)'
   concat:
-    description: Concatenates multiple values into a string.
-    details: Given `value`, `str.concat` concatenates multiple values into a string.
-      It returns a `String` value.
+    description: Concatenate the given arrays.
+    details: Return a new array containing all elements of the input arrays in order.
     examples: []
     params:
     - name: value
@@ -3046,9 +2743,8 @@ str:
     see: []
     signature: 'str.concat(value: String)'
   contains:
-    description: Checks whether a string contains a value.
-    details: Given `value`, `str.contains` checks whether a string contains a value.
-      It returns a `Boolean` value.
+    description: Return `true` if `value` contains `value`.
+    details: Check whether `value` contains `value`.
     examples:
     - str.contains('hello')
     params:
@@ -3059,9 +2755,8 @@ str:
     see: []
     signature: 'str.contains(value: String)'
   count:
-    description: Returns the number of matching elements in a string.
-    details: Given `value`, `str.count` returns the number of matching elements in
-      a string. It returns a `String` value.
+    description: Return the result of the `count` function on `str`.
+    details: 'Calls `str.count(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3071,9 +2766,8 @@ str:
     see: []
     signature: 'str.count(value: String)'
   ends_with:
-    description: Checks whether a string ends with a suffix.
-    details: Given `value`, `str.ends_with` checks whether a string ends with a suffix.
-      It returns a `Boolean` value.
+    description: Return the result of the `ends_with` function on `str`.
+    details: 'Calls `str.ends_with(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.ends_with('hello')
     params:
@@ -3084,9 +2778,8 @@ str:
     see: []
     signature: 'str.ends_with(value: String)'
   equals:
-    description: Checks whether two strings are equal.
-    details: Given `value`, `str.equals` checks whether two strings are equal. It
-      returns a `Boolean` value.
+    description: Return the result of the `equals` function on `str`.
+    details: 'Calls `str.equals(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.equals('hello')
     params:
@@ -3097,9 +2790,8 @@ str:
     see: []
     signature: 'str.equals(value: String)'
   find:
-    description: Finds the first matching element in a string.
-    details: Given `value`, `str.find` finds the first matching element in a string.
-      It returns a `String` value.
+    description: Return the result of the `find` function on `str`.
+    details: 'Calls `str.find(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3109,9 +2801,8 @@ str:
     see: []
     signature: 'str.find(value: String)'
   is_alpha:
-    description: Checks whether a string contains only alphabetic characters.
-    details: Given `value`, `str.is_alpha` checks whether a string contains only alphabetic
-      characters. It returns a `Boolean` value.
+    description: Return the result of the `is_alpha` function on `str`.
+    details: 'Calls `str.is_alpha(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.is_alpha('hello')
     params:
@@ -3122,9 +2813,8 @@ str:
     see: []
     signature: 'str.is_alpha(value: String)'
   is_alphanumeric:
-    description: Checks whether a string contains only alphanumeric characters.
-    details: Given `value`, `str.is_alphanumeric` checks whether a string contains
-      only alphanumeric characters. It returns a `Boolean` value.
+    description: Return the result of the `is_alphanumeric` function on `str`.
+    details: 'Calls `str.is_alphanumeric(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.is_alphanumeric('hello')
     params:
@@ -3135,9 +2825,8 @@ str:
     see: []
     signature: 'str.is_alphanumeric(value: String)'
   is_empty:
-    description: Checks whether a string is empty.
-    details: Given `value`, `str.is_empty` checks whether a string is empty. It returns
-      a `Boolean` value.
+    description: Return `true` if `value` is empty.
+    details: Return a boolean indicating whether `value` has no elements.
     examples:
     - str.is_empty('hello')
     params:
@@ -3148,9 +2837,8 @@ str:
     see: []
     signature: 'str.is_empty(value: String)'
   is_numeric:
-    description: Checks whether a string contains only numeric characters.
-    details: Given `value`, `str.is_numeric` checks whether a string contains only
-      numeric characters. It returns a `Boolean` value.
+    description: Return the result of the `is_numeric` function on `str`.
+    details: 'Calls `str.is_numeric(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.is_numeric('hello')
     params:
@@ -3161,9 +2849,9 @@ str:
     see: []
     signature: 'str.is_numeric(value: String)'
   join:
-    description: Joins an array of strings using the string as a separator.
-    details: Given `parts`, `separator`, `str.join` joins an array of strings using
-      the string as a separator. It returns a `String` value.
+    description: Return the result of the `join` function on `str`.
+    details: 'Calls `str.join(parts: Array<String>, separator: String = '''')` with the given arguments and returns a `String`
+      result.'
     examples:
     - str.join(['a','b','c'], '-') // 'a-b-c'
     params:
@@ -3177,9 +2865,8 @@ str:
     see: []
     signature: 'str.join(parts: Array<String>, separator: String = '''')'
   kebab_case:
-    description: Converts a string to kebab-case.
-    details: Given `value`, `str.kebab_case` converts a string to kebab-case. It returns
-      a `String` value.
+    description: Return the result of the `kebab_case` function on `str`.
+    details: 'Calls `str.kebab_case(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.kebab_case('hello world')
     params:
@@ -3190,9 +2877,8 @@ str:
     see: []
     signature: 'str.kebab_case(value: String)'
   length:
-    description: Returns the number of characters in a string.
-    details: Given `value`, `str.length` returns the number of characters in a string.
-      It returns a `num` value.
+    description: Return the result of the `length` function on `str`.
+    details: 'Calls `str.length(value: String)` with the given arguments and returns a `num` result.'
     examples:
     - str.length('hello')
     params:
@@ -3203,9 +2889,8 @@ str:
     see: []
     signature: 'str.length(value: String)'
   levenshtein:
-    description: Returns the Levenshtein distance between two strings.
-    details: Given `value`, `str.levenshtein` returns the levenshtein distance between
-      two strings. It returns a `String` value.
+    description: Return the result of the `levenshtein` function on `str`.
+    details: 'Calls `str.levenshtein(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3215,9 +2900,8 @@ str:
     see: []
     signature: 'str.levenshtein(value: String)'
   lines:
-    description: Splits a string into an array of lines.
-    details: Given `value`, `separator`, `str.lines` splits a string into an array
-      of lines. It returns a `Array<String>` value.
+    description: Return the result of the `lines` function on `str`.
+    details: 'Calls `str.lines(value: String, separator: String)` with the given arguments and returns a `Array<String>` result.'
     examples:
     - str.lines('a-b-c', '-')
     params:
@@ -3231,9 +2915,8 @@ str:
     see: []
     signature: 'str.lines(value: String, separator: String)'
   lower:
-    description: Converts a string to lowercase.
-    details: Given `value`, `str.lower` converts a string to lowercase. It returns
-      a `String` value.
+    description: Return the result of the `lower` function on `str`.
+    details: 'Calls `str.lower(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.lower('hello world')
     params:
@@ -3244,9 +2927,8 @@ str:
     see: []
     signature: 'str.lower(value: String)'
   pad_left:
-    description: Pads a string on the left to a given length.
-    details: Given `value`, `str.pad_left` pads a string on the left to a given length.
-      It returns a `String` value.
+    description: Return the result of the `pad_left` function on `str`.
+    details: 'Calls `str.pad_left(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.pad_left('hello world')
     params:
@@ -3257,9 +2939,8 @@ str:
     see: []
     signature: 'str.pad_left(value: String)'
   pad_right:
-    description: Pads a string on the right to a given length.
-    details: Given `value`, `str.pad_right` pads a string on the right to a given
-      length. It returns a `String` value.
+    description: Return the result of the `pad_right` function on `str`.
+    details: 'Calls `str.pad_right(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.pad_right('hello world')
     params:
@@ -3270,9 +2951,8 @@ str:
     see: []
     signature: 'str.pad_right(value: String)'
   pascal_case:
-    description: Converts a string to PascalCase.
-    details: Given `value`, `str.pascal_case` converts a string to pascalcase. It
-      returns a `String` value.
+    description: Return the result of the `pascal_case` function on `str`.
+    details: 'Calls `str.pascal_case(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.pascal_case('hello world')
     params:
@@ -3283,9 +2963,8 @@ str:
     see: []
     signature: 'str.pascal_case(value: String)'
   repeat:
-    description: Repeats a string a number of times.
-    details: Given `value`, `str.repeat` repeats a string a number of times. It returns
-      a `String` value.
+    description: Return the result of the `repeat` function on `str`.
+    details: 'Calls `str.repeat(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.repeat('hello world')
     params:
@@ -3296,9 +2975,9 @@ str:
     see: []
     signature: 'str.repeat(value: String)'
   replace:
-    description: Replaces occurrences of a pattern in a string.
-    details: Given `value`, `pattern`, `replacement`, `str.replace` replaces occurrences
-      of a pattern in a string. It returns a `String` value.
+    description: Return the result of the `replace` function on `str`.
+    details: 'Calls `str.replace(value: String, pattern: String, replacement: String = '''')` with the given arguments and
+      returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3312,12 +2991,11 @@ str:
       description: the `replacement` String value
     return_value: String
     see: []
-    signature: 'str.replace(value: String, pattern: String, replacement: String =
-      '''')'
+    signature: 'str.replace(value: String, pattern: String, replacement: String = '''')'
   replace_first:
-    description: Replaces the first occurrence of a pattern in a string.
-    details: Given `value`, `pattern`, `replacement`, `str.replace_first` replaces
-      the first occurrence of a pattern in a string. It returns a `String` value.
+    description: Return the result of the `replace_first` function on `str`.
+    details: 'Calls `str.replace_first(value: String, pattern: String, replacement: String = '''')` with the given arguments
+      and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3331,12 +3009,10 @@ str:
       description: the `replacement` String value
     return_value: String
     see: []
-    signature: 'str.replace_first(value: String, pattern: String, replacement: String
-      = '''')'
+    signature: 'str.replace_first(value: String, pattern: String, replacement: String = '''')'
   reverse:
-    description: Reverses a string.
-    details: Given `value`, `str.reverse` reverses a string. It returns a `String`
-      value.
+    description: Return `value` with its elements in reverse order.
+    details: Return a new collection with the elements of `value` reversed.
     examples:
     - str.reverse('hello world')
     params:
@@ -3347,9 +3023,8 @@ str:
     see: []
     signature: 'str.reverse(value: String)'
   rfind:
-    description: Performs the `rfind` operation on a string.
-    details: Given `value`, `str.rfind` performs the `rfind` operation on a string.
-      It returns a `String` value.
+    description: Return the result of the `rfind` function on `str`.
+    details: 'Calls `str.rfind(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3359,9 +3034,8 @@ str:
     see: []
     signature: 'str.rfind(value: String)'
   similarity:
-    description: Returns the similarity between two strings.
-    details: Given `value`, `str.similarity` returns the similarity between two strings.
-      It returns a `String` value.
+    description: Return the result of the `similarity` function on `str`.
+    details: 'Calls `str.similarity(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3371,9 +3045,8 @@ str:
     see: []
     signature: 'str.similarity(value: String)'
   slice:
-    description: Returns a slice of a string.
-    details: Given `value`, `str.slice` returns a slice of a string. It returns a
-      `String` value.
+    description: Return the result of the `slice` function on `str`.
+    details: 'Calls `str.slice(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3383,9 +3056,8 @@ str:
     see: []
     signature: 'str.slice(value: String)'
   slugify:
-    description: Converts a string to a URL-safe slug.
-    details: Given `value`, `str.slugify` converts a string to a url-safe slug. It
-      returns a `String` value.
+    description: Return the result of the `slugify` function on `str`.
+    details: 'Calls `str.slugify(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3395,9 +3067,8 @@ str:
     see: []
     signature: 'str.slugify(value: String)'
   snake_case:
-    description: Converts a string to snake_case.
-    details: Given `value`, `str.snake_case` converts a string to snake_case. It returns
-      a `String` value.
+    description: Return the result of the `snake_case` function on `str`.
+    details: 'Calls `str.snake_case(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.snake_case('hello world')
     params:
@@ -3408,9 +3079,8 @@ str:
     see: []
     signature: 'str.snake_case(value: String)'
   split:
-    description: Splits a string by a separator.
-    details: Given `value`, `separator`, `str.split` splits a string by a separator.
-      It returns a `Array<String>` value.
+    description: Return the result of the `split` function on `str`.
+    details: 'Calls `str.split(value: String, separator: String)` with the given arguments and returns a `Array<String>` result.'
     examples:
     - str.split('a-b-c', '-')
     params:
@@ -3424,9 +3094,9 @@ str:
     see: []
     signature: 'str.split(value: String, separator: String)'
   split_at:
-    description: Splits a string at the given index.
-    details: Given `value`, `separator`, `str.split_at` splits a string at the given
-      index. It returns a `Array<String>` value.
+    description: Return the result of the `split_at` function on `str`.
+    details: 'Calls `str.split_at(value: String, separator: String)` with the given arguments and returns a `Array<String>`
+      result.'
     examples:
     - str.split_at('a-b-c', '-')
     params:
@@ -3440,9 +3110,9 @@ str:
     see: []
     signature: 'str.split_at(value: String, separator: String)'
   split_whitespace:
-    description: Splits a string by whitespace.
-    details: Given `value`, `separator`, `str.split_whitespace` splits a string by
-      whitespace. It returns a `Array<String>` value.
+    description: Return the result of the `split_whitespace` function on `str`.
+    details: 'Calls `str.split_whitespace(value: String, separator: String)` with the given arguments and returns a `Array<String>`
+      result.'
     examples:
     - str.split_whitespace('a-b-c', '-')
     params:
@@ -3456,9 +3126,8 @@ str:
     see: []
     signature: 'str.split_whitespace(value: String, separator: String)'
   starts_with:
-    description: Checks whether a string starts with a prefix.
-    details: Given `value`, `str.starts_with` checks whether a string starts with
-      a prefix. It returns a `Boolean` value.
+    description: Return the result of the `starts_with` function on `str`.
+    details: 'Calls `str.starts_with(value: String)` with the given arguments and returns a `Boolean` result.'
     examples:
     - str.starts_with('hello')
     params:
@@ -3469,9 +3138,8 @@ str:
     see: []
     signature: 'str.starts_with(value: String)'
   strip_prefix:
-    description: Removes a prefix from a string.
-    details: Given `value`, `str.strip_prefix` removes a prefix from a string. It
-      returns a `String` value.
+    description: Return the result of the `strip_prefix` function on `str`.
+    details: 'Calls `str.strip_prefix(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3481,9 +3149,8 @@ str:
     see: []
     signature: 'str.strip_prefix(value: String)'
   strip_suffix:
-    description: Removes a suffix from a string.
-    details: Given `value`, `str.strip_suffix` removes a suffix from a string. It
-      returns a `String` value.
+    description: Return the result of the `strip_suffix` function on `str`.
+    details: 'Calls `str.strip_suffix(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3493,9 +3160,8 @@ str:
     see: []
     signature: 'str.strip_suffix(value: String)'
   title_case:
-    description: Converts a string to Title Case.
-    details: Given `value`, `str.title_case` converts a string to title case. It returns
-      a `String` value.
+    description: Return the result of the `title_case` function on `str`.
+    details: 'Calls `str.title_case(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.title_case('hello world')
     params:
@@ -3506,9 +3172,8 @@ str:
     see: []
     signature: 'str.title_case(value: String)'
   trim:
-    description: Removes leading and trailing whitespace from a string.
-    details: Given `value`, `str.trim` removes leading and trailing whitespace from
-      a string. It returns a `String` value.
+    description: Return the result of the `trim` function on `str`.
+    details: 'Calls `str.trim(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3518,9 +3183,8 @@ str:
     see: []
     signature: 'str.trim(value: String)'
   trim_end:
-    description: Removes trailing whitespace from a string.
-    details: Given `value`, `str.trim_end` removes trailing whitespace from a string.
-      It returns a `String` value.
+    description: Return the result of the `trim_end` function on `str`.
+    details: 'Calls `str.trim_end(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3530,9 +3194,8 @@ str:
     see: []
     signature: 'str.trim_end(value: String)'
   trim_matches:
-    description: Removes leading and trailing matches from a string.
-    details: Given `value`, `str.trim_matches` removes leading and trailing matches
-      from a string. It returns a `String` value.
+    description: Return the result of the `trim_matches` function on `str`.
+    details: 'Calls `str.trim_matches(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3542,9 +3205,8 @@ str:
     see: []
     signature: 'str.trim_matches(value: String)'
   trim_start:
-    description: Removes leading whitespace from a string.
-    details: Given `value`, `str.trim_start` removes leading whitespace from a string.
-      It returns a `String` value.
+    description: Return the result of the `trim_start` function on `str`.
+    details: 'Calls `str.trim_start(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3554,9 +3216,8 @@ str:
     see: []
     signature: 'str.trim_start(value: String)'
   truncate:
-    description: Truncates a string to a given length.
-    details: Given `value`, `str.truncate` truncates a string to a given length. It
-      returns a `String` value.
+    description: Return the result of the `truncate` function on `str`.
+    details: 'Calls `str.truncate(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.truncate('hello world')
     params:
@@ -3567,9 +3228,8 @@ str:
     see: []
     signature: 'str.truncate(value: String)'
   upper:
-    description: Converts a string to uppercase.
-    details: Given `value`, `str.upper` converts a string to uppercase. It returns
-      a `String` value.
+    description: Return the result of the `upper` function on `str`.
+    details: 'Calls `str.upper(value: String)` with the given arguments and returns a `String` result.'
     examples:
     - str.upper('hello world')
     params:
@@ -3580,9 +3240,8 @@ str:
     see: []
     signature: 'str.upper(value: String)'
   word_wrap:
-    description: Wraps a string into lines of a given width.
-    details: Given `value`, `str.word_wrap` wraps a string into lines of a given width.
-      It returns a `String` value.
+    description: Return the result of the `word_wrap` function on `str`.
+    details: 'Calls `str.word_wrap(value: String)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3593,9 +3252,8 @@ str:
     signature: 'str.word_wrap(value: String)'
 type:
   coalesce:
-    description: Performs the `coalesce` operation on a value.
-    details: Given `value`, `type.coalesce` performs the `coalesce` operation on a
-      value. It returns a value of any type.
+    description: Return the result of the `coalesce` function on `type`.
+    details: 'Calls `type.coalesce(value: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: value
@@ -3605,9 +3263,8 @@ type:
     see: []
     signature: 'type.coalesce(value: type.any)'
   default:
-    description: Performs the `default` operation on a value.
-    details: Given `value`, `type.default` performs the `default` operation on a value.
-      It returns a value of any type.
+    description: Return the result of the `default` function on `type`.
+    details: 'Calls `type.default(value: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: value
@@ -3617,9 +3274,8 @@ type:
     see: []
     signature: 'type.default(value: type.any)'
   identity:
-    description: Performs the `identity` operation on a value.
-    details: Given `value`, `type.identity` performs the `identity` operation on a
-      value. It returns a value of any type.
+    description: Return the result of the `identity` function on `type`.
+    details: 'Calls `type.identity(value: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: value
@@ -3628,114 +3284,10 @@ type:
     return_value: type.any
     see: []
     signature: 'type.identity(value: type.any)'
-  is_array:
-    description: Checks whether a value is an array.
-    details: Given `value`, `type.is_array` checks whether a value is an array. It
-      returns a `Boolean` value.
-    examples:
-    - type.is_array(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_array(value: type.any)'
-  is_bool:
-    description: Checks whether a value is a boolean.
-    details: Given `value`, `type.is_bool` checks whether a value is a boolean. It
-      returns a `Boolean` value.
-    examples:
-    - type.is_bool(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_bool(value: type.any)'
-  is_empty:
-    description: Checks whether a value is empty.
-    details: Given `value`, `type.is_empty` checks whether a value is empty. It returns
-      a `Boolean` value.
-    examples:
-    - type.is_empty(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_empty(value: type.any)'
-  is_null:
-    description: Checks whether a value is null.
-    details: Given `value`, `type.is_null` checks whether a value is null. It returns
-      a `Boolean` value.
-    examples:
-    - type.is_null(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_null(value: type.any)'
-  is_number:
-    description: Checks whether a value is a number.
-    details: Given `value`, `type.is_number` checks whether a value is a number. It
-      returns a `Boolean` value.
-    examples:
-    - type.is_number(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_number(value: type.any)'
-  is_object:
-    description: Checks whether a value is an object.
-    details: Given `value`, `type.is_object` checks whether a value is an object.
-      It returns a `Boolean` value.
-    examples:
-    - type.is_object(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_object(value: type.any)'
-  is_string:
-    description: Checks whether a value is a string.
-    details: Given `value`, `type.is_string` checks whether a value is a string. It
-      returns a `Boolean` value.
-    examples:
-    - type.is_string(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_string(value: type.any)'
-  is_truthy:
-    description: Checks whether a value is truthy.
-    details: Given `value`, `type.is_truthy` checks whether a value is truthy. It
-      returns a `Boolean` value.
-    examples:
-    - type.is_truthy(value)
-    params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
-    return_value: Boolean
-    see: []
-    signature: 'type.is_truthy(value: type.any)'
+
   to_bool:
-    description: Converts a value to a boolean.
-    details: Given `value`, `type.to_bool` converts a value to a boolean. It returns
-      a `Bool` value.
+    description: Return the result of the `to_bool` function on `type`.
+    details: 'Calls `type.to_bool(value: type.any)` with the given arguments and returns a `Bool` result.'
     examples: []
     params:
     - name: value
@@ -3745,9 +3297,8 @@ type:
     see: []
     signature: 'type.to_bool(value: type.any)'
   to_number:
-    description: Converts a value to a number.
-    details: Given `value`, `type.to_number` converts a value to a number. It returns
-      a `num` value.
+    description: Return the result of the `to_number` function on `type`.
+    details: 'Calls `type.to_number(value: type.any)` with the given arguments and returns a `num` result.'
     examples: []
     params:
     - name: value
@@ -3757,9 +3308,8 @@ type:
     see: []
     signature: 'type.to_number(value: type.any)'
   to_string:
-    description: Converts a value to a string.
-    details: Given `value`, `type.to_string` converts a value to a string. It returns
-      a `String` value.
+    description: Return the result of the `to_string` function on `type`.
+    details: 'Calls `type.to_string(value: type.any)` with the given arguments and returns a `String` result.'
     examples: []
     params:
     - name: value
@@ -3769,9 +3319,8 @@ type:
     see: []
     signature: 'type.to_string(value: type.any)'
   type_of:
-    description: Performs the `type_of` operation on a value.
-    details: Given `value`, `type.type_of` performs the `type_of` operation on a value.
-      It returns a value of any type.
+    description: Return the result of the `type_of` function on `type`.
+    details: 'Calls `type.type_of(value: type.any)` with the given arguments and returns a `type.any` result.'
     examples: []
     params:
     - name: value
@@ -3782,12 +3331,11 @@ type:
     signature: 'type.type_of(value: type.any)'
 parse:
   parse:
-    description: Parse a string using a registered parser.
-    details: Given `input` and `parser`, `parse.parse` dispatches to the registered
-      parser. `parser` must be a parser object such as `url_whatwg` or `url_rfc`.
+    description: Parse the datetime string `input`.
+    details: Parse the string `input` into a datetime value.
     examples:
-    - 'parse.parse("https://example.com:8080/path?a=1#frag", url_whatwg)'
-    - 'parse.parse("https://example.com/%ZZ", url_rfc)'
+    - parse.parse("https://example.com:8080/path?a=1#frag", url_whatwg)
+    - parse.parse("https://example.com/%ZZ", url_rfc)
     params:
     - name: input
       type: String
@@ -3798,28 +3346,3 @@ parse:
     return_value: Object
     see: []
     signature: 'parse.parse(input: String, parser: Object)'
-url_whatwg:
-  url_whatwg:
-    description: Return the WHATWG URL parser object.
-    details: >
-      `url_whatwg` returns a parser token for the WHATWG URL Standard. It must
-      be passed to `parse.parse`.
-    examples:
-    - 'parse.parse("HTtpS://EXAMPLE.com/../a/../b", url_whatwg)'
-    params: []
-    return_value: Object
-    see: []
-    signature: 'url_whatwg()'
-url_rfc:
-  url_rfc:
-    description: Return the strict RFC 3986 URI parser object.
-    details: >
-      `url_rfc` returns a parser token for strict RFC 3986 URIs. It must be
-      passed to `parse.parse`.
-    examples:
-    - 'parse.parse("https://example.com:8080/path?a=1#frag", url_rfc)'
-    params: []
-    return_value: Object
-    see: []
-    signature: 'url_rfc()'
-

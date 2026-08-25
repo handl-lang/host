@@ -1,0 +1,49 @@
+kv:
+  get:
+    description: Return the result of the `get` function on `kv`.
+    details: Calls `kv.get()` with the given arguments and returns a `null` result.
+    signature: kv.get()
+    params: []
+    return_value: 'null'
+    examples: []
+    see: []
+  set:
+    description: Return the result of the `set` function on `kv`.
+    details: Calls `kv.set()` with the given arguments and returns a `null` result.
+    signature: kv.set()
+    params: []
+    return_value: 'null'
+    examples: []
+    see: []
+  remove:
+    description: Return the result of the `remove` function on `kv`.
+    details: Calls `kv.remove()` with the given arguments and returns a `null` result.
+    signature: kv.remove()
+    params: []
+    return_value: 'null'
+    examples: []
+    see: []
+  clear:
+    description: Return the result of the `clear` function on `kv`.
+    details: Calls `kv.clear()` with the given arguments and returns a `null` result.
+    signature: kv.clear()
+    params: []
+    return_value: 'null'
+    examples: []
+    see: []
+  has:
+    description: Return the result of the `has` function on `kv`.
+    details: Calls `kv.has()` with the given arguments and returns a `type.any` result.
+    signature: kv.has()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  size:
+    description: Return the result of the `size` function on `kv`.
+    details: Calls `kv.size()` with the given arguments and returns a `type.any` result.
+    signature: kv.size()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []

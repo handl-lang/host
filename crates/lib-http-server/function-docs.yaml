@@ -1,0 +1,14 @@
+http_server:
+  new:
+    description: Module adapter for [`HttpServer`] — exposes `http_server.*` functions
+    details: Module adapter for [`HttpServer`] — exposes `http_server.*` functions.  | Function | Args | Description | |----------|------|-------------|
+      | `http_server.new()` | `()` | Creates a new server and returns its id. | | `http_server.start(server, addr)` | `(server,
+      addr)` | Starts the server. | | `http_server.stop(server)` | `(server)` | Stops the server. | | `http_server.join(server)`
+      | `(server)` | Blocks until shutdown. | | `http_server.route(server, method, path, body)` | `(server, method, path,
+      body)` | Registers a static response route. | | `http_server.serve_static(server, path, dir)` | `(server, path, dir)`
+      | Serves static files. |
+    signature: http_server.new()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []

@@ -1,0 +1,65 @@
+stats:
+  avg:
+    description: Return the result of the `avg` function on `stats`.
+    details: Calls `stats.avg()` with the given arguments and returns a `type.any` result.
+    signature: stats.avg()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  max:
+    description: Return the max of the values in `arg0`.
+    details: Compute the max of the numeric values in `arg0`.
+    signature: 'stats.max(arg0: Array)'
+    params:
+    - name: arg0
+      type: Array
+      description: the 0th Array argument
+    return_value: Number
+    examples:
+    - stats.max([1, 2, 3])
+    see: []
+  median:
+    description: Return the result of the `median` function on `stats`.
+    details: Calls `stats.median()` with the given arguments and returns a `type.any` result.
+    signature: stats.median()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  min:
+    description: Return the min of the values in `arg0`.
+    details: Compute the min of the numeric values in `arg0`.
+    signature: 'stats.min(arg0: Array)'
+    params:
+    - name: arg0
+      type: Array
+      description: the 0th Array argument
+    return_value: Number
+    examples:
+    - stats.min([1, 2, 3])
+    see: []
+  product:
+    description: Return the result of the `product` function on `stats`.
+    details: Calls `stats.product()` with the given arguments and returns a `type.any` result.
+    signature: stats.product()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  stddev:
+    description: Return the result of the `stddev` function on `stats`.
+    details: Calls `stats.stddev()` with the given arguments and returns a `type.any` result.
+    signature: stats.stddev()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []
+  sum:
+    description: Return the result of the `sum` function on `stats`.
+    details: Calls `stats.sum()` with the given arguments and returns a `type.any` result.
+    signature: stats.sum()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []

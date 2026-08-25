@@ -1,0 +1,9 @@
+yaml:
+  yaml:
+    description: Return the result of the `yaml` function on `yaml`.
+    details: Calls `yaml.yaml()` with the given arguments and returns a `Object` result.
+    signature: yaml.yaml()
+    params: []
+    return_value: Object
+    examples: []
+    see: []

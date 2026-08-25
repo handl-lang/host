@@ -77,7 +77,7 @@ fn main() -> Result<()> {
     let catalog: Catalog = serde_yaml::from_str(&catalog_yaml)
         .with_context(|| format!("parsing catalog {}", catalog_path))?;
 
-    let function_docs = load_function_docs("docs/function-docs.yaml")
+    let function_docs = load_function_docs()
         .with_context(|| "loading function documentation catalog")?;
 
     let mut index = String::new();
@@ -135,96 +135,130 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
         .with_context(|| format!("parsing rustdoc JSON {}", json_path))?;
 
         if inc.reexports || inc.reexports_from.is_some() {
-            let reexports = collect_reexports(&krate_json, inc.reexports_from.as_deref())?;
-            let reexports_empty = reexports.is_empty();
-            let mut groups: BTreeMap<String, Vec<(String, String, Option<String>)>> =
-                BTreeMap::new();
-            let mut module_item_ids: BTreeMap<String, Id> = BTreeMap::new();
+            let modules = collect_modules(&krate_json, inc.reexports_from.as_deref())?;
+            let mut found_any = false;
 
-            for (ac_name, reexport_name, target_id) in &reexports {
-                let target = target_id.as_ref().and_then(|id| krate_json.index.get(id));
-                let summary = target
-                    .and_then(|it| it.docs.as_deref())
-                    .map(first_para)
-                    .unwrap_or_default();
-                let link = reexport_page_link(&crate_underscore, &ac_name, &reexport_name);
-                groups
-                    .entry(ac_name.clone())
-                    .or_default()
-                    .push((reexport_name.clone(), summary, link));
-                if let Some(id) = target_id {
-                    module_item_ids.entry(ac_name.clone()).or_insert(id.clone());
-                }
-            }
+            for (rust_module, handl_module, span_filename, module_summary) in modules {
+                found_any = true;
 
-            for (ac_name, items) in groups {
-                if inc.reexports_from.is_some() {
-                    // Module page: H1 is the handl module name, description from *Module docs.
-                    md.push_str(&format!("# {}\n\n", ac_name));
-                    if let Some((_, summary, _)) = items.first() {
-                        if !summary.is_empty() {
-                            let desc = summary
-                                .split(" — ")
-                                .nth(1)
-                                .map(|s| s.trim())
-                                .unwrap_or(summary.trim());
-                            md.push_str(&format!("{}\n\n", capitalize_first(desc)));
-                        }
-                    }
-
-                    if let Some(module_id) =
-                        module_id_from_path(&krate_json, &crate_underscore, &ac_name)
-                    {
-                        let names = module_item_ids
-                            .get(&ac_name)
-                            .and_then(|id| krate_json.index.get(id))
-                            .and_then(|it| it.span.as_ref())
-                            .map(|s| read_module_function_names(&s.filename))
-                            .unwrap_or_default();
-                        let functions = collect_module_functions(&krate_json, &module_id, &names);
-                        for (ac_fn, summary, _id) in functions {
-                            md.push_str(&format!("\n## `{}.{}`\n\n", ac_name, ac_fn));
-
-                            let module_docs = function_docs.get(&ac_name);
-                            let docs = module_docs.and_then(|m| m.get(&ac_fn));
-
-                            let description = docs
-                                .and_then(|d| d.description.as_deref())
-                                .filter(|s| !s.is_empty())
-                                .map(|s| s.to_string())
-                                .unwrap_or(summary);
-
-                            if !description.is_empty() {
-                                md.push_str(&format!("{}\n\n", description));
-                            }
-
-                            write_function_doc(&mut md, docs, &ac_name, &ac_fn);
-                        }
-                    }
+                let module_id = if rust_module.is_empty() {
+                    krate_json.root.clone()
+                } else if let Some(id) = module_id_from_path(&krate_json, &crate_underscore, &rust_module) {
+                    id
                 } else {
-                    // Crate-level re-export listing.
-                    md.push_str(&format!("## `{}`", ac_name));
-                    if let Some(link) = find_page_link(&crate_underscore, &ac_name) {
-                        md.push_str(&format!(" ([docs](/api/{}))", link));
-                    }
-                    md.push_str("\n\n");
+                    // Fall back to the crate root and let function-docs.yaml drive the listing.
+                    krate_json.root.clone()
+                };
 
-                    for (reexport_name, summary, link) in items {
-                        md.push_str(&format!("- **{}** `{}`", krate, reexport_name));
-                        if let Some(l) = link {
-                            md.push_str(&format!(" ([docs](/api/{}))", l));
+                let names = read_module_function_names(&span_filename);
+                let functions = if names.is_empty() {
+                    Vec::new()
+                } else {
+                    collect_module_functions(&krate_json, &module_id, &names)
+                };
+
+                // Use hand-curated docs when rustdoc/span extraction fails.
+                let module_docs = function_docs.get(&handl_module);
+
+                if functions.is_empty() && names.is_empty() && module_docs.is_none() {
+                    continue;
+                }
+
+                md.push_str(&format!("## `{}`\n\n", handl_module));
+                if let Some(summary) = module_summary {
+                    if !summary.is_empty() {
+                        md.push_str(&format!("{}\n\n", escape_html(&capitalize_first(&summary))));
+                    }
+                }
+
+                if !functions.is_empty() {
+                    for (ac_fn, summary, _id) in functions {
+                        if ac_fn == handl_module {
+                            continue;
                         }
-                        if !summary.is_empty() {
-                            md.push_str(&format!(" — {}", summary));
+                        md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
+
+                        let docs = module_docs.and_then(|m| m.get(&ac_fn));
+
+                        let description = docs
+                            .and_then(|d| d.description.as_deref())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string())
+                            .unwrap_or(summary);
+
+                        if !description.is_empty() {
+                            md.push_str(&format!("{}\n\n", escape_html(&description)));
                         }
-                        md.push('\n');
+
+                        write_function_doc(&mut md, docs, &handl_module, &ac_fn);
+                    }
+                } else if !names.is_empty() {
+                    // The module maps to fields/inner items rather than top-level
+                    // function structs, so list each mapped handl name.
+                    for (_rust_name, ac_fn) in &names {
+                        if ac_fn == &handl_module {
+                            continue;
+                        }
+                        md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
+
+                        let docs = module_docs.and_then(|m| m.get(ac_fn));
+
+                        write_function_doc(&mut md, docs, &handl_module, ac_fn);
+                    }
+                } else if let Some(docs) = module_docs {
+                    for (ac_fn, doc) in docs {
+                        if ac_fn == &handl_module {
+                            continue;
+                        }
+                        md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
+
+                        if let Some(description) =
+                            doc.description.as_deref().filter(|s| !s.is_empty())
+                        {
+                            md.push_str(&format!("{}\n\n", escape_html(description)));
+                        }
+
+                        write_function_doc(&mut md, Some(doc), &handl_module, ac_fn);
                     }
                 }
 
                 md.push('\n');
             }
-            if !reexports_empty {
+
+            if inc.reexports && found_any {
                 continue;
+            }
+
+            // Fallback: if no re-exported handl Module was found, read the
+            // crate's hand-curated function-docs.yaml (if any) and emit its
+            // modules.
+            if !found_any {
+                let crate_dir = krate
+                    .strip_prefix("handl-")
+                    .unwrap_or(krate)
+                    .to_string();
+                let crate_docs_path = std::path::Path::new("crates")
+                    .join(crate_dir)
+                    .join("function-docs.yaml");
+                if let Ok(yaml) = fs::read_to_string(&crate_docs_path) {
+                    if let Ok(crate_docs) = serde_yaml::from_str::<FunctionDocsMap>(&yaml) {
+                        for (handl_module, fns) in crate_docs {
+                            md.push_str(&format!("## `{}`\n\n", handl_module));
+                            for (ac_fn, docs) in fns {
+                                if ac_fn == handl_module {
+                                    continue;
+                                }
+                                md.push_str(&format!(
+                                    "### `{}.{}`\n\n",
+                                    handl_module, ac_fn
+                                ));
+                                write_function_doc(&mut md, Some(&docs), &handl_module, &ac_fn);
+                            }
+                            md.push('\n');
+                        }
+                        continue;
+                    }
+                }
             }
         }
 
@@ -301,41 +335,76 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
     Ok(md)
 }
 
-fn collect_reexports(
+fn collect_modules(
     krate: &Crate,
     prefix: Option<&str>,
-) -> Result<Vec<(String, String, Option<Id>)>> {
+) -> Result<Vec<(String, String, std::path::PathBuf, Option<String>)>> {
     let root = krate
         .index
         .get(&krate.root)
         .context("crate root not in index")?;
 
-    let module = match &root.inner {
+    let root_mod = match &root.inner {
         ItemEnum::Module(m) => m,
         _ => anyhow::bail!("crate root is not a module"),
     };
 
     let mut out = Vec::new();
-    for id in &module.items {
+    let mut seen = HashSet::new();
+
+    for id in &root_mod.items {
         let item = match krate.index.get(id) {
             Some(i) => i,
             None => continue,
         };
 
+        // `pub use path::...Module;` re-exports
         if let ItemEnum::Use(u) = &item.inner {
-            if u.is_glob {
+            if u.is_glob || !u.name.ends_with("Module") {
                 continue;
             }
 
-            let ac_name = u.source.split("::").next().unwrap_or(&u.name).to_string();
+            let rust_module = u.source.split("::").next().unwrap_or(&u.name).to_string();
 
             if let Some(p) = prefix {
-                if ac_name != p {
+                if rust_module != p {
                     continue;
                 }
             }
 
-            out.push((ac_name, u.name.clone(), u.id.clone()));
+            if let Some(target_id) = &u.id {
+                if !seen.insert(target_id.clone()) {
+                    continue;
+                }
+                if let Some(target) = krate.index.get(target_id) {
+                    let span = target
+                        .span
+                        .as_ref()
+                        .map(|s| s.filename.clone())
+                        .unwrap_or_default();
+                    let handl_module = read_module_name(&span)
+                        .unwrap_or_else(|| to_snake_case(u.name.trim_end_matches("Module")));
+                    let summary = target.docs.as_deref().map(first_para);
+                    out.push((rust_module, handl_module, span, summary));
+                }
+            }
+        }
+
+        // `pub struct ...Module;` defined at the crate root
+        if let ItemEnum::Struct(_) = &item.inner {
+            if let Some(name) = &item.name {
+                if name.ends_with("Module") && seen.insert(id.clone()) {
+                    let span = item
+                        .span
+                        .as_ref()
+                        .map(|s| s.filename.clone())
+                        .unwrap_or_default();
+                    let handl_module = read_module_name(&span)
+                        .unwrap_or_else(|| to_snake_case(name.trim_end_matches("Module")));
+                    let summary = item.docs.as_deref().map(first_para);
+                    out.push((String::new(), handl_module, span, summary));
+                }
+            }
         }
     }
 
@@ -364,23 +433,28 @@ fn collect_module_functions(
     names: &BTreeMap<String, String>,
 ) -> Vec<(String, String, Id)> {
     let mut seen = HashSet::new();
-    let mut out = Vec::new();
+    let mut out: Vec<(String, String, Id, bool)> = Vec::new();
     collect_module_functions_rec(krate, module_id, &mut seen, &mut out, names);
 
-    out.retain(|(name, _, _)| {
+    out.retain(|(name, _, _, in_names)| {
         let lower = name.to_lowercase();
-        !lower.ends_with("module") && !lower.ends_with("tests") && !lower.ends_with("test")
+        !lower.ends_with("module")
+            && !lower.ends_with("tests")
+            && !lower.ends_with("test")
+            && (names.is_empty() || *in_names)
     });
 
     out.sort_by(|a, b| a.0.cmp(&b.0));
-    out
+    out.into_iter()
+        .map(|(a, b, c, _)| (a, b, c))
+        .collect()
 }
 
 fn collect_module_functions_rec(
     krate: &Crate,
     id: &Id,
     seen: &mut HashSet<Id>,
-    out: &mut Vec<(String, String, Id)>,
+    out: &mut Vec<(String, String, Id, bool)>,
     names: &BTreeMap<String, String>,
 ) {
     if !seen.insert(id.clone()) {
@@ -418,11 +492,13 @@ fn collect_module_functions_rec(
                     }
                     if let Some(name) = child.name.as_deref() {
                         let summary = child.docs.as_deref().map(first_para).unwrap_or_default();
-                        let ac_name = names
-                            .get(name)
-                            .cloned()
-                            .unwrap_or_else(|| to_snake_case(name));
-                        out.push((ac_name, summary, child_id.clone()));
+                        let in_names = names.contains_key(name);
+                        let ac_name = if in_names {
+                            names.get(name).unwrap().clone()
+                        } else {
+                            to_snake_case(name)
+                        };
+                        out.push((ac_name, summary, child_id.clone(), in_names));
                     }
                 }
             }
@@ -445,49 +521,7 @@ fn find_module_id(krate: &Crate, name: &str) -> Option<Id> {
     None
 }
 
-fn reexport_page_link(
-    crate_underscore: &str,
-    ac_name: &str,
-    reexport_name: &str,
-) -> Option<String> {
-    let dir = PathBuf::from(format!("docs/api/{}/{}", crate_underscore, ac_name));
-    if !dir.is_dir() {
-        let root_file = PathBuf::from(format!("docs/api/{}.md", crate_underscore));
-        if !root_file.is_file() {
-            return None;
-        }
-        return Some(format!("{}/{}", crate_underscore, reexport_name));
-    }
-
-    let md_files: Vec<String> = fs::read_dir(&dir)
-        .ok()?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_file())
-        .filter_map(|e| {
-            let name = e.file_name();
-            let name = name.to_str()?;
-            if name.ends_with(".md") {
-                Some(name.to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    if md_files.contains(&"module.md".to_string()) {
-        Some(format!("{}/{}/module", crate_underscore, ac_name))
-    } else if md_files.contains(&format!("{}.md", reexport_name)) {
-        Some(format!(
-            "{}/{}/{}",
-            crate_underscore, ac_name, reexport_name
-        ))
-    } else {
-        md_files
-            .first()
-            .map(|f| f.trim_end_matches(".md").to_string())
-            .map(|stem| format!("{}/{}/{}", crate_underscore, ac_name, stem))
-    }
-}
+// Module doc links are derived from `find_page_link`.
 
 fn find_page_link(crate_underscore: &str, module: &str) -> Option<String> {
     if module.is_empty() {
@@ -605,22 +639,26 @@ fn capitalize_first(text: &str) -> String {
     }
 }
 
+fn escape_html(text: &str) -> String {
+    text.replace('<', "&lt;").replace('>', "&gt;")
+}
+
 fn write_function_doc(md: &mut String, docs: Option<&FunctionDocs>, ac_name: &str, ac_fn: &str) {
     if let Some(docs) = docs {
         if let Some(sig) = docs.signature.as_deref().filter(|s| !s.is_empty()) {
-            md.push_str(&format!("**Signature:** `{}`\n\n", sig));
+            md.push_str(&format!("**Signature:** `{}`\n\n", escape_html(sig)));
         }
 
         if let Some(details) = docs.details.as_deref().filter(|s| !s.is_empty()) {
-            md.push_str(&format!("{}\n\n", details));
+            md.push_str(&format!("{}\n\n", escape_html(details)));
         }
 
         if !docs.params.is_empty() {
             md.push_str("**Parameters:**\n\n");
             for p in &docs.params {
-                md.push_str(&format!("- `{}` (`{}`)", p.name, p.param_type));
+                md.push_str(&format!("- `{}` (`{}`)", p.name, escape_html(&p.param_type)));
                 if let Some(desc) = p.description.as_deref().filter(|s| !s.is_empty()) {
-                    md.push_str(&format!(" — {}", desc));
+                    md.push_str(&format!(" — {}", escape_html(desc)));
                 }
                 md.push('\n');
             }
@@ -628,7 +666,7 @@ fn write_function_doc(md: &mut String, docs: Option<&FunctionDocs>, ac_name: &st
         }
 
         if let Some(ret) = docs.return_value.as_deref().filter(|s| !s.is_empty()) {
-            md.push_str(&format!("**Returns:** `{}`\n\n", ret));
+            md.push_str(&format!("**Returns:** `{}`\n\n", escape_html(ret)));
         }
 
         if !docs.examples.is_empty() {
@@ -645,7 +683,7 @@ fn write_function_doc(md: &mut String, docs: Option<&FunctionDocs>, ac_name: &st
                 "**See also:** {}\n\n",
                 docs.see
                     .iter()
-                    .map(|s| format!("`{}`", s))
+                    .map(|s| format!("`{}`", escape_html(s)))
                     .collect::<Vec<_>>()
                     .join(", ")
             ));
@@ -656,15 +694,42 @@ fn write_function_doc(md: &mut String, docs: Option<&FunctionDocs>, ac_name: &st
     }
 }
 
-fn load_function_docs(path: &str) -> Result<FunctionDocsMap> {
-    if !std::path::Path::new(path).exists() {
-        return Ok(FunctionDocsMap::new());
+fn load_function_docs() -> Result<FunctionDocsMap> {
+    let mut combined = FunctionDocsMap::new();
+    let crates_dir = std::path::Path::new("crates");
+    if !crates_dir.is_dir() {
+        return Ok(combined);
     }
-    let yaml =
-        fs::read_to_string(path).with_context(|| format!("reading function docs {}", path))?;
-    let docs: FunctionDocsMap =
-        serde_yaml::from_str(&yaml).with_context(|| format!("parsing function docs {}", path))?;
-    Ok(docs)
+    for entry in fs::read_dir(crates_dir)? {
+        let entry = entry?;
+        let crate_path = entry.path();
+        if !crate_path.is_dir() {
+            continue;
+        }
+        let name = crate_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        if !name.starts_with("lib-") {
+            continue;
+        }
+        let docs_path = crate_path.join("function-docs.yaml");
+        if !docs_path.exists() {
+            continue;
+        }
+        let yaml = fs::read_to_string(&docs_path)
+            .with_context(|| format!("reading function docs {}", docs_path.display()))?;
+        let docs: FunctionDocsMap = serde_yaml::from_str(&yaml)
+            .with_context(|| format!("parsing function docs {}", docs_path.display()))?;
+        for (module, functions) in docs {
+            if let Some(existing) = combined.get_mut(&module) {
+                existing.extend(functions);
+            } else {
+                combined.insert(module, functions);
+            }
+        }
+    }
+    Ok(combined)
 }
 
 fn read_module_function_names(filename: &std::path::Path) -> BTreeMap<String, String> {
@@ -673,9 +738,15 @@ fn read_module_function_names(filename: &std::path::Path) -> BTreeMap<String, St
         Err(_) => return BTreeMap::new(),
     };
     let re =
-        Regex::new(r#""([^"]+)"\s*=>\s*Some\(&(?:[a-z][a-z_0-9]*::)*([A-Za-z][A-Za-z0-9_]*)\),"#)
+Regex::new(r#""([^"]+)"\s*=>\s*Some\(&(?:(?:[a-z][a-z_0-9]*(?:::[a-z][a-z_0-9]*)*|self)(?:::|\.))?([A-Za-z][A-Za-z0-9_]*)\),"#)
             .expect("valid regex");
     re.captures_iter(&content)
         .map(|cap| (cap[2].to_string(), cap[1].to_string()))
         .collect()
+}
+
+fn read_module_name(filename: &std::path::Path) -> Option<String> {
+    let content = fs::read_to_string(filename).ok()?;
+    let re = Regex::new(r#"fn name\(&self\)\s*->\s*&str\s*\{\s*"([^"]+)"\s*\}"#).ok()?;
+    re.captures(&content).map(|cap| cap[1].to_string())
 }

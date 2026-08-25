@@ -1,0 +1,9 @@
+url_whatwg:
+  url_whatwg:
+    description: Return the result of the `url_whatwg` function on `url_whatwg`.
+    details: Calls `url_whatwg.url_whatwg()` with the given arguments and returns a `type.any` result.
+    signature: url_whatwg.url_whatwg()
+    params: []
+    return_value: type.any
+    examples: []
+    see: []

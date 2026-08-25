@@ -1,0 +1,358 @@
+rand:
+  int:
+    description: '`rand.int(max: number) → number` / `rand.int(min: number, max: number) → number`  Returns a random integer
+      in the inclusive range `[0, max]` (one-arg) or `[min, max]` (two-arg)'
+    details: '`rand.int(max: number) → number` / `rand.int(min: number, max: number) → number`  Returns a random integer in
+      the inclusive range `[0, max]` (one-arg) or `[min, max]` (two-arg).  Both `min` and `max` must be integers and `min`
+      must be <= `max`.  Examples: - `rand.int(6)` → 0–6 inclusive - `rand.int(1, 6)` → a die roll (1–6) - `rand.int(0, 100)`
+      → 0–100 inclusive'
+    signature: 'rand.int(arg0: any, arg1: any)'
+    params:
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    - name: arg1
+      type: any
+      description: the 1th any argument
+    return_value: type.any
+    examples:
+    - rand.int(6)
+    - rand.int(1, 6)
+    - rand.int(0, 100)
+    see: []
+  float:
+    description: '`rand.float() → number` / `rand.float(max: number) → number` / `rand.float(min: number, max: number) → number`  Returns
+      a random float'
+    details: '`rand.float() → number` / `rand.float(max: number) → number` / `rand.float(min: number, max: number) → number`  Returns
+      a random float. With no arguments, the result is in `[0, 1)`. With one argument, the result is in `[0, max)`. With two
+      arguments, the result is in `[min, max)`.  Examples: - `rand.float()` → 0.0 ≤ x < 1.0 - `rand.float(10)` → 0.0 ≤ x <
+      10.0 - `rand.float(10, 20)` → 10.0 ≤ x < 20.0'
+    signature: rand.float()
+    params: []
+    return_value: Number
+    examples:
+    - rand.float()
+    - rand.float(10)
+    - rand.float(10, 20)
+    see: []
+  bool:
+    description: '`rand.bool() → bool`  Returns a random boolean with equal probability for `true` and `false`'
+    details: '`rand.bool() → bool`  Returns a random boolean with equal probability for `true` and `false`.  Example: - `rand.bool()`
+      → `true` or `false`'
+    signature: rand.bool()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.bool()
+    see: []
+  pick:
+    description: '`rand.pick(array: array) → value`  Returns a single random element from the array'
+    details: '`rand.pick(array: array) → value`  Returns a single random element from the array.  Returns an error if the
+      array is empty.  Example: - `rand.pick(["a", "b", "c"])` → one of `"a"`, `"b"`, `"c"`'
+    signature: rand.pick()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.pick(["a", "b", "c"])
+    see: []
+  choice:
+    description: '`rand.choice(array: array, count: number) → array`  Returns `count` elements chosen uniformly at random
+      **with replacement** from the input array'
+    details: '`rand.choice(array: array, count: number) → array`  Returns `count` elements chosen uniformly at random **with
+      replacement** from the input array. Duplicate elements may appear.  `count` must be a non-negative integer. The array
+      must be non-empty.  Example: - `rand.choice([1, 2, 3], 5)` → 5 elements, possibly with duplicates'
+    signature: rand.choice()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.choice([1, 2, 3], 5)
+    see: []
+  sample:
+    description: '`rand.sample(array: array, count: number) → array`  Returns `count` elements chosen uniformly at random
+      **without replacement** from the input array'
+    details: '`rand.sample(array: array, count: number) → array`  Returns `count` elements chosen uniformly at random **without
+      replacement** from the input array.  `count` must be a non-negative integer and must not exceed the array length.  Example:
+      - `rand.sample([1, 2, 3, 4, 5], 3)` → 3 distinct elements in random order'
+    signature: rand.sample()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.sample([1, 2, 3, 4, 5], 3)
+    see: []
+  shuffle:
+    description: '`rand.shuffle(array: array) → array`  Returns a new array with the elements of the input in random order'
+    details: '`rand.shuffle(array: array) → array`  Returns a new array with the elements of the input in random order. The
+      original array is not modified (values are immutable in handl).  Example: - `rand.shuffle([1, 2, 3, 4, 5])` → e.g. `[3,
+      1, 5, 2, 4]`'
+    signature: rand.shuffle()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.shuffle([1, 2, 3, 4, 5])
+    see: []
+  weighted_pick:
+    description: '`rand.weighted_pick(items: array, weights: array<number>) → value`  Returns a single element from `items`
+      chosen with probability proportional to the corresponding weight in `weights`'
+    details: '`rand.weighted_pick(items: array, weights: array<number>) → value`  Returns a single element from `items` chosen
+      with probability proportional to the corresponding weight in `weights`.  Both arrays must have the same length, and
+      at least one weight must be positive.  Example: - `rand.weighted_pick(["a", "b", "c"], [1, 1, 2])` → `"c"` twice as
+      likely'
+    signature: rand.weighted_pick()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.weighted_pick(["a", "b", "c"], [1, 1, 2])
+    see: []
+  string:
+    description: '`rand.string(length: number, charset?: string) → string`  Returns a random string of the given length using
+      the specified character set'
+    details: '`rand.string(length: number, charset?: string) → string`  Returns a random string of the given length using
+      the specified character set.  `length` must be a non-negative integer. `charset` defaults to `"alphanumeric"` and must
+      be one of:  - `"alphanumeric"` — `a-z`, `A-Z`, `0-9` (default) - `"alpha"` — `a-z`, `A-Z` - `"numeric"` — `0-9` - `"hex"`
+      — `0-9`, `a-f` - `"lower"` — `a-z` - `"upper"` — `A-Z`  Examples: - `rand.string(16)` → e.g. `"aB3xK9mN2pQr7sT1"` -
+      `rand.string(8, "hex")` → e.g. `"3f7a1c9d"` - `rand.string(10, "numeric")` → e.g. `"4729103856"`'
+    signature: rand.string()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.string(16)
+    - rand.string(8, "hex")
+    - rand.string(10, "numeric")
+    see: []
+  bytes:
+    description: '`rand.bytes(length: number) → array<number>`  Returns an array of `length` random bytes (integers in the
+      range 0–255)'
+    details: '`rand.bytes(length: number) → array<number>`  Returns an array of `length` random bytes (integers in the range
+      0–255).  `length` must be a non-negative integer.  Example: - `rand.bytes(8)` → e.g. `[42, 255, 0, 128, 1, 64, 200,
+      17]`'
+    signature: rand.bytes()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.bytes(8)
+    see: []
+  uuid:
+    description: '`rand.uuid() → string`  Returns a version-4 UUID string in the canonical 8-4-4-4-12 format'
+    details: '`rand.uuid() → string`  Returns a version-4 UUID string in the canonical 8-4-4-4-12 format.  Version and variant
+      bits are set per RFC 4122. The randomness is sourced from the system CSPRNG via the `rand` crate.  Example: - `rand.uuid()`
+      → `"f47ac10b-58cc-4372-a567-0e02b2c3d479"`'
+    signature: rand.uuid()
+    params: []
+    return_value: String
+    examples:
+    - rand.uuid()
+    see: []
+  gauss:
+    description: '`rand.gauss(mean: number, stddev: number) → number`  Returns a random float sampled from a normal (Gaussian)
+      distribution with the given `mean` and standard deviation `stddev`'
+    details: '`rand.gauss(mean: number, stddev: number) → number`  Returns a random float sampled from a normal (Gaussian)
+      distribution with the given `mean` and standard deviation `stddev`.  Uses the Box-Muller transform. `stddev` must be
+      non-negative.  Examples: - `rand.gauss(0, 1)` → standard normal (mean 0, stddev 1) - `rand.gauss(100, 15)` → IQ-scale
+      distribution'
+    signature: rand.gauss()
+    params: []
+    return_value: Number
+    examples:
+    - rand.gauss(0, 1)
+    - rand.gauss(100, 15)
+    see: []
+  exponential:
+    description: '`rand.exponential(lambda: number) → number`  Returns a random float sampled from an exponential distribution
+      with rate parameter `lambda`'
+    details: '`rand.exponential(lambda: number) → number`  Returns a random float sampled from an exponential distribution
+      with rate parameter `lambda`. The result is non-negative.  `lambda` must be positive.  Examples: - `rand.exponential(1)`
+      → mean 1.0 - `rand.exponential(0.5)` → mean 2.0'
+    signature: rand.exponential()
+    params: []
+    return_value: Number
+    examples:
+    - rand.exponential(1)
+    - rand.exponential(0.5)
+    see: []
+  poisson:
+    description: '`rand.poisson(lambda: number) → number`  Returns a random non-negative integer sampled from a Poisson distribution
+      with rate parameter `lambda`'
+    details: '`rand.poisson(lambda: number) → number`  Returns a random non-negative integer sampled from a Poisson distribution
+      with rate parameter `lambda`.  `lambda` must be non-negative.  Examples: - `rand.poisson(3)` → e.g. 2, 3, 4, 5 - `rand.poisson(0)`
+      → always 0'
+    signature: rand.poisson()
+    params: []
+    return_value: Number
+    examples:
+    - rand.poisson(3)
+    - rand.poisson(0)
+    see: []
+  binomial:
+    description: '`rand.binomial(n: number, p: number) → number`  Returns a random non-negative integer sampled from a binomial
+      distribution with `n` trials and success probability `p`'
+    details: '`rand.binomial(n: number, p: number) → number`  Returns a random non-negative integer sampled from a binomial
+      distribution with `n` trials and success probability `p`.  `n` must be a non-negative integer and `p` must be in `[0,
+      1]`.  Examples: - `rand.binomial(10, 0.5)` → e.g. 4, 5, 6 - `rand.binomial(100, 0.1)` → e.g. 8, 9, 10, 11'
+    signature: rand.binomial()
+    params: []
+    return_value: Number
+    examples:
+    - rand.binomial(10, 0.5)
+    - rand.binomial(100, 0.1)
+    see: []
+  perlin_1d:
+    description: '`rand.perlin_1d(x: number) → number`  Returns 1D Perlin noise value at coordinate `x`'
+    details: '`rand.perlin_1d(x: number) → number`  Returns 1D Perlin noise value at coordinate `x`. Output is approximately
+      in the range `[-1, 1]`.  Uses a fixed permutation table (Ken Perlin''s original) for deterministic results across runs.  Example:
+      - `rand.perlin_1d(0.5)` → noise at x=0.5'
+    signature: rand.perlin_1d()
+    params: []
+    return_value: Number
+    examples:
+    - rand.perlin_1d(0.5)
+    see: []
+  perlin_2d:
+    description: '`rand.perlin_2d(x: number, y: number) → number`  Returns 2D Perlin noise value at coordinates `(x, y)`'
+    details: '`rand.perlin_2d(x: number, y: number) → number`  Returns 2D Perlin noise value at coordinates `(x, y)`. Output
+      is approximately in the range `[-1, 1]`.  Uses a fixed permutation table (Ken Perlin''s original) for deterministic
+      results across runs.  Example: - `rand.perlin_2d(1.0, 2.0)` → noise at (1, 2)'
+    signature: rand.perlin_2d()
+    params: []
+    return_value: Number
+    examples:
+    - rand.perlin_2d(1.0, 2.0)
+    see: []
+  perlin_3d:
+    description: '`rand.perlin_3d(x: number, y: number, z: number) → number`  Returns 3D Perlin noise value at coordinates
+      `(x, y, z)`'
+    details: '`rand.perlin_3d(x: number, y: number, z: number) → number`  Returns 3D Perlin noise value at coordinates `(x,
+      y, z)`. Output is approximately in the range `[-1, 1]`.  Uses a fixed permutation table (Ken Perlin''s original) for
+      deterministic results across runs.  Example: - `rand.perlin_3d(0.1, 0.2, 0.3)` → noise at (0.1, 0.2, 0.3)'
+    signature: rand.perlin_3d()
+    params: []
+    return_value: Number
+    examples:
+    - rand.perlin_3d(0.1, 0.2, 0.3)
+    see: []
+  simplex_2d:
+    description: '`rand.simplex_2d(x: number, y: number) → number`  Returns 2D Simplex noise value at coordinates `(x, y)`'
+    details: '`rand.simplex_2d(x: number, y: number) → number`  Returns 2D Simplex noise value at coordinates `(x, y)`. Output
+      is approximately in the range `[-1, 1]`.  Uses a fixed permutation table for deterministic results across runs. Simplex
+      noise has fewer directional artifacts than Perlin noise.  Example: - `rand.simplex_2d(1.0, 2.0)` → noise at (1, 2)'
+    signature: rand.simplex_2d()
+    params: []
+    return_value: Number
+    examples:
+    - rand.simplex_2d(1.0, 2.0)
+    see: []
+  simplex_3d:
+    description: '`rand.simplex_3d(x: number, y: number, z: number) → number`  Returns 3D Simplex noise value at coordinates
+      `(x, y, z)`'
+    details: '`rand.simplex_3d(x: number, y: number, z: number) → number`  Returns 3D Simplex noise value at coordinates `(x,
+      y, z)`. Output is approximately in the range `[-1, 1]`.  Uses a fixed permutation table for deterministic results across
+      runs. Simplex noise has fewer directional artifacts than Perlin noise.  Example: - `rand.simplex_3d(0.1, 0.2, 0.3)`
+      → noise at (0.1, 0.2, 0.3)'
+    signature: rand.simplex_3d()
+    params: []
+    return_value: Number
+    examples:
+    - rand.simplex_3d(0.1, 0.2, 0.3)
+    see: []
+  seeded_int:
+    description: '`rand.seeded_int(seed: number, min: number, max: number) → number`  Returns a deterministic random integer
+      in `[min, max]` based on `seed`'
+    details: '`rand.seeded_int(seed: number, min: number, max: number) → number`  Returns a deterministic random integer in
+      `[min, max]` based on `seed`. Same seed + same args always produces the same result.  Examples: - `rand.seeded_int(42,
+      1, 6)` → always the same die roll - `rand.seeded_int(123, 0, 100)` → always the same value'
+    signature: rand.seeded_int()
+    params: []
+    return_value: Number
+    examples:
+    - rand.seeded_int(42, 1, 6)
+    - rand.seeded_int(123, 0, 100)
+    see: []
+  seeded_float:
+    description: '`rand.seeded_float(seed: number, min: number, max: number) → number`  Returns a deterministic random float
+      in `[min, max)` based on `seed`'
+    details: '`rand.seeded_float(seed: number, min: number, max: number) → number`  Returns a deterministic random float in
+      `[min, max)` based on `seed`.  Example: - `rand.seeded_float(42, 0, 1)` → always the same value in [0, 1)'
+    signature: rand.seeded_float()
+    params: []
+    return_value: Number
+    examples:
+    - rand.seeded_float(42, 0, 1)
+    see: []
+  seeded_bool:
+    description: '`rand.seeded_bool(seed: number) → bool`  Returns a deterministic random boolean based on `seed`'
+    details: '`rand.seeded_bool(seed: number) → bool`  Returns a deterministic random boolean based on `seed`.  Example: -
+      `rand.seeded_bool(42)` → always the same result'
+    signature: rand.seeded_bool()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_bool(42)
+    see: []
+  seeded_pick:
+    description: '`rand.seeded_pick(seed: number, array: array) → value`  Returns a single deterministic element from the
+      array based on `seed`'
+    details: '`rand.seeded_pick(seed: number, array: array) → value`  Returns a single deterministic element from the array
+      based on `seed`.  Example: - `rand.seeded_pick(42, ["a", "b", "c"])` → always the same element'
+    signature: rand.seeded_pick()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_pick(42, ["a", "b", "c"])
+    see: []
+  seeded_choice:
+    description: '`rand.seeded_choice(seed: number, array: array, count: number) → array`  Returns `count` elements chosen
+      deterministically **with replacement** from the array based on `seed`'
+    details: '`rand.seeded_choice(seed: number, array: array, count: number) → array`  Returns `count` elements chosen deterministically
+      **with replacement** from the array based on `seed`.  Example: - `rand.seeded_choice(42, [1, 2, 3], 5)` → always the
+      same 5 elements'
+    signature: rand.seeded_choice()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_choice(42, [1, 2, 3], 5)
+    see: []
+  seeded_sample:
+    description: '`rand.seeded_sample(seed: number, array: array, count: number) → array`  Returns `count` elements chosen
+      deterministically **without replacement** from the array based on `seed`'
+    details: '`rand.seeded_sample(seed: number, array: array, count: number) → array`  Returns `count` elements chosen deterministically
+      **without replacement** from the array based on `seed`.  Example: - `rand.seeded_sample(42, [1, 2, 3, 4, 5], 3)` → always
+      the same 3 elements'
+    signature: rand.seeded_sample()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_sample(42, [1, 2, 3, 4, 5], 3)
+    see: []
+  seeded_shuffle:
+    description: '`rand.seeded_shuffle(seed: number, array: array) → array`  Returns a new array with elements deterministically
+      shuffled based on `seed`'
+    details: '`rand.seeded_shuffle(seed: number, array: array) → array`  Returns a new array with elements deterministically
+      shuffled based on `seed`.  Example: - `rand.seeded_shuffle(42, [1, 2, 3, 4, 5])` → always the same order'
+    signature: rand.seeded_shuffle()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_shuffle(42, [1, 2, 3, 4, 5])
+    see: []
+  seeded_string:
+    description: '`rand.seeded_string(seed: number, length: number, charset?: string) → string`  Returns a deterministic random
+      string of the given length based on `seed`'
+    details: '`rand.seeded_string(seed: number, length: number, charset?: string) → string`  Returns a deterministic random
+      string of the given length based on `seed`.  Example: - `rand.seeded_string(42, 16)` → always the same 16-char string'
+    signature: rand.seeded_string()
+    params: []
+    return_value: type.any
+    examples:
+    - rand.seeded_string(42, 16)
+    see: []
+  seeded_gauss:
+    description: '`rand.seeded_gauss(seed: number, mean: number, stddev: number) → number`  Returns a deterministic random
+      float from a Gaussian distribution based on `seed`'
+    details: '`rand.seeded_gauss(seed: number, mean: number, stddev: number) → number`  Returns a deterministic random float
+      from a Gaussian distribution based on `seed`.  Example: - `rand.seeded_gauss(42, 0, 1)` → always the same standard normal
+      sample'
+    signature: rand.seeded_gauss()
+    params: []
+    return_value: Number
+    examples:
+    - rand.seeded_gauss(42, 0, 1)
+    see: []

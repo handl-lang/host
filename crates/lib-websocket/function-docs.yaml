@@ -1,0 +1,63 @@
+websocket:
+  frame.encode:
+    description: Encode a WebSocket frame object into a base64 string.
+    details: |
+      `websocket.frame.encode(frame)` takes a frame object and returns the wire bytes as a base64 string.
+      The frame object must contain:
+      - `opcode` (string): one of `text`, `binary`, `close`, `ping`, `pong`
+      - `payload` (string, base64, optional): the frame payload, default empty
+      - `fin` (bool, optional): the FIN bit, default `true`
+      - `mask` (string, base64 of 4 bytes, optional): the masking key
+    signature: 'websocket.frame.encode(frame: object) -> string'
+    params:
+    - name: frame
+      type: object
+      description: the frame to encode
+    return_value: string
+    examples:
+    - 'websocket.frame.encode({ opcode: "text", payload: "" })'
+    see: []
+  frame.decode:
+    description: Decode a base64 WebSocket frame into a frame object.
+    details: |
+      `websocket.frame.decode(base64)` parses a base64-encoded WebSocket frame and returns an object with
+      `opcode`, `payload` (base64), `fin`, `rsv1`, `rsv2`, `rsv3`, and optional `mask` (base64).
+    signature: 'websocket.frame.decode(base64: string) -> object'
+    params:
+    - name: base64
+      type: string
+      description: base64-encoded frame bytes
+    return_value: object
+    examples:
+    - 'websocket.frame.decode("...")'
+    see: []
+  message.from_frame:
+    description: Convert a WebSocket frame object to a message object.
+    details: |
+      `websocket.message.from_frame(frame)` returns a message object with one of:
+      - `{ text: string }`
+      - `{ binary: base64 }`
+      - `{ ping: base64 }`
+      - `{ pong: base64 }`
+      - `{ close: null }` or `{ close: { code: number, reason: string } }`
+    signature: 'websocket.message.from_frame(frame: object) -> object'
+    params:
+    - name: frame
+      type: object
+      description: the frame to convert
+    return_value: object
+    examples: []
+    see: []
+  message.to_frame:
+    description: Convert a WebSocket message object into a base64-encoded frame.
+    details: |
+      `websocket.message.to_frame(message)` takes one of the message objects described for `message.from_frame`
+      and returns the base64-encoded wire bytes for a single, unmasked frame.
+    signature: 'websocket.message.to_frame(message: object) -> string'
+    params:
+    - name: message
+      type: object
+      description: the message to encode
+    return_value: string
+    examples: []
+    see: []
