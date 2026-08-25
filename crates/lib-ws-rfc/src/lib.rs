@@ -8,6 +8,9 @@
 //! servers, and runtime modules that need to produce or consume WebSocket
 //! frames without committing to a particular async runtime or TLS stack.
 //!
+//! It also exposes reusable `Function` helpers for `frame.encode`,
+//! `frame.decode`, `message.from_frame`, and `message.to_frame`.
+//!
 //! # Example
 //!
 //! ```
@@ -33,7 +36,10 @@ pub use close::{CloseCode, CloseFrame};
 pub use error::Error;
 pub use frame::Frame;
 pub use message::Message;
-pub use module::WsRfcModule;
+pub use module::{
+    ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
+    MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
+};
 pub use opcode::OpCode;
 pub use reassembler::Reassembler;
 

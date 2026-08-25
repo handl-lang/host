@@ -422,7 +422,7 @@ export default [
     ]
   },
   {
-    "text": "WebSocket (RFC 6455)",
+    "text": "WebSocket (RFC 6455) Core",
     "collapsed": false,
     "link": "/reference/lib-ws-rfc",
     "items": [
@@ -433,26 +433,25 @@ export default [
       {
         "text": "Message",
         "link": "/reference/lib-ws-rfc-message"
-      },
-      {
-        "text": "Websocket Rfc",
-        "link": "/reference/lib-ws-rfc-ws_rfc"
       }
     ]
   },
   {
-    "text": "WebSocket (RFC 6455)",
+    "text": "WebSocket (RFC 6455) In-Memory",
+    "collapsed": false,
+    "link": "/reference/lib-ws-rfc-memory",
+    "items": [
+      {
+        "text": "Websocket Rfc",
+        "link": "/reference/lib-ws-rfc-memory-ws_rfc"
+      }
+    ]
+  },
+  {
+    "text": "WebSocket (RFC 6455) Native",
     "collapsed": false,
     "link": "/reference/lib-ws-rfc-native",
     "items": [
-      {
-        "text": "Frame",
-        "link": "/reference/lib-ws-rfc-native-frame"
-      },
-      {
-        "text": "Message",
-        "link": "/reference/lib-ws-rfc-native-message"
-      },
       {
         "text": "Ws Rfc Native",
         "link": "/reference/lib-ws-rfc-native-ws_rfc_native"

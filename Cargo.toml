@@ -56,6 +56,7 @@ members = [
   "crates/plugin-typecheck-core",
   "crates/plugin-vm-rust",
   "crates/lib-ws-rfc",
+  "crates/lib-ws-rfc-memory",
   "crates/lib-ws-rfc-native",
   "crates/lib-ws-whatwg-native",
   "crates/lib-ws-whatwg-wasm",
@@ -145,6 +146,7 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-ws-rfc = { path = "crates/lib-ws-rfc" }
+handl-lib-ws-rfc-memory = { path = "crates/lib-ws-rfc-memory" }
 handl-lib-ws-rfc-native = { path = "crates/lib-ws-rfc-native" }
 handl-lib-ws-whatwg-native = { path = "crates/lib-ws-whatwg-native" }
 handl-lib-ws-whatwg-wasm = { path = "crates/lib-ws-whatwg-wasm" }

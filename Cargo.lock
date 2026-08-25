@@ -1380,6 +1380,17 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-lib-ws-rfc-memory"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "handl-lib-ws-rfc",
+ "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",
  "serde_json",
@@ -2240,7 +2251,7 @@ dependencies = [
  "handl-lib-stats",
  "handl-lib-unicode",
  "handl-lib-utils",
- "handl-lib-ws-rfc",
+ "handl-lib-ws-rfc-memory",
  "handl-lib-ws-whatwg-native",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",

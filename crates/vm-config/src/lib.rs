@@ -61,7 +61,7 @@ use handl_lib_archive_tar::TarModule;
 use handl_lib_compress_gzip::GzipModule;
 use handl_lib_ip::IpModule;
 use handl_lib_stats::StatsModule;
-use handl_lib_ws_rfc::WsRfcModule;
+use handl_lib_ws_rfc_memory::WsRfcModule;
 use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_lib_unicode::UnicodeModule;
 use handl_lib_utils::{

@@ -21,7 +21,6 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_vm::{Context, Function};
-use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::{HashMap, VecDeque};
@@ -79,34 +78,10 @@ impl Inner {
     }
 }
 
-/// The `ws_rfc` module — WebSocket frame, message and client/server
-/// primitives.
-#[derive(Clone, Copy)]
-pub struct WsRfcModule;
-
-impl Module for WsRfcModule {
-    fn name(&self) -> &str {
-        "ws_rfc"
-    }
-
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        match name {
-            "client" => Some(&ClientNew),
-            "connect" => Some(&ClientConnect),
-            "send" => Some(&ClientSend),
-            "recv" => Some(&ClientRecv),
-            "close" => Some(&ClientClose),
-            "server" => Some(&ServerNew),
-            "listen" => Some(&ServerListen),
-            "stop" => Some(&ServerStop),
-            "frame.encode" => Some(&FrameEncode),
-            "frame.decode" => Some(&FrameDecode),
-            "message.from_frame" => Some(&MessageFromFrame),
-            "message.to_frame" => Some(&MessageToFrame),
-            _ => None,
-        }
-    }
-}
+/// WebSocket frame and message helpers.
+///
+/// Reusable `Function` implementations used by the `ws_rfc` and
+/// `ws_rfc_native` runtime modules.
 
 fn parse_opcode(s: &str) -> Result<OpCode, Error> {
     match s {
@@ -249,7 +224,7 @@ fn parse_id(value: &NonFunctionValue, key: &str) -> Result<usize, Error> {
 }
 
 #[derive(Clone, Copy)]
-struct ClientNew;
+pub struct ClientNew;
 
 impl Function<NonFunctionValue> for ClientNew {
     fn call(
@@ -284,7 +259,7 @@ impl Function<NonFunctionValue> for ClientNew {
 }
 
 #[derive(Clone, Copy)]
-struct ClientConnect;
+pub struct ClientConnect;
 
 impl Function<NonFunctionValue> for ClientConnect {
     fn call(
@@ -316,7 +291,7 @@ impl Function<NonFunctionValue> for ClientConnect {
 }
 
 #[derive(Clone, Copy)]
-struct ClientSend;
+pub struct ClientSend;
 
 impl Function<NonFunctionValue> for ClientSend {
     fn call(
@@ -347,7 +322,7 @@ impl Function<NonFunctionValue> for ClientSend {
 }
 
 #[derive(Clone, Copy)]
-struct ClientRecv;
+pub struct ClientRecv;
 
 impl Function<NonFunctionValue> for ClientRecv {
     fn call(
@@ -370,7 +345,7 @@ impl Function<NonFunctionValue> for ClientRecv {
 }
 
 #[derive(Clone, Copy)]
-struct ClientClose;
+pub struct ClientClose;
 
 impl Function<NonFunctionValue> for ClientClose {
     fn call(
@@ -389,7 +364,7 @@ impl Function<NonFunctionValue> for ClientClose {
 }
 
 #[derive(Clone, Copy)]
-struct ServerNew;
+pub struct ServerNew;
 
 impl Function<NonFunctionValue> for ServerNew {
     fn call(
@@ -426,7 +401,7 @@ impl Function<NonFunctionValue> for ServerNew {
 }
 
 #[derive(Clone, Copy)]
-struct ServerListen;
+pub struct ServerListen;
 
 impl Function<NonFunctionValue> for ServerListen {
     fn call(
@@ -461,7 +436,7 @@ impl Function<NonFunctionValue> for ServerListen {
 }
 
 #[derive(Clone, Copy)]
-struct ServerStop;
+pub struct ServerStop;
 
 impl Function<NonFunctionValue> for ServerStop {
     fn call(
