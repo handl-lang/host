@@ -11,3 +11,6 @@
 mod module;
 
 pub use module::WsRfcModule;
+
+#[cfg(test)]
+mod tests;

@@ -31,6 +31,8 @@ use tokio::sync::mpsc as tokio_mpsc;
 use tokio::net::TcpListener;
 #[cfg(feature = "server")]
 use tokio::sync::oneshot;
+#[cfg(feature = "server")]
+use tokio::sync::Semaphore;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
@@ -677,6 +679,8 @@ async fn run_server(
     };
     let _ = local_addr_tx.send(local_addr);
 
+    const MAX_CONNECTIONS: usize = 1024;
+    let sem = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     let mut join_set = tokio::task::JoinSet::new();
 
     loop {
@@ -684,11 +688,16 @@ async fn run_server(
             _ = &mut shutdown_rx => break,
             result = listener.accept() => match result {
                 Ok((stream, _)) => {
+                    let permit = match Arc::clone(&sem).acquire_owned().await {
+                        Ok(p) => p,
+                        Err(_) => break,
+                    };
                     let std_tx = std_tx.clone();
                     let handler = handler.clone();
                     let eval = eval.clone();
                     let next_conn_id = next_conn_id.clone();
                     join_set.spawn(async move {
+                        let _permit = permit;
                         handle_connection(stream, std_tx, handler, eval, next_conn_id).await;
                     });
                 }
@@ -935,5 +944,107 @@ mod tests {
             );
 
         assert!(result.is_err());
+    }
+
+    #[cfg(all(feature = "client", feature = "server"))]
+    #[test]
+    fn client_server_binary_echo_roundtrip() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let url = m
+            .function("listen")
+            .unwrap()
+            .call(
+                &[
+                    server_id.clone(),
+                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    handler,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
+        m.function("connect")
+            .unwrap()
+            .call(&[client.clone(), url], &mut ctx)
+            .unwrap();
+
+        let payload = BASE64_STANDARD.encode(b"\x00\xff");
+        m.function("send")
+            .unwrap()
+            .call(
+                &[
+                    client.clone(),
+                    NonFunctionValue::new(serde_json::json!({"binary": payload})),
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+
+        let msg = m.function("recv").unwrap().call(&[client.clone()], &mut ctx).unwrap();
+        assert_eq!(
+            msg.inner().get("binary"),
+            Some(&serde_json::json!(payload))
+        );
+
+        m.function("close").unwrap().call(&[client], &mut ctx).unwrap();
+        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn connect_to_refused_port_fails() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
+        let result = m
+            .function("connect")
+            .unwrap()
+            .call(
+                &[
+                    client,
+                    NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:1")),
+                ],
+                &mut ctx,
+            );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn recv_non_blocking_returns_null_when_empty() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
+        let msg = m
+            .function("recv")
+            .unwrap()
+            .call(
+                &[
+                    client,
+                    NonFunctionValue::new(serde_json::json!(0)),
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+
+        assert!(msg.inner().is_null());
     }
 }
