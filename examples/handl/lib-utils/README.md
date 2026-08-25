@@ -5,4 +5,4 @@ under `crates/lib-utils/examples/<module>/`.
 
 This directory keeps a few high-level/intro examples that do not map to a single crate.
 
-- `hello.handl` — a minimal handl expression to get started.
+- `hello.hnl` — a minimal handl expression to get started.
