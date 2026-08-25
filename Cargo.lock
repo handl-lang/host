@@ -806,6 +806,8 @@ dependencies = [
  "handl-lib-rand",
  "handl-lib-test",
  "handl-lib-unicode",
+ "handl-lib-url-rfc",
+ "handl-lib-url-whatwg",
  "handl-lib-utils",
  "handl-module-resolver-core",
  "handl-module-resolver-file",
@@ -1649,6 +1651,20 @@ dependencies = [
  "handl-vm-values-json",
  "serde_json",
  "unicode-ident",
+]
+
+[[package]]
+name = "handl-lib-url-rfc"
+version = "0.1.0"
+dependencies = [
+ "iri-string",
+]
+
+[[package]]
+name = "handl-lib-url-whatwg"
+version = "0.1.0"
+dependencies = [
+ "url",
 ]
 
 [[package]]
@@ -2715,6 +2731,16 @@ checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "iri-string"
+version = "0.7.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25e659a4bb38e810ebc252e53b5814ff908a8c58c2a9ce2fae1bbec24cbf4e20"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]

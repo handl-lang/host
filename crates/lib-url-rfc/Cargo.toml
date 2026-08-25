@@ -1,0 +1,7 @@
+[package]
+name = "handl-lib-url-rfc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+iri-string = "=0.7.12"

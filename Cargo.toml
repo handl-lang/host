@@ -14,6 +14,8 @@ members = [
   "crates/lib-utils",
   "crates/lib-unicode",
   "crates/lib-ip",
+  "crates/lib-url-rfc",
+  "crates/lib-url-whatwg",
   "crates/lib-base64",
   "crates/lib-collections",
   "crates/lib-datetime",
@@ -128,6 +130,8 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 handl-lib-utils = { path = "crates/lib-utils" }
 handl-lib-unicode = { path = "crates/lib-unicode" }
 handl-lib-ip = { path = "crates/lib-ip" }
+handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
+handl-lib-url-whatwg = { path = "crates/lib-url-whatwg" }
 handl-lib-collections = { path = "crates/lib-collections" }
 handl-lib-datetime = { path = "crates/lib-datetime" }
 handl-lib-intl = { path = "crates/lib-intl" }
@@ -313,6 +317,8 @@ lib-otlp = ["dep:handl-lib-otlp", "vm", "dep:handl-vm-common"]
 lib-otlp-std = ["dep:handl-lib-otlp-std", "lib-otlp"]
 lib-unicode = ["dep:handl-lib-unicode", "vm", "dep:handl-vm-common"]
 lib-ip = ["dep:handl-lib-ip"]
+lib-url-rfc = ["dep:handl-lib-url-rfc"]
+lib-url-whatwg = ["dep:handl-lib-url-whatwg"]
 store = ["dep:handl-store"]
 codebase = ["dep:handl-codebase", "store"]
 
@@ -363,6 +369,8 @@ handl-lib-otlp = { workspace = true, optional = true }
 handl-lib-otlp-std = { workspace = true, optional = true }
 handl-lib-unicode = { workspace = true, optional = true }
 handl-lib-ip = { workspace = true, optional = true }
+handl-lib-url-rfc = { workspace = true, optional = true }
+handl-lib-url-whatwg = { workspace = true, optional = true }
 handl-store = { workspace = true, optional = true }
 handl-codebase = { workspace = true, optional = true }
 handl-vm-config = { workspace = true, optional = true }
