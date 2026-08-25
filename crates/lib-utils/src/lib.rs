@@ -60,9 +60,7 @@
 //!   `fn.tap`, `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`,
 //!   `fn.unless`, `fn.converge`
 //! - [`TypeModule`] — `type.to_string`, `type.to_number`, `type.to_bool`,
-//!   `type.is_null`, `type.is_bool`, `type.is_number`, `type.is_string`,
-//!   `type.is_array`, `type.is_object`, `type.type_of`, `type.is_empty`,
-//!   `type.is_truthy`, `type.identity`, `type.default`, `type.coalesce`
+//!   `type.type_of`, `type.identity`, `type.default`, `type.coalesce`
 //! - [`OptionModule`] — `option.some`, `option.none`, `option.is_some`,
 //!   `option.is_none`, `option.unwrap`, `option.unwrap_or`, `option.map`,
 //!   `option.flat_map`, `option.filter`, `option.or`, `option.and`, `option.xor`

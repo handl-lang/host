@@ -3,16 +3,14 @@ use handl_vm_common::Module;
 use handl_vm_values_json::NonFunctionValue;
 
 use crate::r#type::coercion::{ToBool, ToNumber, ToString};
-use crate::r#type::predicates::{
-    IsArray, IsBool, IsEmpty, IsNull, IsNumber, IsObject, IsString, IsTruthy, TypeOf,
-};
+use crate::r#type::predicates::TypeOf;
 use crate::r#type::utilities::{Coalesce, Default, Identity};
 
-/// The `type` module — type coercion and predicate functions.
+/// The `type` module — type coercion and utility functions.
 ///
 /// Provides functions callable as `type.to_string(v)`, `type.to_number(v)`,
-/// `type.to_bool(v)`, `type.is_null(v)`, `type.is_bool(v)`, etc. in handl
-/// expressions.
+/// `type.to_bool(v)`, `type.type_of(v)`, `type.identity(v)`,
+/// `type.default(v)`, `type.coalesce(v)` in handl expressions.
 ///
 /// # NaN and Infinity
 ///
@@ -35,16 +33,8 @@ impl Module for TypeModule {
             "to_number" => Some(&ToNumber),
             "to_bool" => Some(&ToBool),
             // predicates
-            "is_null" => Some(&IsNull),
-            "is_bool" => Some(&IsBool),
-            "is_number" => Some(&IsNumber),
-            "is_string" => Some(&IsString),
-            "is_array" => Some(&IsArray),
-            "is_object" => Some(&IsObject),
             "type_of" => Some(&TypeOf),
             "typeof" => Some(&TypeOf),
-            "is_empty" => Some(&IsEmpty),
-            "is_truthy" => Some(&IsTruthy),
             // utilities
             "identity" => Some(&Identity),
             "default" => Some(&Default),
