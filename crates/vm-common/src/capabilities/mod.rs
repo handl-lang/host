@@ -6,5 +6,4 @@
 #[cfg(feature = "cache")]
 pub mod cache;
 
-#[cfg(feature = "module")]
-pub mod module;
+

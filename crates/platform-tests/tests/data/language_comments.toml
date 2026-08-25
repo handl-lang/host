@@ -1,5 +1,0 @@
-id = "comments-only"
-name = "comments-only"
-plugins = ["comments"]
-target = "native"
-selectors = []

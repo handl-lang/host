@@ -1,5 +1,0 @@
-id = "doc-comments"
-name = "doc-comments"
-plugins = ["comments", "doc-comments"]
-target = "native"
-selectors = []

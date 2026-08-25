@@ -316,8 +316,9 @@ impl VmMiddleware for Counter {
 mod tests {
     use super::*;
     use crate::{MockHost, NoopHost, fn_function};
-    use handl_vm::{CanonicalContext, Expr, NonFunctionValue};
+    use handl_vm::Expr;
     use handl_vm_backend_rust_interpreter::CanonicalVm;
+    use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
     use std::future::Future;
     use std::task::{Context as TaskContext, Poll, RawWaker, RawWakerVTable, Waker};
 
