@@ -1,6 +1,6 @@
 category:
-  slug: lib-websocket
+  slug: lib-ws-rfc
   title: WebSocket (RFC 6455)
 module:
-  name: websocket_rfc
+  name: ws_rfc
   title: Websocket Rfc

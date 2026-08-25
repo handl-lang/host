@@ -1,0 +1,9 @@
+// WebSocket client example: open an echo connection, send a message, and return the first reply.
+fn.tap(
+  (s) -> [
+    ws_rfc.connect(s, "wss://echo.websocket.org/"),
+    ws_rfc.send(s, "hello from handl"),
+    ws_rfc.recv(s)
+  ],
+  ws_rfc.client()
+)

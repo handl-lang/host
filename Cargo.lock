@@ -1375,7 +1375,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-websocket"
+name = "handl-lib-ws-rfc"
 version = "0.1.0"
 dependencies = [
  "base64",
@@ -1391,7 +1391,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "futures-util",
- "handl-lib-websocket",
+ "handl-lib-ws-rfc",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -2240,7 +2240,7 @@ dependencies = [
  "handl-lib-stats",
  "handl-lib-unicode",
  "handl-lib-utils",
- "handl-lib-websocket",
+ "handl-lib-ws-rfc",
  "handl-lib-ws-whatwg-native",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",

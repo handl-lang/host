@@ -1,20 +1,20 @@
-//! The `websocket_rfc` handl runtime module.
+//! The `ws_rfc` handl runtime module.
 //!
 //! Exposes WebSocket RFC 6455 framing and a basic client/server API to handl
 //! expressions:
 //!
-//! - `websocket_rfc.client()` — create an RFC 6455 client
-//! - `websocket_rfc.connect(client, url)` — set the client URL
-//! - `websocket_rfc.send(client, msg)` — send a message
-//! - `websocket_rfc.recv(client)` — receive a message
-//! - `websocket_rfc.close(client)` — close the client
-//! - `websocket_rfc.server()` — create an RFC 6455 server
-//! - `websocket_rfc.listen(server, addr, handler)` — start listening
-//! - `websocket_rfc.stop(server)` — stop the server
-//! - `websocket_rfc.frame.encode(object)` — `base64` frame bytes
-//! - `websocket_rfc.frame.decode(base64)` — frame object
-//! - `websocket_rfc.message.from_frame(frame)` — message object
-//! - `websocket_rfc.message.to_frame(message)` — `base64` frame bytes
+//! - `ws_rfc.client()` — create an RFC 6455 client
+//! - `ws_rfc.connect(client, url)` — set the client URL
+//! - `ws_rfc.send(client, msg)` — send a message
+//! - `ws_rfc.recv(client)` — receive a message
+//! - `ws_rfc.close(client)` — close the client
+//! - `ws_rfc.server()` — create an RFC 6455 server
+//! - `ws_rfc.listen(server, addr, handler)` — start listening
+//! - `ws_rfc.stop(server)` — stop the server
+//! - `ws_rfc.frame.encode(object)` — `base64` frame bytes
+//! - `ws_rfc.frame.decode(base64)` — frame object
+//! - `ws_rfc.message.from_frame(frame)` — message object
+//! - `ws_rfc.message.to_frame(message)` — `base64` frame bytes
 //!
 //! The client/server implementation is currently an in-memory, single-process
 //! transport. Real TCP/TLS networking will be added later.
@@ -79,14 +79,14 @@ impl Inner {
     }
 }
 
-/// The `websocket_rfc` module — WebSocket frame, message and client/server
+/// The `ws_rfc` module — WebSocket frame, message and client/server
 /// primitives.
 #[derive(Clone, Copy)]
-pub struct WebsocketModule;
+pub struct WsRfcModule;
 
-impl Module for WebsocketModule {
+impl Module for WsRfcModule {
     fn name(&self) -> &str {
-        "websocket_rfc"
+        "ws_rfc"
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {

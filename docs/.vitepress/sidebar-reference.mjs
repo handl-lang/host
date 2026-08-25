@@ -418,11 +418,11 @@ export default [
   {
     "text": "WebSocket",
     "collapsed": false,
-    "link": "/reference/lib-websocket",
+    "link": "/reference/lib-ws-rfc",
     "items": [
       {
         "text": "Websocket Rfc",
-        "link": "/reference/lib-websocket-websocket_rfc"
+        "link": "/reference/lib-ws-rfc-ws_rfc"
       }
     ]
   },

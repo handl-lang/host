@@ -1,5 +1,5 @@
 [package]
-name = "handl-lib-websocket"
+name = "handl-lib-ws-rfc"
 version.workspace = true
 edition.workspace = true
 description = "WebSocket frame and message codec for the handl runtime."

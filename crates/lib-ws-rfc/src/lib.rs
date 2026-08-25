@@ -11,7 +11,7 @@
 //! # Example
 //!
 //! ```
-//! use handl_lib_websocket::{Frame, Message, OpCode};
+//! use handl_lib_ws_rfc::{Frame, Message, OpCode};
 //!
 //! let frame = Frame::new(OpCode::Text, b"hello".to_vec());
 //! let bytes = frame.encode();
@@ -33,7 +33,7 @@ pub use close::{CloseCode, CloseFrame};
 pub use error::Error;
 pub use frame::Frame;
 pub use message::Message;
-pub use module::WebsocketModule;
+pub use module::WsRfcModule;
 pub use opcode::OpCode;
 pub use reassembler::Reassembler;
 

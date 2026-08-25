@@ -1,4 +1,4 @@
 category:
-  slug: websocket_rfc
+  slug: ws_rfc
   title: WebSocket (RFC 6455)
   description: WebSocket frame, message, and in-process client/server handling.

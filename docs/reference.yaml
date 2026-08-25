@@ -198,10 +198,10 @@ reference:
   - crate: handl-lib-utils
     reexports: true
 - title: WebSocket
-  slug: lib-websocket
+  slug: lib-ws-rfc
   description: WebSocket frame and message handling.
   include:
-  - crate: handl-lib-websocket
+  - crate: handl-lib-ws-rfc
     reexports: true
 - title: YAML
   slug: lib-yaml

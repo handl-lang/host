@@ -1,11 +1,11 @@
 //! The `ws_rfc_native` handl runtime module backed by `tokio-tungstenite`.
 //!
 //! Provides real TCP/TLS WebSocket clients and servers plus the frame and
-//! message helpers from `handl-lib-websocket`.
+//! message helpers from `handl-lib-ws-rfc`.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
-use handl_lib_websocket::module::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
+use handl_lib_ws_rfc::module::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
 use handl_vm::{Context, Eval, Function};
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::Module;
