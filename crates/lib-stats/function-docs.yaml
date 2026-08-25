@@ -1,15 +1,46 @@
 stats:
+  sum:
+    description: Call `stats.sum`.
+    details: Given stats.sum.
+    signature: stats.sum()
+    params: []
+    return_value: type.any
+    examples:
+    - stats.sum()
+    see: []
   avg:
-    description: Return the result of the `avg` function on `stats`.
-    details: Calls `stats.avg()` with the given arguments and returns a `type.any` result.
+    description: Call `stats.avg`.
+    details: Given stats.avg.
     signature: stats.avg()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - stats.avg()
+    see: []
+  product:
+    description: Call `stats.product`.
+    details: Given stats.product.
+    signature: stats.product()
+    params: []
+    return_value: type.any
+    examples:
+    - stats.product()
+    see: []
+  min:
+    description: Call `stats.min`.
+    details: Given stats.min.
+    signature: 'stats.min(arg0: Array)'
+    params:
+    - name: arg0
+      type: Array
+      description: the 0th Array argument
+    return_value: Number
+    examples:
+    - stats.min([1, 2, 3])
     see: []
   max:
-    description: Return the max of the values in `arg0`.
-    details: Compute the max of the numeric values in `arg0`.
+    description: Call `stats.max`.
+    details: Given stats.max.
     signature: 'stats.max(arg0: Array)'
     params:
     - name: arg0
@@ -20,46 +51,20 @@ stats:
     - stats.max([1, 2, 3])
     see: []
   median:
-    description: Return the result of the `median` function on `stats`.
-    details: Calls `stats.median()` with the given arguments and returns a `type.any` result.
+    description: Call `stats.median`.
+    details: Given stats.median.
     signature: stats.median()
     params: []
     return_value: type.any
-    examples: []
-    see: []
-  min:
-    description: Return the min of the values in `arg0`.
-    details: Compute the min of the numeric values in `arg0`.
-    signature: 'stats.min(arg0: Array)'
-    params:
-    - name: arg0
-      type: Array
-      description: the 0th Array argument
-    return_value: Number
     examples:
-    - stats.min([1, 2, 3])
-    see: []
-  product:
-    description: Return the result of the `product` function on `stats`.
-    details: Calls `stats.product()` with the given arguments and returns a `type.any` result.
-    signature: stats.product()
-    params: []
-    return_value: type.any
-    examples: []
+    - stats.median()
     see: []
   stddev:
-    description: Return the result of the `stddev` function on `stats`.
-    details: Calls `stats.stddev()` with the given arguments and returns a `type.any` result.
+    description: Call `stats.stddev`.
+    details: Given stats.stddev.
     signature: stats.stddev()
     params: []
     return_value: type.any
-    examples: []
-    see: []
-  sum:
-    description: Return the result of the `sum` function on `stats`.
-    details: Calls `stats.sum()` with the given arguments and returns a `type.any` result.
-    signature: stats.sum()
-    params: []
-    return_value: type.any
-    examples: []
+    examples:
+    - stats.stddev()
     see: []

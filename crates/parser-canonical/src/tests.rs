@@ -411,3 +411,15 @@ fn parse_fanout_combinator() {
         other => panic!("expected Function, got {other:?}"),
     }
 }
+
+#[test]
+fn parse_typeof() {
+    let expr = parse("typeof 42").unwrap();
+    match expr {
+        Expr::Call { name, args, .. } => {
+            assert_eq!(name, "type.typeof");
+            assert_eq!(args.len(), 1);
+        }
+        other => panic!("expected Call, got {other:?}"),
+    }
+}

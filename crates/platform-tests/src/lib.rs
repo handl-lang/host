@@ -64,10 +64,10 @@ impl MockHost {
     }
 
     pub fn load_kit(&mut self, kit: Kit) {
-        for plugin_name in &kit.plugins {
+        for plugin_name in &kit.manifest.plugins {
             self.plugins
                 .register(MockPlugin::new(plugin_name, &[plugin_name]).with_output(
-                    serde_json::json!({"kit": kit.name, "plugin": plugin_name}),
+                    serde_json::json!({"kit": kit.manifest.name.clone(), "plugin": plugin_name}),
                 ));
         }
         self.kits.register(kit);

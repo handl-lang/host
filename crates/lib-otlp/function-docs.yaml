@@ -1,31 +1,34 @@
 otlp:
   configure:
-    description: Return the result of the `configure` function on `otlp`.
-    details: Calls `otlp.configure()` with the given arguments and returns a `null` result.
+    description: Call `otlp.configure`.
+    details: Given otlp.configure.
     signature: otlp.configure()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.configure()
     see: []
   start_span:
-    description: Return the result of the `start_span` function on `otlp`.
-    details: Calls `otlp.start_span()` with the given arguments and returns a `type.any` result.
+    description: Call `otlp.start_span`.
+    details: Given otlp.start_span.
     signature: otlp.start_span()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - otlp.start_span()
     see: []
   end_span:
-    description: Return the result of the `end_span` function on `otlp`.
-    details: Calls `otlp.end_span()` with the given arguments and returns a `null` result.
+    description: Call `otlp.end_span`.
+    details: Given otlp.end_span.
     signature: otlp.end_span()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.end_span()
     see: []
   set_attribute:
-    description: Return the result of the `set_attribute` function on `otlp`.
-    details: 'Calls `otlp.set_attribute(arg0: any, arg1: any, arg2: any)` with the given arguments and returns a `null` result.'
+    description: Call `otlp.set_attribute`.
+    details: Given otlp.set_attribute.
     signature: 'otlp.set_attribute(arg0: any, arg1: any, arg2: any)'
     params:
     - name: arg0
@@ -42,28 +45,31 @@ otlp:
     - otlp.set_attribute("x", "x", "x")
     see: []
   add_event:
-    description: Return the result of the `add_event` function on `otlp`.
-    details: Calls `otlp.add_event()` with the given arguments and returns a `null` result.
+    description: Call `otlp.add_event`.
+    details: Given otlp.add_event.
     signature: otlp.add_event()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.add_event()
     see: []
   record_log:
-    description: Return the result of the `record_log` function on `otlp`.
-    details: Calls `otlp.record_log()` with the given arguments and returns a `null` result.
+    description: Call `otlp.record_log`.
+    details: Given otlp.record_log.
     signature: otlp.record_log()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.record_log()
     see: []
   record_metric:
-    description: Return the result of the `record_metric` function on `otlp`.
-    details: Calls `otlp.record_metric()` with the given arguments and returns a `null` result.
+    description: Call `otlp.record_metric`.
+    details: Given otlp.record_metric.
     signature: otlp.record_metric()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.record_metric()
     see: []
   flush:
     description: Module adapter for [`OtlpState`] — exposes `otlp.*` functions
@@ -81,10 +87,11 @@ otlp:
     examples: []
     see: []
   shutdown:
-    description: Return the result of the `shutdown` function on `otlp`.
-    details: Calls `otlp.shutdown()` with the given arguments and returns a `null` result.
+    description: Call `otlp.shutdown`.
+    details: Given otlp.shutdown.
     signature: otlp.shutdown()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - otlp.shutdown()
     see: []

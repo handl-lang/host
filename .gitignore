@@ -3,7 +3,7 @@
 **/target
 
 # Cargo lockfile: keep for executables, ignore for pure libraries
-# This workspace contains `crates/cli` and other binaries, so Cargo.lock is tracked.
+# This workspace contains `crates/host-cli` and other binaries, so Cargo.lock is tracked.
 # Cargo.lock
 
 # rustfmt backups

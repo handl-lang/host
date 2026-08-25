@@ -23,7 +23,7 @@ The hnl runtime is implemented in Rust and lives in the `crates/` directory of t
 2. Build the CLI:
 
    ```sh
-   cargo build --release -p handl-cli
+   cargo build --release -p handl-host-cli
    ```
 
 3. The `hnl` binary is now available at `target/release/hnl`.

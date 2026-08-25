@@ -1,0 +1,6 @@
+category:
+  slug: lib-http-client
+  title: HTTP Client
+module:
+  name: http
+  title: Http

@@ -1,9 +1,10 @@
 json:
   json:
-    description: Return the result of the `json` function on `json`.
-    details: Calls `json.json()` with the given arguments and returns a `Object` result.
+    description: Call `json.json`.
+    details: Given json.json.
     signature: json.json()
     params: []
     return_value: Object
-    examples: []
+    examples:
+    - json.json()
     see: []

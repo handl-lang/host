@@ -1,0 +1,6 @@
+category:
+  slug: lib-datetime
+  title: DateTime
+module:
+  name: datetime
+  title: Datetime

@@ -77,6 +77,24 @@ struct CrateDocsMeta {
     category: DocsCategory,
 }
 
+#[derive(Debug, Deserialize)]
+struct DocsYml {
+    category: DocsYmlCategory,
+    module: DocsYmlModule,
+}
+
+#[derive(Debug, Deserialize)]
+struct DocsYmlCategory {
+    slug: String,
+    title: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DocsYmlModule {
+    name: String,
+    title: String,
+}
+
 fn crate_category(krate: &str) -> Result<(String, bool)> {
     let crate_dir = krate.strip_prefix("handl-").unwrap_or(krate).to_string();
     let path = PathBuf::from("crates").join(&crate_dir).join("docs.yaml");
@@ -91,6 +109,93 @@ fn crate_category(krate: &str) -> Result<(String, bool)> {
         DocsCategory::Slug(s) => Ok((s, false)),
         DocsCategory::Full { slug, .. } => Ok((slug, true)),
     }
+}
+
+fn maybe_split_category_by_modules(cat: &Category, cat_md: &str, out_dir: &str) -> Result<bool> {
+    let krate = &cat.include[0].krate;
+    let crate_dir = krate.strip_prefix("handl-").unwrap_or(krate).to_string();
+    let docs_dir = std::path::Path::new("crates").join(&crate_dir).join("docs");
+    if !docs_dir.is_dir() {
+        return Ok(false);
+    }
+
+    let mut files: Vec<std::path::PathBuf> = fs::read_dir(&docs_dir)?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            (name.ends_with(".yml") || name.ends_with(".yaml"))
+                && !p.is_dir()
+        })
+        .collect();
+    if files.is_empty() {
+        return Ok(false);
+    }
+    files.sort();
+
+    let mut modules: Vec<(String, String, String)> = Vec::new(); // (stem, name, title)
+    for path in &files {
+        let yaml = fs::read_to_string(path)
+            .with_context(|| format!("reading docs yml {}", path.display()))?;
+        let doc: DocsYml = serde_yaml::from_str(&yaml)
+            .with_context(|| format!("parsing docs yml {}", path.display()))?;
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        modules.push((stem, doc.module.name, doc.module.title));
+    }
+
+    let lines: Vec<&str> = cat_md.split('\n').collect();
+    let mut starts: Vec<usize> = Vec::new();
+    let mut page_written = false;
+
+    for (stem, name, title) in &modules {
+        let heading = format!("## `{}`", name);
+        let Some(start) = lines.iter().position(|l| l.trim_end() == heading) else {
+            continue;
+        };
+        let end = lines[start + 1..]
+            .iter()
+            .position(|l| l.starts_with("## "))
+            .map(|i| start + 1 + i)
+            .unwrap_or(lines.len());
+        let body = lines[start + 1..end]
+            .iter()
+            .map(|l| {
+                if l.starts_with("### ") || l.starts_with("#### ") {
+                    &l[1..]
+                } else {
+                    l
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let page = format!("# {}\n\n{}", title, body);
+        let path = std::path::Path::new(out_dir).join(format!("{}-{}.md", cat.slug, stem));
+        fs::write(&path, page)
+            .with_context(|| format!("writing {}", path.display()))?;
+        starts.push(start);
+        page_written = true;
+    }
+
+    if !page_written {
+        return Ok(false);
+    }
+
+    let first_module = starts.into_iter().min().unwrap_or(lines.len());
+    let top = lines[..first_module].join("\n").trim_end().to_string();
+    let mut index = top;
+    index.push_str("\n\n## Modules\n\n");
+    for (stem, _name, title) in modules {
+        index.push_str(&format!("- [{}](./{}-{})\n", title, cat.slug, stem));
+    }
+
+    let index_path = std::path::Path::new(out_dir).join(format!("{}.md", cat.slug));
+    fs::write(&index_path, index)
+        .with_context(|| format!("writing {}", index_path.display()))?;
+
+    Ok(true)
 }
 
 fn main() -> Result<()> {
@@ -133,6 +238,9 @@ fn main() -> Result<()> {
     for cat in &catalog.reference {
         let cat_md = generate_category(cat, &function_docs)
             .with_context(|| format!("generating category {}", cat.slug))?;
+        if maybe_split_category_by_modules(cat, &cat_md, &out_dir)? {
+            continue;
+        }
         let path = std::path::Path::new(&out_dir).join(format!("{}.md", cat.slug));
         fs::write(&path, cat_md).with_context(|| format!("writing {}", path.display()))?;
     }
@@ -226,7 +334,7 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
                 };
 
                 let names = read_module_function_names(&span_filename);
-                let functions = if names.is_empty() {
+                let mut functions = if names.is_empty() {
                     Vec::new()
                 } else {
                     collect_module_functions(&krate_json, &module_id, &names)
@@ -247,9 +355,19 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
                 }
 
                 if !functions.is_empty() {
+                    functions.sort_by(|a, b| {
+                        dot_prefix(&a.0).cmp(&dot_prefix(&b.0)).then(a.0.cmp(&b.0))
+                    });
+                    let mut last_prefix: Option<String> = None;
                     for (ac_fn, summary, _id) in functions {
                         if ac_fn == handl_module {
                             continue;
+                        }
+                        if let Some((prefix, _)) = ac_fn.split_once('.') {
+                            if last_prefix.as_deref() != Some(prefix) {
+                                md.push_str(&format!("## `{}.{}`\n\n", handl_module, prefix));
+                                last_prefix = Some(prefix.to_string());
+                            }
                         }
                         md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
 
@@ -270,9 +388,18 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
                 } else if !names.is_empty() {
                     // The module maps to fields/inner items rather than top-level
                     // function structs, so list each mapped handl name.
-                    for (_rust_name, ac_fn) in &names {
+                    let mut names_vec: Vec<_> = names.iter().collect();
+                    names_vec.sort_by(|a, b| a.1.cmp(b.1));
+                    let mut last_prefix: Option<String> = None;
+                    for (_rust_name, ac_fn) in names_vec {
                         if ac_fn == &handl_module {
                             continue;
+                        }
+                        if let Some((prefix, _)) = ac_fn.split_once('.') {
+                            if last_prefix.as_deref() != Some(prefix) {
+                                md.push_str(&format!("## `{}.{}`\n\n", handl_module, prefix));
+                                last_prefix = Some(prefix.to_string());
+                            }
                         }
                         md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
 
@@ -281,9 +408,20 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
                         write_function_doc(&mut md, docs, &handl_module, ac_fn);
                     }
                 } else if let Some(docs) = module_docs {
-                    for (ac_fn, doc) in docs {
+                    let mut docs_vec: Vec<_> = docs.iter().collect();
+                    docs_vec.sort_by(|a, b| {
+                        dot_prefix(a.0).cmp(&dot_prefix(b.0)).then(a.0.cmp(b.0))
+                    });
+                    let mut last_prefix: Option<String> = None;
+                    for (ac_fn, doc) in docs_vec {
                         if ac_fn == &handl_module {
                             continue;
+                        }
+                        if let Some((prefix, _)) = ac_fn.split_once('.') {
+                            if last_prefix.as_deref() != Some(prefix) {
+                                md.push_str(&format!("## `{}.{}`\n\n", handl_module, prefix));
+                                last_prefix = Some(prefix.to_string());
+                            }
                         }
                         md.push_str(&format!("### `{}.{}`\n\n", handl_module, ac_fn));
 
@@ -653,6 +791,10 @@ fn kind_name(inner: &ItemEnum) -> &'static str {
         ItemEnum::Module(_) => "mod",
         _ => "item",
     }
+}
+
+fn dot_prefix(name: &str) -> &str {
+    name.split_once('.').map(|(p, _)| p).unwrap_or("")
 }
 
 fn to_snake_case(name: &str) -> String {

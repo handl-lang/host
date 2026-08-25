@@ -1,0 +1,6 @@
+category:
+  slug: lib-collections
+  title: Collections
+module:
+  name: collections.array
+  title: Array

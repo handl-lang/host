@@ -1,9 +1,10 @@
 base64:
   base64:
-    description: Return the result of the `base64` function on `base64`.
-    details: Calls `base64.base64()` with the given arguments and returns a `Object` result.
+    description: Call `base64.base64`.
+    details: Given base64.base64.
     signature: base64.base64()
     params: []
     return_value: Object
-    examples: []
+    examples:
+    - base64.base64()
     see: []

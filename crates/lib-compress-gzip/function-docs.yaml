@@ -1,28 +1,19 @@
 gzip:
   compress:
-    description: Compress a UTF-8 string with gzip and return base64 bytes.
-    details: |
-      `gzip.compress(text)` takes a string, gzip-compresses its UTF-8 bytes, and returns the compressed data as a base64 string.
-    signature: 'gzip.compress(text: string) -> string'
-    params:
-    - name: text
-      type: string
-      description: the text to compress
-    return_value: string
+    description: Call `gzip.compress`.
+    details: Given gzip.compress.
+    signature: gzip.compress()
+    params: []
+    return_value: type.any
     examples:
-    - 'gzip.compress("hello world")'
+    - gzip.compress()
     see: []
   decompress:
-    description: Decompress a base64 gzip payload to a string or base64 bytes.
-    details: |
-      `gzip.decompress(base64)` decodes the base64 input, gzip-decompresses it, and returns a UTF-8 string when possible.
-      If the decompressed bytes are not valid UTF-8, it returns a base64 string of the raw bytes.
-    signature: 'gzip.decompress(base64: string) -> string'
-    params:
-    - name: base64
-      type: string
-      description: base64-encoded gzip bytes
-    return_value: string
+    description: Call `gzip.decompress`.
+    details: Given gzip.decompress.
+    signature: gzip.decompress()
+    params: []
+    return_value: type.any
     examples:
-    - 'gzip.decompress(gzip.compress("hello world"))'
+    - gzip.decompress()
     see: []

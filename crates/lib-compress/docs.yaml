@@ -2,3 +2,5 @@ category:
   slug: compress
   title: Compress
   description: Compression traits and error types, including gzip support.
+sub_pages:
+  - lib-compress-gzip

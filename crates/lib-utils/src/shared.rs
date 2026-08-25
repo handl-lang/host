@@ -33,6 +33,7 @@ pub(crate) fn require_one_arg(args: &[NonFunctionValue]) -> Result<&NonFunctionV
     })
 }
 
+#[allow(dead_code)]
 pub(crate) fn require_one_array(args: &[NonFunctionValue]) -> Result<&[serde_json::Value], Error> {
     let arg = args.first().ok_or(Error::ArgumentCount {
         expected: 1,
@@ -41,6 +42,7 @@ pub(crate) fn require_one_array(args: &[NonFunctionValue]) -> Result<&[serde_jso
     require_array(arg)
 }
 
+#[allow(dead_code)]
 pub(crate) fn require_two_arrays(
     args: &[NonFunctionValue],
 ) -> Result<(&[serde_json::Value], &[serde_json::Value]), Error> {
@@ -245,6 +247,7 @@ pub(crate) fn key_to_string(value: &NonFunctionValue) -> String {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn value_to_string(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => s.clone(),
@@ -263,6 +266,17 @@ pub(crate) fn value_to_string(value: &serde_json::Value) -> String {
         serde_json::Value::Null => "null".to_string(),
         _ => serde_json::to_string(value).unwrap_or_else(|_| "unknown".to_string()),
     }
+}
+
+// ── extremum selection ─────────────────────────────────────────────
+
+/// Returns a reference to the element selected by `better` over all items.
+/// `better(candidate, best)` should be true when `candidate` should replace `best`.
+pub(crate) fn find_extremum_by<'a, T>(
+    items: &'a [T],
+    mut better: impl FnMut(&T, &T) -> bool,
+) -> Option<&'a T> {
+    items.iter().reduce(|best, x| if better(x, best) { x } else { best })
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -374,6 +388,7 @@ where
 
 /// Find the index of the first element matching a predicate.
 /// Returns `None` if no match.
+#[allow(dead_code)]
 pub(crate) fn find_index<'a, I>(
     ctx: &mut dyn Context<NonFunctionValue>,
     fn_val: &FunctionValue,
@@ -392,6 +407,7 @@ where
 
 /// Find the first matching element from a reverse iterator.
 /// Returns `None` if no match.
+#[allow(dead_code)]
 pub(crate) fn find_first_rev<'a, I>(
     ctx: &mut dyn Context<NonFunctionValue>,
     fn_val: &FunctionValue,
@@ -406,6 +422,7 @@ where
 /// Find the index of the first matching element from a reverse iterator.
 /// The index is relative to the reversed iteration order.
 /// Returns `None` if no match.
+#[allow(dead_code)]
 pub(crate) fn find_index_rev<'a, I>(
     ctx: &mut dyn Context<NonFunctionValue>,
     fn_val: &FunctionValue,
@@ -430,7 +447,6 @@ pub(crate) struct TestHost {
     default: EvalHost,
     math: crate::MathModule,
     str: crate::StrModule,
-    array: crate::ArrayModule,
     r#fn: crate::FnModule,
 }
 
@@ -441,7 +457,6 @@ impl Default for TestHost {
             default: EvalHost::default(),
             math: crate::MathModule,
             str: crate::StrModule,
-            array: crate::ArrayModule,
             r#fn: crate::FnModule,
         }
     }
@@ -454,7 +469,6 @@ impl Clone for TestHost {
             default: self.default.clone(),
             math: self.math,
             str: self.str,
-            array: self.array,
             r#fn: self.r#fn,
         }
     }
@@ -471,7 +485,7 @@ impl Host<NonFunctionValue> for TestHost {
             "concat" => self.str.function("concat"),
             "len" => self.str.function("length"),
             "apply" => self.r#fn.function("apply"),
-            "array" => self.array.function("array"),
+
             _ => self.default.function(name),
         }
     }

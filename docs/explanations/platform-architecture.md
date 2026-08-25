@@ -9,11 +9,11 @@ Handl is now built around a small, stable platform layer. The rest of the worksp
 ## The layers
 
 - **Platform** — the mechanisms and contracts that every other crate shares. It lives in `crates/platform` (`handl-platform`) and defines `Capability`, `Plugin`, `Extension`, `Kit`, `Host`, and `Boundary`.
-- **Capability** — something the platform can do. Each `handl-capability-*` crate is a normal plugin that implements one capability (`fmt`, `lint`, `typecheck`, `eval`, `compile`, `build`, `plugin`, `kit`, `extension`).
+- **Capability** — something the platform can do. Each `handl-ext-*` crate is a normal plugin that implements one capability (`fmt`, `lint`, `typecheck`, `eval`, `compile`, `build`, `plugin`, `kit`, `extension`).
 - **Plugin** — the unit that implements a capability. It registers itself with the platform and provides `CapabilityMetadata` describing what it does.
 - **Kit** — a bundle of plugins. Kits are defined in the platform but fully wired later.
 - **Framework** — an opinionated composition of kits and hosts. This is intentionally deferred for now.
-- **Host** — anything that consumes capabilities. `handl-cli` is the default command-line host; LSP servers, IDEs, web UIs, and CI systems can be hosts too.
+- **Host** — anything that consumes capabilities. `handl-host-cli` is the default command-line host; LSP servers, IDEs, web UIs, and CI systems can be hosts too.
 - **Boundary** — a packaging and communication concept. A boundary can be a module, package, process, worker, server, client, RPC link, or deployment.
 
 ## Capabilities are metadata-driven
@@ -63,14 +63,14 @@ impl Plugin for FormatPlugin {
 }
 ```
 
-When the `handl-cli` host starts, it loads the default `Host`, walks the `PluginRegistry`, and reads each plugin's `CapabilityMetadata`. It sees `command: "fmt"` and creates:
+When the `handl-host-cli` host starts, it loads the default `Host`, walks the `PluginRegistry`, and reads each plugin's `CapabilityMetadata`. It sees `command: "fmt"` and creates:
 
 ```sh
 handl fmt
 handl format    # alias
 ```
 
-No changes to `handl-cli` are required.
+No changes to `handl-host-cli` are required.
 
 ## The CLI is just one host
 

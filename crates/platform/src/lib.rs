@@ -4,7 +4,10 @@ pub mod error;
 pub mod extension;
 pub mod host;
 pub mod kit;
+pub mod language;
+pub mod manifest;
 pub mod plugin;
+pub mod resolve;
 
 pub use boundary::*;
 pub use capability::*;
@@ -12,7 +15,10 @@ pub use error::*;
 pub use extension::*;
 pub use host::*;
 pub use kit::*;
+pub use language::*;
+pub use manifest::*;
 pub use plugin::*;
+pub use resolve::*;
 
 #[cfg(test)]
 mod tests {

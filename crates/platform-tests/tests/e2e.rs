@@ -1,12 +1,18 @@
-use handl_platform::{CapabilityRequest, Kit};
+use handl_platform::{CapabilityRequest, Kit, KitManifest};
 use handl_platform_tests::MockHost;
 
 #[test]
 fn simulated_host_loads_kit_and_dispatches() {
     let mut host = MockHost::new();
     let kit = Kit {
-        name: "core".into(),
-        plugins: vec!["fmt".into(), "lint".into()],
+        manifest: KitManifest {
+            id: "core".into(),
+            name: "core".into(),
+            plugins: vec!["fmt".into(), "lint".into()],
+            target: None,
+            selectors: Vec::new(),
+        },
+        available_plugins: Vec::new(),
     };
     host.load_kit(kit);
 
@@ -29,5 +35,5 @@ fn simulated_host_loads_kit_and_dispatches() {
 
     let kits = host.kits.all();
     assert_eq!(kits.len(), 1);
-    assert_eq!(kits[0].name, "core");
+    assert_eq!(kits[0].manifest.name, "core");
 }

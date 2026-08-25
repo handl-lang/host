@@ -1,8 +1,11 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 pub type CapabilityMetadata = serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CapabilityId(String);
 
 impl CapabilityId {

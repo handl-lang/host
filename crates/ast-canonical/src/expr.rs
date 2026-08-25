@@ -53,7 +53,7 @@ pub enum Expr<V> {
     Value(V),
 
     /// A bare identifier value — a variable or a namespaced type like
-    /// `type.number`.
+    /// `type.num`.
     Var(String),
 
     /// An assignment — `pattern = value`.

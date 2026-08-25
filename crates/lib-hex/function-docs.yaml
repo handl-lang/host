@@ -1,9 +1,10 @@
 hex:
   hex:
-    description: Return the result of the `hex` function on `hex`.
-    details: Calls `hex.hex()` with the given arguments and returns a `Object` result.
+    description: Call `hex.hex`.
+    details: Given hex.hex.
     signature: hex.hex()
     params: []
     return_value: Object
-    examples: []
+    examples:
+    - hex.hex()
     see: []

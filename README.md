@@ -1,60 +1,64 @@
-# handl
+# handl platform
 
-`handl` is a small, embeddable, runtime-agnostic language. Its kernel is minimal (literals, path lookups, function calls, and `handle` expressions); control flow, I/O, formatting, type checking, and compilation targets are provided by hosts and plugins.
+`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.
 
-This repository is the reference Rust platform — a Cargo workspace built around a single core-contract crate, `handl-platform`, that the compiler, VM, source layer, and CLI all consume.
+## High-level architecture
 
-## Core abstractions
-
-The `handl-platform` crate (`crates/platform`) defines the shared types:
-
-- `Capability` / `CapabilityId` — something the platform can do.
-- `Plugin` / `PluginRegistry` — an implementation of one or more capabilities.
-- `Kit` — a bundle of plugins.
-- `Extension` / `Host` — the interface between plugins and consumers such as the CLI, LSP, or a web UI.
-- `Boundary` — module / package / process / worker / server / client / RPC / deployment boundaries.
-
-These abstractions are the only shared dependency of the rest of the workspace.
-
-## Capabilities
-
-Default capabilities are implemented as ordinary plugins in `crates/capability-*`:
-
-- `handl-capability-fmt`
-- `handl-capability-lint`
-- `handl-capability-typecheck`
-- `handl-capability-eval`
-- `handl-capability-compile`
-- `handl-capability-build`
-- `handl-capability-plugin`
-- `handl-capability-kit`
-- `handl-capability-extension`
-
-A plugin exposes `CapabilityMetadata` (a `serde_json::Value`) that hosts use to build commands, menus, or RPC endpoints. `handl-cli` is one such host and does not hard-code `fmt`, `lint`, `eval`, etc.
-
-## Compiler
-
-The compiler is built from pluggable `Pass` objects. New passes can be added without editing the compiler crate. Passes are discovered through the platform host and assembled by `handl-compiler`.
-
-## CLI
-
-The `hnl` binary (built by the `handl-cli` crate) is a thin, metadata-driven orchestrator. It loads a host, reads registered capabilities, and generates subcommands from plugin metadata. Adding a plugin can add a new `hnl <command>` automatically.
-
-## Root facade
-
-The `handl` crate is a convenience facade. It re-exports `handl-platform` and the major workspace crates behind Cargo features, so hosts can depend on one package and enable only what they need.
+- `handl-platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `Host`, `DefaultHost`, `LanguageHost`, `Boundary`, `PlatformError`.
+- `handl-expr` — pluggable expression-to-AST pipeline: `ExpressionPipeline`, `ModulePipeline`, `TokenRule`, `ParseContext`, and the statement/expression fragment traits. `Stmt` wraps a `StmtKind`; `Expr<T>` is in `handl-ast-canonical`; `Expr<NonFunctionValue>` (from `handl-vm-values-json`) is the canonical expression type.
+- `handl-lexer` / `handl-lexer-canonical` — token and token-kind abstractions and the canonical token set.
+- `handl-ast` / `handl-ast-canonical` — shared AST shapes and the canonical expression tree.
+- `crates/plugin-*` — individual syntax and tooling plugins: literals, identifiers, delimiters, operators, primary/postfix/infix fragments, statements, comments, formatting, diagnostics, and LSP features.
+- `handl-kit-canonical` — `CanonicalKit` and `CanonicalHost`, a ready-to-use composition of the canonical expression plugins plus optional typecheck and runtime plugins.
+- `handl-runtime` / `handl-typecheck-*` — runtime and typecheck extension points and concrete implementations.
+- `handl-tooling` — `ToolingHost`: decouples parsing (`CanonicalKit`), formatting, diagnostics, and LSP services (completion, goto-definition, document symbols, incremental sync).
+- `handl-host-lsp` — LSP adapter that dispatches to `ToolingHost` and converts results to `lsp-types`.
+- `handl-vm*` / `handl-compiler*` / `handl-frontend*` — virtual machine, multi-pass compiler, and data frontends.
+- `crates/ext-*` — capability metadata and command builders used by the CLI and other hosts.
+- `crates/loader*`, `module-resolver*`, `lib-*` — plugin loaders, module resolvers, and standard-library-style runtime libs.
 
 ## Build and test
 
 ```bash
-cargo check --workspace
-cargo test --workspace
+cargo build
+cargo test -p handl-kit-canonical
+cargo test -p handl-platform
+cargo test -p handl-host-lsp
+cargo test -p handl-expr
 ```
 
-Run the CLI:
+The workspace can also be checked with `cargo check --workspace` and tested with `cargo test --workspace` when you have time.
 
-```bash
-cargo run --bin hnl -- <command>
-```
+## Crate directory map
 
-See `.devin/AGENTS.md` for more commands and `docs/LANG.md` / `docs/RUNTIME.md` for language and runtime details.
+- `crates/ast*` — AST types.
+- `crates/ext-*` — capability contracts and default plugin categories.
+- `crates/host-cli` — `hnl` binary.
+- `crates/compiler*` — compiler pipeline and passes.
+- `crates/dialect*` — dialect traits and canonical dialect spec.
+- `crates/expr` — pluggable expression pipeline.
+- `crates/frontend*` — JSON/YAML/Toml frontends.
+- `crates/host-lsp` — LSP server host.
+- `crates/kit-canonical` — canonical ready-made kit.
+- `crates/lexer*` — lexer framework and canonical token set.
+- `crates/lib-*` / `crates/crate-*` — runtime/utility libraries.
+- `crates/loader*` — plugin loaders (native, wasm, web).
+- `crates/module-resolver*` — module resolution strategies.
+- `crates/parser*` — parser framework and canonical parser.
+- `crates/platform` — core platform contract.
+- `crates/plugin-*` — language and tooling plugins.
+- `crates/runtime` — runtime trait.
+- `crates/tooling` — `ToolingHost`.
+- `crates/typecheck*` / `crates/typegen*` — typecheck and schema generation.
+- `crates/vm*` — virtual machine and backends.
+- `docs/` — language and runtime design docs.
+- `project/` — project notes and ADRs.
+
+## Current status
+
+- The pluggable expression pipeline and canonical kit are functional: lexing, parsing, error recovery, statement modules, formatting, and diagnostics all have working tests.
+- `handl-kit-canonical` ships with optional typecheck and runtime plugin slots; the default `CanonicalKit` loads the canonical parser but does not enable full typecheck/runtime implementations unless they are configured.
+- `handl-tooling` / `handl-host-lsp` provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
+- Many compiler-pass, capability, and VM crates are partially implemented or still stubs; the workspace is in active construction.
+
+See `.devin/AGENTS.md` for commands and `docs/LANG.md` / `docs/RUNTIME.md` for language and runtime details.

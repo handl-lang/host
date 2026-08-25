@@ -1,166 +1,127 @@
 ip:
   parse:
-    description: Parse an IPv4 or IPv6 address string.
-    details: Parse a dotted-decimal IPv4 address or an IPv6 textual address. Returns an ip value on success, or null if the string is invalid.
-    signature: 'ip.parse(value: String)'
-    params:
-    - name: value
-      type: String
-      description: the address string to parse
-    return_value: ip
+    description: Call `ip.parse`.
+    details: Given ip.parse.
+    signature: ip.parse()
+    params: []
+    return_value: type.any
     examples:
-    - 'ip.parse("192.168.1.1")'
-    - 'ip.parse("::1")'
+    - ip.parse()
+    see: []
+  format:
+    description: Call `ip.format`.
+    details: Given ip.format.
+    signature: ip.format()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.format()
     see: []
   is_loopback:
-    description: Return true if the address is a loopback address.
-    details: Returns true for `127.0.0.0/8` IPv4 addresses or `::1` IPv6 addresses.
-    signature: 'ip.is_loopback(value: ip)'
-    params:
-    - name: value
-      type: ip
-      description: the ip address to test
-    return_value: Boolean
+    description: Call `ip.is_loopback`.
+    details: Given ip.is_loopback.
+    signature: ip.is_loopback()
+    params: []
+    return_value: type.any
     examples:
-    - 'ip.is_loopback(ip.parse("127.0.0.1"))'
-    see: []
-  is_private:
-    description: Return true if the address is in a private IPv4 range.
-    details: 'Returns true for `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` IPv4 addresses. Always false for IPv6.'
-    signature: 'ip.is_private(value: ip)'
-    params:
-    - name: value
-      type: ip
-      description: the ip address to test
-    return_value: Boolean
-    examples:
-    - 'ip.is_private(ip.parse("10.0.0.1"))'
+    - ip.is_loopback()
     see: []
   is_multicast:
-    description: Return true if the address is in a multicast range.
-    details: 'Returns true for `224.0.0.0/4` IPv4 addresses or `ff00::/8` IPv6 addresses.'
-    signature: 'ip.is_multicast(value: ip)'
-    params:
-    - name: value
-      type: ip
-      description: the ip address to test
-    return_value: Boolean
+    description: Call `ip.is_multicast`.
+    details: Given ip.is_multicast.
+    signature: ip.is_multicast()
+    params: []
+    return_value: type.any
     examples:
-    - 'ip.is_multicast(ip.parse("224.0.0.1"))'
+    - ip.is_multicast()
+    see: []
+  is_private:
+    description: Call `ip.is_private`.
+    details: Given ip.is_private.
+    signature: ip.is_private()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.is_private()
+    see: []
+  is_link_local:
+    description: Call `ip.is_link_local`.
+    details: Given ip.is_link_local.
+    signature: ip.is_link_local()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.is_link_local()
     see: []
   is_unspecified:
-    description: Return true if the address is the unspecified address.
-    details: 'Returns true for `0.0.0.0` IPv4 or `::` IPv6 addresses.'
-    signature: 'ip.is_unspecified(value: ip)'
-    params:
-    - name: value
-      type: ip
-      description: the ip address to test
-    return_value: Boolean
+    description: Call `ip.is_unspecified`.
+    details: Given ip.is_unspecified.
+    signature: ip.is_unspecified()
+    params: []
+    return_value: type.any
     examples:
-    - 'ip.is_unspecified(ip.parse("0.0.0.0"))'
+    - ip.is_unspecified()
     see: []
-  to_string:
-    description: Format an ip address as a string.
-    details: Returns the canonical textual representation of the ip address.
-    signature: 'ip.to_string(value: ip)'
-    params:
-    - name: value
-      type: ip
-      description: the ip address to format
-    return_value: String
+  cidr.parse:
+    description: Call `ip.cidr.parse`.
+    details: Given ip.cidr.parse.
+    signature: ip.cidr.parse()
+    params: []
+    return_value: Object
     examples:
-    - 'ip.to_string(ip.parse("192.168.1.1"))'
+    - ip.cidr.parse()
     see: []
-
-cidr:
-  parse:
-    description: Parse an IPv4 or IPv6 CIDR prefix.
-    details: Parse a CIDR string such as `10.0.0.0/8` or `2001:db8::/32`. Returns a cidr value on success, or null if invalid.
-    signature: 'cidr.parse(value: String)'
-    params:
-    - name: value
-      type: String
-      description: the CIDR string to parse
-    return_value: cidr
+  cidr.format:
+    description: Call `ip.cidr.format`.
+    details: Given ip.cidr.format.
+    signature: ip.cidr.format()
+    params: []
+    return_value: type.any
     examples:
-    - 'cidr.parse("10.0.0.0/8")'
+    - ip.cidr.format()
     see: []
-  network:
-    description: Return the network address of a CIDR.
-    details: Given a CIDR prefix, return the first address in the range.
-    signature: 'cidr.network(value: cidr)'
-    params:
-    - name: value
-      type: cidr
-      description: the CIDR prefix
-    return_value: ip
+  cidr.contains:
+    description: Call `ip.cidr.contains`.
+    details: Given ip.cidr.contains.
+    signature: ip.cidr.contains()
+    params: []
+    return_value: type.any
     examples:
-    - 'cidr.network(cidr.parse("10.0.0.0/8"))'
+    - ip.cidr.contains()
     see: []
-  broadcast:
-    description: Return the broadcast address of an IPv4 CIDR.
-    details: Given an IPv4 CIDR prefix, return the broadcast address.
-    signature: 'cidr.broadcast(value: cidr)'
-    params:
-    - name: value
-      type: cidr
-      description: the CIDR prefix
-    return_value: ip
+  cidr.network:
+    description: Call `ip.cidr.network`.
+    details: Given ip.cidr.network.
+    signature: ip.cidr.network()
+    params: []
+    return_value: type.any
     examples:
-    - 'cidr.broadcast(cidr.parse("192.168.0.0/24"))'
+    - ip.cidr.network()
     see: []
-  contains:
-    description: Return true if a CIDR contains an address.
-    details: Returns true when the given ip address falls within the CIDR prefix.
-    signature: 'cidr.contains(prefix: cidr, value: ip)'
-    params:
-    - name: prefix
-      type: cidr
-      description: the CIDR prefix
-    - name: value
-      type: ip
-      description: the ip address to test
-    return_value: Boolean
+  cidr.broadcast:
+    description: Call `ip.cidr.broadcast`.
+    details: Given ip.cidr.broadcast.
+    signature: ip.cidr.broadcast()
+    params: []
+    return_value: type.any
     examples:
-    - 'cidr.contains(cidr.parse("10.0.0.0/8"), ip.parse("10.1.2.3"))'
+    - ip.cidr.broadcast()
     see: []
-
-socket:
-  parse:
-    description: Parse a socket address string.
-    details: 'Parse an IPv4 `host:port` or IPv6 `[host]:port` string into a socket address value.'
-    signature: 'socket.parse(value: String)'
-    params:
-    - name: value
-      type: String
-      description: the socket address string
-    return_value: socket
+  socket.parse:
+    description: Call `ip.socket.parse`.
+    details: Given ip.socket.parse.
+    signature: ip.socket.parse()
+    params: []
+    return_value: Object
     examples:
-    - 'socket.parse("192.168.1.1:8080")'
-    - 'socket.parse("[::1]:8080")'
+    - ip.socket.parse()
     see: []
-  addr:
-    description: Return the ip address of a socket.
-    details: Extract the ip address from a socket address value.
-    signature: 'socket.addr(value: socket)'
-    params:
-    - name: value
-      type: socket
-      description: the socket address
-    return_value: ip
+  socket.format:
+    description: Call `ip.socket.format`.
+    details: Given ip.socket.format.
+    signature: ip.socket.format()
+    params: []
+    return_value: type.any
     examples:
-    - 'socket.addr(socket.parse("192.168.1.1:8080"))'
-    see: []
-  port:
-    description: Return the port of a socket.
-    details: Extract the port number from a socket address value.
-    signature: 'socket.port(value: socket)'
-    params:
-    - name: value
-      type: socket
-      description: the socket address
-    return_value: Number
-    examples:
-    - 'socket.port(socket.parse("192.168.1.1:8080"))'
+    - ip.socket.format()
     see: []

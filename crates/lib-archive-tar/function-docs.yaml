@@ -1,28 +1,25 @@
 tar:
   pack:
-    description: Pack an array of entries into a tar archive, returning base64.
-    details: |
-      `tar.pack(entries)` takes an array of objects `{ path: string, contents: base64 }` and packs them into a tar archive.
-      Returns the archive as a base64 string.
-    signature: 'tar.pack(entries: array) -> string'
+    description: Call `tar.pack`.
+    details: Given tar.pack.
+    signature: 'tar.pack(arg0: any)'
     params:
-    - name: entries
-      type: array
-      description: array of `{ path, contents }` objects where `contents` is base64
-    return_value: string
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    return_value: type.any
     examples:
-    - 'tar.pack([{ path: "hello.txt", contents: "aGVsbG8=" }])'
+    - tar.pack("x")
     see: []
   unpack:
-    description: Unpack a base64 tar archive into an array of entries.
-    details: |
-      `tar.unpack(archive)` decodes the base64 tar archive and returns an array of objects `{ path: string, contents: base64 }`.
-    signature: 'tar.unpack(archive: string) -> array'
+    description: Call `tar.unpack`.
+    details: Given tar.unpack.
+    signature: 'tar.unpack(arg0: any)'
     params:
-    - name: archive
-      type: string
-      description: base64-encoded tar archive
-    return_value: array
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    return_value: type.any
     examples:
-    - 'tar.unpack(tar.pack([{ path: "hello.txt", contents: "aGVsbG8=" }]))'
+    - tar.unpack("x")
     see: []

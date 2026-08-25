@@ -1,102 +1,114 @@
 benchmark:
   run:
-    description: Return the result of the `run` function on `benchmark`.
-    details: Calls `benchmark.run()` with the given arguments and returns a `type.any` result.
+    description: Call `benchmark.run`.
+    details: Given benchmark.run.
     signature: benchmark.run()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - benchmark.run()
     see: []
 assert:
   equal:
-    description: Return the result of the `equal` function on `assert`.
-    details: Calls `assert.equal()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.equal`.
+    details: Given assert.equal.
     signature: assert.equal()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.equal()
     see: []
   not_equal:
-    description: Return the result of the `not_equal` function on `assert`.
-    details: Calls `assert.not_equal()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.not_equal`.
+    details: Given assert.not_equal.
     signature: assert.not_equal()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.not_equal()
     see: []
   'true':
-    description: Return the result of the `true` function on `assert`.
-    details: Calls `assert.true()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.true`.
+    details: Given assert.true.
     signature: assert.true()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.true()
     see: []
   'false':
-    description: Return the result of the `false` function on `assert`.
-    details: Calls `assert.false()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.false`.
+    details: Given assert.false.
     signature: assert.false()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.false()
     see: []
   contains:
-    description: Return the result of the `contains` function on `assert`.
-    details: Calls `assert.contains()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.contains`.
+    details: Given assert.contains.
     signature: assert.contains()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.contains()
     see: []
   throws:
-    description: Return the result of the `throws` function on `assert`.
-    details: Calls `assert.throws()` with the given arguments and returns a `type.any` result.
+    description: Call `assert.throws`.
+    details: Given assert.throws.
     signature: assert.throws()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - assert.throws()
     see: []
 snapshot:
   format:
-    description: Return the result of the `format` function on `snapshot`.
-    details: Calls `snapshot.format()` with the given arguments and returns a `type.any` result.
+    description: Call `snapshot.format`.
+    details: Given snapshot.format.
     signature: snapshot.format()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - snapshot.format()
     see: []
   match:
-    description: Return the result of the `match` function on `snapshot`.
-    details: Calls `snapshot.match()` with the given arguments and returns a `type.any` result.
+    description: Call `snapshot.match`.
+    details: Given snapshot.match.
     signature: snapshot.match()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - snapshot.match()
     see: []
 fuzz:
   run:
-    description: Run the fuzzer.
-    details: Execute the fuzz target.
+    description: Call `fuzz.run`.
+    details: Given fuzz.run.
     signature: fuzz.run()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - fuzz.run()
     see: []
 test:
   run:
-    description: Run the test suite.
-    details: Execute the configured tests and report results.
+    description: Call `test.run`.
+    details: Given test.run.
     signature: test.run()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - test.run()
     see: []
 property:
   for_all:
-    description: Check a property for all generated inputs.
-    details: Run a property-based test.
+    description: Call `property.for_all`.
+    details: Given property.for_all.
     signature: property.for_all()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - property.for_all()
     see: []

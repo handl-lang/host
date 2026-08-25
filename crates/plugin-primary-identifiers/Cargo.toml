@@ -1,0 +1,15 @@
+[package]
+name = "handl-plugin-primary-identifiers"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform.workspace = true
+handl-expr.workspace = true
+handl-ast-canonical.workspace = true
+handl-lexer-canonical.workspace = true
+handl-vm-values-json.workspace = true
+serde_json = "1"
+
+[dev-dependencies]
+handl-plugin-identifiers.workspace = true

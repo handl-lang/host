@@ -1,7 +1,7 @@
 sig:
   send:
-    description: Send a signal to a process.
-    details: Send the signal `arg0` to the process `arg1`.
+    description: Call `sig.send`.
+    details: Given sig.send.
     signature: 'sig.send(arg0: any, arg1: String)'
     params:
     - name: arg0
@@ -15,17 +15,18 @@ sig:
     - sig.send("x", "x")
     see: []
   list:
-    description: Return the supported signal names.
-    details: Return an array of available signal names.
+    description: Call `sig.list`.
+    details: Given sig.list.
     signature: sig.list()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - sig.list()
     see: []
 fs:
   read:
-    description: Read the contents of the file at `arg0`.
-    details: Open the file at `arg0`, read its contents, and return them as a string.
+    description: Call `fs.read`.
+    details: Given fs.read.
     signature: 'fs.read(arg0: String)'
     params:
     - name: arg0
@@ -36,8 +37,8 @@ fs:
     - fs.read("x")
     see: []
   write:
-    description: Write `arg1` to the file at `arg0`.
-    details: Create or overwrite the file at `arg0` with the string `arg1`.
+    description: Call `fs.write`.
+    details: Given fs.write.
     signature: 'fs.write(arg0: String, arg1: String)'
     params:
     - name: arg0
@@ -51,8 +52,8 @@ fs:
     - fs.write("x", "x")
     see: []
   exists:
-    description: Return `true` if the file at `arg0` exists.
-    details: Check whether a file or directory exists at `arg0`.
+    description: Call `fs.exists`.
+    details: Given fs.exists.
     signature: 'fs.exists(arg0: String)'
     params:
     - name: arg0
@@ -63,8 +64,8 @@ fs:
     - fs.exists("x")
     see: []
   remove:
-    description: Remove `arg0`.
-    details: Remove `arg0`.
+    description: Call `fs.remove`.
+    details: Given fs.remove.
     signature: 'fs.remove(arg0: String)'
     params:
     - name: arg0
@@ -75,8 +76,8 @@ fs:
     - fs.remove("x")
     see: []
   list:
-    description: Return the entries in the directory at `arg0`.
-    details: Return an array of file and directory names inside `arg0`.
+    description: Call `fs.list`.
+    details: Given fs.list.
     signature: 'fs.list(arg0: String)'
     params:
     - name: arg0
@@ -88,83 +89,92 @@ fs:
     see: []
 path:
   join:
-    description: Return the result of the `join` function on `path`.
-    details: Calls `path.join()` with the given arguments and returns a `type.any` result.
+    description: Call `path.join`.
+    details: Given path.join.
     signature: path.join()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - path.join()
     see: []
   resolve:
-    description: Return the result of the `resolve` function on `path`.
-    details: Calls `path.resolve()` with the given arguments and returns a `type.any` result.
+    description: Call `path.resolve`.
+    details: Given path.resolve.
     signature: path.resolve()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - path.resolve()
     see: []
   basename:
-    description: Return the result of the `basename` function on `path`.
-    details: Calls `path.basename()` with the given arguments and returns a `type.any` result.
+    description: Call `path.basename`.
+    details: Given path.basename.
     signature: path.basename()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - path.basename()
     see: []
   dirname:
-    description: Return the result of the `dirname` function on `path`.
-    details: Calls `path.dirname()` with the given arguments and returns a `type.any` result.
+    description: Call `path.dirname`.
+    details: Given path.dirname.
     signature: path.dirname()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - path.dirname()
     see: []
   extname:
-    description: Return the result of the `extname` function on `path`.
-    details: Calls `path.extname()` with the given arguments and returns a `type.any` result.
+    description: Call `path.extname`.
+    details: Given path.extname.
     signature: path.extname()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - path.extname()
     see: []
 tmp:
   file:
-    description: Create and return a temporary file path.
-    details: Create a new temporary file and return its path.
+    description: Call `tmp.file`.
+    details: Given tmp.file.
     signature: tmp.file()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - tmp.file()
     see: []
   dir:
-    description: Create and return a temporary directory path.
-    details: Create a new temporary directory and return its path.
+    description: Call `tmp.dir`.
+    details: Given tmp.dir.
     signature: tmp.dir()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - tmp.dir()
     see: []
 time:
   now:
-    description: Return the current time.
-    details: Return the current time as an ISO 8601 string.
+    description: Call `time.now`.
+    details: Given time.now.
     signature: time.now()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - time.now()
     see: []
   epoch:
-    description: Return the current Unix timestamp.
-    details: Return the number of seconds since the Unix epoch.
+    description: Call `time.epoch`.
+    details: Given time.epoch.
     signature: time.epoch()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - time.epoch()
     see: []
 cmd:
   run:
-    description: Execute the shell command `arg0`.
-    details: Run the command `arg0` and return its output.
+    description: Call `cmd.run`.
+    details: Given cmd.run.
     signature: 'cmd.run(arg0: any)'
     params:
     - name: arg0
@@ -176,8 +186,8 @@ cmd:
     see: []
 process:
   spawn:
-    description: Spawn the command `arg0`.
-    details: Start a new process running the command `arg0` and return its handle or PID.
+    description: Call `process.spawn`.
+    details: Given process.spawn.
     signature: 'process.spawn(arg0: any)'
     params:
     - name: arg0
@@ -188,8 +198,8 @@ process:
     - process.spawn("x")
     see: []
   kill:
-    description: Terminate the process `arg0`.
-    details: Send a termination signal to the process `arg0`.
+    description: Call `process.kill`.
+    details: Given process.kill.
     signature: 'process.kill(arg0: any)'
     params:
     - name: arg0
@@ -200,8 +210,8 @@ process:
     - process.kill("x")
     see: []
   wait:
-    description: Wait for the process `arg0` to exit.
-    details: Block until the process `arg0` finishes and return its status.
+    description: Call `process.wait`.
+    details: Given process.wait.
     signature: 'process.wait(arg0: any)'
     params:
     - name: arg0
@@ -212,8 +222,8 @@ process:
     - process.wait("x")
     see: []
   status:
-    description: Return the exit status of `arg0`.
-    details: Return the current or last exit status of the process `arg0`.
+    description: Call `process.status`.
+    details: Given process.status.
     signature: 'process.status(arg0: any)'
     params:
     - name: arg0
@@ -225,41 +235,45 @@ process:
     see: []
 env:
   get:
-    description: Return the result of the `get` function on `env`.
-    details: Calls `env.get()` with the given arguments and returns a `null` result.
+    description: Call `env.get`.
+    details: Given env.get.
     signature: env.get()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - env.get()
     see: []
   has:
-    description: Return the result of the `has` function on `env`.
-    details: Calls `env.has()` with the given arguments and returns a `type.any` result.
+    description: Call `env.has`.
+    details: Given env.has.
     signature: env.has()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - env.has()
     see: []
   keys:
-    description: Return an array of all environment variable names.
-    details: Return the names of all available environment variables.
+    description: Call `env.keys`.
+    details: Given env.keys.
     signature: env.keys()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - env.keys()
     see: []
 socket:
   connect:
-    description: Return the result of the `connect` function on `socket`.
-    details: Calls `socket.connect()` with the given arguments and returns a `type.any` result.
+    description: Call `socket.connect`.
+    details: Given socket.connect.
     signature: socket.connect()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - socket.connect()
     see: []
   send:
-    description: Send data over the socket `arg0`.
-    details: Send `arg1` through the socket `arg0`.
+    description: Call `socket.send`.
+    details: Given socket.send.
     signature: 'socket.send(arg0: any, arg1: String)'
     params:
     - name: arg0
@@ -273,8 +287,8 @@ socket:
     - socket.send("x", "x")
     see: []
   recv:
-    description: Receive data from the socket `arg0`.
-    details: Read incoming data from the socket `arg0`.
+    description: Call `socket.recv`.
+    details: Given socket.recv.
     signature: 'socket.recv(arg0: any, arg1: any)'
     params:
     - name: arg0
@@ -288,10 +302,11 @@ socket:
     - socket.recv("x", "x")
     see: []
   close:
-    description: Return the result of the `close` function on `socket`.
-    details: Calls `socket.close()` with the given arguments and returns a `null` result.
+    description: Call `socket.close`.
+    details: Given socket.close.
     signature: socket.close()
     params: []
     return_value: 'null'
-    examples: []
+    examples:
+    - socket.close()
     see: []

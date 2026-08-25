@@ -1,0 +1,9 @@
+[package]
+name = "handl-runtime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-expr = { workspace = true }
+handl-vm-values-json = { workspace = true }
+handl-platform = { workspace = true }

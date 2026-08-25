@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use crate::error::PlatformError;
 use crate::extension::{Extension, ExtensionRegistry};
-use crate::kit::{Kit, KitRegistry};
+use crate::kit::{Kit, KitManifest, KitRegistry};
+use crate::language::{LanguagePipeline, PipelineOutput};
+use crate::manifest::PluginManifest;
 use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry};
 use crate::plugin::ProcessPlugin;
 
@@ -82,6 +86,69 @@ impl Host for DefaultHost {
 
     fn extensions(&self) -> &ExtensionRegistry {
         &self.extensions
+    }
+}
+
+/// A host for running language pipelines composed from a kit.
+///
+/// Concrete language plugins are registered by plugin id as factory functions
+/// that call `register_all` on a `LanguagePipeline`. This keeps `handl-platform`
+/// decoupled from the concrete plugin crates.
+#[derive(Default)]
+pub struct LanguageHost {
+    factories: HashMap<String, fn(&mut LanguagePipeline)>,
+}
+
+impl LanguageHost {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a factory for a language plugin id.
+    pub fn register_plugin(&mut self, id: impl Into<String>, factory: fn(&mut LanguagePipeline)) {
+        self.factories.insert(id.into(), factory);
+    }
+
+    /// Resolve the kit, initialize the pipeline in dependency order, and run
+    /// lex / parse / format / diagnose.
+    pub fn run_language_pipeline(
+        &self,
+        kit: &Kit,
+        source: &str,
+    ) -> Result<PipelineOutput, PlatformError> {
+        let resolved = kit.resolve().map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        let mut pipeline = LanguagePipeline::new();
+
+        // Register in reverse initialization order so that more specific
+        // plugins (e.g. doc-comments) get first pick during parsing.
+        for id in resolved.initialization_order.iter().rev() {
+            let factory = self.factories.get(id).copied().ok_or_else(|| {
+                PlatformError::Plugin(format!(
+                    "no language plugin factory registered for {id}"
+                ))
+            })?;
+            factory(&mut pipeline);
+        }
+
+        let (ast, formatted, diagnostics) = pipeline.run(source);
+        Ok(PipelineOutput {
+            formatted,
+            diagnostics,
+            ast,
+        })
+    }
+
+    /// Convenience helper to load a kit manifest and wrap it in a `Kit`.
+    pub fn load_kit(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        available_plugins: Vec<PluginManifest>,
+    ) -> Result<Kit, PlatformError> {
+        let manifest = KitManifest::load(path)?;
+        Ok(Kit {
+            manifest,
+            available_plugins,
+        })
     }
 }
 

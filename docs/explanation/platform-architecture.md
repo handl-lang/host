@@ -5,7 +5,7 @@ The handl platform is organized as a workspace of Rust crates that compose into 
 ## Crate layers
 
 ```
-handl-cli              # command-line entry point
+handl-host-cli              # command-line entry point
 handl-ast, handl-parser
 handl-vm, handl-vm-common
 handl-lib-*            # capability modules (array, fs, http, ...)

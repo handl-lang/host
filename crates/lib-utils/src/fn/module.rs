@@ -6,6 +6,7 @@ use crate::r#fn::combinators::{
     Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, IfLazy, Map, Match,
     Partial, Pipe, Reduce, Tap, Unless, When,
 };
+use crate::r#fn::higher_order::{CountBy, Every, Find, FlatMap, GroupBy, Partition, SomeFn};
 
 /// The `fn` module — function combinator utilities.
 ///
@@ -30,6 +31,13 @@ impl Module for FnModule {
             "map" => Some(&Map),
             "filter" => Some(&Filter),
             "reduce" => Some(&Reduce),
+            "flat_map" => Some(&FlatMap),
+            "find" => Some(&Find),
+            "some" => Some(&SomeFn),
+            "every" => Some(&Every),
+            "group_by" => Some(&GroupBy),
+            "partition" => Some(&Partition),
+            "count_by" => Some(&CountBy),
             "tap" => Some(&Tap),
             "match" => Some(&Match),
             "constantly" => Some(&Constantly),

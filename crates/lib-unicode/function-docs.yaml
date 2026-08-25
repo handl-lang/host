@@ -1,49 +1,55 @@
 unicode:
   is_valid_identifier:
-    description: Return the result of the `is_valid_identifier` function on `unicode`.
-    details: Calls `unicode.is_valid_identifier()` with the given arguments and returns a `type.any` result.
+    description: Call `unicode.is_valid_identifier`.
+    details: Given unicode.is_valid_identifier.
     signature: unicode.is_valid_identifier()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - unicode.is_valid_identifier()
     see: []
   is_xid_start:
-    description: Return the result of the `is_xid_start` function on `unicode`.
-    details: Calls `unicode.is_xid_start()` with the given arguments and returns a `type.any` result.
+    description: Call `unicode.is_xid_start`.
+    details: Given unicode.is_xid_start.
     signature: unicode.is_xid_start()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - unicode.is_xid_start()
     see: []
   is_xid_continue:
-    description: Return the result of the `is_xid_continue` function on `unicode`.
-    details: Calls `unicode.is_xid_continue()` with the given arguments and returns a `type.any` result.
+    description: Call `unicode.is_xid_continue`.
+    details: Given unicode.is_xid_continue.
     signature: unicode.is_xid_continue()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - unicode.is_xid_continue()
     see: []
   code_points:
-    description: Return the result of the `code_points` function on `unicode`.
-    details: Calls `unicode.code_points()` with the given arguments and returns a `type.any` result.
+    description: Call `unicode.code_points`.
+    details: Given unicode.code_points.
     signature: unicode.code_points()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - unicode.code_points()
     see: []
   code_point_at:
-    description: Return the result of the `code_point_at` function on `unicode`.
-    details: Calls `unicode.code_point_at()` with the given arguments and returns a `Number` result.
+    description: Call `unicode.code_point_at`.
+    details: Given unicode.code_point_at.
     signature: unicode.code_point_at()
     params: []
     return_value: Number
-    examples: []
+    examples:
+    - unicode.code_point_at()
     see: []
   decode:
-    description: Return the result of the `decode` function on `unicode`.
-    details: Calls `unicode.decode()` with the given arguments and returns a `type.any` result.
+    description: Call `unicode.decode`.
+    details: Given unicode.decode.
     signature: unicode.decode()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - unicode.decode()
     see: []

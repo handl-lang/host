@@ -39,6 +39,7 @@ pub fn canonical_config() -> LexerConfig<CanonicalKind, DefaultLexError> {
         .with_keyword("when", CanonicalKind::When)
         .with_keyword("else", CanonicalKind::Else)
         .with_keyword("match", CanonicalKind::Match)
+        .with_keyword("typeof", CanonicalKind::TypeOf)
         .with_delimiter('(', CanonicalKind::CallOpen)
         .with_delimiter(')', CanonicalKind::CallClose)
         .with_delimiter('{', CanonicalKind::BlockOpen)

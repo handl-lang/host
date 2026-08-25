@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-doc-comments"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+handl-platform = { path = "../platform" }
+handl-plugin-comments = { path = "../plugin-comments" }
+serde_json = { workspace = true }

@@ -426,6 +426,7 @@ dependencies = [
  "once_cell",
  "oorandom",
  "plotters",
+ "rayon",
  "regex",
  "serde",
  "serde_derive",
@@ -946,122 +947,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-capability-build"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-compile"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-eval"
-version = "0.1.0"
-dependencies = [
- "handl-lexer-canonical",
- "handl-parser",
- "handl-parser-canonical",
- "handl-platform",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-host-eval",
- "handl-vm-values-json",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-extension"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-fmt"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-kit"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-lint"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-plugin"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-tests"
-version = "0.1.0"
-dependencies = [
- "handl-capability-build",
- "handl-capability-compile",
- "handl-capability-eval",
- "handl-capability-extension",
- "handl-capability-fmt",
- "handl-capability-kit",
- "handl-capability-lint",
- "handl-capability-plugin",
- "handl-capability-typecheck",
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-capability-typecheck"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-vm-type",
- "serde_json",
-]
-
-[[package]]
-name = "handl-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "handl-capability-build",
- "handl-capability-compile",
- "handl-capability-eval",
- "handl-capability-extension",
- "handl-capability-fmt",
- "handl-capability-kit",
- "handl-capability-lint",
- "handl-capability-plugin",
- "handl-capability-typecheck",
- "handl-platform",
- "handl-plugin-comments",
- "handl-plugin-doc-comments",
- "serde_json",
-]
-
-[[package]]
 name = "handl-codebase"
 version = "0.1.0"
 dependencies = [
@@ -1305,6 +1190,102 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ext-build"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-compile"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-eval"
+version = "0.1.0"
+dependencies = [
+ "handl-lexer-canonical",
+ "handl-parser",
+ "handl-parser-canonical",
+ "handl-platform",
+ "handl-vm-backend-rust-interpreter",
+ "handl-vm-host-eval",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-extension"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-kit"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-lint"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-plugin"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-tests"
+version = "0.1.0"
+dependencies = [
+ "handl-ext-build",
+ "handl-ext-compile",
+ "handl-ext-eval",
+ "handl-ext-extension",
+ "handl-ext-fmt",
+ "handl-ext-kit",
+ "handl-ext-lint",
+ "handl-ext-plugin",
+ "handl-ext-typecheck",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm-type",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-fields"
 version = "0.1.0"
 dependencies = [
@@ -1373,6 +1354,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-host-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "handl-expr",
+ "handl-ext-build",
+ "handl-ext-compile",
+ "handl-ext-eval",
+ "handl-ext-extension",
+ "handl-ext-fmt",
+ "handl-ext-kit",
+ "handl-ext-lint",
+ "handl-ext-plugin",
+ "handl-ext-typecheck",
+ "handl-host-lsp",
+ "handl-kit-canonical",
+ "handl-platform",
+ "handl-plugin-comments",
+ "handl-plugin-diag-expression",
+ "handl-plugin-doc-comments",
+ "handl-plugin-fmt-expression",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-symbols",
+ "handl-tooling",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-host-lsp"
 version = "0.1.0"
 dependencies = [
@@ -1420,6 +1430,7 @@ dependencies = [
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "handl-ast-canonical",
  "handl-expr",
  "handl-lexer",
@@ -2180,6 +2191,7 @@ name = "handl-plugin-comments"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "serde_json",
 ]
 
 [[package]]
@@ -2210,6 +2222,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-comments",
+ "serde_json",
 ]
 
 [[package]]

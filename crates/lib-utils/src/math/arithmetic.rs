@@ -2,6 +2,7 @@ use handl_vm::{Context, Function};
 use handl_vm_values_json::{Error, NonFunctionValue};
 
 use super::helpers::{num, require_number, require_two_numbers};
+use crate::shared::find_extremum_by;
 
 #[derive(Clone, Copy)]
 pub struct Add;
@@ -70,7 +71,9 @@ impl Function<NonFunctionValue> for Min {
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
         let (a, b) = require_two_numbers(args)?;
-        Ok(num(a.min(b)))
+        let values = [a, b];
+        let best = find_extremum_by(&values, |x, y| !(*y < *x)).unwrap();
+        Ok(num(*best))
     }
 }
 
@@ -83,7 +86,9 @@ impl Function<NonFunctionValue> for Max {
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
         let (a, b) = require_two_numbers(args)?;
-        Ok(num(a.max(b)))
+        let values = [a, b];
+        let best = find_extremum_by(&values, |x, y| !(*y > *x)).unwrap();
+        Ok(num(*best))
     }
 }
 

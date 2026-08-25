@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::capability::{CapabilityId, CapabilityMetadata};
 use crate::error::PlatformError;
 use crate::extension::ExtensionRegistry;
 use crate::kit::KitRegistry;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityRequest {
     pub capability: CapabilityId,
     pub payload: serde_json::Value,

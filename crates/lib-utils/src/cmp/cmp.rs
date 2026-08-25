@@ -1,11 +1,14 @@
 use std::cmp::Ordering;
 
-use handl_vm::{Context, Function};
+use handl_vm::{Context, Function, GenericFunction};
 use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
-use crate::shared::{arr as to_arr, b as to_bool, num, require_array, require_one_arg};
+use crate::shared::{
+    apply_fn, arr as to_arr, b as to_bool, find_extremum_by, num, require_array,
+    require_function_and_array, require_one_arg,
+};
 
 /// The `cmp` module — comparison and ordering utilities.
 ///
@@ -37,6 +40,10 @@ impl Module for CmpModule {
             "is_sorted_desc" => Some(&IsSortedDesc),
             "sort" => Some(&Sort),
             "sort_desc" => Some(&SortDesc),
+            "sort_by" => Some(&SortBy),
+            "sort_by_desc" => Some(&SortByDesc),
+            "min_by" => Some(&MinBy),
+            "max_by" => Some(&MaxBy),
             _ => None,
         }
     }
@@ -225,18 +232,11 @@ impl Function<NonFunctionValue> for Min {
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        if args.is_empty() {
-            return Err(Error::ArgumentCount {
+        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Less)
+            .ok_or(Error::ArgumentCount {
                 expected: 1,
                 got: 0,
-            });
-        }
-        let mut best: &NonFunctionValue = &args[0];
-        for arg in args.iter().skip(1) {
-            if compare_nfv(arg, best) == Ordering::Less {
-                best = arg;
-            }
-        }
+            })?;
         Ok(best.clone())
     }
 }
@@ -249,18 +249,11 @@ impl Function<NonFunctionValue> for Max {
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        if args.is_empty() {
-            return Err(Error::ArgumentCount {
+        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Greater)
+            .ok_or(Error::ArgumentCount {
                 expected: 1,
                 got: 0,
-            });
-        }
-        let mut best: &NonFunctionValue = &args[0];
-        for arg in args.iter().skip(1) {
-            if compare_nfv(arg, best) == Ordering::Greater {
-                best = arg;
-            }
-        }
+            })?;
         Ok(best.clone())
     }
 }
@@ -392,5 +385,151 @@ impl Function<NonFunctionValue> for SortDesc {
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
         sort_impl(args, true)
+    }
+}
+
+// ── sort_by / sort_by_desc ─────────────────────────────────────────
+
+fn sort_by_impl(
+    args: &[NonFunctionValue],
+    ctx: &mut dyn Context<NonFunctionValue>,
+    descending: bool,
+) -> Result<NonFunctionValue, Error> {
+    let (fn_val, array) = require_function_and_array(args)?;
+    let mut keyed: Vec<(f64, JsonValue)> = Vec::with_capacity(array.len());
+    for item in array {
+        let key = apply_fn(ctx, &fn_val, item)?;
+        let num = key.as_number().ok_or(Error::TypeMismatch {
+            expected: "number",
+            got: "non-number",
+        })?;
+        keyed.push((num, item.clone()));
+    }
+    if descending {
+        keyed.sort_by(|a, c| c.0.total_cmp(&a.0));
+    } else {
+        keyed.sort_by(|a, c| a.0.total_cmp(&c.0));
+    }
+    let sorted: Vec<JsonValue> = keyed.into_iter().map(|(_, v)| v).collect();
+    Ok(to_arr(&sorted))
+}
+
+#[derive(Clone, Copy)]
+pub struct SortBy;
+impl Function<NonFunctionValue> for SortBy {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        sort_by_impl(args, ctx, false)
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for SortBy {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct SortByDesc;
+impl Function<NonFunctionValue> for SortByDesc {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        sort_by_impl(args, ctx, true)
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for SortByDesc {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
+    }
+}
+
+// ── min_by / max_by ────────────────────────────────────────────────
+
+fn extremum_by_impl(
+    args: &[NonFunctionValue],
+    ctx: &mut dyn Context<NonFunctionValue>,
+    pick_max: bool,
+) -> Result<NonFunctionValue, Error> {
+    let (fn_val, array) = require_function_and_array(args)?;
+    let mut best: Option<(f64, &JsonValue)> = None;
+    for item in array {
+        let key = apply_fn(ctx, &fn_val, item)?;
+        let num = key.as_number().ok_or(Error::TypeMismatch {
+            expected: "number",
+            got: "non-number",
+        })?;
+        match &best {
+            None => best = Some((num, item)),
+            Some((bn, _)) if pick_max && num > *bn => best = Some((num, item)),
+            Some((bn, _)) if !pick_max && num < *bn => best = Some((num, item)),
+            _ => {}
+        }
+    }
+    match best {
+        Some((_, v)) => Ok(NonFunctionValue::new(v.clone())),
+        None => Ok(NonFunctionValue::new(JsonValue::Null)),
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct MinBy;
+impl Function<NonFunctionValue> for MinBy {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        extremum_by_impl(args, ctx, false)
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for MinBy {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct MaxBy;
+impl Function<NonFunctionValue> for MaxBy {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        extremum_by_impl(args, ctx, true)
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for MaxBy {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
     }
 }

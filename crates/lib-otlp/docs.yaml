@@ -2,3 +2,5 @@ category:
   slug: otlp
   title: OTLP
   description: OpenTelemetry protocol support.
+sub_pages:
+  - lib-otlp-std

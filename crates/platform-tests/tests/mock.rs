@@ -1,4 +1,7 @@
-use handl_platform::{CapabilityRequest, ExtensionRegistry, Kit, KitRegistry, Plugin, PluginContext, PluginRegistry};
+use handl_platform::{
+    CapabilityRequest, ExtensionRegistry, Kit, KitManifest, KitRegistry, Plugin, PluginContext,
+    PluginRegistry,
+};
 use handl_platform_tests::{MockExtension, MockHost, MockPlugin};
 
 #[test]
@@ -29,8 +32,14 @@ fn mock_host_holds_registries() {
     let mut host = MockHost::new();
     host.plugins.register(MockPlugin::new("compile", &["compile"]));
     host.kits.register(Kit {
-        name: "core".into(),
-        plugins: vec!["compile".into()],
+        manifest: KitManifest {
+            id: "core".into(),
+            name: "core".into(),
+            plugins: vec!["compile".into()],
+            target: None,
+            selectors: Vec::new(),
+        },
+        available_plugins: Vec::new(),
     });
     host.extensions.register(MockExtension::new(
         "foo",

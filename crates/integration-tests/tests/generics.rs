@@ -3,12 +3,12 @@
 //! These tests exercise the full pipeline:
 //! 1. Typechecker resolves type arguments for generic calls
 //! 2. Runtime dispatches to GenericFunction via type_args on Expr::Call
-//! 3. Host module (lib-utils ArrayModule) responds to generic dispatch
+//! 3. Host module (lib-collections CollectionsModule) responds to generic dispatch
 
 use handl_ast_canonical::Expr;
 use handl_dialect_canonical::AC_DIALECT;
 use handl_fields::{self, Namespaces};
-use handl_lib_utils::ArrayModule;
+use handl_lib_collections::CollectionsModule;
 use handl_typecheck_core::{SchemaInterpreter, Type};
 use handl_typecheck_infer::{FunctionTable, HostFunctionSigs};
 use handl_typecheck_schema_json::JsonSchemaInterpreter;
@@ -47,7 +47,7 @@ impl Eval for TestEval {
 }
 
 fn build_host() -> ModuleHost {
-    ModuleHost::new().with(ArrayModule)
+    ModuleHost::new().with(CollectionsModule)
 }
 
 fn build_function_table() -> FunctionTable {
@@ -354,7 +354,7 @@ fn full_pipeline_generic_type_args_resolution() {
         type_args.clone(),
     );
 
-    // The VM should dispatch to GenericFunction::call_with_types on ArrayModule's Map.
+    // The VM should dispatch to GenericFunction::call_with_types on CollectionsModule's Map.
     // It may fail on function body evaluation (no eval context), but should not
     // fail with UnknownFunction.
     let result = vm.eval(&expr, &mut ctx);

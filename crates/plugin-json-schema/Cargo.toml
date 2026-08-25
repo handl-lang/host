@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-json-schema"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-dialect.workspace = true
+handl-platform.workspace = true
+handl-vocabulary.workspace = true
+handl-vm-values-json.workspace = true
+serde_json.workspace = true
+jsonschema = { version = "0.50", default-features = false }

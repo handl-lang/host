@@ -50,6 +50,9 @@ pub enum CanonicalKind {
     /// The `not` keyword (negative mood or logical negation).
     Not,
 
+    /// The `typeof` keyword (type-name reflection).
+    TypeOf,
+
     /// The `when` keyword (conditional mood).
     When,
 
@@ -107,6 +110,9 @@ pub enum CanonicalKind {
     /// Ternary / optional — `?`.
     Question,
 
+    /// Statement terminator — `;`.
+    Semicolon,
+
     /// Range — `..`.
     Range,
 
@@ -149,6 +155,7 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::Must => write!(f, "must"),
             CanonicalKind::May => write!(f, "may"),
             CanonicalKind::Not => write!(f, "not"),
+            CanonicalKind::TypeOf => write!(f, "typeof"),
             CanonicalKind::When => write!(f, "when"),
             CanonicalKind::Else => write!(f, "else"),
             CanonicalKind::Match => write!(f, "match"),
@@ -168,6 +175,7 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::Fanout => write!(f, "&&&"),
             CanonicalKind::Parallel => write!(f, "||||"),
             CanonicalKind::Question => write!(f, "?"),
+            CanonicalKind::Semicolon => write!(f, ";"),
             CanonicalKind::Range => write!(f, ".."),
             CanonicalKind::Spread => write!(f, "..."),
             CanonicalKind::LessThan => write!(f, "<"),

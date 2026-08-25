@@ -24,6 +24,7 @@
 //!     .with(CollectionsModule);
 //! ```
 
+mod array;
 mod bit_set;
 mod btree_map;
 mod btree_set;

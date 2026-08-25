@@ -4,7 +4,7 @@ Core platform abstractions for the Handl language: capabilities, plugins, extens
 
 Capabilities are identified by `CapabilityId` and carry generic JSON-serializable `CapabilityMetadata` (`serde_json::Value`). No CLI-specific fields are defined here; hosts such as the CLI, LSP, or web UI may interpret the metadata independently.
 
-This crate intentionally does not include concrete built-in capabilities (e.g. `fmt`, `lint`), middleware, RPC, or kit-as-product features yet. Those are defined in separate `handl-capability-*` crates or deferred to later phases.
+This crate intentionally does not include concrete built-in capabilities (e.g. `fmt`, `lint`), middleware, RPC, or kit-as-product features yet. Those are defined in separate `handl-ext-*` crates or deferred to later phases.
 
 ## Modules
 

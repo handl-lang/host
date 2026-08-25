@@ -1,9 +1,10 @@
 toml:
   toml:
-    description: Return the result of the `toml` function on `toml`.
-    details: Calls `toml.toml()` with the given arguments and returns a `Object` result.
+    description: Call `toml.toml`.
+    details: Given toml.toml.
     signature: toml.toml()
     params: []
     return_value: Object
-    examples: []
+    examples:
+    - toml.toml()
     see: []

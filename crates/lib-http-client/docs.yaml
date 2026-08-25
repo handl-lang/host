@@ -2,3 +2,5 @@ category:
   slug: http-client
   title: HTTP Client
   description: HTTP client types and stubs.
+sub_pages:
+  - lib-http-client-std

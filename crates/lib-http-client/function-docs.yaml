@@ -1,57 +1,64 @@
 http:
   get:
-    description: Return the result of the `get` function on `http`.
-    details: Calls `http.get()` with the given arguments and returns a `type.any` result.
+    description: Call `http.get`.
+    details: Given http.get.
     signature: http.get()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.get()
     see: []
   post:
-    description: Return the result of the `post` function on `http`.
-    details: Calls `http.post()` with the given arguments and returns a `type.any` result.
+    description: Call `http.post`.
+    details: Given http.post.
     signature: http.post()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.post()
     see: []
   put:
-    description: Return the result of the `put` function on `http`.
-    details: Calls `http.put()` with the given arguments and returns a `type.any` result.
+    description: Call `http.put`.
+    details: Given http.put.
     signature: http.put()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.put()
     see: []
   patch:
-    description: Return the result of the `patch` function on `http`.
-    details: Calls `http.patch()` with the given arguments and returns a `type.any` result.
+    description: Call `http.patch`.
+    details: Given http.patch.
     signature: http.patch()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.patch()
     see: []
   delete:
-    description: Return the result of the `delete` function on `http`.
-    details: Calls `http.delete()` with the given arguments and returns a `type.any` result.
+    description: Call `http.delete`.
+    details: Given http.delete.
     signature: http.delete()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.delete()
     see: []
   head:
-    description: Return the result of the `head` function on `http`.
-    details: Calls `http.head()` with the given arguments and returns a `type.any` result.
+    description: Call `http.head`.
+    details: Given http.head.
     signature: http.head()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.head()
     see: []
   request:
-    description: Return the result of the `request` function on `http`.
-    details: Calls `http.request()` with the given arguments and returns a `type.any` result.
+    description: Call `http.request`.
+    details: Given http.request.
     signature: http.request()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - http.request()
     see: []

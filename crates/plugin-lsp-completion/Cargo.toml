@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-lsp-completion"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-tooling.workspace = true
+handl-kit-canonical.workspace = true
+handl-platform.workspace = true
+handl-expr.workspace = true
+handl-ast-canonical.workspace = true
+handl-lexer-canonical.workspace = true

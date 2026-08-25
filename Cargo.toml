@@ -79,7 +79,7 @@ members = [
   "crates/compiler-backend-js",
   "crates/compiler-tests",
   "crates/bench",
-  "crates/cli",
+  "crates/host-cli",
   "crates/experiment-host-sugar",
   "crates/meta",
   "crates/store",
@@ -151,16 +151,16 @@ members = [
   "crates/plugin-stmt-import",
   "crates/plugin-stmt-export",
   "crates/plugin-stmt-module",
-  "crates/capability-fmt",
-  "crates/capability-lint",
-  "crates/capability-typecheck",
-  "crates/capability-eval",
-  "crates/capability-compile",
-  "crates/capability-build",
-  "crates/capability-extension",
-  "crates/capability-kit",
-  "crates/capability-plugin",
-  "crates/capability-tests",
+  "crates/ext-fmt",
+  "crates/ext-lint",
+  "crates/ext-typecheck",
+  "crates/ext-eval",
+  "crates/ext-compile",
+  "crates/ext-build",
+  "crates/ext-extension",
+  "crates/ext-kit",
+  "crates/ext-plugin",
+  "crates/ext-tests",
   "crates/plugin-fmt-expression",
   "crates/plugin-fmt-trivia",
   "crates/plugin-fmt-statements",
@@ -233,7 +233,7 @@ handl-frontend-yaml = { path = "crates/frontend-yaml" }
 handl-frontend-toml = { path = "crates/frontend-toml" }
 handl-source = { path = "crates/source" }
 handl-fields = { path = "crates/fields" }
-handl-cli = { path = "crates/cli" }
+handl-host-cli = { path = "crates/host-cli" }
 handl-frontend = { path = "crates/frontend" }
 handl-vm-host-eval = { path = "crates/vm-host-eval" }
 handl-compiler-common = { path = "crates/compiler-common" }
@@ -318,16 +318,16 @@ handl-plugin-stmt-const = { path = "crates/plugin-stmt-const" }
 handl-plugin-stmt-import = { path = "crates/plugin-stmt-import" }
 handl-plugin-stmt-export = { path = "crates/plugin-stmt-export" }
 handl-plugin-stmt-module = { path = "crates/plugin-stmt-module" }
-handl-capability-fmt = { path = "crates/capability-fmt" }
-handl-capability-lint = { path = "crates/capability-lint" }
-handl-capability-typecheck = { path = "crates/capability-typecheck" }
-handl-capability-eval = { path = "crates/capability-eval" }
-handl-capability-compile = { path = "crates/capability-compile" }
-handl-capability-build = { path = "crates/capability-build" }
-handl-capability-extension = { path = "crates/capability-extension" }
-handl-capability-kit = { path = "crates/capability-kit" }
-handl-capability-plugin = { path = "crates/capability-plugin" }
-handl-capability-tests = { path = "crates/capability-tests" }
+handl-ext-fmt = { path = "crates/ext-fmt" }
+handl-ext-lint = { path = "crates/ext-lint" }
+handl-ext-typecheck = { path = "crates/ext-typecheck" }
+handl-ext-eval = { path = "crates/ext-eval" }
+handl-ext-compile = { path = "crates/ext-compile" }
+handl-ext-build = { path = "crates/ext-build" }
+handl-ext-extension = { path = "crates/ext-extension" }
+handl-ext-kit = { path = "crates/ext-kit" }
+handl-ext-plugin = { path = "crates/ext-plugin" }
+handl-ext-tests = { path = "crates/ext-tests" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
 handl-plugin-fmt-statements = { path = "crates/plugin-fmt-statements" }

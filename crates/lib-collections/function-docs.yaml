@@ -1,359 +1,402 @@
 collections:
   vec.new:
-    description: Create and return a new empty `vec`.
-    details: Return a new, empty `vec` of type `collections.vec`.
+    description: Call `collections.vec.new`.
+    details: Given collections.vec.new.
     signature: collections.vec.new()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.new()
     see: []
   vec.from:
-    description: Return the result of the `from` function on `collections.vec`.
-    details: Calls `collections.vec.from()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.from`.
+    details: Given collections.vec.from.
     signature: collections.vec.from()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.from()
     see: []
   vec.to_array:
-    description: Return the result of the `to_array` function on `collections.vec`.
-    details: Calls `collections.vec.to_array()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.to_array`.
+    details: Given collections.vec.to_array.
     signature: collections.vec.to_array()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.to_array()
     see: []
   vec.len:
-    description: Return the result of the `len` function on `collections.vec`.
-    details: Calls `collections.vec.len()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.len`.
+    details: Given collections.vec.len.
     signature: collections.vec.len()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.len()
     see: []
   vec.is_empty:
-    description: Return the result of the `is_empty` function on `collections.vec`.
-    details: Calls `collections.vec.is_empty()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.is_empty`.
+    details: Given collections.vec.is_empty.
     signature: collections.vec.is_empty()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.is_empty()
     see: []
   vec.push:
-    description: Return the result of the `push` function on `collections.vec`.
-    details: Calls `collections.vec.push()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.push`.
+    details: Given collections.vec.push.
     signature: collections.vec.push()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.push()
     see: []
   vec.pop:
-    description: Return the result of the `pop` function on `collections.vec`.
-    details: Calls `collections.vec.pop()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.pop`.
+    details: Given collections.vec.pop.
     signature: collections.vec.pop()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.pop()
     see: []
   vec.peek:
-    description: Return the result of the `peek` function on `collections.vec`.
-    details: Calls `collections.vec.peek()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.vec.peek`.
+    details: Given collections.vec.peek.
     signature: collections.vec.peek()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.vec.peek()
     see: []
   list.new:
-    description: Create and return a new empty `list`.
-    details: Return a new, empty `list` of type `collections.list`.
+    description: Call `collections.list.new`.
+    details: Given collections.list.new.
     signature: collections.list.new()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.new()
     see: []
   list.from:
-    description: Return the result of the `from` function on `collections.list`.
-    details: Calls `collections.list.from()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.from`.
+    details: Given collections.list.from.
     signature: collections.list.from()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.from()
     see: []
   list.to_array:
-    description: Return the result of the `to_array` function on `collections.list`.
-    details: Calls `collections.list.to_array()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.to_array`.
+    details: Given collections.list.to_array.
     signature: collections.list.to_array()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.to_array()
     see: []
   list.len:
-    description: Return the result of the `len` function on `collections.list`.
-    details: Calls `collections.list.len()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.len`.
+    details: Given collections.list.len.
     signature: collections.list.len()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.len()
     see: []
   list.is_empty:
-    description: Return the result of the `is_empty` function on `collections.list`.
-    details: Calls `collections.list.is_empty()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.is_empty`.
+    details: Given collections.list.is_empty.
     signature: collections.list.is_empty()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.is_empty()
     see: []
   list.push:
-    description: Return the result of the `push` function on `collections.list`.
-    details: Calls `collections.list.push()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.push`.
+    details: Given collections.list.push.
     signature: collections.list.push()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.push()
     see: []
   list.pop:
-    description: Return the result of the `pop` function on `collections.list`.
-    details: Calls `collections.list.pop()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.pop`.
+    details: Given collections.list.pop.
     signature: collections.list.pop()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.pop()
     see: []
   list.peek:
-    description: Return the result of the `peek` function on `collections.list`.
-    details: Calls `collections.list.peek()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.list.peek`.
+    details: Given collections.list.peek.
     signature: collections.list.peek()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.list.peek()
     see: []
   queue.new:
-    description: Create and return a new empty `queue`.
-    details: Return a new, empty `queue` of type `collections.queue`.
+    description: Call `collections.queue.new`.
+    details: Given collections.queue.new.
     signature: collections.queue.new()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.new()
     see: []
   queue.from:
-    description: Return the result of the `from` function on `collections.queue`.
-    details: Calls `collections.queue.from()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.from`.
+    details: Given collections.queue.from.
     signature: collections.queue.from()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.from()
     see: []
   queue.to_array:
-    description: Return the result of the `to_array` function on `collections.queue`.
-    details: Calls `collections.queue.to_array()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.to_array`.
+    details: Given collections.queue.to_array.
     signature: collections.queue.to_array()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.to_array()
     see: []
   queue.len:
-    description: Return the result of the `len` function on `collections.queue`.
-    details: Calls `collections.queue.len()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.len`.
+    details: Given collections.queue.len.
     signature: collections.queue.len()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.len()
     see: []
   queue.is_empty:
-    description: Return the result of the `is_empty` function on `collections.queue`.
-    details: Calls `collections.queue.is_empty()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.is_empty`.
+    details: Given collections.queue.is_empty.
     signature: collections.queue.is_empty()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.is_empty()
     see: []
   queue.enqueue:
-    description: Return the result of the `enqueue` function on `collections.queue`.
-    details: Calls `collections.queue.enqueue()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.enqueue`.
+    details: Given collections.queue.enqueue.
     signature: collections.queue.enqueue()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.enqueue()
     see: []
   queue.dequeue:
-    description: Return the result of the `dequeue` function on `collections.queue`.
-    details: Calls `collections.queue.dequeue()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.dequeue`.
+    details: Given collections.queue.dequeue.
     signature: collections.queue.dequeue()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.dequeue()
     see: []
   queue.peek:
-    description: Return the result of the `peek` function on `collections.queue`.
-    details: Calls `collections.queue.peek()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.queue.peek`.
+    details: Given collections.queue.peek.
     signature: collections.queue.peek()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.queue.peek()
     see: []
   stack.new:
-    description: Create and return a new empty `stack`.
-    details: Return a new, empty `stack` of type `collections.stack`.
+    description: Call `collections.stack.new`.
+    details: Given collections.stack.new.
     signature: collections.stack.new()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.new()
     see: []
   stack.from:
-    description: Return the result of the `from` function on `collections.stack`.
-    details: Calls `collections.stack.from()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.from`.
+    details: Given collections.stack.from.
     signature: collections.stack.from()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.from()
     see: []
   stack.to_array:
-    description: Return the result of the `to_array` function on `collections.stack`.
-    details: Calls `collections.stack.to_array()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.to_array`.
+    details: Given collections.stack.to_array.
     signature: collections.stack.to_array()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.to_array()
     see: []
   stack.len:
-    description: Return the result of the `len` function on `collections.stack`.
-    details: Calls `collections.stack.len()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.len`.
+    details: Given collections.stack.len.
     signature: collections.stack.len()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.len()
     see: []
   stack.is_empty:
-    description: Return the result of the `is_empty` function on `collections.stack`.
-    details: Calls `collections.stack.is_empty()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.is_empty`.
+    details: Given collections.stack.is_empty.
     signature: collections.stack.is_empty()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.is_empty()
     see: []
   stack.push:
-    description: Return the result of the `push` function on `collections.stack`.
-    details: Calls `collections.stack.push()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.push`.
+    details: Given collections.stack.push.
     signature: collections.stack.push()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.push()
     see: []
   stack.pop:
-    description: Return the result of the `pop` function on `collections.stack`.
-    details: Calls `collections.stack.pop()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.pop`.
+    details: Given collections.stack.pop.
     signature: collections.stack.pop()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.pop()
     see: []
   stack.peek:
-    description: Return the result of the `peek` function on `collections.stack`.
-    details: Calls `collections.stack.peek()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.stack.peek`.
+    details: Given collections.stack.peek.
     signature: collections.stack.peek()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.stack.peek()
     see: []
   deque.new:
-    description: Create and return a new empty `deque`.
-    details: Return a new, empty `deque` of type `collections.deque`.
+    description: Call `collections.deque.new`.
+    details: Given collections.deque.new.
     signature: collections.deque.new()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.new()
     see: []
   deque.from:
-    description: Return the result of the `from` function on `collections.deque`.
-    details: Calls `collections.deque.from()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.from`.
+    details: Given collections.deque.from.
     signature: collections.deque.from()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.from()
     see: []
   deque.to_array:
-    description: Return the result of the `to_array` function on `collections.deque`.
-    details: Calls `collections.deque.to_array()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.to_array`.
+    details: Given collections.deque.to_array.
     signature: collections.deque.to_array()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.to_array()
     see: []
   deque.len:
-    description: Return the result of the `len` function on `collections.deque`.
-    details: Calls `collections.deque.len()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.len`.
+    details: Given collections.deque.len.
     signature: collections.deque.len()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.len()
     see: []
   deque.is_empty:
-    description: Return the result of the `is_empty` function on `collections.deque`.
-    details: Calls `collections.deque.is_empty()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.is_empty`.
+    details: Given collections.deque.is_empty.
     signature: collections.deque.is_empty()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.is_empty()
     see: []
   deque.push_back:
-    description: Return the result of the `push_back` function on `collections.deque`.
-    details: Calls `collections.deque.push_back()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.push_back`.
+    details: Given collections.deque.push_back.
     signature: collections.deque.push_back()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.push_back()
     see: []
   deque.push_front:
-    description: Return the result of the `push_front` function on `collections.deque`.
-    details: Calls `collections.deque.push_front()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.push_front`.
+    details: Given collections.deque.push_front.
     signature: collections.deque.push_front()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.push_front()
     see: []
   deque.pop_back:
-    description: Return the result of the `pop_back` function on `collections.deque`.
-    details: Calls `collections.deque.pop_back()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.pop_back`.
+    details: Given collections.deque.pop_back.
     signature: collections.deque.pop_back()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.pop_back()
     see: []
   deque.pop_front:
-    description: Return the result of the `pop_front` function on `collections.deque`.
-    details: Calls `collections.deque.pop_front()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.pop_front`.
+    details: Given collections.deque.pop_front.
     signature: collections.deque.pop_front()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.pop_front()
     see: []
   deque.peek_back:
-    description: Return the result of the `peek_back` function on `collections.deque`.
-    details: Calls `collections.deque.peek_back()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.peek_back`.
+    details: Given collections.deque.peek_back.
     signature: collections.deque.peek_back()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.peek_back()
     see: []
   deque.peek_front:
-    description: Return the result of the `peek_front` function on `collections.deque`.
-    details: Calls `collections.deque.peek_front()` with the given arguments and returns a `type.any` result.
+    description: Call `collections.deque.peek_front`.
+    details: Given collections.deque.peek_front.
     signature: collections.deque.peek_front()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - collections.deque.peek_front()
     see: []
   hash_map.new:
-    description: Create and return a new empty `hash_map`.
-    details: Return a new, empty `hash_map` of type `collections.hash_map`.
+    description: '`collections.hash_map.new() → object`'
+    details: ''
     signature: collections.hash_map.new()
     params: []
     return_value: Object
     examples: []
     see: []
   hash_map.from:
-    description: Create a `hash_map` from `object`.
-    details: Convert `object` into a new `hash_map` and return it.
+    description: '`collections.hash_map.from(object: object) → object`'
+    details: ''
     signature: 'collections.hash_map.from(object: Object)'
     params:
     - name: object
@@ -363,8 +406,8 @@ collections:
     examples: []
     see: []
   hash_map.to_object:
-    description: Convert `map` to a plain object.
-    details: Return a object containing the same contents as `map`.
+    description: '`collections.hash_map.to_object(map: hash_map) → object`'
+    details: ''
     signature: 'collections.hash_map.to_object(map: hash_map)'
     params:
     - name: map
@@ -374,8 +417,8 @@ collections:
     examples: []
     see: []
   hash_map.len:
-    description: Return the number of elements in `map`.
-    details: Return the length of `map` as a number.
+    description: '`collections.hash_map.len(map: hash_map) → number`'
+    details: ''
     signature: 'collections.hash_map.len(map: hash_map)'
     params:
     - name: map
@@ -385,8 +428,8 @@ collections:
     examples: []
     see: []
   hash_map.is_empty:
-    description: Return `true` if `map` is empty.
-    details: Return a boolean indicating whether `map` has no elements.
+    description: '`collections.hash_map.is_empty(map: hash_map) → bool`'
+    details: ''
     signature: 'collections.hash_map.is_empty(map: hash_map)'
     params:
     - name: map
@@ -396,8 +439,8 @@ collections:
     examples: []
     see: []
   hash_map.get:
-    description: Return the value associated with `key` in `map`.
-    details: Look up `key` in `map` and return the corresponding value.
+    description: '`collections.hash_map.get(map: hash_map, key: string, default?: value) → value`'
+    details: ''
     signature: 'collections.hash_map.get(map: hash_map, key: String, default?: any)'
     params:
     - name: map
@@ -413,8 +456,8 @@ collections:
     examples: []
     see: []
   hash_map.set:
-    description: Set the value for `key` in `map`.
-    details: Associate `value` with key `key` in `map` and return the updated `hash_map`.
+    description: '`collections.hash_map.set(map: hash_map, key: string, value: value) → hash_map`'
+    details: ''
     signature: 'collections.hash_map.set(map: hash_map, key: String, value: any)'
     params:
     - name: map
@@ -430,8 +473,8 @@ collections:
     examples: []
     see: []
   hash_map.remove:
-    description: Remove `key` from `map`.
-    details: Remove the element or key `key` from `map` and return the updated `hash_map`.
+    description: '`collections.hash_map.remove(map: hash_map, key: string) → hash_map`'
+    details: ''
     signature: 'collections.hash_map.remove(map: hash_map, key: String)'
     params:
     - name: map
@@ -444,8 +487,8 @@ collections:
     examples: []
     see: []
   hash_map.has:
-    description: Return `true` if `map` contains `key`.
-    details: Check whether `key` exists in `map`.
+    description: '`collections.hash_map.has(map: hash_map, key: string) → bool`'
+    details: ''
     signature: 'collections.hash_map.has(map: hash_map, key: String)'
     params:
     - name: map
@@ -458,8 +501,8 @@ collections:
     examples: []
     see: []
   hash_map.keys:
-    description: Return the keys of `map` as an array.
-    details: Return an array of all keys in `map`.
+    description: '`collections.hash_map.keys(map: hash_map) → array<string>`'
+    details: ''
     signature: 'collections.hash_map.keys(map: hash_map)'
     params:
     - name: map
@@ -469,8 +512,8 @@ collections:
     examples: []
     see: []
   hash_map.values:
-    description: Return the values of `map` as an array.
-    details: Return an array of all values in `map`.
+    description: '`collections.hash_map.values(map: hash_map) → array`'
+    details: ''
     signature: 'collections.hash_map.values(map: hash_map)'
     params:
     - name: map
@@ -479,17 +522,295 @@ collections:
     return_value: Array
     examples: []
     see: []
+  hash_map.entries:
+    description: '`collections.hash_map.entries(map: hash_map) → array<[string, value]>`'
+    details: ''
+    signature: 'collections.hash_map.entries(map: hash_map)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: array<[string, value]>
+    examples: []
+    see: []
+  hash_map.size:
+    description: '`collections.hash_map.size(map: hash_map) → number`'
+    details: ''
+    signature: 'collections.hash_map.size(map: hash_map)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: Number
+    examples: []
+    see: []
+  hash_map.get_or:
+    description: '`collections.hash_map.get_or(map: hash_map, key: string, default: value) → value`'
+    details: ''
+    signature: 'collections.hash_map.get_or(map: hash_map, key: String, default: any)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: key
+      type: String
+      description: the key argument
+    - name: default
+      type: any
+      description: the default argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.deep_get:
+    description: '`collections.hash_map.deep_get(value: value, path: string) → value`'
+    details: ''
+    signature: 'collections.hash_map.deep_get(value: any, path: String)'
+    params:
+    - name: value
+      type: any
+      description: the value argument
+    - name: path
+      type: String
+      description: the path argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.path_or:
+    description: '`collections.hash_map.path_or(value: value, path: string, default: value) → value`'
+    details: ''
+    signature: 'collections.hash_map.path_or(value: any, path: String, default: any)'
+    params:
+    - name: value
+      type: any
+      description: the value argument
+    - name: path
+      type: String
+      description: the path argument
+    - name: default
+      type: any
+      description: the default argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.update:
+    description: '`collections.hash_map.update(map: hash_map, key: string, fn: function) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.update(map: hash_map, key: String, fn: function)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: key
+      type: String
+      description: the key argument
+    - name: fn
+      type: function
+      description: the fn argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.set_path:
+    description: '`collections.hash_map.set_path(map: hash_map, path: string, value: value) → value`'
+    details: ''
+    signature: 'collections.hash_map.set_path(map: hash_map, path: String, value: any)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: path
+      type: String
+      description: the path argument
+    - name: value
+      type: any
+      description: the value argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.update_path:
+    description: '`collections.hash_map.update_path(map: hash_map, path: string, fn: function) → value`'
+    details: ''
+    signature: 'collections.hash_map.update_path(map: hash_map, path: String, fn: function)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: path
+      type: String
+      description: the path argument
+    - name: fn
+      type: function
+      description: the fn argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.map_values:
+    description: '`collections.hash_map.map_values(fn: function, map: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.map_values(fn: function, map: hash_map)'
+    params:
+    - name: fn
+      type: function
+      description: the fn argument
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.map_keys:
+    description: '`collections.hash_map.map_keys(fn: function, map: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.map_keys(fn: function, map: hash_map)'
+    params:
+    - name: fn
+      type: function
+      description: the fn argument
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.filter_keys:
+    description: '`collections.hash_map.filter_keys(fn: function, map: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.filter_keys(fn: function, map: hash_map)'
+    params:
+    - name: fn
+      type: function
+      description: the fn argument
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.filter_values:
+    description: '`collections.hash_map.filter_values(fn: function, map: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.filter_values(fn: function, map: hash_map)'
+    params:
+    - name: fn
+      type: function
+      description: the fn argument
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.invert:
+    description: '`collections.hash_map.invert(map: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.invert(map: hash_map)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.clone_deep:
+    description: '`collections.hash_map.clone_deep(value: value) → value`'
+    details: ''
+    signature: 'collections.hash_map.clone_deep(value: any)'
+    params:
+    - name: value
+      type: any
+      description: the value argument
+    return_value: any
+    examples: []
+    see: []
+  hash_map.pick:
+    description: '`collections.hash_map.pick(map: hash_map, keys: array<string>) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.pick(map: hash_map, keys: array<string>)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: keys
+      type: array<string>
+      description: the keys argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.omit:
+    description: '`collections.hash_map.omit(map: hash_map, keys: array<string>) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.omit(map: hash_map, keys: array<string>)'
+    params:
+    - name: map
+      type: hash_map
+      description: the map argument
+    - name: keys
+      type: array<string>
+      description: the keys argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.merge:
+    description: '`collections.hash_map.merge(a: hash_map, b: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.merge(a: hash_map, b: hash_map)'
+    params:
+    - name: a
+      type: hash_map
+      description: the a argument
+    - name: b
+      type: hash_map
+      description: the b argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.deep_merge:
+    description: '`collections.hash_map.deep_merge(a: hash_map, b: hash_map) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.deep_merge(a: hash_map, b: hash_map)'
+    params:
+    - name: a
+      type: hash_map
+      description: the a argument
+    - name: b
+      type: hash_map
+      description: the b argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.from_entries:
+    description: '`collections.hash_map.from_entries(entries: array<[string, value]>) → hash_map`'
+    details: ''
+    signature: 'collections.hash_map.from_entries(entries: array<[string, value]>: any)'
+    params:
+    - name: entries
+      type: array<[string
+      description: the entries argument
+    - name: value]>
+      type: any
+      description: the value]> argument
+    return_value: hash_map
+    examples: []
+    see: []
+  hash_map.has_key:
+    description: Call `collections.hash_map.has_key`.
+    details: Given collections.hash_map.has_key.
+    signature: collections.hash_map.has_key()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.hash_map.has_key()
+    see: []
   hash_set.new:
-    description: Create and return a new empty `hash_set`.
-    details: Return a new, empty `hash_set` of type `collections.hash_set`.
+    description: '`collections.hash_set.new() → set`'
+    details: ''
     signature: collections.hash_set.new()
     params: []
     return_value: set
     examples: []
     see: []
   hash_set.from:
-    description: Create a `hash_set` from `array`.
-    details: Convert `array` into a new `hash_set` and return it.
+    description: '`collections.hash_set.from(array: array) → set`'
+    details: ''
     signature: 'collections.hash_set.from(array: Array)'
     params:
     - name: array
@@ -499,8 +820,8 @@ collections:
     examples: []
     see: []
   hash_set.to_array:
-    description: Convert `set` to a plain array.
-    details: Return a array containing the same contents as `set`.
+    description: '`collections.hash_set.to_array(set: set) → array`'
+    details: ''
     signature: 'collections.hash_set.to_array(set: set)'
     params:
     - name: set
@@ -510,8 +831,8 @@ collections:
     examples: []
     see: []
   hash_set.len:
-    description: Return the number of elements in `set`.
-    details: Return the length of `set` as a number.
+    description: '`collections.hash_set.len(set: set) → number`'
+    details: ''
     signature: 'collections.hash_set.len(set: set)'
     params:
     - name: set
@@ -521,8 +842,8 @@ collections:
     examples: []
     see: []
   hash_set.is_empty:
-    description: Return `true` if `set` is empty.
-    details: Return a boolean indicating whether `set` has no elements.
+    description: '`collections.hash_set.is_empty(set: set) → bool`'
+    details: ''
     signature: 'collections.hash_set.is_empty(set: set)'
     params:
     - name: set
@@ -546,8 +867,8 @@ collections:
     examples: []
     see: []
   hash_set.remove:
-    description: Remove `value` from `set`.
-    details: Remove the element or key `value` from `set` and return the updated `hash_set`.
+    description: '`collections.hash_set.remove(set: set, value: value) → set`'
+    details: ''
     signature: 'collections.hash_set.remove(set: set, value: any)'
     params:
     - name: set
@@ -560,8 +881,8 @@ collections:
     examples: []
     see: []
   hash_set.has:
-    description: Return `true` if `set` contains `value`.
-    details: Check whether `value` exists in `set`.
+    description: '`collections.hash_set.has(set: set, value: value) → bool`'
+    details: ''
     signature: 'collections.hash_set.has(set: set, value: any)'
     params:
     - name: set
@@ -614,4 +935,417 @@ collections:
       description: the b argument
     return_value: set
     examples: []
+    see: []
+  hash_set.unique:
+    description: '`collections.hash_set.unique(array: array) → set`'
+    details: ''
+    signature: 'collections.hash_set.unique(array: Array)'
+    params:
+    - name: array
+      type: Array
+      description: the array argument
+    return_value: set
+    examples: []
+    see: []
+  hash_set.symmetric_difference:
+    description: '`collections.hash_set.symmetric_difference(a: set, b: set) → set`'
+    details: ''
+    signature: 'collections.hash_set.symmetric_difference(a: set, b: set)'
+    params:
+    - name: a
+      type: set
+      description: the a argument
+    - name: b
+      type: set
+      description: the b argument
+    return_value: set
+    examples: []
+    see: []
+  hash_set.without:
+    description: '`collections.hash_set.without(array: array, ...values) → set`'
+    details: ''
+    signature: 'collections.hash_set.without(array: Array, ...values: any)'
+    params:
+    - name: array
+      type: Array
+      description: the array argument
+    - name: '...values'
+      type: any
+      description: the ...values argument
+    return_value: set
+    examples: []
+    see: []
+  hash_set.unique_by:
+    description: '`collections.hash_set.unique_by(array: array, fn: function) → set`'
+    details: ''
+    signature: 'collections.hash_set.unique_by(array: Array, fn: function)'
+    params:
+    - name: array
+      type: Array
+      description: the array argument
+    - name: fn
+      type: function
+      description: the fn argument
+    return_value: set
+    examples: []
+    see: []
+  array.length:
+    description: Call `collections.array.length`.
+    details: Given collections.array.length.
+    signature: collections.array.length()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.length()
+    see: []
+  array.len:
+    description: Call `collections.array.len`.
+    details: Given collections.array.len.
+    signature: collections.array.len()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.len()
+    see: []
+  array.reverse:
+    description: Call `collections.array.reverse`.
+    details: Given collections.array.reverse.
+    signature: collections.array.reverse()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.reverse()
+    see: []
+  array.concat:
+    description: Call `collections.array.concat`.
+    details: Given collections.array.concat.
+    signature: collections.array.concat()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.concat()
+    see: []
+  array.contains:
+    description: Call `collections.array.contains`.
+    details: Given collections.array.contains.
+    signature: collections.array.contains()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.contains()
+    see: []
+  array.index_of:
+    description: Call `collections.array.index_of`.
+    details: Given collections.array.index_of.
+    signature: collections.array.index_of()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.index_of()
+    see: []
+  array.slice:
+    description: Call `collections.array.slice`.
+    details: Given collections.array.slice.
+    signature: collections.array.slice()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.slice()
+    see: []
+  array.first:
+    description: Call `collections.array.first`.
+    details: Given collections.array.first.
+    signature: collections.array.first()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.first()
+    see: []
+  array.last:
+    description: Call `collections.array.last`.
+    details: Given collections.array.last.
+    signature: collections.array.last()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.last()
+    see: []
+  array.at:
+    description: Call `collections.array.at`.
+    details: Given collections.array.at.
+    signature: collections.array.at()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.at()
+    see: []
+  array.push:
+    description: Call `collections.array.push`.
+    details: Given collections.array.push.
+    signature: collections.array.push()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.push()
+    see: []
+  array.pop:
+    description: Call `collections.array.pop`.
+    details: Given collections.array.pop.
+    signature: collections.array.pop()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.pop()
+    see: []
+  array.shift:
+    description: Call `collections.array.shift`.
+    details: Given collections.array.shift.
+    signature: collections.array.shift()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.shift()
+    see: []
+  array.fill:
+    description: Call `collections.array.fill`.
+    details: Given collections.array.fill.
+    signature: collections.array.fill()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.fill()
+    see: []
+  array.flatten:
+    description: Call `collections.array.flatten`.
+    details: Given collections.array.flatten.
+    signature: collections.array.flatten()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.flatten()
+    see: []
+  array.deep_flatten:
+    description: Call `collections.array.deep_flatten`.
+    details: Given collections.array.deep_flatten.
+    signature: collections.array.deep_flatten()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.deep_flatten()
+    see: []
+  array.take:
+    description: Call `collections.array.take`.
+    details: Given collections.array.take.
+    signature: collections.array.take()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.take()
+    see: []
+  array.drop:
+    description: Call `collections.array.drop`.
+    details: Given collections.array.drop.
+    signature: collections.array.drop()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.drop()
+    see: []
+  array.enumerate:
+    description: Call `collections.array.enumerate`.
+    details: Given collections.array.enumerate.
+    signature: collections.array.enumerate()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.enumerate()
+    see: []
+  array.unzip:
+    description: Call `collections.array.unzip`.
+    details: Given collections.array.unzip.
+    signature: collections.array.unzip()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.unzip()
+    see: []
+  array.intersperse:
+    description: Call `collections.array.intersperse`.
+    details: Given collections.array.intersperse.
+    signature: collections.array.intersperse()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.intersperse()
+    see: []
+  array.intercalate:
+    description: Call `collections.array.intercalate`.
+    details: Given collections.array.intercalate.
+    signature: collections.array.intercalate()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.intercalate()
+    see: []
+  array.dedupe:
+    description: Call `collections.array.dedupe`.
+    details: Given collections.array.dedupe.
+    signature: collections.array.dedupe()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.dedupe()
+    see: []
+  array.prepend:
+    description: Call `collections.array.prepend`.
+    details: Given collections.array.prepend.
+    signature: collections.array.prepend()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.prepend()
+    see: []
+  array.take_while:
+    description: Call `collections.array.take_while`.
+    details: Given collections.array.take_while.
+    signature: collections.array.take_while()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.take_while()
+    see: []
+  array.drop_while:
+    description: Call `collections.array.drop_while`.
+    details: Given collections.array.drop_while.
+    signature: collections.array.drop_while()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.drop_while()
+    see: []
+  array.scan:
+    description: Call `collections.array.scan`.
+    details: Given collections.array.scan.
+    signature: collections.array.scan()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.scan()
+    see: []
+  array.foldr:
+    description: Call `collections.array.foldr`.
+    details: Given collections.array.foldr.
+    signature: collections.array.foldr()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.foldr()
+    see: []
+  array.find_index:
+    description: Call `collections.array.find_index`.
+    details: Given collections.array.find_index.
+    signature: collections.array.find_index()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.find_index()
+    see: []
+  array.find_last:
+    description: Call `collections.array.find_last`.
+    details: Given collections.array.find_last.
+    signature: collections.array.find_last()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.find_last()
+    see: []
+  array.find_last_index:
+    description: Call `collections.array.find_last_index`.
+    details: Given collections.array.find_last_index.
+    signature: collections.array.find_last_index()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.find_last_index()
+    see: []
+  array.windows:
+    description: Call `collections.array.windows`.
+    details: Given collections.array.windows.
+    signature: collections.array.windows()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.windows()
+    see: []
+  array.transpose:
+    description: Call `collections.array.transpose`.
+    details: Given collections.array.transpose.
+    signature: collections.array.transpose()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.transpose()
+    see: []
+  array.insert_at:
+    description: Call `collections.array.insert_at`.
+    details: Given collections.array.insert_at.
+    signature: collections.array.insert_at()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.insert_at()
+    see: []
+  array.remove_at:
+    description: Call `collections.array.remove_at`.
+    details: Given collections.array.remove_at.
+    signature: collections.array.remove_at()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.remove_at()
+    see: []
+  array.range:
+    description: Call `collections.array.range`.
+    details: Given collections.array.range.
+    signature: collections.array.range()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.range()
+    see: []
+  array.zip:
+    description: Call `collections.array.zip`.
+    details: Given collections.array.zip.
+    signature: collections.array.zip()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.zip()
+    see: []
+  array.chunk:
+    description: Call `collections.array.chunk`.
+    details: Given collections.array.chunk.
+    signature: collections.array.chunk()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.chunk()
+    see: []
+  array.compact:
+    description: Call `collections.array.compact`.
+    details: Given collections.array.compact.
+    signature: collections.array.compact()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.compact()
+    see: []
+  array.pluck:
+    description: Call `collections.array.pluck`.
+    details: Given collections.array.pluck.
+    signature: collections.array.pluck()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.array.pluck()
     see: []

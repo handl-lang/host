@@ -1,0 +1,62 @@
+[package]
+name = "handl-kit-canonical"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-expr = { workspace = true }
+handl-ast-canonical = { workspace = true }
+handl-lexer = { workspace = true }
+handl-lexer-canonical = { workspace = true }
+handl-vm-values-json = { workspace = true }
+handl-plugin-numbers = { workspace = true }
+handl-plugin-strings = { workspace = true }
+handl-plugin-booleans = { workspace = true }
+handl-plugin-null = { workspace = true }
+handl-plugin-bytes = { workspace = true }
+handl-plugin-comment-tokens = { workspace = true }
+handl-plugin-identifiers = { workspace = true }
+handl-plugin-keywords = { workspace = true }
+handl-plugin-delimiters = { workspace = true }
+handl-plugin-operators = { workspace = true }
+handl-plugin-primary-values = { workspace = true }
+handl-plugin-primary-identifiers = { workspace = true }
+handl-plugin-primary-arrays = { workspace = true }
+handl-plugin-primary-objects = { workspace = true }
+handl-plugin-primary-not = { workspace = true }
+handl-plugin-primary-typeof = { workspace = true }
+handl-plugin-primary-handle = { workspace = true }
+handl-plugin-primary-match = { workspace = true }
+handl-plugin-primary-parens = { workspace = true }
+handl-plugin-postfix-calls = { workspace = true }
+handl-plugin-postfix-index = { workspace = true }
+handl-plugin-postfix-field = { workspace = true }
+handl-plugin-postfix-mood = { workspace = true }
+handl-plugin-function-literals = { workspace = true }
+handl-plugin-infix-pipe = { workspace = true }
+handl-plugin-infix-flow = { workspace = true }
+handl-plugin-infix-fanout = { workspace = true }
+handl-plugin-infix-ternary = { workspace = true }
+handl-plugin-infix-assign = { workspace = true }
+handl-plugin-stmt-let = { workspace = true }
+handl-plugin-stmt-const = { workspace = true }
+handl-plugin-stmt-import = { workspace = true }
+handl-plugin-stmt-export = { workspace = true }
+handl-plugin-stmt-module = { workspace = true }
+handl-plugin-fmt-statements = { workspace = true }
+handl-runtime = { workspace = true }
+handl-plugin-typecheck-core = { workspace = true }
+handl-plugin-vm-rust = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+toml = "0.8"
+
+[dev-dependencies]
+handl-parser = { workspace = true }
+handl-parser-canonical = { workspace = true }
+criterion = "0.5"
+
+[[bench]]
+name = "perf"
+harness = false

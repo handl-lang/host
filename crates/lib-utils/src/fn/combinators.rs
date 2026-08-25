@@ -1,5 +1,5 @@
 use handl_ast_canonical::Expr;
-use handl_vm::{Context, Function, LazyFunction};
+use handl_vm::{Context, Function, GenericFunction, LazyFunction};
 use handl_vm_values_json::Error;
 
 use handl_vm_values_json::{FunctionValue, NonFunctionValue};
@@ -253,6 +253,17 @@ impl Function<NonFunctionValue> for Map {
     }
 }
 
+impl GenericFunction<NonFunctionValue> for Map {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
+    }
+}
+
 // ── filter ─────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
@@ -266,6 +277,17 @@ impl Function<NonFunctionValue> for Filter {
         let (fn_val, array) = require_function_and_array(args)?;
         let results = filter_iter(ctx, &fn_val, array.iter())?;
         Ok(arr(&results))
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for Filter {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
     }
 }
 
@@ -290,6 +312,17 @@ impl Function<NonFunctionValue> for Reduce {
         let init = args[2].inner().clone();
         let result = fold_iter(ctx, &fn_val, array.iter(), init)?;
         Ok(NonFunctionValue::new(result))
+    }
+}
+
+impl GenericFunction<NonFunctionValue> for Reduce {
+    fn call_with_types(
+        &self,
+        args: &[NonFunctionValue],
+        _type_args: &[String],
+        ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error> {
+        self.call(args, ctx)
     }
 }
 

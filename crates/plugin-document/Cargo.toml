@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-document"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform.workspace = true
+handl-vocabulary.workspace = true
+serde_json.workspace = true

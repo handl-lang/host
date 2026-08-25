@@ -24,37 +24,12 @@
 //!   `str.is_numeric`, `str.is_alphanumeric`, `str.levenshtein`,
 //!   `str.similarity`, `str.split_whitespace`, `str.truncate`,
 //!   `str.slugify`, `str.word_wrap`
-//! - [`ArrayModule`] — `array.length`, `array.reverse`, `array.concat`,
-//!   `array.contains`, `array.index_of`, `array.slice`, `array.first`,
-//!   `array.last`, `array.sort`, `array.flatten`, `array.deep_flatten`,
-//!   `array.at`, `array.push`, `array.pop`, `array.shift`, `array.fill`,
-//!   `array.take`, `array.drop`, `array.take_while`, `array.drop_while`,
-//!   `array.enumerate`, `array.unzip`, `array.scan`, `array.foldr`,
-//!   `array.intersperse`, `array.intercalate`,
-//!   `array.find_index`, `array.find_last`,
-//!   `array.find_last_index`, `array.dedupe`, `array.prepend`,
-//!   `array.windows`, `array.transpose`, `array.insert_at`, `array.remove_at`,
-//!   `array.range`, `array.zip`, `array.chunk`, `array.map`, `array.filter`,
-//!   `array.reduce`, `array.flat_map`, `array.find`, `array.some`, `array.every`,
-//!   `array.group_by`, `array.partition`, `array.sort_by`, `array.sort_by_desc`,
-//!   `array.compact`, `array.pluck`, `array.min_by`, `array.max_by`,
-//!   `array.count_by`
-//! - [`SetModule`] — `set.unique`, `set.union`, `set.intersection`,
-//!   `set.difference`, `set.symmetric_difference`, `set.without`,
-//!   `set.unique_by`
 //! - [`BoolModule`] — `bool.and`, `bool.or`, `bool.not`, `bool.xor`,
 //!   `bool.nand`, `bool.nor`, `bool.implies`, `bool.eq`
 //! - [`CmpModule`] — `cmp.eq`, `cmp.ne`, `cmp.lt`, `cmp.le`, `cmp.gt`,
 //!   `cmp.ge`, `cmp.compare`, `cmp.min`, `cmp.max`, `cmp.clamp`,
 //!   `cmp.between`, `cmp.in_range`, `cmp.is_sorted`, `cmp.is_sorted_desc`,
 //!   `cmp.sort`, `cmp.sort_desc`
-//! - [`ObjModule`] — `obj.keys`, `obj.values`, `obj.entries`,
-//!   `obj.from_entries`, `obj.pick`, `obj.omit`, `obj.merge`,
-//!   `obj.deep_get`, `obj.deep_merge`, `obj.get`, `obj.get_or`,
-//!   `obj.set`, `obj.update`, `obj.has_key`, `obj.map_values`,
-//!   `obj.map_keys`, `obj.filter_keys`, `obj.filter_values`,
-//!   `obj.invert`, `obj.path_or`, `obj.set_path`, `obj.update_path`,
-//!   `obj.size`, `obj.clone_deep`
 //! - [`FnModule`] — `fn.pipe`, `fn.flow`, `fn.compose`, `fn.fanout`,
 //!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.reduce`,
 //!   `fn.tap`, `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`,
@@ -71,43 +46,36 @@
 //!
 //! ```ignore
 //! use handl_vm_common::ModuleHost;
-//! use handl_lib_utils::{MathModule, StrModule, ArrayModule, BoolModule, CmpModule,
-//!     ObjModule, FnModule, TypeModule, OptionModule, SetModule};
+//! use handl_lib_utils::{MathModule, StrModule, BoolModule, CmpModule,
+//!     FnModule, TypeModule, OptionModule};
 //!
 //! let host = ModuleHost::new()
 //!     .with(MathModule)
 //!     .with(StrModule)
-//!     .with(ArrayModule)
 //!     .with(BoolModule)
 //!     .with(CmpModule)
-//!     .with(ObjModule)
 //!     .with(FnModule)
 //!     .with(TypeModule)
-//!     .with(OptionModule)
-//!     .with(SetModule);
+//!     .with(OptionModule);
 //! ```
 //!
 //! This crate is interface-agnostic — usable from CLI, MCP, or any consumer
 //! that evaluates handl expressions.
 
-mod array;
 mod bool;
 mod cmp;
 mod encoding;
 mod r#fn;
 mod math;
 mod mood;
-mod obj;
 mod option;
 mod parse;
 mod result;
 mod serialize;
-mod set;
 pub(crate) mod shared;
 mod r#str;
 mod r#type;
 
-pub use array::ArrayModule;
 pub use bool::BoolModule;
 pub use cmp::CmpModule;
 pub use encoding::EncodingModule;
@@ -121,11 +89,9 @@ pub use handl_lib_url_whatwg::UrlWhatwgModule;
 pub use handl_lib_yaml::YamlModule;
 pub use math::MathModule;
 pub use mood::MoodModule;
-pub use obj::ObjModule;
 pub use option::OptionModule;
 pub use parse::ParseModule;
 pub use result::ResultModule;
 pub use serialize::SerializeModule;
-pub use set::SetModule;
 pub use r#str::StrModule;
 pub use r#type::TypeModule;

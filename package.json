@@ -12,5 +12,12 @@
   },
   "devDependencies": {
     "vitepress": "next"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "version": "1.4.0",
+      "onFail": "download"
+    }
   }
 }

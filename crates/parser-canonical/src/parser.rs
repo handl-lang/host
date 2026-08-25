@@ -327,6 +327,11 @@ impl CanonicalGrammar {
                 let operand = self.parse_primary(context)?;
                 Ok(Expr::call("bool.not", vec![operand]))
             }
+            Some(CanonicalKind::TypeOf) => {
+                context.advance()?;
+                let operand = self.parse_primary(context)?;
+                Ok(Expr::call("type.typeof", vec![operand]))
+            }
             Some(CanonicalKind::Eof) => Err(DefaultParseError::unexpected_eof(
                 context.peek_span(),
                 "an expression",

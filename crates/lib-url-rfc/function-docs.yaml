@@ -1,9 +1,10 @@
 url_rfc:
   url_rfc:
-    description: Return the result of the `url_rfc` function on `url_rfc`.
-    details: Calls `url_rfc.url_rfc()` with the given arguments and returns a `type.any` result.
+    description: Call `url_rfc.url_rfc`.
+    details: Given url_rfc.url_rfc.
     signature: url_rfc.url_rfc()
     params: []
     return_value: type.any
-    examples: []
+    examples:
+    - url_rfc.url_rfc()
     see: []
