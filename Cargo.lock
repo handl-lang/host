@@ -1627,6 +1627,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-stats"
+version = "0.1.0"
+dependencies = [
+ "handl-vm",
+ "handl-vm-common",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-lib-test"
 version = "0.1.0"
 dependencies = [

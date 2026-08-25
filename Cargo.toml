@@ -28,6 +28,7 @@ members = [
   "crates/crate-icu4x-extra",
   "crates/lib-crypto",
   "crates/lib-rand",
+  "crates/lib-stats",
   "crates/lib-test",
   "crates/lib-kv",
   "crates/lib-kv-hashmap",
@@ -142,6 +143,7 @@ ecma402-icu4x = { package = "crate-ecma402-icu4x", path = "crates/crate-ecma402-
 icu4x-extra = { package = "crate-icu4x-extra", path = "crates/crate-icu4x-extra" }
 handl-lib-crypto = { path = "crates/lib-crypto" }
 handl-lib-rand = { path = "crates/lib-rand" }
+handl-lib-stats = { path = "crates/lib-stats" }
 handl-lib-test = { path = "crates/lib-test" }
 handl-lib-kv = { path = "crates/lib-kv" }
 handl-lib-kv-hashmap = { path = "crates/lib-kv-hashmap" }
