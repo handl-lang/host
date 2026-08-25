@@ -1350,4 +1350,35 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn client_with_arguments_errors() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let result = m
+            .function("client")
+            .unwrap()
+            .call(&[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn server_with_arguments_errors() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let result = m
+            .function("server")
+            .unwrap()
+            .call(&[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+        assert!(result.is_err());
+    }
+
 }
