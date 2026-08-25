@@ -15,5 +15,5 @@
 
 ## Running the CLI and focused platform tests
 
-- `cargo run --bin handl -- <command> [args...]`
+- `cargo run --bin hnl -- <command> [args...]`
 - `cargo test -p handl-platform -p handl-cli -p handl-capability-tests`

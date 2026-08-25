@@ -1,6 +1,6 @@
 # `handl-cli`
 
-The `handl` binary is a thin, metadata-driven capability orchestrator. It does
+The `hnl` binary is a thin, metadata-driven capability orchestrator. It does
 not hard-code any concrete command. Instead, it loads the default
 `handl_platform::DefaultHost`, reads `CapabilityMetadata` from the plugin
 registry, and dynamically builds `clap` subcommands from the `"command"`,
@@ -14,7 +14,7 @@ From the workspace root:
 cargo build -p handl-cli
 ```
 
-The binary is available as `target/debug/handl`.
+The binary is available as `target/debug/hnl`.
 
 ## How it works
 
@@ -35,16 +35,16 @@ the CLI binary does not need to change.
 ## Usage
 
 ```sh
-handl <COMMAND> [ARGS]...
+hnl <COMMAND> [ARGS]...
 ```
 
 Examples:
 
 ```sh
-handl fmt
-handl eval 42
-handl plugin add remote
-handl kit add core fmt lint
+hnl fmt
+hnl eval 42
+hnl plugin add remote
+hnl kit add core fmt lint
 ```
 
 ## Tests
