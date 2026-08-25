@@ -5,7 +5,7 @@
 use handl_lib_encoding::{Encoding, EncodingError};
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value;
 
 /// Hexadecimal encoding.
@@ -70,9 +70,25 @@ impl Function<NonFunctionValue> for HexName {
                 got: args.len(),
             });
         }
+        let encode = FunctionValue {
+            params: vec![("value".to_string(), Value::Null)],
+            return_schema: None,
+            body: r#"encoding.encode(value, "hex")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
+        let decode = FunctionValue {
+            params: vec![("value".to_string(), Value::Null)],
+            return_schema: None,
+            body: r#"encoding.decode(value, "hex")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
         Ok(NonFunctionValue::new(serde_json::json!({
             "type": "encoding",
-            "name": "hex"
+            "name": "hex",
+            "encode": encode,
+            "decode": decode
         })))
     }
 }

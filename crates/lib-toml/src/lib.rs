@@ -46,7 +46,7 @@ impl Serializer for Toml {
 
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 
 /// The `toml` module.
 ///
@@ -83,9 +83,25 @@ impl Function<NonFunctionValue> for TomlName {
                 got: args.len(),
             });
         }
+        let serialize = FunctionValue {
+            params: vec![("value".to_string(), JsonValue::Null)],
+            return_schema: None,
+            body: r#"serialize.serialize(value, "toml")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
+        let deserialize = FunctionValue {
+            params: vec![("text".to_string(), JsonValue::Null)],
+            return_schema: None,
+            body: r#"serialize.deserialize(text, "toml")"#.to_string(),
+            patterns: vec![],
+        }
+        .to_json();
         Ok(NonFunctionValue::new(serde_json::json!({
             "type": "serializer",
-            "name": "toml"
+            "name": "toml",
+            "serialize": serialize,
+            "deserialize": deserialize
         })))
     }
 }
