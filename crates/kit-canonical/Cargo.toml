@@ -48,6 +48,7 @@ handl-plugin-fmt-statements = { workspace = true }
 handl-runtime = { workspace = true }
 handl-plugin-typecheck-core = { workspace = true }
 handl-plugin-vm-rust = { workspace = true }
+handl-vm-common = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"

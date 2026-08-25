@@ -10,18 +10,29 @@ use handl_vm::{Context, Error, Function, Host};
 use handl_vm_backend_rust_interpreter::{
     CanonicalContext, CanonicalEval, CanonicalVm, FunctionValue, NonFunctionValue,
 };
+use handl_vm_common::ModuleHost;
 use serde_json::Value as JsonValue;
 
 /// A `RuntimePlugin` adapter around the canonical Rust VM.
 pub struct RustVm {
     capabilities: Vec<CapabilityId>,
+    modules: ModuleHost,
 }
 
 impl RustVm {
-    /// Creates a new `RustVm` plugin.
+    /// Creates a new `RustVm` plugin with the built-in host and no extra libraries.
     pub fn new() -> Self {
         Self {
             capabilities: vec![CapabilityId::from("runtime")],
+            modules: ModuleHost::new(),
+        }
+    }
+
+    /// Creates a new `RustVm` with the given pre-installed library `ModuleHost`.
+    pub fn with_modules(modules: ModuleHost) -> Self {
+        Self {
+            capabilities: vec![CapabilityId::from("runtime")],
+            modules,
         }
     }
 }
@@ -38,7 +49,10 @@ impl RuntimePlugin for RustVm {
     }
 
     fn eval(&self, stmts: &[Stmt]) -> Result<EvalOutput, PlatformError> {
-        let host = BuiltinHost;
+        let host = CompositeHost {
+            builtin: BuiltinHost,
+            modules: self.modules.clone(),
+        };
         let mut ctx = CanonicalContext::new();
         ctx.set_eval(Box::new(CanonicalEval::new(host.clone(), None, None)));
         let vm = CanonicalVm::new(host);
@@ -127,6 +141,44 @@ impl Host<NonFunctionValue> for BuiltinHost {
             "fn.pipe" => Some(&PIPE),
             _ => None,
         }
+    }
+}
+
+/// A host that combines built-in functions with a `ModuleHost` of loaded libraries.
+#[derive(Clone)]
+struct CompositeHost {
+    builtin: BuiltinHost,
+    modules: ModuleHost,
+}
+
+impl Host<NonFunctionValue> for CompositeHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        self.builtin
+            .function(name)
+            .or_else(|| self.modules.function(name))
+    }
+
+    fn lazy_function(&self, name: &str) -> Option<&dyn handl_vm::LazyFunction<NonFunctionValue>> {
+        self.modules.lazy_function(name)
+    }
+
+    fn generic_function(
+        &self,
+        name: &str,
+    ) -> Option<&dyn handl_vm::GenericFunction<NonFunctionValue>> {
+        self.modules.generic_function(name)
+    }
+
+    fn async_function(&self, name: &str) -> Option<&dyn handl_vm::AsyncFunction<NonFunctionValue>> {
+        self.modules.async_function(name)
+    }
+
+    fn operation(&self, name: &str) -> Option<&dyn handl_vm::Operation<NonFunctionValue>> {
+        self.modules.operation(name)
+    }
+
+    fn is_reserved(&self, name: &str) -> bool {
+        self.builtin.is_reserved(name) || self.modules.is_reserved(name)
     }
 }
 

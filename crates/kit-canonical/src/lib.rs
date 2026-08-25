@@ -5,7 +5,9 @@ use handl_expr::{ExpressionPipeline, ModuleOutput, ModulePipeline, ParseResult, 
 use handl_lexer::Token;
 use handl_lexer_canonical::CanonicalKind;
 use handl_platform::PlatformError;
+use handl_plugin_vm_rust::RustVm;
 use handl_runtime::{EvalOutput, RuntimePlugin, TypecheckedOutput, TypecheckPlugin};
+use handl_vm_common::ModuleHost;
 use handl_vm_values_json::NonFunctionValue;
 
 pub mod host;
@@ -94,6 +96,11 @@ impl CanonicalKit {
             Some(plugin) => plugin.eval(stmts),
             None => Err(PlatformError::UnknownCapability("runtime".into())),
         }
+    }
+
+    /// Installs a library `ModuleHost` into the runtime plugin.
+    pub fn set_runtime_host(&mut self, host: ModuleHost) {
+        self.runtime = Some(Box::new(RustVm::with_modules(host)));
     }
 }
 

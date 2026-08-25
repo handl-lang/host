@@ -1,4 +1,3 @@
-use handl_kit_canonical::CanonicalKit;
 use handl_lexer_canonical::CanonicalLexer;
 use handl_parser::Parser;
 use handl_parser_canonical::CanonicalParser;
@@ -101,7 +100,7 @@ impl CommandProvider for EvalPlugin {
         &self,
         _command: &str,
         args: &[String],
-        _host: &handl_tooling::ToolingHost,
+        host: &handl_tooling::ToolingHost,
     ) -> Result<serde_json::Value, PlatformError> {
         if args.is_empty() {
             return Err(PlatformError::InvalidMetadata(
@@ -109,7 +108,7 @@ impl CommandProvider for EvalPlugin {
             ));
         }
         let source = args.join(" ");
-        let kit = CanonicalKit::new();
+        let kit = host.kit();
         let output = kit.parse_module_recovered(&source);
         if output
             .diagnostics

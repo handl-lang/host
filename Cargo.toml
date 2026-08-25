@@ -19,6 +19,7 @@ members = [
   "crates/lib-base64",
   "crates/lib-collections",
   "crates/lib-datetime",
+  "crates/lib-hello",
   "crates/lib-encoding",
   "crates/lib-hex",
   "crates/lib-intl",
@@ -156,6 +157,7 @@ handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
 handl-lib-url-whatwg = { path = "crates/lib-url-whatwg" }
 handl-lib-collections = { path = "crates/lib-collections" }
 handl-lib-datetime = { path = "crates/lib-datetime" }
+handl-lib-hello = { path = "crates/lib-hello" }
 handl-lib-intl = { path = "crates/lib-intl" }
 handl-lib-crypto = { path = "crates/lib-crypto" }
 handl-lib-rand = { path = "crates/lib-rand" }

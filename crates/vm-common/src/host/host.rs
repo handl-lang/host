@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use handl_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
 use handl_vm_values_json::NonFunctionValue;
@@ -35,7 +35,7 @@ use crate::module::Module;
 /// The VM sees only the `Host` interface — it does not know about modules.
 #[derive(Clone)]
 pub struct ModuleHost {
-    modules: Vec<Rc<dyn Module>>,
+    modules: Vec<Arc<dyn Module + Send + Sync>>,
 }
 
 impl ModuleHost {
@@ -48,7 +48,7 @@ impl ModuleHost {
 
     /// Registers a module.
     pub fn with(mut self, module: impl Module + 'static) -> Self {
-        self.modules.push(Rc::new(module));
+        self.modules.push(Arc::new(module));
         self
     }
 

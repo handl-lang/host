@@ -927,6 +927,7 @@ dependencies = [
  "handl-ext-typecheck",
  "handl-host-lsp",
  "handl-kit-canonical",
+ "handl-lib-hello",
  "handl-loader",
  "handl-loader-native",
  "handl-platform",
@@ -1011,6 +1012,7 @@ dependencies = [
  "handl-plugin-typecheck-core",
  "handl-plugin-vm-rust",
  "handl-runtime",
+ "handl-vm-common",
  "handl-vm-values-json",
  "serde",
  "serde_json",
@@ -1111,7 +1113,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-concurrency"
+name = "handl-lib-concurrent"
 version = "0.1.0"
 dependencies = [
  "handl-vm-common",
@@ -1157,6 +1159,17 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-lib-hello"
+version = "0.1.0"
+dependencies = [
+ "handl-tooling",
+ "handl-vm",
+ "handl-vm-common",
+ "handl-vm-values-json",
+ "serde_json",
 ]
 
 [[package]]
@@ -2230,6 +2243,7 @@ dependencies = [
  "handl-runtime",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
+ "handl-vm-common",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -2267,7 +2281,9 @@ dependencies = [
  "handl-plugin-lsp-completion",
  "handl-plugin-lsp-goto",
  "handl-plugin-lsp-symbols",
+ "handl-vm-common",
  "handl-vm-values-json",
+ "serde",
  "serde_json",
 ]
 

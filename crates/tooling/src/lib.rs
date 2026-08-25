@@ -6,10 +6,17 @@ use handl_platform::{PlatformError, PluginManifest};
 use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_fmt_statements::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
+use handl_vm_common::ModuleHost;
 use handl_vm_values_json::NonFunctionValue;
 
 pub mod command;
 pub use command::*;
+
+pub mod config;
+pub use config::*;
+
+pub mod library;
+pub use library::*;
 
 pub mod lsp;
 pub use lsp::*;
@@ -32,6 +39,8 @@ pub struct ToolingHost {
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
     command_providers: Vec<Box<dyn CommandProvider>>,
     loaders: LoaderRegistry,
+    lib_registry: LibRegistry,
+    module_host: ModuleHost,
 }
 
 impl ToolingHost {
@@ -52,6 +61,8 @@ impl ToolingHost {
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
             command_providers: Vec::new(),
             loaders: LoaderRegistry::new(),
+            lib_registry: LibRegistry::new(),
+            module_host: ModuleHost::new(),
         }
     }
 
@@ -89,6 +100,47 @@ impl ToolingHost {
     pub fn with_loader_registry(mut self, registry: LoaderRegistry) -> Self {
         self.loaders = registry;
         self
+    }
+
+    /// Registers a `Library` factory under `name`.
+    pub fn register_lib<F>(&mut self, name: &str, factory: F)
+    where
+        F: Fn() -> Box<dyn Library> + Send + Sync + 'static,
+    {
+        self.lib_registry.register(name, factory);
+    }
+
+    /// Loads a library by name and wires it into the owned `CanonicalKit`.
+    pub fn load_lib_by_name(&mut self, name: &str) -> Result<(), PlatformError> {
+        let lib = self.lib_registry.resolve(name).ok_or_else(|| LibRegistry::unknown(name))?;
+        self.load_library(lib);
+        Ok(())
+    }
+
+    /// Loads a `Library` directly and wires it into the owned `CanonicalKit`.
+    pub fn load_library(&mut self, library: Box<dyn Library>) {
+        self.module_host = library.install(self.module_host.clone());
+        self.kit.set_runtime_host(self.module_host.clone());
+    }
+
+    /// Loads libraries listed in a `handl.config.json` file.
+    pub fn load_config(&mut self, path: impl AsRef<std::path::Path>) -> Result<(), PlatformError> {
+        let config = Config::load(path)
+            .map_err(|e| PlatformError::Plugin(format!("config load failed: {e}")))?;
+        for name in &config.lib {
+            self.load_lib_by_name(name)?;
+        }
+        Ok(())
+    }
+
+    /// Returns a reference to the configured `CanonicalKit`.
+    pub fn kit(&self) -> &CanonicalKit {
+        &self.kit
+    }
+
+    /// Returns the names of all registered libraries.
+    pub fn available_libs(&self) -> impl Iterator<Item = &str> + '_ {
+        self.lib_registry.names()
     }
 
     /// Loads an external plugin using the loader registry and registers a
