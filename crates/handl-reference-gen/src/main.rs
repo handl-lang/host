@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use regex::Regex;
-use rustdoc_types::{Crate, Id, Item, ItemEnum, ItemKind};
+use rustdoc_types::{Crate, Id, Item, ItemEnum};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
@@ -118,6 +118,11 @@ fn main() -> Result<()> {
 fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<String> {
     let mut md = String::new();
 
+    md.push_str(&format!("# {}\n\n", cat.title));
+    if let Some(desc) = &cat.description {
+        md.push_str(&format!("{}\n\n", desc));
+    }
+
     for inc in &cat.include {
         let krate = &inc.krate;
         let crate_underscore = krate.replace('-', "_");
@@ -131,12 +136,13 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
 
         if inc.reexports || inc.reexports_from.is_some() {
             let reexports = collect_reexports(&krate_json, inc.reexports_from.as_deref())?;
+            let reexports_empty = reexports.is_empty();
             let mut groups: BTreeMap<String, Vec<(String, String, Option<String>)>> =
                 BTreeMap::new();
             let mut module_item_ids: BTreeMap<String, Id> = BTreeMap::new();
 
-            for (ac_name, reexport_name, target_id) in reexports {
-                let target = target_id.and_then(|id| krate_json.index.get(&id));
+            for (ac_name, reexport_name, target_id) in &reexports {
+                let target = target_id.as_ref().and_then(|id| krate_json.index.get(id));
                 let summary = target
                     .and_then(|it| it.docs.as_deref())
                     .map(first_para)
@@ -145,9 +151,9 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
                 groups
                     .entry(ac_name.clone())
                     .or_default()
-                    .push((reexport_name, summary, link));
+                    .push((reexport_name.clone(), summary, link));
                 if let Some(id) = target_id {
-                    module_item_ids.entry(ac_name).or_insert(id);
+                    module_item_ids.entry(ac_name.clone()).or_insert(id.clone());
                 }
             }
 
@@ -217,7 +223,9 @@ fn generate_category(cat: &Category, function_docs: &FunctionDocsMap) -> Result<
 
                 md.push('\n');
             }
-            continue;
+            if !reexports_empty {
+                continue;
+            }
         }
 
         let module = inc.module.as_deref().unwrap_or("");
@@ -335,10 +343,15 @@ fn collect_reexports(
     Ok(out)
 }
 
-fn module_id_from_path(krate: &Crate, crate_name: &str, module_name: &str) -> Option<Id> {
-    let expected: Vec<String> = vec![crate_name.to_string(), module_name.to_string()];
-    for (id, summary) in &krate.paths {
-        if summary.kind == ItemKind::Module && summary.path == expected {
+fn module_id_from_path(krate: &Crate, _crate_name: &str, module_name: &str) -> Option<Id> {
+    let root_crate_id = krate.index.get(&krate.root)?.crate_id;
+    for (id, item) in &krate.index {
+        if item.crate_id != root_crate_id {
+            continue;
+        }
+        if matches!(&item.inner, ItemEnum::Module(_))
+            && item.name.as_deref() == Some(module_name)
+        {
             return Some(id.clone());
         }
     }

@@ -1,84 +1,211 @@
 reference:
-- title: Math
-  slug: math
-  description: Math utility functions.
+- title: Archive
+  slug: lib-archive
+  description: Archive abstractions and entry types.
   include:
-  - crate: handl-lib-utils
-    reexports_from: math
-- title: String
-  slug: str
-  description: String utility functions.
+  - crate: handl-lib-archive
+    reexports: true
+- title: Archive (Tar)
+  slug: lib-archive-tar
+  description: TAR archive reader support.
   include:
-  - crate: handl-lib-utils
-    reexports_from: str
-- title: Array
-  slug: array
-  description: Array utility functions.
+  - crate: handl-lib-archive-tar
+    reexports: true
+- title: Base64
+  slug: lib-base64
+  description: Base64 encoding and decoding.
   include:
-  - crate: handl-lib-utils
-    reexports_from: array
-- title: Object
-  slug: obj
-  description: Object utility functions.
+  - crate: handl-lib-base64
+    reexports: true
+- title: Collections
+  slug: lib-collections
+  description: Extended collection types for handl values.
   include:
-  - crate: handl-lib-utils
-    reexports_from: obj
-- title: Type
-  slug: type
-  description: Type coercion and predicate functions.
+  - crate: handl-lib-collections
+    reexports: true
+- title: Compress
+  slug: lib-compress
+  description: Compression traits and error types.
   include:
-  - crate: handl-lib-utils
-    reexports_from: type
-- title: Boolean
-  slug: bool
-  description: Boolean logic functions.
+  - crate: handl-lib-compress
+    reexports: true
+- title: Compress (Gzip)
+  slug: lib-compress-gzip
+  description: Gzip compression and decompression.
   include:
-  - crate: handl-lib-utils
-    reexports_from: bool
-- title: Compare
-  slug: cmp
-  description: Comparison and ordering functions.
+  - crate: handl-lib-compress-gzip
+    reexports: true
+- title: Crypto
+  slug: lib-crypto
+  description: Cryptographic hash functions.
   include:
-  - crate: handl-lib-utils
-    reexports_from: cmp
-- title: Function
-  slug: fn
-  description: Function combinator utilities.
+  - crate: handl-lib-crypto
+    reexports: true
+- title: DateTime
+  slug: lib-datetime
+  description: Date and time operations.
   include:
-  - crate: handl-lib-utils
-    reexports_from: fn
-- title: Mood
-  slug: mood
-  description: Mood value functions.
+  - crate: handl-lib-datetime
+    reexports: true
+- title: Encoding
+  slug: lib-encoding
+  description: Text encoding utilities.
   include:
-  - crate: handl-lib-utils
-    reexports_from: mood
-- title: Option
-  slug: option
-  description: Option value constructors and predicates.
+  - crate: handl-lib-encoding
+    reexports: true
+- title: Hex
+  slug: lib-hex
+  description: Hexadecimal encoding and decoding.
   include:
-  - crate: handl-lib-utils
-    reexports_from: option
-- title: Result
-  slug: result
-  description: Result value constructors and predicates.
+  - crate: handl-lib-hex
+    reexports: true
+- title: HTTP Client
+  slug: lib-http-client
+  description: HTTP client types and stubs.
   include:
-  - crate: handl-lib-utils
-    reexports_from: result
-- title: Set
-  slug: set
-  description: Set-theoretic operations on arrays.
+  - crate: handl-lib-http-client
+    reexports: true
+- title: HTTP Client (Std)
+  slug: lib-http-client-std
+  description: Standard-library HTTP client implementation.
   include:
-  - crate: handl-lib-utils
-    reexports_from: set
-- title: URL (WHATWG)
-  slug: url-whatwg
-  description: WHATWG URL Standard parsing.
+  - crate: handl-lib-http-client-std
+    reexports: true
+- title: HTTP Server
+  slug: lib-http-server
+  description: HTTP server framework and types.
   include:
-  - crate: handl-lib-url-whatwg
+  - crate: handl-lib-http-server
+    reexports: true
+- title: HTTP Server (Std)
+  slug: lib-http-server-std
+  description: Standard-library HTTP server runtime.
+  include:
+  - crate: handl-lib-http-server-std
+    reexports: true
+- title: Intl
+  slug: lib-intl
+  description: Internationalization and locale support.
+  include:
+  - crate: handl-lib-intl
+    reexports: true
+- title: IP
+  slug: lib-ip
+  description: IP address, CIDR and socket types.
+  include:
+  - crate: handl-lib-ip
+    reexports: true
+- title: JSON
+  slug: lib-json
+  description: JSON serializer for the handl runtime.
+  include:
+  - crate: handl-lib-json
+    reexports: true
+- title: KV
+  slug: lib-kv
+  description: Key/value store interface.
+  include:
+  - crate: handl-lib-kv
+    reexports: true
+- title: KV (Hashmap)
+  slug: lib-kv-hashmap
+  description: In-memory key/value store backend.
+  include:
+  - crate: handl-lib-kv-hashmap
+    reexports: true
+- title: OS
+  slug: lib-os
+  description: Operating-system interfaces for handl.
+  include:
+  - crate: handl-lib-os
+    reexports: true
+- title: OS (Std)
+  slug: lib-os-std
+  description: Standard-library OS runtime bindings.
+  include:
+  - crate: handl-lib-os-std
+    reexports: true
+- title: OTLP
+  slug: lib-otlp
+  description: OpenTelemetry protocol support.
+  include:
+  - crate: handl-lib-otlp
+    reexports: true
+- title: OTLP (Std)
+  slug: lib-otlp-std
+  description: Standard-library OTLP export backend.
+  include:
+  - crate: handl-lib-otlp-std
+    reexports: true
+- title: Parse
+  slug: lib-parse
+  description: Generic parser framework and types.
+  include:
+  - crate: handl-lib-parse
+    reexports: true
+- title: Random
+  slug: lib-rand
+  description: Random value generation.
+  include:
+  - crate: handl-lib-rand
+    reexports: true
+- title: Serialize
+  slug: lib-serialize
+  description: Serializer framework and traits.
+  include:
+  - crate: handl-lib-serialize
+    reexports: true
+- title: Stats
+  slug: lib-stats
+  description: Statistical functions.
+  include:
+  - crate: handl-lib-stats
+    reexports: true
+- title: Test
+  slug: lib-test
+  description: Testing, assertion and benchmark helpers.
+  include:
+  - crate: handl-lib-test
+    reexports: true
+- title: TOML
+  slug: lib-toml
+  description: TOML serializer for the handl runtime.
+  include:
+  - crate: handl-lib-toml
+    reexports: true
+- title: Unicode
+  slug: lib-unicode
+  description: Unicode identifier and decode utilities.
+  include:
+  - crate: handl-lib-unicode
+    reexports: true
 - title: URL (RFC 3986)
-  slug: url-rfc
+  slug: lib-url-rfc
   description: Strict RFC 3986 URI parsing.
   include:
   - crate: handl-lib-url-rfc
-
+    reexports: true
+- title: URL (WHATWG)
+  slug: lib-url-whatwg
+  description: WHATWG URL Standard parsing.
+  include:
+  - crate: handl-lib-url-whatwg
+    reexports: true
+- title: Utils
+  slug: lib-utils
+  description: Standard utility modules for the handl runtime.
+  include:
+  - crate: handl-lib-utils
+    reexports: true
+- title: WebSocket
+  slug: lib-websocket
+  description: WebSocket frame and message handling.
+  include:
+  - crate: handl-lib-websocket
+    reexports: true
+- title: YAML
+  slug: lib-yaml
+  description: YAML serializer for the handl runtime.
+  include:
+  - crate: handl-lib-yaml
+    reexports: true
