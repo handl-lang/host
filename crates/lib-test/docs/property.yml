@@ -4,3 +4,13 @@ category:
 module:
   name: property
   title: Property
+functions:
+  for_all:
+    description: Call `property.for_all`.
+    details: Given property.for_all.
+    signature: property.for_all()
+    params: []
+    return_value: type.any
+    examples:
+    - property.for_all()
+    see: []

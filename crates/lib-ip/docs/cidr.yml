@@ -1,0 +1,52 @@
+category:
+  slug: ip
+  title: IP
+module:
+  name: ip.cidr
+  title: Cidr
+functions:
+  parse:
+    description: Call `ip.cidr.parse`.
+    details: Given ip.cidr.parse.
+    signature: ip.cidr.parse()
+    params: []
+    return_value: Object
+    examples:
+    - ip.cidr.parse()
+    see: []
+  format:
+    description: Call `ip.cidr.format`.
+    details: Given ip.cidr.format.
+    signature: ip.cidr.format()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.cidr.format()
+    see: []
+  contains:
+    description: Call `ip.cidr.contains`.
+    details: Given ip.cidr.contains.
+    signature: ip.cidr.contains()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.cidr.contains()
+    see: []
+  network:
+    description: Call `ip.cidr.network`.
+    details: Given ip.cidr.network.
+    signature: ip.cidr.network()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.cidr.network()
+    see: []
+  broadcast:
+    description: Call `ip.cidr.broadcast`.
+    details: Given ip.cidr.broadcast.
+    signature: ip.cidr.broadcast()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.cidr.broadcast()
+    see: []

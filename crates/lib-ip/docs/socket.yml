@@ -1,0 +1,25 @@
+category:
+  slug: ip
+  title: IP
+module:
+  name: ip.socket
+  title: Socket
+functions:
+  parse:
+    description: Call `ip.socket.parse`.
+    details: Given ip.socket.parse.
+    signature: ip.socket.parse()
+    params: []
+    return_value: Object
+    examples:
+    - ip.socket.parse()
+    see: []
+  format:
+    description: Call `ip.socket.format`.
+    details: Given ip.socket.format.
+    signature: ip.socket.format()
+    params: []
+    return_value: type.any
+    examples:
+    - ip.socket.format()
+    see: []

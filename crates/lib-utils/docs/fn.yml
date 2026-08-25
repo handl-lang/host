@@ -4,3 +4,232 @@ category:
 module:
   name: fn
   title: Fn
+functions:
+  apply:
+    description: Return the result of the `apply` function on `fn`.
+    details: 'Calls `fn.apply(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.apply(...fns: Function[])'
+  choice:
+    description: Return the result of the `choice` function on `fn`.
+    details: 'Calls `fn.choice(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.choice(...fns: Function[])'
+  compose:
+    description: Return the result of the `compose` function on `fn`.
+    details: 'Calls `fn.compose(...fns: Function[])` with the given arguments and
+      returns a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.compose(...fns: Function[])'
+  constantly:
+    description: Return the result of the `constantly` function on `fn`.
+    details: 'Calls `fn.constantly(...fns: Function[])` with the given arguments and
+      returns a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.constantly(...fns: Function[])'
+  converge:
+    description: Return the result of the `converge` function on `fn`.
+    details: 'Calls `fn.converge(...fns: Function[])` with the given arguments and
+      returns a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.converge(...fns: Function[])'
+  fanout:
+    description: Return the result of the `fanout` function on `fn`.
+    details: 'Calls `fn.fanout(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.fanout(...fns: Function[])'
+  flip:
+    description: Return the result of the `flip` function on `fn`.
+    details: 'Calls `fn.flip(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.flip(...fns: Function[])'
+  flow:
+    description: Return the result of the `flow` function on `fn`.
+    details: 'Calls `fn.flow(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.flow(...fns: Function[])'
+  if:
+    description: Return the result of the `if` function on `fn`.
+    details: 'Calls `fn.if(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.if(...fns: Function[])'
+  match:
+    description: Return the result of the `match` function on `fn`.
+    details: 'Calls `fn.match(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.match(...fns: Function[])'
+  partial:
+    description: Return the result of the `partial` function on `fn`.
+    details: 'Calls `fn.partial(...fns: Function[])` with the given arguments and
+      returns a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.partial(...fns: Function[])'
+  pipe:
+    description: Return the result of the `pipe` function on `fn`.
+    details: 'Calls `fn.pipe(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.pipe(...fns: Function[])'
+  tap:
+    description: Return the result of the `tap` function on `fn`.
+    details: 'Calls `fn.tap(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.tap(...fns: Function[])'
+  unless:
+    description: Return the result of the `unless` function on `fn`.
+    details: 'Calls `fn.unless(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.unless(...fns: Function[])'
+  when:
+    description: Return the result of the `when` function on `fn`.
+    details: 'Calls `fn.when(...fns: Function[])` with the given arguments and returns
+      a `Function` result.'
+    examples: []
+    params:
+    - name: fns
+      type: Function...
+      description: the `fns` Function... value
+    return_value: Function
+    see: []
+    signature: 'fn.when(...fns: Function[])'
+  map:
+    description: Return the result of the `map` function on `fn`.
+    details: 'Calls `fn.map(f: Function, xs: Array)` with the given arguments and
+      returns a `Array` result.'
+    examples: []
+    params:
+    - name: f
+      type: Function
+      description: the `f` Function value
+    - name: xs
+      type: Array
+      description: the `xs` Array value
+    return_value: Array
+    see: []
+    signature: 'fn.map(f: Function, xs: Array)'
+  filter:
+    description: Return the result of the `filter` function on `fn`.
+    details: 'Calls `fn.filter(f: Function, xs: Array)` with the given arguments and
+      returns a `Array` result.'
+    examples: []
+    params:
+    - name: f
+      type: Function
+      description: the `f` Function value
+    - name: xs
+      type: Array
+      description: the `xs` Array value
+    return_value: Array
+    see: []
+    signature: 'fn.filter(f: Function, xs: Array)'
+  reduce:
+    description: Return the result of the `reduce` function on `fn`.
+    details: 'Calls `fn.reduce(f: Function, xs: Array, init: type.any)` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: f
+      type: Function
+      description: the `f` Function value
+    - name: xs
+      type: Array
+      description: the `xs` Array value
+    - name: init
+      type: type.any
+      description: the `init` type.any value
+    return_value: type.any
+    see: []
+    signature: 'fn.reduce(f: Function, xs: Array, init: type.any)'

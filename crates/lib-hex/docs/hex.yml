@@ -1,0 +1,16 @@
+category:
+  slug: encoding
+  title: Encoding
+module:
+  name: encoding.hex
+  title: Hex
+functions:
+  hex:
+    description: Call `hex.hex`.
+    details: Given hex.hex.
+    signature: hex.hex()
+    params: []
+    return_value: Object
+    examples:
+    - hex.hex()
+    see: []

@@ -4,3 +4,28 @@ category:
 module:
   name: sig
   title: Sig
+functions:
+  send:
+    description: Call `sig.send`.
+    details: Given sig.send.
+    signature: 'sig.send(arg0: any, arg1: String)'
+    params:
+    - name: arg0
+      type: any
+      description: the 0th any argument
+    - name: arg1
+      type: String
+      description: the 1th String argument
+    return_value: 'null'
+    examples:
+    - sig.send("x", "x")
+    see: []
+  list:
+    description: Call `sig.list`.
+    details: Given sig.list.
+    signature: sig.list()
+    params: []
+    return_value: type.any
+    examples:
+    - sig.list()
+    see: []

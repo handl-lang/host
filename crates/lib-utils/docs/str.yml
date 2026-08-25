@@ -4,3 +4,600 @@ category:
 module:
   name: str
   title: Str
+functions:
+  camel_case:
+    description: Return the result of the `camel_case` function on `str`.
+    details: 'Calls `str.camel_case(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.camel_case('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.camel_case(value: String)'
+  capitalize:
+    description: Return the result of the `capitalize` function on `str`.
+    details: 'Calls `str.capitalize(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.capitalize('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.capitalize(value: String)'
+  char_at:
+    description: Return the result of the `char_at` function on `str`.
+    details: 'Calls `str.char_at(value: String, index: num)` with the given arguments
+      and returns a `String` result.'
+    examples:
+    - str.char_at('hello', 1)
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: index
+      type: num
+      description: the `index` num value
+    return_value: String
+    see: []
+    signature: 'str.char_at(value: String, index: num)'
+  concat:
+    description: Concatenate the given arrays.
+    details: Return a new array containing all elements of the input arrays in order.
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.concat(value: String)'
+  contains:
+    description: Return `true` if `value` contains `value`.
+    details: Check whether `value` contains `value`.
+    examples:
+    - str.contains('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.contains(value: String)'
+  count:
+    description: Return the result of the `count` function on `str`.
+    details: 'Calls `str.count(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.count(value: String)'
+  ends_with:
+    description: Return the result of the `ends_with` function on `str`.
+    details: 'Calls `str.ends_with(value: String)` with the given arguments and returns
+      a `Boolean` result.'
+    examples:
+    - str.ends_with('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.ends_with(value: String)'
+  equals:
+    description: Return the result of the `equals` function on `str`.
+    details: 'Calls `str.equals(value: String)` with the given arguments and returns
+      a `Boolean` result.'
+    examples:
+    - str.equals('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.equals(value: String)'
+  find:
+    description: Return the result of the `find` function on `str`.
+    details: 'Calls `str.find(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.find(value: String)'
+  is_alpha:
+    description: Return the result of the `is_alpha` function on `str`.
+    details: 'Calls `str.is_alpha(value: String)` with the given arguments and returns
+      a `Boolean` result.'
+    examples:
+    - str.is_alpha('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.is_alpha(value: String)'
+  is_alphanumeric:
+    description: Return the result of the `is_alphanumeric` function on `str`.
+    details: 'Calls `str.is_alphanumeric(value: String)` with the given arguments
+      and returns a `Boolean` result.'
+    examples:
+    - str.is_alphanumeric('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.is_alphanumeric(value: String)'
+  is_empty:
+    description: Return `true` if `value` is empty.
+    details: Return a boolean indicating whether `value` has no elements.
+    examples:
+    - str.is_empty('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.is_empty(value: String)'
+  is_numeric:
+    description: Return the result of the `is_numeric` function on `str`.
+    details: 'Calls `str.is_numeric(value: String)` with the given arguments and returns
+      a `Boolean` result.'
+    examples:
+    - str.is_numeric('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.is_numeric(value: String)'
+  join:
+    description: Return the result of the `join` function on `str`.
+    details: 'Calls `str.join(parts: Array<String>, separator: String = '''')` with
+      the given arguments and returns a `String` result.'
+    examples:
+    - str.join(['a','b','c'], '-') // 'a-b-c'
+    params:
+    - name: parts
+      type: Array<String>
+      description: the `parts` `Array<String>` value
+    - name: separator
+      type: String
+      description: the `separator` String value
+    return_value: String
+    see: []
+    signature: 'str.join(parts: Array<String>, separator: String = '''')'
+  kebab_case:
+    description: Return the result of the `kebab_case` function on `str`.
+    details: 'Calls `str.kebab_case(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.kebab_case('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.kebab_case(value: String)'
+  length:
+    description: Return the result of the `length` function on `str`.
+    details: 'Calls `str.length(value: String)` with the given arguments and returns
+      a `num` result.'
+    examples:
+    - str.length('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: num
+    see: []
+    signature: 'str.length(value: String)'
+  levenshtein:
+    description: Return the result of the `levenshtein` function on `str`.
+    details: 'Calls `str.levenshtein(value: String)` with the given arguments and
+      returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.levenshtein(value: String)'
+  lines:
+    description: Return the result of the `lines` function on `str`.
+    details: 'Calls `str.lines(value: String, separator: String)` with the given arguments
+      and returns a `Array<String>` result.'
+    examples:
+    - str.lines('a-b-c', '-')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: separator
+      type: String
+      description: the `separator` String value
+    return_value: Array<String>
+    see: []
+    signature: 'str.lines(value: String, separator: String)'
+  lower:
+    description: Return the result of the `lower` function on `str`.
+    details: 'Calls `str.lower(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.lower('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.lower(value: String)'
+  pad_left:
+    description: Return the result of the `pad_left` function on `str`.
+    details: 'Calls `str.pad_left(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.pad_left('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.pad_left(value: String)'
+  pad_right:
+    description: Return the result of the `pad_right` function on `str`.
+    details: 'Calls `str.pad_right(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.pad_right('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.pad_right(value: String)'
+  pascal_case:
+    description: Return the result of the `pascal_case` function on `str`.
+    details: 'Calls `str.pascal_case(value: String)` with the given arguments and
+      returns a `String` result.'
+    examples:
+    - str.pascal_case('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.pascal_case(value: String)'
+  repeat:
+    description: Return the result of the `repeat` function on `str`.
+    details: 'Calls `str.repeat(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.repeat('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.repeat(value: String)'
+  replace:
+    description: Return the result of the `replace` function on `str`.
+    details: 'Calls `str.replace(value: String, pattern: String, replacement: String
+      = '''')` with the given arguments and returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: pattern
+      type: String
+      description: the `pattern` String value
+    - name: replacement
+      type: String
+      description: the `replacement` String value
+    return_value: String
+    see: []
+    signature: 'str.replace(value: String, pattern: String, replacement: String =
+      '''')'
+  replace_first:
+    description: Return the result of the `replace_first` function on `str`.
+    details: 'Calls `str.replace_first(value: String, pattern: String, replacement:
+      String = '''')` with the given arguments and returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: pattern
+      type: String
+      description: the `pattern` String value
+    - name: replacement
+      type: String
+      description: the `replacement` String value
+    return_value: String
+    see: []
+    signature: 'str.replace_first(value: String, pattern: String, replacement: String
+      = '''')'
+  reverse:
+    description: Return `value` with its elements in reverse order.
+    details: Return a new collection with the elements of `value` reversed.
+    examples:
+    - str.reverse('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.reverse(value: String)'
+  rfind:
+    description: Return the result of the `rfind` function on `str`.
+    details: 'Calls `str.rfind(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.rfind(value: String)'
+  similarity:
+    description: Return the result of the `similarity` function on `str`.
+    details: 'Calls `str.similarity(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.similarity(value: String)'
+  slice:
+    description: Return the result of the `slice` function on `str`.
+    details: 'Calls `str.slice(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.slice(value: String)'
+  slugify:
+    description: Return the result of the `slugify` function on `str`.
+    details: 'Calls `str.slugify(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.slugify(value: String)'
+  snake_case:
+    description: Return the result of the `snake_case` function on `str`.
+    details: 'Calls `str.snake_case(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.snake_case('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.snake_case(value: String)'
+  split:
+    description: Return the result of the `split` function on `str`.
+    details: 'Calls `str.split(value: String, separator: String)` with the given arguments
+      and returns a `Array<String>` result.'
+    examples:
+    - str.split('a-b-c', '-')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: separator
+      type: String
+      description: the `separator` String value
+    return_value: Array<String>
+    see: []
+    signature: 'str.split(value: String, separator: String)'
+  split_at:
+    description: Return the result of the `split_at` function on `str`.
+    details: 'Calls `str.split_at(value: String, separator: String)` with the given
+      arguments and returns a `Array<String>` result.'
+    examples:
+    - str.split_at('a-b-c', '-')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: separator
+      type: String
+      description: the `separator` String value
+    return_value: Array<String>
+    see: []
+    signature: 'str.split_at(value: String, separator: String)'
+  split_whitespace:
+    description: Return the result of the `split_whitespace` function on `str`.
+    details: 'Calls `str.split_whitespace(value: String, separator: String)` with
+      the given arguments and returns a `Array<String>` result.'
+    examples:
+    - str.split_whitespace('a-b-c', '-')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    - name: separator
+      type: String
+      description: the `separator` String value
+    return_value: Array<String>
+    see: []
+    signature: 'str.split_whitespace(value: String, separator: String)'
+  starts_with:
+    description: Return the result of the `starts_with` function on `str`.
+    details: 'Calls `str.starts_with(value: String)` with the given arguments and
+      returns a `Boolean` result.'
+    examples:
+    - str.starts_with('hello')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: Boolean
+    see: []
+    signature: 'str.starts_with(value: String)'
+  strip_prefix:
+    description: Return the result of the `strip_prefix` function on `str`.
+    details: 'Calls `str.strip_prefix(value: String)` with the given arguments and
+      returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.strip_prefix(value: String)'
+  strip_suffix:
+    description: Return the result of the `strip_suffix` function on `str`.
+    details: 'Calls `str.strip_suffix(value: String)` with the given arguments and
+      returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.strip_suffix(value: String)'
+  title_case:
+    description: Return the result of the `title_case` function on `str`.
+    details: 'Calls `str.title_case(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.title_case('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.title_case(value: String)'
+  trim:
+    description: Return the result of the `trim` function on `str`.
+    details: 'Calls `str.trim(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.trim(value: String)'
+  trim_end:
+    description: Return the result of the `trim_end` function on `str`.
+    details: 'Calls `str.trim_end(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.trim_end(value: String)'
+  trim_matches:
+    description: Return the result of the `trim_matches` function on `str`.
+    details: 'Calls `str.trim_matches(value: String)` with the given arguments and
+      returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.trim_matches(value: String)'
+  trim_start:
+    description: Return the result of the `trim_start` function on `str`.
+    details: 'Calls `str.trim_start(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.trim_start(value: String)'
+  truncate:
+    description: Return the result of the `truncate` function on `str`.
+    details: 'Calls `str.truncate(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.truncate('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.truncate(value: String)'
+  upper:
+    description: Return the result of the `upper` function on `str`.
+    details: 'Calls `str.upper(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples:
+    - str.upper('hello world')
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.upper(value: String)'
+  word_wrap:
+    description: Return the result of the `word_wrap` function on `str`.
+    details: 'Calls `str.word_wrap(value: String)` with the given arguments and returns
+      a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: String
+      description: the `value` String value
+    return_value: String
+    see: []
+    signature: 'str.word_wrap(value: String)'

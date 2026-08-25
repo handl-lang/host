@@ -4,3 +4,13 @@ category:
 module:
   name: test
   title: Test
+functions:
+  run:
+    description: Call `test.run`.
+    details: Given test.run.
+    signature: test.run()
+    params: []
+    return_value: type.any
+    examples:
+    - test.run()
+    see: []

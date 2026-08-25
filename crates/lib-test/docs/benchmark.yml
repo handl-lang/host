@@ -4,3 +4,13 @@ category:
 module:
   name: benchmark
   title: Benchmark
+functions:
+  run:
+    description: Call `benchmark.run`.
+    details: Given benchmark.run.
+    signature: benchmark.run()
+    params: []
+    return_value: type.any
+    examples:
+    - benchmark.run()
+    see: []

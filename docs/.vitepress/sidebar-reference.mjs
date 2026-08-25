@@ -5,22 +5,10 @@ export default [
     "link": "/reference/lib-archive",
     "items": [
       {
-        "text": "Archive (Tar)",
+        "text": "Archive Tar",
         "link": "/reference/lib-archive-tar"
       }
     ]
-  },
-  {
-    "text": "Archive (Tar)",
-    "collapsed": false,
-    "link": "/reference/lib-archive-tar",
-    "items": []
-  },
-  {
-    "text": "Base64",
-    "collapsed": false,
-    "link": "/reference/lib-base64",
-    "items": []
   },
   {
     "text": "Collections",
@@ -67,22 +55,21 @@ export default [
     "link": "/reference/lib-compress",
     "items": [
       {
-        "text": "Compress (Gzip)",
+        "text": "Compress Gzip",
         "link": "/reference/lib-compress-gzip"
       }
     ]
   },
   {
-    "text": "Compress (Gzip)",
-    "collapsed": false,
-    "link": "/reference/lib-compress-gzip",
-    "items": []
-  },
-  {
     "text": "Crypto",
     "collapsed": false,
     "link": "/reference/lib-crypto",
-    "items": []
+    "items": [
+      {
+        "text": "Crypto",
+        "link": "/reference/lib-crypto-crypto"
+      }
+    ]
   },
   {
     "text": "DateTime",
@@ -111,18 +98,12 @@ export default [
     ]
   },
   {
-    "text": "Hex",
-    "collapsed": false,
-    "link": "/reference/lib-hex",
-    "items": []
-  },
-  {
     "text": "HTTP Client",
     "collapsed": false,
     "link": "/reference/lib-http-client",
     "items": [
       {
-        "text": "HTTP Client (Std)",
+        "text": "Http Client Std",
         "link": "/reference/lib-http-client-std"
       },
       {
@@ -132,18 +113,12 @@ export default [
     ]
   },
   {
-    "text": "HTTP Client (Std)",
-    "collapsed": false,
-    "link": "/reference/lib-http-client-std",
-    "items": []
-  },
-  {
     "text": "HTTP Server",
     "collapsed": false,
     "link": "/reference/lib-http-server",
     "items": [
       {
-        "text": "HTTP Server (Std)",
+        "text": "Http Server Std",
         "link": "/reference/lib-http-server-std"
       },
       {
@@ -153,16 +128,15 @@ export default [
     ]
   },
   {
-    "text": "HTTP Server (Std)",
-    "collapsed": false,
-    "link": "/reference/lib-http-server-std",
-    "items": []
-  },
-  {
     "text": "Intl",
     "collapsed": false,
     "link": "/reference/lib-intl",
-    "items": []
+    "items": [
+      {
+        "text": "Intl",
+        "link": "/reference/lib-intl-intl"
+      }
+    ]
   },
   {
     "text": "IP",
@@ -170,16 +144,29 @@ export default [
     "link": "/reference/lib-ip",
     "items": [
       {
+        "text": "Cidr",
+        "link": "/reference/lib-ip-cidr"
+      },
+      {
         "text": "Ip",
         "link": "/reference/lib-ip-ip"
+      },
+      {
+        "text": "Socket",
+        "link": "/reference/lib-ip-socket"
       }
     ]
   },
   {
-    "text": "JSON",
+    "text": "Json",
     "collapsed": false,
     "link": "/reference/lib-json",
-    "items": []
+    "items": [
+      {
+        "text": "Json",
+        "link": "/reference/lib-json-json"
+      }
+    ]
   },
   {
     "text": "KV",
@@ -187,7 +174,7 @@ export default [
     "link": "/reference/lib-kv",
     "items": [
       {
-        "text": "KV (Hashmap)",
+        "text": "Kv Hashmap",
         "link": "/reference/lib-kv-hashmap"
       },
       {
@@ -197,18 +184,12 @@ export default [
     ]
   },
   {
-    "text": "KV (Hashmap)",
-    "collapsed": false,
-    "link": "/reference/lib-kv-hashmap",
-    "items": []
-  },
-  {
     "text": "OS",
     "collapsed": false,
     "link": "/reference/lib-os",
     "items": [
       {
-        "text": "OS (Std)",
+        "text": "Os Std",
         "link": "/reference/lib-os-std"
       },
       {
@@ -250,18 +231,12 @@ export default [
     ]
   },
   {
-    "text": "OS (Std)",
-    "collapsed": false,
-    "link": "/reference/lib-os-std",
-    "items": []
-  },
-  {
     "text": "OTLP",
     "collapsed": false,
     "link": "/reference/lib-otlp",
     "items": [
       {
-        "text": "OTLP (Std)",
+        "text": "Otlp Std",
         "link": "/reference/lib-otlp-std"
       },
       {
@@ -269,12 +244,6 @@ export default [
         "link": "/reference/lib-otlp-otlp"
       }
     ]
-  },
-  {
-    "text": "OTLP (Std)",
-    "collapsed": false,
-    "link": "/reference/lib-otlp-std",
-    "items": []
   },
   {
     "text": "Parse",
@@ -286,7 +255,12 @@ export default [
     "text": "Random",
     "collapsed": false,
     "link": "/reference/lib-rand",
-    "items": []
+    "items": [
+      {
+        "text": "Rand",
+        "link": "/reference/lib-rand-rand"
+      }
+    ]
   },
   {
     "text": "Serialize",
@@ -298,7 +272,12 @@ export default [
     "text": "Stats",
     "collapsed": false,
     "link": "/reference/lib-stats",
-    "items": []
+    "items": [
+      {
+        "text": "Stats",
+        "link": "/reference/lib-stats-stats"
+      }
+    ]
   },
   {
     "text": "Test",
@@ -332,10 +311,15 @@ export default [
     ]
   },
   {
-    "text": "TOML",
+    "text": "Toml",
     "collapsed": false,
     "link": "/reference/lib-toml",
-    "items": []
+    "items": [
+      {
+        "text": "Toml",
+        "link": "/reference/lib-toml-toml"
+      }
+    ]
   },
   {
     "text": "Unicode",
@@ -349,22 +333,36 @@ export default [
     ]
   },
   {
-    "text": "URL (RFC 3986)",
+    "text": "URL",
     "collapsed": false,
     "link": "/reference/lib-url-rfc",
-    "items": []
+    "items": [
+      {
+        "text": "Url Rfc",
+        "link": "/reference/lib-url-rfc-url_rfc"
+      }
+    ]
   },
   {
-    "text": "URL (WHATWG)",
+    "text": "Url Whatwg",
     "collapsed": false,
     "link": "/reference/lib-url-whatwg",
-    "items": []
+    "items": [
+      {
+        "text": "Url Whatwg",
+        "link": "/reference/lib-url-whatwg-url_whatwg"
+      }
+    ]
   },
   {
     "text": "Utils",
     "collapsed": false,
     "link": "/reference/lib-utils",
     "items": [
+      {
+        "text": "Array",
+        "link": "/reference/lib-utils-array"
+      },
       {
         "text": "Bool",
         "link": "/reference/lib-utils-bool"
@@ -390,6 +388,10 @@ export default [
         "link": "/reference/lib-utils-mood"
       },
       {
+        "text": "Obj",
+        "link": "/reference/lib-utils-obj"
+      },
+      {
         "text": "Option",
         "link": "/reference/lib-utils-option"
       },
@@ -406,6 +408,10 @@ export default [
         "link": "/reference/lib-utils-serialize"
       },
       {
+        "text": "Set",
+        "link": "/reference/lib-utils-set"
+      },
+      {
         "text": "Str",
         "link": "/reference/lib-utils-str"
       },
@@ -416,10 +422,18 @@ export default [
     ]
   },
   {
-    "text": "WebSocket",
+    "text": "WebSocket (RFC 6455)",
     "collapsed": false,
     "link": "/reference/lib-ws-rfc",
     "items": [
+      {
+        "text": "Frame",
+        "link": "/reference/lib-ws-rfc-frame"
+      },
+      {
+        "text": "Message",
+        "link": "/reference/lib-ws-rfc-message"
+      },
       {
         "text": "Websocket Rfc",
         "link": "/reference/lib-ws-rfc-ws_rfc"
@@ -427,9 +441,55 @@ export default [
     ]
   },
   {
-    "text": "YAML",
+    "text": "WebSocket (RFC 6455)",
+    "collapsed": false,
+    "link": "/reference/lib-ws-rfc-native",
+    "items": [
+      {
+        "text": "Frame",
+        "link": "/reference/lib-ws-rfc-native-frame"
+      },
+      {
+        "text": "Message",
+        "link": "/reference/lib-ws-rfc-native-message"
+      },
+      {
+        "text": "Ws Rfc Native",
+        "link": "/reference/lib-ws-rfc-native-ws_rfc_native"
+      }
+    ]
+  },
+  {
+    "text": "Ws Whatwg Native",
+    "collapsed": false,
+    "link": "/reference/lib-ws-whatwg-native",
+    "items": [
+      {
+        "text": "Ws Whatwg Native",
+        "link": "/reference/lib-ws-whatwg-native-ws_whatwg_native"
+      }
+    ]
+  },
+  {
+    "text": "Ws Whatwg Wasm",
+    "collapsed": false,
+    "link": "/reference/lib-ws-whatwg-wasm",
+    "items": [
+      {
+        "text": "Ws Whatwg Wasm",
+        "link": "/reference/lib-ws-whatwg-wasm-ws_whatwg_wasm"
+      }
+    ]
+  },
+  {
+    "text": "Yaml",
     "collapsed": false,
     "link": "/reference/lib-yaml",
-    "items": []
+    "items": [
+      {
+        "text": "Yaml",
+        "link": "/reference/lib-yaml-yaml"
+      }
+    ]
   }
 ];

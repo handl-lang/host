@@ -4,3 +4,22 @@ category:
 module:
   name: time
   title: Time
+functions:
+  now:
+    description: Call `time.now`.
+    details: Given time.now.
+    signature: time.now()
+    params: []
+    return_value: type.any
+    examples:
+    - time.now()
+    see: []
+  epoch:
+    description: Call `time.epoch`.
+    details: Given time.epoch.
+    signature: time.epoch()
+    params: []
+    return_value: type.any
+    examples:
+    - time.epoch()
+    see: []

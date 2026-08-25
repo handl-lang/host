@@ -4,3 +4,76 @@ category:
 module:
   name: collections.stack
   title: Stack
+functions:
+  new:
+    description: Call `collections.stack.new`.
+    details: Given collections.stack.new.
+    signature: collections.stack.new()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.new()
+    see: []
+  from:
+    description: Call `collections.stack.from`.
+    details: Given collections.stack.from.
+    signature: collections.stack.from()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.from()
+    see: []
+  to_array:
+    description: Call `collections.stack.to_array`.
+    details: Given collections.stack.to_array.
+    signature: collections.stack.to_array()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.to_array()
+    see: []
+  len:
+    description: Call `collections.stack.len`.
+    details: Given collections.stack.len.
+    signature: collections.stack.len()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.len()
+    see: []
+  is_empty:
+    description: Call `collections.stack.is_empty`.
+    details: Given collections.stack.is_empty.
+    signature: collections.stack.is_empty()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.is_empty()
+    see: []
+  push:
+    description: Call `collections.stack.push`.
+    details: Given collections.stack.push.
+    signature: collections.stack.push()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.push()
+    see: []
+  pop:
+    description: Call `collections.stack.pop`.
+    details: Given collections.stack.pop.
+    signature: collections.stack.pop()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.pop()
+    see: []
+  peek:
+    description: Call `collections.stack.peek`.
+    details: Given collections.stack.peek.
+    signature: collections.stack.peek()
+    params: []
+    return_value: type.any
+    examples:
+    - collections.stack.peek()
+    see: []

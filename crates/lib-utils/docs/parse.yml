@@ -4,3 +4,20 @@ category:
 module:
   name: parse
   title: Parse
+functions:
+  parse:
+    description: Parse the datetime string `input`.
+    details: Parse the string `input` into a datetime value.
+    examples:
+    - parse.parse("https://example.com:8080/path?a=1#frag", url_whatwg)
+    - parse.parse("https://example.com/%ZZ", url_rfc)
+    params:
+    - name: input
+      type: String
+      description: the `input` string to parse
+    - name: parser
+      type: Object
+      description: a parser object
+    return_value: Object
+    see: []
+    signature: 'parse.parse(input: String, parser: Object)'

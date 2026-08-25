@@ -1,0 +1,44 @@
+category:
+  slug: crypto
+  title: Crypto
+module:
+  name: crypto
+  title: Crypto
+functions:
+  sha256:
+    description: "`crypto.sha256(data: string | array<number>) \u2192 string`  Computes\
+      \ the SHA-256 hash of the input and returns it as a lowercase hex-encoded string"
+    details: "`crypto.sha256(data: string | array<number>) \u2192 string`  Computes\
+      \ the SHA-256 hash of the input and returns it as a lowercase hex-encoded string.\
+      \  The input may be a string (UTF-8 bytes) or an array of integers in the range\
+      \ 0\u2013255.  Examples: - `crypto.sha256(\"hello\")` \u2192 `\"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\"\
+      ` - `crypto.sha256([104, 101, 108, 108, 111])` \u2192 same as above"
+    signature: 'crypto.sha256(arg0: String | array<number>)'
+    params:
+    - name: arg0
+      type: String | array<number>
+      description: the 0th String | array<number> argument
+    return_value: String
+    examples:
+    - crypto.sha256("hello")
+    - crypto.sha256([104, 101, 108, 108, 111])
+    see: []
+  md5:
+    description: "`crypto.md5(data: string | array<number>) \u2192 string`  Computes\
+      \ the MD5 hash of the input and returns it as a lowercase hex-encoded string"
+    details: "`crypto.md5(data: string | array<number>) \u2192 string`  Computes the\
+      \ MD5 hash of the input and returns it as a lowercase hex-encoded string.  MD5\
+      \ is cryptographically broken and must not be used for security purposes. It\
+      \ remains useful for checksums, content addressing, and legacy interoperability.\
+      \  Examples: - `crypto.md5(\"hello\")` \u2192 `\"5d41402abc4b2a76b9719d911017c592\"\
+      ` - `crypto.md5([104, 101, 108, 108, 111])` \u2192 same as above"
+    signature: 'crypto.md5(arg0: String | array<number>)'
+    params:
+    - name: arg0
+      type: String | array<number>
+      description: the 0th String | array<number> argument
+    return_value: String
+    examples:
+    - crypto.md5("hello")
+    - crypto.md5([104, 101, 108, 108, 111])
+    see: []

@@ -1,0 +1,16 @@
+category:
+  slug: url
+  title: URL
+module:
+  name: url.url_rfc
+  title: Url Rfc
+functions:
+  url_rfc:
+    description: Call `url_rfc.url_rfc`.
+    details: Given url_rfc.url_rfc.
+    signature: url_rfc.url_rfc()
+    params: []
+    return_value: type.any
+    examples:
+    - url_rfc.url_rfc()
+    see: []

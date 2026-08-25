@@ -1,0 +1,832 @@
+category:
+  slug: utils
+  title: Utils
+module:
+  name: utils.array
+  title: Array
+functions:
+  at:
+    description: Return the element at index `args` in `arr`.
+    details: Access the element at position `args` in `arr`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.at(arr: Array, ...args: type.any[])'
+  chunk:
+    description: Split `arr` into chunks of size `args`.
+    details: Group the elements of `arr` into arrays of length `args` (the last chunk
+      may be shorter).
+    examples:
+    - array.chunk([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.chunk(arr: Array, ...args: type.any[])'
+  compact:
+    description: Return the result of the `compact` function on `array`.
+    details: 'Calls `array.compact(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.compact(arr: Array, ...args: type.any[])'
+  concat:
+    description: Concatenate the given arrays.
+    details: Return a new array containing all elements of the input arrays in order.
+    examples:
+    - array.concat([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.concat(arr: Array, ...args: type.any[])'
+  contains:
+    description: Return `true` if `arr` contains `args`.
+    details: Check whether `arr` contains `args`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.contains(arr: Array, ...args: type.any[])'
+  count_by:
+    description: Return the result of the `count_by` function on `array`.
+    details: 'Calls `array.count_by(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.count_by(arr: Array, ...args: type.any[])'
+  dedupe:
+    description: Return the result of the `dedupe` function on `array`.
+    details: 'Calls `array.dedupe(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.dedupe(arr: Array, ...args: type.any[])'
+  deep_flatten:
+    description: Return the result of the `deep_flatten` function on `array`.
+    details: 'Calls `array.deep_flatten(arr: Array, ...args: type.any[])` with the
+      given arguments and returns a `Array` result.'
+    examples:
+    - array.deep_flatten([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.deep_flatten(arr: Array, ...args: type.any[])'
+  drop:
+    description: Return the result of the `drop` function on `array`.
+    details: 'Calls `array.drop(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.drop(arr: Array, ...args: type.any[])'
+  drop_while:
+    description: Return the result of the `drop_while` function on `array`.
+    details: 'Calls `array.drop_while(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.drop_while([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.drop_while(arr: Array, ...args: type.any[])'
+  enumerate:
+    description: Return the result of the `enumerate` function on `array`.
+    details: 'Calls `array.enumerate(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.enumerate(arr: Array, ...args: type.any[])'
+  every:
+    description: Return the result of the `every` function on `array`.
+    details: 'Calls `array.every(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.every(arr: Array, ...args: type.any[])'
+  fill:
+    description: Return the result of the `fill` function on `array`.
+    details: 'Calls `array.fill(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `Array` result.'
+    examples:
+    - array.fill([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.fill(arr: Array, ...args: type.any[])'
+  filter:
+    description: Return the result of the `filter` function on `array`.
+    details: 'Calls `array.filter(arr: Array, fn: Function)` with the given arguments
+      and returns a `Array` result.'
+    examples:
+    - array.filter([1, 2, 3], x => x > 1)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    return_value: Array
+    see: []
+    signature: 'array.filter(arr: Array, fn: Function)'
+  find:
+    description: Return the result of the `find` function on `array`.
+    details: 'Calls `array.find(arr: Array, fn: Function)` with the given arguments
+      and returns a `type.any` result.'
+    examples:
+    - array.find([1, 2, 3], x => x > 1)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    return_value: type.any
+    see: []
+    signature: 'array.find(arr: Array, fn: Function)'
+  find_index:
+    description: Return the result of the `find_index` function on `array`.
+    details: 'Calls `array.find_index(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.find_index(arr: Array, ...args: type.any[])'
+  find_last:
+    description: Return the result of the `find_last` function on `array`.
+    details: 'Calls `array.find_last(arr: Array, fn: Function)` with the given arguments
+      and returns a `type.any` result.'
+    examples:
+    - array.find_last([1, 2, 3], x => x > 1)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    return_value: type.any
+    see: []
+    signature: 'array.find_last(arr: Array, fn: Function)'
+  find_last_index:
+    description: Return the result of the `find_last_index` function on `array`.
+    details: 'Calls `array.find_last_index(arr: Array, ...args: type.any[])` with
+      the given arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.find_last_index(arr: Array, ...args: type.any[])'
+  first:
+    description: Return the first element of `arr`.
+    details: Return the first element of `arr`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.first(arr: Array, ...args: type.any[])'
+  flat_map:
+    description: Return the result of the `flat_map` function on `array`.
+    details: 'Calls `array.flat_map(arr: Array, fn: Function)` with the given arguments
+      and returns a `Array` result.'
+    examples:
+    - array.flat_map([1, 2, 3], x => x > 1)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    return_value: Array
+    see: []
+    signature: 'array.flat_map(arr: Array, fn: Function)'
+  flatten:
+    description: Return the result of the `flatten` function on `array`.
+    details: 'Calls `array.flatten(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.flatten([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.flatten(arr: Array, ...args: type.any[])'
+  foldr:
+    description: Return the result of the `foldr` function on `array`.
+    details: 'Calls `array.foldr(arr: Array, fn: Function, initial: type.any)` with
+      the given arguments and returns a `type.any` result.'
+    examples:
+    - array.foldr([1, 2, 3], (a, b) => a + b, 0)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    - name: initial
+      type: type.any
+      description: the `initial` type.any value
+    return_value: type.any
+    see: []
+    signature: 'array.foldr(arr: Array, fn: Function, initial: type.any)'
+  group_by:
+    description: Return the result of the `group_by` function on `array`.
+    details: 'Calls `array.group_by(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.group_by(arr: Array, ...args: type.any[])'
+  index_of:
+    description: Return the index of `args` in `arr`.
+    details: Find the position of `args` within `arr`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.index_of(arr: Array, ...args: type.any[])'
+  insert_at:
+    description: Return the result of the `insert_at` function on `array`.
+    details: 'Calls `array.insert_at(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.insert_at(arr: Array, ...args: type.any[])'
+  intercalate:
+    description: Return the result of the `intercalate` function on `array`.
+    details: 'Calls `array.intercalate(arr: Array, ...args: type.any[])` with the
+      given arguments and returns a `Array` result.'
+    examples:
+    - array.intercalate([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.intercalate(arr: Array, ...args: type.any[])'
+  intersperse:
+    description: Return the result of the `intersperse` function on `array`.
+    details: 'Calls `array.intersperse(arr: Array, ...args: type.any[])` with the
+      given arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.intersperse(arr: Array, ...args: type.any[])'
+  last:
+    description: Return the last element of `arr`.
+    details: Return the last element of `arr`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.last(arr: Array, ...args: type.any[])'
+  length:
+    description: Return the result of the `length` function on `array`.
+    details: 'Calls `array.length(arr: Array)` with the given arguments and returns
+      a `num` result.'
+    examples:
+    - array.length([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    return_value: num
+    see: []
+    signature: 'array.length(arr: Array)'
+  map:
+    description: Return the result of the `map` function on `array`.
+    details: 'Calls `array.map(arr: Array, fn: Function)` with the given arguments
+      and returns a `Array` result.'
+    examples:
+    - array.map([1, 2, 3], x => x > 1)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    return_value: Array
+    see: []
+    signature: 'array.map(arr: Array, fn: Function)'
+  max_by:
+    description: Return the result of the `max_by` function on `array`.
+    details: 'Calls `array.max_by(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.max_by(arr: Array, ...args: type.any[])'
+  min_by:
+    description: Return the result of the `min_by` function on `array`.
+    details: 'Calls `array.min_by(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.min_by(arr: Array, ...args: type.any[])'
+  partition:
+    description: Return the result of the `partition` function on `array`.
+    details: 'Calls `array.partition(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.partition(arr: Array, ...args: type.any[])'
+  pluck:
+    description: Return the result of the `pluck` function on `array`.
+    details: 'Calls `array.pluck(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.pluck(arr: Array, ...args: type.any[])'
+  pop:
+    description: Remove and return the last element of `arr`.
+    details: Remove the last element from `arr` and return it.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.pop(arr: Array, ...args: type.any[])'
+  prepend:
+    description: Return the result of the `prepend` function on `array`.
+    details: 'Calls `array.prepend(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.prepend([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.prepend(arr: Array, ...args: type.any[])'
+  push:
+    description: Append `args` to `arr`.
+    details: Add `args` to the end of `arr` and return the updated `array`.
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.push(arr: Array, ...args: type.any[])'
+  range:
+    description: Return the result of the `range` function on `array`.
+    details: 'Calls `array.range(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.range(arr: Array, ...args: type.any[])'
+  reduce:
+    description: Return the result of the `reduce` function on `array`.
+    details: 'Calls `array.reduce(arr: Array, fn: Function, initial: type.any)` with
+      the given arguments and returns a `type.any` result.'
+    examples:
+    - array.reduce([1, 2, 3], (a, b) => a + b, 0)
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: fn
+      type: Function
+      description: the `fn` Function value
+    - name: initial
+      type: type.any
+      description: the `initial` type.any value
+    return_value: type.any
+    see: []
+    signature: 'array.reduce(arr: Array, fn: Function, initial: type.any)'
+  remove_at:
+    description: Return the result of the `remove_at` function on `array`.
+    details: 'Calls `array.remove_at(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.remove_at(arr: Array, ...args: type.any[])'
+  reverse:
+    description: Return `arr` with its elements in reverse order.
+    details: Return a new collection with the elements of `arr` reversed.
+    examples:
+    - array.reverse([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.reverse(arr: Array, ...args: type.any[])'
+  scan:
+    description: Return the result of the `scan` function on `array`.
+    details: 'Calls `array.scan(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.scan(arr: Array, ...args: type.any[])'
+  shift:
+    description: Return the result of the `shift` function on `array`.
+    details: 'Calls `array.shift(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.shift(arr: Array, ...args: type.any[])'
+  slice:
+    description: Return the result of the `slice` function on `array`.
+    details: 'Calls `array.slice(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.slice([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.slice(arr: Array, ...args: type.any[])'
+  some:
+    description: Return the result of the `some` function on `array`.
+    details: 'Calls `array.some(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.some(arr: Array, ...args: type.any[])'
+  sort:
+    description: Return `arr` sorted.
+    details: Return a new collection containing the elements of `arr` sorted.
+    examples:
+    - array.sort([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.sort(arr: Array, ...args: type.any[])'
+  sort_by:
+    description: Return the result of the `sort_by` function on `array`.
+    details: 'Calls `array.sort_by(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.sort_by([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.sort_by(arr: Array, ...args: type.any[])'
+  sort_by_desc:
+    description: Return the result of the `sort_by_desc` function on `array`.
+    details: 'Calls `array.sort_by_desc(arr: Array, ...args: type.any[])` with the
+      given arguments and returns a `Array` result.'
+    examples:
+    - array.sort_by_desc([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.sort_by_desc(arr: Array, ...args: type.any[])'
+  take:
+    description: Return the result of the `take` function on `array`.
+    details: 'Calls `array.take(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.take(arr: Array, ...args: type.any[])'
+  take_while:
+    description: Return the result of the `take_while` function on `array`.
+    details: 'Calls `array.take_while(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.take_while(arr: Array, ...args: type.any[])'
+  transpose:
+    description: Return the result of the `transpose` function on `array`.
+    details: 'Calls `array.transpose(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `Array` result.'
+    examples:
+    - array.transpose([1, 2, 3])
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: Array
+    see: []
+    signature: 'array.transpose(arr: Array, ...args: type.any[])'
+  unzip:
+    description: Return the result of the `unzip` function on `array`.
+    details: 'Calls `array.unzip(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.unzip(arr: Array, ...args: type.any[])'
+  windows:
+    description: Return the result of the `windows` function on `array`.
+    details: 'Calls `array.windows(arr: Array, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.windows(arr: Array, ...args: type.any[])'
+  zip:
+    description: Return the result of the `zip` function on `array`.
+    details: 'Calls `array.zip(arr: Array, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result.'
+    examples: []
+    params:
+    - name: arr
+      type: Array
+      description: the `arr` Array value
+    - name: args
+      type: type.any...
+      description: the `args` type.any... value
+    return_value: type.any
+    see: []
+    signature: 'array.zip(arr: Array, ...args: type.any[])'

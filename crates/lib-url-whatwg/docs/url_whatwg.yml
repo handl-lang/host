@@ -1,0 +1,16 @@
+category:
+  slug: url
+  title: Url
+module:
+  name: url.url_whatwg
+  title: Url Whatwg
+functions:
+  url_whatwg:
+    description: Call `url_whatwg.url_whatwg`.
+    details: Given url_whatwg.url_whatwg.
+    signature: url_whatwg.url_whatwg()
+    params: []
+    return_value: type.any
+    examples:
+    - url_whatwg.url_whatwg()
+    see: []

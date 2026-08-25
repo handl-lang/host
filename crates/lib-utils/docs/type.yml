@@ -4,3 +4,88 @@ category:
 module:
   name: type
   title: Type
+functions:
+  coalesce:
+    description: Return the result of the `coalesce` function on `type`.
+    details: 'Calls `type.coalesce(value: type.any)` with the given arguments and
+      returns a `type.any` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: type.any
+    see: []
+    signature: 'type.coalesce(value: type.any)'
+  default:
+    description: Return the result of the `default` function on `type`.
+    details: 'Calls `type.default(value: type.any)` with the given arguments and returns
+      a `type.any` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: type.any
+    see: []
+    signature: 'type.default(value: type.any)'
+  identity:
+    description: Return the result of the `identity` function on `type`.
+    details: 'Calls `type.identity(value: type.any)` with the given arguments and
+      returns a `type.any` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: type.any
+    see: []
+    signature: 'type.identity(value: type.any)'
+  to_bool:
+    description: Return the result of the `to_bool` function on `type`.
+    details: 'Calls `type.to_bool(value: type.any)` with the given arguments and returns
+      a `Bool` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: Bool
+    see: []
+    signature: 'type.to_bool(value: type.any)'
+  to_number:
+    description: Return the result of the `to_number` function on `type`.
+    details: 'Calls `type.to_number(value: type.any)` with the given arguments and
+      returns a `num` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: num
+    see: []
+    signature: 'type.to_number(value: type.any)'
+  to_string:
+    description: Return the result of the `to_string` function on `type`.
+    details: 'Calls `type.to_string(value: type.any)` with the given arguments and
+      returns a `String` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: String
+    see: []
+    signature: 'type.to_string(value: type.any)'
+  type_of:
+    description: Return the result of the `type_of` function on `type`.
+    details: 'Calls `type.type_of(value: type.any)` with the given arguments and returns
+      a `type.any` result.'
+    examples: []
+    params:
+    - name: value
+      type: type.any
+      description: the `value` type.any value
+    return_value: type.any
+    see: []
+    signature: 'type.type_of(value: type.any)'

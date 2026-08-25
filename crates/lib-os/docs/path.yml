@@ -4,3 +4,49 @@ category:
 module:
   name: path
   title: Path
+functions:
+  join:
+    description: Call `path.join`.
+    details: Given path.join.
+    signature: path.join()
+    params: []
+    return_value: type.any
+    examples:
+    - path.join()
+    see: []
+  resolve:
+    description: Call `path.resolve`.
+    details: Given path.resolve.
+    signature: path.resolve()
+    params: []
+    return_value: type.any
+    examples:
+    - path.resolve()
+    see: []
+  basename:
+    description: Call `path.basename`.
+    details: Given path.basename.
+    signature: path.basename()
+    params: []
+    return_value: type.any
+    examples:
+    - path.basename()
+    see: []
+  dirname:
+    description: Call `path.dirname`.
+    details: Given path.dirname.
+    signature: path.dirname()
+    params: []
+    return_value: type.any
+    examples:
+    - path.dirname()
+    see: []
+  extname:
+    description: Call `path.extname`.
+    details: Given path.extname.
+    signature: path.extname()
+    params: []
+    return_value: type.any
+    examples:
+    - path.extname()
+    see: []
