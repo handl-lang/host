@@ -138,26 +138,36 @@ impl InfixFragment for Fanout {
 
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, PlatformError>> {
+    ) -> Option<Result<(), PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::Fanout {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume();
 
         let right = match ctx.parse_expr_with_min_bp(56) {
             Ok(r) => r,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
-        let left_src = match expr_to_canonical(&left) {
+        let left_src = match expr_to_canonical(&old_left) {
             Ok(s) => s,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
         let right_src = match expr_to_canonical(&right) {
             Ok(s) => s,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         let body = format!(
@@ -165,12 +175,13 @@ impl InfixFragment for Fanout {
             left_src, right_src
         );
 
-        Some(Ok(Expr::function(
+        *left = Expr::function(
             Vec::new(),
             vec![(Pattern::Identifier("__x".to_string()), None)],
             None,
             body,
-        )))
+        );
+        Some(Ok(()))
     }
 }
 

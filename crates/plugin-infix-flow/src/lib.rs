@@ -32,23 +32,28 @@ impl InfixFragment for Flow {
 
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         let token = ctx.peek().cloned()?;
         let name = match token.kind {
             CanonicalKind::Flow => "fn.flow",
             CanonicalKind::Compose => "fn.compose",
             _ => return None,
         };
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume();
 
         let right = match ctx.parse_expr_with_min_bp(61) {
             Ok(r) => r,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
-        Some(Ok(Expr::call(name, vec![left, right])))
+        *left = Expr::call(name, vec![old_left, right]);
+        Some(Ok(()))
     }
 }
 

@@ -318,10 +318,9 @@ impl ExpressionPipeline {
             }
 
             for &idx in &candidates {
-                if let Some(result) = self.postfixes[idx].try_postfix(left.clone(), ctx) {
+                if let Some(result) = self.postfixes[idx].try_postfix(&mut left, ctx) {
                     match result {
-                        Ok(expr) => {
-                            left = expr;
+                        Ok(()) => {
                             advanced = true;
                             break;
                         }
@@ -372,9 +371,9 @@ impl ExpressionPipeline {
                 None => break,
             };
 
-            match self.infixes[idx].try_infix(left.clone(), ctx) {
+            match self.infixes[idx].try_infix(&mut left, ctx) {
                 None => break,
-                Some(Ok(e)) => left = e,
+                Some(Ok(())) => {}
                 Some(Err(e)) => {
                     if ctx.recover {
                         ctx.error(e.to_string());

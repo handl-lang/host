@@ -209,28 +209,33 @@ impl PostfixFragment for PostfixCalls {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, PlatformError>> {
+    ) -> Option<Result<(), PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::CallOpen {
             return None;
         }
         if Self::arrow_follows_call(ctx) {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume(); // `(`
 
         let mut args = Vec::new();
         if ctx.peek().map(|t| t.kind != CanonicalKind::CallClose).unwrap_or(false) {
             match ctx.parse_expr() {
                 Ok(arg) => args.push(arg),
-                Err(e) => return Some(Err(e)),
+                Err(e) => {
+                    *left = old_left;
+                    return Some(Err(e));
+                }
             }
             while ctx.consume_if(CanonicalKind::Comma) {
                 if ctx.peek().map(|t| t.kind == CanonicalKind::CallClose).unwrap_or(false) {
                     if ctx.recover {
                         ctx.error("trailing comma in call argument list");
                     } else {
+                        *left = old_left;
                         return Some(Err(PlatformError::Plugin(
                             "trailing comma in call argument list".to_string(),
                         )));
@@ -244,6 +249,7 @@ impl PostfixFragment for PostfixCalls {
                             ctx.error(e.to_string());
                             break;
                         } else {
+                            *left = old_left;
                             return Some(Err(e));
                         }
                     }
@@ -255,22 +261,30 @@ impl PostfixFragment for PostfixCalls {
             if ctx.recover {
                 ctx.error(e.to_string());
             } else {
+                *left = old_left;
                 return Some(Err(e));
             }
         }
 
-        let result = match left {
+        let result = match old_left {
             Expr::Var(name) => Expr::call(name, args),
-            _ => Expr::apply(left, args),
+            _ => Expr::apply(old_left, args),
         };
 
         if has_placeholder(&result) {
             match make_partial(result) {
-                Ok(f) => Some(Ok(f)),
-                Err(e) => Some(Err(e)),
+                Ok(f) => {
+                    *left = f;
+                    Some(Ok(()))
+                }
+                Err(e) => {
+                    *left = Expr::Value(NonFunctionValue::default());
+                    Some(Err(e))
+                }
             }
         } else {
-            Some(Ok(result))
+            *left = result;
+            Some(Ok(()))
         }
     }
 }

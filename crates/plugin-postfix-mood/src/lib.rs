@@ -80,9 +80,9 @@ impl PostfixFragment for PostfixMood {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         let kind = match ctx.peek().cloned()?.kind {
             k @ (CanonicalKind::Is
             | CanonicalKind::Must
@@ -92,11 +92,15 @@ impl PostfixFragment for PostfixMood {
             _ => return None,
         };
 
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume();
 
         let target_kind = match self.parse_kind(ctx) {
             Ok(k) => k,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         let mood_fn = match kind {
@@ -108,19 +112,29 @@ impl PostfixFragment for PostfixMood {
             _ => unreachable!(),
         };
 
-        let mut args = vec![left, Expr::Value(NonFunctionValue::new(json!(target_kind)))];
-
-        if matches!(kind, CanonicalKind::When) {
+        let default = if matches!(kind, CanonicalKind::When) {
             if let Err(e) = ctx.expect(CanonicalKind::Else) {
+                *left = old_left;
                 return Some(Err(e));
             }
             match ctx.parse_expr() {
-                Ok(default) => args.push(default),
-                Err(e) => return Some(Err(e)),
+                Ok(default) => Some(default),
+                Err(e) => {
+                    *left = old_left;
+                    return Some(Err(e));
+                }
             }
+        } else {
+            None
+        };
+
+        let mut args = vec![old_left, Expr::Value(NonFunctionValue::new(json!(target_kind)))];
+        if let Some(default) = default {
+            args.push(default);
         }
 
-        Some(Ok(Expr::call(mood_fn, args)))
+        *left = Expr::call(mood_fn, args);
+        Some(Ok(()))
     }
 }
 

@@ -22,12 +22,13 @@ impl PostfixFragment for PostfixField {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::Dot {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume(); // `.`
 
         let field = match ctx.peek().cloned() {
@@ -37,19 +38,22 @@ impl PostfixFragment for PostfixField {
                     name
                 }
                 _ => {
+                    *left = old_left;
                     return Some(Err(handl_platform::PlatformError::Plugin(
                         "expected field name after `.`".to_string(),
                     )))
                 }
             },
             None => {
+                *left = old_left;
                 return Some(Err(handl_platform::PlatformError::Plugin(
                     "expected field name after `.`".to_string(),
                 )))
             }
         };
 
-        Some(Ok(Expr::field_access(left, field)))
+        *left = Expr::field_access(old_left, field);
+        Some(Ok(()))
     }
 }
 

@@ -30,38 +30,43 @@ impl InfixFragment for Pipe {
 
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         let token = ctx.peek().cloned()?;
         let rbp = match token.kind {
             CanonicalKind::Pipe => 41,
             CanonicalKind::BackwardPipe => 39,
             _ => return None,
         };
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume();
 
         let right = match ctx.parse_expr_with_min_bp(rbp) {
             Ok(r) => r,
             Err(e) => {
+                *left = old_left;
                 if ctx.recover {
                     ctx.error(e.to_string());
-                    return Some(Ok(left));
+                    return Some(Ok(()));
                 } else {
                     return Some(Err(e));
                 }
             }
         };
 
-        let result = match token.kind {
-            CanonicalKind::Pipe => Expr::call("fn.pipe", vec![left, right]),
+        *left = match token.kind {
+            CanonicalKind::Pipe => Expr::call("fn.pipe", vec![old_left, right]),
             CanonicalKind::BackwardPipe => {
-                Expr::call("fn.apply", vec![left, Expr::array(vec![right])])
+                Expr::call("fn.apply", vec![old_left, Expr::array(vec![right])])
             }
-            _ => unreachable!(),
+            _ => {
+                *left = old_left;
+                return None;
+            }
         };
 
-        Some(Ok(result))
+        Some(Ok(()))
     }
 }
 

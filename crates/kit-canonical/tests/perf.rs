@@ -53,7 +53,6 @@ fn parse_long_pipe_1000() {
 }
 
 #[test]
-#[ignore = "10k nested fn.pipe overflows the default stack in debug builds"]
 fn parse_long_pipe_10000() {
     let kit = CanonicalKit::new();
     let input = pipe_expr(10000);

@@ -150,59 +150,79 @@ impl PostfixFragment for FunctionLiterals {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
-        let name = match left {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
+        let name = match &old_left {
             Expr::Var(name) => name,
-            _ => return None,
+            _ => {
+                *left = old_left;
+                return None;
+            }
         };
 
         let has_generics = ctx.peek().map(|t| t.kind == CanonicalKind::LessThan).unwrap_or(false);
         if !has_generics && ctx.peek().map(|t| t.kind != CanonicalKind::CallOpen).unwrap_or(true) {
+            *left = old_left;
             return None;
         }
 
         let type_params = if has_generics {
             match self.parse_generic_params(ctx) {
                 Ok(p) => p,
-                Err(e) => return Some(Err(e)),
+                Err(e) => {
+                    *left = old_left;
+                    return Some(Err(e));
+                }
             }
         } else {
             Vec::new()
         };
 
         if let Err(e) = ctx.expect(CanonicalKind::CallOpen) {
+            *left = old_left;
             return Some(Err(e));
         }
 
         let params = match self.parse_param_list(ctx) {
             Ok(p) => p,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         let ret = if ctx.consume_if(CanonicalKind::Colon) {
             match ctx.parse_expr() {
                 Ok(r) => Some(Box::new(r)),
-                Err(e) => return Some(Err(e)),
+                Err(e) => {
+                    *left = old_left;
+                    return Some(Err(e));
+                }
             }
         } else {
             None
         };
 
         if let Err(e) = ctx.expect(CanonicalKind::Arrow) {
+            *left = old_left;
             return Some(Err(e));
         }
 
         let body = match self.capture_body(ctx) {
             Ok(b) => b,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
-        Some(Ok(Expr::assign(
-            Pattern::Identifier(name),
+        *left = Expr::assign(
+            Pattern::Identifier(name.clone()),
             Expr::function(type_params, params, ret, body),
-        )))
+        );
+        Some(Ok(()))
     }
 }
 

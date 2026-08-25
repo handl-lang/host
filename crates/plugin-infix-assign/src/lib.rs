@@ -50,25 +50,33 @@ impl InfixFragment for Assign {
 
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::Equal {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume(); // `=`
 
-        let target = match expr_to_pattern(&left) {
+        let target = match expr_to_pattern(&old_left) {
             Ok(p) => p,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         let right = match ctx.parse_expr_with_min_bp(0) {
             Ok(r) => r,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
-        Some(Ok(Expr::assign(target, right)))
+        *left = Expr::assign(target, right);
+        Some(Ok(()))
     }
 }
 

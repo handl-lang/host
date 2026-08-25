@@ -31,9 +31,9 @@ pub trait PostfixFragment: Send + Sync {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>>;
+    ) -> Option<Result<(), handl_platform::PlatformError>>;
 }
 
 /// A fragment that can parse an infix operator.
@@ -51,11 +51,12 @@ pub trait InfixFragment: Send + Sync {
 
     /// Parses the infix expression whose operator has already been
     /// identified by `binding`. `left` is the already-parsed left-hand
-    /// side. Returns `Some(Ok(expr))` on success, `Some(Err(_))` on a
-    /// parse error, or `None` if this fragment does not apply.
+    /// side, and is updated in place on success. Returns `Some(Ok(()))`
+    /// on success, `Some(Err(_))` on a parse error, or `None` if this
+    /// fragment does not apply.
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>>;
+    ) -> Option<Result<(), handl_platform::PlatformError>>;
 }

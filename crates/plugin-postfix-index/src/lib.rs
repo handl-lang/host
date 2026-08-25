@@ -22,24 +22,30 @@ impl PostfixFragment for PostfixIndex {
 
     fn try_postfix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::BracketOpen {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume(); // `[`
 
         let index = match ctx.parse_expr() {
             Ok(i) => i,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         if let Err(e) = ctx.expect(CanonicalKind::BracketClose) {
+            *left = old_left;
             return Some(Err(e));
         }
 
-        Some(Ok(Expr::index(left, index)))
+        *left = Expr::index(old_left, index);
+        Some(Ok(()))
     }
 }
 

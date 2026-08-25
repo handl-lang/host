@@ -29,29 +29,38 @@ impl InfixFragment for Ternary {
 
     fn try_infix(
         &self,
-        left: Expr<NonFunctionValue>,
+        left: &mut Expr<NonFunctionValue>,
         ctx: &mut ParseContext,
-    ) -> Option<Result<Expr<NonFunctionValue>, handl_platform::PlatformError>> {
+    ) -> Option<Result<(), handl_platform::PlatformError>> {
         if ctx.peek()?.kind != CanonicalKind::Question {
             return None;
         }
+        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
         ctx.consume(); // `?`
 
         let then_ = match ctx.parse_expr_with_min_bp(29) {
             Ok(e) => e,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
         if let Err(e) = ctx.expect(CanonicalKind::Colon) {
+            *left = old_left;
             return Some(Err(e));
         }
 
         let else_ = match ctx.parse_expr_with_min_bp(29) {
             Ok(e) => e,
-            Err(e) => return Some(Err(e)),
+            Err(e) => {
+                *left = old_left;
+                return Some(Err(e));
+            }
         };
 
-        Some(Ok(Expr::call("if", vec![left, then_, else_])))
+        *left = Expr::call("if", vec![old_left, then_, else_]);
+        Some(Ok(()))
     }
 }
 
