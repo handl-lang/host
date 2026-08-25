@@ -10,9 +10,11 @@ websocket_whatwg:
     - 'websocket_whatwg.websocket_whatwg()'
     see: []
   connect:
-    description: Open a browser WebSocket connection to a URL.
+    description: Open a WHATWG WebSocket connection to a URL.
     details: |
       `websocket_whatwg.connect(url)` returns a connection object with `connection_id`.
+      On `wasm32` this uses the browser `WebSocket`; on native targets it uses
+      `tokio-tungstenite` with TLS.
     signature: 'websocket_whatwg.connect(url: string) -> object'
     params:
     - name: url

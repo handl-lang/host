@@ -1408,12 +1408,15 @@ name = "handl-lib-websocket-whatwg"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "futures-util",
  "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",
  "js-sys",
  "serde",
  "serde_json",
+ "tokio",
+ "tokio-tungstenite",
  "wasm-bindgen",
  "web-sys",
 ]
