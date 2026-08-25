@@ -47,3 +47,6 @@ node_modules
 # Generated Rust API docs
 /docs/api
 /docs/reference
+
+# Local project plans/notes
+/project/
