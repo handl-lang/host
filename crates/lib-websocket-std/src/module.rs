@@ -237,9 +237,11 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
     let host = url
         .host_str()
         .ok_or(Error::PrimitiveError("missing host".to_string()))?;
-    let port = url
-        .port()
-        .ok_or(Error::PrimitiveError("missing port".to_string()))?;
+    let port = url.port().or_else(|| match url.scheme() {
+        "ws" => Some(80),
+        "wss" => Some(443),
+        _ => None,
+    }).ok_or(Error::PrimitiveError("missing port".to_string()))?;
     let ip = (host, port)
         .to_socket_addrs()
         .map_err(|e| Error::PrimitiveError(format!("dns lookup: {e}")))?
@@ -797,5 +799,70 @@ mod tests {
             .unwrap()
             .call(&[server_id], &mut ctx)
             .unwrap();
+    }
+
+    #[test]
+    fn socket_addr_default_ports() {
+        let ws = socket_addr("ws://127.0.0.1").unwrap();
+        assert_eq!(ws.port(), 80);
+
+        let wss = socket_addr("wss://127.0.0.1").unwrap();
+        assert_eq!(wss.port(), 443);
+    }
+
+    #[test]
+    fn socket_addr_rejects_garbage() {
+        assert!(socket_addr("not-an-address").is_err());
+    }
+
+    #[test]
+    fn recv_unconnected_client_returns_null() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WebsocketRfcStdModule;
+
+        let client = m
+            .function("client")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
+
+        let msg = m
+            .function("recv")
+            .unwrap()
+            .call(&[client], &mut ctx)
+            .unwrap();
+
+        assert!(msg.inner().is_null());
+    }
+
+    #[test]
+    fn listen_to_invalid_addr_fails() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WebsocketRfcStdModule;
+
+        let server_id = m
+            .function("server")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
+
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let result = m
+            .function("listen")
+            .unwrap()
+            .call(
+                &[server_id, NonFunctionValue::new(serde_json::json!("not-an-address")), handler],
+                &mut ctx,
+            );
+
+        assert!(result.is_err());
     }
 }
