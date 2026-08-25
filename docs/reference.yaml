@@ -77,9 +77,4 @@ reference:
   include:
   - crate: handl-lib-utils
     reexports_from: set
-- title: Template
-  slug: template
-  description: Template rendering and compilation functions.
-  include:
-  - crate: handl-lib-utils
-    reexports_from: template
+
