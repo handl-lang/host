@@ -5,7 +5,7 @@
 use handl_lib_parse::{DynParser, ParseError, Parser};
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_vm_values_json::NonFunctionValue;
 use iri_string::types::UriString;
 use serde_json::{Value, json};
 
@@ -111,18 +111,9 @@ impl Function<NonFunctionValue> for UrlRfcName {
             });
         }
 
-        let parse_fn = FunctionValue {
-            params: vec![("input".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"parse.parse(input, "url_rfc")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
-
         Ok(NonFunctionValue::new(json!({
             "type": "parser",
             "name": "url_rfc",
-            "parse": parse_fn,
         })))
     }
 }
@@ -167,11 +158,11 @@ mod tests {
     }
 
     #[test]
-    fn url_rfc_object_is_parser() {
+    fn url_rfc_object_is_parser_token() {
         let mut ctx = CanonicalContext::new();
         let obj = UrlRfcName.call(&[], &mut ctx).unwrap().into_inner();
         assert_eq!(obj["type"], "parser");
         assert_eq!(obj["name"], "url_rfc");
-        assert!(obj.get("parse").is_some());
+        assert!(obj.get("parse").is_none());
     }
 }

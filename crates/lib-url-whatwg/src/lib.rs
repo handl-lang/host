@@ -5,7 +5,7 @@
 use handl_lib_parse::{DynParser, ParseError, Parser};
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_vm_values_json::NonFunctionValue;
 use serde_json::{Value, json};
 
 /// Parser for the WHATWG URL Standard.
@@ -114,18 +114,9 @@ impl Function<NonFunctionValue> for UrlWhatwgName {
             });
         }
 
-        let parse_fn = FunctionValue {
-            params: vec![("input".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"parse.parse(input, "url_whatwg")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
-
         Ok(NonFunctionValue::new(json!({
             "type": "parser",
             "name": "url_whatwg",
-            "parse": parse_fn,
         })))
     }
 }
@@ -168,11 +159,11 @@ mod tests {
     }
 
     #[test]
-    fn url_whatwg_object_is_parser() {
+    fn url_whatwg_object_is_parser_token() {
         let mut ctx = CanonicalContext::new();
         let obj = UrlWhatwgName.call(&[], &mut ctx).unwrap().into_inner();
         assert_eq!(obj["type"], "parser");
         assert_eq!(obj["name"], "url_whatwg");
-        assert!(obj.get("parse").is_some());
+        assert!(obj.get("parse").is_none());
     }
 }

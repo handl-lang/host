@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_lib_parse::ParserRegistry;
+use handl_lib_parse::DynParser;
 use handl_lib_url_rfc::Rfc;
 use handl_lib_url_whatwg::Whatwg;
 use handl_vm::{Context, Function};
@@ -17,12 +18,10 @@ pub struct ParseModule {
 impl ParseModule {
     /// Creates a `ParseModule` with the default parsers.
     pub fn new() -> Self {
-        let registry = Arc::new(
-            ParserRegistry::new()
-                .with("url_whatwg", Whatwg)
-                .with("url_rfc", Rfc),
-        );
-        Self { parse: Parse { registry } }
+        let mut parsers: HashMap<String, Arc<dyn DynParser>> = HashMap::new();
+        parsers.insert("url_whatwg".to_string(), Arc::new(Whatwg));
+        parsers.insert("url_rfc".to_string(), Arc::new(Rfc));
+        Self { parse: Parse { parsers } }
     }
 }
 
@@ -46,7 +45,7 @@ impl Module for ParseModule {
 }
 
 struct Parse {
-    registry: Arc<ParserRegistry>,
+    parsers: HashMap<String, Arc<dyn DynParser>>,
 }
 
 impl Function<NonFunctionValue> for Parse {
@@ -65,7 +64,7 @@ impl Function<NonFunctionValue> for Parse {
         let input = value_as_string(&args[0])?;
         let name = parser_name(&args[1])?;
         let parser = self
-            .registry
+            .parsers
             .get(&name)
             .ok_or_else(|| handl_vm::Error::PrimitiveError(format!("unknown parser: {name}")))?;
 
@@ -78,14 +77,10 @@ impl Function<NonFunctionValue> for Parse {
 }
 
 fn parser_name(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFunctionValue>> {
-    if let Some(s) = value.as_str() {
-        return Ok(s.to_string());
-    }
-
     let Some(obj) = value.as_object() else {
         return Err(handl_vm::Error::TypeMismatch {
-            expected: "string or parser object",
-            got: "non-string, non-object",
+            expected: "parser object",
+            got: "non-object",
         });
     };
 

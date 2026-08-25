@@ -45,7 +45,7 @@ impl Serializer for Json {
 
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_vm_values_json::NonFunctionValue;
 
 /// The `json` module.
 ///
@@ -82,25 +82,9 @@ impl Function<NonFunctionValue> for JsonName {
                 got: args.len(),
             });
         }
-        let serialize = FunctionValue {
-            params: vec![("value".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"serialize.serialize(value, "json")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
-        let deserialize = FunctionValue {
-            params: vec![("text".to_string(), Value::Null)],
-            return_schema: None,
-            body: r#"serialize.deserialize(text, "json")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
         Ok(NonFunctionValue::new(serde_json::json!({
             "type": "serializer",
             "name": "json",
-            "serialize": serialize,
-            "deserialize": deserialize
         })))
     }
 }

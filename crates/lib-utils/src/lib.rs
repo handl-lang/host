@@ -20,7 +20,7 @@
 //!   `str.strip_prefix`, `str.strip_suffix`, `str.lines`, `str.rfind`,
 //!   `str.capitalize`, `str.title_case`, `str.snake_case`, `str.camel_case`,
 //!   `str.pascal_case`, `str.kebab_case`, `str.split_at`, `str.trim_matches`,
-//!   `str.is_empty`, `str.equals`, `str.bytes`, `str.is_alpha`,
+//!   `str.is_empty`, `str.equals`, `str.is_alpha`,
 //!   `str.is_numeric`, `str.is_alphanumeric`, `str.levenshtein`,
 //!   `str.similarity`, `str.split_whitespace`, `str.truncate`,
 //!   `str.slugify`, `str.word_wrap`
@@ -57,8 +57,9 @@
 //!   `obj.invert`, `obj.path_or`, `obj.set_path`, `obj.update_path`,
 //!   `obj.size`, `obj.clone_deep`
 //! - [`FnModule`] — `fn.pipe`, `fn.flow`, `fn.compose`, `fn.fanout`,
-//!   `fn.choice`, `fn.apply`, `fn.tap`, `fn.constantly`, `fn.flip`,
-//!   `fn.partial`, `fn.when`, `fn.unless`, `fn.converge`
+//!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.tap`,
+//!   `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`, `fn.unless`,
+//!   `fn.converge`
 //! - [`TypeModule`] — `type.to_string`, `type.to_number`, `type.to_bool`,
 //!   `type.is_null`, `type.is_bool`, `type.is_number`, `type.is_string`,
 //!   `type.is_array`, `type.is_object`, `type.type_of`, `type.is_empty`,

@@ -46,7 +46,7 @@ impl Serializer for Yaml {
 
 use handl_vm::{Context, Function};
 use handl_vm_common::Module;
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_vm_values_json::NonFunctionValue;
 
 /// The `yaml` module.
 ///
@@ -83,25 +83,9 @@ impl Function<NonFunctionValue> for YamlName {
                 got: args.len(),
             });
         }
-        let serialize = FunctionValue {
-            params: vec![("value".to_string(), JsonValue::Null)],
-            return_schema: None,
-            body: r#"serialize.serialize(value, "yaml")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
-        let deserialize = FunctionValue {
-            params: vec![("text".to_string(), JsonValue::Null)],
-            return_schema: None,
-            body: r#"serialize.deserialize(text, "yaml")"#.to_string(),
-            patterns: vec![],
-        }
-        .to_json();
         Ok(NonFunctionValue::new(serde_json::json!({
             "type": "serializer",
             "name": "yaml",
-            "serialize": serialize,
-            "deserialize": deserialize
         })))
     }
 }
