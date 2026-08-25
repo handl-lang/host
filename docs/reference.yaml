@@ -164,19 +164,14 @@ reference:
   description: Standard utility modules for the handl runtime.
   include:
   - crate: handl-lib-utils
-- title: WebSocket (RFC 6455) Core
-  slug: lib-ws-rfc
-  description: WebSocket frame, message, and helper functions for runtime modules.
-  include:
-  - crate: handl-lib-ws-rfc
-- title: WebSocket (RFC 6455) In-Memory
+- title: WebSocket (RFC 6455)
   slug: lib-ws-rfc-memory
-  description: In-process WebSocket client/server runtime module.
+  description: WebSocket frame, message, and in-process client/server handling.
   include:
   - crate: handl-lib-ws-rfc-memory
-- title: WebSocket (RFC 6455) Native
+- title: WebSocket (RFC 6455)
   slug: lib-ws-rfc-native
-  description: Real WebSocket client/server runtime module using tokio-tungstenite.
+  description: Real WebSocket frame, message, and client/server handling using tokio-tungstenite.
   include:
   - crate: handl-lib-ws-rfc-native
 - title: Ws Whatwg Native

@@ -6,7 +6,7 @@
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:gen-api": "cargo +nightly doc-md --workspace --no-deps --include-private -o docs/api",
-    "docs:gen-ref": "cargo run -p handl-reference-gen",
+    "docs:gen-ref": "python3 scripts/gen_reference.py",
     "docs:build": "bun run docs:gen-api && bun run docs:gen-ref && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
