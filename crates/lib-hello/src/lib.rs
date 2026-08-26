@@ -9,6 +9,15 @@ pub fn greet(name: &str) -> String {
     format!("Hello, {name}!")
 }
 
+fn parse_greet_arg(arg: &str) -> Option<String> {
+    let rest = arg.strip_prefix("hello.greet")?;
+    let rest = rest.trim();
+    let inner = rest.strip_prefix("(")?.strip_suffix(")")?;
+    let inner = inner.trim();
+    let quoted = inner.strip_prefix('"')?.strip_suffix('"')?;
+    Some(quoted.to_string())
+}
+
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
@@ -105,11 +114,19 @@ impl Plugin for HelloPlugin {
         request: &CapabilityRequest,
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
-        let name = request
+        let name = if let Some(name) = request.payload.get("name").and_then(|v| v.as_str()) {
+            name.to_string()
+        } else if let Some(arg) = request
             .payload
-            .get("name")
+            .get("args")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
             .and_then(|v| v.as_str())
-            .unwrap_or("world");
-        Ok(CapabilityResponse(serde_json::Value::String(greet(name))))
+        {
+            parse_greet_arg(arg).unwrap_or_else(|| "world".to_string())
+        } else {
+            "world".to_string()
+        };
+        Ok(CapabilityResponse(serde_json::Value::String(greet(&name))))
     }
 }

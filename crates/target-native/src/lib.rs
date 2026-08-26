@@ -6,10 +6,28 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     OptionSchema, OptionScope, OptionsPlugin, PlatformError, Plugin, PluginContext,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A `Target` plugin that contributes the `target` option and a native code
 /// generation plugin.
-pub struct NativeTarget;
+pub struct NativeTarget {
+    registered: AtomicBool,
+}
+
+impl NativeTarget {
+    /// Create a new `NativeTarget`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for NativeTarget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Plugin for NativeTarget {
     fn id(&self) -> &str {
@@ -29,6 +47,10 @@ impl Plugin for NativeTarget {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
         ctx.contribute::<OptionsPlugin>(OptionSchema {
             id: "target".into(),
             scope: OptionScope::Global,

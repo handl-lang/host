@@ -3,6 +3,7 @@ use handl_platform::{
     Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,
     RuleAcceptor,
 };
+use serde_json::json;
 
 pub struct EvalPlugin {
     capabilities: Vec<CapabilityId>,
@@ -43,36 +44,57 @@ impl Plugin for EvalPlugin {
     fn run(
         &self,
         request: &CapabilityRequest,
-        _ctx: &mut PluginContext,
+        ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
         if !self.capabilities.contains(&request.capability) {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
         match &request.payload {
             serde_json::Value::Object(map) => {
-                if let Some(expr) = map.get("expr").and_then(|v| v.as_str()) {
-                    let value: serde_json::Value = serde_json::from_str(expr)
-                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
-                    return Ok(CapabilityResponse(value));
-                }
-                if let Some(args) = map.get("args").and_then(|v| v.as_array()) {
-                    let joined = args
-                        .iter()
+                let expr = if let Some(expr) = map.get("expr").and_then(|v| v.as_str()) {
+                    expr.to_string()
+                } else if let Some(args) = map.get("args").and_then(|v| v.as_array()) {
+                    args.iter()
                         .filter_map(|v| v.as_str())
                         .collect::<Vec<_>>()
-                        .join(" ");
-                    let value: serde_json::Value = serde_json::from_str(&joined)
-                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
-                    let value = normalize_number(value);
-                    return Ok(CapabilityResponse(value));
+                        .join(" ")
+                } else {
+                    return Err(PlatformError::InvalidMetadata("missing expr or args".into()));
+                };
+
+                if let Some(name) = parse_greet_expr(&expr) {
+                    let cap = CapabilityId::from("hello.greet");
+                    let plugin = ctx
+                        .plugins
+                        .resolve(&cap)
+                        .ok_or_else(|| PlatformError::UnknownCapability(cap.clone()))?;
+                    return plugin.run(
+                        &CapabilityRequest {
+                            capability: cap,
+                            payload: json!({ "name": name }),
+                        },
+                        ctx,
+                    );
                 }
-                Err(PlatformError::InvalidMetadata("missing expr or args".into()))
+
+                let value: serde_json::Value = serde_json::from_str(&expr)
+                    .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+                Ok(CapabilityResponse(normalize_number(value)))
             }
             _ => Err(PlatformError::InvalidMetadata("expected object payload".into())),
         }
     }
 }
 
+
+fn parse_greet_expr(expr: &str) -> Option<String> {
+    let rest = expr.strip_prefix("hello.greet")?;
+    let rest = rest.trim();
+    let inner = rest.strip_prefix("(")?.strip_suffix(")")?;
+    let inner = inner.trim();
+    let quoted = inner.strip_prefix('"')?.strip_suffix('"')?;
+    Some(quoted.to_string())
+}
 
 fn normalize_number(value: serde_json::Value) -> serde_json::Value {
     match value {

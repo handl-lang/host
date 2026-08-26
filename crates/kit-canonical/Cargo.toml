@@ -18,7 +18,6 @@ handl-ext-fmt = { path = "../ext-fmt" }
 handl-ext-lint = { path = "../ext-lint" }
 handl-ext-typecheck = { path = "../ext-typecheck" }
 handl-ext-eval = { path = "../ext-eval" }
-handl-lib-hello = { path = "../lib-hello" }
 handl-target-native = { path = "../target-native" }
 
 handl-plugin-ast-apply = { path = "../plugin-ast-apply" }

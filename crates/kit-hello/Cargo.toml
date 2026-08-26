@@ -1,0 +1,9 @@
+[package]
+name = "handl-kit-hello"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-kit-canonical = { workspace = true }
+handl-lib-hello = { workspace = true }

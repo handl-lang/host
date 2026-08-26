@@ -15,6 +15,7 @@ members = [
     "crates/parser",
     "crates/parser-common",
     "crates/kit-canonical",
+    "crates/kit-hello",
     "crates/lib-hello",
     "crates/lib-archive",
     "crates/lib-compress",
@@ -83,6 +84,9 @@ path = "crates/lexer-common"
 
 [workspace.dependencies.handl-kit-canonical]
 path = "crates/kit-canonical"
+
+[workspace.dependencies.handl-kit-hello]
+path = "crates/kit-hello"
 
 [workspace.dependencies.handl-plugin-ast-call]
 path = "crates/plugin-ast-call"

@@ -6,6 +6,7 @@
 //! `handl-parser-canonical` crates.
 
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use handl_ast::{Expr, Node, Stmt};
@@ -20,8 +21,8 @@ use handl_ext_parser::BasicParser;
 use handl_ext_fmt::BasicFormatter;
 use handl_ext_lint::BasicLinter;
 use handl_ext_typecheck::BasicTypechecker;
-use handl_ext_eval::BasicEvaluator;
-use handl_lib_hello::HelloLibraryPlugin;
+use handl_ext_eval::EvalPlugin;
+
 use handl_target_native::NativeTarget;
 use handl_plugin_ast_apply::Apply;
 use handl_plugin_ast_array::Array;
@@ -1118,7 +1119,24 @@ impl Kit {
 }
 
 /// ADR-0002 `Library` plugin for the canonical kit.
-pub struct CanonicalKit;
+pub struct CanonicalKit {
+    registered: AtomicBool,
+}
+
+impl CanonicalKit {
+    /// Create a new `CanonicalKit`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for CanonicalKit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Plugin for CanonicalKit {
     fn id(&self) -> &str {
@@ -1138,18 +1156,22 @@ impl Plugin for CanonicalKit {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
         // Canonical language operation RuleAcceptors
         ctx.register_plugin(BasicLexer::new())?;
         ctx.register_plugin(BasicParser::new())?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
-        ctx.register_plugin(BasicEvaluator::new())?;
+        ctx.register_plugin(EvalPlugin::new())?;
         ctx.register_plugin(OptionsPlugin::new())?;
 
         // Target and library plugins
-        ctx.register_plugin(NativeTarget)?;
-        ctx.register_plugin(HelloLibraryPlugin::new())?;
+        ctx.register_plugin(NativeTarget::new())?;
 
         // The canonical manifest lists token, AST-shape, and grammar-rule plugins
         // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide

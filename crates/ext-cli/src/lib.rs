@@ -3,6 +3,7 @@ use handl_platform::{
     Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,
     RuleAcceptor,
 };
+use serde_json::json;
 
 /// CLI operation marker.
 #[derive(Debug, Clone, Copy)]
@@ -38,6 +39,8 @@ pub struct BasicCli {
     pub rules: Vec<Box<dyn CliBehavior>>,
     /// Option schemas contributed for the CLI.
     pub option_schemas: Vec<OptionSchema>,
+    /// Capabilities provided by the CLI.
+    pub capabilities: Vec<CapabilityId>,
 }
 
 impl BasicCli {
@@ -46,6 +49,7 @@ impl BasicCli {
         Self {
             rules: Vec::new(),
             option_schemas: Vec::new(),
+            capabilities: vec!["cli".into()],
         }
     }
 }
@@ -66,19 +70,54 @@ impl Plugin for BasicCli {
     }
 
     fn capabilities(&self) -> &[CapabilityId] {
-        &[]
+        &self.capabilities
     }
 
-    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
-        None
+    fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        self.capabilities.contains(capability).then(|| {
+            serde_json::json!({
+                "command": "cli",
+                "description": "Dispatches CLI commands to capabilities"
+            })
+        })
     }
 
     fn run(
         &self,
-        _request: &CapabilityRequest,
-        _ctx: &mut PluginContext,
+        request: &CapabilityRequest,
+        ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
-        Ok(CapabilityResponse(serde_json::json!({"commands": []})))
+        if !self.capabilities.contains(&request.capability) {
+            return Err(PlatformError::UnknownCapability(request.capability.clone()));
+        }
+        match &request.payload {
+            serde_json::Value::Object(map) => {
+                let command = map
+                    .get("command")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| PlatformError::InvalidMetadata("missing command".into()))?;
+                let args = map
+                    .get("args")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let command_id = CapabilityId::from(command);
+                let plugin = ctx
+                    .plugins
+                    .resolve(&command_id)
+                    .ok_or_else(|| PlatformError::UnknownCapability(command_id.clone()))?;
+                let request = CapabilityRequest {
+                    capability: command_id,
+                    payload: json!({ "args": args }),
+                };
+                plugin.run(&request, ctx)
+            }
+            _ => Err(PlatformError::InvalidMetadata("expected object payload".into())),
+        }
     }
 }
 

@@ -210,7 +210,8 @@ name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
  "handl-ext-cli",
- "handl-lib-hello",
+ "handl-kit-canonical",
+ "handl-kit-hello",
  "handl-platform",
  "serde_json",
 ]
@@ -236,7 +237,6 @@ dependencies = [
  "handl-ext-parser",
  "handl-ext-typecheck",
  "handl-lexer",
- "handl-lib-hello",
  "handl-parser",
  "handl-platform",
  "handl-plugin-ast-apply",
@@ -274,6 +274,15 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "handl-kit-hello"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-lib-hello",
+ "handl-platform",
 ]
 
 [[package]]
