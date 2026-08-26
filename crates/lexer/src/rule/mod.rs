@@ -4,9 +4,9 @@
 //! current position in the input. Rules are tried in order by [`LexerConfig`];
 //! the first that returns `Some` wins.
 //!
-//! Built-in rules (`StringRule`, `NumberRule`, etc.) live in `handl-lexer-common`.
-//! Custom rules can be defined as structs with state, or wrapped from function
-//! pointers using [`FnRule`].
+//! Concrete rules for strings, numbers, identifiers, comments, etc. are
+//! provided by per-token plugins or by dialect crates; `handl-lexer` only
+//! defines the rule abstraction.
 
 use crate::{LexError, LexerConfig, Token, TokenKind};
 
@@ -28,7 +28,7 @@ pub use fn_rule::FnRule;
 /// # Implementing a custom rule
 ///
 /// ```
-/// use handl_lexer::{DefaultLexError, EofFactory, LexRule, LexerConfig, Span, Token, TokenKind};
+/// use handl_lexer::{DefaultLexError, LexRule, LexerConfig, Span, Token, TokenKind};
 /// use std::fmt;
 ///
 /// #[derive(Debug, Clone, PartialEq)]
@@ -40,14 +40,7 @@ pub use fn_rule::FnRule;
 ///     }
 /// }
 ///
-/// #[derive(Clone)]
-/// struct MyFactory;
-/// impl EofFactory<MyKind> for MyFactory {
-///     fn eof_kind(&self) -> MyKind { MyKind::Eof }
-/// }
-///
 /// impl TokenKind for MyKind {
-///     type Factory = MyFactory;
 ///     fn is_eof(&self) -> bool { matches!(self, MyKind::Eof) }
 ///     fn is_error(&self) -> bool { false }
 /// }

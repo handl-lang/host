@@ -1,626 +1,538 @@
-//! Canonical expression kit: a thin composition of handl expression plugins.
+//! Canonical kit as a generic plugin host.
+//!
+//! `Kit` loads a [`KitManifest`], registers the core canonical plugins, and
+//! composes a [`Lexer`], a parser, and a node factory from them. It no longer
+//! depends on the concrete `handl-ast-canonical`, `handl-lexer-canonical`, or
+//! `handl-parser-canonical` crates.
 
-use handl_ast_canonical::Expr;
-use handl_expr::{ExpressionPipeline, ModuleOutput, ModulePipeline, ParseResult, Stmt};
-use handl_lexer::Token;
-use handl_lexer_canonical::CanonicalKind;
+use std::fmt;
+use std::sync::Arc;
+
+use handl_ast::{Expr, Node};
+use handl_lexer::{DefaultLexError, Lexer, Span, Token, TokenKind};
+use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::PlatformError;
-use handl_plugin_vm_rust::RustVm;
-use handl_runtime::{EvalOutput, RuntimePlugin, TypecheckedOutput, TypecheckPlugin};
-use handl_vm_common::ModuleHost;
-use handl_vm_values_json::NonFunctionValue;
-
-pub mod host;
-pub use host::{CanonicalHost, PluginBundle};
+use handl_plugin_ast_call::Call;
+use handl_plugin_grammar_call::{CallRule, CallToken};
+use handl_plugin_token_number::NumberKind;
 
 pub mod kit_manifest;
 pub use kit_manifest::{canonical_manifest, KitManifest};
 
-/// A ready-to-use canonical handl expression kit.
-pub struct CanonicalKit {
-    module: ModulePipeline,
-    typecheck: Option<Box<dyn TypecheckPlugin>>,
-    runtime: Option<Box<dyn RuntimePlugin>>,
+/// A generic metadata value for kit nodes.
+pub type KitMetadata = ();
+
+static UNIT: KitMetadata = ();
+
+/// Composite token kind produced by the kit's lexer.
+///
+/// Built from `plugin-token-number`'s `NumberKind` plus the call delimiters
+/// required by `plugin-grammar-call`'s `CallRule`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum KitToken {
+    /// A numeric literal (provided by `plugin-token-number`).
+    Number(NumberKind),
+    /// `(`
+    CallOpen,
+    /// `)`
+    CallClose,
+    /// `,`
+    Comma,
+    /// End-of-input sentinel.
+    Eof,
 }
 
-impl CanonicalKit {
-    /// Builds a `CanonicalKit` from an already-configured `ExpressionPipeline`.
-    pub fn from_pipeline(pipeline: ExpressionPipeline) -> Self {
-        Self::from_module(ModulePipeline::new(pipeline))
+impl fmt::Display for KitToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KitToken::Number(kind) => kind.fmt(f),
+            KitToken::CallOpen => write!(f, "("),
+            KitToken::CallClose => write!(f, ")"),
+            KitToken::Comma => write!(f, ","),
+            KitToken::Eof => write!(f, "eof"),
+        }
+    }
+}
+
+impl TokenKind for KitToken {
+    fn is_eof(&self) -> bool {
+        matches!(self, KitToken::Eof)
     }
 
-    /// Builds a `CanonicalKit` from an already-configured `ModulePipeline`.
-    pub fn from_module(module: ModulePipeline) -> Self {
-        Self::from_module_with(module, None, None)
+    fn is_error(&self) -> bool {
+        false
+    }
+}
+
+impl CallToken for KitToken {
+    fn is_call_open(&self) -> bool {
+        matches!(self, KitToken::CallOpen)
     }
 
-    /// Builds a `CanonicalKit` from a `ModulePipeline` and optional
-    /// typecheck / runtime plugins.
-    pub fn from_module_with(
-        module: ModulePipeline,
-        typecheck: Option<Box<dyn TypecheckPlugin>>,
-        runtime: Option<Box<dyn RuntimePlugin>>,
-    ) -> Self {
-        Self {
-            module,
-            typecheck,
-            runtime,
+    fn is_call_close(&self) -> bool {
+        matches!(self, KitToken::CallClose)
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, KitToken::Comma)
+    }
+}
+
+/// Generic AST node produced by the canonical kit.
+///
+/// Composes the `Call` node shape from `plugin-ast-call` with a built-in
+/// numeric literal node. More shapes will be added as additional canonical
+/// plugins are created.
+#[derive(Debug, Clone, PartialEq)]
+pub enum KitNode {
+    /// A numeric literal.
+    Number(f64),
+    /// A function call or application (uses `plugin-ast-call::Call`).
+    Call(Call<KitNode, KitMetadata>),
+}
+
+impl Node for KitNode {
+    type Value = f64;
+    type Metadata = KitMetadata;
+
+    fn metadata(&self) -> &Self::Metadata {
+        &UNIT
+    }
+
+    fn with_metadata(self, _metadata: Self::Metadata) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+}
+
+impl Expr for KitNode {
+    fn value(value: Self::Value) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Number(value)
+    }
+
+    fn call<S>(name: S, args: Vec<Self>) -> Self
+    where
+        Self: Sized,
+        S: Into<String>,
+    {
+        KitNode::Call(Call::new(name, args))
+    }
+
+    fn apply(target: Self, args: Vec<Self>) -> Self
+    where
+        Self: Sized,
+    {
+        let mut all = vec![target];
+        all.extend(args);
+        KitNode::Call(Call::new("__apply", all))
+    }
+
+    fn array(_elements: Vec<Self>) -> Self
+    where
+        Self: Sized,
+    {
+        // No array shape plugin yet; stub as a number.
+        KitNode::Number(0.0)
+    }
+
+    fn object(_entries: Vec<(String, Self)>) -> Self
+    where
+        Self: Sized,
+    {
+        // No object shape plugin yet; stub as a number.
+        KitNode::Number(0.0)
+    }
+
+    fn index(_target: Self, _index: Self) -> Self
+    where
+        Self: Sized,
+    {
+        // No index shape plugin yet; stub as a number.
+        KitNode::Number(0.0)
+    }
+}
+
+/// Built-in grammar rule for parsing numeric literals.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NumberRule;
+
+impl GrammarRule<KitToken, KitNode> for NumberRule {
+    fn matches_prefix(&self, kind: &KitToken) -> bool {
+        matches!(kind, KitToken::Number(NumberKind::Number(_)))
+    }
+
+    fn prefix(
+        &self,
+        token: Token<KitToken>,
+        _ctx: &mut dyn ParserContext<KitToken, KitNode>,
+    ) -> Result<KitNode, ParseError> {
+        match token.kind {
+            KitToken::Number(NumberKind::Number(v)) => Ok(KitNode::Number(v)),
+            _ => Err(ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "number literal".into(),
+            }),
         }
     }
 
-    /// Builds the canonical expression kit from the default manifest.
+    fn infix_binding(&self, _kind: &KitToken) -> Option<(u32, u32)> {
+        None
+    }
+
+    fn infix(
+        &self,
+        _left: KitNode,
+        _token: Token<KitToken>,
+        _ctx: &mut dyn ParserContext<KitToken, KitNode>,
+        _rbp: u32,
+    ) -> Result<KitNode, ParseError> {
+        panic!("NumberRule is prefix-only")
+    }
+}
+
+/// The kit's concrete lexer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CanonicalLexer;
+
+impl Lexer<KitToken, DefaultLexError> for CanonicalLexer {
+    fn lex(&self, input: &str) -> Result<Vec<Token<KitToken>>, DefaultLexError> {
+        let mut tokens = Vec::new();
+        let mut chars = input.char_indices().peekable();
+
+        while let Some(&(start, ch)) = chars.peek() {
+            if ch.is_whitespace() {
+                chars.next();
+                continue;
+            }
+
+            if ch == '(' {
+                chars.next();
+                tokens.push(Token::new(KitToken::CallOpen, Span::new(start, start + 1)));
+                continue;
+            }
+
+            if ch == ')' {
+                chars.next();
+                tokens.push(Token::new(KitToken::CallClose, Span::new(start, start + 1)));
+                continue;
+            }
+
+            if ch == ',' {
+                chars.next();
+                tokens.push(Token::new(KitToken::Comma, Span::new(start, start + 1)));
+                continue;
+            }
+
+            if ch.is_ascii_digit() || ch == '-' {
+                chars.next();
+                let mut end = start + ch.len_utf8();
+
+                if ch == '-' && !chars.peek().map_or(false, |(_, c)| c.is_ascii_digit()) {
+                    return Err(DefaultLexError::UnexpectedChar {
+                        span: Span::new(start, end),
+                        char: '-',
+                    });
+                }
+
+                let mut has_dot = false;
+                while let Some(&(pos, c)) = chars.peek() {
+                    if c.is_ascii_digit() {
+                        end = pos + c.len_utf8();
+                        chars.next();
+                    } else if c == '.' && !has_dot {
+                        has_dot = true;
+                        end = pos + 1;
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                let text = &input[start..end];
+                let value = text.parse::<f64>().map_err(|_| DefaultLexError::InvalidNumber {
+                    span: Span::new(start, end),
+                })?;
+
+                tokens.push(Token::new(
+                    KitToken::Number(NumberKind::Number(value)),
+                    Span::new(start, end),
+                ));
+                continue;
+            }
+
+            return Err(DefaultLexError::UnexpectedChar {
+                span: Span::new(start, start + ch.len_utf8()),
+                char: ch,
+            });
+        }
+
+        tokens.push(Token::new(KitToken::Eof, Span::at(input.len())));
+        Ok(tokens)
+    }
+}
+
+struct KitParserContext {
+    tokens: Vec<Token<KitToken>>,
+    source: String,
+    pos: usize,
+    grammar: Arc<dyn Grammar<KitToken, KitNode>>,
+}
+
+impl KitParserContext {
+    fn peek_span(&self) -> Span {
+        self.peek()
+            .map(|t| t.span)
+            .unwrap_or_else(|| Span::at(self.tokens.last().map(|t| t.span.end).unwrap_or(0)))
+    }
+}
+
+impl ParserContext<KitToken, KitNode> for KitParserContext {
+    fn tokens(&self) -> &[Token<KitToken>] {
+        &self.tokens
+    }
+
+    fn source(&self) -> &str {
+        &self.source
+    }
+
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.pos >= self.tokens.len()
+    }
+
+    fn peek(&self) -> Option<&Token<KitToken>> {
+        self.tokens.get(self.pos)
+    }
+
+    fn peek_kind(&self) -> Option<KitToken> {
+        self.peek().map(|t| t.kind.clone())
+    }
+
+    fn advance(&mut self) -> Result<&Token<KitToken>, ParseError> {
+        if self.tokens.get(self.pos).is_some() {
+            let pos = self.pos;
+            self.pos += 1;
+            return Ok(&self.tokens[pos]);
+        }
+        Err(ParseError::UnexpectedEof {
+            span: self.peek_span(),
+            expected: "a token".into(),
+        })
+    }
+
+    fn match_kind(&mut self, kind: KitToken) -> Option<&Token<KitToken>> {
+        let matches = match self.tokens.get(self.pos) {
+            Some(token) => std::mem::discriminant(&token.kind) == std::mem::discriminant(&kind),
+            None => false,
+        };
+        if matches {
+            let pos = self.pos;
+            self.pos += 1;
+            return self.tokens.get(pos);
+        }
+        None
+    }
+
+    fn expect(&mut self, kind: KitToken, label: &str) -> Result<&Token<KitToken>, ParseError> {
+        let span = self.peek_span();
+        match self.match_kind(kind) {
+            Some(token) => Ok(token),
+            None => Err(ParseError::UnexpectedToken {
+                span,
+                expected: label.into(),
+            }),
+        }
+    }
+
+    fn expression(&mut self, min_bp: u32) -> Result<KitNode, ParseError> {
+        let token = self.advance()?.clone();
+        let grammar = self.grammar.clone();
+        let rule = grammar
+            .rule_for(&token.kind)
+            .ok_or_else(|| ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "a prefix expression".into(),
+            })?;
+        let mut left = rule.prefix(token, self)?;
+
+        while let Some(kind) = self.peek_kind() {
+            let grammar = self.grammar.clone();
+            let rule = match grammar.rule_for(&kind) {
+                Some(rule) => rule,
+                None => break,
+            };
+            let (left_bp, right_bp) = match rule.infix_binding(&kind) {
+                Some(bp) => bp,
+                None => break,
+            };
+            if left_bp <= min_bp {
+                break;
+            }
+            let op = self.advance()?.clone();
+            left = rule.infix(left, op, self, right_bp)?;
+        }
+
+        Ok(left)
+    }
+}
+
+/// The kit's parser, built on `handl_parser::CompositeGrammar`.
+pub struct KitParser {
+    grammar: Arc<dyn Grammar<KitToken, KitNode>>,
+}
+
+impl KitParser {
+    fn new(grammar: CompositeGrammar<KitToken, KitNode>) -> Self {
+        let grammar: Arc<dyn Grammar<KitToken, KitNode>> = Arc::new(grammar);
+        Self { grammar }
+    }
+
+    fn parse(&self, tokens: Vec<Token<KitToken>>) -> Result<KitNode, ParseError> {
+        let eof = self.grammar.eof();
+        let mut ctx = KitParserContext {
+            tokens,
+            source: String::new(),
+            pos: 0,
+            grammar: self.grammar.clone(),
+        };
+        let root = self.grammar.parse_root(&mut ctx)?;
+
+        if let Some(eof) = eof {
+            if ctx.match_kind(eof).is_none() && !ctx.is_at_end() {
+                return Err(ParseError::UnexpectedToken {
+                    span: ctx.peek_span(),
+                    expected: "end of input".into(),
+                });
+            }
+        } else if !ctx.is_at_end() {
+            return Err(ParseError::UnexpectedToken {
+                span: ctx.peek_span(),
+                expected: "end of input".into(),
+            });
+        }
+
+        Ok(root)
+    }
+}
+
+/// A curated kit that loads a manifest of plugins and composes a
+/// lexer/parser pipeline from them.
+pub struct Kit {
+    lexer: CanonicalLexer,
+    parser: KitParser,
+}
+
+impl Kit {
+    /// Builds the canonical kit from the default manifest.
     pub fn new() -> Self {
-        Self::default()
+        Self::from_manifest(&canonical_manifest()).expect("canonical manifest should always resolve")
     }
 
-    /// Lexes `input` into a token stream using the configured token rules.
-    pub fn lex(&self, input: &str) -> Vec<Token<CanonicalKind>> {
-        self.module.pipeline.lex(input).expect("canonical lex failed")
-    }
+    /// Builds a `Kit` from a `KitManifest` by registering the listed plugins.
+    pub fn from_manifest(manifest: &KitManifest) -> Result<Self, PlatformError> {
+        let mut has_token_number = false;
+        let mut has_ast_call = false;
+        let mut has_grammar_call = false;
 
-    /// Parses a canonical expression from `input`.
-    ///
-    /// Comments are kept in the token stream as first-class trivia; the parser
-    /// skips them during expression parsing.
-    pub fn parse(&self, input: &str) -> Result<Expr<NonFunctionValue>, PlatformError> {
-        let tokens = self.module.pipeline.lex(input)?;
-        self.module.pipeline.parse_with_source(tokens, input)
-    }
-
-    /// Parses a canonical expression from `input`, recovering from errors.
-    pub fn parse_recovered(&self, input: &str) -> ParseResult<Expr<NonFunctionValue>> {
-        self.module.pipeline.parse_recovered(input)
-    }
-
-    /// Parses a canonical module from `input`.
-    pub fn parse_module(&self, input: &str) -> Result<Vec<Stmt>, PlatformError> {
-        self.module.parse_module(input)
-    }
-
-    /// Parses a canonical module from `input` with error recovery.
-    pub fn parse_module_recovered(&self, input: &str) -> ModuleOutput {
-        self.module.parse_module_with_recovery(input)
-    }
-
-    /// Typecheck a sequence of statements using the registered plugin.
-    pub fn typecheck(&self, stmts: &[Stmt]) -> Result<TypecheckedOutput, PlatformError> {
-        match self.typecheck.as_ref() {
-            Some(plugin) => plugin.typecheck(stmts),
-            None => Err(PlatformError::UnknownCapability("typecheck".into())),
+        for plugin in &manifest.plugins {
+            match plugin.as_str() {
+                "plugin-token-number" => has_token_number = true,
+                "plugin-ast-call" => has_ast_call = true,
+                "plugin-grammar-call" => has_grammar_call = true,
+                other => {
+                    return Err(PlatformError::Plugin(format!(
+                        "unknown canonical plugin: {other}"
+                    )))
+                }
+            }
         }
-    }
 
-    /// Evaluate a sequence of statements using the registered runtime plugin.
-    pub fn eval(&self, stmts: &[Stmt]) -> Result<EvalOutput, PlatformError> {
-        match self.runtime.as_ref() {
-            Some(plugin) => plugin.eval(stmts),
-            None => Err(PlatformError::UnknownCapability("runtime".into())),
+        if !has_token_number || !has_ast_call || !has_grammar_call {
+            return Err(PlatformError::Plugin(
+                "canonical manifest must include plugin-token-number, plugin-ast-call, and plugin-grammar-call".into(),
+            ));
         }
+
+        let grammar = CompositeGrammar::new()
+            .register(NumberRule)
+            .register(CallRule)
+            .eof(KitToken::Eof);
+
+        Ok(Self {
+            lexer: CanonicalLexer,
+            parser: KitParser::new(grammar),
+        })
     }
 
-    /// Installs a library `ModuleHost` into the runtime plugin.
-    pub fn set_runtime_host(&mut self, host: ModuleHost) {
-        self.runtime = Some(Box::new(RustVm::with_modules(host)));
+    /// Lexes `input` into the kit's token stream.
+    pub fn lex(&self, input: &str) -> Result<Vec<Token<KitToken>>, DefaultLexError> {
+        self.lexer.lex(input)
+    }
+
+    /// Parses `input` into a generic [`KitNode`].
+    pub fn parse(&self, input: &str) -> Result<KitNode, ParseError> {
+        let tokens = self.lexer.lex(input).map_err(|e| ParseError::LexError {
+            message: e.to_string(),
+        })?;
+        self.parser.parse(tokens)
+    }
+
+    /// Parses a module. Not yet supported by the minimal canonical plugin set.
+    pub fn parse_module(&self, _input: &str) -> Result<Vec<KitNode>, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 }
 
-impl Default for CanonicalKit {
+impl Default for Kit {
     fn default() -> Self {
-        CanonicalHost::default()
-            .load_kit(&canonical_manifest())
-            .expect("canonical manifest should always resolve")
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_ast_canonical::{Expr, Pattern};
-    use handl_expr::{DiagnosticLevel, Stmt, StmtKind};
 
-    fn parse(input: &str) -> Expr<NonFunctionValue> {
-        CanonicalKit::new().parse(input).unwrap()
+    #[test]
+    fn lex_number() {
+        let kit = Kit::new();
+        let tokens = kit.lex("42").unwrap();
+        assert_eq!(tokens.len(), 2); // number + eof
+        assert_eq!(tokens[0].kind, KitToken::Number(NumberKind::Number(42.0)));
     }
 
     #[test]
-    fn number_literal() {
-        assert_eq!(parse("42"), Expr::Value(NonFunctionValue::new(42.0)));
+    fn parse_number() {
+        let kit = Kit::new();
+        assert_eq!(kit.parse("1").unwrap(), KitNode::Number(1.0));
     }
 
     #[test]
-    fn string_literal() {
-        assert_eq!(
-            parse("\"hi\""),
-            Expr::Value(NonFunctionValue::new("hi".to_string()))
-        );
-    }
-
-    #[test]
-    fn identifier() {
-        assert_eq!(parse("add"), Expr::var("add"));
-    }
-
-    #[test]
-    fn call() {
-        assert_eq!(
-            parse("add(1, 2)"),
-            Expr::call(
-                "add",
-                vec![
-                    Expr::Value(NonFunctionValue::new(1.0)),
-                    Expr::Value(NonFunctionValue::new(2.0)),
-                ],
-            )
-        );
-    }
-
-    #[test]
-    fn index() {
-        assert_eq!(
-            parse("arr[0]"),
-            Expr::index(
-                Expr::var("arr"),
-                Expr::Value(NonFunctionValue::new(0.0)),
-            )
-        );
-    }
-
-    #[test]
-    fn dotted_identifier() {
-        assert_eq!(parse("obj.key"), Expr::var("obj.key"));
-    }
-
-    #[test]
-    fn field_access_after_index() {
-        assert_eq!(
-            parse("arr[0].name"),
-            Expr::field_access(
-                Expr::index(Expr::var("arr"), Expr::Value(NonFunctionValue::new(0.0))),
-                "name",
-            )
-        );
-    }
-
-    #[test]
-    fn mood_is() {
-        assert_eq!(
-            parse("x is int"),
-            Expr::call(
-                "mood.int",
-                vec![
-                    Expr::var("x"),
-                    Expr::Value(NonFunctionValue::new("int".to_string())),
-                ],
-            )
-        );
-    }
-
-    #[test]
-    fn assignment() {
-        assert_eq!(
-            parse("a = 1"),
-            Expr::assign(
-                Pattern::Identifier("a".to_string()),
-                Expr::Value(NonFunctionValue::new(1.0)),
-            )
-        );
-    }
-
-    #[test]
-    fn pipe() {
-        assert_eq!(
-            parse("1 |> add"),
-            Expr::call(
-                "fn.pipe",
-                vec![
-                    Expr::Value(NonFunctionValue::new(1.0)),
-                    Expr::var("add"),
-                ],
-            )
-        );
-    }
-
-    #[test]
-    fn array_literal() {
-        assert_eq!(
-            parse("[1, 2]"),
-            Expr::array(vec![
-                Expr::Value(NonFunctionValue::new(1.0)),
-                Expr::Value(NonFunctionValue::new(2.0)),
-            ])
-        );
-    }
-
-    #[test]
-    fn not_expression() {
-        assert_eq!(
-            parse("not true"),
-            Expr::call(
-                "bool.not",
-                vec![Expr::Value(NonFunctionValue::new(true))],
-            )
-        );
-    }
-
-    #[test]
-    fn function_literal() {
-        assert_eq!(
-            parse("add(a) -> a"),
-            Expr::assign(
-                Pattern::Identifier("add".to_string()),
-                Expr::function(
-                    Vec::new(),
-                    vec![(Pattern::Identifier("a".to_string()), None)],
-                    None,
-                    "a",
-                ),
-            )
-        );
-    }
-
-    #[test]
-    fn comment_skipped_before_value() {
-        assert_eq!(
-            parse("// hello\n42"),
-            Expr::Value(NonFunctionValue::new(42.0))
-        );
-    }
-
-    #[test]
-    fn comment_skipped_in_pipe() {
-        assert_eq!(
-            parse("1 /* comment */ |> add"),
-            Expr::call(
-                "fn.pipe",
-                vec![
-                    Expr::Value(NonFunctionValue::new(1.0)),
-                    Expr::var("add"),
-                ],
-            )
-        );
-    }
-
-    #[test]
-    fn comment_skipped_in_array() {
-        assert_eq!(
-            parse("[1, /* inline */ 2]"),
-            Expr::array(vec![
-                Expr::Value(NonFunctionValue::new(1.0)),
-                Expr::Value(NonFunctionValue::new(2.0)),
-            ])
-        );
-    }
-
-    #[test]
-    fn match_expression() {
-        assert_eq!(
-            parse("match x { 1 -> 2 }"),
-            Expr::call(
-                "fn.match",
-                vec![
-                    Expr::var("x"),
-                    Expr::array(vec![
-                        Expr::Value(NonFunctionValue::new(1.0)),
-                        Expr::function(Vec::new(), Vec::new(), None, "2"),
-                    ]),
-                ],
-            )
-        );
-    }
-
-    #[test]
-    fn performance_long_pipe() {
-        use std::time::Instant;
-
-        let mut input = "1".to_string();
-        for _ in 0..333 {
-            input.push_str(" |> a");
-        }
-
-        let kit = CanonicalKit::new();
-        let start = Instant::now();
-        let expr = kit.parse(&input).unwrap();
-        let elapsed = start.elapsed();
-
-        eprintln!("parsed {} tokens in {:?}", 1 + 333 * 3, elapsed);
-
-        // The exact shape is a deeply nested `fn.pipe` call; we just
-        // confirm it returned an expression and completed.
-        assert!(matches!(expr, Expr::Call { .. }));
-    }
-
-    #[test]
-    fn handle_expression() {
-        use handl_ast_canonical::HandlerClause;
-        assert_eq!(
-            parse("handle add as add"),
-            Expr::handle(
-                Expr::var("add"),
-                vec![HandlerClause {
-                    op_name: "add".to_string(),
-                    params: Vec::new(),
-                    continuation_name: String::new(),
-                    body: Expr::var("add"),
-                }],
-            )
-        );
-    }
-
-    #[test]
-    fn kit_from_minimal_manifest() {
-        let manifest = KitManifest {
-            id: "minimal".to_string(),
-            version: "0.1.0".to_string(),
-            plugins: vec![
-                "numbers".to_string(),
-                "strings".to_string(),
-                "identifiers".to_string(),
-                "delimiters".to_string(),
-                "operators".to_string(),
-                "primary-values".to_string(),
-                "primary-identifiers".to_string(),
-                "postfix-calls".to_string(),
-                "infix-assign".to_string(),
+    fn parse_call() {
+        let kit = Kit::new();
+        let node = kit.parse("1(2, 3)").unwrap();
+        let expected = KitNode::Call(Call::new(
+            "__apply",
+            vec![
+                KitNode::Number(1.0),
+                KitNode::Number(2.0),
+                KitNode::Number(3.0),
             ],
-        };
-
-        let kit = CanonicalHost::default().load_kit(&manifest).unwrap();
-        assert_eq!(
-            kit.parse("a = 1").unwrap(),
-            Expr::assign(
-                Pattern::Identifier("a".to_string()),
-                Expr::Value(NonFunctionValue::new(1.0)),
-            )
-        );
-    }
-
-    #[test]
-    fn kit_from_default_manifest_parses_pipe_call() {
-        let kit = CanonicalKit::new();
-        let expr = kit.parse("1 |> add(2, 3)").unwrap();
-        assert_eq!(
-            expr,
-            Expr::call(
-                "fn.pipe",
-                vec![
-                    Expr::Value(NonFunctionValue::new(1.0)),
-                    Expr::call(
-                        "add",
-                        vec![
-                            Expr::Value(NonFunctionValue::new(2.0)),
-                            Expr::Value(NonFunctionValue::new(3.0)),
-                        ],
-                    ),
-                ],
-            )
-        );
-    }
-
-    fn parse_module(input: &str) -> Vec<Stmt> {
-        CanonicalKit::new().parse_module_recovered(input).stmts
-    }
-
-    fn parse_module_output(input: &str) -> ModuleOutput {
-        CanonicalKit::new().parse_module_recovered(input)
-    }
-
-    #[test]
-    fn module_let() {
-        assert_eq!(
-            parse_module("let a = 1;"),
-            vec![Stmt::new(StmtKind::Let {
-                pattern: Pattern::Identifier("a".to_string()),
-                value: Expr::Value(NonFunctionValue::new(1.0)),
-            })]
-        );
-    }
-
-    #[test]
-    fn module_let_and_const() {
-        assert_eq!(
-            parse_module("let a = 1; const b = 2;"),
-            vec![
-                Stmt::new(StmtKind::Let {
-                    pattern: Pattern::Identifier("a".to_string()),
-                    value: Expr::Value(NonFunctionValue::new(1.0)),
-                }),
-                Stmt::new(StmtKind::Const {
-                    pattern: Pattern::Identifier("b".to_string()),
-                    value: Expr::Value(NonFunctionValue::new(2.0)),
-                }),
-            ]
-        );
-    }
-
-    #[test]
-    fn module_import_export() {
-        assert_eq!(
-            parse_module("import \"path\"; export a;"),
-            vec![
-                Stmt::new(StmtKind::Import {
-                    source: Expr::Value(NonFunctionValue::new("path".to_string())),
-                }),
-                Stmt::new(StmtKind::Export {
-                    value: Expr::var("a"),
-                }),
-            ]
-        );
-    }
-
-    #[test]
-    fn module_let_then_expr() {
-        assert_eq!(
-            parse_module("let a = 1; a"),
-            vec![
-                Stmt::new(StmtKind::Let {
-                    pattern: Pattern::Identifier("a".to_string()),
-                    value: Expr::Value(NonFunctionValue::new(1.0)),
-                }),
-                Stmt::new(StmtKind::Expr(Expr::var("a"))),
-            ]
-        );
-    }
-
-    #[test]
-    fn module_declaration() {
-        assert_eq!(
-            parse_module("module m;"),
-            vec![Stmt::new(StmtKind::Module {
-                name: "m".to_string(),
-                body: None,
-            })]
-        );
-    }
-
-    #[test]
-    fn module_recovers_after_bad_let() {
-        let output = parse_module_output("let a = ; const b = 2;");
-        assert_eq!(output.diagnostics.len(), 1);
-        assert_eq!(output.diagnostics[0].level, handl_expr::DiagnosticLevel::Error);
-        assert_eq!(
-            output.stmts,
-            vec![Stmt::new(StmtKind::Const {
-                pattern: Pattern::Identifier("b".to_string()),
-                value: Expr::Value(NonFunctionValue::new(2.0)),
-            })]
-        );
-    }
-
-    #[test]
-    fn module_recovers_after_unclosed_call() {
-        let output = parse_module_output("let a = 1; f(");
-        assert_eq!(output.diagnostics.len(), 1);
-        assert_eq!(output.diagnostics[0].level, handl_expr::DiagnosticLevel::Error);
-        assert_eq!(
-            output.stmts,
-            vec![Stmt::new(StmtKind::Let {
-                pattern: Pattern::Identifier("a".to_string()),
-                value: Expr::Value(NonFunctionValue::new(1.0)),
-            })]
-        );
-    }
-
-    #[test]
-    fn module_recovers_after_bad_import() {
-        let output = parse_module_output("import ; export a;");
-        assert_eq!(output.diagnostics.len(), 1);
-        assert_eq!(output.diagnostics[0].level, handl_expr::DiagnosticLevel::Error);
-        assert_eq!(
-            output.stmts,
-            vec![Stmt::new(StmtKind::Export {
-                value: Expr::var("a"),
-            })]
-        );
-    }
-
-    #[test]
-    fn kit_typecheck_simple_value() {
-        let kit = CanonicalKit::new();
-        let stmts = vec![Stmt::new(StmtKind::Expr(Expr::Value(NonFunctionValue::new(42.0))))];
-        let output = kit.typecheck(&stmts).unwrap();
-        assert!(output.success);
-    }
-
-    #[test]
-    fn kit_eval_simple_value() {
-        let kit = CanonicalKit::new();
-        let stmts = vec![Stmt::new(StmtKind::Expr(Expr::Value(NonFunctionValue::new(42.0))))];
-        let output = kit.eval(&stmts).unwrap();
-        assert_eq!(output.values.len(), 1);
-        assert_eq!(output.values[0].as_number(), Some(42.0));
-    }
-
-    #[test]
-    fn module_preserves_leading_comment() {
-        let output = parse_module_output("// hello\nlet a = 1;");
-        assert_eq!(output.stmts.len(), 1);
-        assert_eq!(output.stmts[0].leading.len(), 1);
-        assert!(matches!(
-            output.stmts[0].leading[0].kind,
-            handl_lexer_canonical::CanonicalKind::Comment(_)
         ));
-        assert_eq!(
-            output.stmts[0].kind,
-            StmtKind::Let {
-                pattern: Pattern::Identifier("a".to_string()),
-                value: Expr::Value(NonFunctionValue::new(1.0)),
-            }
-        );
+        assert_eq!(node, expected);
     }
 
     #[test]
-    fn module_preserves_trailing_comment() {
-        let output = parse_module_output("let a = 1 /* x */;");
-        assert_eq!(output.stmts.len(), 1);
-        assert_eq!(output.stmts[0].trailing.len(), 1);
-        assert!(matches!(
-            output.stmts[0].trailing[0].kind,
-            handl_lexer_canonical::CanonicalKind::Comment(_)
-        ));
-        assert_eq!(
-            output.stmts[0].kind,
-            StmtKind::Let {
-                pattern: Pattern::Identifier("a".to_string()),
-                value: Expr::Value(NonFunctionValue::new(1.0)),
-            }
-        );
-    }
-
-    fn parse_expr_recovered(input: &str) -> handl_expr::ParseResult<Expr<NonFunctionValue>> {
-        CanonicalKit::new().parse_recovered(input)
-    }
-
-    #[test]
-    fn recovers_from_missing_rhs() {
-        let r = parse_expr_recovered("1 |>");
-        assert_eq!(r.value, Expr::Value(NonFunctionValue::new(1.0)));
-        assert_eq!(r.diagnostics.len(), 1);
-        assert_eq!(r.diagnostics[0].level, DiagnosticLevel::Error);
-    }
-
-    #[test]
-    fn recovers_from_trailing_comma_in_call() {
-        let r = parse_expr_recovered("add(1,)");
-        assert_eq!(
-            r.value,
-            Expr::call(
-                "add",
-                vec![Expr::Value(NonFunctionValue::new(1.0))],
-            )
-        );
-        assert_eq!(r.diagnostics.len(), 1);
-        assert_eq!(r.diagnostics[0].level, DiagnosticLevel::Error);
-    }
-
-    #[test]
-    fn recovers_from_unclosed_array() {
-        let r = parse_expr_recovered("[1, 2,");
-        assert_eq!(
-            r.value,
-            Expr::array(vec![
-                Expr::Value(NonFunctionValue::new(1.0)),
-                Expr::Value(NonFunctionValue::new(2.0)),
-            ])
-        );
-        assert_eq!(r.diagnostics.len(), 1);
-        assert_eq!(r.diagnostics[0].level, DiagnosticLevel::Error);
-    }
-
-    #[test]
-    fn recovers_from_broken_let_statement() {
-        let output = CanonicalKit::new().parse_module_recovered("let a = ;");
-        assert_eq!(output.diagnostics.len(), 1);
-        assert_eq!(output.diagnostics[0].level, DiagnosticLevel::Error);
-        assert!(output.stmts.is_empty());
-    }
-
-    #[test]
-    fn recovers_and_parses_next_statement() {
-        let output = CanonicalKit::new().parse_module_recovered("let a = ;\n1");
-        assert_eq!(
-            output.stmts,
-            vec![Stmt::new(StmtKind::Expr(Expr::Value(NonFunctionValue::new(1.0))))]
-        );
-        assert_eq!(output.diagnostics.len(), 1);
+    fn parse_module_unsupported() {
+        let kit = Kit::new();
+        assert!(matches!(kit.parse_module(""), Err(PlatformError::NotImplemented)));
     }
 }

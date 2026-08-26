@@ -29,6 +29,11 @@ reference:
   description: ''
   include:
   - crate: handl-lib-compress-gzip
+- title: Concurrent
+  slug: lib-concurrent
+  description: Concurrency primitives for the handl runtime.
+  include:
+  - crate: handl-lib-concurrent
 - title: Crypto
   slug: lib-crypto
   description: Cryptographic hash functions.
@@ -139,6 +144,17 @@ reference:
   description: Testing, assertion and benchmark helpers.
   include:
   - crate: handl-lib-test
+- title: TLS
+  slug: lib-tls
+  description: TLS certificate generation, root-store configuration, and encrypted
+    client/server streams.
+  include:
+  - crate: handl-lib-tls
+- title: Tls Native
+  slug: lib-tls-native
+  description: ''
+  include:
+  - crate: handl-lib-tls-native
 - title: Toml
   slug: lib-toml
   description: ''

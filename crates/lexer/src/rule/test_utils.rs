@@ -1,12 +1,10 @@
 //! Shared test utilities for handl-lexer internal tests.
 //!
-//! Defines a minimal local mock kind + factory (independent of handl-lexer-common)
-//! to avoid circular dev-dependency.
+//! Defines a minimal local mock kind to avoid dev-dependencies on
+//! concrete token kind crates.
 
-use crate::{
-    CommentFactory, CommentTokenKind, DefaultLexError, KindFactory, LexError, LexRule, Lexer,
-    LexerConfig, Span, Token, TokenKind,
-};
+use crate::{CommentTokenKind, DefaultLexError, LexError, LexRule, Lexer, LexerConfig, Span, Token,
+    TokenKind};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,7 +41,6 @@ impl fmt::Display for TestKind {
 }
 
 impl TokenKind for TestKind {
-    type Factory = TestFactory;
     fn is_eof(&self) -> bool {
         matches!(self, TestKind::Eof)
     }
@@ -58,32 +55,8 @@ impl CommentTokenKind for TestKind {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct TestFactory;
-
-impl KindFactory<TestKind> for TestFactory {
-    fn string_kind(&self, v: String) -> TestKind {
-        TestKind::Str(v)
-    }
-    fn number_kind(&self, v: f64) -> TestKind {
-        TestKind::Num(v)
-    }
-    fn ident_kind(&self, t: String) -> TestKind {
-        TestKind::Ident(t)
-    }
-    fn eof_kind(&self) -> TestKind {
-        TestKind::Eof
-    }
-}
-
-impl CommentFactory<TestKind> for TestFactory {
-    fn comment_kind(&self, t: String) -> TestKind {
-        TestKind::Comment(t)
-    }
-}
-
 pub fn cfg() -> LexerConfig<TestKind, DefaultLexError> {
-    LexerConfig::new(TestFactory)
+    LexerConfig::new()
 }
 
 // --- Local mock rules for config_test ---

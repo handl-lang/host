@@ -35,47 +35,18 @@ impl KitManifest {
 }
 
 /// Returns the default manifest for the canonical kit.
+///
+/// This manifest registers the three core canonical plugins created in
+/// ADR-0001 step 4: the number token plugin, the call AST shape plugin,
+/// and the call grammar-rule plugin.
 pub fn canonical_manifest() -> KitManifest {
     KitManifest {
         id: "canonical".to_string(),
         version: "0.1.0".to_string(),
         plugins: vec![
-            "operators".to_string(),
-            "bytes".to_string(),
-            "booleans".to_string(),
-            "null".to_string(),
-            "keywords".to_string(),
-            "strings".to_string(),
-            "numbers".to_string(),
-            "comment-tokens".to_string(),
-            "delimiters".to_string(),
-            "identifiers".to_string(),
-            "primary-values".to_string(),
-            "primary-identifiers".to_string(),
-            "primary-arrays".to_string(),
-            "primary-objects".to_string(),
-            "primary-parens".to_string(),
-            "primary-not".to_string(),
-            "primary-typeof".to_string(),
-            "primary-handle".to_string(),
-            "primary-match".to_string(),
-            "postfix-calls".to_string(),
-            "postfix-index".to_string(),
-            "postfix-field".to_string(),
-            "postfix-mood".to_string(),
-            "function-literals".to_string(),
-            "infix-flow".to_string(),
-            "infix-fanout".to_string(),
-            "infix-pipe".to_string(),
-            "infix-ternary".to_string(),
-            "infix-assign".to_string(),
-            "stmt-let".to_string(),
-            "stmt-const".to_string(),
-            "stmt-import".to_string(),
-            "stmt-export".to_string(),
-            "stmt-module".to_string(),
-            "typecheck-core".to_string(),
-            "vm-rust".to_string(),
+            "plugin-token-number".to_string(),
+            "plugin-ast-call".to_string(),
+            "plugin-grammar-call".to_string(),
         ],
     }
 }

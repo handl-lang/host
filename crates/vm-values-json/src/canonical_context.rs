@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use handl_vm::{AsyncEval, Context, Error, Eval};
 use indexmap::IndexMap;
@@ -26,6 +27,7 @@ use crate::NonFunctionValue;
 pub struct CanonicalContext {
     scopes: Vec<IndexMap<String, NonFunctionValue>>,
     eval: Option<Box<dyn Eval<NonFunctionValue>>>,
+    sync_eval: Option<Arc<dyn Eval<NonFunctionValue> + Send + Sync>>,
     async_eval: Option<Box<dyn AsyncEval<NonFunctionValue>>>,
     max_depth: Option<usize>,
     max_calls: Option<usize>,
@@ -38,6 +40,7 @@ impl CanonicalContext {
         CanonicalContext {
             scopes: vec![IndexMap::new()],
             eval: None,
+            sync_eval: None,
             async_eval: None,
             max_depth: None,
             max_calls: None,
@@ -76,6 +79,14 @@ impl CanonicalContext {
     /// higher-order functions like `fp.map`, `fp.filter`, `fp.reduce`.
     pub fn set_eval(&mut self, eval: Box<dyn Eval<NonFunctionValue>>) {
         self.eval = Some(eval);
+    }
+
+    /// Sets a thread-safe [`Eval`] callback for this context.
+    ///
+    /// When set, host functions can call [`Context::eval_arc`] to obtain
+    /// an `Arc` clone of the callback for use across threads.
+    pub fn set_sync_eval(&mut self, eval: Arc<dyn Eval<NonFunctionValue> + Send + Sync>) {
+        self.sync_eval = Some(eval);
     }
 
     /// Returns `true` if an [`Eval`] callback is set.
@@ -300,6 +311,14 @@ impl Context<NonFunctionValue> for CanonicalContext {
 
     fn set_eval(&mut self, eval: Box<dyn Eval<NonFunctionValue>>) {
         self.set_eval(eval);
+    }
+
+    fn set_sync_eval(&mut self, eval: Arc<dyn Eval<NonFunctionValue> + Send + Sync>) {
+        self.set_sync_eval(eval);
+    }
+
+    fn eval_arc(&self) -> Option<Arc<dyn Eval<NonFunctionValue> + Send + Sync>> {
+        self.sync_eval.clone()
     }
 
     fn set_async_eval(&mut self, eval: Box<dyn AsyncEval<NonFunctionValue>>) {

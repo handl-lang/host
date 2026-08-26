@@ -1,20 +1,38 @@
-/// Factory for constructing expression nodes.
-///
-/// A `Lexer`/`Parser` or an embedded consumer can implement a custom
-/// factory to attach its own metadata while still returning a standard
-/// `Node<ExprKind, V, M>` tree.
-pub trait ExprFactory<E, V> {
-    fn value(&self, value: V) -> E;
+use crate::Node;
 
-    fn call<S>(&self, name: S, args: Vec<E>) -> E
+/// Capability trait for expression-shaped nodes.
+///
+/// A plugin that provides expressions implements this on its concrete
+/// node type.
+pub trait Expr: Node {
+    /// Creates a literal value expression.
+    fn value(value: Self::Value) -> Self
     where
+        Self: Sized;
+
+    /// Creates a host-provided function call.
+    fn call<S>(name: S, args: Vec<Self>) -> Self
+    where
+        Self: Sized,
         S: Into<String>;
 
-    fn apply(&self, target: E, args: Vec<E>) -> E;
+    /// Creates an invocation of an arbitrary function value.
+    fn apply(target: Self, args: Vec<Self>) -> Self
+    where
+        Self: Sized;
 
-    fn array(&self, elements: Vec<E>) -> E;
+    /// Creates an array literal expression.
+    fn array(elements: Vec<Self>) -> Self
+    where
+        Self: Sized;
 
-    fn object(&self, entries: Vec<(String, E)>) -> E;
+    /// Creates an object literal expression.
+    fn object(entries: Vec<(String, Self)>) -> Self
+    where
+        Self: Sized;
 
-    fn index(&self, target: E, index: E) -> E;
+    /// Creates a postfix index expression.
+    fn index(target: Self, index: Self) -> Self
+    where
+        Self: Sized;
 }

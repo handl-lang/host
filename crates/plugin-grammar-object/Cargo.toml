@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-grammar-object"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-ast.workspace = true
+handl-lexer.workspace = true
+handl-parser.workspace = true

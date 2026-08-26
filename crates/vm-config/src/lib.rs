@@ -61,6 +61,9 @@ use handl_lib_archive_tar::TarModule;
 use handl_lib_compress_gzip::GzipModule;
 use handl_lib_ip::IpModule;
 use handl_lib_stats::StatsModule;
+
+#[cfg(feature = "concurrent")]
+use handl_lib_concurrent::ConcurrencyModule;
 use handl_lib_ws_rfc_memory::WsRfcModule;
 use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_lib_unicode::UnicodeModule;
@@ -125,7 +128,7 @@ impl SandboxHost {
     /// Creates a new sandbox host with the given limits and all pure
     /// library modules registered.
     pub fn new(limits: SandboxLimits) -> Self {
-        let modules = ModuleHost::new()
+        let mut modules = ModuleHost::new()
             .with(MathModule)
             .with(StrModule)
             .with(BoolModule)
@@ -157,6 +160,11 @@ impl SandboxHost {
             .with(DateTimeModule)
             .with(IntlModule::new())
             .with(KeyValueStoreModule::new(HashKeyValueStore::default()));
+
+        #[cfg(feature = "concurrent")]
+        {
+            modules = modules.with(ConcurrencyModule::new());
+        }
 
         SandboxHost {
             default: EvalHost::default(),
@@ -247,5 +255,12 @@ mod tests {
         assert!(host.function("cmp.compare").is_some());
         assert!(host.function("cmp.min").is_some());
         assert!(host.function("cmp.sort").is_some());
+    }
+
+    #[cfg(feature = "concurrent")]
+    #[test]
+    fn concurrent_spawn_is_available() {
+        let host = SandboxHost::new(SandboxLimits::default());
+        assert!(host.function("concurrent.spawn").is_some());
     }
 }

@@ -37,6 +37,22 @@ features:
     details: Function-level reference for every lib-* module.
     link: /reference/
     linkText: Browse reference
+  - title: Universal plugins
+    details: A single `Plugin` model composes libraries, targets, operations, and rules.
+    link: /explanations/polyglot-runtimes
+    linkText: Read more
+  - title: Per-module syntax
+    details: Load modules in different syntaxes by dispatching `Parser`, `Lexer`, and `Formatter` rules.
+    link: /explanations/polyglot-runtimes
+    linkText: Read more
+  - title: Self-hosting host
+    details: The `Host` itself can eventually be written and spawned from within `handl`.
+    link: /explanations/polyglot-runtimes
+    linkText: Read more
+  - title: Capability tracking
+    details: Composition actions like `contribute` and `execute` are language-level effects.
+    link: /explanations/polyglot-runtimes
+    linkText: Read more
 ---
 
 ## Documentation structure

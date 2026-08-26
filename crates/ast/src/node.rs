@@ -1,54 +1,24 @@
-use std::marker::PhantomData;
+use std::fmt::Debug;
 
 use crate::NodeMetadata;
 
-/// A generic AST node.
+/// The single generic AST node abstraction.
 ///
-/// Parameterized by:
-/// - `K` — the language-specific kind enum (expression, statement, type, ...).
-/// - `V` — the value representation used by literals.
-/// - `M` — the metadata attached to this node (default `()`).
-///
-/// The runtime can keep `M = ()` so the node is the same size as `K`.
-/// Tools that need spans or attributes choose `M = Span`, `M = Attrs<A>`,
-/// or a composed `Both<...>`.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Node<K, V, M: NodeMetadata = ()> {
-    pub kind: K,
-    pub metadata: M,
-    pub _value: PhantomData<V>,
-}
+/// Every concrete node type in a plugin or kit implements `Node`.
+/// A node may also implement zero or more capability traits (`Expr`,
+/// `Stmt`, `Pattern`, `Type`, `Field`) depending on its shape.
+pub trait Node: Debug + Clone + PartialEq {
+    /// The runtime value type stored in this node (literals, constants, ...).
+    type Value;
 
-impl<K, V> Node<K, V, ()> {
-    /// Creates a node with no metadata.
-    pub fn new(kind: K) -> Self {
-        Self {
-            kind,
-            metadata: (),
-            _value: PhantomData,
-        }
-    }
-}
+    /// The metadata attached to this node.
+    type Metadata: NodeMetadata;
 
-impl<K, V, M: NodeMetadata> Node<K, V, M> {
-    /// Replaces the node's metadata, changing the `M` type parameter.
-    pub fn with_metadata<N: NodeMetadata>(self, metadata: N) -> Node<K, V, N> {
-        Node {
-            kind: self.kind,
-            metadata,
-            _value: PhantomData,
-        }
-    }
+    /// Returns the metadata attached to this node.
+    fn metadata(&self) -> &Self::Metadata;
 
-    /// Maps the kind while preserving metadata and the value type.
-    pub fn map_kind<F, K2>(self, f: F) -> Node<K2, V, M>
+    /// Returns this node with the given metadata.
+    fn with_metadata(self, metadata: Self::Metadata) -> Self
     where
-        F: FnOnce(K) -> K2,
-    {
-        Node {
-            kind: f(self.kind),
-            metadata: self.metadata,
-            _value: PhantomData,
-        }
-    }
+        Self: Sized;
 }

@@ -5,7 +5,5 @@ edition.workspace = true
 
 [dependencies]
 handl-lexer.workspace = true
-handl-ast-canonical.workspace = true
-handl-vm-values-json.workspace = true
-handl-vm.workspace = true
+handl-ast.workspace = true
 thiserror.workspace = true

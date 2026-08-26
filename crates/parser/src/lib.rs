@@ -1,55 +1,47 @@
 //! # handl-parser
 //!
-//! Parsing abstraction for handl expressions.
+//! Parsing abstraction for handl expressions and modules.
 //!
-//! Defines the [`Parser`] trait and [`ParseError`] — the interface for
-//! turning a token stream (from [`Lexer`](handl_lexer::Lexer)) into an
-//! [`Expr`](handl_ast_canonical::Expr) AST. The canonical implementation lives in
-//! `handl-parser-canonical`.
+//! Defines the generic [`Parser`] trait and the [`ParseError`] type, plus
+//! the [`Grammar`] and [`GrammarRule`] plugin interfaces that concrete
+//! parsers compose. The base crate is intentionally agnostic about node
+//! shapes and grammar rules: each canonical grammar rule lives in a
+//! `plugin-grammar-*` crate that implements [`GrammarRule`].
 //!
 //! ## Architectural rule
 //!
-//! > **The parser consumes tokens and produces `Expr`.**
+//! > **The parser consumes tokens and produces generic [`Node`](handl_ast::Node)s.**
 //!
-//! The parser is the bridge between the lexer and the VM. It depends on
-//! `handl-lexer` (for `Token`/`TokenKind`) and `handl-ast-canonical` (for `Expr`),
-//! but not on the VM. This keeps the parsing pipeline independent of
-//! evaluation strategy.
+//! The parser is the bridge between the lexer and the AST. It depends on
+//! `handl-lexer` (for `Token`/`TokenKind`) and `handl-ast` (for the
+//! `Node`/`Expr` capabilities), but not on the VM or any concrete node
+//! type. This keeps the parsing pipeline independent of evaluation
+//! strategy.
 
-use handl_vm_values_json::NonFunctionValue;
-mod error;
-
-pub use error::ParseError;
-
-use handl_ast_canonical::Expr;
+use handl_ast::Node;
 use handl_lexer::{LexError, Lexer, Token, TokenKind};
 
-/// A parser that converts a token stream into an expression AST.
+mod error;
+pub mod grammar;
+
+pub use error::ParseError;
+pub use grammar::{CompositeGrammar, Grammar, GrammarRule, ParserContext};
+
+/// A parser that converts a token stream into an AST node.
 ///
-/// The parser consumes the token stream produced by a
-/// [`Lexer`](handl_lexer::Lexer) and builds an [`Expr`] tree. Dialect-specific
-/// grammar rules (operator precedence, keyword handling, call syntax) are
-/// implemented by the concrete type.
-///
-/// The parser does not perform type checking or resolution — it produces
-/// a syntactically valid AST only.
-pub trait Parser<K: TokenKind, E: LexError>: Send + Sync {
-    /// Parse a token stream into an expression.
-    ///
-    /// Returns `Err(ParseError)` on syntactic errors (unexpected token,
-    /// missing delimiter, etc.).
-    fn parse(&self, tokens: Vec<Token<K>>) -> Result<Expr<NonFunctionValue>, ParseError>;
+/// `K` is the concrete token kind, `N` is the node type the parser
+/// produces, and `E` is the lexer error type.
+pub trait Parser<K, N, E>: Send + Sync
+where
+    K: TokenKind,
+    N: Node,
+    E: LexError,
+{
+    /// Parse a token stream into a node.
+    fn parse(&self, tokens: Vec<Token<K>>) -> Result<N, ParseError>;
 
     /// Convenience: lex and parse in one call.
-    ///
-    /// Default implementation uses the provided [`Lexer`](handl_lexer::Lexer)
-    /// to tokenize, then calls [`parse`](Self::parse). Override if the
-    /// parser benefits from streaming tokens.
-    fn parse_text(
-        &self,
-        input: &str,
-        lexer: &dyn Lexer<K, E>,
-    ) -> Result<Expr<NonFunctionValue>, ParseError> {
+    fn parse_text(&self, input: &str, lexer: &dyn Lexer<K, E>) -> Result<N, ParseError> {
         let tokens = lexer.lex(input).map_err(|e| ParseError::LexError {
             message: e.to_string(),
         })?;

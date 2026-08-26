@@ -9,7 +9,7 @@ use crate::{LexError, LexerConfig, Token, TokenKind};
 /// For stateful or composable rules, implement [`LexRule`] directly.
 ///
 /// ```
-/// use handl_lexer::{DefaultLexError, EofFactory, FnRule, LexerConfig, TokenKind, LexError, Span, Token};
+/// use handl_lexer::{DefaultLexError, FnRule, LexerConfig, TokenKind, LexError, Span, Token};
 /// use std::fmt;
 ///
 /// #[derive(Debug, Clone, PartialEq)]
@@ -21,14 +21,7 @@ use crate::{LexError, LexerConfig, Token, TokenKind};
 ///     }
 /// }
 ///
-/// #[derive(Clone)]
-/// struct MyFactory;
-/// impl EofFactory<MyKind> for MyFactory {
-///     fn eof_kind(&self) -> MyKind { MyKind::Eof }
-/// }
-///
 /// impl TokenKind for MyKind {
-///     type Factory = MyFactory;
 ///     fn is_eof(&self) -> bool { matches!(self, MyKind::Eof) }
 ///     fn is_error(&self) -> bool { false }
 /// }
@@ -46,7 +39,7 @@ use crate::{LexError, LexerConfig, Token, TokenKind};
 ///     }
 /// }
 ///
-/// let config = LexerConfig::new(MyFactory)
+/// let config = LexerConfig::<MyKind, DefaultLexError>::new()
 ///     .with_rule(FnRule::new("hash", hash_rule));
 /// ```
 pub struct FnRule<K: TokenKind, E: LexError> {

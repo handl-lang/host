@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use handl_ast_canonical::Expr;
 use indexmap::IndexMap;
@@ -46,6 +47,12 @@ pub trait Context<V: Value> {
 
     /// Sets the synchronous eval callback.
     fn set_eval(&mut self, eval: Box<dyn Eval<V>>);
+
+    /// Sets a thread-safe synchronous eval callback for use across threads.
+    fn set_sync_eval(&mut self, eval: Arc<dyn Eval<V> + Send + Sync>);
+
+    /// Returns the thread-safe synchronous eval callback, if set.
+    fn eval_arc(&self) -> Option<Arc<dyn Eval<V> + Send + Sync>>;
 
     /// Sets the asynchronous eval callback.
     fn set_async_eval(&mut self, eval: Box<dyn AsyncEval<V>>);

@@ -61,6 +61,17 @@ export default [
     ]
   },
   {
+    "text": "Concurrent",
+    "collapsed": false,
+    "link": "/reference/lib-concurrent",
+    "items": [
+      {
+        "text": "Concurrent",
+        "link": "/reference/lib-concurrent-concurrent"
+      }
+    ]
+  },
+  {
     "text": "Crypto",
     "collapsed": false,
     "link": "/reference/lib-crypto",
@@ -307,6 +318,21 @@ export default [
       {
         "text": "Test",
         "link": "/reference/lib-test-test"
+      }
+    ]
+  },
+  {
+    "text": "TLS",
+    "collapsed": false,
+    "link": "/reference/lib-tls",
+    "items": [
+      {
+        "text": "Tls Native",
+        "link": "/reference/lib-tls-native"
+      },
+      {
+        "text": "TLS",
+        "link": "/reference/lib-tls-tls"
       }
     ]
   },
