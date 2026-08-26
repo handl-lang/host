@@ -1,12 +1,27 @@
+//! The `handl-platform` crate provides shared platform abstractions for the
+//! HAndL language toolchain, including plugins, capabilities, manifests,
+//! resolution, language pipelines, hosts, and boundaries.
+#![warn(missing_docs)]
+
+/// Types for describing runtime isolation boundaries.
 pub mod boundary;
+/// Capability identifiers and metadata.
 pub mod capability;
+/// Platform error types.
 pub mod error;
+/// Extension registration and discovery.
 pub mod extension;
+/// Host implementations that coordinate plugins, kits, and extensions.
 pub mod host;
+/// Kit manifests and registries.
 pub mod kit;
+/// Language pipeline plugins and syntax types.
 pub mod language;
+/// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
+/// Plugin traits, registries, and built-in plugin implementations.
 pub mod plugin;
+/// Plugin composition resolution.
 pub mod resolve;
 
 pub use boundary::*;

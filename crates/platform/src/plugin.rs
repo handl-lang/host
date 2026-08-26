@@ -1,3 +1,5 @@
+//! Plugin traits, registries, and built-in plugin implementations.
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -8,25 +10,38 @@ use crate::error::PlatformError;
 use crate::extension::ExtensionRegistry;
 use crate::kit::KitRegistry;
 
+/// A request to invoke a capability on a plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityRequest {
+    /// The requested capability.
     pub capability: CapabilityId,
+    /// The request payload.
     pub payload: serde_json::Value,
 }
 
+/// A response payload returned by a plugin.
 #[derive(Debug, Clone)]
 pub struct CapabilityResponse(pub serde_json::Value);
 
+/// Context passed to a plugin during execution.
 pub struct PluginContext<'a> {
+    /// The plugin registry.
     pub plugins: &'a mut PluginRegistry,
+    /// The kit registry.
     pub kits: &'a mut KitRegistry,
+    /// The extension registry.
     pub extensions: &'a mut ExtensionRegistry,
 }
 
+/// A plugin that can provide and run capabilities.
 pub trait Plugin: Send + Sync {
+    /// Returns the plugin's display name.
     fn name(&self) -> &str;
+    /// Returns the capabilities provided by this plugin.
     fn capabilities(&self) -> &[CapabilityId];
+    /// Returns metadata for a capability, if available.
     fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata>;
+    /// Runs the requested capability.
     fn run(
         &self,
         request: &CapabilityRequest,
@@ -34,6 +49,7 @@ pub trait Plugin: Send + Sync {
     ) -> Result<CapabilityResponse, PlatformError>;
 }
 
+/// A registry of loaded plugins indexed by capability.
 #[derive(Default)]
 pub struct PluginRegistry {
     plugins: Vec<Arc<dyn Plugin + 'static>>,
@@ -41,10 +57,12 @@ pub struct PluginRegistry {
 }
 
 impl PluginRegistry {
+    /// Creates an empty plugin registry.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Registers a plugin and indexes its capabilities.
     pub fn register<P: Plugin + 'static>(&mut self, plugin: P) {
         let idx = self.plugins.len();
         for cap in plugin.capabilities() {
@@ -53,11 +71,13 @@ impl PluginRegistry {
         self.plugins.push(Arc::new(plugin));
     }
 
+    /// Returns the plugin that provides the given capability, if any.
     pub fn resolve(&self, capability: &CapabilityId) -> Option<Arc<dyn Plugin>> {
         let idx = *self.by_capability.get(capability)?;
         Some(self.plugins[idx].clone())
     }
 
+    /// Returns all capabilities with their metadata.
     pub fn capabilities(&self) -> Vec<(CapabilityId, CapabilityMetadata)> {
         let mut out = Vec::new();
         for plugin in &self.plugins {
@@ -70,6 +90,7 @@ impl PluginRegistry {
         out
     }
 
+    /// Runs the requested capability through the providing plugin.
     pub fn run(
         &self,
         request: &CapabilityRequest,
@@ -81,15 +102,31 @@ impl PluginRegistry {
         }
     }
 
-    pub fn remove(&mut self, _name: &str) -> Result<(), PlatformError> {
-        Err(PlatformError::NotImplemented)
+    /// Removes a plugin by name.
+    pub fn remove(&mut self, name: &str) -> Result<(), PlatformError> {
+        let len_before = self.plugins.len();
+        self.plugins.retain(|p| p.name() != name);
+        if self.plugins.len() == len_before {
+            return Err(PlatformError::InvalidMetadata(format!(
+                "plugin not found: {name}"
+            )));
+        }
+        self.by_capability.clear();
+        for (idx, p) in self.plugins.iter().enumerate() {
+            for cap in p.capabilities() {
+                self.by_capability.insert(cap.clone(), idx);
+            }
+        }
+        Ok(())
     }
 
+    /// Returns the names of all registered plugins.
     pub fn names(&self) -> Vec<String> {
         self.plugins.iter().map(|p| p.name().to_string()).collect()
     }
 }
 
+/// A plugin that runs in the host process using a closure.
 pub struct InProcessPlugin<F>
 where
     F: Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
@@ -110,6 +147,7 @@ where
         + Sync
         + 'static,
 {
+    /// Creates a new in-process plugin.
     pub fn new(
         name: impl Into<String>,
         capabilities: &[CapabilityId],
@@ -155,12 +193,14 @@ where
     }
 }
 
+/// A placeholder plugin that represents an out-of-process capability provider.
 pub struct ProcessPlugin {
     name: String,
     capabilities: Vec<CapabilityId>,
 }
 
 impl ProcessPlugin {
+    /// Creates a new process plugin placeholder.
     pub fn new(name: impl Into<String>, capabilities: &[CapabilityId]) -> Self {
         Self {
             name: name.into(),
@@ -195,7 +235,8 @@ impl Plugin for ProcessPlugin {
 mod tests {
     use super::*;
 
-    fn echo() -> impl Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
+    fn echo()
+    -> impl Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
     {
         |req: &CapabilityRequest, _ctx: &mut PluginContext| {
             Ok(CapabilityResponse(serde_json::json!({
@@ -228,7 +269,11 @@ mod tests {
         assert_eq!(p.name(), "echo");
         assert_eq!(p.capabilities(), &[CapabilityId::from("echo")]);
         assert!(p.metadata(&"echo".into()).is_some());
-        let (mut plugins, mut kits, mut extensions) = (PluginRegistry::new(), KitRegistry::new(), ExtensionRegistry::new());
+        let (mut plugins, mut kits, mut extensions) = (
+            PluginRegistry::new(),
+            KitRegistry::new(),
+            ExtensionRegistry::new(),
+        );
         let mut ctx = test_ctx(&mut plugins, &mut kits, &mut extensions);
         let resp = p.run(
             &CapabilityRequest {
@@ -245,7 +290,11 @@ mod tests {
         let p = ProcessPlugin::new("proc", &["remote".into()]);
         assert_eq!(p.name(), "proc");
         assert!(p.metadata(&"remote".into()).is_none());
-        let (mut plugins, mut kits, mut extensions) = (PluginRegistry::new(), KitRegistry::new(), ExtensionRegistry::new());
+        let (mut plugins, mut kits, mut extensions) = (
+            PluginRegistry::new(),
+            KitRegistry::new(),
+            ExtensionRegistry::new(),
+        );
         let mut ctx = test_ctx(&mut plugins, &mut kits, &mut extensions);
         let res = p.run(
             &CapabilityRequest {
@@ -298,5 +347,54 @@ mod tests {
         let (mut kits, mut extensions) = (KitRegistry::new(), ExtensionRegistry::new());
         let ctx = test_ctx(&mut reg, &mut kits, &mut extensions);
         assert!(ctx.plugins.resolve(&"missing".into()).is_none());
+    }
+
+    #[test]
+    fn in_process_plugin_metadata_for_missing_capability() {
+        let p = InProcessPlugin::new("echo", &["echo".into()], serde_json::json!({}), echo());
+        assert!(p.metadata(&"missing".into()).is_none());
+    }
+
+    #[test]
+    fn process_plugin_and_registry_misc() {
+        let mut reg = PluginRegistry::new();
+        reg.register(ProcessPlugin::new("proc", &["a".into(), "b".into()]));
+
+        assert!(reg.names().contains(&"proc".to_string()));
+        assert!(reg.remove("proc").is_ok());
+        assert!(!reg.names().contains(&"proc".to_string()));
+        assert!(reg.resolve(&"a".into()).is_none());
+        assert!(matches!(
+            reg.remove("missing"),
+            Err(PlatformError::InvalidMetadata(_))
+        ));
+    }
+
+    #[test]
+    fn registry_run_dispatches_and_reports_unknown() {
+        let mut reg = PluginRegistry::new();
+        reg.register(InProcessPlugin::new(
+            "echo",
+            &["echo".into()],
+            serde_json::json!({}),
+            echo(),
+        ));
+        let (mut kits, mut extensions) = (KitRegistry::new(), ExtensionRegistry::new());
+        let mut dummy_plugins = PluginRegistry::new();
+        let mut ctx = test_ctx(&mut dummy_plugins, &mut kits, &mut extensions);
+
+        let req = CapabilityRequest {
+            capability: "echo".into(),
+            payload: serde_json::Value::Null,
+        };
+        let resp = reg.run(&req, &mut ctx).unwrap();
+        assert!(resp.0.get("echoed").is_some());
+
+        let missing = CapabilityRequest {
+            capability: "missing".into(),
+            payload: serde_json::Value::Null,
+        };
+        let res = reg.run(&missing, &mut ctx);
+        assert!(matches!(res, Err(PlatformError::UnknownCapability(_))));
     }
 }

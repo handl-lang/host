@@ -1,57 +1,118 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::cmp::Reverse;
+//! Plugin composition resolution.
 
-use serde::{Deserialize, Serialize};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+
 use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::capability::CapabilityId;
-use crate::manifest::{CapabilityDependency, Dependency, PluginDependency, PluginManifest, TargetSupportLevel};
+use crate::manifest::{
+    CapabilityDependency, Dependency, PluginDependency, PluginManifest, TargetSupportLevel,
+};
 
 /// Selects a specific plugin to satisfy a capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CapabilitySelector {
+    /// The capability to pin.
     pub capability: CapabilityId,
+    /// The chosen provider plugin id.
     pub provider: String,
 }
 
 /// The result of resolving a plugin composition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedComposition {
+    /// The ids of selected plugins.
     pub selected_plugins: Vec<String>,
+    /// Map from each capability to its selected provider.
     pub provider_map: HashMap<CapabilityId, String>,
+    /// Extender-to-extendee wirings.
     pub extension_wirings: Vec<ExtensionWiring>,
+    /// Topological initialization order.
     pub initialization_order: Vec<String>,
+    /// Optional dependencies that could not be resolved.
     pub missing_optional: Vec<Dependency>,
+    /// Target support level for each selected plugin.
     pub target_report: HashMap<String, TargetSupportLevel>,
 }
 
 /// A wiring from an extender plugin to the plugin it extends.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExtensionWiring {
+    /// The plugin that extends.
     pub extender: String,
+    /// The plugin being extended.
     pub extendee: String,
+    /// The capability extension point, if specified.
     pub extension_point: Option<CapabilityId>,
 }
 
 /// Errors that can occur during composition resolution.
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum ResolutionError {
+    /// A required capability is missing.
     #[error("missing required capability {capability} (required by {required_by})")]
-    MissingCapability { capability: CapabilityId, required_by: String },
+    MissingCapability {
+        /// The missing capability.
+        capability: CapabilityId,
+        /// The plugin that required it.
+        required_by: String,
+    },
+    /// A required plugin is missing.
     #[error("missing required plugin {plugin} (required by {required_by})")]
-    MissingPlugin { plugin: String, required_by: String },
+    MissingPlugin {
+        /// The missing plugin.
+        plugin: String,
+        /// The plugin that required it.
+        required_by: String,
+    },
+    /// An exclusive capability has multiple providers.
     #[error("multiple providers for exclusive capability {capability}: {providers:?}")]
-    MultipleProvidersForExclusiveCapability { capability: CapabilityId, providers: Vec<String> },
-    #[error("version mismatch for {provider} providing {capability}: requires {required}, found {found}")]
-    VersionMismatch { capability: CapabilityId, provider: String, required: String, found: String },
+    MultipleProvidersForExclusiveCapability {
+        /// The exclusive capability.
+        capability: CapabilityId,
+        /// The competing providers.
+        providers: Vec<String>,
+    },
+    /// A version requirement is not satisfied.
+    #[error(
+        "version mismatch for {provider} providing {capability}: requires {required}, found {found}"
+    )]
+    VersionMismatch {
+        /// The capability with the mismatch.
+        capability: CapabilityId,
+        /// The selected provider.
+        provider: String,
+        /// The required version.
+        required: String,
+        /// The found version.
+        found: String,
+    },
+    /// A conflict exists between selected plugins.
     #[error("conflict between selected plugins {plugin_a} and {plugin_b}")]
-    Conflict { plugin_a: String, plugin_b: String },
+    Conflict {
+        /// The first conflicting plugin.
+        plugin_a: String,
+        /// The second conflicting plugin.
+        plugin_b: String,
+    },
+    /// A cycle was found in the dependency or extends graph.
     #[error("cyclic extends/dependency graph: {cycle:?}")]
-    CyclicGraph { cycle: Vec<String> },
+    CyclicGraph {
+        /// The plugins in the cycle.
+        cycle: Vec<String>,
+    },
+    /// A selector does not provide the selected capability.
     #[error("selector {provider} does not provide capability {capability}")]
-    InvalidSelector { capability: CapabilityId, provider: String },
+    InvalidSelector {
+        /// The selected capability.
+        capability: CapabilityId,
+        /// The chosen provider.
+        provider: String,
+    },
 }
 
 /// Resolves a composition of plugins from the available manifests.
@@ -105,10 +166,12 @@ pub fn resolve(
     let mut provider_map: HashMap<CapabilityId, String> = HashMap::new();
     for (cap, cap_providers) in &providers {
         if let Some(&sel_provider) = selector_by_cap.get(cap) {
-            let m = by_id.get(sel_provider).ok_or_else(|| ResolutionError::MissingPlugin {
-                plugin: sel_provider.to_string(),
-                required_by: format!("selector for {cap}"),
-            })?;
+            let m = by_id
+                .get(sel_provider)
+                .ok_or_else(|| ResolutionError::MissingPlugin {
+                    plugin: sel_provider.to_string(),
+                    required_by: format!("selector for {cap}"),
+                })?;
             if !m.provides.contains(cap) {
                 return Err(ResolutionError::InvalidSelector {
                     capability: cap.clone(),
@@ -223,20 +286,28 @@ fn resolve_capability_dependency(
     provider_map: &HashMap<CapabilityId, String>,
     by_id: &HashMap<String, &PluginManifest>,
 ) -> Result<(), ResolutionError> {
-    let provider_id = provider_map.get(&dep.capability).ok_or_else(|| ResolutionError::MissingCapability {
-        capability: dep.capability.clone(),
-        required_by: required_by.to_string(),
-    })?;
-    let provider = by_id.get(provider_id).unwrap();
-    if let Some(req) = &dep.version {
-        if !version_satisfies(req, &provider.version) {
-            return Err(ResolutionError::VersionMismatch {
+    let provider_id =
+        provider_map
+            .get(&dep.capability)
+            .ok_or_else(|| ResolutionError::MissingCapability {
                 capability: dep.capability.clone(),
-                provider: provider_id.clone(),
-                required: req.clone(),
-                found: provider.version.clone(),
-            });
-        }
+                required_by: required_by.to_string(),
+            })?;
+    let provider = by_id
+        .get(provider_id)
+        .ok_or_else(|| ResolutionError::MissingPlugin {
+            plugin: provider_id.clone(),
+            required_by: required_by.to_string(),
+        })?;
+    if let Some(req) = &dep.version
+        && !version_satisfies(req, &provider.version)
+    {
+        return Err(ResolutionError::VersionMismatch {
+            capability: dep.capability.clone(),
+            provider: provider_id.clone(),
+            required: req.clone(),
+            found: provider.version.clone(),
+        });
     }
     Ok(())
 }
@@ -246,19 +317,21 @@ fn resolve_plugin_dependency(
     dep: &PluginDependency,
     by_id: &HashMap<String, &PluginManifest>,
 ) -> Result<(), ResolutionError> {
-    let target = by_id.get(&dep.id).ok_or_else(|| ResolutionError::MissingPlugin {
-        plugin: dep.id.clone(),
-        required_by: required_by.to_string(),
-    })?;
-    if let Some(req) = &dep.version {
-        if !version_satisfies(req, &target.version) {
-            return Err(ResolutionError::VersionMismatch {
-                capability: dep.id.clone().into(),
-                provider: dep.id.clone(),
-                required: req.clone(),
-                found: target.version.clone(),
-            });
-        }
+    let target = by_id
+        .get(&dep.id)
+        .ok_or_else(|| ResolutionError::MissingPlugin {
+            plugin: dep.id.clone(),
+            required_by: required_by.to_string(),
+        })?;
+    if let Some(req) = &dep.version
+        && !version_satisfies(req, &target.version)
+    {
+        return Err(ResolutionError::VersionMismatch {
+            capability: dep.id.clone().into(),
+            provider: dep.id.clone(),
+            required: req.clone(),
+            found: target.version.clone(),
+        });
     }
     Ok(())
 }
@@ -274,10 +347,10 @@ fn optional_capability_resolved(
     let Some(provider) = by_id.get(provider_id) else {
         return false;
     };
-    if let Some(req) = &dep.version {
-        if !version_satisfies(req, &provider.version) {
-            return false;
-        }
+    if let Some(req) = &dep.version
+        && !version_satisfies(req, &provider.version)
+    {
+        return false;
     }
     true
 }
@@ -289,10 +362,10 @@ fn optional_plugin_resolved(
     let Some(target) = by_id.get(&dep.id) else {
         return false;
     };
-    if let Some(req) = &dep.version {
-        if !version_satisfies(req, &target.version) {
-            return false;
-        }
+    if let Some(req) = &dep.version
+        && !version_satisfies(req, &target.version)
+    {
+        return false;
     }
     true
 }
@@ -307,23 +380,24 @@ fn check_conflicts(
             continue;
         }
         for conflict in &m.conflicts {
-            if let Some(plugin_id) = &conflict.plugin {
-                if plugin_id != &m.id && selected.contains(plugin_id) {
-                    return Err(ResolutionError::Conflict {
-                        plugin_a: m.id.clone(),
-                        plugin_b: plugin_id.clone(),
-                    });
-                }
+            if let Some(plugin_id) = &conflict.plugin
+                && plugin_id != &m.id
+                && selected.contains(plugin_id)
+            {
+                return Err(ResolutionError::Conflict {
+                    plugin_a: m.id.clone(),
+                    plugin_b: plugin_id.clone(),
+                });
             }
-            if let Some(cap) = &conflict.capability {
-                if let Some(provider_id) = provider_map.get(cap) {
-                    if provider_id != &m.id && selected.contains(provider_id) {
-                        return Err(ResolutionError::Conflict {
-                            plugin_a: m.id.clone(),
-                            plugin_b: provider_id.clone(),
-                        });
-                    }
-                }
+            if let Some(cap) = &conflict.capability
+                && let Some(provider_id) = provider_map.get(cap)
+                && provider_id != &m.id
+                && selected.contains(provider_id)
+            {
+                return Err(ResolutionError::Conflict {
+                    plugin_a: m.id.clone(),
+                    plugin_b: provider_id.clone(),
+                });
             }
         }
     }
@@ -347,8 +421,13 @@ fn topological_init_order(
         if from == to || !selected.contains(to) {
             return;
         }
-        *in_degree.get_mut(from).unwrap() += 1;
-        dependents.entry(to.to_string()).or_default().push(from.to_string());
+        if let Some(d) = in_degree.get_mut(from) {
+            *d += 1;
+        }
+        dependents
+            .entry(to.to_string())
+            .or_default()
+            .push(from.to_string());
     };
 
     for m in manifests {
@@ -429,10 +508,10 @@ fn find_cycle(adj: &HashMap<String, Vec<String>>) -> Option<Vec<String>> {
     let mut on_stack = HashSet::new();
 
     for start in adj.keys() {
-        if !visited.contains(start) {
-            if let Some(cycle) = dfs_cycle(start, adj, &mut visited, &mut stack, &mut on_stack) {
-                return Some(cycle);
-            }
+        if !visited.contains(start)
+            && let Some(cycle) = dfs_cycle(start, adj, &mut visited, &mut stack, &mut on_stack)
+        {
+            return Some(cycle);
         }
     }
     None
@@ -450,15 +529,15 @@ fn dfs_cycle(
     on_stack.insert(node.to_string());
 
     for next in adj.get(node).cloned().unwrap_or_default() {
-        if on_stack.contains(&next) {
-            if let Some(pos) = stack.iter().position(|n| n == &next) {
-                return Some(stack[pos..].to_vec());
-            }
+        if on_stack.contains(&next)
+            && let Some(pos) = stack.iter().position(|n| n == &next)
+        {
+            return Some(stack[pos..].to_vec());
         }
-        if !visited.contains(&next) {
-            if let Some(cycle) = dfs_cycle(&next, adj, visited, stack, on_stack) {
-                return Some(cycle);
-            }
+        if !visited.contains(&next)
+            && let Some(cycle) = dfs_cycle(&next, adj, visited, stack, on_stack)
+        {
+            return Some(cycle);
         }
     }
 
@@ -502,33 +581,27 @@ fn version_satisfies(required: &str, found: &str) -> bool {
     if required == found {
         return true;
     }
-    if let Ok(found_v) = Version::parse(found) {
-        if let Some(normalized) = normalize_version_req(required) {
-            if let Ok(req) = VersionReq::parse(&normalized) {
-                return req.matches(&found_v);
-            }
-        }
+    if let Ok(found_v) = Version::parse(found)
+        && let Some(normalized) = normalize_version_req(required)
+        && let Ok(req) = VersionReq::parse(&normalized)
+    {
+        return req.matches(&found_v);
     }
     // Fallback to exact string match.
     required == found
 }
 
 fn version_tuple(v: &str) -> Vec<u64> {
-    v.split('.')
-        .filter_map(|s| s.parse::<u64>().ok())
-        .collect()
+    v.split('.').filter_map(|s| s.parse::<u64>().ok()).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::manifest::ExtendsDeclaration;
+    use crate::{ConflictDeclaration, TargetCompatibility, TargetSupportLevel};
 
-    fn manifest(
-        id: &str,
-        version: &str,
-        provides: &[&str],
-    ) -> PluginManifest {
+    fn manifest(id: &str, version: &str, provides: &[&str]) -> PluginManifest {
         PluginManifest {
             id: id.into(),
             version: version.into(),
@@ -558,7 +631,7 @@ mod tests {
                 replaces: Vec::new(),
                 targets: Vec::new(),
                 exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
+                metadata: serde_json::Value::default(),
             },
             PluginManifest {
                 id: "compile".into(),
@@ -571,32 +644,33 @@ mod tests {
                 replaces: Vec::new(),
                 targets: Vec::new(),
                 exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
+                metadata: serde_json::Value::default(),
             },
         ];
         let resolved = resolve(&manifests, &[], None).unwrap();
         assert_eq!(resolved.selected_plugins, vec!["compile", "fmt"]);
-        assert_eq!(resolved.provider_map.get(&"compile".into()), Some(&"compile".to_string()));
+        assert_eq!(
+            resolved.provider_map.get(&"compile".into()),
+            Some(&"compile".to_string())
+        );
         assert!(resolved.missing_optional.is_empty());
     }
 
     #[test]
     fn missing_capability_error() {
-        let manifests = vec![
-            PluginManifest {
-                id: "fmt".into(),
-                version: "0.1.0".into(),
-                provides: vec!["format".into()],
-                requires: vec![Dependency::capability("missing-cap", None)],
-                optional: Vec::new(),
-                extends: Vec::new(),
-                conflicts: Vec::new(),
-                replaces: Vec::new(),
-                targets: Vec::new(),
-                exclusive: Vec::new(),
+        let manifests = vec![PluginManifest {
+            id: "fmt".into(),
+            version: "0.1.0".into(),
+            provides: vec!["format".into()],
+            requires: vec![Dependency::capability("missing-cap", None)],
+            optional: Vec::new(),
+            extends: Vec::new(),
+            conflicts: Vec::new(),
+            replaces: Vec::new(),
+            targets: Vec::new(),
+            exclusive: Vec::new(),
             metadata: serde_json::Value::default(),
-            },
-        ];
+        }];
         let err = resolve(&manifests, &[], None).unwrap_err();
         assert!(matches!(
             err,
@@ -615,7 +689,10 @@ mod tests {
             provider: "provider-b".into(),
         }];
         let resolved = resolve(&manifests, &selectors, None).unwrap();
-        assert_eq!(resolved.provider_map.get(&"compile".into()), Some(&"provider-b".to_string()));
+        assert_eq!(
+            resolved.provider_map.get(&"compile".into()),
+            Some(&"provider-b".to_string())
+        );
     }
 
     #[test]
@@ -645,11 +722,14 @@ mod tests {
                 replaces: Vec::new(),
                 targets: Vec::new(),
                 exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
+                metadata: serde_json::Value::default(),
             },
         ];
         let err = resolve(&manifests, &[], None).unwrap_err();
-        assert!(matches!(err, ResolutionError::MultipleProvidersForExclusiveCapability { .. }));
+        assert!(matches!(
+            err,
+            ResolutionError::MultipleProvidersForExclusiveCapability { .. }
+        ));
     }
 
     #[test]
@@ -661,12 +741,16 @@ mod tests {
                 provides: Vec::new(),
                 requires: Vec::new(),
                 optional: Vec::new(),
-                extends: vec![ExtendsDeclaration { plugin: "b".into(), version: None, extension_point: None }],
+                extends: vec![ExtendsDeclaration {
+                    plugin: "b".into(),
+                    version: None,
+                    extension_point: None,
+                }],
                 conflicts: Vec::new(),
                 replaces: Vec::new(),
                 targets: Vec::new(),
                 exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
+                metadata: serde_json::Value::default(),
             },
             PluginManifest {
                 id: "b".into(),
@@ -674,12 +758,16 @@ mod tests {
                 provides: Vec::new(),
                 requires: Vec::new(),
                 optional: Vec::new(),
-                extends: vec![ExtendsDeclaration { plugin: "a".into(), version: None, extension_point: None }],
+                extends: vec![ExtendsDeclaration {
+                    plugin: "a".into(),
+                    version: None,
+                    extension_point: None,
+                }],
                 conflicts: Vec::new(),
                 replaces: Vec::new(),
                 targets: Vec::new(),
                 exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
+                metadata: serde_json::Value::default(),
             },
         ];
         let err = resolve(&manifests, &[], None).unwrap_err();
@@ -688,24 +776,24 @@ mod tests {
 
     #[test]
     fn optional_missing_dependency_is_recorded() {
-        let manifests = vec![
-            PluginManifest {
-                id: "main".into(),
-                version: "1.0.0".into(),
-                provides: Vec::new(),
-                requires: Vec::new(),
-                optional: vec![Dependency::plugin("extra", None)],
-                extends: Vec::new(),
-                conflicts: Vec::new(),
-                replaces: Vec::new(),
-                targets: Vec::new(),
-                exclusive: Vec::new(),
+        let manifests = vec![PluginManifest {
+            id: "main".into(),
+            version: "1.0.0".into(),
+            provides: Vec::new(),
+            requires: Vec::new(),
+            optional: vec![Dependency::plugin("extra", None)],
+            extends: Vec::new(),
+            conflicts: Vec::new(),
+            replaces: Vec::new(),
+            targets: Vec::new(),
+            exclusive: Vec::new(),
             metadata: serde_json::Value::default(),
-            },
-        ];
+        }];
         let resolved = resolve(&manifests, &[], None).unwrap();
         assert_eq!(resolved.missing_optional.len(), 1);
-        assert!(matches!(resolved.missing_optional[0], Dependency::Plugin(PluginDependency { ref id, .. }) if id == "extra"));
+        assert!(
+            matches!(resolved.missing_optional[0], Dependency::Plugin(PluginDependency { ref id, .. }) if id == "extra")
+        );
     }
 
     #[test]
@@ -777,5 +865,257 @@ mod tests {
         ];
         let err = resolve(&manifests, &[], None).unwrap_err();
         assert!(matches!(err, ResolutionError::Conflict { .. }));
+    }
+
+    #[test]
+    fn selector_missing_provider_and_invalid_selector() {
+        let manifests = vec![manifest("a", "1.0.0", &["x"])];
+        let selectors = vec![CapabilitySelector {
+            capability: "x".into(),
+            provider: "missing".into(),
+        }];
+        let err = resolve(&manifests, &selectors, None).unwrap_err();
+        assert!(
+            matches!(err, ResolutionError::MissingPlugin { plugin, .. } if plugin == "missing")
+        );
+
+        let b = manifest("b", "1.0.0", &["x"]);
+        let a = manifest("a", "1.0.0", &["y"]);
+        let selectors = vec![CapabilitySelector {
+            capability: "x".into(),
+            provider: "a".into(),
+        }];
+        let err = resolve(&[a, b], &selectors, None).unwrap_err();
+        assert!(matches!(err, ResolutionError::InvalidSelector { .. }));
+    }
+
+    fn main_plugin() -> PluginManifest {
+        PluginManifest {
+            id: "main".into(),
+            version: "1.0.0".into(),
+            provides: vec![],
+            requires: vec![],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    #[test]
+    fn required_plugin_dependency_and_version_mismatch() {
+        let mut main = main_plugin();
+        main.requires = vec![Dependency::plugin("base", None)];
+        let base = manifest("base", "1.0.0", &[]);
+
+        let resolved = resolve(&[main.clone(), base], &[], None).unwrap();
+        assert!(resolved.selected_plugins.contains(&"main".into()));
+
+        main.requires = vec![Dependency::plugin("base", Some("^2.0".into()))];
+        let base = manifest("base", "1.0.0", &[]);
+        let err = resolve(&[main, base], &[], None).unwrap_err();
+        assert!(matches!(err, ResolutionError::VersionMismatch { .. }));
+
+        let mut main = main_plugin();
+        main.requires = vec![Dependency::plugin("missing", None)];
+        let err = resolve(&[main], &[], None).unwrap_err();
+        assert!(
+            matches!(err, ResolutionError::MissingPlugin { plugin, .. } if plugin == "missing")
+        );
+    }
+
+    #[test]
+    fn optional_dependencies_are_recorded_or_resolved() {
+        let mut main = main_plugin();
+        main.optional = vec![
+            Dependency::capability("foo", Some("^1.0".into())),
+            Dependency::plugin("bar", Some(">=2.0".into())),
+            Dependency::capability("missing-cap", None),
+            Dependency::plugin("missing-plugin", None),
+        ];
+        let foo = manifest("foo", "1.1.0", &["foo"]);
+        let bar = manifest("bar", "2.0.0", &[]);
+
+        let resolved = resolve(&[main, foo, bar], &[], None).unwrap();
+        assert_eq!(resolved.missing_optional.len(), 2);
+    }
+
+    #[test]
+    fn conflict_by_capability_and_missing_extendee() {
+        let a = PluginManifest {
+            id: "a".into(),
+            version: "1.0.0".into(),
+            provides: vec!["x".into()],
+            requires: vec![],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![ConflictDeclaration {
+                plugin: None,
+                capability: Some("y".into()),
+                reason: None,
+            }],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let b = manifest("b", "1.0.0", &["y"]);
+        let err = resolve(&[a, b], &[], None).unwrap_err();
+        assert!(matches!(err, ResolutionError::Conflict { plugin_a, .. } if plugin_a == "a"));
+
+        let a = PluginManifest {
+            id: "a".into(),
+            version: "1.0.0".into(),
+            provides: vec![],
+            requires: vec![],
+            optional: vec![],
+            extends: vec![ExtendsDeclaration {
+                plugin: "missing".into(),
+                version: None,
+                extension_point: None,
+            }],
+            conflicts: vec![],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let err = resolve(&[a], &[], None).unwrap_err();
+        assert!(matches!(err, ResolutionError::MissingPlugin { .. }));
+    }
+
+    #[test]
+    fn target_report_filled_for_requested_target() {
+        let a = PluginManifest {
+            id: "a".into(),
+            version: "1.0.0".into(),
+            provides: vec![],
+            requires: vec![],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            targets: vec![TargetCompatibility {
+                target: "wasm".into(),
+                level: TargetSupportLevel::Checked,
+            }],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let b = manifest("b", "1.0.0", &[]);
+
+        let resolved = resolve(&[a, b], &[], Some("wasm")).unwrap();
+        assert_eq!(
+            resolved.target_report.get("a"),
+            Some(&TargetSupportLevel::Checked)
+        );
+        assert_eq!(
+            resolved.target_report.get("b"),
+            Some(&TargetSupportLevel::Unsupported)
+        );
+    }
+
+    #[test]
+    fn version_helpers() {
+        assert_eq!(version_cmp("1.0.0", "2.0.0"), std::cmp::Ordering::Less);
+        assert_eq!(version_cmp("1.10", "1.2"), std::cmp::Ordering::Greater);
+        assert!(version_satisfies("1.0.0", "1.0.0"));
+        assert!(version_satisfies("^1.0", "1.2.0"));
+        assert!(!version_satisfies("^2.0", "1.0.0"));
+        assert_eq!(normalize_version_req("1"), Some("=1.0.0".into()));
+        assert_eq!(normalize_version_req(">=1.2"), Some(">=1.2.0".into()));
+        assert_eq!(normalize_version_req(""), None);
+    }
+
+    #[test]
+    fn init_order_respects_plugin_dependency_and_extends() {
+        let base = manifest("base", "1.0.0", &[]);
+        let mut ext = main_plugin();
+        ext.id = "ext".into();
+        ext.requires = vec![Dependency::plugin("base", None)];
+        ext.extends = vec![ExtendsDeclaration {
+            plugin: "base".into(),
+            version: None,
+            extension_point: None,
+        }];
+
+        let resolved = resolve(&[ext, base], &[], None).unwrap();
+        assert!(
+            resolved
+                .initialization_order
+                .iter()
+                .position(|id| id == "base")
+                .unwrap()
+                < resolved
+                    .initialization_order
+                    .iter()
+                    .position(|id| id == "ext")
+                    .unwrap()
+        );
+    }
+
+    #[test]
+    fn conflict_by_plugin_declaration() {
+        let a = PluginManifest {
+            id: "a".into(),
+            version: "1.0.0".into(),
+            provides: vec![],
+            requires: vec![],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![ConflictDeclaration {
+                plugin: Some("b".into()),
+                capability: None,
+                reason: Some("incompatible".into()),
+            }],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let b = manifest("b", "1.0.0", &[]);
+        let err = resolve(&[a, b], &[], None).unwrap_err();
+        assert!(matches!(err, ResolutionError::Conflict { plugin_a, .. } if plugin_a == "a"));
+    }
+
+    #[test]
+    fn cycle_via_capability_dependencies() {
+        let a = PluginManifest {
+            id: "a".into(),
+            version: "1.0.0".into(),
+            provides: vec!["x".into()],
+            requires: vec![Dependency::capability("y", None)],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let b = PluginManifest {
+            id: "b".into(),
+            version: "1.0.0".into(),
+            provides: vec!["y".into()],
+            requires: vec![Dependency::capability("x", None)],
+            optional: vec![],
+            extends: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            targets: vec![],
+            exclusive: vec![],
+            metadata: serde_json::Value::Null,
+        };
+        let err = resolve(&[a, b], &[], None).unwrap_err();
+        assert!(matches!(err, ResolutionError::CyclicGraph { .. }));
+    }
+
+    #[test]
+    fn version_satisfies_fallback_exact() {
+        assert!(version_satisfies("1.x", "1.x"));
+        assert!(!version_satisfies("1.x", "1.y"));
     }
 }

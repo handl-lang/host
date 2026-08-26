@@ -1,14 +1,19 @@
+//! Capability identifiers and metadata.
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+/// Opaque metadata associated with a capability, represented as JSON.
 pub type CapabilityMetadata = serde_json::Value;
 
+/// A unique capability identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CapabilityId(String);
 
 impl CapabilityId {
+    /// Returns the capability identifier as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -32,8 +37,11 @@ impl fmt::Display for CapabilityId {
     }
 }
 
+/// A runtime capability that can be requested from a plugin.
 pub trait Capability: Send + Sync {
+    /// Returns the capability's unique identifier.
     fn id(&self) -> CapabilityId;
+    /// Returns the capability's metadata.
     fn metadata(&self) -> CapabilityMetadata;
 }
 
@@ -74,5 +82,12 @@ mod tests {
         };
         assert_eq!(cap.id(), "fmt".into());
         assert_eq!(cap.metadata(), serde_json::json!({"command":"fmt"}));
+    }
+
+    #[test]
+    fn capability_id_from_string() {
+        let s = "eval".to_string();
+        let id: CapabilityId = s.into();
+        assert_eq!(id.as_str(), "eval");
     }
 }

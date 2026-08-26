@@ -1,3 +1,5 @@
+//! Plugin manifest definitions and dependency declarations.
+
 use serde::{Deserialize, Serialize};
 
 use crate::capability::CapabilityId;
@@ -12,15 +14,24 @@ fn default_version() -> String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct PluginManifest {
+    /// Unique plugin identifier.
     pub id: String,
+    /// Plugin version, defaulting to "0.0.0".
     #[serde(default = "default_version")]
     pub version: String,
+    /// Capabilities this plugin provides.
     pub provides: Vec<CapabilityId>,
+    /// Required capabilities or plugins.
     pub requires: Vec<Dependency>,
+    /// Optional capabilities or plugins.
     pub optional: Vec<Dependency>,
+    /// Plugins this plugin extends.
     pub extends: Vec<ExtendsDeclaration>,
+    /// Declared conflicts with other plugins or capabilities.
     pub conflicts: Vec<ConflictDeclaration>,
+    /// Plugins this plugin replaces.
     pub replaces: Vec<String>,
+    /// Target runtime compatibility declarations.
     pub targets: Vec<TargetCompatibility>,
     /// Capabilities that this plugin declares may not be provided by multiple
     /// plugins in the final composition. The resolver rejects ambiguous
@@ -35,7 +46,9 @@ pub struct PluginManifest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Dependency {
+    /// A required capability.
     Capability(CapabilityDependency),
+    /// A required plugin.
     Plugin(PluginDependency),
 }
 
@@ -63,9 +76,12 @@ impl From<&str> for Dependency {
     }
 }
 
+/// A dependency on a specific capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityDependency {
+    /// The required capability.
     pub capability: CapabilityId,
+    /// Optional version requirement.
     pub version: Option<String>,
 }
 
@@ -78,9 +94,12 @@ impl From<&str> for CapabilityDependency {
     }
 }
 
+/// A dependency on a specific plugin.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginDependency {
+    /// The required plugin id.
     pub id: String,
+    /// Optional version requirement.
     pub version: Option<String>,
 }
 
@@ -97,8 +116,11 @@ impl From<&str> for PluginDependency {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ExtendsDeclaration {
+    /// The plugin being extended.
     pub plugin: String,
+    /// Optional version requirement of the extendee.
     pub version: Option<String>,
+    /// Optional capability acting as the extension point.
     pub extension_point: Option<CapabilityId>,
 }
 
@@ -106,8 +128,11 @@ pub struct ExtendsDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ConflictDeclaration {
+    /// The conflicting plugin, if any.
     pub plugin: Option<String>,
+    /// The conflicting capability, if any.
     pub capability: Option<CapabilityId>,
+    /// Human-readable reason for the conflict.
     pub reason: Option<String>,
 }
 
@@ -115,7 +140,9 @@ pub struct ConflictDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct TargetCompatibility {
+    /// The target runtime name.
     pub target: String,
+    /// The support level for this target.
     pub level: TargetSupportLevel,
 }
 
@@ -123,12 +150,19 @@ pub struct TargetCompatibility {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetSupportLevel {
+    /// Fully supported.
     Supported,
+    /// Exactly matching semantics.
     Exact,
+    /// Supported with no information loss.
     Lossless,
+    /// Supported with possible information loss.
     Lossy,
+    /// Verified at load time.
     Checked,
+    /// Emulated with no guarantees.
     Emulated,
+    /// Not supported.
     Unsupported,
 }
 
@@ -186,8 +220,7 @@ mod tests {
     fn json_round_trip() {
         let original = sample_manifest();
         let json = serde_json::to_string_pretty(&original).expect("serialize");
-        let roundtripped: PluginManifest =
-            serde_json::from_str(&json).expect("deserialize");
+        let roundtripped: PluginManifest = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(original, roundtripped);
     }
 
@@ -225,5 +258,24 @@ mod tests {
         let json = r#"{"id":"x","provides":[],"requires":[],"optional":[],"extends":[],"conflicts":[],"replaces":[],"targets":[],"exclusive":[]}"#;
         let m: PluginManifest = serde_json::from_str(json).expect("deserialize");
         assert_eq!(m.version, "0.0.0");
+    }
+
+    #[test]
+    fn dependency_constructors_and_from_str() {
+        let cap = Dependency::capability("a", Some("1.0".into()));
+        assert!(matches!(cap, Dependency::Capability(_)));
+        let plug = Dependency::plugin("b", Some(">=2.0".into()));
+        assert!(matches!(plug, Dependency::Plugin(_)));
+
+        let from: Dependency = "c".into();
+        assert_eq!(from, Dependency::capability("c", None));
+
+        let cap_dep: CapabilityDependency = "d".into();
+        assert_eq!(cap_dep.capability, CapabilityId::from("d"));
+        assert_eq!(cap_dep.version, None);
+
+        let plug_dep: PluginDependency = "e".into();
+        assert_eq!(plug_dep.id, "e");
+        assert_eq!(plug_dep.version, None);
     }
 }

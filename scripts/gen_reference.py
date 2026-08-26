@@ -10,8 +10,12 @@ ROOT = Path('/home/luis/GitHub/handl-lang/platform')
 REF = ROOT / 'docs' / 'reference'
 
 
-def esc(text: str) -> str:
-    return text.replace('<', '&lt;').replace('>', '&gt;') if text else ''
+def esc(text: object) -> str:
+    if isinstance(text, list):
+        return ', '.join(esc(x) for x in text)
+    if not text:
+        return ''
+    return str(text).replace('<', '&lt;').replace('>', '&gt;')
 
 
 def title_case(s: str) -> str:
