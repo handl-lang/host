@@ -1,14 +1,3 @@
-example = [
-    { name = "basic", path = "examples/rust/basic/main.rs" },
-    { name = "functions", path = "examples/rust/functions/main.rs" },
-    { name = "fields", path = "examples/rust/fields/main.rs" },
-    { name = "handlers", path = "examples/rust/handlers/main.rs" },
-    { name = "resumable", path = "examples/rust/resumable/main.rs" },
-    { name = "content-addressing", path = "examples/rust/content-addressing/main.rs" },
-    { name = "multi-handler", path = "examples/rust/multi-handler/main.rs" },
-    { name = "generics", path = "examples/rust/generics/main.rs" },
-]
-
 [package]
 name = "handl"
 version = "0.1.0"
