@@ -1117,8 +1117,11 @@ dependencies = [
 name = "handl-lib-concurrent"
 version = "0.1.0"
 dependencies = [
+ "criterion",
+ "crossbeam-deque",
  "handl-vm-common",
  "handl-vm-values-json",
+ "parking_lot",
  "serde_json",
 ]
 
@@ -1657,6 +1660,8 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
+ "handl-lib-concurrent",
+ "handl-vm-common",
  "semver",
  "serde",
  "serde_json",
@@ -2367,6 +2372,7 @@ dependencies = [
  "handl-lib-archive-tar",
  "handl-lib-collections",
  "handl-lib-compress-gzip",
+ "handl-lib-concurrent",
  "handl-lib-crypto",
  "handl-lib-datetime",
  "handl-lib-intl",
