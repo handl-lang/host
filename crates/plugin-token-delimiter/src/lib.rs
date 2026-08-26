@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use handl_lexer::{Span, Token, TokenKind};
 use std::fmt;
 

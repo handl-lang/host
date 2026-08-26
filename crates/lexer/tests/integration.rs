@@ -17,7 +17,6 @@ enum IntegKind {
     Ident(String),
     Num(f64),
     Str(String),
-    Comment(String),
     Eof,
 }
 
@@ -27,7 +26,7 @@ impl fmt::Display for IntegKind {
             IntegKind::Ident(s) => write!(f, "ident({s})"),
             IntegKind::Num(n) => write!(f, "num({n})"),
             IntegKind::Str(s) => write!(f, "str({s:?})"),
-            IntegKind::Comment(s) => write!(f, "comment({s:?})"),
+
             IntegKind::Eof => write!(f, "eof"),
         }
     }
@@ -52,7 +51,7 @@ impl EofFactory<IntegKind> for () {
 
 impl CommentTokenKind for IntegKind {
     fn is_comment(&self) -> bool {
-        matches!(self, IntegKind::Comment(_))
+        false
     }
 }
 

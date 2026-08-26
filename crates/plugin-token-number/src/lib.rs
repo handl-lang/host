@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 //! Canonical number-token plugin.
 //!
 //! Provides the `NumberKind` token kind and implements

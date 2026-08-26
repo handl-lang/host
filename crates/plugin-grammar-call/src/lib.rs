@@ -103,7 +103,6 @@ mod tests {
     #[derive(Debug, Clone, PartialEq)]
     enum TestToken {
         Ident(String),
-        Number(f64),
         CallOpen,
         CallClose,
         Comma,
@@ -114,7 +113,7 @@ mod tests {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 TestToken::Ident(s) => write!(f, "ident({s})"),
-                TestToken::Number(n) => write!(f, "number({n})"),
+
                 TestToken::CallOpen => write!(f, "("),
                 TestToken::CallClose => write!(f, ")"),
                 TestToken::Comma => write!(f, ","),

@@ -10,5 +10,8 @@ thiserror = { workspace = true }
 semver = "1"
 toml = "0.8"
 
+[features]
+concurrent = []
+
 [dev-dependencies]
 serde_json = { workspace = true }
