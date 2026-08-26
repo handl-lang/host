@@ -1,7 +1,7 @@
 use handl_lib_concurrent::atomic::DefaultAtomicRuntime;
 use handl_lib_concurrent::cancel::DefaultCancelRuntime;
 use handl_lib_concurrent::scheduler::{DefaultScheduler, Scheduler, ThreadPoolScheduler};
-use handl_lib_concurrent::{ConcurrencyModule, ParkingLotSyncRuntime, StdNetIoRuntime};
+use handl_lib_concurrent::{ConcurrencyModule, ParkingLotSyncRuntime, StdNetIoRuntime, ThreadTimerRuntime};
 use handl_lib_concurrent::sync::{DefaultSyncRuntime, SyncRuntime};
 use handl_vm_common::Module;
 use handl_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
@@ -71,7 +71,6 @@ fn thunk(body: &str) -> NonFunctionValue {
 }
 
 #[test]
-#[ignore]
 fn thread_pool_spawn_await_many() {
     let mut ctx = CanonicalContext::new();
     let eval = Arc::new(MockEval::new());
@@ -155,6 +154,7 @@ fn parking_lot_contended_mutex() {
         Arc::new(DefaultAtomicRuntime::new()),
         Arc::new(DefaultCancelRuntime::new()),
         Arc::new(StdNetIoRuntime::new()),
+        Arc::new(ThreadTimerRuntime::new()),
     ));
 
     let mut ctx = CanonicalContext::new();
@@ -198,6 +198,7 @@ fn parking_lot_channel_race() {
         Arc::new(DefaultAtomicRuntime::new()),
         Arc::new(DefaultCancelRuntime::new()),
         Arc::new(StdNetIoRuntime::new()),
+        Arc::new(ThreadTimerRuntime::new()),
     ));
 
     let mut ctx = CanonicalContext::new();
@@ -268,7 +269,6 @@ fn parking_lot_channel_race() {
 }
 
 #[test]
-#[ignore]
 fn parking_lot_channel_single_producer_order() {
     let module = Arc::new(ConcurrencyModule::with_full_backends(
         Arc::new(DefaultScheduler::new()),
@@ -276,6 +276,7 @@ fn parking_lot_channel_single_producer_order() {
         Arc::new(DefaultAtomicRuntime::new()),
         Arc::new(DefaultCancelRuntime::new()),
         Arc::new(StdNetIoRuntime::new()),
+        Arc::new(ThreadTimerRuntime::new()),
     ));
 
     let mut ctx = CanonicalContext::new();
@@ -353,6 +354,7 @@ fn parking_lot_semaphore_contention() {
         Arc::new(DefaultAtomicRuntime::new()),
         Arc::new(DefaultCancelRuntime::new()),
         Arc::new(StdNetIoRuntime::new()),
+        Arc::new(ThreadTimerRuntime::new()),
     ));
 
     let mut ctx = CanonicalContext::new();

@@ -70,12 +70,14 @@ pub mod scheduler;
 pub mod sync;
 pub mod sync_parking_lot;
 pub mod io;
+pub mod timer;
 
 pub use cancel::CancelableEval;
 pub use scheduler::ThreadPoolScheduler;
 pub use scheduler::WorkStealingScheduler;
 pub use sync_parking_lot::ParkingLotSyncRuntime;
-pub use io::{IoRuntime, StdNetIoRuntime};
+pub use io::{IoRuntime, MioIoRuntime, StdNetIoRuntime};
+pub use timer::{ThreadTimerRuntime, TimerRuntime};
 
 fn expect_args(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
     if args.len() != expected {
@@ -504,6 +506,8 @@ impl Function<NonFunctionValue> for IoFn {
 /// Runtime module exposing `concurrent.*` concurrency functions.
 pub struct ConcurrencyModule {
     #[allow(dead_code)]
+    timer: Arc<dyn TimerRuntime + Send + Sync>,
+    #[allow(dead_code)]
     scheduler: Arc<dyn Scheduler + Send + Sync>,
     spawn_fn: SpawnFn,
     await_fn: AwaitFn,
@@ -531,13 +535,15 @@ impl ConcurrencyModule {
     /// Creates a concurrency module with all standard functions and the default backends.
     pub fn new() -> Self {
         let cancel = Arc::new(DefaultCancelRuntime::new());
-        let scheduler = Arc::new(DefaultScheduler::with_cancel_runtime(cancel.clone()));
+        let timer = Arc::new(ThreadTimerRuntime::new());
+        let scheduler = Arc::new(DefaultScheduler::with_timer(cancel.clone(), timer.clone()));
         Self::with_full_backends(
             scheduler,
             Arc::new(DefaultSyncRuntime::new()),
             Arc::new(DefaultAtomicRuntime::new()),
             cancel,
             Arc::new(StdNetIoRuntime::new()),
+            timer,
         )
     }
 
@@ -549,6 +555,7 @@ impl ConcurrencyModule {
             Arc::new(DefaultAtomicRuntime::new()),
             Arc::new(DefaultCancelRuntime::new()),
             Arc::new(StdNetIoRuntime::new()),
+            Arc::new(ThreadTimerRuntime::new()),
         )
     }
 
@@ -564,6 +571,7 @@ impl ConcurrencyModule {
             Arc::new(DefaultAtomicRuntime::new()),
             Arc::new(DefaultCancelRuntime::new()),
             Arc::new(StdNetIoRuntime::new()),
+            Arc::new(ThreadTimerRuntime::new()),
         )
     }
 
@@ -574,6 +582,7 @@ impl ConcurrencyModule {
         atomic: Arc<dyn AtomicRuntime + Send + Sync>,
         cancel: Arc<dyn CancelRuntime + Send + Sync>,
         io: Arc<dyn IoRuntime + Send + Sync>,
+        timer: Arc<dyn TimerRuntime + Send + Sync>,
     ) -> Self {
         let mut sync_fns = HashMap::new();
         for name in SYNC_FUNCTIONS {
@@ -621,6 +630,7 @@ impl ConcurrencyModule {
         }
 
         Self {
+            timer,
             scheduler: scheduler.clone(),
             spawn_fn: SpawnFn {
                 scheduler: scheduler.clone(),
@@ -1542,6 +1552,7 @@ mod tests {
             Arc::new(DefaultAtomicRuntime::new()),
             cancel.clone(),
             Arc::new(StdNetIoRuntime::new()),
+            Arc::new(ThreadTimerRuntime::new()),
         );
         let mut ctx = CanonicalContext::new();
 
@@ -1566,3 +1577,6 @@ mod tests {
         assert!(matches!(err, Err(Error::PrimitiveError(_))));
     }
 }
+
+#[cfg(test)]
+mod error_tests;

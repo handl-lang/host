@@ -32,7 +32,7 @@ fn to_ac_parse_error(e: DefaultParseError) -> HandlParseError {
 #[derive(Clone, Copy, Default)]
 pub struct CanonicalParser;
 
-impl ParserTrait<CanonicalKind, DefaultLexError> for CanonicalParser {
+impl ParserTrait<CanonicalKind, Expr<NonFunctionValue>, DefaultLexError> for CanonicalParser {
     fn parse(
         &self,
         tokens: Vec<Token<CanonicalKind>>,
@@ -332,6 +332,25 @@ impl CanonicalGrammar {
                 let operand = self.parse_primary(context)?;
                 Ok(Expr::call("type.typeof", vec![operand]))
             }
+            Some(CanonicalKind::Concurrent) => {
+                context.advance()?;
+                self.parse_concurrent(context)
+            }
+            Some(CanonicalKind::Must) => {
+                context.advance()?;
+                let operand = self.parse_primary(context)?;
+                Ok(Expr::call("concurrent.must", vec![operand]))
+            }
+            Some(CanonicalKind::May) => {
+                context.advance()?;
+                let operand = self.parse_primary(context)?;
+                Ok(Expr::call("concurrent.may", vec![operand]))
+            }
+            Some(CanonicalKind::When) => {
+                context.advance()?;
+                let operand = self.parse_primary(context)?;
+                Ok(Expr::call("concurrent.when", vec![operand]))
+            }
             Some(CanonicalKind::Eof) => Err(DefaultParseError::unexpected_eof(
                 context.peek_span(),
                 "an expression",
@@ -423,6 +442,17 @@ impl CanonicalGrammar {
         let expr = self.parse_expr(context)?;
         context.expect(CanonicalKind::CallClose, "`)`")?;
         Ok(expr)
+    }
+
+    fn parse_concurrent(
+        &self,
+        context: &mut ParserContext<CanonicalKind, Expr<NonFunctionValue>, DefaultParseError>,
+    ) -> Result<Expr<NonFunctionValue>, DefaultParseError> {
+        context.expect(CanonicalKind::BlockOpen, "`{` after `concurrent`")?;
+        let body = self.capture_body(context)?;
+        context.expect(CanonicalKind::BlockClose, "`}` to close `concurrent` block")?;
+        let thunk = Expr::function(Vec::new(), Vec::new(), None, body);
+        Ok(Expr::call("concurrent.may", vec![thunk]))
     }
 
     fn parse_call_args(

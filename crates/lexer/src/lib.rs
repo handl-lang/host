@@ -18,10 +18,11 @@ mod config;
 #[cfg(test)]
 mod config_test;
 mod error;
+mod factory;
 mod lexer;
+mod primitives;
 #[cfg(test)]
 mod lexer_test;
-pub mod primitives;
 mod rule;
 mod span;
 mod token;
@@ -30,10 +31,8 @@ mod token_test;
 
 pub use config::LexerConfig;
 pub use error::{DefaultLexError, LexError};
+pub use factory::*;
 pub use lexer::Lexer;
 pub use rule::{FnRule, LexRule};
 pub use span::Span;
-pub use token::{
-    CommentFactory, CommentTokenKind, EofFactory, IdentFactory, KeywordFactory, KindFactory,
-    NumberFactory, OperatorFactory, StringFactory, Token, TokenKind,
-};
+pub use token::{CommentTokenKind, Token, TokenKind};

@@ -317,4 +317,15 @@ mod tests {
         assert!(matches!(err, Error::PrimitiveError(ref m) if m == "cancelled"));
         assert_eq!(inner.calls.lock().unwrap().as_slice(), &["first"]);
     }
+
+    #[test]
+    fn cancel_already_cancelled_token_is_error_or_noop() {
+        let c = DefaultCancelRuntime::new();
+        let token = c.cancel_token();
+        c.cancel(token.clone()).unwrap();
+
+        let again = c.cancel(token);
+        // Cancelling an already-cancelled token is a no-op, not an error.
+        assert!(again.is_ok());
+    }
 }

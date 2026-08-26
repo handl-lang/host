@@ -1,9 +1,9 @@
 //! Configuration for the lexing engine.
 //!
-//! [`LexerConfig`] holds three composable pieces:
+//! [`LexerConfig`] holds two composable pieces:
 //!
-//! - **Keywords** — identifier text mapped to a `TokenKind` (e.g. `true` → `Bool(true)`)
-//! - **Delimiters** — single characters mapped to a `TokenKind` (e.g. `(` → `CallOpen`)
+//! - **Keywords** — identifier text mapped to a `TokenKind` (e.g. `true` → a bool keyword)
+//! - **Delimiters** — single characters mapped to a `TokenKind` (e.g. `(` → a call-open)
 //! - **Rules** — ordered lexing functions that try to produce a token from the current
 //!   position in the input
 //!
@@ -15,50 +15,50 @@ use crate::{LexError, LexRule, TokenKind};
 
 /// Configuration for the lexing engine.
 ///
-/// Holds keywords, delimiters, and an ordered list of [`LexRule`] trait objects.
-/// Start with an empty config ([`LexerConfig::new`]) or a dialect preset,
-/// then customize with the builder methods.
+/// Holds a token factory, keywords, delimiters, and an ordered list of
+/// [`LexRule`] trait objects. Start with an empty config ([`LexerConfig::new`])
+/// or a dialect preset, then customize with the builder methods.
 ///
 /// # Examples
 ///
 /// ```ignore
-/// use handl_lexer::{TokenKind, LexerConfig, StringRule, DefaultLexError};
+/// use handl_lexer::{TokenKind, LexerConfig, DefaultLexError};
 ///
-/// let config = LexerConfig::new(MyFactory)
+/// let config = LexerConfig::<MyKind, DefaultLexError>::new(MyFactory)
 ///     .with_keyword("true", MyKind::Bool(true))
 ///     .with_delimiter('(', MyKind::CallOpen)
-///     .with_rule(StringRule);
+///     .with_rule(MyRule);
 /// ```
 pub struct LexerConfig<K: TokenKind, E: LexError> {
+    factory: K::Factory,
     keywords: Vec<(String, K)>,
     delimiters: Vec<(char, K)>,
-    factory: K::Factory,
     rules: Vec<Box<dyn LexRule<K, E>>>,
 }
 
 impl<K: TokenKind, E: LexError> Clone for LexerConfig<K, E> {
     fn clone(&self) -> Self {
         LexerConfig {
+            factory: self.factory.clone(),
             keywords: self.keywords.clone(),
             delimiters: self.delimiters.clone(),
-            factory: self.factory.clone(),
             rules: self.rules.iter().map(|r| r.clone_box()).collect(),
         }
     }
 }
 
 impl<K: TokenKind, E: LexError> LexerConfig<K, E> {
-    /// Creates an empty configuration with the given kind factory.
+    /// Creates an empty configuration with the given token factory.
     pub fn new(factory: K::Factory) -> Self {
         LexerConfig {
+            factory,
             keywords: Vec::new(),
             delimiters: Vec::new(),
-            factory,
             rules: Vec::new(),
         }
     }
 
-    /// Returns the kind factory.
+    /// Returns the token factory.
     pub fn factory(&self) -> &K::Factory {
         &self.factory
     }
@@ -185,5 +185,14 @@ impl<K: TokenKind, E: LexError> LexerConfig<K, E> {
             }
         }
         self
+    }
+}
+
+impl<K: TokenKind, E: LexError> Default for LexerConfig<K, E>
+where
+    K::Factory: Default,
+{
+    fn default() -> Self {
+        Self::new(K::Factory::default())
     }
 }

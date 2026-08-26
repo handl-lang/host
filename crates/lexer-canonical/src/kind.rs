@@ -62,6 +62,9 @@ pub enum CanonicalKind {
     /// The `match` keyword (pattern matching expression).
     Match,
 
+    /// The `concurrent` keyword (concurrent effect block introducer).
+    Concurrent,
+
     /// Call-open delimiter — `(` in canonical.
     CallOpen,
 
@@ -159,6 +162,7 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::When => write!(f, "when"),
             CanonicalKind::Else => write!(f, "else"),
             CanonicalKind::Match => write!(f, "match"),
+            CanonicalKind::Concurrent => write!(f, "concurrent"),
             CanonicalKind::CallOpen => write!(f, "("),
             CanonicalKind::CallClose => write!(f, ")"),
             CanonicalKind::BlockOpen => write!(f, "{{"),

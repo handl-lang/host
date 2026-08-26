@@ -194,6 +194,7 @@ impl From<Error> for SyncError {
 struct Channel {
     capacity: Option<usize>,
     queue: VecDeque<NonFunctionValue>,
+    closed: bool,
 }
 
 /// An in-memory, `std`-based synchronization runtime.
@@ -221,6 +222,20 @@ impl DefaultSyncRuntime {
     fn next_id(&self) -> u64 {
         self.next_id.fetch_add(1, Ordering::SeqCst)
     }
+
+    /// Marks a channel as closed. Existing queued values may still be received.
+    pub fn close(&self, channel: NonFunctionValue) -> Result<NonFunctionValue, SyncError> {
+        let id = resource_id(&channel, "channel")?;
+        let channels = self.channels.lock().map_err(poison)?;
+        let chan = channels
+            .get(&id)
+            .ok_or_else(|| SyncError::NotFound(format!("channel {id} not found")))?
+            .clone();
+        drop(channels);
+        let mut chan = chan.lock().map_err(poison)?;
+        chan.closed = true;
+        Ok(NonFunctionValue::default())
+    }
 }
 
 impl Default for DefaultSyncRuntime {
@@ -245,6 +260,7 @@ impl SyncRuntime for DefaultSyncRuntime {
             Arc::new(Mutex::new(Channel {
                 capacity: cap,
                 queue: VecDeque::new(),
+                closed: false,
             })),
         );
         resource_value("channel", id)
@@ -263,6 +279,9 @@ impl SyncRuntime for DefaultSyncRuntime {
             .clone();
         drop(channels);
         let mut chan = chan.lock().map_err(poison)?;
+        if chan.closed {
+            return Err(SyncError::NotFound(format!("channel {id} is closed")));
+        }
         if let Some(cap) = chan.capacity {
             if chan.queue.len() >= cap {
                 return Err(SyncError::WouldBlock);
@@ -285,6 +304,9 @@ impl SyncRuntime for DefaultSyncRuntime {
             .clone();
         drop(channels);
         let mut chan = chan.lock().map_err(poison)?;
+        if chan.closed {
+            return Err(SyncError::NotFound(format!("channel {id} is closed")));
+        }
         if let Some(cap) = chan.capacity {
             if chan.queue.len() >= cap {
                 return Err(SyncError::WouldBlock);
@@ -303,7 +325,14 @@ impl SyncRuntime for DefaultSyncRuntime {
             .clone();
         drop(channels);
         let mut chan = chan.lock().map_err(poison)?;
-        chan.queue.pop_front().ok_or(SyncError::WouldBlock)
+        if let Some(value) = chan.queue.pop_front() {
+            return Ok(value);
+        }
+        if chan.closed {
+            Err(SyncError::NotFound(format!("channel {id} is closed")))
+        } else {
+            Err(SyncError::WouldBlock)
+        }
     }
 
     fn select(&self, channels: &[NonFunctionValue]) -> Result<NonFunctionValue, SyncError> {
@@ -676,5 +705,55 @@ mod tests {
             s.try_lock(m, thunk("ok"), &mut ctx()).unwrap(),
             NonFunctionValue::new(json!({ "body": "ok" }))
         );
+    }
+
+    #[test]
+    fn bounded_channel_blocks_on_second_send() {
+        let s = DefaultSyncRuntime::new();
+        let ch = s.channel(Some(NonFunctionValue::new(json!(1))));
+
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(1))).is_ok());
+        assert_eq!(
+            s.send(ch.clone(), NonFunctionValue::new(json!(2))),
+            Err(SyncError::WouldBlock)
+        );
+        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(1)));
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(2))).is_ok());
+        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(2)));
+    }
+
+    #[test]
+    fn bounded_channel_try_send_full_returns_would_block() {
+        let s = DefaultSyncRuntime::new();
+        let ch = s.channel(Some(NonFunctionValue::new(json!(1))));
+
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(1))).is_ok());
+        assert_eq!(
+            s.try_send(ch, NonFunctionValue::new(json!(2))),
+            Err(SyncError::WouldBlock)
+        );
+    }
+
+    #[test]
+    fn bounded_channel_close_then_send_error() {
+        let s = DefaultSyncRuntime::new();
+        let ch = s.channel(Some(NonFunctionValue::new(json!(2))));
+
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(1))).is_ok());
+        assert!(s.close(ch.clone()).is_ok());
+        assert!(s.send(ch, NonFunctionValue::new(json!(2))).is_err());
+    }
+
+    #[test]
+    fn bounded_channel_close_then_recv_drains_then_error() {
+        let s = DefaultSyncRuntime::new();
+        let ch = s.channel(Some(NonFunctionValue::new(json!(2))));
+
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(1))).is_ok());
+        assert!(s.send(ch.clone(), NonFunctionValue::new(json!(2))).is_ok());
+        assert!(s.close(ch.clone()).is_ok());
+        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(1)));
+        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(2)));
+        assert!(s.recv(ch).is_err());
     }
 }

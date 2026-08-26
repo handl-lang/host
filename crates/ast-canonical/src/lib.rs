@@ -7,6 +7,22 @@
 
 pub use handl_ast_common::*;
 
+impl<V: std::fmt::Debug + Clone + PartialEq> handl_ast::Node for expr::Expr<V> {
+    type Value = V;
+    type Metadata = ();
+
+    fn metadata(&self) -> &Self::Metadata {
+        &()
+    }
+
+    fn with_metadata(self, _metadata: Self::Metadata) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+}
+
 mod expr;
 mod field;
 mod stmt;

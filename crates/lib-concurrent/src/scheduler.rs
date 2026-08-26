@@ -20,6 +20,7 @@ use std::time::Duration;
 use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
 use crate::cancel::{CancelRuntime, CancelableEval, DefaultCancelRuntime};
+use crate::timer::{ThreadTimerRuntime, TimerRuntime};
 use handl_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
 
@@ -166,24 +167,30 @@ pub struct DefaultScheduler {
     next_id: AtomicU64,
     tasks: Mutex<Vec<TaskRecord>>,
     cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+    timer: Arc<dyn TimerRuntime + Send + Sync>,
 }
 
 impl DefaultScheduler {
     /// Creates a new empty scheduler.
     pub fn new() -> Self {
-        Self {
-            next_id: AtomicU64::new(0),
-            tasks: Mutex::new(Vec::new()),
-            cancel_runtime: Arc::new(DefaultCancelRuntime::new()),
-        }
+        Self::with_cancel_runtime(Arc::new(DefaultCancelRuntime::new()))
     }
 
     /// Creates a scheduler that shares a cancellation runtime with the caller.
     pub fn with_cancel_runtime(cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>) -> Self {
+        Self::with_timer(cancel_runtime, Arc::new(ThreadTimerRuntime::new()))
+    }
+
+    /// Creates a scheduler with a shared cancellation runtime and timer backend.
+    pub fn with_timer(
+        cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+        timer: Arc<dyn TimerRuntime + Send + Sync>,
+    ) -> Self {
         Self {
             next_id: AtomicU64::new(0),
             tasks: Mutex::new(Vec::new()),
             cancel_runtime,
+            timer,
         }
     }
 
@@ -450,19 +457,56 @@ impl Scheduler for DefaultScheduler {
         ms: u64,
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        thread::sleep(Duration::from_millis(ms));
+        self.timer.sleep(ms)?;
         Ok(NonFunctionValue::default())
     }
 
     fn timeout(
         &self,
         task: NonFunctionValue,
-        _ms: u64,
+        ms: u64,
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        // The single-threaded default scheduler cannot monitor a timeout in a
-        // background thread. The deadline is therefore ignored; the task is
-        // awaited to completion.
+        let id = task_id(&task)?;
+
+        let token = {
+            let mut tasks = self.lock_tasks()?;
+            let rec = tasks
+                .iter_mut()
+                .find(|t| t.id == id)
+                .ok_or_else(|| Error::PrimitiveError(format!("task {id} not found")))?;
+
+            if let Some(token_id) = rec.token_id {
+                NonFunctionValue::new(json!({
+                    "type": "cancel_token",
+                    "id": token_id,
+                    "cancelled": false,
+                }))
+            } else {
+                let token = self.cancel_runtime.cancel_token();
+                let token_id = cancel_token_id(&token)?;
+                rec.token_id = Some(token_id);
+                token
+            }
+        };
+
+        let cancel_flag = self
+            .cancel_runtime
+            .cancel_flag(&token)
+            .ok_or_else(|| Error::PrimitiveError("cancel token not found".to_string()))?;
+
+        {
+            let mut tasks = self.lock_tasks()?;
+            if let Some(rec) = tasks.iter_mut().find(|t| t.id == id) {
+                rec.cancel_flag = Some(cancel_flag.clone());
+            }
+        }
+
+        let flag = cancel_flag;
+        self.timer.schedule_boxed(ms, Box::new(move || {
+            flag.store(true, Ordering::SeqCst);
+        }));
+
         self.await_task(task, ctx)
     }
 }
@@ -511,6 +555,7 @@ pub struct ThreadPoolScheduler {
     results_rx: Mutex<mpsc::Receiver<(u64, EvalResult)>>,
     tasks: Mutex<Vec<TaskRecord>>,
     cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+    timer: Arc<dyn TimerRuntime + Send + Sync>,
     shutdown: AtomicBool,
     worker_handles: Mutex<Option<Vec<thread::JoinHandle<()>>>>,
 }
@@ -525,6 +570,15 @@ impl ThreadPoolScheduler {
     pub fn with_cancel_runtime(
         workers: usize,
         cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+    ) -> Self {
+        Self::with_timer(workers, cancel_runtime, Arc::new(ThreadTimerRuntime::new()))
+    }
+
+    /// Creates a new thread-pool scheduler with a shared timer backend.
+    pub fn with_timer(
+        workers: usize,
+        cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+        timer: Arc<dyn TimerRuntime + Send + Sync>,
     ) -> Self {
         let (jobs_tx, jobs_rx) = mpsc::channel();
         let jobs_rx = Arc::new(Mutex::new(jobs_rx));
@@ -543,6 +597,7 @@ impl ThreadPoolScheduler {
             results_rx: Mutex::new(results_rx),
             tasks: Mutex::new(Vec::new()),
             cancel_runtime,
+            timer,
             shutdown: AtomicBool::new(false),
             worker_handles: Mutex::new(Some(handles)),
         }
@@ -887,7 +942,7 @@ impl Scheduler for ThreadPoolScheduler {
         ms: u64,
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        thread::sleep(Duration::from_millis(ms));
+        self.timer.sleep(ms)?;
         Ok(NonFunctionValue::default())
     }
 
@@ -919,12 +974,17 @@ impl Scheduler for ThreadPoolScheduler {
             }
         };
 
+        let cancel_flag = self
+            .cancel_runtime
+            .cancel_flag(&token)
+            .ok_or_else(|| Error::PrimitiveError("cancel token not found".to_string()))?;
+
         let (timeout_tx, timeout_rx) = mpsc::channel();
-        let deadline = Duration::from_millis(ms);
-        thread::spawn(move || {
-            thread::sleep(deadline);
+        let flag = cancel_flag;
+        self.timer.schedule_boxed(ms, Box::new(move || {
+            flag.store(true, Ordering::SeqCst);
             let _ = timeout_tx.send(());
-        });
+        }));
 
         loop {
             self.process_results()?;
@@ -1088,6 +1148,7 @@ pub struct WorkStealingScheduler {
     results_rx: Mutex<mpsc::Receiver<(u64, TaskResult)>>,
     tasks: Mutex<HashMap<u64, TaskState>>,
     cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+    timer: Arc<dyn TimerRuntime + Send + Sync>,
     shutdown: Arc<AtomicBool>,
     worker_handles: Mutex<Option<Vec<thread::JoinHandle<()>>>>,
 }
@@ -1102,6 +1163,15 @@ impl WorkStealingScheduler {
     pub fn with_cancel_runtime(
         workers: usize,
         cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+    ) -> Self {
+        Self::with_timer(workers, cancel_runtime, Arc::new(ThreadTimerRuntime::new()))
+    }
+
+    /// Creates a new work-stealing scheduler with a shared timer backend.
+    pub fn with_timer(
+        workers: usize,
+        cancel_runtime: Arc<dyn CancelRuntime + Send + Sync>,
+        timer: Arc<dyn TimerRuntime + Send + Sync>,
     ) -> Self {
         let injector: Arc<Injector<WsJob>> = Arc::new(Injector::new());
         let (results_tx, results_rx) = mpsc::channel();
@@ -1135,6 +1205,7 @@ impl WorkStealingScheduler {
             results_rx: Mutex::new(results_rx),
             tasks: Mutex::new(HashMap::new()),
             cancel_runtime,
+            timer,
             shutdown,
             worker_handles: Mutex::new(Some(handles)),
         }
@@ -1488,7 +1559,7 @@ impl Scheduler for WorkStealingScheduler {
         ms: u64,
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        thread::sleep(Duration::from_millis(ms));
+        self.timer.sleep(ms)?;
         Ok(NonFunctionValue::default())
     }
 
@@ -1520,12 +1591,17 @@ impl Scheduler for WorkStealingScheduler {
             }
         };
 
+        let cancel_flag = self
+            .cancel_runtime
+            .cancel_flag(&token)
+            .ok_or_else(|| Error::PrimitiveError("cancel token not found".to_string()))?;
+
         let (timeout_tx, timeout_rx) = mpsc::channel();
-        let deadline = Duration::from_millis(ms);
-        thread::spawn(move || {
-            thread::sleep(deadline);
+        let flag = cancel_flag;
+        self.timer.schedule_boxed(ms, Box::new(move || {
+            flag.store(true, Ordering::SeqCst);
             let _ = timeout_tx.send(());
-        });
+        }));
 
         loop {
             self.process_results()?;
@@ -1975,5 +2051,94 @@ mod tests {
             inner.calls.lock().unwrap().as_slice(),
             &["body", "first_nested"]
         );
+    }
+
+    struct SlowEval {
+        sleep_ms: u64,
+    }
+
+    impl Eval<NonFunctionValue> for SlowEval {
+        fn eval_expr(
+            &self,
+            _expr: &str,
+            _vars: &[(String, NonFunctionValue)],
+        ) -> Result<NonFunctionValue, Error> {
+            std::thread::sleep(std::time::Duration::from_millis(self.sleep_ms));
+            Ok(NonFunctionValue::new(json!("done")))
+        }
+    }
+
+    #[test]
+    fn cancel_race_between_spawn_and_cancel() {
+        let s = DefaultScheduler::new();
+        let cancel = s.cancel_runtime();
+        let mut completed = 0;
+        let mut cancelled = 0;
+
+        for i in 0..20 {
+            let token = cancel.cancel_token();
+            let cancel_t = cancel.clone();
+            let t_token = token.clone();
+            // Even iterations cancel immediately; odd iterations cancel after the
+            // slow task should have finished, exercising the race window.
+            let delay = if i % 2 == 0 { 0 } else { 30 };
+
+            let mut ctx = CanonicalContext::new();
+            ctx.set_eval(Box::new(SlowEval { sleep_ms: 15 }));
+
+            let task = s
+                .spawn_cancelable(token, work("slow"), &mut ctx)
+                .unwrap();
+
+            let t = std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+                let _ = cancel_t.cancel(t_token);
+            });
+
+            match s.await_task(task, &mut ctx) {
+                Ok(_) => completed += 1,
+                Err(_) => cancelled += 1,
+            }
+
+            t.join().unwrap();
+        }
+
+        // Both outcomes should have been observed at least once across the
+        // retries, confirming the cancellation is racy rather than deterministic.
+        assert!(completed > 0, "expected at least one completed result");
+        assert!(cancelled > 0, "expected at least one cancellation");
+    }
+
+    #[test]
+    fn cancel_running_task_still_returns_result_if_completed() {
+        let s = DefaultScheduler::new();
+        let mut ctx = CanonicalContext::new();
+        ctx.set_eval(Box::new(MockEval::default()));
+
+        let token = s.cancel_runtime().cancel_token();
+        let task = s
+            .spawn_cancelable(token.clone(), work("ok"), &mut ctx)
+            .unwrap();
+
+        let result = s.await_task(task.clone(), &mut ctx).unwrap();
+        assert_eq!(result, NonFunctionValue::new(json!({ "body": "ok" })));
+
+        // Cancelling a completed task should be a no-op.
+        s.cancel(token).unwrap();
+
+        let again = s.await_task(task, &mut ctx).unwrap();
+        assert_eq!(again, result);
+    }
+
+    #[test]
+    fn timeout_race_task_completes_right_before_deadline() {
+        let s = DefaultScheduler::new();
+        let mut ctx = CanonicalContext::new();
+        ctx.set_eval(Box::new(SlowEval { sleep_ms: 30 }));
+
+        let task = s.spawn(work("slow"), &mut ctx).unwrap();
+        let result = s.timeout(task, 50, &mut ctx).unwrap();
+
+        assert_eq!(result, NonFunctionValue::new(json!("done")));
     }
 }
