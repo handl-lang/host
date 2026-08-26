@@ -155,6 +155,44 @@ fn message_to_frame_rejects_bad_binary_base64() {
 }
 
 #[test]
+fn message_to_frame_rejects_bad_close_code() {
+    let mut ctx = ctx();
+    let bad = NonFunctionValue::new(serde_json::json!({
+        "close": {
+            "code": 70000,
+            "reason": "nope",
+        },
+    }));
+    call_err("message.to_frame", &[bad], &mut ctx);
+}
+
+#[test]
+fn module_returns_none_for_unknown_function() {
+    assert!(WsRfcModule.function("unknown").is_none());
+}
+
+#[test]
+fn message_to_frame_close_null() {
+    let mut ctx = ctx();
+    let msg = NonFunctionValue::new(serde_json::json!({"close": null}));
+    let encoded = call("message.to_frame", &[msg], &mut ctx);
+    assert!(encoded.inner().is_string());
+}
+
+#[test]
+fn message_to_frame_rejects_empty_object() {
+    let mut ctx = ctx();
+    call_err("message.to_frame", &[NonFunctionValue::new(serde_json::json!({}))], &mut ctx);
+}
+
+#[test]
+fn frame_encode_rejects_missing_opcode() {
+    let mut ctx = ctx();
+    let frame = NonFunctionValue::new(serde_json::json!({"payload": "aGVsbG8="}));
+    call_err("frame.encode", &[frame], &mut ctx);
+}
+
+#[test]
 fn client_rejects_arguments() {
     let mut ctx = ctx();
     call_err("client", &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
