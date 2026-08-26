@@ -12,6 +12,15 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"
 
+handl-ext-lexer = { path = "../ext-lexer" }
+handl-ext-parser = { path = "../ext-parser" }
+handl-ext-fmt = { path = "../ext-fmt" }
+handl-ext-lint = { path = "../ext-lint" }
+handl-ext-typecheck = { path = "../ext-typecheck" }
+handl-ext-eval = { path = "../ext-eval" }
+handl-lib-hello = { path = "../lib-hello" }
+handl-target-native = { path = "../target-native" }
+
 handl-plugin-ast-apply = { path = "../plugin-ast-apply" }
 handl-plugin-ast-array = { path = "../plugin-ast-array" }
 handl-plugin-ast-assign = { path = "../plugin-ast-assign" }

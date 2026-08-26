@@ -1,5 +1,6 @@
 //! Plugin traits, registries, and built-in plugin implementations.
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -9,6 +10,7 @@ use crate::capability::{CapabilityId, CapabilityMetadata};
 use crate::error::PlatformError;
 use crate::extension::ExtensionRegistry;
 use crate::kit::KitRegistry;
+use crate::plugin_model::ContributionContext;
 
 /// A request to invoke a capability on a plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,13 +36,41 @@ pub struct PluginContext<'a> {
 }
 
 /// A plugin that can provide and run capabilities.
-pub trait Plugin: Send + Sync {
+pub trait Plugin: Send + Sync + Any {
+    /// Returns the plugin's stable id.
+    fn id(&self) -> &str {
+        self.name()
+    }
+
     /// Returns the plugin's display name.
     fn name(&self) -> &str;
+
+    /// Returns the plugin's version.
+    fn version(&self) -> &str {
+        "0.0.0"
+    }
+
     /// Returns the capabilities provided by this plugin.
     fn capabilities(&self) -> &[CapabilityId];
+
+    /// Returns the plugin's required dependency capabilities.
+    fn requires(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    /// Returns the plugin's optional dependency capabilities.
+    fn optional(&self) -> &[CapabilityId] {
+        &[]
+    }
+
     /// Returns metadata for a capability, if available.
     fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata>;
+
+    /// Contributes rules or other plugins during host loading.
+    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
     /// Runs the requested capability.
     fn run(
         &self,
@@ -52,7 +82,7 @@ pub trait Plugin: Send + Sync {
 /// A registry of loaded plugins indexed by capability.
 #[derive(Default)]
 pub struct PluginRegistry {
-    plugins: Vec<Arc<dyn Plugin + 'static>>,
+    plugins: Vec<Option<Arc<dyn Plugin + 'static>>>,
     by_capability: HashMap<CapabilityId, usize>,
 }
 
@@ -62,25 +92,47 @@ impl PluginRegistry {
         Self::default()
     }
 
+    /// Returns the number of registered plugins.
+    pub fn len(&self) -> usize {
+        self.plugins.len()
+    }
+
+    /// Returns `true` if no plugins are registered.
+    pub fn is_empty(&self) -> bool {
+        self.plugins.is_empty()
+    }
+
+    /// Temporarily take a plugin by index, leaving an empty slot.
+    pub fn take_at(&mut self, index: usize) -> Option<Arc<dyn Plugin + 'static>> {
+        self.plugins.get_mut(index)?.take()
+    }
+
+    /// Place a plugin back into a previously emptied slot.
+    pub fn replace_at(&mut self, index: usize, plugin: Arc<dyn Plugin + 'static>) {
+        if let Some(slot) = self.plugins.get_mut(index) {
+            *slot = Some(plugin);
+        }
+    }
+
     /// Registers a plugin and indexes its capabilities.
     pub fn register<P: Plugin + 'static>(&mut self, plugin: P) {
         let idx = self.plugins.len();
         for cap in plugin.capabilities() {
             self.by_capability.insert(cap.clone(), idx);
         }
-        self.plugins.push(Arc::new(plugin));
+        self.plugins.push(Some(Arc::new(plugin)));
     }
 
     /// Returns the plugin that provides the given capability, if any.
     pub fn resolve(&self, capability: &CapabilityId) -> Option<Arc<dyn Plugin>> {
         let idx = *self.by_capability.get(capability)?;
-        Some(self.plugins[idx].clone())
+        self.plugins.get(idx).cloned().flatten()
     }
 
     /// Returns all capabilities with their metadata.
     pub fn capabilities(&self) -> Vec<(CapabilityId, CapabilityMetadata)> {
         let mut out = Vec::new();
-        for plugin in &self.plugins {
+        for plugin in self.plugins.iter().flatten() {
             for cap in plugin.capabilities() {
                 if let Some(meta) = plugin.metadata(cap) {
                     out.push((cap.clone(), meta));
@@ -105,7 +157,7 @@ impl PluginRegistry {
     /// Removes a plugin by name.
     pub fn remove(&mut self, name: &str) -> Result<(), PlatformError> {
         let len_before = self.plugins.len();
-        self.plugins.retain(|p| p.name() != name);
+        self.plugins.retain(|p| p.as_ref().map_or(true, |p| p.name() != name));
         if self.plugins.len() == len_before {
             return Err(PlatformError::InvalidMetadata(format!(
                 "plugin not found: {name}"
@@ -113,8 +165,10 @@ impl PluginRegistry {
         }
         self.by_capability.clear();
         for (idx, p) in self.plugins.iter().enumerate() {
-            for cap in p.capabilities() {
-                self.by_capability.insert(cap.clone(), idx);
+            if let Some(p) = p {
+                for cap in p.capabilities() {
+                    self.by_capability.insert(cap.clone(), idx);
+                }
             }
         }
         Ok(())
@@ -122,7 +176,34 @@ impl PluginRegistry {
 
     /// Returns the names of all registered plugins.
     pub fn names(&self) -> Vec<String> {
-        self.plugins.iter().map(|p| p.name().to_string()).collect()
+        self.plugins
+            .iter()
+            .flatten()
+            .map(|p| p.name().to_string())
+            .collect()
+    }
+
+    /// Returns a mutable reference to a registered plugin of concrete type `P`, if any.
+    pub fn get_plugin_mut<P: Plugin + 'static>(&mut self) -> Option<&mut P> {
+        for arc in self.plugins.iter_mut().flatten() {
+            if let Some(plugin) = Arc::get_mut(arc) {
+                let any = plugin as &mut dyn Any;
+                if let Some(concrete) = any.downcast_mut::<P>() {
+                    return Some(concrete);
+                }
+            }
+        }
+        None
+    }
+
+    /// Returns a mutable reference to a registered plugin with the given name, if any.
+    pub fn get_plugin_by_name_mut(&mut self, name: &str) -> Option<&mut (dyn Plugin + 'static)> {
+        for arc in self.plugins.iter_mut().flatten() {
+            if arc.name() == name {
+                return Arc::get_mut(arc).map(|p| p as &mut (dyn Plugin + 'static));
+            }
+        }
+        None
     }
 }
 

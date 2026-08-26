@@ -11,7 +11,18 @@ use std::sync::Arc;
 use handl_ast::{Expr, Node, Stmt};
 use handl_lexer::{CommentFactory, DefaultLexError, IdentFactory, KindFactory, Lexer, NumberFactory, OperatorFactory, Span, StringFactory, Token, TokenKind};
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
-use handl_platform::PlatformError;
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext, OptionsPlugin,
+};
+use handl_ext_lexer::BasicLexer;
+use handl_ext_parser::BasicParser;
+use handl_ext_fmt::BasicFormatter;
+use handl_ext_lint::BasicLinter;
+use handl_ext_typecheck::BasicTypechecker;
+use handl_ext_eval::BasicEvaluator;
+use handl_lib_hello::HelloLibraryPlugin;
+use handl_target_native::NativeTarget;
 use handl_plugin_ast_apply::Apply;
 use handl_plugin_ast_array::Array;
 use handl_plugin_ast_assign::Assign;
@@ -1106,8 +1117,56 @@ impl Kit {
     }
 }
 
-/// Alias for the canonical kit (matches the public API name used by tests).
-pub type CanonicalKit = Kit;
+/// ADR-0002 `Library` plugin for the canonical kit.
+pub struct CanonicalKit;
+
+impl Plugin for CanonicalKit {
+    fn id(&self) -> &str {
+        "kit.canonical"
+    }
+
+    fn name(&self) -> &str {
+        "kit-canonical"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        // Canonical language operation RuleAcceptors
+        ctx.register_plugin(BasicLexer::new())?;
+        ctx.register_plugin(BasicParser::new())?;
+        ctx.register_plugin(BasicFormatter::new())?;
+        ctx.register_plugin(BasicLinter::new())?;
+        ctx.register_plugin(BasicTypechecker::new())?;
+        ctx.register_plugin(BasicEvaluator::new())?;
+        ctx.register_plugin(OptionsPlugin::new())?;
+
+        // Target and library plugins
+        ctx.register_plugin(NativeTarget)?;
+        ctx.register_plugin(HelloLibraryPlugin)?;
+
+        // The canonical manifest lists token, AST-shape, and grammar-rule plugins
+        // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide
+        // shared types and rules rather than `Plugin` implementations, so they are
+        // wired directly by the existing `Kit` lexer/parser pipeline and are not
+        // registered here.
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
 
 #[cfg(test)]
 mod tests {

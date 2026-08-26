@@ -18,6 +18,9 @@ pub enum PlatformError {
     /// Manifest or metadata could not be validated.
     #[error("invalid metadata: {0}")]
     InvalidMetadata(String),
+    /// A requested rule acceptor plugin is not registered.
+    #[error("missing rule acceptor: {0}")]
+    MissingRuleAcceptor(String),
 }
 
 #[cfg(test)]

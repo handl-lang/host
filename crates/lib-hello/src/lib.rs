@@ -2,55 +2,71 @@
 //!
 //! Minimal example standard library for the handl runtime.
 //!
-//! Provides `hello.greet(name)` which returns a friendly greeting string.
+//! Provides the `hello` library as an ADR-0002 `Library` plugin.
 
-use handl_tooling::Library;
-use handl_vm::{Context, Error, Function};
-use handl_vm_common::{Module, ModuleHost};
-use handl_vm_values_json::NonFunctionValue;
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
 
-static GREET: Greet = Greet;
+/// A `Library` plugin that registers the `hello` implementation.
+pub struct HelloLibraryPlugin;
 
-/// The `hello` module — a single `greet` function.
-#[derive(Clone, Copy)]
-pub struct HelloModule;
+impl Plugin for HelloLibraryPlugin {
+    fn id(&self) -> &str {
+        "lib.hello"
+    }
 
-impl Module for HelloModule {
     fn name(&self) -> &str {
-        "hello"
+        "lib-hello"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        match name {
-            "greet" => Some(&GREET),
-            _ => None,
-        }
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
     }
-}
 
-struct Greet;
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
 
-impl Function<NonFunctionValue> for Greet {
-    fn call(
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.register_plugin(HelloPlugin)
+    }
+
+    fn run(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        let name = args.first().and_then(|v| v.as_str()).unwrap_or("world");
-        Ok(NonFunctionValue::new(format!("Hello, {name}!")))
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 }
 
-/// A `Library` wrapper that installs the `hello` module into a `ModuleHost`.
-#[derive(Clone, Copy)]
-pub struct HelloLib;
+/// The concrete `hello` implementation exposed as a plugin.
+pub struct HelloPlugin;
 
-impl Library for HelloLib {
+impl Plugin for HelloPlugin {
+    fn id(&self) -> &str {
+        "lib.hello.greet"
+    }
+
     fn name(&self) -> &str {
         "hello"
     }
 
-    fn install(&self, host: ModuleHost) -> ModuleHost {
-        host.with(HelloModule)
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 }

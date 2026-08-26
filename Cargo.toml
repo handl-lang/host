@@ -26,7 +26,24 @@ members = [
     "crates/parser",
     "crates/parser-common",
     "crates/kit-canonical",
+    "crates/lib-hello",
+    "crates/lib-archive",
+    "crates/lib-compress",
+    "crates/lib-encoding",
+    "crates/lib-parse",
+    "crates/lib-serialize",
+    "crates/target-native",
     "crates/platform",
+    "crates/ext-fmt",
+    "crates/ext-lint",
+    "crates/ext-lexer",
+    "crates/ext-parser",
+    "crates/ext-typecheck",
+    "crates/ext-eval",
+    "crates/ext-cli",
+    "crates/ext-lsp",
+    "crates/host-cli",
+    "crates/host-lsp",
 ]
 resolver = "3"
 
@@ -95,6 +112,36 @@ path = "crates/parser-common"
 
 [workspace.dependencies.handl-platform]
 path = "crates/platform"
+
+[workspace.dependencies.handl-vm-type]
+path = "crates/vm-type"
+
+[workspace.dependencies.handl-ext-cli]
+path = "crates/ext-cli"
+
+[workspace.dependencies.handl-ext-lsp]
+path = "crates/ext-lsp"
+
+[workspace.dependencies.handl-host-cli]
+path = "crates/host-cli"
+
+[workspace.dependencies.handl-host-lsp]
+path = "crates/host-lsp"
+
+[workspace.dependencies.handl-lib-archive]
+path = "crates/lib-archive"
+
+[workspace.dependencies.handl-lib-compress]
+path = "crates/lib-compress"
+
+[workspace.dependencies.handl-lib-encoding]
+path = "crates/lib-encoding"
+
+[workspace.dependencies.handl-lib-parse]
+path = "crates/lib-parse"
+
+[workspace.dependencies.handl-lib-serialize]
+path = "crates/lib-serialize"
 
 [workspace.dependencies.handl-plugin-comments]
 path = "crates/plugin-comments"

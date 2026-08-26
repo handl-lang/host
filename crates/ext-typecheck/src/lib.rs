@@ -1,9 +1,8 @@
-use handl_kit_canonical::CanonicalKit;
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
+    AstNode, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
+    Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,
+    RuleAcceptor,
 };
-use handl_tooling::{read_source_or_stdin, ArgSpec, CommandProvider, CommandSpec};
 
 pub struct TypecheckPlugin {
     capabilities: Vec<CapabilityId>,
@@ -67,54 +66,89 @@ pub fn typecheck(
     handl_vm_type::synth(&mut ctx, &env, &tctx, term)
 }
 
-impl CommandProvider for TypecheckPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("typecheck", "Typecheck a Handl source file")
-            .arg(ArgSpec::new("file").description("File to typecheck; stdin if omitted"))]
+
+/// Typecheck operation marker.
+#[derive(Debug, Clone, Copy)]
+pub struct Typecheck;
+
+impl Operation for Typecheck {
+    type Request = TypecheckRequest;
+}
+
+/// Request passed to `Typecheck` behaviors.
+#[derive(Debug, Clone)]
+pub struct TypecheckRequest {
+    /// The AST node to typecheck.
+    pub ast: AstNode,
+    /// Resolved typechecker options.
+    pub options: ResolvedOptions,
+}
+
+/// Behavior trait for typechecking a specific `AstNode.kind`.
+pub trait TypecheckBehavior: Behavior<Typecheck> {}
+
+impl Contribution for Box<dyn TypecheckBehavior> {
+    fn id(&self) -> &str {
+        self.kind()
+    }
+}
+
+/// Basic `RuleAcceptor` plugin for the `Typecheck` operation.
+pub struct BasicTypechecker {
+    /// Registered typechecking rules, keyed by `AstNode.kind`.
+    pub rules: Vec<Box<dyn TypecheckBehavior>>,
+    /// Option schemas contributed for the typechecker.
+    pub option_schemas: Vec<OptionSchema>,
+}
+
+impl BasicTypechecker {
+    /// Create a new `BasicTypechecker` with no rules.
+    pub fn new() -> Self {
+        Self {
+            rules: Vec::new(),
+            option_schemas: Vec::new(),
+        }
+    }
+}
+
+impl Default for BasicTypechecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for BasicTypechecker {
+    fn id(&self) -> &str {
+        "typecheck.basic"
+    }
+
+    fn name(&self) -> &str {
+        "Basic typechecker"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
     }
 
     fn run(
         &self,
-        _command: &str,
-        args: &[String],
-        _host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        let source = read_source_or_stdin(args.first().map(|s| s.as_str()))?;
-        let kit = CanonicalKit::new();
-        let parsed = kit.parse_module_recovered(&source);
-        let mut has_errors = parsed
-            .diagnostics
-            .iter()
-            .any(|d| matches!(d.level, handl_expr::DiagnosticLevel::Error));
-
-        for d in &parsed.diagnostics {
-            eprintln!("{}: {}", diagnostic_label(d.level), d.message);
-        }
-
-        match kit.typecheck(&parsed.stmts) {
-            Ok(out) => {
-                if !out.success {
-                    has_errors = true;
-                }
-            }
-            Err(e) => {
-                has_errors = true;
-                eprintln!("error: {e}");
-            }
-        }
-
-        if has_errors {
-            return Err(PlatformError::Plugin("typecheck failed".into()));
-        }
-        Ok(serde_json::json!({"typechecked": true}))
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 }
 
-fn diagnostic_label(level: handl_expr::DiagnosticLevel) -> &'static str {
-    match level {
-        handl_expr::DiagnosticLevel::Error => "error",
-        handl_expr::DiagnosticLevel::Warning => "warning",
-        handl_expr::DiagnosticLevel::Info => "info",
+impl RuleAcceptor for BasicTypechecker {
+    type Rule = Box<dyn TypecheckBehavior>;
+
+    fn accept(&mut self, rule: Self::Rule) -> Result<(), PlatformError> {
+        self.rules.push(rule);
+        Ok(())
     }
 }
 

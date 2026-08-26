@@ -15,6 +15,7 @@ use crate::language::{LanguagePipeline, PipelineOutput};
 use crate::manifest::PluginManifest;
 use crate::plugin::ProcessPlugin;
 use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry};
+use crate::plugin_model::ContributionContext;
 
 /// A host that exposes the plugin, kit, and extension registries.
 pub trait Host: Send + Sync {
@@ -107,6 +108,34 @@ impl DefaultHost {
     ) {
         self.plugins
             .register(ProcessPlugin::new(name, capabilities));
+    }
+
+    /// Loads all registered plugins to a fixed point, repeatedly calling
+    /// `contribute` until a full pass registers no new plugins.
+    pub fn load(&mut self) -> Result<(), PlatformError> {
+        loop {
+            let count = self.plugins.len();
+            let mut changed = false;
+            for i in 0..count {
+                let plugin = match self.plugins.take_at(i) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let result = {
+                    let mut ctx = ContributionContext::new(&mut self.plugins);
+                    plugin.contribute(&mut ctx)
+                };
+                self.plugins.replace_at(i, plugin);
+                result?;
+                if self.plugins.len() > count {
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// Runs the request against the plugin that provides the requested capability.

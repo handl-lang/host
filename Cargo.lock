@@ -109,11 +109,101 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ext-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-eval"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-lexer"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-lint"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-lsp"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-parser"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm-type",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-host-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-ext-cli",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-host-lsp"
+version = "0.1.0"
+dependencies = [
+ "handl-ext-lsp",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
+ "handl-ext-eval",
+ "handl-ext-fmt",
+ "handl-ext-lexer",
+ "handl-ext-lint",
+ "handl-ext-parser",
+ "handl-ext-typecheck",
  "handl-lexer",
+ "handl-lib-hello",
  "handl-parser",
  "handl-platform",
  "handl-plugin-ast-apply",
@@ -147,6 +237,7 @@ dependencies = [
  "handl-plugin-token-number",
  "handl-plugin-token-operator",
  "handl-plugin-token-string",
+ "handl-target-native",
  "serde",
  "serde_json",
  "toml",
@@ -164,6 +255,51 @@ name = "handl-lexer-common"
 version = "0.1.0"
 dependencies = [
  "handl-lexer",
+]
+
+[[package]]
+name = "handl-lib-archive"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "handl-lib-compress"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "handl-lib-encoding"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "handl-lib-hello"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+]
+
+[[package]]
+name = "handl-lib-parse"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "handl-lib-serialize"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -437,6 +573,14 @@ dependencies = [
 name = "handl-source"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "handl-target-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
  "serde_json",
 ]
 

@@ -1,8 +1,8 @@
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
+    AstNode, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
+    Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,
+    RuleAcceptor,
 };
-use handl_tooling::{ArgSpec, CommandProvider, CommandSpec, read_source_or_stdin};
 
 pub struct FmtPlugin {
     capabilities: Vec<CapabilityId>,
@@ -52,21 +52,82 @@ impl Plugin for FmtPlugin {
     }
 }
 
-impl CommandProvider for FmtPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("fmt", "Format a Handl source file")
-            .arg(ArgSpec::new("file").description("File to format; stdin if omitted"))]
+/// Format operation marker.
+#[derive(Debug, Clone, Copy)]
+pub struct Format;
+
+impl Operation for Format {
+    type Request = FormatRequest;
+}
+
+/// Request passed to `Format` behaviors.
+#[derive(Debug, Clone)]
+pub struct FormatRequest {
+    /// The AST node to format.
+    pub ast: AstNode,
+    /// Resolved formatter options.
+    pub options: ResolvedOptions,
+}
+
+/// Behavior trait for formatting a specific `AstNode.kind`.
+pub trait FormatBehavior: Behavior<Format> {}
+
+impl Contribution for Box<dyn FormatBehavior> {
+    fn id(&self) -> &str {
+        self.kind()
+    }
+}
+
+/// Basic `RuleAcceptor` plugin for the `Format` operation.
+pub struct BasicFormatter {
+    /// Registered formatting rules, keyed by `AstNode.kind`.
+    pub rules: Vec<Box<dyn FormatBehavior>>,
+    /// Option schemas contributed for the formatter.
+    pub option_schemas: Vec<OptionSchema>,
+}
+
+impl BasicFormatter {
+    /// Create a new `BasicFormatter` with no rules.
+    pub fn new() -> Self {
+        Self {
+            rules: Vec::new(),
+            option_schemas: Vec::new(),
+        }
+    }
+}
+
+impl Plugin for BasicFormatter {
+    fn id(&self) -> &str {
+        "fmt.basic"
+    }
+
+    fn name(&self) -> &str {
+        "Basic formatter"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
     }
 
     fn run(
         &self,
-        _command: &str,
-        args: &[String],
-        host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        let source = read_source_or_stdin(args.first().map(|s| s.as_str()))?;
-        let formatted = host.format(&source)?;
-        Ok(serde_json::Value::String(formatted))
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+impl RuleAcceptor for BasicFormatter {
+    type Rule = Box<dyn FormatBehavior>;
+
+    fn accept(&mut self, rule: Self::Rule) -> Result<(), PlatformError> {
+        self.rules.push(rule);
+        Ok(())
     }
 }
 

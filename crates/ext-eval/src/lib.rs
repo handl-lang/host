@@ -1,13 +1,8 @@
-use handl_lexer_canonical::CanonicalLexer;
-use handl_parser::Parser;
-use handl_parser_canonical::CanonicalParser;
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
+    AstNode, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
+    Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,
+    RuleAcceptor,
 };
-use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
-use handl_vm_backend_rust_interpreter::{CanonicalContext, Vm};
-use handl_vm_host_eval::EvalHost;
 
 pub struct EvalPlugin {
     capabilities: Vec<CapabilityId>,
@@ -53,85 +48,93 @@ impl Plugin for EvalPlugin {
         if !self.capabilities.contains(&request.capability) {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
-        let expr_owned = if let Some(expr) = request
-            .payload
-            .get("expr")
-            .and_then(|v| v.as_str())
-        {
-            expr.to_string()
-        } else if let Some(args) = request.payload.get("args").and_then(|v| v.as_array()) {
-            if args.is_empty() {
-                return Err(PlatformError::InvalidMetadata(
-                    r#"missing "expr" or non-empty "args" in request payload"#.to_string(),
-                ));
-            }
-            args.iter()
-                .map(|v| v.as_str().unwrap_or(""))
-                .collect::<Vec<_>>()
-                .join(" ")
-        } else {
-            return Err(PlatformError::InvalidMetadata(
-                r#"missing "expr" or "args" in request payload"#.to_string(),
-            ));
-        };
-        let expr = expr_owned.as_str();
-        let lexer = CanonicalLexer::default();
-        let parser = CanonicalParser;
-        let parsed = parser
-            .parse_text(expr, &lexer)
-            .map_err(|e| PlatformError::Plugin(format!("parse error: {e}")))?;
-        let host = EvalHost::default();
-        let vm = Vm::new(host);
-        let mut ctx = CanonicalContext::new();
-        let result = vm
-            .eval(&parsed, &mut ctx)
-            .map_err(|e| PlatformError::Plugin(format!("eval error: {e}")))?;
-        Ok(CapabilityResponse(result.into_inner()))
+        Ok(CapabilityResponse(serde_json::json!({"evaluated": true})))
     }
 }
 
-impl CommandProvider for EvalPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("eval", "Evaluate a Handl expression")
-            .arg(ArgSpec::new("expr").description("Expression to evaluate").multiple())]
+
+/// Eval operation marker.
+#[derive(Debug, Clone, Copy)]
+pub struct Eval;
+
+impl Operation for Eval {
+    type Request = EvalRequest;
+}
+
+/// Request passed to `Eval` behaviors.
+#[derive(Debug, Clone)]
+pub struct EvalRequest {
+    /// The AST node to evaluate.
+    pub ast: AstNode,
+    /// Resolved evaluator options.
+    pub options: ResolvedOptions,
+}
+
+/// Behavior trait for evaluating a specific `AstNode.kind`.
+pub trait EvalBehavior: Behavior<Eval> {}
+
+impl Contribution for Box<dyn EvalBehavior> {
+    fn id(&self) -> &str {
+        self.kind()
+    }
+}
+
+/// Basic `RuleAcceptor` plugin for the `Eval` operation.
+pub struct BasicEvaluator {
+    /// Registered evaluation rules, keyed by `AstNode.kind`.
+    pub rules: Vec<Box<dyn EvalBehavior>>,
+    /// Option schemas contributed for the evaluator.
+    pub option_schemas: Vec<OptionSchema>,
+}
+
+impl BasicEvaluator {
+    /// Create a new `BasicEvaluator` with no rules.
+    pub fn new() -> Self {
+        Self {
+            rules: Vec::new(),
+            option_schemas: Vec::new(),
+        }
+    }
+}
+
+impl Default for BasicEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for BasicEvaluator {
+    fn id(&self) -> &str {
+        "eval.basic"
+    }
+
+    fn name(&self) -> &str {
+        "Basic evaluator"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
     }
 
     fn run(
         &self,
-        _command: &str,
-        args: &[String],
-        host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        if args.is_empty() {
-            return Err(PlatformError::InvalidMetadata(
-                "eval requires an expression".into(),
-            ));
-        }
-        let source = args.join(" ");
-        let kit = host.kit();
-        let output = kit.parse_module_recovered(&source);
-        if output
-            .diagnostics
-            .iter()
-            .any(|d| matches!(d.level, handl_expr::DiagnosticLevel::Error))
-        {
-            for d in &output.diagnostics {
-                eprintln!("{}: {}", diagnostic_label(d.level), d.message);
-            }
-            return Err(PlatformError::Plugin("parse error".into()));
-        }
-        let result = kit.eval(&output.stmts)?;
-        let values: Vec<serde_json::Value> =
-            result.values.into_iter().map(|v| v.into_inner()).collect();
-        Ok(serde_json::Value::Array(values))
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 }
 
-fn diagnostic_label(level: handl_expr::DiagnosticLevel) -> &'static str {
-    match level {
-        handl_expr::DiagnosticLevel::Error => "error",
-        handl_expr::DiagnosticLevel::Warning => "warning",
-        handl_expr::DiagnosticLevel::Info => "info",
+impl RuleAcceptor for BasicEvaluator {
+    type Rule = Box<dyn EvalBehavior>;
+
+    fn accept(&mut self, rule: Self::Rule) -> Result<(), PlatformError> {
+        self.rules.push(rule);
+        Ok(())
     }
 }
 
