@@ -10,6 +10,7 @@ members = [
     "crates/source",
     "crates/typecheck-core",
     "crates/vm-type",
+    "crates/vm-type-schema-json",
     "crates/lexer",
     "crates/lexer-common",
     "crates/parser",
@@ -29,6 +30,7 @@ members = [
     "crates/ext-lexer",
     "crates/ext-parser",
     "crates/ext-typecheck",
+    "crates/lib-type",
     "crates/ext-eval",
     "crates/ext-build",
     "crates/ext-compile",
@@ -114,6 +116,12 @@ path = "crates/platform"
 
 [workspace.dependencies.handl-vm-type]
 path = "crates/vm-type"
+
+[workspace.dependencies.handl-vm-type-schema-json]
+path = "crates/vm-type-schema-json"
+
+[workspace.dependencies.handl-lib-type]
+path = "crates/lib-type"
 
 [workspace.dependencies.handl-ext-cli]
 path = "crates/ext-cli"

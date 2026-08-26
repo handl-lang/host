@@ -49,11 +49,12 @@ impl Plugin for TypecheckPlugin {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
 
-        let term = handl_vm_type::Term::Universe(handl_vm_type::Level::zero());
-        let typechecked = typecheck(&term).is_ok();
-        Ok(CapabilityResponse(
-            serde_json::json!({"typechecked": typechecked}),
-        ))
+        match typecheck_payload(&request.payload) {
+            Ok(_) => Ok(CapabilityResponse(serde_json::json!({"typechecked": true}))),
+            Err(err) => Ok(CapabilityResponse(
+                serde_json::json!({"typechecked": false, "error": err}),
+            )),
+        }
     }
 }
 
@@ -66,6 +67,19 @@ pub fn typecheck(
     handl_vm_type::synth(&mut ctx, &env, &tctx, term)
 }
 
+fn typecheck_payload(payload: &serde_json::Value) -> Result<handl_vm_type::Value, String> {
+    if let Some(obj) = payload.as_object()
+        && let Some(schema) = obj.get("schema")
+    {
+        let root = obj.get("root").unwrap_or(schema);
+        let term = handl_vm_type_schema_json::interpret(schema, root).map_err(|e| e.to_string())?;
+        let mut ctx = handl_vm_type::MetaContext::new();
+        let env = handl_vm_type::Env::new();
+        let tctx = handl_vm_type::TCtx::new();
+        return handl_vm_type::synth_type(&mut ctx, &env, &tctx, &term).map_err(|e| e.to_string());
+    }
+    typecheck(&handl_vm_type::u0()).map_err(|e| e.to_string())
+}
 
 /// Typecheck operation marker.
 #[derive(Debug, Clone, Copy)]
@@ -168,10 +182,7 @@ mod tests {
     #[test]
     fn run_returns_typechecked_flag() {
         let plugin = TypecheckPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
@@ -191,10 +202,7 @@ mod tests {
     #[test]
     fn run_rejects_unknown_capability() {
         let plugin = TypecheckPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
@@ -223,5 +231,150 @@ mod tests {
         let term = handl_vm_type::lam("x", handl_vm_type::bvar(0));
         let result = typecheck(&term);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn run_typechecks_valid_json_schema() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        let payload = serde_json::json!({
+            "schema": {"typeParams": ["T"], "type": "var", "name": "T"}
+        });
+        let resp = plugin
+            .run(
+                &CapabilityRequest {
+                    capability: "typecheck".into(),
+                    payload,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0, serde_json::json!({"typechecked": true}));
+    }
+
+    #[test]
+    fn run_typechecks_ref_schema_with_defs() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        let payload = serde_json::json!({
+            "schema": {"$ref": "#/$defs/Id"},
+            "root": {
+                "$defs": {
+                    "Id": {"typeParams": ["T"], "type": "var", "name": "T"}
+                }
+            }
+        });
+        let resp = plugin
+            .run(
+                &CapabilityRequest {
+                    capability: "typecheck".into(),
+                    payload,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0, serde_json::json!({"typechecked": true}));
+    }
+
+    #[test]
+    fn run_rejects_ill_typed_json_schema() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        let payload = serde_json::json!({"schema": {"type": "string"}});
+        let resp = plugin
+            .run(
+                &CapabilityRequest {
+                    capability: "typecheck".into(),
+                    payload,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0["typechecked"], false);
+        assert!(resp.0.get("error").unwrap().is_string());
+    }
+
+    #[test]
+    fn run_typechecks_object_without_schema() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        let payload = serde_json::json!({"root": {"type": "string"}});
+        let resp = plugin
+            .run(
+                &CapabilityRequest {
+                    capability: "typecheck".into(),
+                    payload,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0, serde_json::json!({"typechecked": true}));
+    }
+
+    #[test]
+    fn run_rejects_non_object_payloads() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        for payload in [
+            serde_json::json!("string"),
+            serde_json::json!(42),
+            serde_json::json!([]),
+        ] {
+            let resp = plugin
+                .run(
+                    &CapabilityRequest {
+                        capability: "typecheck".into(),
+                        payload,
+                    },
+                    &mut ctx,
+                )
+                .unwrap();
+            assert_eq!(resp.0, serde_json::json!({"typechecked": true}));
+        }
+    }
+
+    #[test]
+    fn run_rejects_missing_root_def() {
+        let plugin = TypecheckPlugin::new();
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+        let payload = serde_json::json!({
+            "schema": {"$ref": "#/$defs/Missing"},
+            "root": {"$defs": {}}
+        });
+        let resp = plugin
+            .run(
+                &CapabilityRequest {
+                    capability: "typecheck".into(),
+                    payload,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0["typechecked"], false);
+        assert!(resp.0.get("error").unwrap().is_string());
     }
 }

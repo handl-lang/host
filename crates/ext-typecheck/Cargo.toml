@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 handl-platform = { workspace = true }
 handl-vm-type = { workspace = true }
+handl-vm-type-schema-json = { path = "../vm-type-schema-json" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

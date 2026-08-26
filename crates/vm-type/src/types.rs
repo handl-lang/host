@@ -16,6 +16,62 @@ pub fn u0() -> Term {
     Term::Universe(Level::zero())
 }
 
+pub fn tvar(name: impl Into<Name>) -> Term {
+    Term::TVar(name.into())
+}
+
+pub fn tref(name: impl Into<Name>) -> Term {
+    Term::TRef(name.into())
+}
+
+pub fn alias(name: impl Into<Name>, value: Term, body: Term) -> Term {
+    Term::Alias {
+        name: name.into(),
+        value: Box::new(value),
+        body: Box::new(body),
+    }
+}
+
+pub fn type_lam(name: impl Into<Name>, param_kind: Kind, body: Term) -> Term {
+    Term::TypeLam {
+        name: name.into(),
+        param_kind,
+        body: Box::new(body),
+    }
+}
+
+pub fn type_app(fun: Term, arg: Term) -> Term {
+    Term::TypeApp {
+        fun: Box::new(fun),
+        arg: Box::new(arg),
+    }
+}
+
+pub fn gen_lam(type_params: impl IntoIterator<Item = (impl Into<Name>, Kind)>, body: Term) -> Term {
+    Term::GenLam {
+        type_params: type_params
+            .into_iter()
+            .map(|(n, k)| (n.into(), k))
+            .collect(),
+        body: Box::new(body),
+    }
+}
+
+pub fn gen_app(fun: Term, type_args: impl IntoIterator<Item = Term>) -> Term {
+    Term::GenApp {
+        fun: Box::new(fun),
+        type_args: type_args.into_iter().collect(),
+    }
+}
+
+pub fn kind_type() -> Kind {
+    Kind::Type
+}
+
+pub fn kfun(dom: impl Into<Box<Kind>>, cod: impl Into<Box<Kind>>) -> Kind {
+    Kind::fun(dom, cod)
+}
+
 pub fn pi(name: impl Into<Name>, param: Term, body: Term) -> Term {
     Term::Pi {
         name: name.into(),
@@ -91,4 +147,30 @@ pub fn lit_string(s: impl Into<String>) -> Term {
 
 pub fn named_ty(name: impl Into<String>) -> Value {
     Value::Neutral(Neutral::Var(Var::Named(Name::new(name))))
+}
+
+pub fn forall(name: impl Into<Name>, param_kind: Kind, body: Value) -> Value {
+    Value::Forall {
+        param_name: name.into(),
+        param_kind,
+        body: Box::new(body),
+    }
+}
+
+pub fn val_pi(
+    name: impl Into<Name>,
+    param: Value,
+    env: Env,
+    closure_name: Name,
+    body: Term,
+) -> Value {
+    Value::Pi {
+        param_name: name.into(),
+        param: Box::new(param),
+        closure: Closure {
+            env,
+            name: closure_name,
+            body,
+        },
+    }
 }
