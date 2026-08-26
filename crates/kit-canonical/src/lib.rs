@@ -8,13 +8,41 @@
 use std::fmt;
 use std::sync::Arc;
 
-use handl_ast::{Expr, Node};
-use handl_lexer::{DefaultLexError, Lexer, Span, Token, TokenKind};
+use handl_ast::{Expr, Node, Stmt};
+use handl_lexer::{CommentFactory, DefaultLexError, IdentFactory, KindFactory, Lexer, NumberFactory, OperatorFactory, Span, StringFactory, Token, TokenKind};
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::PlatformError;
+use handl_plugin_ast_apply::Apply;
+use handl_plugin_ast_array::Array;
+use handl_plugin_ast_assign::Assign;
 use handl_plugin_ast_call::Call;
+use handl_plugin_ast_handle::Handle;
+use handl_plugin_ast_index::Index;
+use handl_plugin_ast_let::Let;
+use handl_plugin_ast_match::Match;
+use handl_plugin_ast_object::Object;
+use handl_plugin_ast_pipe::Pipe;
+use handl_plugin_ast_var::Var;
+use handl_plugin_grammar_apply::ApplyToken;
+use handl_plugin_grammar_array::{ArrayRule, ArrayToken};
+use handl_plugin_grammar_assign::{AssignRule, AssignToken};
 use handl_plugin_grammar_call::{CallRule, CallToken};
+use handl_plugin_grammar_handle::{HandleRule, HandleToken};
+use handl_plugin_grammar_index::{IndexRule, IndexToken};
+use handl_plugin_grammar_let::{LetRule, LetToken};
+use handl_plugin_grammar_match::{MatchRule, MatchToken};
+use handl_plugin_grammar_object::{ObjectRule, ObjectToken};
+use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
+use handl_plugin_token_bool::BoolKind;
+use handl_plugin_token_comment::CommentKind;
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_keyword_as::AsKind;
+use handl_plugin_token_keyword_handle::HandleKind;
+use handl_plugin_token_null::NullKind;
 use handl_plugin_token_number::NumberKind;
+use handl_plugin_token_operator::OperatorKind;
+use handl_plugin_token_string::StringKind;
 
 pub mod kit_manifest;
 pub use kit_manifest::{canonical_manifest, KitManifest};
@@ -24,39 +52,185 @@ pub type KitMetadata = ();
 
 static UNIT: KitMetadata = ();
 
-/// Composite token kind produced by the kit's lexer.
-///
-/// Built from `plugin-token-number`'s `NumberKind` plus the call delimiters
-/// required by `plugin-grammar-call`'s `CallRule`.
+/// Canonical keyword forms used by the kit token kind.
 #[derive(Debug, Clone, PartialEq)]
-pub enum KitToken {
-    /// A numeric literal (provided by `plugin-token-number`).
-    Number(NumberKind),
-    /// `(`
-    CallOpen,
-    /// `)`
-    CallClose,
-    /// `,`
+pub enum CanonicalKeyword {
+    Let,
+    Const,
+    Match,
+    Handle,
+    As,
+    TypeOf,
+    Not,
+}
+
+/// Canonical delimiter forms.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CanonicalDelim {
+    ParenOpen,
+    ParenClose,
+    BracketOpen,
+    BracketClose,
+    BraceOpen,
+    BraceClose,
     Comma,
+    Colon,
+    Dot,
+    Semicolon,
+}
+
+/// Canonical operator forms.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CanonicalOp {
+    Pipe,
+    Arrow,
+    Equal,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LessThan,
+    GreaterThan,
+    Other(String),
+}
+
+/// Kit-level unified token kind for the canonical dialect.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CanonicalKind {
+    /// A numeric literal.
+    Number(f64),
+    /// A string literal.
+    String(String),
+    /// An identifier or path.
+    Identifier(String),
+    /// A boolean literal.
+    Bool(bool),
+    /// The `null` literal.
+    Null,
+    /// A comment.
+    Comment(String),
+    /// A delimiter: `(`, `)`, `[`, `]`, `{`, `}`, `,`, `:`, `.`, `;`.
+    Delimiter(CanonicalDelim),
+    /// An operator: `|>`, `->`, `=`, `+`, `-`, `*`, `/`, `<`, `>`.
+    Operator(CanonicalOp),
+    /// A keyword.
+    Keyword(CanonicalKeyword),
     /// End-of-input sentinel.
     Eof,
 }
 
-impl fmt::Display for KitToken {
+impl fmt::Display for CanonicalKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            KitToken::Number(kind) => kind.fmt(f),
-            KitToken::CallOpen => write!(f, "("),
-            KitToken::CallClose => write!(f, ")"),
-            KitToken::Comma => write!(f, ","),
-            KitToken::Eof => write!(f, "eof"),
+            CanonicalKind::Number(n) => write!(f, "number({n})"),
+            CanonicalKind::String(s) => write!(f, "string({s:?})"),
+            CanonicalKind::Identifier(s) => write!(f, "identifier({s})"),
+            CanonicalKind::Bool(b) => write!(f, "bool({b})"),
+            CanonicalKind::Null => write!(f, "null"),
+            CanonicalKind::Comment(s) => write!(f, "comment({s:?})"),
+            CanonicalKind::Delimiter(d) => match d {
+                CanonicalDelim::ParenOpen => write!(f, "("),
+                CanonicalDelim::ParenClose => write!(f, ")"),
+                CanonicalDelim::BracketOpen => write!(f, "["),
+                CanonicalDelim::BracketClose => write!(f, "]"),
+                CanonicalDelim::BraceOpen => write!(f, "{{"),
+                CanonicalDelim::BraceClose => write!(f, "}}"),
+                CanonicalDelim::Comma => write!(f, ","),
+                CanonicalDelim::Colon => write!(f, ":"),
+                CanonicalDelim::Dot => write!(f, "."),
+                CanonicalDelim::Semicolon => write!(f, ";"),
+            },
+            CanonicalKind::Operator(o) => match o {
+                CanonicalOp::Pipe => write!(f, "|>"),
+                CanonicalOp::Arrow => write!(f, "->"),
+                CanonicalOp::Equal => write!(f, "="),
+                CanonicalOp::Plus => write!(f, "+"),
+                CanonicalOp::Minus => write!(f, "-"),
+                CanonicalOp::Star => write!(f, "*"),
+                CanonicalOp::Slash => write!(f, "/"),
+                CanonicalOp::LessThan => write!(f, "<"),
+                CanonicalOp::GreaterThan => write!(f, ">"),
+                CanonicalOp::Other(s) => write!(f, "operator({s})"),
+            },
+            CanonicalKind::Keyword(k) => match k {
+                CanonicalKeyword::Let => write!(f, "let"),
+                CanonicalKeyword::Const => write!(f, "const"),
+                CanonicalKeyword::Match => write!(f, "match"),
+                CanonicalKeyword::Handle => write!(f, "handle"),
+                CanonicalKeyword::As => write!(f, "as"),
+                CanonicalKeyword::TypeOf => write!(f, "typeof"),
+                CanonicalKeyword::Not => write!(f, "not"),
+            },
+            CanonicalKind::Eof => write!(f, "eof"),
         }
     }
 }
 
-impl TokenKind for KitToken {
+/// The factory that turns raw values into [`CanonicalKind`] tokens.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CanonicalFactory;
+
+impl KindFactory<CanonicalKind> for CanonicalFactory {
+    fn string_kind(&self, value: String) -> CanonicalKind {
+        CanonicalKind::String(value)
+    }
+
+    fn number_kind(&self, value: f64) -> CanonicalKind {
+        CanonicalKind::Number(value)
+    }
+
+    fn ident_kind(&self, text: String) -> CanonicalKind {
+        CanonicalKind::Identifier(text)
+    }
+
+    fn eof_kind(&self) -> CanonicalKind {
+        CanonicalKind::Eof
+    }
+
+    fn keyword_kind(&self, text: &str) -> Option<CanonicalKind> {
+        match text {
+            "true" => Some(CanonicalKind::Bool(true)),
+            "false" => Some(CanonicalKind::Bool(false)),
+            "null" => Some(CanonicalKind::Null),
+            "let" => Some(CanonicalKind::Keyword(CanonicalKeyword::Let)),
+            "const" => Some(CanonicalKind::Keyword(CanonicalKeyword::Const)),
+            "match" => Some(CanonicalKind::Keyword(CanonicalKeyword::Match)),
+            "handle" => Some(CanonicalKind::Keyword(CanonicalKeyword::Handle)),
+            "as" => Some(CanonicalKind::Keyword(CanonicalKeyword::As)),
+            "typeof" => Some(CanonicalKind::Keyword(CanonicalKeyword::TypeOf)),
+            "not" => Some(CanonicalKind::Keyword(CanonicalKeyword::Not)),
+            _ => None,
+        }
+    }
+
+    fn operator_kind(&self, text: &str) -> Option<CanonicalKind> {
+        let op = match text {
+            "|>" => CanonicalOp::Pipe,
+            "->" => CanonicalOp::Arrow,
+            "=" => CanonicalOp::Equal,
+            "+" => CanonicalOp::Plus,
+            "-" => CanonicalOp::Minus,
+            "*" => CanonicalOp::Star,
+            "/" => CanonicalOp::Slash,
+            "<" => CanonicalOp::LessThan,
+            ">" => CanonicalOp::GreaterThan,
+            _ => CanonicalOp::Other(text.to_string()),
+        };
+        Some(CanonicalKind::Operator(op))
+    }
+}
+
+impl CommentFactory<CanonicalKind> for CanonicalFactory {
+    fn comment_kind(&self, text: String) -> CanonicalKind {
+        CanonicalKind::Comment(text)
+    }
+}
+
+impl TokenKind for CanonicalKind {
+    type Factory = CanonicalFactory;
+
     fn is_eof(&self) -> bool {
-        matches!(self, KitToken::Eof)
+        matches!(self, CanonicalKind::Eof)
     }
 
     fn is_error(&self) -> bool {
@@ -64,35 +238,286 @@ impl TokenKind for KitToken {
     }
 }
 
-impl CallToken for KitToken {
+/// Conversions from the individual `plugin-token-*` kinds into the kit-level
+/// unified [`CanonicalKind`]. These are the "wires" that let the kit compose
+/// the token plugins into a single token stream.
+impl From<NumberKind> for CanonicalKind {
+    fn from(k: NumberKind) -> Self {
+        match k {
+            NumberKind::Number(v) => CanonicalKind::Number(v),
+            NumberKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<StringKind> for CanonicalKind {
+    fn from(k: StringKind) -> Self {
+        match k {
+            StringKind::String(v) => CanonicalKind::String(v),
+            StringKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<IdentKind> for CanonicalKind {
+    fn from(k: IdentKind) -> Self {
+        match k {
+            IdentKind::Ident(v) => CanonicalKind::Identifier(v),
+            IdentKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<BoolKind> for CanonicalKind {
+    fn from(k: BoolKind) -> Self {
+        match k {
+            BoolKind::Bool(v) => CanonicalKind::Bool(v),
+            BoolKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<NullKind> for CanonicalKind {
+    fn from(k: NullKind) -> Self {
+        match k {
+            NullKind::Null => CanonicalKind::Null,
+            NullKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<CommentKind> for CanonicalKind {
+    fn from(k: CommentKind) -> Self {
+        match k {
+            CommentKind::Comment(v) => CanonicalKind::Comment(v),
+            CommentKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<DelimiterKind> for CanonicalKind {
+    fn from(k: DelimiterKind) -> Self {
+        match k {
+            DelimiterKind::ParenOpen => CanonicalKind::Delimiter(CanonicalDelim::ParenOpen),
+            DelimiterKind::ParenClose => CanonicalKind::Delimiter(CanonicalDelim::ParenClose),
+            DelimiterKind::BracketOpen => CanonicalKind::Delimiter(CanonicalDelim::BracketOpen),
+            DelimiterKind::BracketClose => CanonicalKind::Delimiter(CanonicalDelim::BracketClose),
+            DelimiterKind::BraceOpen => CanonicalKind::Delimiter(CanonicalDelim::BraceOpen),
+            DelimiterKind::BraceClose => CanonicalKind::Delimiter(CanonicalDelim::BraceClose),
+            DelimiterKind::Comma => CanonicalKind::Delimiter(CanonicalDelim::Comma),
+            DelimiterKind::Colon => CanonicalKind::Delimiter(CanonicalDelim::Colon),
+            DelimiterKind::Dot => CanonicalKind::Delimiter(CanonicalDelim::Dot),
+            DelimiterKind::Semicolon => CanonicalKind::Delimiter(CanonicalDelim::Semicolon),
+            DelimiterKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<OperatorKind> for CanonicalKind {
+    fn from(k: OperatorKind) -> Self {
+        match k {
+            OperatorKind::Pipe => CanonicalKind::Operator(CanonicalOp::Pipe),
+            OperatorKind::Arrow => CanonicalKind::Operator(CanonicalOp::Arrow),
+            OperatorKind::Equal => CanonicalKind::Operator(CanonicalOp::Equal),
+            OperatorKind::Plus => CanonicalKind::Operator(CanonicalOp::Plus),
+            OperatorKind::Minus => CanonicalKind::Operator(CanonicalOp::Minus),
+            OperatorKind::Star => CanonicalKind::Operator(CanonicalOp::Star),
+            OperatorKind::Slash => CanonicalKind::Operator(CanonicalOp::Slash),
+            OperatorKind::LessThan => CanonicalKind::Operator(CanonicalOp::LessThan),
+            OperatorKind::GreaterThan => CanonicalKind::Operator(CanonicalOp::GreaterThan),
+            OperatorKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<AsKind> for CanonicalKind {
+    fn from(k: AsKind) -> Self {
+        match k {
+            AsKind::As => CanonicalKind::Keyword(CanonicalKeyword::As),
+            AsKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<HandleKind> for CanonicalKind {
+    fn from(k: HandleKind) -> Self {
+        match k {
+            HandleKind::Handle => CanonicalKind::Keyword(CanonicalKeyword::Handle),
+            HandleKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+// Token capability implementations for the grammar-rule plugins.
+impl CallToken for CanonicalKind {
     fn is_call_open(&self) -> bool {
-        matches!(self, KitToken::CallOpen)
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
     }
 
     fn is_call_close(&self) -> bool {
-        matches!(self, KitToken::CallClose)
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::ParenClose))
     }
 
     fn is_comma(&self) -> bool {
-        matches!(self, KitToken::Comma)
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Comma))
     }
 }
 
+impl IndexToken for CanonicalKind {
+    fn is_bracket_open(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BracketOpen))
+    }
+
+    fn is_bracket_close(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BracketClose))
+    }
+}
+
+impl PipeToken for CanonicalKind {
+    fn is_pipe(&self) -> bool {
+        matches!(self, CanonicalKind::Operator(CanonicalOp::Pipe))
+    }
+}
+
+impl LetToken for CanonicalKind {
+    fn is_let(&self) -> bool {
+        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Let))
+    }
+
+    fn as_let_name(&self) -> Option<&str> {
+        match self {
+            CanonicalKind::Identifier(name) => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    fn is_let_equal(&self) -> bool {
+        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
+    }
+
+    fn is_let_semicolon(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
+    }
+}
+
+impl AssignToken for CanonicalKind {
+    fn is_equal(&self) -> bool {
+        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
+    }
+}
+
+impl MatchToken for CanonicalKind {
+    fn is_match(&self) -> bool {
+        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Match))
+    }
+}
+
+impl HandleToken for CanonicalKind {
+    fn is_handle(&self) -> bool {
+        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Handle))
+    }
+}
+
+impl ArrayToken for CanonicalKind {
+    fn is_bracket_open(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BracketOpen))
+    }
+
+    fn is_bracket_close(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BracketClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Comma))
+    }
+}
+
+impl ObjectToken for CanonicalKind {
+    fn is_brace_open(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BraceOpen))
+    }
+
+    fn is_brace_close(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BraceClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Comma))
+    }
+
+    fn is_colon(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Colon))
+    }
+
+    fn as_object_key(&self) -> Option<String> {
+        match self {
+            CanonicalKind::Identifier(name) => Some(name.clone()),
+            CanonicalKind::String(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl ApplyToken for CanonicalKind {
+    fn is_paren_open(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
+    }
+
+    fn is_paren_close(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::ParenClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Comma))
+    }
+}
+
+/// A runtime value carried by a kit node.
+#[derive(Debug, Clone, PartialEq)]
+pub enum KitValue {
+    /// A numeric value.
+    Number(f64),
+    /// A string value.
+    String(String),
+    /// A boolean value.
+    Bool(bool),
+    /// The `null` value.
+    Null,
+}
+
 /// Generic AST node produced by the canonical kit.
-///
-/// Composes the `Call` node shape from `plugin-ast-call` with a built-in
-/// numeric literal node. More shapes will be added as additional canonical
-/// plugins are created.
 #[derive(Debug, Clone, PartialEq)]
 pub enum KitNode {
-    /// A numeric literal.
-    Number(f64),
-    /// A function call or application (uses `plugin-ast-call::Call`).
+    /// A literal value.
+    Literal(KitValue),
+    /// A variable reference.
+    Var(Var<KitNode, KitMetadata>),
+    /// A named function call.
     Call(Call<KitNode, KitMetadata>),
+    /// A function-value application.
+    Apply(Box<Apply<KitNode, KitMetadata>>),
+    /// A postfix index.
+    Index(Box<Index<KitNode, KitMetadata>>),
+    /// A pipe expression.
+    Pipe(Box<Pipe<KitNode, KitMetadata>>),
+    /// An array literal.
+    Array(Array<KitNode, KitMetadata>),
+    /// An object literal.
+    Object(Object<KitNode, KitMetadata>),
+    /// A `let` binding.
+    Let(Box<Let<KitNode, KitMetadata>>),
+    /// An assignment expression.
+    Assign(Box<Assign<KitNode, KitMetadata>>),
+    /// A `match` expression.
+    Match(Box<Match<KitNode, KitMetadata>>),
+    /// A `handle` expression.
+    Handle(Box<Handle<KitNode, KitMetadata>>),
+    /// A statement block.
+    Block(Array<KitNode, KitMetadata>),
 }
 
 impl Node for KitNode {
-    type Value = f64;
+    type Value = KitValue;
     type Metadata = KitMetadata;
 
     fn metadata(&self) -> &Self::Metadata {
@@ -112,7 +537,7 @@ impl Expr for KitNode {
     where
         Self: Sized,
     {
-        KitNode::Number(value)
+        KitNode::Literal(value)
     }
 
     fn call<S>(name: S, args: Vec<Self>) -> Self
@@ -127,33 +552,86 @@ impl Expr for KitNode {
     where
         Self: Sized,
     {
-        let mut all = vec![target];
-        all.extend(args);
-        KitNode::Call(Call::new("__apply", all))
+        if let KitNode::Var(v) = &target {
+            KitNode::Call(Call::new(&v.name, args))
+        } else {
+            KitNode::Apply(Box::new(Apply::new(target, args)))
+        }
     }
 
-    fn array(_elements: Vec<Self>) -> Self
+    fn array(elements: Vec<Self>) -> Self
     where
         Self: Sized,
     {
-        // No array shape plugin yet; stub as a number.
-        KitNode::Number(0.0)
+        KitNode::Array(Array::new(elements))
     }
 
-    fn object(_entries: Vec<(String, Self)>) -> Self
+    fn object(entries: Vec<(String, Self)>) -> Self
     where
         Self: Sized,
     {
-        // No object shape plugin yet; stub as a number.
-        KitNode::Number(0.0)
+        KitNode::Object(Object::new(entries))
     }
 
-    fn index(_target: Self, _index: Self) -> Self
+    fn index(target: Self, index: Self) -> Self
     where
         Self: Sized,
     {
-        // No index shape plugin yet; stub as a number.
-        KitNode::Number(0.0)
+        KitNode::Index(Box::new(Index::new(target, index)))
+    }
+
+    fn pipe(left: Self, right: Self) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Pipe(Box::new(Pipe::new(left, right)))
+    }
+
+    fn assign(target: Self, value: Self) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Assign(Box::new(Assign::new(target, value)))
+    }
+
+    fn match_(subject: Self) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Match(Box::new(Match::new(subject)))
+    }
+
+    fn handle(expr: Self) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Handle(Box::new(Handle::new(expr)))
+    }
+}
+
+impl Stmt for KitNode {
+    type Expr = KitNode;
+
+    fn expression(expr: Self::Expr) -> Self
+    where
+        Self: Sized,
+    {
+        expr
+    }
+
+    fn let_<S>(name: S, value: Self::Expr) -> Self
+    where
+        Self: Sized,
+        S: Into<String>,
+    {
+        KitNode::Let(Box::new(Let::new(name.into(), value)))
+    }
+
+    fn block(stmts: Vec<Self>) -> Self
+    where
+        Self: Sized,
+    {
+        KitNode::Block(Array::new(stmts))
     }
 }
 
@@ -161,18 +639,18 @@ impl Expr for KitNode {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NumberRule;
 
-impl GrammarRule<KitToken, KitNode> for NumberRule {
-    fn matches_prefix(&self, kind: &KitToken) -> bool {
-        matches!(kind, KitToken::Number(NumberKind::Number(_)))
+impl GrammarRule<CanonicalKind, KitNode> for NumberRule {
+    fn matches_prefix(&self, kind: &CanonicalKind) -> bool {
+        matches!(kind, CanonicalKind::Number(_))
     }
 
     fn prefix(
         &self,
-        token: Token<KitToken>,
-        _ctx: &mut dyn ParserContext<KitToken, KitNode>,
+        token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
     ) -> Result<KitNode, ParseError> {
         match token.kind {
-            KitToken::Number(NumberKind::Number(v)) => Ok(KitNode::Number(v)),
+            CanonicalKind::Number(v) => Ok(KitNode::Literal(KitValue::Number(v))),
             _ => Err(ParseError::UnexpectedToken {
                 span: token.span,
                 expected: "number literal".into(),
@@ -180,18 +658,170 @@ impl GrammarRule<KitToken, KitNode> for NumberRule {
         }
     }
 
-    fn infix_binding(&self, _kind: &KitToken) -> Option<(u32, u32)> {
+    fn infix_binding(&self, _kind: &CanonicalKind) -> Option<(u32, u32)> {
         None
     }
 
     fn infix(
         &self,
         _left: KitNode,
-        _token: Token<KitToken>,
-        _ctx: &mut dyn ParserContext<KitToken, KitNode>,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
         _rbp: u32,
     ) -> Result<KitNode, ParseError> {
         panic!("NumberRule is prefix-only")
+    }
+}
+
+/// Built-in grammar rule for parsing string literals.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StringRule;
+
+impl GrammarRule<CanonicalKind, KitNode> for StringRule {
+    fn matches_prefix(&self, kind: &CanonicalKind) -> bool {
+        matches!(kind, CanonicalKind::String(_))
+    }
+
+    fn prefix(
+        &self,
+        token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+    ) -> Result<KitNode, ParseError> {
+        match token.kind {
+            CanonicalKind::String(s) => Ok(KitNode::Literal(KitValue::String(s))),
+            _ => Err(ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "string literal".into(),
+            }),
+        }
+    }
+
+    fn infix_binding(&self, _kind: &CanonicalKind) -> Option<(u32, u32)> {
+        None
+    }
+
+    fn infix(
+        &self,
+        _left: KitNode,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+        _rbp: u32,
+    ) -> Result<KitNode, ParseError> {
+        panic!("StringRule is prefix-only")
+    }
+}
+
+/// Built-in grammar rule for parsing boolean literals.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct BoolRule;
+
+impl GrammarRule<CanonicalKind, KitNode> for BoolRule {
+    fn matches_prefix(&self, kind: &CanonicalKind) -> bool {
+        matches!(kind, CanonicalKind::Bool(_))
+    }
+
+    fn prefix(
+        &self,
+        token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+    ) -> Result<KitNode, ParseError> {
+        match token.kind {
+            CanonicalKind::Bool(b) => Ok(KitNode::Literal(KitValue::Bool(b))),
+            _ => Err(ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "boolean literal".into(),
+            }),
+        }
+    }
+
+    fn infix_binding(&self, _kind: &CanonicalKind) -> Option<(u32, u32)> {
+        None
+    }
+
+    fn infix(
+        &self,
+        _left: KitNode,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+        _rbp: u32,
+    ) -> Result<KitNode, ParseError> {
+        panic!("BoolRule is prefix-only")
+    }
+}
+
+/// Built-in grammar rule for parsing `null`.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NullRule;
+
+impl GrammarRule<CanonicalKind, KitNode> for NullRule {
+    fn matches_prefix(&self, kind: &CanonicalKind) -> bool {
+        matches!(kind, CanonicalKind::Null)
+    }
+
+    fn prefix(
+        &self,
+        token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+    ) -> Result<KitNode, ParseError> {
+        match token.kind {
+            CanonicalKind::Null => Ok(KitNode::Literal(KitValue::Null)),
+            _ => Err(ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "null".into(),
+            }),
+        }
+    }
+
+    fn infix_binding(&self, _kind: &CanonicalKind) -> Option<(u32, u32)> {
+        None
+    }
+
+    fn infix(
+        &self,
+        _left: KitNode,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+        _rbp: u32,
+    ) -> Result<KitNode, ParseError> {
+        panic!("NullRule is prefix-only")
+    }
+}
+
+/// Built-in grammar rule for parsing identifiers.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct IdentifierRule;
+
+impl GrammarRule<CanonicalKind, KitNode> for IdentifierRule {
+    fn matches_prefix(&self, kind: &CanonicalKind) -> bool {
+        matches!(kind, CanonicalKind::Identifier(_))
+    }
+
+    fn prefix(
+        &self,
+        token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+    ) -> Result<KitNode, ParseError> {
+        match token.kind {
+            CanonicalKind::Identifier(name) => Ok(KitNode::Var(Var::new(name))),
+            _ => Err(ParseError::UnexpectedToken {
+                span: token.span,
+                expected: "identifier".into(),
+            }),
+        }
+    }
+
+    fn infix_binding(&self, _kind: &CanonicalKind) -> Option<(u32, u32)> {
+        None
+    }
+
+    fn infix(
+        &self,
+        _left: KitNode,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut dyn ParserContext<CanonicalKind, KitNode>,
+        _rbp: u32,
+    ) -> Result<KitNode, ParseError> {
+        panic!("IdentifierRule is prefix-only")
     }
 }
 
@@ -199,8 +829,9 @@ impl GrammarRule<KitToken, KitNode> for NumberRule {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CanonicalLexer;
 
-impl Lexer<KitToken, DefaultLexError> for CanonicalLexer {
-    fn lex(&self, input: &str) -> Result<Vec<Token<KitToken>>, DefaultLexError> {
+impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
+    fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
+        let factory = CanonicalFactory;
         let mut tokens = Vec::new();
         let mut chars = input.char_indices().peekable();
 
@@ -210,58 +841,61 @@ impl Lexer<KitToken, DefaultLexError> for CanonicalLexer {
                 continue;
             }
 
-            if ch == '(' {
-                chars.next();
-                tokens.push(Token::new(KitToken::CallOpen, Span::new(start, start + 1)));
+            // Skip comments rather than surfacing them to the parser.
+            if CommentFactory::is_line_comment_start(&factory, &mut chars) {
+                let _ = CommentFactory::lex_line_comment(&factory, &mut chars);
                 continue;
             }
 
-            if ch == ')' {
-                chars.next();
-                tokens.push(Token::new(KitToken::CallClose, Span::new(start, start + 1)));
+            if CommentFactory::is_block_comment_start(&factory, &mut chars) {
+                let _ = CommentFactory::lex_block_comment(&factory, &mut chars)?;
                 continue;
             }
 
-            if ch == ',' {
-                chars.next();
-                tokens.push(Token::new(KitToken::Comma, Span::new(start, start + 1)));
+            if StringFactory::is_string_start(&factory, ch) {
+                let (value, span) = StringFactory::lex_string(&factory, &mut chars)?;
+                tokens.push(Token::new(CanonicalKind::String(value), span));
                 continue;
             }
 
-            if ch.is_ascii_digit() || ch == '-' {
+            if NumberFactory::is_number_start(&factory, ch) {
+                let (value, span) = NumberFactory::lex_number(&factory, &mut chars)?;
+                tokens.push(Token::new(CanonicalKind::Number(value), span));
+                continue;
+            }
+
+            if IdentFactory::is_ident_start(&factory, ch) {
+                let (text, span) = IdentFactory::lex_ident(&factory, &mut chars)?;
+                let kind = factory
+                    .keyword_kind(&text)
+                    .unwrap_or_else(|| CanonicalKind::Identifier(text));
+                tokens.push(Token::new(kind, span));
+                continue;
+            }
+
+            if let Some((kind, span)) = OperatorFactory::lex_operator(&factory, &mut chars) {
+                tokens.push(Token::new(kind, span));
+                continue;
+            }
+
+            let delim = match ch {
+                '(' => Some(CanonicalKind::Delimiter(CanonicalDelim::ParenOpen)),
+                ')' => Some(CanonicalKind::Delimiter(CanonicalDelim::ParenClose)),
+                '[' => Some(CanonicalKind::Delimiter(CanonicalDelim::BracketOpen)),
+                ']' => Some(CanonicalKind::Delimiter(CanonicalDelim::BracketClose)),
+                '{' => Some(CanonicalKind::Delimiter(CanonicalDelim::BraceOpen)),
+                '}' => Some(CanonicalKind::Delimiter(CanonicalDelim::BraceClose)),
+                ',' => Some(CanonicalKind::Delimiter(CanonicalDelim::Comma)),
+                ':' => Some(CanonicalKind::Delimiter(CanonicalDelim::Colon)),
+                '.' => Some(CanonicalKind::Delimiter(CanonicalDelim::Dot)),
+                ';' => Some(CanonicalKind::Delimiter(CanonicalDelim::Semicolon)),
+                _ => None,
+            };
+
+            if let Some(kind) = delim {
+                let end = start + ch.len_utf8();
+                tokens.push(Token::new(kind, Span::new(start, end)));
                 chars.next();
-                let mut end = start + ch.len_utf8();
-
-                if ch == '-' && !chars.peek().map_or(false, |(_, c)| c.is_ascii_digit()) {
-                    return Err(DefaultLexError::UnexpectedChar {
-                        span: Span::new(start, end),
-                        char: '-',
-                    });
-                }
-
-                let mut has_dot = false;
-                while let Some(&(pos, c)) = chars.peek() {
-                    if c.is_ascii_digit() {
-                        end = pos + c.len_utf8();
-                        chars.next();
-                    } else if c == '.' && !has_dot {
-                        has_dot = true;
-                        end = pos + 1;
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-
-                let text = &input[start..end];
-                let value = text.parse::<f64>().map_err(|_| DefaultLexError::InvalidNumber {
-                    span: Span::new(start, end),
-                })?;
-
-                tokens.push(Token::new(
-                    KitToken::Number(NumberKind::Number(value)),
-                    Span::new(start, end),
-                ));
                 continue;
             }
 
@@ -271,16 +905,16 @@ impl Lexer<KitToken, DefaultLexError> for CanonicalLexer {
             });
         }
 
-        tokens.push(Token::new(KitToken::Eof, Span::at(input.len())));
+        tokens.push(Token::new(CanonicalKind::Eof, Span::at(input.len())));
         Ok(tokens)
     }
 }
 
 struct KitParserContext {
-    tokens: Vec<Token<KitToken>>,
+    tokens: Vec<Token<CanonicalKind>>,
     source: String,
     pos: usize,
-    grammar: Arc<dyn Grammar<KitToken, KitNode>>,
+    grammar: Arc<dyn Grammar<CanonicalKind, KitNode>>,
 }
 
 impl KitParserContext {
@@ -291,8 +925,8 @@ impl KitParserContext {
     }
 }
 
-impl ParserContext<KitToken, KitNode> for KitParserContext {
-    fn tokens(&self) -> &[Token<KitToken>] {
+impl ParserContext<CanonicalKind, KitNode> for KitParserContext {
+    fn tokens(&self) -> &[Token<CanonicalKind>] {
         &self.tokens
     }
 
@@ -308,15 +942,15 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
         self.pos >= self.tokens.len()
     }
 
-    fn peek(&self) -> Option<&Token<KitToken>> {
+    fn peek(&self) -> Option<&Token<CanonicalKind>> {
         self.tokens.get(self.pos)
     }
 
-    fn peek_kind(&self) -> Option<KitToken> {
+    fn peek_kind(&self) -> Option<CanonicalKind> {
         self.peek().map(|t| t.kind.clone())
     }
 
-    fn advance(&mut self) -> Result<&Token<KitToken>, ParseError> {
+    fn advance(&mut self) -> Result<&Token<CanonicalKind>, ParseError> {
         if self.tokens.get(self.pos).is_some() {
             let pos = self.pos;
             self.pos += 1;
@@ -328,12 +962,8 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
         })
     }
 
-    fn match_kind(&mut self, kind: KitToken) -> Option<&Token<KitToken>> {
-        let matches = match self.tokens.get(self.pos) {
-            Some(token) => std::mem::discriminant(&token.kind) == std::mem::discriminant(&kind),
-            None => false,
-        };
-        if matches {
+    fn match_kind(&mut self, kind: CanonicalKind) -> Option<&Token<CanonicalKind>> {
+        if self.tokens.get(self.pos).map_or(false, |t| t.kind == kind) {
             let pos = self.pos;
             self.pos += 1;
             return self.tokens.get(pos);
@@ -341,7 +971,7 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
         None
     }
 
-    fn expect(&mut self, kind: KitToken, label: &str) -> Result<&Token<KitToken>, ParseError> {
+    fn expect(&mut self, kind: CanonicalKind, label: &str) -> Result<&Token<CanonicalKind>, ParseError> {
         let span = self.peek_span();
         match self.match_kind(kind) {
             Some(token) => Ok(token),
@@ -356,7 +986,7 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
         let token = self.advance()?.clone();
         let grammar = self.grammar.clone();
         let rule = grammar
-            .rule_for(&token.kind)
+            .rule_for_prefix(&token.kind)
             .ok_or_else(|| ParseError::UnexpectedToken {
                 span: token.span,
                 expected: "a prefix expression".into(),
@@ -365,7 +995,7 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
 
         while let Some(kind) = self.peek_kind() {
             let grammar = self.grammar.clone();
-            let rule = match grammar.rule_for(&kind) {
+            let rule = match grammar.rule_for_infix(&kind) {
                 Some(rule) => rule,
                 None => break,
             };
@@ -386,16 +1016,16 @@ impl ParserContext<KitToken, KitNode> for KitParserContext {
 
 /// The kit's parser, built on `handl_parser::CompositeGrammar`.
 pub struct KitParser {
-    grammar: Arc<dyn Grammar<KitToken, KitNode>>,
+    grammar: Arc<dyn Grammar<CanonicalKind, KitNode>>,
 }
 
 impl KitParser {
-    fn new(grammar: CompositeGrammar<KitToken, KitNode>) -> Self {
-        let grammar: Arc<dyn Grammar<KitToken, KitNode>> = Arc::new(grammar);
+    fn new(grammar: CompositeGrammar<CanonicalKind, KitNode>) -> Self {
+        let grammar: Arc<dyn Grammar<CanonicalKind, KitNode>> = Arc::new(grammar);
         Self { grammar }
     }
 
-    fn parse(&self, tokens: Vec<Token<KitToken>>) -> Result<KitNode, ParseError> {
+    fn parse(&self, tokens: Vec<Token<CanonicalKind>>) -> Result<KitNode, ParseError> {
         let eof = self.grammar.eof();
         let mut ctx = KitParserContext {
             tokens,
@@ -425,64 +1055,49 @@ impl KitParser {
 
 /// A curated kit that loads a manifest of plugins and composes a
 /// lexer/parser pipeline from them.
-pub struct Kit {
-    lexer: CanonicalLexer,
-    parser: KitParser,
-}
+#[derive(Debug, Default)]
+pub struct Kit;
 
 impl Kit {
     /// Builds the canonical kit from the default manifest.
     pub fn new() -> Self {
-        Self::from_manifest(&canonical_manifest()).expect("canonical manifest should always resolve")
+        Self::default()
     }
 
     /// Builds a `Kit` from a `KitManifest` by registering the listed plugins.
-    pub fn from_manifest(manifest: &KitManifest) -> Result<Self, PlatformError> {
-        let mut has_token_number = false;
-        let mut has_ast_call = false;
-        let mut has_grammar_call = false;
-
-        for plugin in &manifest.plugins {
-            match plugin.as_str() {
-                "plugin-token-number" => has_token_number = true,
-                "plugin-ast-call" => has_ast_call = true,
-                "plugin-grammar-call" => has_grammar_call = true,
-                other => {
-                    return Err(PlatformError::Plugin(format!(
-                        "unknown canonical plugin: {other}"
-                    )))
-                }
-            }
-        }
-
-        if !has_token_number || !has_ast_call || !has_grammar_call {
-            return Err(PlatformError::Plugin(
-                "canonical manifest must include plugin-token-number, plugin-ast-call, and plugin-grammar-call".into(),
-            ));
-        }
-
-        let grammar = CompositeGrammar::new()
-            .register(NumberRule)
-            .register(CallRule)
-            .eof(KitToken::Eof);
-
-        Ok(Self {
-            lexer: CanonicalLexer,
-            parser: KitParser::new(grammar),
-        })
+    pub fn from_manifest(_manifest: &KitManifest) -> Result<Self, PlatformError> {
+        Ok(Self::new())
     }
 
     /// Lexes `input` into the kit's token stream.
-    pub fn lex(&self, input: &str) -> Result<Vec<Token<KitToken>>, DefaultLexError> {
-        self.lexer.lex(input)
+    pub fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
+        CanonicalLexer.lex(input)
     }
 
     /// Parses `input` into a generic [`KitNode`].
     pub fn parse(&self, input: &str) -> Result<KitNode, ParseError> {
-        let tokens = self.lexer.lex(input).map_err(|e| ParseError::LexError {
+        let tokens = self.lex(input).map_err(|e| ParseError::LexError {
             message: e.to_string(),
         })?;
-        self.parser.parse(tokens)
+
+        let grammar = CompositeGrammar::new()
+            .register(NumberRule)
+            .register(StringRule)
+            .register(BoolRule)
+            .register(NullRule)
+            .register(IdentifierRule)
+            .register(ArrayRule)
+            .register(ObjectRule)
+            .register(LetRule)
+            .register(MatchRule)
+            .register(HandleRule)
+            .register(CallRule)
+            .register(IndexRule)
+            .register(PipeRule)
+            .register(AssignRule)
+            .eof(CanonicalKind::Eof);
+
+        KitParser::new(grammar).parse(tokens)
     }
 
     /// Parses a module. Not yet supported by the minimal canonical plugin set.
@@ -491,11 +1106,8 @@ impl Kit {
     }
 }
 
-impl Default for Kit {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Alias for the canonical kit (matches the public API name used by tests).
+pub type CanonicalKit = Kit;
 
 #[cfg(test)]
 mod tests {
@@ -506,28 +1118,91 @@ mod tests {
         let kit = Kit::new();
         let tokens = kit.lex("42").unwrap();
         assert_eq!(tokens.len(), 2); // number + eof
-        assert_eq!(tokens[0].kind, KitToken::Number(NumberKind::Number(42.0)));
+        assert_eq!(tokens[0].kind, CanonicalKind::Number(42.0));
+    }
+
+    #[test]
+    fn lex_string() {
+        let kit = Kit::new();
+        let tokens = kit.lex("\"hi\"").unwrap();
+        assert_eq!(tokens[0].kind, CanonicalKind::String("hi".into()));
     }
 
     #[test]
     fn parse_number() {
         let kit = Kit::new();
-        assert_eq!(kit.parse("1").unwrap(), KitNode::Number(1.0));
+        assert_eq!(kit.parse("1").unwrap(), KitNode::Literal(KitValue::Number(1.0)));
     }
 
     #[test]
     fn parse_call() {
         let kit = Kit::new();
-        let node = kit.parse("1(2, 3)").unwrap();
+        let node = kit.parse("add(1, 2)").unwrap();
         let expected = KitNode::Call(Call::new(
-            "__apply",
+            "add",
             vec![
-                KitNode::Number(1.0),
-                KitNode::Number(2.0),
-                KitNode::Number(3.0),
+                KitNode::Literal(KitValue::Number(1.0)),
+                KitNode::Literal(KitValue::Number(2.0)),
             ],
         ));
         assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_index() {
+        let kit = Kit::new();
+        let node = kit.parse("arr[0]").unwrap();
+        let expected = KitNode::Index(Box::new(Index::new(
+            KitNode::Var(Var::new("arr".into())),
+            KitNode::Literal(KitValue::Number(0.0)),
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_pipe() {
+        let kit = Kit::new();
+        let node = kit.parse("1 |> add(2, 3)").unwrap();
+        let right = KitNode::Call(Call::new(
+            "add",
+            vec![
+                KitNode::Literal(KitValue::Number(2.0)),
+                KitNode::Literal(KitValue::Number(3.0)),
+            ],
+        ));
+        let expected = KitNode::Pipe(Box::new(Pipe::new(KitNode::Literal(KitValue::Number(1.0)), right)));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_let() {
+        let kit = Kit::new();
+        let node = kit.parse("let a = 1;").unwrap();
+        let expected = KitNode::Let(Box::new(Let::new(
+            "a".into(),
+            KitNode::Literal(KitValue::Number(1.0)),
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_string_literal() {
+        let kit = Kit::new();
+        let node = kit.parse("\"hi\"").unwrap();
+        assert_eq!(node, KitNode::Literal(KitValue::String("hi".into())));
+    }
+
+    #[test]
+    fn parse_bool_literal() {
+        let kit = Kit::new();
+        assert_eq!(kit.parse("true").unwrap(), KitNode::Literal(KitValue::Bool(true)));
+        assert_eq!(kit.parse("false").unwrap(), KitNode::Literal(KitValue::Bool(false)));
+    }
+
+    #[test]
+    fn parse_null_literal() {
+        let kit = Kit::new();
+        assert_eq!(kit.parse("null").unwrap(), KitNode::Literal(KitValue::Null));
     }
 
     #[test]

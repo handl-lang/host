@@ -35,4 +35,24 @@ pub trait Expr: Node {
     fn index(target: Self, index: Self) -> Self
     where
         Self: Sized;
+
+    /// Creates a pipe expression: `left |> right`.
+    fn pipe(left: Self, right: Self) -> Self
+    where
+        Self: Sized;
+
+    /// Creates an assignment expression: `target = value`.
+    fn assign(target: Self, value: Self) -> Self
+    where
+        Self: Sized;
+
+    /// Creates a match expression: `match subject { ... }`.
+    fn match_(subject: Self) -> Self
+    where
+        Self: Sized;
+
+    /// Creates a handle expression: `handle expr`.
+    fn handle(expr: Self) -> Self
+    where
+        Self: Sized;
 }

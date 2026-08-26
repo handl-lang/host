@@ -27,6 +27,8 @@ impl TokenKind for CommentKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 impl handl_lexer::CommentTokenKind for CommentKind {
     fn is_comment(&self) -> bool {
@@ -36,4 +38,13 @@ impl handl_lexer::CommentTokenKind for CommentKind {
 
 pub fn Comment_token(value: String, span: Span) -> Token<CommentKind> {
     Token::new(CommentKind::Comment(value), span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<CommentKind> for TokenFactory {
+    fn eof_kind(&self) -> CommentKind {
+        CommentKind::Eof
+    }
 }

@@ -51,6 +51,8 @@ impl TokenKind for OperatorKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 /// Builds an operator token at the given span.
@@ -61,4 +63,13 @@ pub fn operator_token(kind: OperatorKind, span: Span) -> Token<OperatorKind> {
 /// Builds an end-of-input operator token at the given span.
 pub fn eof_token(span: Span) -> Token<OperatorKind> {
     Token::new(OperatorKind::Eof, span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<OperatorKind> for TokenFactory {
+    fn eof_kind(&self) -> OperatorKind {
+        OperatorKind::Eof
+    }
 }

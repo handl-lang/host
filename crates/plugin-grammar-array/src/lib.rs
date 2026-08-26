@@ -18,19 +18,40 @@ where
     K: ArrayToken,
     N: Expr,
 {
-    fn matches_prefix(&self, _kind: &K) -> bool {
-        false
+    fn matches_prefix(&self, kind: &K) -> bool {
+        kind.is_bracket_open()
     }
 
     fn prefix(
         &self,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
+        ctx: &mut dyn ParserContext<K, N>,
     ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Array prefix not yet implemented".into(),
-        })
+        let mut elements = Vec::new();
+
+        if !ctx.peek_kind().as_ref().map_or(true, |k| k.is_bracket_close()) {
+            loop {
+                elements.push(ctx.expression(0)?);
+
+                match ctx.peek_kind() {
+                    Some(ref k) if k.is_bracket_close() => break,
+                    Some(ref k) if k.is_comma() => {
+                        ctx.advance()?;
+                    }
+                    Some(_) | None => break,
+                }
+            }
+        }
+
+        let close = ctx.advance()?;
+        if !close.kind.is_bracket_close() {
+            return Err(ParseError::UnexpectedToken {
+                span: close.span,
+                expected: "]".into(),
+            });
+        }
+
+        Ok(N::array(elements))
     }
 
     fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
@@ -46,7 +67,7 @@ where
     ) -> Result<N, ParseError> {
         Err(ParseError::UnexpectedToken {
             span: _token.span,
-            expected: "Array infix not yet implemented".into(),
+            expected: "Array is prefix-only".into(),
         })
     }
 }

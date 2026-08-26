@@ -16,19 +16,17 @@ where
     K: MatchToken,
     N: Expr,
 {
-    fn matches_prefix(&self, _kind: &K) -> bool {
-        false
+    fn matches_prefix(&self, kind: &K) -> bool {
+        kind.is_match()
     }
 
     fn prefix(
         &self,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
+        ctx: &mut dyn ParserContext<K, N>,
     ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Match prefix not yet implemented".into(),
-        })
+        let subject = ctx.expression(0)?;
+        Ok(N::match_(subject))
     }
 
     fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
@@ -44,7 +42,7 @@ where
     ) -> Result<N, ParseError> {
         Err(ParseError::UnexpectedToken {
             span: _token.span,
-            expected: "Match infix not yet implemented".into(),
+            expected: "Match is prefix-only".into(),
         })
     }
 }

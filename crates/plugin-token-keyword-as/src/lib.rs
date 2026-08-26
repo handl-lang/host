@@ -27,8 +27,19 @@ impl TokenKind for AsKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 pub fn As_token(span: Span) -> Token<AsKind> {
     Token::new(AsKind::As, span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<AsKind> for TokenFactory {
+    fn eof_kind(&self) -> AsKind {
+        AsKind::Eof
+    }
 }

@@ -27,8 +27,19 @@ impl TokenKind for BoolKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 pub fn Bool_token(value: bool, span: Span) -> Token<BoolKind> {
     Token::new(BoolKind::Bool(value), span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<BoolKind> for TokenFactory {
+    fn eof_kind(&self) -> BoolKind {
+        BoolKind::Eof
+    }
 }

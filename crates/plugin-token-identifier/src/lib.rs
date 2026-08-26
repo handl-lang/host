@@ -27,8 +27,19 @@ impl TokenKind for IdentKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 pub fn Ident_token(value: String, span: Span) -> Token<IdentKind> {
     Token::new(IdentKind::Ident(value), span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<IdentKind> for TokenFactory {
+    fn eof_kind(&self) -> IdentKind {
+        IdentKind::Eof
+    }
 }

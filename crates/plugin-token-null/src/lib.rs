@@ -27,8 +27,19 @@ impl TokenKind for NullKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 pub fn Null_token(span: Span) -> Token<NullKind> {
     Token::new(NullKind::Null, span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<NullKind> for TokenFactory {
+    fn eof_kind(&self) -> NullKind {
+        NullKind::Eof
+    }
 }

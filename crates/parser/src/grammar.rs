@@ -89,6 +89,16 @@ where
     /// Find the rule responsible for `kind`, if any.
     fn rule_for(&self, kind: &K) -> Option<&dyn GrammarRule<K, N>>;
 
+    /// Find the prefix rule for `kind`, if any.
+    fn rule_for_prefix(&self, kind: &K) -> Option<&dyn GrammarRule<K, N>> {
+        self.rule_for(kind)
+    }
+
+    /// Find the infix rule for `kind`, if any.
+    fn rule_for_infix(&self, kind: &K) -> Option<&dyn GrammarRule<K, N>> {
+        self.rule_for(kind)
+    }
+
     /// The end-of-input token, if the grammar requires one.
     fn eof(&self) -> Option<K>;
 
@@ -158,6 +168,20 @@ where
         self.rules
             .iter()
             .find(|r| r.matches_prefix(kind) || r.infix_binding(kind).is_some())
+            .map(|r| r.as_ref())
+    }
+
+    fn rule_for_prefix(&self, kind: &K) -> Option<&dyn GrammarRule<K, N>> {
+        self.rules
+            .iter()
+            .find(|r| r.matches_prefix(kind))
+            .map(|r| r.as_ref())
+    }
+
+    fn rule_for_infix(&self, kind: &K) -> Option<&dyn GrammarRule<K, N>> {
+        self.rules
+            .iter()
+            .find(|r| r.infix_binding(kind).is_some())
             .map(|r| r.as_ref())
     }
 

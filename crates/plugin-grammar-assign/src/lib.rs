@@ -31,20 +31,22 @@ where
         })
     }
 
-    fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
-        None
+    fn infix_binding(&self, kind: &K) -> Option<(u32, u32)> {
+        if kind.is_equal() {
+            Some((10, 11))
+        } else {
+            None
+        }
     }
 
     fn infix(
         &self,
-        _left: N,
+        left: N,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
-        _rbp: u32,
+        ctx: &mut dyn ParserContext<K, N>,
+        rbp: u32,
     ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Assign infix not yet implemented".into(),
-        })
+        let value = ctx.expression(rbp)?;
+        Ok(N::assign(left, value))
     }
 }

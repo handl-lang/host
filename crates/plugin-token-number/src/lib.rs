@@ -33,6 +33,8 @@ impl TokenKind for NumberKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 /// Builds a `Token<NumberKind>` for a numeric literal at the given span.
@@ -70,5 +72,14 @@ mod tests {
         let t = number_token(3.14, Span::new(0, 4));
         assert_eq!(t.kind, NumberKind::Number(3.14));
         assert_eq!(t.span, Span::new(0, 4));
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<NumberKind> for TokenFactory {
+    fn eof_kind(&self) -> NumberKind {
+        NumberKind::Eof
     }
 }

@@ -54,6 +54,8 @@ impl TokenKind for DelimiterKind {
     fn is_error(&self) -> bool {
         false
     }
+
+    type Factory = TokenFactory;
 }
 
 /// Builds a delimiter token at the given span.
@@ -64,4 +66,13 @@ pub fn delimiter_token(kind: DelimiterKind, span: Span) -> Token<DelimiterKind> 
 /// Builds an end-of-input delimiter token at the given span.
 pub fn eof_token(span: Span) -> Token<DelimiterKind> {
     Token::new(DelimiterKind::Eof, span)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TokenFactory;
+
+impl handl_lexer::EofFactory<DelimiterKind> for TokenFactory {
+    fn eof_kind(&self) -> DelimiterKind {
+        DelimiterKind::Eof
+    }
 }

@@ -32,20 +32,29 @@ where
         })
     }
 
-    fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
-        None
+    fn infix_binding(&self, kind: &K) -> Option<(u32, u32)> {
+        if kind.is_bracket_open() {
+            Some((90, 91))
+        } else {
+            None
+        }
     }
 
     fn infix(
         &self,
-        _left: N,
+        left: N,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
-        _rbp: u32,
+        ctx: &mut dyn ParserContext<K, N>,
+        rbp: u32,
     ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Index infix not yet implemented".into(),
-        })
+        let index = ctx.expression(rbp)?;
+        let close = ctx.advance()?;
+        if !close.kind.is_bracket_close() {
+            return Err(ParseError::UnexpectedToken {
+                span: close.span,
+                expected: "]".into(),
+            });
+        }
+        Ok(N::index(left, index))
     }
 }

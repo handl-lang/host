@@ -36,17 +36,48 @@ impl KitManifest {
 
 /// Returns the default manifest for the canonical kit.
 ///
-/// This manifest registers the three core canonical plugins created in
-/// ADR-0001 step 4: the number token plugin, the call AST shape plugin,
-/// and the call grammar-rule plugin.
+/// The manifest lists the token, AST-shape, and grammar-rule plugins that
+/// the kit wires together into a single `CanonicalKind` token stream and
+/// a shared `KitNode` AST.
 pub fn canonical_manifest() -> KitManifest {
     KitManifest {
         id: "canonical".to_string(),
         version: "0.1.0".to_string(),
         plugins: vec![
+            // Token plugins
             "plugin-token-number".to_string(),
+            "plugin-token-string".to_string(),
+            "plugin-token-identifier".to_string(),
+            "plugin-token-bool".to_string(),
+            "plugin-token-null".to_string(),
+            "plugin-token-comment".to_string(),
+            "plugin-token-delimiter".to_string(),
+            "plugin-token-operator".to_string(),
+            "plugin-token-keyword-as".to_string(),
+            "plugin-token-keyword-handle".to_string(),
+            // AST shape plugins
+            "plugin-ast-var".to_string(),
             "plugin-ast-call".to_string(),
+            "plugin-ast-apply".to_string(),
+            "plugin-ast-index".to_string(),
+            "plugin-ast-pipe".to_string(),
+            "plugin-ast-array".to_string(),
+            "plugin-ast-object".to_string(),
+            "plugin-ast-let".to_string(),
+            "plugin-ast-assign".to_string(),
+            "plugin-ast-match".to_string(),
+            "plugin-ast-handle".to_string(),
+            // Grammar rule plugins
             "plugin-grammar-call".to_string(),
+            "plugin-grammar-apply".to_string(),
+            "plugin-grammar-index".to_string(),
+            "plugin-grammar-pipe".to_string(),
+            "plugin-grammar-let".to_string(),
+            "plugin-grammar-assign".to_string(),
+            "plugin-grammar-match".to_string(),
+            "plugin-grammar-handle".to_string(),
+            "plugin-grammar-array".to_string(),
+            "plugin-grammar-object".to_string(),
         ],
     }
 }

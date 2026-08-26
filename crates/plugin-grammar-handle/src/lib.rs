@@ -16,19 +16,17 @@ where
     K: HandleToken,
     N: Expr,
 {
-    fn matches_prefix(&self, _kind: &K) -> bool {
-        false
+    fn matches_prefix(&self, kind: &K) -> bool {
+        kind.is_handle()
     }
 
     fn prefix(
         &self,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
+        ctx: &mut dyn ParserContext<K, N>,
     ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Handle prefix not yet implemented".into(),
-        })
+        let expr = ctx.expression(0)?;
+        Ok(N::handle(expr))
     }
 
     fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
@@ -44,7 +42,7 @@ where
     ) -> Result<N, ParseError> {
         Err(ParseError::UnexpectedToken {
             span: _token.span,
-            expected: "Handle infix not yet implemented".into(),
+            expected: "Handle is prefix-only".into(),
         })
     }
 }
