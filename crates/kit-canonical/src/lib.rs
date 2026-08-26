@@ -1149,7 +1149,7 @@ impl Plugin for CanonicalKit {
 
         // Target and library plugins
         ctx.register_plugin(NativeTarget)?;
-        ctx.register_plugin(HelloLibraryPlugin)?;
+        ctx.register_plugin(HelloLibraryPlugin::new())?;
 
         // The canonical manifest lists token, AST-shape, and grammar-rule plugins
         // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide

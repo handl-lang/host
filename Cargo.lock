@@ -210,6 +210,7 @@ name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
  "handl-ext-cli",
+ "handl-lib-hello",
  "handl-platform",
  "serde_json",
 ]
@@ -316,6 +317,7 @@ name = "handl-lib-hello"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "serde_json",
 ]
 
 [[package]]

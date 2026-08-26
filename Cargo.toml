@@ -126,6 +126,9 @@ path = "crates/host-lsp"
 [workspace.dependencies.handl-lib-archive]
 path = "crates/lib-archive"
 
+[workspace.dependencies.handl-lib-hello]
+path = "crates/lib-hello"
+
 [workspace.dependencies.handl-lib-compress]
 path = "crates/lib-compress"
 
