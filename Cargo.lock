@@ -763,6 +763,7 @@ dependencies = [
  "handl-lib-otlp-std",
  "handl-lib-rand",
  "handl-lib-test",
+ "handl-lib-tls",
  "handl-lib-unicode",
  "handl-lib-url-rfc",
  "handl-lib-url-whatwg",
@@ -1388,6 +1389,33 @@ dependencies = [
  "handl-vm-values-json",
  "rand 0.9.5",
  "serde_json",
+]
+
+[[package]]
+name = "handl-lib-tls"
+version = "0.1.0"
+dependencies = [
+ "handl-ast-canonical",
+ "handl-vm",
+ "handl-vm-backend-rust-interpreter",
+ "handl-vm-common",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-lib-tls-native"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-tls",
+ "hex",
+ "rcgen",
+ "rustls",
+ "rustls-pemfile",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]
