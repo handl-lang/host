@@ -1381,4 +1381,30 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "server")]
+    #[test]
+    fn listen_rejects_non_object_config() {
+        use handl_vm_values_json::CanonicalContext;
+
+        let mut ctx = CanonicalContext::new();
+        let m = WsRfcNativeModule;
+
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
+        let handler = NonFunctionValue::new(serde_json::json!({
+            "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
+            "body": "msg",
+        }));
+
+        let result = m.function("listen").unwrap().call(
+            &[
+                server_id,
+                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                handler,
+                NonFunctionValue::new(serde_json::json!("not-an-object")),
+            ],
+            &mut ctx,
+        );
+        assert!(result.is_err());
+    }
+
 }

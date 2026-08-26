@@ -1,0 +1,18 @@
+[package]
+name = "handl-lib-concurrent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-vm-values-json.workspace = true
+handl-vm-common.workspace = true
+serde_json.workspace = true
+parking_lot = "0.12"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "concurrent"
+path = "benches/concurrent.rs"
+harness = false

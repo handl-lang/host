@@ -466,3 +466,311 @@ fn reassembler_oversized_control_rejected() {
     let ping = Frame::new(OpCode::Ping, vec![0u8; 126]);
     assert!(matches!(asm.feed(&ping), Err(Error::FragmentedControl)));
 }
+
+mod module_helpers {
+    use crate::module::{
+        ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
+        MessageFromFrame, MessageToFrame, ServerListen, ServerStop,
+    };
+    use handl_vm::Function;
+    use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+
+    fn ctx() -> CanonicalContext {
+        CanonicalContext::new()
+    }
+
+    fn call_err<F: Function<NonFunctionValue>>(f: &F, args: &[NonFunctionValue], ctx: &mut CanonicalContext) {
+        assert!(f.call(args, ctx).is_err());
+    }
+
+    fn call_ok<F: Function<NonFunctionValue>>(f: &F, args: &[NonFunctionValue], ctx: &mut CanonicalContext) -> NonFunctionValue {
+        f.call(args, ctx).unwrap()
+    }
+
+    #[test]
+    fn frame_encode_rejects_missing_opcode() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "payload": "aGVsbG8=",
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_invalid_opcode() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "opcode": "foo",
+                "payload": "aGVsbG8=",
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_bad_base64_payload() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "opcode": "text",
+                "payload": "not-base64",
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_mask_non_string() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "opcode": "text",
+                "payload": "aGVsbG8=",
+                "mask": 123,
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_bad_mask_length() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "opcode": "text",
+                "payload": "aGVsbG8=",
+                "mask": "aGVsbG8=",
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_fin_non_bool() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!({
+                "opcode": "text",
+                "payload": "aGVsbG8=",
+                "fin": "yes",
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_encode_rejects_non_object() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameEncode,
+            &[NonFunctionValue::new(serde_json::json!("not an object"))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_decode_rejects_non_base64() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameDecode,
+            &[NonFunctionValue::new(serde_json::json!("not-base64!!!"))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn frame_decode_rejects_invalid_frame() {
+        let mut ctx = ctx();
+        call_err(
+            &FrameDecode,
+            &[NonFunctionValue::new(serde_json::json!("cAA="))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_empty_object() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_invalid_object() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({"unknown": "value"}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_text_non_string() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({"text": 123}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_binary_non_string() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({"binary": 123}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_binary_bad_base64() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({"binary": "not-base64"}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_non_object() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({"close": "bad"}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_missing_code() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({
+                "close": {"reason": "nope"},
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_code_non_number() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({
+                "close": {"code": "1000", "reason": "nope"},
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_code_fractional() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({
+                "close": {"code": 1000.5, "reason": "nope"},
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_code_negative() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({
+                "close": {"code": -1, "reason": "nope"},
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_to_frame_rejects_close_code_too_large() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageToFrame,
+            &[NonFunctionValue::new(serde_json::json!({
+                "close": {"code": 70000, "reason": "nope"},
+            }))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn message_from_frame_rejects_non_object() {
+        let mut ctx = ctx();
+        call_err(
+            &MessageFromFrame,
+            &[NonFunctionValue::new(serde_json::json!("not an object"))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn client_functions_require_arguments() {
+        let mut ctx = ctx();
+        call_err(&ClientConnect, &[], &mut ctx);
+        call_err(&ClientSend, &[], &mut ctx);
+        call_err(&ClientRecv, &[], &mut ctx);
+        call_err(&ClientClose, &[], &mut ctx);
+    }
+
+    #[test]
+    fn client_connect_rejects_non_string_url() {
+        let mut ctx = ctx();
+        let c = call_ok(&ClientNew, &[], &mut ctx);
+        call_err(
+            &ClientConnect,
+            &[c, NonFunctionValue::new(serde_json::json!(123))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn client_recv_rejects_missing_client_id() {
+        let mut ctx = ctx();
+        call_err(
+            &ClientRecv,
+            &[NonFunctionValue::new(serde_json::json!({"type": "websocket_client"}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn client_recv_rejects_non_number_client_id() {
+        let mut ctx = ctx();
+        call_err(
+            &ClientRecv,
+            &[NonFunctionValue::new(serde_json::json!({"client_id": "foo"}))],
+            &mut ctx,
+        );
+    }
+
+    #[test]
+    fn server_functions_require_arguments() {
+        let mut ctx = ctx();
+        call_err(&ServerListen, &[], &mut ctx);
+        call_err(&ServerStop, &[], &mut ctx);
+    }
+}
