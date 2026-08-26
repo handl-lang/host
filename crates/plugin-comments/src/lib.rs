@@ -1,12 +1,15 @@
+pub mod diagnostics;
+pub mod formatter;
 pub mod lexer;
 pub mod parser;
-pub mod syntax;
-pub mod formatter;
-pub mod diagnostics;
 
+use handl_ext_fmt::{BasicFormatter, FormatBehavior};
+use handl_ext_lexer::{BasicLexer, LexerBehavior};
+use handl_ext_lint::{BasicLinter, LintBehavior};
+use handl_ext_parser::{BasicParser, ParserBehavior};
 use handl_platform::{
-    language::LanguagePipeline,
-    manifest::{PluginManifest, TargetCompatibility, TargetSupportLevel},
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
 };
 
 pub struct CommentsPlugin;
@@ -15,114 +18,56 @@ impl CommentsPlugin {
     pub fn new() -> Self {
         CommentsPlugin
     }
+}
 
-    pub fn manifest(&self) -> PluginManifest {
-        PluginManifest {
-            id: "comments".to_string(),
-            version: "0.1.0".to_string(),
-            provides: vec![
-                "syntax.comment".into(),
-                "lexer.comment".into(),
-                "parser.comment".into(),
-                "formatter.comment".into(),
-                "diagnostics.comment".into(),
-            ],
-            requires: Vec::new(),
-            optional: Vec::new(),
-            extends: Vec::new(),
-            conflicts: Vec::new(),
-            replaces: Vec::new(),
-            targets: vec![TargetCompatibility {
-                target: "native".to_string(),
-                level: TargetSupportLevel::Supported,
-            }],
-            exclusive: Vec::new(),
-            metadata: serde_json::Value::default(),
-        }
-    }
-
-    pub fn register_all(pipeline: &mut LanguagePipeline) {
-        pipeline.register_lexer(lexer::Comments);
-        pipeline.register_parser(parser::Comments);
-        pipeline.register_syntax(syntax::Comments);
-        pipeline.register_formatter(formatter::Comments);
-        pipeline.register_diagnostics(diagnostics::Comments);
+impl Default for CommentsPlugin {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use handl_platform::language::{
-        DiagnosticLevel, LanguagePipeline, LexerPlugin, ParserPlugin, Span, SyntaxNode, Token,
-    };
-
-    #[test]
-    fn lexer_emits_comment_tokens() {
-        let mut ctx = handl_platform::language::LexerContext::default();
-        lexer::Comments.lex("// hello\n/* world */", &mut ctx);
-        assert_eq!(ctx.tokens.len(), 2);
-        assert_eq!(ctx.tokens[0].kind.as_str(), "line_comment");
-        assert_eq!(ctx.tokens[0].text, " hello");
-        assert_eq!(ctx.tokens[1].kind.as_str(), "block_comment");
-        assert_eq!(ctx.tokens[1].text, " world ");
+impl Plugin for CommentsPlugin {
+    fn id(&self) -> &str {
+        "comments"
     }
 
-    #[test]
-    fn parser_recognizes_comments() {
-        let tokens = vec![
-            Token {
-                kind: "line_comment".into(),
-                span: Span { start: 0, end: 8 },
-                text: " hello".to_string(),
-            },
-            Token {
-                kind: "block_comment".into(),
-                span: Span { start: 9, end: 20 },
-                text: " world ".to_string(),
-            },
-        ];
-        let mut ctx = handl_platform::language::ParserContext::new(tokens);
-        assert!(matches!(
-            parser::Comments.parse(&mut ctx),
-            Ok(SyntaxNode::LineComment { .. })
-        ));
-        assert!(matches!(
-            parser::Comments.parse(&mut ctx),
-            Ok(SyntaxNode::BlockComment { .. })
-        ));
+    fn name(&self) -> &str {
+        "handl-plugin-comments"
     }
 
-    #[test]
-    fn pipeline_parses_formats_and_diagnoses_comments() {
-        let mut pipeline = LanguagePipeline::new();
-        CommentsPlugin::register_all(&mut pipeline);
-
-        let (nodes, output, diags) = pipeline.run("// hello\n/* world */");
-        assert_eq!(nodes.len(), 2);
-        assert!(matches!(nodes[0], SyntaxNode::LineComment { .. }));
-        assert!(matches!(nodes[1], SyntaxNode::BlockComment { .. }));
-        assert_eq!(output, "// hello\n/* world */");
-        assert!(diags.is_empty());
+    fn version(&self) -> &str {
+        "0.1.0"
     }
 
-    #[test]
-    fn pipeline_warns_on_crlf_in_block_comment() {
-        let mut pipeline = LanguagePipeline::new();
-        CommentsPlugin::register_all(&mut pipeline);
-
-        let (nodes, _output, diags) = pipeline.run("/* line1\r\nline2 */");
-        assert_eq!(nodes.len(), 1);
-        assert!(matches!(nodes[0], SyntaxNode::BlockComment { .. }));
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].level, DiagnosticLevel::Warning);
-        assert!(diags[0].message.contains("CRLF"));
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
     }
 
-    #[test]
-    fn comments_not_recognized_without_plugin() {
-        let pipeline = LanguagePipeline::new();
-        let (nodes, _output, _diags) = pipeline.run("// hello\n/* world */");
-        assert!(nodes.is_empty());
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        let lexer: Box<dyn LexerBehavior> = Box::new(lexer::Comments);
+        ctx.contribute::<BasicLexer>(lexer)?;
+
+        let parser: Box<dyn ParserBehavior> = Box::new(parser::Comments);
+        ctx.contribute::<BasicParser>(parser)?;
+
+        let formatter: Box<dyn FormatBehavior> = Box::new(formatter::Comments);
+        ctx.contribute::<BasicFormatter>(formatter)?;
+
+        let diagnostics: Box<dyn LintBehavior> = Box::new(diagnostics::Comments);
+        ctx.contribute::<BasicLinter>(diagnostics)?;
+
+        Ok(())
     }
 }

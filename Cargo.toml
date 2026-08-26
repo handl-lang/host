@@ -40,10 +40,16 @@ members = [
     "crates/ext-parser",
     "crates/ext-typecheck",
     "crates/ext-eval",
+    "crates/ext-build",
+    "crates/ext-compile",
+    "crates/ext-kit",
+    "crates/ext-plugin",
     "crates/ext-cli",
     "crates/ext-lsp",
     "crates/host-cli",
     "crates/host-lsp",
+    "crates/plugin-comments",
+    "crates/plugin-doc-comments",
 ]
 resolver = "3"
 

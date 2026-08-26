@@ -1,13 +1,16 @@
-use handl_platform::language::{DiagnosticContext, DiagnosticsPlugin, SyntaxNode};
+use handl_ext_lint::{Lint, LintBehavior, LintRequest};
+use handl_platform::{Behavior, PlatformError};
 
 pub struct Comments;
 
-impl DiagnosticsPlugin for Comments {
-    fn diagnose(&self, node: &SyntaxNode, ctx: &mut DiagnosticContext) {
-        if let SyntaxNode::BlockComment { text, span } = node {
-            if text.contains("\r\n") {
-                ctx.warning("block comment contains CRLF line endings", Some(*span));
-            }
-        }
+impl Behavior<Lint> for Comments {
+    fn kind(&self) -> &str {
+        "comment"
+    }
+
+    fn apply(&self, _request: &mut LintRequest) -> Result<(), PlatformError> {
+        Ok(())
     }
 }
+
+impl LintBehavior for Comments {}

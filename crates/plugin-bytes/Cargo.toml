@@ -7,4 +7,3 @@ edition.workspace = true
 handl-platform.workspace = true
 handl-expr.workspace = true
 handl-lexer.workspace = true
-handl-lexer-canonical.workspace = true

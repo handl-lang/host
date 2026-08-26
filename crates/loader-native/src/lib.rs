@@ -190,15 +190,13 @@ mod tests {
         let plugin = loader.load(&manifest).expect("load example cdylib");
         assert!(plugin.capabilities().contains(&CapabilityId::from("echo")));
 
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             handl_platform::PluginRegistry::new(),
             handl_platform::KitRegistry::new(),
-            handl_platform::ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
 
         let response = plugin

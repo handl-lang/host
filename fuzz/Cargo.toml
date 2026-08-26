@@ -16,7 +16,6 @@ handl-dialect = { path = "../crates/dialect" }
 handl-dialect-canonical = { path = "../crates/dialect-canonical" }
 handl-typecheck-infer = { path = "../crates/typecheck-infer" }
 handl-lexer = { path = "../crates/lexer" }
-handl-lexer-canonical = { path = "../crates/lexer-canonical" }
 serde_json = "1"
 
 [[bin]]

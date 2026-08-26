@@ -2,7 +2,6 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,
 };
-use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -135,26 +134,11 @@ impl Plugin for KitManagerPlugin {
     }
 }
 
-impl CommandProvider for KitManagerPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("kit", "Manage kits")
-            .arg(ArgSpec::new("args").description("Kit action and arguments").multiple())]
-    }
-
-    fn run(
-        &self,
-        _command: &str,
-        _args: &[String],
-        _host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        Ok(serde_json::json!({"kits": []}))
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{ExtensionRegistry, KitRegistry, PluginRegistry};
+    use handl_platform::{KitRegistry, PluginRegistry};
 
     #[test]
     fn metadata_returns_command_and_description() {
@@ -167,15 +151,13 @@ mod tests {
     #[test]
     fn add_registers_kit() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -197,10 +179,9 @@ mod tests {
     #[test]
     fn info_lists_registered_kits() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         kits.register(Kit {
             manifest: KitManifest {
@@ -215,7 +196,6 @@ mod tests {
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -232,15 +212,13 @@ mod tests {
     #[test]
     fn add_registers_kit_from_args() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -259,10 +237,9 @@ mod tests {
     #[test]
     fn info_lists_kits_from_args() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         kits.register(Kit {
             manifest: KitManifest {
@@ -277,7 +254,6 @@ mod tests {
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -294,15 +270,13 @@ mod tests {
     #[test]
     fn invalid_action_rejected() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let err = plugin
             .run(

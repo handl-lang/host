@@ -1,6 +1,6 @@
 //! The `handl-platform` crate provides shared platform abstractions for the
 //! HAndL language toolchain, including plugins, capabilities, manifests,
-//! resolution, language pipelines, hosts, and boundaries.
+//! resolution, hosts, and boundaries.
 #![warn(missing_docs)]
 
 /// Types for describing runtime isolation boundaries.
@@ -11,14 +11,10 @@ pub mod capability;
 pub mod config;
 /// Platform error types.
 pub mod error;
-/// Extension registration and discovery.
-pub mod extension;
-/// Host implementations that coordinate plugins, kits, and extensions.
+/// Host implementations that coordinate plugins and kits.
 pub mod host;
 /// Kit manifests and registries.
 pub mod kit;
-/// Language pipeline plugins and syntax types.
-pub mod language;
 /// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
 /// Generic, composable AST node for ADR-0002.
@@ -36,10 +32,8 @@ pub use boundary::*;
 pub use capability::*;
 pub use config::*;
 pub use error::*;
-pub use extension::*;
 pub use host::*;
 pub use kit::*;
-pub use language::*;
 pub use manifest::*;
 pub use ast_node::*;
 pub use options::*;

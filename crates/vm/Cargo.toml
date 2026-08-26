@@ -4,5 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-ast-canonical.workspace = true
 indexmap.workspace = true

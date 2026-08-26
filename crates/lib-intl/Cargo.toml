@@ -17,7 +17,6 @@ fixed_decimal = { version = "0.7", features = ["ryu"] }
 
 [dev-dependencies]
 handl-ast.workspace = true
-handl-ast-canonical.workspace = true
 handl-vm-host-eval.workspace = true
 handl-vm-common.workspace = true
 handl-vm-values-json.workspace = true

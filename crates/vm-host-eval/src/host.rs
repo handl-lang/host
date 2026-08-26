@@ -47,10 +47,6 @@ impl handl_platform::host::Host for EvalHost {
     fn kits(&self) -> &handl_platform::KitRegistry {
         self.platform.kits()
     }
-
-    fn extensions(&self) -> &handl_platform::ExtensionRegistry {
-        self.platform.extensions()
-    }
 }
 
 impl Host<NonFunctionValue> for EvalHost {
@@ -85,7 +81,6 @@ mod tests {
         assert!(host.function("foo").is_none());
         assert!(host.platform.plugins().capabilities().is_empty());
         assert!(host.platform.kits().all().is_empty());
-        assert!(host.platform.extensions().all().is_empty());
     }
 
     #[test]
@@ -94,7 +89,6 @@ mod tests {
         let _: &dyn PlatformHost = &host;
         assert!(host.plugins().capabilities().is_empty());
         assert!(host.kits().all().is_empty());
-        assert!(host.extensions().all().is_empty());
     }
 
     struct EchoPlugin {

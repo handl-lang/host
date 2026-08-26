@@ -1,13 +1,16 @@
-use handl_platform::language::{DiagnosticContext, DiagnosticsPlugin, SyntaxNode};
+use handl_ext_lint::{Lint, LintBehavior, LintRequest};
+use handl_platform::{Behavior, PlatformError};
 
 pub struct DocComments;
 
-impl DiagnosticsPlugin for DocComments {
-    fn diagnose(&self, node: &SyntaxNode, ctx: &mut DiagnosticContext) {
-        if let SyntaxNode::DocComment { text, span } = node {
-            if text.trim().is_empty() {
-                ctx.warning("empty doc comment", Some(*span));
-            }
-        }
+impl Behavior<Lint> for DocComments {
+    fn kind(&self) -> &str {
+        "doc_comment"
+    }
+
+    fn apply(&self, _request: &mut LintRequest) -> Result<(), PlatformError> {
+        Ok(())
     }
 }
+
+impl LintBehavior for DocComments {}

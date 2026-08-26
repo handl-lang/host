@@ -1,7 +1,6 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext, ProcessPlugin,
 };
-use handl_tooling::{ArgSpec, CommandProvider, CommandSpec};
 
 pub struct PluginManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -116,26 +115,11 @@ impl Plugin for PluginManagerPlugin {
     }
 }
 
-impl CommandProvider for PluginManagerPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("plugin", "Manage plugins")
-            .arg(ArgSpec::new("args").description("Plugin action and arguments").multiple())]
-    }
-
-    fn run(
-        &self,
-        _command: &str,
-        _args: &[String],
-        _host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        Ok(serde_json::json!({"plugins": []}))
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{ExtensionRegistry, KitRegistry, PluginRegistry};
+    use handl_platform::{KitRegistry, PluginRegistry};
 
     #[test]
     fn metadata_returns_command_and_description() {
@@ -148,15 +132,13 @@ mod tests {
     #[test]
     fn add_registers_process_plugin() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -178,16 +160,14 @@ mod tests {
     #[test]
     fn info_lists_registered_plugins() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         plugins.register(ProcessPlugin::new("remote", &["compile".into()]));
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -204,15 +184,13 @@ mod tests {
     #[test]
     fn remove_returns_not_implemented() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let err = plugin
             .run(
@@ -232,15 +210,13 @@ mod tests {
     #[test]
     fn add_registers_process_plugin_from_args() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -257,16 +233,14 @@ mod tests {
     #[test]
     fn info_lists_plugins_from_args() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         plugins.register(ProcessPlugin::new("remote", &["compile".into()]));
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -283,15 +257,13 @@ mod tests {
     #[test]
     fn invalid_action_rejected() {
         let plugin = PluginManagerPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let err = plugin
             .run(

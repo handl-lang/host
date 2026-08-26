@@ -12,12 +12,10 @@ crossbeam-deque = "0.8"
 mio = { version = "1", features = ["net", "os-poll"] }
 handl-vm-backend-rust-interpreter = { workspace = true, optional = true }
 handl-vm-host-eval = { workspace = true, optional = true }
-handl-parser-canonical = { workspace = true, optional = true }
-handl-lexer-canonical = { workspace = true, optional = true }
 handl-parser = { workspace = true, optional = true }
 
 [features]
-e2e = ["dep:handl-vm-backend-rust-interpreter", "dep:handl-vm-host-eval", "dep:handl-parser-canonical", "dep:handl-lexer-canonical", "dep:handl-parser"]
+e2e = ["dep:handl-vm-backend-rust-interpreter", "dep:handl-vm-host-eval", "dep:handl-parser"]
 
 [dev-dependencies]
 criterion = "0.5.1"

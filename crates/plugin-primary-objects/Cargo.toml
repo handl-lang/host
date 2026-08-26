@@ -5,8 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-expr.workspace = true
-handl-ast-canonical.workspace = true
-handl-lexer-canonical.workspace = true
 handl-platform.workspace = true
 handl-vm-values-json.workspace = true
 

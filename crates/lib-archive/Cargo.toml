@@ -5,6 +5,3 @@ edition.workspace = true
 
 [dependencies]
 thiserror.workspace = true
-
-[dev-dependencies]
-handl-lib-archive-tar = { path = "../lib-archive-tar" }

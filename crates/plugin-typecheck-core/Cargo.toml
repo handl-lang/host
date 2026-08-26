@@ -8,6 +8,5 @@ handl-runtime = { workspace = true }
 handl-typecheck-core = { workspace = true }
 handl-platform = { workspace = true }
 handl-expr = { workspace = true }
-handl-ast-canonical = { workspace = true }
 handl-vm-values-json = { workspace = true }
 serde_json = { workspace = true }

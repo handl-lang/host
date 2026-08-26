@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::capability::{CapabilityId, CapabilityMetadata};
 use crate::error::PlatformError;
-use crate::extension::ExtensionRegistry;
 use crate::kit::KitRegistry;
 use crate::plugin_model::ContributionContext;
 
@@ -31,8 +30,6 @@ pub struct PluginContext<'a> {
     pub plugins: &'a mut PluginRegistry,
     /// The kit registry.
     pub kits: &'a mut KitRegistry,
-    /// The extension registry.
-    pub extensions: &'a mut ExtensionRegistry,
 }
 
 /// A plugin that can provide and run capabilities.
@@ -330,13 +327,8 @@ mod tests {
     fn test_ctx<'a>(
         plugins: &'a mut PluginRegistry,
         kits: &'a mut KitRegistry,
-        extensions: &'a mut ExtensionRegistry,
     ) -> PluginContext<'a> {
-        PluginContext {
-            plugins,
-            kits,
-            extensions,
-        }
+        PluginContext { plugins, kits }
     }
 
     #[test]
@@ -350,12 +342,11 @@ mod tests {
         assert_eq!(p.name(), "echo");
         assert_eq!(p.capabilities(), &[CapabilityId::from("echo")]);
         assert!(p.metadata(&"echo".into()).is_some());
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
-        let mut ctx = test_ctx(&mut plugins, &mut kits, &mut extensions);
+        let mut ctx = test_ctx(&mut plugins, &mut kits);
         let resp = p.run(
             &CapabilityRequest {
                 capability: "echo".into(),
@@ -371,12 +362,11 @@ mod tests {
         let p = ProcessPlugin::new("proc", &["remote".into()]);
         assert_eq!(p.name(), "proc");
         assert!(p.metadata(&"remote".into()).is_none());
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
-        let mut ctx = test_ctx(&mut plugins, &mut kits, &mut extensions);
+        let mut ctx = test_ctx(&mut plugins, &mut kits);
         let res = p.run(
             &CapabilityRequest {
                 capability: "remote".into(),
@@ -409,8 +399,8 @@ mod tests {
         let resolved = reg.resolve(&"echo".into());
         assert!(resolved.is_some());
 
-        let (mut kits, mut extensions) = (KitRegistry::new(), ExtensionRegistry::new());
-        let mut ctx = test_ctx(&mut reg, &mut kits, &mut extensions);
+        let mut kits = KitRegistry::new();
+        let mut ctx = test_ctx(&mut reg, &mut kits);
         let plugin = ctx.plugins.resolve(&"shout".into()).unwrap();
         let response = plugin.run(
             &CapabilityRequest {
@@ -425,8 +415,8 @@ mod tests {
     #[test]
     fn registry_unknown_capability() {
         let mut reg = PluginRegistry::new();
-        let (mut kits, mut extensions) = (KitRegistry::new(), ExtensionRegistry::new());
-        let ctx = test_ctx(&mut reg, &mut kits, &mut extensions);
+        let mut kits = KitRegistry::new();
+        let ctx = test_ctx(&mut reg, &mut kits);
         assert!(ctx.plugins.resolve(&"missing".into()).is_none());
     }
 
@@ -460,9 +450,9 @@ mod tests {
             serde_json::json!({}),
             echo(),
         ));
-        let (mut kits, mut extensions) = (KitRegistry::new(), ExtensionRegistry::new());
+        let mut kits = KitRegistry::new();
         let mut dummy_plugins = PluginRegistry::new();
-        let mut ctx = test_ctx(&mut dummy_plugins, &mut kits, &mut extensions);
+        let mut ctx = test_ctx(&mut dummy_plugins, &mut kits);
 
         let req = CapabilityRequest {
             capability: "echo".into(),

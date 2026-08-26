@@ -1,7 +1,15 @@
 //! Generic, composable AST node type for ADR-0002.
 
-use crate::language::Span;
 use serde_json::Value;
+
+/// A span of byte offsets in source text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct Span {
+    /// Inclusive start offset.
+    pub start: usize,
+    /// Exclusive end offset.
+    pub end: usize,
+}
 
 /// A single, generic, composable AST node.
 #[derive(Debug, Clone)]

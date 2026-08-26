@@ -1,7 +1,6 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
 };
-use handl_tooling::{CommandProvider, CommandSpec};
 
 pub struct BuildPlugin {
     capabilities: Vec<CapabilityId>,
@@ -51,25 +50,11 @@ impl Plugin for BuildPlugin {
     }
 }
 
-impl CommandProvider for BuildPlugin {
-    fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("build", "Build a Handl project")]
-    }
-
-    fn run(
-        &self,
-        _command: &str,
-        _args: &[String],
-        _host: &handl_tooling::ToolingHost,
-    ) -> Result<serde_json::Value, PlatformError> {
-        Ok(serde_json::json!({"built": true}))
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{ExtensionRegistry, KitRegistry, PluginRegistry};
+    use handl_platform::{KitRegistry, PluginRegistry};
 
     #[test]
     fn metadata_returns_command_and_description() {
@@ -82,15 +67,13 @@ mod tests {
     #[test]
     fn run_returns_built_flag() {
         let plugin = BuildPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -107,15 +90,13 @@ mod tests {
     #[test]
     fn run_rejects_unknown_capability() {
         let plugin = BuildPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let err = plugin
             .run(

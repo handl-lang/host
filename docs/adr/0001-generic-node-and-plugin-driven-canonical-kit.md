@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -67,6 +67,14 @@ Runtime value types will also be assembled from capabilities (`Addable`, `Compar
 - **Keep `*-canonical` crates**: rejected because they make the canonical language a monolith that cannot be extended or subset by other kits.
 - **Use runtime capability descriptors instead of Rust traits**: rejected because we want zero-cost static dispatch and trait-based type safety.
 - **One crate per canonical feature instead of tiny plugins**: rejected because it breaks the plugin boundary and makes the kit less composable.
+
+## Implementation status
+
+- `handl-ast` now provides the generic `Node` type and per-shape node capability traits; concrete node shapes live in `plugin-ast-*` crates.
+- `handl-lexer` and `handl-parser` have been genericized to `Token`/`Lexer` and `Parser`/`Grammar` abstractions with `TokenKind` and `GrammarRule` capability traits.
+- `kit-canonical` has been rewritten as a curated plugin manifest rather than a concrete implementation crate.
+- `handl-ast-canonical`, `handl-lexer-canonical`, and `handl-parser-canonical` crates have been removed.
+- Cleanup and stabilization of the remaining canonical token/grammar/value plugins are continuing / out of scope.
 
 ## Related work
 

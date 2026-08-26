@@ -109,7 +109,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ext-build"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-ext-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-compile"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -126,6 +142,14 @@ dependencies = [
 
 [[package]]
 name = "handl-ext-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-kit"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -158,6 +182,14 @@ dependencies = [
 
 [[package]]
 name = "handl-ext-parser"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-ext-plugin"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -407,6 +439,31 @@ name = "handl-plugin-ast-var"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
+]
+
+[[package]]
+name = "handl-plugin-comments"
+version = "0.1.0"
+dependencies = [
+ "handl-ext-fmt",
+ "handl-ext-lexer",
+ "handl-ext-lint",
+ "handl-ext-parser",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-doc-comments"
+version = "0.1.0"
+dependencies = [
+ "handl-ext-fmt",
+ "handl-ext-lexer",
+ "handl-ext-lint",
+ "handl-ext-parser",
+ "handl-platform",
+ "handl-plugin-comments",
+ "serde_json",
 ]
 
 [[package]]

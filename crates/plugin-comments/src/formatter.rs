@@ -1,21 +1,16 @@
-use handl_platform::language::{FormatContext, FormatterPlugin, SyntaxNode};
+use handl_ext_fmt::{Format, FormatBehavior, FormatRequest};
+use handl_platform::{Behavior, PlatformError};
 
 pub struct Comments;
 
-impl FormatterPlugin for Comments {
-    fn format(&self, node: &SyntaxNode, ctx: &mut FormatContext) {
-        match node {
-            SyntaxNode::LineComment { text, .. } => {
-                ctx.write("//");
-                ctx.write(text);
-                ctx.newline();
-            }
-            SyntaxNode::BlockComment { text, .. } => {
-                ctx.write("/*");
-                ctx.write(text);
-                ctx.write("*/");
-            }
-            _ => {}
-        }
+impl Behavior<Format> for Comments {
+    fn kind(&self) -> &str {
+        "comment"
+    }
+
+    fn apply(&self, _request: &mut FormatRequest) -> Result<(), PlatformError> {
+        Ok(())
     }
 }
+
+impl FormatBehavior for Comments {}

@@ -155,7 +155,7 @@ impl RuleAcceptor for BasicTypechecker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{ExtensionRegistry, KitRegistry, PluginRegistry};
+    use handl_platform::{KitRegistry, PluginRegistry};
 
     #[test]
     fn metadata_returns_command_and_description() {
@@ -168,15 +168,13 @@ mod tests {
     #[test]
     fn run_returns_typechecked_flag() {
         let plugin = TypecheckPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let resp = plugin
             .run(
@@ -193,15 +191,13 @@ mod tests {
     #[test]
     fn run_rejects_unknown_capability() {
         let plugin = TypecheckPlugin::new();
-        let (mut plugins, mut kits, mut extensions) = (
+        let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
-            ExtensionRegistry::new(),
         );
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
-            extensions: &mut extensions,
         };
         let err = plugin
             .run(

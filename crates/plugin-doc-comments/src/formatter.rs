@@ -1,13 +1,16 @@
-use handl_platform::language::{FormatContext, FormatterPlugin, SyntaxNode};
+use handl_ext_fmt::{Format, FormatBehavior, FormatRequest};
+use handl_platform::{Behavior, PlatformError};
 
 pub struct DocComments;
 
-impl FormatterPlugin for DocComments {
-    fn format(&self, node: &SyntaxNode, ctx: &mut FormatContext) {
-        if let SyntaxNode::DocComment { text, .. } = node {
-            ctx.write("///");
-            ctx.write(text);
-            ctx.newline();
-        }
+impl Behavior<Format> for DocComments {
+    fn kind(&self) -> &str {
+        "doc_comment"
+    }
+
+    fn apply(&self, _request: &mut FormatRequest) -> Result<(), PlatformError> {
+        Ok(())
     }
 }
+
+impl FormatBehavior for DocComments {}

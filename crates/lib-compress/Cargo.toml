@@ -5,6 +5,3 @@ edition.workspace = true
 
 [dependencies]
 thiserror.workspace = true
-
-[dev-dependencies]
-handl-lib-compress-gzip = { path = "../lib-compress-gzip" }

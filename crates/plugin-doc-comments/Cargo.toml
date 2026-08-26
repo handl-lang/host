@@ -6,4 +6,8 @@ edition = "2024"
 [dependencies]
 handl-platform = { path = "../platform" }
 handl-plugin-comments = { path = "../plugin-comments" }
+handl-ext-lexer = { path = "../ext-lexer" }
+handl-ext-parser = { path = "../ext-parser" }
+handl-ext-fmt = { path = "../ext-fmt" }
+handl-ext-lint = { path = "../ext-lint" }
 serde_json = { workspace = true }

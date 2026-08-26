@@ -17,6 +17,8 @@ impl Operation for Lexer {
 pub struct LexerRequest {
     /// Source text to lex.
     pub source: String,
+    /// Tokens emitted by lexer behaviors.
+    pub tokens: Vec<serde_json::Value>,
     /// Resolved lexer options.
     pub options: ResolvedOptions,
 }

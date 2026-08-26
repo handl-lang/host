@@ -1,6 +1,5 @@
-//! Host implementations that coordinate plugins, kits, and extensions.
+//! Host implementations that coordinate plugins and kits.
 
-use std::collections::HashMap;
 
 #[cfg(feature = "concurrent")]
 use handl_vm_common::ModuleHost;
@@ -9,29 +8,23 @@ use handl_vm_common::ModuleHost;
 use handl_lib_concurrent::ConcurrencyModule;
 
 use crate::error::PlatformError;
-use crate::extension::{Extension, ExtensionRegistry};
-use crate::kit::{Kit, KitManifest, KitRegistry};
-use crate::language::{LanguagePipeline, PipelineOutput};
-use crate::manifest::PluginManifest;
+use crate::kit::{Kit, KitRegistry};
 use crate::plugin::ProcessPlugin;
 use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry};
 use crate::plugin_model::ContributionContext;
 
-/// A host that exposes the plugin, kit, and extension registries.
+/// A host that exposes the plugin and kit registries.
 pub trait Host: Send + Sync {
     /// Returns the plugin registry.
     fn plugins(&self) -> &PluginRegistry;
     /// Returns the kit registry.
     fn kits(&self) -> &KitRegistry;
-    /// Returns the extension registry.
-    fn extensions(&self) -> &ExtensionRegistry;
 }
 
-/// A concrete host with mutable access to plugins, kits, and extensions.
+/// A concrete host with mutable access to plugins and kits.
 pub struct DefaultHost {
     plugins: PluginRegistry,
     kits: KitRegistry,
-    extensions: ExtensionRegistry,
     #[cfg(feature = "concurrent")]
     modules: ModuleHost,
 }
@@ -50,7 +43,6 @@ impl DefaultHost {
         Self {
             plugins: PluginRegistry::default(),
             kits: KitRegistry::default(),
-            extensions: ExtensionRegistry::default(),
             #[cfg(feature = "concurrent")]
             modules,
         }
@@ -80,11 +72,6 @@ impl DefaultHost {
         &mut self.kits
     }
 
-    /// Returns a mutable reference to the extension registry.
-    pub fn extensions_mut(&mut self) -> &mut ExtensionRegistry {
-        &mut self.extensions
-    }
-
     /// Registers a plugin.
     pub fn register_plugin<P: Plugin + 'static>(&mut self, plugin: P) {
         self.plugins.register(plugin);
@@ -93,11 +80,6 @@ impl DefaultHost {
     /// Registers a kit.
     pub fn register_kit(&mut self, kit: Kit) {
         self.kits.register(kit);
-    }
-
-    /// Registers an extension.
-    pub fn register_extension<E: Extension + 'static>(&mut self, extension: E) {
-        self.extensions.register(extension);
     }
 
     /// Registers a process-backed plugin by name and capabilities.
@@ -146,7 +128,6 @@ impl DefaultHost {
         let mut ctx = PluginContext {
             plugins: &mut self.plugins,
             kits: &mut self.kits,
-            extensions: &mut self.extensions,
         };
         let plugin = ctx
             .plugins
@@ -164,10 +145,6 @@ impl Host for DefaultHost {
     fn kits(&self) -> &KitRegistry {
         &self.kits
     }
-
-    fn extensions(&self) -> &ExtensionRegistry {
-        &self.extensions
-    }
 }
 
 impl Default for DefaultHost {
@@ -176,100 +153,21 @@ impl Default for DefaultHost {
     }
 }
 
-/// A host for running language pipelines composed from a kit.
-///
-/// Concrete language plugins are registered by plugin id as factory functions
-/// that call `register_all` on a `LanguagePipeline`. This keeps `handl-platform`
-/// decoupled from the concrete plugin crates.
-#[derive(Default)]
-pub struct LanguageHost {
-    factories: HashMap<String, fn(&mut LanguagePipeline)>,
-}
 
-impl LanguageHost {
-    /// Creates a new, empty language host.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a factory for a language plugin id.
-    pub fn register_plugin(&mut self, id: impl Into<String>, factory: fn(&mut LanguagePipeline)) {
-        self.factories.insert(id.into(), factory);
-    }
-
-    /// Resolve the kit, initialize the pipeline in dependency order, and run
-    /// lex / parse / format / diagnose.
-    pub fn run_language_pipeline(
-        &self,
-        kit: &Kit,
-        source: &str,
-    ) -> Result<PipelineOutput, PlatformError> {
-        let resolved = kit
-            .resolve()
-            .map_err(|e| PlatformError::Plugin(e.to_string()))?;
-        let mut pipeline = LanguagePipeline::new();
-
-        // Register in reverse initialization order so that more specific
-        // plugins (e.g. doc-comments) get first pick during parsing.
-        for id in resolved.initialization_order.iter().rev() {
-            let factory = self.factories.get(id).copied().ok_or_else(|| {
-                PlatformError::Plugin(format!("no language plugin factory registered for {id}"))
-            })?;
-            factory(&mut pipeline);
-        }
-
-        let (ast, formatted, diagnostics) = pipeline.run(source);
-        Ok(PipelineOutput {
-            formatted,
-            diagnostics,
-            ast,
-        })
-    }
-
-    /// Convenience helper to load a kit manifest and wrap it in a `Kit`.
-    pub fn load_kit(
-        &self,
-        path: impl AsRef<std::path::Path>,
-        available_plugins: Vec<PluginManifest>,
-    ) -> Result<Kit, PlatformError> {
-        let manifest = KitManifest::load(path)?;
-        Ok(Kit {
-            manifest,
-            available_plugins,
-        })
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         CapabilityRequest, CapabilityResponse, InProcessPlugin, Kit, KitManifest, PlatformError,
-        PluginContext, PluginManifest,
+        PluginContext,
     };
-
-    #[derive(Debug)]
-    struct MockExt {
-        id: &'static str,
-        meta: serde_json::Value,
-    }
-
-    impl Extension for MockExt {
-        fn id(&self) -> &str {
-            self.id
-        }
-
-        fn metadata(&self) -> serde_json::Value {
-            self.meta.clone()
-        }
-    }
 
     #[test]
     fn default_host_initializes() {
         let host = DefaultHost::new();
         assert!(host.plugins().capabilities().is_empty());
         assert!(host.kits().all().is_empty());
-        assert!(host.extensions().all().is_empty());
     }
 
     #[test]
@@ -299,14 +197,9 @@ mod tests {
             },
             available_plugins: vec![],
         });
-        host.extensions_mut().register(MockExt {
-            id: "x",
-            meta: serde_json::Value::Null,
-        });
 
         assert!(!host.plugins().capabilities().is_empty());
         assert_eq!(host.kits().all().len(), 1);
-        assert_eq!(host.extensions().all().len(), 1);
 
         let resp = host
             .run(&CapabilityRequest {
@@ -325,84 +218,6 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn language_host_loads_and_runs_kit() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("handl_language_host_kit.toml");
-        std::fs::write(
-            &path,
-            r#"id = "core"
-name = "core"
-plugins = ["word"]
-"#,
-        )
-        .unwrap();
-
-        let mut host = LanguageHost::new();
-        host.register_plugin("word", |_pipeline| {});
-
-        let available = vec![PluginManifest {
-            id: "word".into(),
-            version: "0.1.0".into(),
-            provides: vec![],
-            requires: vec![],
-            optional: vec![],
-            extends: vec![],
-            conflicts: vec![],
-            replaces: vec![],
-            targets: vec![],
-            exclusive: vec![],
-            metadata: serde_json::Value::Null,
-        }];
-
-        let kit = host.load_kit(&path, available).unwrap();
-        let output = host.run_language_pipeline(&kit, "hello").unwrap();
-        assert_eq!(output.formatted, "");
-        assert!(output.diagnostics.is_empty());
-
-        std::fs::remove_file(&path).ok();
-    }
-
-    #[test]
-    fn language_host_errors_for_missing_factory() {
-        let host = LanguageHost::new();
-        let mut kit = Kit {
-            manifest: KitManifest {
-                id: "core".into(),
-                name: "core".into(),
-                plugins: vec!["unregistered".into()],
-                target: None,
-                selectors: vec![],
-            },
-            available_plugins: vec![PluginManifest {
-                id: "unregistered".into(),
-                version: "0.1.0".into(),
-                provides: vec![],
-                requires: vec![],
-                optional: vec![],
-                extends: vec![],
-                conflicts: vec![],
-                replaces: vec![],
-                targets: vec![],
-                exclusive: vec![],
-                metadata: serde_json::Value::Null,
-            }],
-        };
-        let err = host.run_language_pipeline(&kit, "x").unwrap_err();
-        assert!(matches!(err, PlatformError::Plugin(_)));
-
-        kit.manifest.plugins = vec![];
-        let output = host.run_language_pipeline(&kit, "x").unwrap();
-        assert!(output.ast.is_empty());
-    }
-
-    #[test]
-    fn language_host_load_kit_fails_for_missing_file() {
-        let host = LanguageHost::new();
-        let path = std::env::temp_dir().join("handl_kit_does_not_exist.toml");
-        let err = host.load_kit(&path, vec![]).unwrap_err();
-        assert!(matches!(err, PlatformError::InvalidMetadata(_)));
-    }
 
     #[cfg(feature = "concurrent")]
     #[test]
