@@ -48,10 +48,40 @@ impl Plugin for EvalPlugin {
         if !self.capabilities.contains(&request.capability) {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
-        Ok(CapabilityResponse(serde_json::json!({"evaluated": true})))
+        match &request.payload {
+            serde_json::Value::Object(map) => {
+                if let Some(expr) = map.get("expr").and_then(|v| v.as_str()) {
+                    let value: serde_json::Value = serde_json::from_str(expr)
+                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+                    return Ok(CapabilityResponse(value));
+                }
+                if let Some(args) = map.get("args").and_then(|v| v.as_array()) {
+                    let joined = args
+                        .iter()
+                        .filter_map(|v| v.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let value: serde_json::Value = serde_json::from_str(&joined)
+                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+                    let value = normalize_number(value);
+                    return Ok(CapabilityResponse(value));
+                }
+                Err(PlatformError::InvalidMetadata("missing expr or args".into()))
+            }
+            _ => Err(PlatformError::InvalidMetadata("expected object payload".into())),
+        }
     }
 }
 
+
+fn normalize_number(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Number(n) => {
+            serde_json::Value::Number(serde_json::Number::from_f64(n.as_f64().unwrap_or_default()).unwrap_or(n))
+        }
+        _ => value,
+    }
+}
 
 /// Eval operation marker.
 #[derive(Debug, Clone, Copy)]

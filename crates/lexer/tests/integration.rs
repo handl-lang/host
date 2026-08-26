@@ -5,7 +5,8 @@
 //! that the generic config, rules, and lexer trait work end-to-end.
 
 use handl_lexer::{
-    CommentTokenKind, DefaultLexError, FnRule, LexRule, Lexer, LexerConfig, Span, Token, TokenKind,
+    CommentTokenKind, DefaultLexError, EofFactory, FnRule, LexRule, Lexer, LexerConfig, Span,
+    Token, TokenKind,
 };
 use std::fmt;
 
@@ -33,11 +34,19 @@ impl fmt::Display for IntegKind {
 }
 
 impl TokenKind for IntegKind {
+    type Factory = ();
+
     fn is_eof(&self) -> bool {
         matches!(self, IntegKind::Eof)
     }
     fn is_error(&self) -> bool {
         false
+    }
+}
+
+impl EofFactory<IntegKind> for () {
+    fn eof_kind(&self) -> IntegKind {
+        IntegKind::Eof
     }
 }
 
@@ -225,7 +234,7 @@ struct SimpleLexer {
 impl Default for SimpleLexer {
     fn default() -> Self {
         SimpleLexer {
-            config: LexerConfig::new()
+            config: LexerConfig::new(())
                 .with_rule(StringRule)
                 .with_rule(NumberRule)
                 .with_rule(IdentRule),
@@ -320,7 +329,7 @@ fn custom_fn_rule_works() {
         }
     }
 
-    let config = LexerConfig::new()
+    let config = LexerConfig::new(())
         .with_rule(FnRule::new("bang", bang_rule))
         .with_rule(StringRule)
         .with_rule(NumberRule)
@@ -335,8 +344,8 @@ fn custom_fn_rule_works() {
 #[test]
 fn config_merge_combines_rules() {
     let base: LexerConfig<IntegKind, DefaultLexError> =
-        LexerConfig::new().with_rule(StringRule).with_rule(NumberRule);
-    let ext = LexerConfig::new().with_rule(IdentRule);
+        LexerConfig::new(()).with_rule(StringRule).with_rule(NumberRule);
+    let ext = LexerConfig::new(()).with_rule(IdentRule);
 
     let merged = base.merge(ext);
     assert_eq!(merged.rules().len(), 3);
@@ -347,8 +356,8 @@ fn config_merge_combines_rules() {
 
 #[test]
 fn config_merge_dedups_by_name() {
-    let base: LexerConfig<IntegKind, DefaultLexError> = LexerConfig::new().with_rule(StringRule);
-    let ext = LexerConfig::new().with_rule(StringRule);
+    let base: LexerConfig<IntegKind, DefaultLexError> = LexerConfig::new(()).with_rule(StringRule);
+    let ext = LexerConfig::new(()).with_rule(StringRule);
 
     let merged = base.merge(ext);
     assert_eq!(merged.rules().len(), 1);
@@ -356,7 +365,7 @@ fn config_merge_dedups_by_name() {
 
 #[test]
 fn without_rule_by_name_disables_feature() {
-    let config = LexerConfig::new()
+    let config = LexerConfig::new(())
         .with_rule(StringRule)
         .with_rule(NumberRule)
         .with_rule(IdentRule)

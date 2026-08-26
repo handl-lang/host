@@ -182,17 +182,18 @@ mod tests {
     }
 
     #[test]
-    fn remove_returns_not_implemented() {
+    fn remove_removes_registered_plugin() {
         let plugin = PluginManagerPlugin::new();
         let (mut plugins, mut kits) = (
             PluginRegistry::new(),
             KitRegistry::new(),
         );
+        plugins.register(ProcessPlugin::new("remote", &[]));
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
         };
-        let err = plugin
+        let resp = plugin
             .run(
                 &CapabilityRequest {
                     capability: "plugin".into(),
@@ -203,8 +204,9 @@ mod tests {
                 },
                 &mut ctx,
             )
-            .unwrap_err();
-        assert!(matches!(err, PlatformError::NotImplemented));
+            .unwrap();
+        assert_eq!(resp.0, serde_json::json!({"removed": "remote"}));
+        assert!(ctx.plugins.resolve(&"remote".into()).is_none());
     }
 
     #[test]

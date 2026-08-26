@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use handl_ast_common::{Node as AstNode, Span as AstSpan};
+use handl_ast_common::Span as AstSpan;
 use handl_lexer::{KindFactory, Span, Token, TokenKind};
 
 use crate::{DefaultParseError, ParseError, Parser, Rule, SimpleGrammar};
@@ -58,12 +58,17 @@ enum NodeKind {
     Number(f64),
     Binary {
         op: String,
-        left: Box<AstNode<NodeKind, (), AstSpan>>,
-        right: Box<AstNode<NodeKind, (), AstSpan>>,
+        left: Box<Node>,
+        right: Box<Node>,
     },
 }
 
-type Node = AstNode<NodeKind, (), AstSpan>;
+#[derive(Debug, Clone, PartialEq)]
+struct Node {
+    kind: NodeKind,
+    metadata: AstSpan,
+    _value: PhantomData<()>,
+}
 
 fn arithmetic_grammar() -> SimpleGrammar<MyKind, Node, DefaultParseError> {
     SimpleGrammar::<MyKind, Node, DefaultParseError>::new()

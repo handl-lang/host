@@ -97,7 +97,7 @@ where
 mod tests {
     use super::*;
     use handl_ast::Node;
-    use handl_lexer::{Span, Token};
+    use handl_lexer::{EofFactory, Span, Token};
     use std::fmt;
 
     #[derive(Debug, Clone, PartialEq)]
@@ -123,7 +123,18 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone)]
+    struct TestTokenFactory;
+
+    impl EofFactory<TestToken> for TestTokenFactory {
+        fn eof_kind(&self) -> TestToken {
+            TestToken::Eof
+        }
+    }
+
     impl TokenKind for TestToken {
+        type Factory = TestTokenFactory;
+
         fn is_eof(&self) -> bool {
             matches!(self, TestToken::Eof)
         }
@@ -219,6 +230,34 @@ mod tests {
         {
             TestExpr::Lit(0.0)
         }
+
+        fn pipe(_left: Self, _right: Self) -> Self
+        where
+            Self: Sized,
+        {
+            TestExpr::Lit(0.0)
+        }
+
+        fn assign(_target: Self, _value: Self) -> Self
+        where
+            Self: Sized,
+        {
+            TestExpr::Lit(0.0)
+        }
+
+        fn match_(_subject: Self) -> Self
+        where
+            Self: Sized,
+        {
+            TestExpr::Lit(0.0)
+        }
+
+        fn handle(_expr: Self) -> Self
+        where
+            Self: Sized,
+        {
+            TestExpr::Lit(0.0)
+        }
     }
 
     #[test]
@@ -227,7 +266,7 @@ mod tests {
         let open = Token::new(TestToken::CallOpen, Span::new(0, 1));
         let ident = Token::new(TestToken::Ident("foo".into()), Span::new(0, 3));
 
-        assert!(!rule.matches_prefix(&open.kind));
+        assert!(rule.matches_prefix(&open.kind));
         assert_eq!(rule.infix_binding(&open.kind), Some((90, 91)));
         assert_eq!(rule.infix_binding(&ident.kind), None);
     }

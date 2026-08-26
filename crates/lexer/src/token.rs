@@ -11,7 +11,7 @@ use std::fmt;
 /// # Implementing
 ///
 /// ```
-/// use handl_lexer::TokenKind;
+/// use handl_lexer::{EofFactory, TokenKind};
 /// use std::fmt;
 ///
 /// #[derive(Debug, Clone, PartialEq)]
@@ -32,8 +32,13 @@ use std::fmt;
 /// }
 ///
 /// impl TokenKind for MyKind {
+///     type Factory = ();
 ///     fn is_eof(&self) -> bool { matches!(self, MyKind::Eof) }
 ///     fn is_error(&self) -> bool { false }
+/// }
+///
+/// impl EofFactory<MyKind> for () {
+///     fn eof_kind(&self) -> MyKind { MyKind::Eof }
 /// }
 /// ```
 pub trait TokenKind: Clone + fmt::Debug + fmt::Display + PartialEq + Send + Sync + 'static {

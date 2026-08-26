@@ -3,8 +3,10 @@
 //! Defines a minimal local mock kind to avoid dev-dependencies on
 //! concrete token kind crates.
 
-use crate::{CommentTokenKind, DefaultLexError, LexError, LexRule, Lexer, LexerConfig, Span, Token,
-    TokenKind};
+use crate::{
+    CommentTokenKind, DefaultLexError, EofFactory, LexError, LexRule, Lexer, LexerConfig, Span,
+    Token, TokenKind,
+};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,11 +43,19 @@ impl fmt::Display for TestKind {
 }
 
 impl TokenKind for TestKind {
+    type Factory = ();
+
     fn is_eof(&self) -> bool {
         matches!(self, TestKind::Eof)
     }
     fn is_error(&self) -> bool {
         false
+    }
+}
+
+impl EofFactory<TestKind> for () {
+    fn eof_kind(&self) -> TestKind {
+        TestKind::Eof
     }
 }
 
@@ -56,7 +66,7 @@ impl CommentTokenKind for TestKind {
 }
 
 pub fn cfg() -> LexerConfig<TestKind, DefaultLexError> {
-    LexerConfig::new()
+    LexerConfig::new(())
 }
 
 // --- Local mock rules for config_test ---

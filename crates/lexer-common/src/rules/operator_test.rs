@@ -14,7 +14,7 @@ fn operator_rule_matches_factory_operator() {
     let mut chars = "+ rest".char_indices().peekable();
     let token = RULE.try_lex(&mut chars, &config).unwrap().unwrap();
     assert_eq!(token.kind, MockKind::Operator("+".into()));
-    assert_eq!(token.span, Span::at(0));
+    assert_eq!(token.span, Span::new(0, 1));
 }
 
 #[test]

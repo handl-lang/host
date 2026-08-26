@@ -28,7 +28,7 @@ pub use fn_rule::FnRule;
 /// # Implementing a custom rule
 ///
 /// ```
-/// use handl_lexer::{DefaultLexError, LexRule, LexerConfig, Span, Token, TokenKind};
+/// use handl_lexer::{DefaultLexError, EofFactory, LexRule, LexerConfig, Span, Token, TokenKind};
 /// use std::fmt;
 ///
 /// #[derive(Debug, Clone, PartialEq)]
@@ -41,8 +41,13 @@ pub use fn_rule::FnRule;
 /// }
 ///
 /// impl TokenKind for MyKind {
+///     type Factory = ();
 ///     fn is_eof(&self) -> bool { matches!(self, MyKind::Eof) }
 ///     fn is_error(&self) -> bool { false }
+/// }
+///
+/// impl EofFactory<MyKind> for () {
+///     fn eof_kind(&self) -> MyKind { MyKind::Eof }
 /// }
 ///
 /// // A stateful custom rule.
