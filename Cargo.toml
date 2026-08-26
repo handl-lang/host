@@ -198,6 +198,9 @@ handl-lexer-canonical = { path = "crates/lexer-canonical" }
 handl-lexer-common = { path = "crates/lexer-common" }
 handl-expr = { path = "crates/expr" }
 handl-kit-canonical = { path = "crates/kit-canonical" }
+handl-plugin-ast-call = { path = "crates/plugin-ast-call" }
+handl-plugin-token-number = { path = "crates/plugin-token-number" }
+handl-plugin-grammar-call = { path = "crates/plugin-grammar-call" }
 handl-runtime = { path = "crates/runtime" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-vm-rust = { path = "crates/plugin-vm-rust" }

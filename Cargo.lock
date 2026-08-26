@@ -967,54 +967,13 @@ dependencies = [
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
- "criterion",
- "handl-ast-canonical",
- "handl-expr",
+ "handl-ast",
  "handl-lexer",
- "handl-lexer-canonical",
  "handl-parser",
- "handl-parser-canonical",
  "handl-platform",
- "handl-plugin-booleans",
- "handl-plugin-bytes",
- "handl-plugin-comment-tokens",
- "handl-plugin-delimiters",
- "handl-plugin-fmt-statements",
- "handl-plugin-function-literals",
- "handl-plugin-identifiers",
- "handl-plugin-infix-assign",
- "handl-plugin-infix-fanout",
- "handl-plugin-infix-flow",
- "handl-plugin-infix-pipe",
- "handl-plugin-infix-ternary",
- "handl-plugin-keywords",
- "handl-plugin-null",
- "handl-plugin-numbers",
- "handl-plugin-operators",
- "handl-plugin-postfix-calls",
- "handl-plugin-postfix-field",
- "handl-plugin-postfix-index",
- "handl-plugin-postfix-mood",
- "handl-plugin-primary-arrays",
- "handl-plugin-primary-handle",
- "handl-plugin-primary-identifiers",
- "handl-plugin-primary-match",
- "handl-plugin-primary-not",
- "handl-plugin-primary-objects",
- "handl-plugin-primary-parens",
- "handl-plugin-primary-typeof",
- "handl-plugin-primary-values",
- "handl-plugin-stmt-const",
- "handl-plugin-stmt-export",
- "handl-plugin-stmt-import",
- "handl-plugin-stmt-let",
- "handl-plugin-stmt-module",
- "handl-plugin-strings",
- "handl-plugin-typecheck-core",
- "handl-plugin-vm-rust",
- "handl-runtime",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-ast-call",
+ "handl-plugin-grammar-call",
+ "handl-plugin-token-number",
  "serde",
  "serde_json",
  "toml",
@@ -1122,6 +1081,7 @@ dependencies = [
  "handl-vm-common",
  "handl-vm-values-json",
  "parking_lot",
+ "proptest",
  "serde_json",
 ]
 
@@ -1624,10 +1584,8 @@ dependencies = [
 name = "handl-parser"
 version = "0.1.0"
 dependencies = [
- "handl-ast-canonical",
+ "handl-ast",
  "handl-lexer",
- "handl-vm",
- "handl-vm-values-json",
  "thiserror 2.0.20",
 ]
 
@@ -1660,13 +1618,18 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
- "handl-lib-concurrent",
- "handl-vm-common",
  "semver",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "toml",
+]
+
+[[package]]
+name = "handl-plugin-ast-call"
+version = "0.1.0"
+dependencies = [
+ "handl-ast",
 ]
 
 [[package]]
@@ -1789,6 +1752,15 @@ dependencies = [
  "handl-plugin-primary-values",
  "handl-vm-values-json",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-grammar-call"
+version = "0.1.0"
+dependencies = [
+ "handl-ast",
+ "handl-lexer",
+ "handl-parser",
 ]
 
 [[package]]
@@ -2254,6 +2226,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-token-number"
+version = "0.1.0"
+dependencies = [
+ "handl-lexer",
+]
+
+[[package]]
 name = "handl-plugin-typecheck-core"
 version = "0.1.0"
 dependencies = [
@@ -2333,9 +2312,6 @@ name = "handl-vm"
 version = "0.1.0"
 dependencies = [
  "handl-ast-canonical",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-host-eval",
- "handl-vm-values-json",
  "indexmap",
 ]
 
@@ -4055,7 +4031,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
