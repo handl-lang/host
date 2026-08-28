@@ -1,7 +1,7 @@
 //! [`IdentRule`] — matches identifiers and keywords.
 
 use handl_lexer::LexRule;
-use handl_lexer::{DefaultLexError, IdentFactory, LexError, LexerConfig, Token, TokenKind};
+use handl_lexer::{DefaultLexError, IdentFactory, KindFactory, LexError, LexerConfig, Token, TokenKind};
 
 /// Matches identifiers and keywords (identifiers in the keyword table
 /// are remapped to their token kind).

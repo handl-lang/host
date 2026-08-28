@@ -2,6 +2,9 @@
 use handl_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
+/// Canonical single-character operator set for the canonical language.
+pub const CANONICAL_OPERATOR_CHARS: &str = "+-*/=<>&|%!^~?";
+
 /// Token kind for canonical operator tokens.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OperatorKind {

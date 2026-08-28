@@ -1,7 +1,7 @@
 //! [`NumberRule`] — matches numbers including negative numbers.
 
 use handl_lexer::LexRule;
-use handl_lexer::{DefaultLexError, LexError, LexerConfig, NumberFactory, Token, TokenKind};
+use handl_lexer::{DefaultLexError, KindFactory, LexError, LexerConfig, NumberFactory, Token, TokenKind};
 
 /// Matches number literals using the factory's [`NumberFactory::is_number_start`]
 /// and [`NumberFactory::lex_number`].

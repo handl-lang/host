@@ -1,24 +1,30 @@
-//! Low-level tokenization primitives.
+//! Low-level, parameterizable tokenization primitives.
 //!
 //! Each function consumes characters from a `CharIndices` peekable
 //! iterator and produces a raw value + span. These are reusable building
-//! blocks for writing [`crate::LexRule`] functions — the rule functions
-//! use a [`crate::KindFactory`] to convert raw values to dialect-specific
-//! token kinds.
+//! blocks for writing [`crate::LexRule`] functions and concrete factory
+//! implementations. The concrete factory or token plugin decides which
+//! prefixes, delimiters, and character sets to pass to these helpers.
 
 use crate::{DefaultLexError, Span};
 
-pub fn is_ident_start(ch: char) -> bool {
-    ch.is_alphabetic() || ch == '_' || ch == '.'
+/// Returns `true` if the iterator is positioned at the start of `prefix`.
+pub fn starts_with(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    prefix: &str,
+) -> bool {
+    let mut peek = chars.clone();
+    for expected in prefix.chars() {
+        match peek.next() {
+            Some((_, ch)) if ch == expected => {}
+            _ => return false,
+        }
+    }
+    true
 }
 
-/// Returns `true` if `ch` may appear after the first character of an identifier.
-pub fn is_ident_continue(ch: char) -> bool {
-    ch.is_alphanumeric() || ch == '_' || ch == '.'
-}
-
-/// Lexes a `"..."` or `'...'` string literal with backslash escapes.
-/// Returns the unescaped value and its span.
+/// Lexes a string literal. The first character is used as the quote,
+/// and the literal runs until the matching quote is found.
 pub fn lex_string(
     chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
 ) -> Result<(String, Span), DefaultLexError> {
@@ -63,8 +69,8 @@ pub fn lex_string(
     Ok((value, Span::new(start, end)))
 }
 
-/// Lexes a number literal (integer or decimal, optionally negative).
-/// Returns the parsed f64 value and its span.
+/// Lexes a decimal number literal with an optional leading `-`.
+/// Returns the parsed `f64` value and its span.
 pub fn lex_number(
     chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
 ) -> Result<(f64, Span), DefaultLexError> {
@@ -95,190 +101,129 @@ pub fn lex_number(
     Ok((value, Span::new(start, end)))
 }
 
-pub fn is_string_start(ch: char) -> bool {
-    ch == '"' || ch == '\''
-}
-
-pub fn is_number_start(ch: char) -> bool {
-    ch.is_ascii_digit() || ch == '-'
-}
-
-/// Returns `true` if the iterator is positioned at the start of a line comment.
-pub fn is_line_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
-    let mut peek = chars.clone();
-    matches!(peek.next(), Some((_, '/'))) && matches!(peek.peek(), Some((_, '/')))
-}
-
-/// Lexes a `// line comment` (assumes `is_line_comment_start` is true).
-/// Returns the comment text and its span.
-pub fn lex_line_comment(
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> (String, Span) {
-    let (start, _) = chars.peek().copied().unwrap();
-    chars.next();
-    chars.next();
-    let mut text = String::new();
-    let mut end = start + 2;
-
-    while let Some(&(pos, ch)) = chars.peek() {
-        if ch == '\n' {
-            end = pos;
-            break;
-        }
-        text.push(ch);
-        end = pos + ch.len_utf8();
-        chars.next();
-    }
-
-    (text, Span::new(start, end))
-}
-
-/// Returns `true` if the iterator is positioned at the start of a block comment.
-pub fn is_block_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
-    let mut peek = chars.clone();
-    matches!(peek.next(), Some((_, '/'))) && matches!(peek.peek(), Some((_, '*')))
-}
-
-/// Lexes a `/* block comment */` (assumes `is_block_comment_start` is true).
-/// Returns the comment text and its span, or an error if unterminated.
-pub fn lex_block_comment(
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Result<(String, Span), DefaultLexError> {
-    let (start, _) = chars.peek().copied().unwrap();
-    chars.next();
-    chars.next();
-    let mut text = String::new();
-    let mut end = start + 2;
-
-    loop {
-        match chars.next() {
-            None => {
-                return Err(DefaultLexError::UnterminatedString {
-                    span: Span::new(start, end),
-                });
-            }
-            Some((pos, '*')) => {
-                end = pos + 1;
-                match chars.peek() {
-                    Some(&(_, '/')) => {
-                        chars.next();
-                        end += 1;
-                        break;
-                    }
-                    _ => text.push('*'),
-                }
-            }
-            Some((pos, ch)) => {
-                text.push(ch);
-                end = pos + ch.len_utf8();
-            }
-        }
-    }
-
-    Ok((text, Span::new(start, end)))
-}
-
-/// Returns `true` if the iterator is positioned at the start of a doc line comment.
-pub fn is_doc_line_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
-    let mut peek = chars.clone();
-    matches!(peek.next(), Some((_, '/'))) && matches!(peek.next(), Some((_, '/'))) && matches!(peek.peek(), Some((_, '/')))
-}
-
-/// Lexes a `/// doc line comment` (assumes `is_doc_line_comment_start` is true).
-/// Returns the comment body (after the leading `///`) and its span.
-pub fn lex_doc_line_comment(
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> (String, Span) {
-    let (start, _) = chars.peek().copied().unwrap();
-    chars.next();
-    chars.next();
-    chars.next();
-    let mut text = String::new();
-    let mut end = start + 3;
-
-    while let Some(&(pos, ch)) = chars.peek() {
-        if ch == '\n' {
-            end = pos;
-            break;
-        }
-        text.push(ch);
-        end = pos + ch.len_utf8();
-        chars.next();
-    }
-
-    (text, Span::new(start, end))
-}
-
-/// Returns `true` if the iterator is positioned at the start of a doc block comment.
-pub fn is_doc_block_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
-    let mut peek = chars.clone();
-    matches!(peek.next(), Some((_, '/'))) && matches!(peek.next(), Some((_, '*'))) && matches!(peek.peek(), Some((_, '*'))) && {
-        peek.next();
-        !matches!(peek.peek(), Some((_, '/')))
-    }
-}
-
-/// Lexes a `/** doc block comment */` (assumes `is_doc_block_comment_start` is true).
-/// Returns the comment text and its span, or an error if unterminated.
-pub fn lex_doc_block_comment(
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Result<(String, Span), DefaultLexError> {
-    let (start, _) = chars.peek().copied().unwrap();
-    chars.next();
-    chars.next();
-    chars.next();
-    let mut text = String::new();
-    let mut end = start + 3;
-
-    loop {
-        match chars.next() {
-            None => {
-                return Err(DefaultLexError::UnterminatedString {
-                    span: Span::new(start, end),
-                });
-            }
-            Some((pos, '*')) => {
-                end = pos + 1;
-                match chars.peek() {
-                    Some(&(_, '/')) => {
-                        chars.next();
-                        end += 1;
-                        break;
-                    }
-                    _ => text.push('*'),
-                }
-            }
-            Some((pos, ch)) => {
-                text.push(ch);
-                end = pos + ch.len_utf8();
-            }
-        }
-    }
-
-    Ok((text, Span::new(start, end)))
-}
-
-/// Canonical single-character operator set.
-pub const DEFAULT_OPERATOR_CHARS: &str = "+-*/=<>&|%!^~?";
-
-/// Lexes an identifier (may include `.` for namespace paths).
-/// Returns the raw identifier text and its span.
+/// Lexes an identifier. The first character is already known to be an
+/// identifier start; `is_continue` decides which characters are consumed.
 pub fn lex_ident(
     chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    is_continue: impl Fn(char) -> bool,
 ) -> Result<(String, Span), DefaultLexError> {
     let (start, _) = chars.peek().copied().unwrap();
     let mut text = String::new();
     let mut end = start;
 
     while let Some(&(pos, ch)) = chars.peek() {
-        if ch.is_alphanumeric() || ch == '_' || ch == '.' {
-            text.push(ch);
-            end = pos + ch.len_utf8();
-            chars.next();
-        } else {
+        if !is_continue(ch) {
             break;
+        }
+        text.push(ch);
+        end = pos + ch.len_utf8();
+        chars.next();
+    }
+
+    Ok((text, Span::new(start, end)))
+}
+
+/// Lexes a line comment with the given `prefix`.
+/// Returns the comment body (after `prefix`) and its span.
+pub fn lex_line_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    prefix: &str,
+) -> (String, Span) {
+    let (start, _) = chars.peek().copied().unwrap();
+    let mut end = start;
+
+    for _ in 0..prefix.chars().count() {
+        let (pos, ch) = chars.next().unwrap();
+        end = pos + ch.len_utf8();
+    }
+
+    let mut text = String::new();
+    while let Some(&(pos, ch)) = chars.peek() {
+        if ch == '\n' {
+            break;
+        }
+        text.push(ch);
+        end = pos + ch.len_utf8();
+        chars.next();
+    }
+
+    (text, Span::new(start, end))
+}
+
+/// Lexes a block comment with the given `open` and `close` delimiters.
+/// Returns the comment text and its span, or an error if unterminated.
+pub fn lex_block_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    open: &str,
+    close: &str,
+) -> Result<(String, Span), DefaultLexError> {
+    let (start, _) = chars.peek().copied().unwrap();
+    let mut end = start;
+
+    for _expected in open.chars() {
+        let (pos, ch) = chars.next().unwrap();
+        let _ = ch; // assume caller has verified the prefix
+        end = pos + ch.len_utf8();
+    }
+
+    let mut close_chars = close.chars();
+    let close_first = close_chars.next().unwrap();
+    let close_second = close_chars.next().unwrap();
+
+    let mut text = String::new();
+    loop {
+        match chars.next() {
+            None => {
+                return Err(DefaultLexError::UnterminatedString {
+                    span: Span::new(start, end),
+                });
+            }
+            Some((pos, ch)) if ch == close_first => {
+                end = pos + ch.len_utf8();
+                match chars.peek() {
+                    Some(&(_, c)) if c == close_second => {
+                        let (_, c) = chars.next().unwrap();
+                        end += c.len_utf8();
+                        break;
+                    }
+                    _ => text.push(ch),
+                }
+            }
+            Some((pos, ch)) => {
+                text.push(ch);
+                end = pos + ch.len_utf8();
+            }
         }
     }
 
     Ok((text, Span::new(start, end)))
+}
+
+/// Tries to lex a run of operator characters from `operator_chars`.
+/// Returns the raw operator text and its span, or `None` if no operator starts here.
+pub fn lex_operator(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    operator_chars: &str,
+) -> Option<(String, Span)> {
+    let &(start, first) = chars.peek()?;
+    if !operator_chars.contains(first) {
+        return None;
+    }
+
+    let mut text = String::new();
+    let mut end = start;
+    while let Some(&(pos, ch)) = chars.peek() {
+        if !operator_chars.contains(ch) {
+            break;
+        }
+        text.push(ch);
+        end = pos + ch.len_utf8();
+        chars.next();
+    }
+
+    if text.is_empty() {
+        return None;
+    }
+
+    Some((text, Span::new(start, end)))
 }

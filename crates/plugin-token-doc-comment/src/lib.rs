@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_lexer::primitives;
+use handl_lexer::{DefaultLexError, Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical doc-comment tokens.
@@ -43,4 +44,32 @@ impl handl_lexer::EofFactory<DocCommentKind> for TokenFactory {
     fn eof_kind(&self) -> DocCommentKind {
         DocCommentKind::Eof
     }
+}
+
+/// Returns `true` if the iterator is at the start of a C-style `///` doc line comment.
+pub fn is_doc_line_comment_start(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> bool {
+    primitives::starts_with(chars, "///")
+}
+
+/// Lexes a `///` doc line comment and returns its body and span.
+pub fn lex_doc_line_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> (String, Span) {
+    primitives::lex_line_comment(chars, "///")
+}
+
+/// Returns `true` if the iterator is at the start of a C-style `/** */` doc block comment.
+pub fn is_doc_block_comment_start(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> bool {
+    primitives::starts_with(chars, "/**") && !primitives::starts_with(chars, "/**/")
+}
+
+/// Lexes a `/** */` doc block comment and returns its body and span.
+pub fn lex_doc_block_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> Result<(String, Span), DefaultLexError> {
+    primitives::lex_block_comment(chars, "/**", "*/")
 }

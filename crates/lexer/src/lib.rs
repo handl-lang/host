@@ -20,7 +20,7 @@ mod config_test;
 mod error;
 mod factory;
 mod lexer;
-mod primitives;
+pub mod primitives;
 #[cfg(test)]
 mod lexer_test;
 mod rule;

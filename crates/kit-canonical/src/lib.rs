@@ -6,11 +6,13 @@
 //! `handl-parser-canonical` crates.
 
 use std::fmt;
+use std::iter::Peekable;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use handl_ast::{Expr, Node, Stmt};
-use handl_lexer::{CommentFactory, DefaultLexError, IdentFactory, KindFactory, Lexer, NumberFactory, OperatorFactory, Span, StringFactory, Token, TokenKind};
+use handl_lexer::primitives;
+use handl_lexer::{CommentFactory, DefaultLexError, EofFactory, IdentFactory, KeywordFactory, KindFactory, Lexer, NumberFactory, OperatorFactory, Span, StringFactory, Token, TokenKind};
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
@@ -47,14 +49,17 @@ use handl_plugin_grammar_object::{ObjectRule, ObjectToken};
 use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
 use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
-use handl_plugin_token_doc_comment::DocCommentKind;
+use handl_plugin_token_doc_comment::{
+    is_doc_block_comment_start, is_doc_line_comment_start, lex_doc_block_comment,
+    lex_doc_line_comment, DocCommentKind,
+};
 use handl_plugin_token_delimiter::DelimiterKind;
 use handl_plugin_token_identifier::IdentKind;
 use handl_plugin_token_keyword_as::AsKind;
 use handl_plugin_token_keyword_handle::HandleKind;
 use handl_plugin_token_null::NullKind;
 use handl_plugin_token_number::NumberKind;
-use handl_plugin_token_operator::OperatorKind;
+use handl_plugin_token_operator::{OperatorKind, CANONICAL_OPERATOR_CHARS};
 use handl_plugin_token_string::StringKind;
 
 pub mod kit_manifest;
@@ -186,6 +191,12 @@ impl fmt::Display for CanonicalKind {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CanonicalFactory;
 
+impl EofFactory<CanonicalKind> for CanonicalFactory {
+    fn eof_kind(&self) -> CanonicalKind {
+        CanonicalKind::Eof
+    }
+}
+
 impl KindFactory<CanonicalKind> for CanonicalFactory {
     fn string_kind(&self, value: String) -> CanonicalKind {
         CanonicalKind::String(value)
@@ -197,10 +208,6 @@ impl KindFactory<CanonicalKind> for CanonicalFactory {
 
     fn ident_kind(&self, text: String) -> CanonicalKind {
         CanonicalKind::Identifier(text)
-    }
-
-    fn eof_kind(&self) -> CanonicalKind {
-        CanonicalKind::Eof
     }
 
     fn keyword_kind(&self, text: &str) -> Option<CanonicalKind> {
@@ -236,6 +243,61 @@ impl KindFactory<CanonicalKind> for CanonicalFactory {
     }
 }
 
+impl StringFactory<CanonicalKind> for CanonicalFactory {
+    fn is_string_start(&self, ch: char) -> bool {
+        ch == '"' || ch == '\''
+    }
+
+    fn lex_string(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(String, Span), DefaultLexError> {
+        primitives::lex_string(chars)
+    }
+}
+
+impl NumberFactory<CanonicalKind> for CanonicalFactory {
+    fn is_number_start(&self, ch: char) -> bool {
+        ch.is_ascii_digit() || ch == '-'
+    }
+
+    fn lex_number(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(f64, Span), DefaultLexError> {
+        primitives::lex_number(chars)
+    }
+}
+
+impl IdentFactory<CanonicalKind> for CanonicalFactory {
+    fn is_ident_start(&self, ch: char) -> bool {
+        ch.is_alphabetic() || ch == '_' || ch == '.'
+    }
+
+    fn is_ident_continue(&self, ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_' || ch == '.'
+    }
+
+    fn lex_ident(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(String, Span), DefaultLexError> {
+        primitives::lex_ident(chars, |c| self.is_ident_continue(c))
+    }
+}
+
+impl KeywordFactory<CanonicalKind> for CanonicalFactory {}
+
+impl OperatorFactory<CanonicalKind> for CanonicalFactory {
+    fn lex_operator(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Option<(CanonicalKind, Span)> {
+        let (text, span) = primitives::lex_operator(chars, CANONICAL_OPERATOR_CHARS)?;
+        self.operator_kind(&text).map(|kind| (kind, span))
+    }
+}
+
 impl CommentFactory<CanonicalKind> for CanonicalFactory {
     fn comment_kind(&self, text: String) -> CanonicalKind {
         CanonicalKind::Comment(text)
@@ -243,6 +305,44 @@ impl CommentFactory<CanonicalKind> for CanonicalFactory {
 
     fn doc_comment_kind(&self, text: String) -> CanonicalKind {
         CanonicalKind::DocComment(text)
+    }
+
+    fn is_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        primitives::starts_with(chars, "//") && !primitives::starts_with(chars, "///")
+    }
+
+    fn lex_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span) {
+        primitives::lex_line_comment(chars, "//")
+    }
+
+    fn is_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        primitives::starts_with(chars, "/*") && !primitives::starts_with(chars, "/**")
+    }
+
+    fn lex_block_comment(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(String, Span), DefaultLexError> {
+        primitives::lex_block_comment(chars, "/*", "*/")
+    }
+
+    fn is_doc_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        is_doc_line_comment_start(chars)
+    }
+
+    fn lex_doc_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span) {
+        lex_doc_line_comment(chars)
+    }
+
+    fn is_doc_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        is_doc_block_comment_start(chars)
+    }
+
+    fn lex_doc_block_comment(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(String, Span), DefaultLexError> {
+        lex_doc_block_comment(chars)
     }
 }
 

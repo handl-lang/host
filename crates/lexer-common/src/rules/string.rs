@@ -1,7 +1,7 @@
 //! [`StringRule`] — matches string literals.
 
 use handl_lexer::LexRule;
-use handl_lexer::{DefaultLexError, LexError, LexerConfig, StringFactory, Token, TokenKind};
+use handl_lexer::{DefaultLexError, KindFactory, LexError, LexerConfig, StringFactory, Token, TokenKind};
 
 /// Matches string literals using the factory's [`StringFactory::is_string_start`]
 /// and [`StringFactory::lex_string`].
