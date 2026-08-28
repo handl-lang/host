@@ -178,6 +178,86 @@ pub fn lex_block_comment(
     Ok((text, Span::new(start, end)))
 }
 
+/// Returns `true` if the iterator is positioned at the start of a doc line comment.
+pub fn is_doc_line_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
+    let mut peek = chars.clone();
+    matches!(peek.next(), Some((_, '/'))) && matches!(peek.next(), Some((_, '/'))) && matches!(peek.peek(), Some((_, '/')))
+}
+
+/// Lexes a `/// doc line comment` (assumes `is_doc_line_comment_start` is true).
+/// Returns the comment body (after the leading `///`) and its span.
+pub fn lex_doc_line_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> (String, Span) {
+    let (start, _) = chars.peek().copied().unwrap();
+    chars.next();
+    chars.next();
+    chars.next();
+    let mut text = String::new();
+    let mut end = start + 3;
+
+    while let Some(&(pos, ch)) = chars.peek() {
+        if ch == '\n' {
+            end = pos;
+            break;
+        }
+        text.push(ch);
+        end = pos + ch.len_utf8();
+        chars.next();
+    }
+
+    (text, Span::new(start, end))
+}
+
+/// Returns `true` if the iterator is positioned at the start of a doc block comment.
+pub fn is_doc_block_comment_start(chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>) -> bool {
+    let mut peek = chars.clone();
+    matches!(peek.next(), Some((_, '/'))) && matches!(peek.next(), Some((_, '*'))) && matches!(peek.peek(), Some((_, '*'))) && {
+        peek.next();
+        !matches!(peek.peek(), Some((_, '/')))
+    }
+}
+
+/// Lexes a `/** doc block comment */` (assumes `is_doc_block_comment_start` is true).
+/// Returns the comment text and its span, or an error if unterminated.
+pub fn lex_doc_block_comment(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+) -> Result<(String, Span), DefaultLexError> {
+    let (start, _) = chars.peek().copied().unwrap();
+    chars.next();
+    chars.next();
+    chars.next();
+    let mut text = String::new();
+    let mut end = start + 3;
+
+    loop {
+        match chars.next() {
+            None => {
+                return Err(DefaultLexError::UnterminatedString {
+                    span: Span::new(start, end),
+                });
+            }
+            Some((pos, '*')) => {
+                end = pos + 1;
+                match chars.peek() {
+                    Some(&(_, '/')) => {
+                        chars.next();
+                        end += 1;
+                        break;
+                    }
+                    _ => text.push('*'),
+                }
+            }
+            Some((pos, ch)) => {
+                text.push(ch);
+                end = pos + ch.len_utf8();
+            }
+        }
+    }
+
+    Ok((text, Span::new(start, end)))
+}
+
 /// Canonical single-character operator set.
 pub const DEFAULT_OPERATOR_CHARS: &str = "+-*/=<>&|%!^~?";
 

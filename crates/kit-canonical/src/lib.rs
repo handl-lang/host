@@ -47,6 +47,7 @@ use handl_plugin_grammar_object::{ObjectRule, ObjectToken};
 use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
 use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
+use handl_plugin_token_doc_comment::DocCommentKind;
 use handl_plugin_token_delimiter::DelimiterKind;
 use handl_plugin_token_identifier::IdentKind;
 use handl_plugin_token_keyword_as::AsKind;
@@ -121,6 +122,8 @@ pub enum CanonicalKind {
     Null,
     /// A comment.
     Comment(String),
+    /// A doc comment.
+    DocComment(String),
     /// A delimiter: `(`, `)`, `[`, `]`, `{`, `}`, `,`, `:`, `.`, `;`.
     Delimiter(CanonicalDelim),
     /// An operator: `|>`, `->`, `=`, `+`, `-`, `*`, `/`, `<`, `>`.
@@ -140,6 +143,7 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::Bool(b) => write!(f, "bool({b})"),
             CanonicalKind::Null => write!(f, "null"),
             CanonicalKind::Comment(s) => write!(f, "comment({s:?})"),
+            CanonicalKind::DocComment(s) => write!(f, "doc-comment({s:?})"),
             CanonicalKind::Delimiter(d) => match d {
                 CanonicalDelim::ParenOpen => write!(f, "("),
                 CanonicalDelim::ParenClose => write!(f, ")"),
@@ -236,6 +240,10 @@ impl CommentFactory<CanonicalKind> for CanonicalFactory {
     fn comment_kind(&self, text: String) -> CanonicalKind {
         CanonicalKind::Comment(text)
     }
+
+    fn doc_comment_kind(&self, text: String) -> CanonicalKind {
+        CanonicalKind::DocComment(text)
+    }
 }
 
 impl TokenKind for CanonicalKind {
@@ -303,6 +311,15 @@ impl From<CommentKind> for CanonicalKind {
         match k {
             CommentKind::Comment(v) => CanonicalKind::Comment(v),
             CommentKind::Eof => CanonicalKind::Eof,
+        }
+    }
+}
+
+impl From<DocCommentKind> for CanonicalKind {
+    fn from(k: DocCommentKind) -> Self {
+        match k {
+            DocCommentKind::DocComment(v) => CanonicalKind::DocComment(v),
+            DocCommentKind::Eof => CanonicalKind::Eof,
         }
     }
 }
@@ -854,6 +871,16 @@ impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
             }
 
             // Skip comments rather than surfacing them to the parser.
+            if CommentFactory::is_doc_line_comment_start(&factory, &mut chars) {
+                let _ = CommentFactory::lex_doc_line_comment(&factory, &mut chars);
+                continue;
+            }
+
+            if CommentFactory::is_doc_block_comment_start(&factory, &mut chars) {
+                let _ = CommentFactory::lex_doc_block_comment(&factory, &mut chars)?;
+                continue;
+            }
+
             if CommentFactory::is_line_comment_start(&factory, &mut chars) {
                 let _ = CommentFactory::lex_line_comment(&factory, &mut chars);
                 continue;

@@ -340,7 +340,7 @@ The only distinction is whether it implements `RuleAcceptor` and, if so, what `R
 
 - The `Formatter` does not know `comment.style` exists.
 - The `Linter` does not know `comment.max-length` exists.
-- `handl-plugin-comments` introduces both options and the `Behavior`s that use them.
+- A comment-formatting plugin can introduce both options and the `Behavior`s that use them.
 - `Options` plugin validates, resolves, and passes the values; operations only read `ResolvedOptions`.
 
 ### Type safety
@@ -449,7 +449,7 @@ The design is **safe for trusted, curated plugin graphs** (the normal Rust packa
 - Core `Plugin`/`RuleAcceptor`/`Operation`/`Behavior` types landed in `handl-platform`.
 - `AstNode`, `OptionsPlugin`, `HostConfig`, and `Host::load` are implemented.
 - `LanguagePipeline`, `SyntaxNode`, `LanguageHost`, `Extension`, `CommandProvider`, and `Library` have been removed.
-- Legacy `plugin-comments` and `plugin-doc-comments` now contribute `Behavior<Op>` rules.
+- Legacy `plugin-comments` and `plugin-doc-comments` were removed; comment handling is tokenized by `plugin-token-comment` and formatted by `plugin-fmt-trivia`.
 - Cleanup of the remaining `plugin-*` and `lib-*` crates to pure `Behavior<Op>` is continuing / out of scope.
 
 ## Related work

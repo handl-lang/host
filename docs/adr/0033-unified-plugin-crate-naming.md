@@ -2,15 +2,15 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
 The Handl platform has 79 `plugin-*` directories under `crates/`. Their
 names have grown organically and are now inconsistent, which makes the
 workspace hard to navigate, sort, and keep in `Cargo.toml`. Only
-`plugin-comments` and `plugin-doc-comments` are currently listed in the
-root `[workspace] members`; the rest are only in
+`plugin-comments` and `plugin-doc-comments` were listed in the
+root `[workspace] members` at the time of writing; the rest were only in
 `[workspace.dependencies]` or missing entirely.
 
 Current naming patterns:
@@ -140,11 +140,9 @@ Crates that already follow the convention, such as `plugin-ast-call`,
 
 The overlapping comment/doc-comment plugins
 (`plugin-comments`, `plugin-doc-comments`, `plugin-token-comment`,
-`plugin-comment-tokens`) should be disambiguated in the same pass: the
-token pieces collapse to `plugin-token-comment` and
-`plugin-token-doc-comment`, and any remaining grammar / AST / fmt /
-diag rules move to the appropriate `plugin-grammar-*`, `plugin-ast-*`,
-`plugin-fmt-*`, or `plugin-diag-*` crate.
+`plugin-comment-tokens`) were disambiguated: the canonical comment token
+piece lives in `plugin-token-comment`, and the no-op
+`plugin-comments` and `plugin-doc-comments` crates were removed.
 
 ## Consequences
 
@@ -180,7 +178,7 @@ diag rules move to the appropriate `plugin-grammar-*`, `plugin-ast-*`,
 
 ## Implementation status
 
-Proposed; no renames have been performed.
+Implemented. The bulk rename in `crates/` and the root `Cargo.toml` was completed. The overlapping `plugin-comments` and `plugin-doc-comments` crates were removed; the canonical comment token remains `plugin-token-comment`, and no remaining grammar/AST/fmt/diag rules needed to be moved.
 
 ## Alternatives considered
 

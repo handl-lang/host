@@ -45,6 +45,7 @@ handl-plugin-grammar-pipe = { path = "../plugin-grammar-pipe" }
 
 handl-plugin-token-bool = { path = "../plugin-token-bool" }
 handl-plugin-token-comment = { path = "../plugin-token-comment" }
+handl-plugin-token-doc-comment = { path = "../plugin-token-doc-comment" }
 handl-plugin-token-delimiter = { path = "../plugin-token-delimiter" }
 handl-plugin-token-identifier = { path = "../plugin-token-identifier" }
 handl-plugin-token-keyword-as = { path = "../plugin-token-keyword-as" }

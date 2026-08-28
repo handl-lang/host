@@ -1,0 +1,7 @@
+[package]
+name = "handl-plugin-token-doc-comment"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-lexer.workspace = true

@@ -867,6 +867,7 @@ dependencies = [
  "handl-plugin-token-bool",
  "handl-plugin-token-comment",
  "handl-plugin-token-delimiter",
+ "handl-plugin-token-doc-comment",
  "handl-plugin-token-identifier",
  "handl-plugin-token-keyword-as",
  "handl-plugin-token-keyword-handle",
@@ -1606,37 +1607,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-comments"
-version = "0.1.0"
-dependencies = [
- "handl-ext-fmt",
- "handl-ext-lexer",
- "handl-ext-lint",
- "handl-ext-parser",
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-diag-expression"
 version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
  "handl-vm-values-json",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-doc-comments"
-version = "0.1.0"
-dependencies = [
- "handl-ext-fmt",
- "handl-ext-lexer",
- "handl-ext-lint",
- "handl-ext-parser",
- "handl-platform",
- "handl-plugin-comments",
  "serde_json",
 ]
 
@@ -2096,6 +2072,13 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-token-delimiter"
+version = "0.1.0"
+dependencies = [
+ "handl-lexer",
+]
+
+[[package]]
+name = "handl-plugin-token-doc-comment"
 version = "0.1.0"
 dependencies = [
  "handl-lexer",

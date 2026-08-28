@@ -91,9 +91,7 @@ members = [
     "crates/plugin-ast-object",
     "crates/plugin-ast-pipe",
     "crates/plugin-ast-var",
-    "crates/plugin-comments",
     "crates/plugin-diag-expression",
-    "crates/plugin-doc-comments",
     "crates/plugin-fmt-expression",
     "crates/plugin-fmt-stmt",
     "crates/plugin-fmt-trivia",
@@ -138,6 +136,7 @@ members = [
     "crates/plugin-target-rust",
     "crates/plugin-token-bool",
     "crates/plugin-token-comment",
+    "crates/plugin-token-doc-comment",
     "crates/plugin-token-delimiter",
     "crates/plugin-token-identifier",
     "crates/plugin-token-keyword-as",
@@ -272,9 +271,7 @@ handl-plugin-ast-match = { path = "crates/plugin-ast-match" }
 handl-plugin-ast-object = { path = "crates/plugin-ast-object" }
 handl-plugin-ast-pipe = { path = "crates/plugin-ast-pipe" }
 handl-plugin-ast-var = { path = "crates/plugin-ast-var" }
-handl-plugin-comments = { path = "crates/plugin-comments" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
-handl-plugin-doc-comments = { path = "crates/plugin-doc-comments" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
 handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
@@ -319,6 +316,7 @@ handl-plugin-target-native-example = { path = "crates/plugin-target-native-examp
 handl-plugin-target-rust = { path = "crates/plugin-target-rust" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
+handl-plugin-token-doc-comment = { path = "crates/plugin-token-doc-comment" }
 handl-plugin-token-delimiter = { path = "crates/plugin-token-delimiter" }
 handl-plugin-token-identifier = { path = "crates/plugin-token-identifier" }
 handl-plugin-token-keyword-as = { path = "crates/plugin-token-keyword-as" }

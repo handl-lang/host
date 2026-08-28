@@ -151,6 +151,37 @@ pub trait CommentFactory<K: TokenKind>: Clone + Send + Sync + 'static {
     ) -> Result<(String, Span), DefaultLexError> {
         crate::primitives::lex_block_comment(chars)
     }
+
+    /// Builds a doc comment token kind from the doc comment text.
+    fn doc_comment_kind(&self, text: String) -> K {
+        self.comment_kind(text)
+    }
+
+    /// Returns `true` if the iterator is at the start of a doc line comment.
+    fn is_doc_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        crate::primitives::is_doc_line_comment_start(chars)
+    }
+
+    /// Lexes a `/// doc line comment` and returns its text and span.
+    fn lex_doc_line_comment(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> (String, Span) {
+        crate::primitives::lex_doc_line_comment(chars)
+    }
+
+    /// Returns `true` if the iterator is at the start of a doc block comment.
+    fn is_doc_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
+        crate::primitives::is_doc_block_comment_start(chars)
+    }
+
+    /// Lexes a `/** doc block comment */` and returns its text and span.
+    fn lex_doc_block_comment(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> Result<(String, Span), DefaultLexError> {
+        crate::primitives::lex_doc_block_comment(chars)
+    }
 }
 
 /// Convenience trait that rolls the common token factories into one.
