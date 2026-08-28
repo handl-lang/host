@@ -4,87 +4,53 @@ title: Platform architecture
 
 # Platform architecture
 
-Handl is now built around a small, stable platform layer. The rest of the workspace—compiler, VM, source handling, and CLI—consumes that layer instead of hard-coding its own contracts.
+Handl is built around a single, composable platform layer. Every tool, language stage, and runtime backend is a `Plugin`, and every executable is a `Host` that loads and composes plugins.
 
 ## The layers
 
-- **Platform** — the mechanisms and contracts that every other crate shares. It lives in `crates/platform` (`handl-platform`) and defines `Capability`, `Plugin`, `Extension`, `Kit`, `Host`, and `Boundary`.
-- **Capability** — something the platform can do. Each `handl-ext-*` crate is a normal plugin that implements one capability (`fmt`, `lint`, `typecheck`, `eval`, `compile`, `build`, `plugin`, `kit`, `extension`).
-- **Plugin** — the unit that implements a capability. It registers itself with the platform and provides `CapabilityMetadata` describing what it does.
-- **Kit** — a bundle of plugins. Kits are defined in the platform but fully wired later.
-- **Framework** — an opinionated composition of kits and hosts. This is intentionally deferred for now.
-- **Host** — anything that consumes capabilities. `handl-host-cli` is the default command-line host; LSP servers, IDEs, web UIs, and CI systems can be hosts too.
-- **Boundary** — a packaging and communication concept. A boundary can be a module, package, process, worker, server, client, RPC link, or deployment.
+- **Platform** — the shared contracts in `handl-platform`. It defines `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `Contribution`, `ContributionContext`, `Host`, `HostConfig`, `HostApplier`, `Options`, `AstNode`, `DataTypes`, and the loading algorithm.
+- **Operation** — a cross-cutting concern. Each `handl-ext-*` crate defines an `Operation` marker and a default `RuleAcceptor` plugin such as `BasicFormatter`, `BasicLinter`, `BasicLexer`, `BasicParser`, `BasicTypechecker`, `BasicCli`, `BasicLsp`, `BasicDoc`, or `BasicHover`.
+- **Plugin** — the universal unit. A plugin can be a library, a target, an operation, a rule, or an executable contribution.
+- **Rule** — a `Behavior<Op>` contributed to a `RuleAcceptor` for a specific `AstNode.kind`.
+- **Kit** — a curated, version-pinned manifest of plugins and default option values. A kit is not executable.
+- **Host** — a composer that loads kits, resolves dependencies, runs `contribute` to a fixed point, and executes capabilities. `handl-host-cli` and `handl-host-lsp` are executable hosts.
+- **Target** — a runtime backend. `handl-target-*` crates register target-specific operations and options.
 
-## Capabilities are metadata-driven
+## Plugins are the only unit
 
-A plugin returns arbitrary, JSON-serializable `CapabilityMetadata`. The platform itself does not define what keys are in that metadata; each host decides how to interpret it. The CLI host reads a `command` field and uses it to generate a `clap` subcommand, but an LSP host could read `lsp-method` instead.
-
-A typical `CapabilityMetadata` value for a CLI command looks like this:
-
-```json
-{
-  "command": "compile",
-  "description": "Compile a Handl module",
-  "aliases": ["build"]
-}
-```
-
-Because the CLI does not hard-code `compile` or `build`, any plugin that returns this metadata automatically gets a `handl compile` command. Aliases appear as extra subcommand names.
+`handl-platform` does not distinguish between a component, an extension, a library, a target, and a capability. The only real distinction is whether a plugin implements `RuleAcceptor` and, if so, what rule it accepts. `handl-plugin-*` crates contribute rules; `handl-kit-*` crates curate sets of plugins; `handl-host-*` crates run them.
 
 ## How a new plugin becomes a command
 
-A new `Plugin` implementation registers a capability and returns metadata:
+A rule plugin can contribute a `CliCommand` to the `Cli` `RuleAcceptor`. The `handl-ext-cli` crate defines the `Cli` operation and the `BasicCli` plugin that accepts those commands. The `handl-host-cli` host loads the kit, runs `contribute`, and then executes the `cli` capability.
 
 ```rust
-use handl_platform::{Capability, CapabilityId, CapabilityMetadata, Plugin, PluginContext};
+// handl-plugin-lint
+impl Plugin for LintPlugin {
+    fn id(&self) -> &str { "lint" }
 
-pub struct FormatPlugin;
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.contribute::<Cli>(CliCommand {
+            name: "lint",
+            about: "Run the linter",
+            run: Box::new(|host, matches| {
+                host.execute(&"lint".into(), json!({
+                    "path": matches.get_one::<String>("path"),
+                }))
+            }),
+        })?;
 
-impl Plugin for FormatPlugin {
-    fn id(&self) -> CapabilityId {
-        CapabilityId::from("fmt")
-    }
-
-    fn metadata(&self) -> CapabilityMetadata {
-        serde_json::json!({
-            "command": "fmt",
-            "description": "Format a Handl document",
-            "aliases": ["format"]
-        })
-    }
-
-    fn invoke(&self, ctx: &mut PluginContext, request: serde_json::Value)
-        -> Result<serde_json::Value, handl_platform::Error>
-    {
-        // Capability logic here
-        Ok(request)
+        ctx.contribute::<Linter>(Box::new(NoUnusedImports))?;
+        Ok(())
     }
 }
 ```
 
-When the `handl-host-cli` host starts, it loads the default `Host`, walks the `PluginRegistry`, and reads each plugin's `CapabilityMetadata`. It sees `command: "fmt"` and creates:
-
-```sh
-handl fmt
-handl format    # alias
-```
-
-No changes to `handl-host-cli` are required.
-
-## The CLI is just one host
-
-The `handl` command-line tool is deliberately thin. It knows how to:
-
-1. Build the default `Host` and its registries.
-2. Read `CapabilityMetadata` from every registered plugin.
-3. Turn metadata into `clap` subcommands, options, and aliases.
-
-Everything else—parsing, formatting, linting, evaluation, typechecking, compiling—lives in capability plugins. Management of plugins, kits, and extensions is also implemented as capabilities, so the CLI has no special administrative commands.
+`handl-host-cli` does not know `lint` exists. The `LintPlugin` contributed the command and the rule, and the host ran them.
 
 ## Why this matters
 
 - The platform layer is the only shared contract, so dependency direction is always clear.
-- New capabilities appear automatically in every host that reads `CapabilityMetadata`.
-- Hosts can be tiny: the CLI is a few hundred lines because the real work is in plugins.
-- Capabilities can move to separate repositories later without changing the platform contracts.
+- New operations and commands can be added in new `handl-ext-*` or `handl-plugin-*` crates without changing `handl-platform`.
+- Hosts can be tiny: the CLI is a thin executable host that loads a kit and runs `Cli`.
+- Tools share the same composition model, from the CLI to the LSP server to the test runner.

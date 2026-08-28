@@ -1,8 +1,5 @@
-fn.tap(
-  (s) -> [
-    http_server.route(s, "GET", "/hello", "Hello from handl"),
-    http_server.start(s, "127.0.0.1:8081"),
-    http_server.join(s)
-  ],
-  http_server.new()
-)
+server: type.any = http_server.new();
+route: type.null = http_server.route(server, "GET", "/hello", "Hello from handl");
+start: type.null = http_server.start(server, "127.0.0.1:8081");
+join: type.null = http_server.join(server);
+[route, start, join]

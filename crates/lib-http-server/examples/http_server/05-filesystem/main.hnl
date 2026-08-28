@@ -1,14 +1,8 @@
-fn.tap(
-  (s) -> [
-    fs.write("crates/lib-http-server/examples/http_server/05-filesystem/greeting.txt", "Hello from handl files"),
-    http_server.route(
-      s,
-      "GET",
-      "/greeting",
-      fs.read("crates/lib-http-server/examples/http_server/05-filesystem/greeting.txt")
-    ),
-    http_server.start(s, "127.0.0.1:8085"),
-    http_server.join(s)
-  ],
-  http_server.new()
-)
+path: type.str = "crates/lib-http-server/examples/http_server/05-filesystem/greeting.txt";
+written: type.null = fs.write(path, "Hello from handl files");
+content: type.str = fs.read(path);
+server: type.any = http_server.new();
+route: type.null = http_server.route(server, "GET", "/greeting", content);
+start: type.null = http_server.start(server, "127.0.0.1:8085");
+join: type.null = http_server.join(server);
+[written, route, start, join]

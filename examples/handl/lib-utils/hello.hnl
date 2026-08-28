@@ -1,1 +1,2 @@
-concat("hello", " ", "world")
+greeting: type.string = concat("hello", " ", "world");
+greeting

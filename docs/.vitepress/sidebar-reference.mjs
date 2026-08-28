@@ -1,5 +1,16 @@
 export default [
   {
+    "text": "Platform",
+    "collapsed": false,
+    "link": "/reference/host-concepts",
+    "items": [
+      {
+        "text": "Host concepts",
+        "link": "/reference/host-concepts"
+      }
+    ]
+  },
+  {
     "text": "Archive",
     "collapsed": false,
     "link": "/reference/lib-archive",

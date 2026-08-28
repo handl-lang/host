@@ -38,7 +38,7 @@ impl ExpressionFormatter {
                 "fn.flow" | "fn.compose" => 60,
                 "if" => 30,
                 "bool.not" | "type.typeof" => 80,
-                "mood.int" | "mood.norm" | "mood.pot" | "mood.neg" | "mood.cnd" => 85,
+                "type.is" | "type.must" | "type.may" | "type.not" | "type.when" => 85,
                 _ => 90,
             },
             Expr::Assign { .. } => 1,
@@ -179,20 +179,18 @@ impl ExpressionFormatter {
             "type.typeof" if args.len() == 1 => {
                 format!("typeof {}", self.fmt(&args[0], 100))
             }
-            "mood.int" | "mood.norm" | "mood.pot" | "mood.neg" | "mood.cnd"
-                if args.len() >= 2 =>
-            {
+            "type.is" | "type.must" | "type.may" | "type.not" | "type.when" if args.len() >= 2 => {
                 let keyword = match name {
-                    "mood.int" => "is",
-                    "mood.norm" => "must",
-                    "mood.pot" => "may",
-                    "mood.neg" => "not",
-                    "mood.cnd" => "when",
+                    "type.is" => "is",
+                    "type.must" => "must",
+                    "type.may" => "may",
+                    "type.not" => "not",
+                    "type.when" => "when",
                     _ => unreachable!(),
                 };
                 let target = self.fmt(&args[0], 85);
                 let kind = self.fmt_mood_kind(&args[1]);
-                if name == "mood.cnd" && args.len() == 3 {
+                if name == "type.when" && args.len() == 3 {
                     format!("{} {} {} else {}", target, keyword, kind, self.fmt(&args[2], 0))
                 } else {
                     format!("{} {} {}", target, keyword, kind)

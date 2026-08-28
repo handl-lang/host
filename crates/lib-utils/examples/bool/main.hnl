@@ -1,6 +1,5 @@
-{
-  and: bool.and(true, false),
-  or: bool.or(false, true),
-  not: bool.not(true),
-  xor: bool.xor(true, true)
-}
+and: type.bool = bool.and(true, false);
+or: type.bool = bool.or(false, true);
+not: type.bool = bool.not(true);
+xor: type.bool = bool.xor(true, true);
+{ and: and, or: or, not: not, xor: xor }

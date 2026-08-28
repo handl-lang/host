@@ -1,19 +1,11 @@
-[
-  otlp.configure({
-    endpoint: "http://localhost:4318",
-    service_name: "demo"
-  }),
-  otlp.end_span(
-    otlp.start_span("handle_request", {
-      attributes: { route: "/hello" }
-    })
-  ),
-  otlp.record_log("INFO", "request handled", {
-    attributes: { route: "/hello" }
-  }),
-  otlp.record_metric("requests", 1, {
-    kind: "counter",
-    attributes: { route: "/hello" }
-  }),
-  otlp.flush()
-]
+cfg: type.obj = {
+  endpoint: "http://localhost:4318",
+  service_name: "demo"
+};
+configured: type.null = otlp.configure(cfg);
+span: type.obj = otlp.start_span("handle_request", { attributes: { route: "/hello" } });
+ended: type.null = otlp.end_span(span);
+log: type.null = otlp.record_log("INFO", "request handled", { attributes: { route: "/hello" } });
+metric: type.null = otlp.record_metric("requests", 1, { kind: "counter", attributes: { route: "/hello" } });
+flushed: type.null = otlp.flush();
+[configured, ended, log, metric, flushed]

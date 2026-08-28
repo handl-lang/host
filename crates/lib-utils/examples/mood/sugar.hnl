@@ -1,13 +1,24 @@
+is_number: type.bool = 42 is type.num;
+is_not_number: type.bool = 42 is type.str;
+is_string: type.bool = "hello" is type.str;
+is_bool: type.bool = true is type.bool;
+is_array: type.bool = [1, 2] is type.arr;
+is_object: type.bool = { a: 1 } is type.obj;
+is_field: type.bool = { name: "alice" } is field.name;
+not_number: type.bool = 42 not type.str;
+may_number: type.null = "oops" may type.num;
+must_number: type.num = 42 must type.num;
+when_number: type.num = "x" when type.num else 0;
 {
-  is_number: 42 is type.num,
-  is_not_number: 42 is type.str,
-  is_string: "hello" is type.str,
-  is_bool: true is type.bool,
-  is_array: [1, 2] is type.arr,
-  is_object: {a: 1} is type.obj,
-  is_field: {name: "alice"} is field.name,
-  not_number: 42 not type.str,
-  may_number: "oops" may type.num,
-  must_number: 42 must type.num,
-  when_number: "x" when type.num else 0
+  is_number: is_number,
+  is_not_number: is_not_number,
+  is_string: is_string,
+  is_bool: is_bool,
+  is_array: is_array,
+  is_object: is_object,
+  is_field: is_field,
+  not_number: not_number,
+  may_number: may_number,
+  must_number: must_number,
+  when_number: when_number
 }

@@ -1,44 +1,56 @@
 # Platform architecture
 
-The handl platform is organized as a workspace of Rust crates that compose into language, runtime, and capability layers.
+The handl platform is a workspace of Rust crates organised around one goal: every concept in the language is a `Plugin`, and every tool is a `Host` that composes plugins.
 
 ## Crate layers
 
-```
-handl-host-cli              # command-line entry point
-handl-ast, handl-parser
-handl-vm, handl-vm-common
-handl-lib-*            # capability modules (array, fs, http, ...)
-```
-
-- **Language crates** (`handl-ast`, `handl-parser`) define the syntax and parse source.
-- **VM crates** (`handl-vm`, `handl-vm-common`) define the interpreter, the `Function` and `Module` traits, and `NonFunctionValue`.
-- **Library crates** (`handl-lib-*`) implement modules. Each crate exposes one or more `*Module` adapters.
-
-## Capability boundaries
-
-A library crate like `handl-lib-os` defines the `Fs` trait but not the concrete `std::fs` implementation. The `handl-lib-os-std` crate provides a production backend, while `handl-lib-os` may provide a stub backend for tests. This separation keeps the language core platform-agnostic.
-
-## Module host
-
-The `ModuleHost` is where modules are registered. A host for a server might look like:
-
-```rust
-let host = ModuleHost::new()
-    .with(MathModule)
-    .with(ArrayModule)
-    .with(FsModule::new(StdFs));
+```text
+handl-host-cli, handl-host-lsp     # executable hosts
+handl-ext-fmt, handl-ext-lint,    # concrete operations
+  handl-ext-lexer, handl-ext-parser,
+  handl-ext-type, handl-ext-cli,
+  handl-ext-lsp, handl-ext-doc,
+  handl-ext-eval
+handl-plugin-*                    # rule and library plugins
+handl-kit-*                       # curated kit manifests
+handl-target-*                    # runtime targets
+handl-platform                    # Plugin, Host, and composition primitives
 ```
 
-The VM uses the host to resolve every `module.function` call at runtime.
+| Layer | Responsibility |
+| --- | --- |
+| `handl-platform` | `Host`, `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `ContributionContext`, `Options`, `AstNode`, and resolution. |
+| `handl-ext-*` | Concrete operations such as `Format`, `Lint`, `Parser`, `Lexer`, `Typecheck`, `Eval`, `Cli`, `Lsp`, and `Doc`. |
+| `handl-plugin-*` | Rule plugins that contribute `Behavior`s and `OptionSchema`s, and library plugins that register more plugins. |
+| `handl-kit-*` | Curated manifests of plugins and default option values. A kit is not executable. |
+| `handl-target-*` | Target plugins that register runtime backends. |
+| `handl-host-*` | Executable hosts that load kits and execute `Cli` or `Lsp` capabilities. |
 
-## Adding a new module
+## Why this split
 
-To add a module:
+The platform crate intentionally stays small. It defines the composition primitives and nothing else. Concrete operations, library rules, and targets live in separate crates because they can be added, swapped, or excluded without changing the core. This lets a host be as small as a formatter or as large as a language server.
 
-1. Create a crate `handl-lib-myfeature`.
-2. Implement `Module` for `MyFeatureModule`.
-3. Implement `Function<NonFunctionValue>` for each exposed function.
-4. Register `MyFeatureModule` in the runtime’s `ModuleHost`.
+## The host as composer
 
-For reference, see the existing `handl-lib-*` crates and the generated [reference pages](../reference/).
+A `Host` starts empty and ends as a fully composed tool. It does this by:
+
+1. Loading `HostConfig` from a `HostApplier`.
+2. Merging kit manifests into `PluginRegistry`.
+3. Resolving `requires` and `optional` dependencies.
+4. Running `Plugin::contribute` in topological order.
+5. Repeating steps 3–4 until no new plugins appear.
+6. Resolving `Options` from merged schemas and overrides.
+
+After this, `Host::execute` dispatches a `CapabilityRequest` to the plugin that provides the requested capability.
+
+## Adding a new operation
+
+To add a new operation such as `Hover`:
+
+1. Create `handl-ext-hover`.
+2. Define a `Hover` marker type implementing `Operation`.
+3. Define `HoverBehavior` implementing `Behavior<Hover>`.
+4. Provide `BasicHover` as a `RuleAcceptor<Rule = HoverBehavior>`.
+5. Register `BasicHover` in the host.
+
+No `handl-platform` change is required.

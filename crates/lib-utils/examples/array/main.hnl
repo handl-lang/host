@@ -1,1 +1,7 @@
-[math.sqrt(16), mul(3, 4), add(1, 2)]
+Positive = (n: type.number) -> n > 0;
+sqrt: type.number = math.sqrt(16);
+product: type.number = mul(3, 4);
+sum: type.number = add(1, 2);
+positive: Positive = 7;
+arr: (a) -> array.every(a, Positive) = [sqrt, product, sum];
+{ positive: positive, arr: arr }

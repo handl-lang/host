@@ -1,8 +1,6 @@
-fn.tap(
-  (s) -> [
-    http_server.route(s, "GET", "/list", str.join(fs.list("crates/lib-http-server/examples/http_server/07-dir-list
-    http_server.start(s, "127.0.0.1:8087"),
-    http_server.join(s)
-  ],
-  http_server.new()
-)
+listing: type.str = str.join(fs.list("crates/lib-http-server/examples/http_server/07-dir-list"), ", ");
+server: type.any = http_server.new();
+route: type.null = http_server.route(server, "GET", "/list", listing);
+start: type.null = http_server.start(server, "127.0.0.1:8087");
+join: type.null = http_server.join(server);
+[route, start, join]

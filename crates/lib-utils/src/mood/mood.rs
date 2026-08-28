@@ -3,121 +3,9 @@ use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
-fn require_arg_count(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
-    if args.len() != expected {
-        return Err(Error::ArgumentCount {
-            expected,
-            got: args.len(),
-        });
-    }
-    Ok(())
-}
-
-fn as_kind(value: &NonFunctionValue) -> Result<&str, Error> {
-    value
-        .as_str()
-        .ok_or_else(|| Error::PrimitiveError("mood kind must be a string".to_string()))
-}
-
-fn bool_value(b: bool) -> NonFunctionValue {
-    NonFunctionValue::new(b)
-}
-
-fn null_value() -> NonFunctionValue {
-    NonFunctionValue::new(JsonValue::Null)
-}
-
-fn type_name(value: &NonFunctionValue) -> &'static str {
-    if value.is_null() {
-        "null"
-    } else if value.is_bool() {
-        "bool"
-    } else if value.is_number() {
-        "num"
-    } else if value.is_string() {
-        "str"
-    } else if value.is_array() {
-        "arr"
-    } else if value.is_object() {
-        "obj"
-    } else {
-        "unknown"
-    }
-}
-
-fn matches(value: &NonFunctionValue, kind: &str) -> bool {
-    if let Some(rest) = kind.strip_prefix("type.") {
-        match rest {
-            "any" | "unknown" => true,
-            "never" => false,
-            "null" => value.is_null(),
-            "bool" | "boolean" | "bin" => value.is_bool(),
-            "num" | "number" => value.is_number(),
-            "str" | "string" => value.is_string(),
-            "arr" | "array" => value.is_array(),
-            "obj" | "object" => value.is_object(),
-            _ => false,
-        }
-    } else if let Some(rest) = kind.strip_prefix("field.") {
-        value.as_object().is_some_and(|o| o.get(rest).is_some())
-    } else {
-        value.as_object().is_some_and(|o| o.get(kind).is_some())
-    }
-}
-
-fn project(value: &NonFunctionValue, kind: &str) -> Option<NonFunctionValue> {
-    if kind.starts_with("type.") {
-        if matches(value, kind) {
-            Some(NonFunctionValue::new(value.inner().clone()))
-        } else {
-            None
-        }
-    } else if let Some(rest) = kind.strip_prefix("field.") {
-        value
-            .as_object()
-            .and_then(|o| o.get(rest))
-            .map(|v| NonFunctionValue::new(v.clone()))
-    } else {
-        value
-            .as_object()
-            .and_then(|o| o.get(kind))
-            .map(|v| NonFunctionValue::new(v.clone()))
-    }
-}
-
-fn complement(value: &NonFunctionValue, kind: &str) -> Option<NonFunctionValue> {
-    if matches(value, kind) {
-        return None;
-    }
-
-    if kind.starts_with("type.") || kind.starts_with("field.") {
-        return Some(NonFunctionValue::new(value.inner().clone()));
-    }
-
-    // Variant tag: the complement is another key in the same object,
-    // or the value itself if it is not a tagged object.
-    if let Some(obj) = value.as_object() {
-        obj.iter()
-            .find(|(k, _)| k.as_str() != kind)
-            .map(|(_, v)| NonFunctionValue::new(v.clone()))
-    } else {
-        Some(NonFunctionValue::new(value.inner().clone()))
-    }
-}
-
-fn ok_result(value: NonFunctionValue) -> NonFunctionValue {
-    NonFunctionValue::new(JsonValue::Object(serde_json::Map::from_iter([(
-        "ok".to_string(),
-        value.into_inner(),
-    )])))
-}
-
-fn err_result(message: &str) -> NonFunctionValue {
-    NonFunctionValue::new(JsonValue::Object(serde_json::Map::from_iter([(
-        "err".to_string(),
-        JsonValue::String(message.to_string()),
-    )])))
-}
+use crate::shared::{
+    as_kind, complement, err_result, matches, ok_result, project, require_arg_count, type_name,
+};
 
 #[derive(Clone, Copy)]
 pub struct MoodInd;
@@ -151,7 +39,7 @@ impl Function<NonFunctionValue> for MoodInt {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(bool_value(matches(value, kind)))
+        Ok(NonFunctionValue::new(matches(value, kind)))
     }
 }
 
@@ -184,7 +72,7 @@ impl Function<NonFunctionValue> for MoodPot {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(project(value, kind).unwrap_or_else(null_value))
+        Ok(project(value, kind).unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)))
     }
 }
 
@@ -199,7 +87,7 @@ impl Function<NonFunctionValue> for MoodNeg {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(complement(value, kind).unwrap_or_else(null_value))
+        Ok(complement(value, kind).unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)))
     }
 }
 

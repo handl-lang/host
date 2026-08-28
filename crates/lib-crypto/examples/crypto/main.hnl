@@ -1,1 +1,2 @@
-crypto.sha256("hello")
+hash: type.str = crypto.sha256("hello");
+hash

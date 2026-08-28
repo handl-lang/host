@@ -1,2 +1,2 @@
-// unicode module example
-// TODO: add a safe, runnable example for this module
+example: type.str = "hello";
+example

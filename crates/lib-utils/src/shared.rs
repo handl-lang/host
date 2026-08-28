@@ -1,6 +1,6 @@
 use handl_vm::Context;
 use handl_vm_values_json::Error;
-use serde_json::Value as JsonValue;
+use serde_json::{Map, Value as JsonValue};
 
 use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 
@@ -276,7 +276,119 @@ pub(crate) fn find_extremum_by<'a, T>(
     items: &'a [T],
     mut better: impl FnMut(&T, &T) -> bool,
 ) -> Option<&'a T> {
-    items.iter().reduce(|best, x| if better(x, best) { x } else { best })
+    items
+        .iter()
+        .reduce(|best, x| if better(x, best) { x } else { best })
+}
+
+// ── type predicates (mood / type.*) ─────────────────────────────────
+
+pub(crate) fn require_arg_count(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
+    if args.len() != expected {
+        return Err(Error::ArgumentCount {
+            expected,
+            got: args.len(),
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn as_kind(value: &NonFunctionValue) -> Result<&str, Error> {
+    value
+        .as_str()
+        .ok_or_else(|| Error::PrimitiveError("type kind must be a string".to_string()))
+}
+
+pub(crate) fn type_name(value: &NonFunctionValue) -> &'static str {
+    if value.is_null() {
+        "null"
+    } else if value.is_bool() {
+        "bool"
+    } else if value.is_number() {
+        "num"
+    } else if value.is_string() {
+        "str"
+    } else if value.is_array() {
+        "arr"
+    } else if value.is_object() {
+        "obj"
+    } else {
+        "unknown"
+    }
+}
+
+pub(crate) fn matches(value: &NonFunctionValue, kind: &str) -> bool {
+    if let Some(rest) = kind.strip_prefix("type.") {
+        match rest {
+            "any" | "unknown" => true,
+            "never" => false,
+            "null" => value.is_null(),
+            "bool" | "boolean" | "bin" => value.is_bool(),
+            "num" | "number" => value.is_number(),
+            "str" | "string" => value.is_string(),
+            "arr" | "array" => value.is_array(),
+            "obj" | "object" => value.is_object(),
+            _ => false,
+        }
+    } else if let Some(rest) = kind.strip_prefix("field.") {
+        value.as_object().is_some_and(|o| o.get(rest).is_some())
+    } else {
+        value.as_object().is_some_and(|o| o.get(kind).is_some())
+    }
+}
+
+pub(crate) fn project(value: &NonFunctionValue, kind: &str) -> Option<NonFunctionValue> {
+    if kind.starts_with("type.") {
+        if matches(value, kind) {
+            Some(NonFunctionValue::new(value.inner().clone()))
+        } else {
+            None
+        }
+    } else if let Some(rest) = kind.strip_prefix("field.") {
+        value
+            .as_object()
+            .and_then(|o| o.get(rest))
+            .map(|v| NonFunctionValue::new(v.clone()))
+    } else {
+        value
+            .as_object()
+            .and_then(|o| o.get(kind))
+            .map(|v| NonFunctionValue::new(v.clone()))
+    }
+}
+
+pub(crate) fn complement(value: &NonFunctionValue, kind: &str) -> Option<NonFunctionValue> {
+    if matches(value, kind) {
+        return None;
+    }
+
+    if kind.starts_with("type.") || kind.starts_with("field.") {
+        return Some(NonFunctionValue::new(value.inner().clone()));
+    }
+
+    // Variant tag: the complement is another key in the same object,
+    // or the value itself if it is not a tagged object.
+    if let Some(obj) = value.as_object() {
+        obj.iter()
+            .find(|(k, _)| k.as_str() != kind)
+            .map(|(_, v)| NonFunctionValue::new(v.clone()))
+    } else {
+        Some(NonFunctionValue::new(value.inner().clone()))
+    }
+}
+
+pub(crate) fn ok_result(value: NonFunctionValue) -> NonFunctionValue {
+    NonFunctionValue::new(JsonValue::Object(Map::from_iter([(
+        "ok".to_string(),
+        value.into_inner(),
+    )])))
+}
+
+pub(crate) fn err_result(message: &str) -> NonFunctionValue {
+    NonFunctionValue::new(JsonValue::Object(Map::from_iter([(
+        "err".to_string(),
+        JsonValue::String(message.to_string()),
+    )])))
 }
 
 // ════════════════════════════════════════════════════════════════════

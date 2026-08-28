@@ -23,10 +23,7 @@ impl PostfixMood {
 }
 
 impl PostfixMood {
-    fn parse_kind(
-        &self,
-        ctx: &mut ParseContext,
-    ) -> Result<String, handl_platform::PlatformError> {
+    fn parse_kind(&self, ctx: &mut ParseContext) -> Result<String, handl_platform::PlatformError> {
         let first = match ctx.peek().cloned() {
             Some(token) => match token.kind {
                 CanonicalKind::Identifier(name) => {
@@ -104,11 +101,11 @@ impl PostfixFragment for PostfixMood {
         };
 
         let mood_fn = match kind {
-            CanonicalKind::Is => "mood.int",
-            CanonicalKind::Must => "mood.norm",
-            CanonicalKind::May => "mood.pot",
-            CanonicalKind::Not => "mood.neg",
-            CanonicalKind::When => "mood.cnd",
+            CanonicalKind::Is => "type.is",
+            CanonicalKind::Must => "type.must",
+            CanonicalKind::May => "type.may",
+            CanonicalKind::Not => "type.not",
+            CanonicalKind::When => "type.when",
             _ => unreachable!(),
         };
 
@@ -128,7 +125,10 @@ impl PostfixFragment for PostfixMood {
             None
         };
 
-        let mut args = vec![old_left, Expr::Value(NonFunctionValue::new(json!(target_kind)))];
+        let mut args = vec![
+            old_left,
+            Expr::Value(NonFunctionValue::new(json!(target_kind))),
+        ];
         if let Some(default) = default {
             args.push(default);
         }
@@ -170,7 +170,7 @@ mod tests {
         assert_eq!(
             expr,
             Expr::call(
-                "mood.int",
+                "type.is",
                 vec![
                     Expr::Var("x".to_string()),
                     Expr::Value(NonFunctionValue::new(json!("int"))),

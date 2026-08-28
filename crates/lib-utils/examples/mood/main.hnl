@@ -1,6 +1,8 @@
-{
-  is_number: mood.int(42, "type.num"),
-  projection: mood.ind(42, "type.num"),
-  complement: mood.neg(42, "type.str"),
-  with_default: mood.cnd(null, "type.num", 0)
-}
+is_number: type.bool = 42 is type.number;
+projection: type.number = 42 may type.number;
+complement: type.number = 42 not type.string;
+required: type.object = 42 must type.number;
+with_default: type.number = null when type.number else 0;
+Even = (n: type.number) -> n % 2 == 0;
+n: Even = 4;
+{ is_number: is_number, projection: projection, complement: complement, required: required, with_default: with_default, even: n }

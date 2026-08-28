@@ -1,25 +1,9 @@
-fn.tap(
-  (s) -> [
-    http_server.route(s, "GET", "/", "Try /port"),
-    http_server.route(
-      s,
-      "GET",
-      "/port",
-      bool.if(
-        env.has("PORT"),
-        str.concat("PORT=", env.get("PORT")),
-        "PORT not set"
-      )
-    ),
-    http_server.start(
-      s,
-      bool.if(
-        env.has("PORT"),
-        str.concat("127.0.0.1:", env.get("PORT")),
-        "127.0.0.1:8084"
-      )
-    ),
-    http_server.join(s)
-  ],
-  http_server.new()
-)
+hasPort: type.bool = env.has("PORT");
+portMessage: type.str = bool.if(hasPort, str.concat("PORT=", env.get("PORT")), "PORT not set");
+bind: type.str = bool.if(hasPort, str.concat("127.0.0.1:", env.get("PORT")), "127.0.0.1:8084");
+server: type.any = http_server.new();
+root: type.null = http_server.route(server, "GET", "/", "Try /port");
+port: type.null = http_server.route(server, "GET", "/port", portMessage);
+start: type.null = http_server.start(server, bind);
+join: type.null = http_server.join(server);
+[root, port, start, join]

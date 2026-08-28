@@ -1,6 +1,5 @@
-{
-  to_number: type.to_number("42"),
-  to_bool: type.to_bool(1),
-  typeof: type.type_of([1, 2, 3]),
-  identity: type.identity("hello")
-}
+to_number: type.number = type.to_number("42");
+to_bool: type.bool = type.to_bool(1);
+typeof: type.string = type.type_of([1, 2, 3]);
+identity: type.string = type.identity("hello");
+{ to_number: to_number, to_bool: to_bool, typeof: typeof, identity: identity }
