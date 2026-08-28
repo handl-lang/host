@@ -1,5 +1,5 @@
 use handl_expr::{expr_to_pattern, ParseContext, StatementFragment, Stmt, StmtKind};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_platform::PlatformError;
 
 /// Statement fragment for `let <pattern> = <expr>`.
@@ -51,19 +51,14 @@ mod tests {
     use super::*;
     use handl_ast_canonical::{Expr, Pattern};
     use handl_expr::ModulePipeline;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
     use handl_plugin_primary_values::PrimaryValues;
     use handl_vm_values_json::NonFunctionValue;
 
     fn pipeline() -> ModulePipeline {
-        let mut p = handl_expr::ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_primary(Box::new(PrimaryValues::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Identifiers::new()));
+p.register_primary(Box::new(PrimaryValues::new()));
         p.register_primary(Box::new(PrimaryIdentifiers::new()));
 
         let mut m = ModulePipeline::new(p);

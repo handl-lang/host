@@ -1,5 +1,5 @@
 use handl_expr::{ParseContext, StatementFragment, Stmt, StmtKind};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_platform::PlatformError;
 
 /// Statement fragment for `import <source>`.
@@ -39,19 +39,14 @@ mod tests {
     use super::*;
     use handl_ast_canonical::Expr;
     use handl_expr::ModulePipeline;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
     use handl_plugin_primary_values::PrimaryValues;
-    use handl_plugin_strings::Strings;
-    use handl_vm_values_json::NonFunctionValue;
+use handl_vm_values_json::NonFunctionValue;
 
     fn pipeline() -> ModulePipeline {
-        let mut p = handl_expr::ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Strings::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_primary(Box::new(PrimaryValues::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Identifiers::new()));
+p.register_primary(Box::new(PrimaryValues::new()));
         p.register_primary(Box::new(PrimaryIdentifiers::new()));
 
         let mut m = ModulePipeline::new(p);

@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{ParseContext, PostfixFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::json;
 
@@ -141,29 +141,13 @@ impl PostfixFragment for PostfixMood {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_lexer_canonical::CanonicalKind;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_keywords::Keywords;
-    use handl_plugin_operators::Operators;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
-
-    fn pipeline() -> ExpressionPipeline {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Keywords::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_token_rule(Box::new(Operators::new()));
-        p.register_primary(Box::new(PrimaryIdentifiers::new()));
-        p.register_postfix(Box::new(PostfixMood::new()));
-        p
-    }
+use handl_kit_canonical::{Kit, CanonicalKind};
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
 
     #[test]
     fn is_mood() {
         let p = pipeline();
-        let tokens = p.lex("x is int").unwrap();
+        let tokens = kit.lex("x is int").unwrap();
         assert_eq!(tokens[0].kind, CanonicalKind::Identifier("x".to_string()));
 
         let expr = p.parse(tokens).unwrap();

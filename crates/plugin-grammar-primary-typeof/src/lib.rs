@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{ParseContext, PrimaryFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_platform::PlatformError;
 use handl_vm_values_json::NonFunctionValue;
 
@@ -40,20 +40,16 @@ impl PrimaryFragment for PrimaryTypeOf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_plugin_keywords::Keywords;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_primary_values::PrimaryValues;
+use handl_plugin_primary_values::PrimaryValues;
 
     #[test]
     fn parses_typeof() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Keywords::new()));
-        p.register_token_rule(Box::new(Numbers::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Numbers::new()));
         p.register_primary(Box::new(PrimaryTypeOf::new()));
         p.register_primary(Box::new(PrimaryValues::new()));
 
-        let tokens = p.lex("typeof 42").unwrap();
+        let tokens = kit.lex("typeof 42").unwrap();
         let expr = p.parse(tokens).unwrap();
         assert_eq!(
             expr,

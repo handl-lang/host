@@ -1,9 +1,0 @@
-[package]
-name = "handl-plugin-comment-tokens"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-platform.workspace = true
-handl-expr.workspace = true
-handl-lexer.workspace = true

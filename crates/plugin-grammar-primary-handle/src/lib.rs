@@ -1,6 +1,6 @@
 use handl_ast_canonical::{Expr, HandlerClause};
 use handl_expr::{ParseContext, PrimaryFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_platform::PlatformError;
 use handl_vm_values_json::NonFunctionValue;
 
@@ -186,23 +186,16 @@ impl PrimaryFragment for PrimaryHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_keywords::Keywords;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_postfix_calls::PostfixCalls;
+use handl_plugin_postfix_calls::PostfixCalls;
     use handl_plugin_primary_identifiers::PrimaryIdentifiers;
     use handl_plugin_primary_parens::PrimaryParens;
     use handl_plugin_primary_values::PrimaryValues;
 
     #[test]
     fn parses_minimal_handle() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Keywords::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Identifiers::new()));
+p.register_token_rule(Box::new(Delimiters::new()));
 
         p.register_primary(Box::new(PrimaryHandle::new()));
         p.register_primary(Box::new(PrimaryParens::new()));
@@ -210,7 +203,7 @@ mod tests {
         p.register_primary(Box::new(PrimaryIdentifiers::new()));
         p.register_postfix(Box::new(PostfixCalls::new()));
 
-        let tokens = p.lex("handle add as add").unwrap();
+        let tokens = kit.lex("handle add as add").unwrap();
         assert!(matches!(tokens[0].kind, CanonicalKind::Handle));
 
         let expr = p.parse(tokens).unwrap();
@@ -228,21 +221,17 @@ mod tests {
 
     #[test]
     fn parses_full_handle() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Keywords::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_token_rule(Box::new(handl_plugin_strings::Strings::new()));
-
-        p.register_primary(Box::new(PrimaryHandle::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Identifiers::new()));
+p.register_token_rule(Box::new(Delimiters::new()));
+p.register_primary(Box::new(PrimaryHandle::new()));
         p.register_primary(Box::new(PrimaryParens::new()));
         p.register_primary(Box::new(PrimaryValues::new()));
         p.register_primary(Box::new(PrimaryIdentifiers::new()));
         p.register_postfix(Box::new(PostfixCalls::new()));
 
         let source = r#"handle("fetch"(url) as k: k(42))"#;
-        let tokens = p.lex(source).unwrap();
+        let tokens = kit.lex(source).unwrap();
         let expr = p.parse(tokens).unwrap();
         let expected = Expr::handle(
             Expr::call("k".to_string(), vec![Expr::Value(NonFunctionValue::new(42.0))]),

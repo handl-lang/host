@@ -91,10 +91,7 @@ members = [
     "crates/plugin-ast-object",
     "crates/plugin-ast-pipe",
     "crates/plugin-ast-var",
-    "crates/plugin-booleans",
-    "crates/plugin-comment-tokens",
     "crates/plugin-comments",
-    "crates/plugin-delimiters",
     "crates/plugin-diag-expression",
     "crates/plugin-doc-comments",
     "crates/plugin-fmt-expression",
@@ -134,22 +131,15 @@ members = [
     "crates/plugin-grammar-stmt-import",
     "crates/plugin-grammar-stmt-let",
     "crates/plugin-grammar-stmt-module",
-    "crates/plugin-identifiers",
     "crates/plugin-lsp-completion",
     "crates/plugin-lsp-goto",
     "crates/plugin-lsp-symbol",
-    "crates/plugin-null",
-    "crates/plugin-numbers",
-    "crates/plugin-operators",
-    "crates/plugin-strings",
     "crates/plugin-target-native-example",
     "crates/plugin-target-rust",
     "crates/plugin-token-bool",
-    "crates/plugin-token-bytes",
     "crates/plugin-token-comment",
     "crates/plugin-token-delimiter",
     "crates/plugin-token-identifier",
-    "crates/plugin-token-keyword",
     "crates/plugin-token-keyword-as",
     "crates/plugin-token-keyword-handle",
     "crates/plugin-token-null",
@@ -282,10 +272,7 @@ handl-plugin-ast-match = { path = "crates/plugin-ast-match" }
 handl-plugin-ast-object = { path = "crates/plugin-ast-object" }
 handl-plugin-ast-pipe = { path = "crates/plugin-ast-pipe" }
 handl-plugin-ast-var = { path = "crates/plugin-ast-var" }
-handl-plugin-booleans = { path = "crates/plugin-booleans" }
-handl-plugin-comment-tokens = { path = "crates/plugin-comment-tokens" }
 handl-plugin-comments = { path = "crates/plugin-comments" }
-handl-plugin-delimiters = { path = "crates/plugin-delimiters" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-doc-comments = { path = "crates/plugin-doc-comments" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
@@ -325,22 +312,15 @@ handl-plugin-grammar-stmt-export = { path = "crates/plugin-grammar-stmt-export" 
 handl-plugin-grammar-stmt-import = { path = "crates/plugin-grammar-stmt-import" }
 handl-plugin-grammar-stmt-let = { path = "crates/plugin-grammar-stmt-let" }
 handl-plugin-grammar-stmt-module = { path = "crates/plugin-grammar-stmt-module" }
-handl-plugin-identifiers = { path = "crates/plugin-identifiers" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
-handl-plugin-null = { path = "crates/plugin-null" }
-handl-plugin-numbers = { path = "crates/plugin-numbers" }
-handl-plugin-operators = { path = "crates/plugin-operators" }
-handl-plugin-strings = { path = "crates/plugin-strings" }
 handl-plugin-target-native-example = { path = "crates/plugin-target-native-example" }
 handl-plugin-target-rust = { path = "crates/plugin-target-rust" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
-handl-plugin-token-bytes = { path = "crates/plugin-token-bytes" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
 handl-plugin-token-delimiter = { path = "crates/plugin-token-delimiter" }
 handl-plugin-token-identifier = { path = "crates/plugin-token-identifier" }
-handl-plugin-token-keyword = { path = "crates/plugin-token-keyword" }
 handl-plugin-token-keyword-as = { path = "crates/plugin-token-keyword-as" }
 handl-plugin-token-keyword-handle = { path = "crates/plugin-token-keyword-handle" }
 handl-plugin-token-null = { path = "crates/plugin-token-null" }

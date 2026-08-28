@@ -150,16 +150,16 @@ impl CanonicalHost {
         };
 
         // Token rules.
-        add("operators");
-        add("bytes");
-        add("booleans");
-        add("null");
-        add("keywords");
-        add("strings");
-        add("numbers");
-        add("comment-tokens");
-        add("delimiters");
-        add("identifiers");
+        add("plugin-token-operator");
+        add("plugin-token-bytes");
+        add("plugin-token-bool");
+        add("plugin-token-null");
+        add("plugin-token-keyword");
+        add("plugin-token-string");
+        add("plugin-token-number");
+        add("plugin-token-comment");
+        add("plugin-token-delimiter");
+        add("plugin-token-identifier");
 
         // Primary fragments.
         add("primary-values");
@@ -210,43 +210,43 @@ impl CanonicalHost {
 
 fn bundle_for(id: &str) -> Option<PluginBundle> {
     let bundle = match id {
-        "operators" => PluginBundle {
+        "plugin-token-operator" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_operators::Operators::new())),
             ..Default::default()
         },
-        "bytes" => PluginBundle {
+        "plugin-token-bytes" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_bytes::Bytes::new())),
             ..Default::default()
         },
-        "booleans" => PluginBundle {
+        "plugin-token-bool" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_booleans::Booleans::new())),
             ..Default::default()
         },
-        "null" => PluginBundle {
+        "plugin-token-null" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_null::Null::new())),
             ..Default::default()
         },
-        "keywords" => PluginBundle {
+        "plugin-token-keyword" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_keywords::Keywords::new())),
             ..Default::default()
         },
-        "strings" => PluginBundle {
+        "plugin-token-string" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_strings::Strings::new())),
             ..Default::default()
         },
-        "numbers" => PluginBundle {
+        "plugin-token-number" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_numbers::Numbers::new())),
             ..Default::default()
         },
-        "comment-tokens" => PluginBundle {
+        "plugin-token-comment" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_comment_tokens::CommentTokens::new())),
             ..Default::default()
         },
-        "delimiters" => PluginBundle {
+        "plugin-token-delimiter" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_delimiters::Delimiters::new())),
             ..Default::default()
         },
-        "identifiers" => PluginBundle {
+        "plugin-token-identifier" => PluginBundle {
             token_rule: Some(Box::new(handl_plugin_identifiers::Identifiers::new())),
             ..Default::default()
         },

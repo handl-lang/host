@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{ParseContext, PrimaryFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value;
 
@@ -63,18 +63,13 @@ impl PrimaryFragment for PrimaryValues {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_lexer_canonical::CanonicalKind;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_strings::Strings;
-
-    #[test]
+use handl_kit_canonical::{Kit, CanonicalKind};
+#[test]
     fn parses_number() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_primary(Box::new(PrimaryValues::new()));
+        let kit = Kit::new();
+p.register_primary(Box::new(PrimaryValues::new()));
 
-        let tokens = p.lex("42").unwrap();
+        let tokens = kit.lex("42").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].kind, CanonicalKind::Number(42.0));
 
@@ -84,11 +79,10 @@ mod tests {
 
     #[test]
     fn parses_string() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Strings::new()));
-        p.register_primary(Box::new(PrimaryValues::new()));
+        let kit = Kit::new();
+p.register_primary(Box::new(PrimaryValues::new()));
 
-        let tokens = p.lex("\"hi\"").unwrap();
+        let tokens = kit.lex("\"hi\"").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].kind, CanonicalKind::String("hi".to_string()));
 

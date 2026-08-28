@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{ParseContext, PrimaryFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_platform::PlatformError;
 use handl_vm_values_json::NonFunctionValue;
 
@@ -77,26 +77,18 @@ impl PrimaryFragment for PrimaryObjects {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
     use handl_plugin_primary_values::PrimaryValues;
-    use handl_plugin_strings::Strings;
-
-    #[test]
+#[test]
     fn parses_object() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_token_rule(Box::new(Strings::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
+        let kit = Kit::new();
+p.register_token_rule(Box::new(Strings::new()));
+p.register_token_rule(Box::new(Delimiters::new()));
         p.register_primary(Box::new(PrimaryObjects::new()));
         p.register_primary(Box::new(PrimaryValues::new()));
         p.register_primary(Box::new(PrimaryIdentifiers::new()));
 
-        let tokens = p.lex("{ \"a\": 1 }").unwrap();
+        let tokens = kit.lex("{ \"a\": 1 }").unwrap();
         let expr = p.parse(tokens).unwrap();
         assert_eq!(
             expr,
@@ -109,11 +101,10 @@ mod tests {
 
     #[test]
     fn parses_empty_object() {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_primary(Box::new(PrimaryObjects::new()));
+        let kit = Kit::new();
+p.register_primary(Box::new(PrimaryObjects::new()));
 
-        let tokens = p.lex("{}").unwrap();
+        let tokens = kit.lex("{}").unwrap();
         let expr = p.parse(tokens).unwrap();
         assert_eq!(expr, Expr::Object(vec![]));
     }

@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{InfixFragment, ParseContext, Token};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_vm_values_json::NonFunctionValue;
 
 /// Infix fragment for flow (`>>>`) and compose (`<<<`) arrow combinators.
@@ -60,25 +60,13 @@ impl InfixFragment for Flow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_lexer_canonical::CanonicalKind;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_operators::Operators;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
-
-    fn pipeline() -> ExpressionPipeline {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Operators::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_primary(Box::new(PrimaryIdentifiers::new()));
-        p.register_infix(Box::new(Flow::new()));
-        p
-    }
+use handl_kit_canonical::{Kit, CanonicalKind};
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
 
     #[test]
     fn flow_forward() {
         let p = pipeline();
-        let tokens = p.lex("f >>> g").unwrap();
+        let tokens = kit.lex("f >>> g").unwrap();
         assert_eq!(tokens[0].kind, CanonicalKind::Identifier("f".to_string()));
         assert_eq!(tokens[1].kind, CanonicalKind::Flow);
         assert_eq!(tokens[2].kind, CanonicalKind::Identifier("g".to_string()));

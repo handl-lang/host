@@ -9,12 +9,7 @@ handl-platform.workspace = true
 handl-vm-values-json.workspace = true
 
 [dev-dependencies]
-handl-plugin-token-keyword.workspace = true
-handl-plugin-identifiers.workspace = true
-handl-plugin-delimiters.workspace = true
-handl-plugin-numbers.workspace = true
 handl-plugin-grammar-primary-value.workspace = true
 handl-plugin-grammar-primary-identifier.workspace = true
 handl-plugin-grammar-primary-paren.workspace = true
-handl-plugin-strings.workspace = true
 handl-plugin-grammar-postfix-call.workspace = true

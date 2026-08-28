@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{InfixFragment, ParseContext, Token};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_vm_values_json::NonFunctionValue;
 
 /// Infix fragment for pipe (`|>`) and backward pipe (`<|`) operators.
@@ -73,31 +73,14 @@ impl InfixFragment for Pipe {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_lexer_canonical::CanonicalKind;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_numbers::Numbers;
-    use handl_plugin_operators::Operators;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
+use handl_kit_canonical::{Kit, CanonicalKind};
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
     use handl_plugin_primary_values::PrimaryValues;
-
-    fn pipeline() -> ExpressionPipeline {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Operators::new()));
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Numbers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_primary(Box::new(PrimaryIdentifiers::new()));
-        p.register_primary(Box::new(PrimaryValues::new()));
-        p.register_infix(Box::new(Pipe::new()));
-        p
-    }
 
     #[test]
     fn pipe_forward() {
         let p = pipeline();
-        let tokens = p.lex("1 |> add").unwrap();
+        let tokens = kit.lex("1 |> add").unwrap();
         assert_eq!(tokens[0].kind, CanonicalKind::Number(1.0));
         assert_eq!(tokens[1].kind, CanonicalKind::Pipe);
         assert_eq!(tokens[2].kind, CanonicalKind::Identifier("add".to_string()));
@@ -118,7 +101,7 @@ mod tests {
     #[test]
     fn pipe_left_to_right() {
         let p = pipeline();
-        let expr = p.parse(p.lex("1 |> add |> mul").unwrap()).unwrap();
+        let expr = p.parse(kit.lex("1 |> add |> mul").unwrap()).unwrap();
         assert_eq!(expr, Expr::call("fn.pipe", vec![
             Expr::call("fn.pipe", vec![
                 Expr::Value(NonFunctionValue::new(1.0)),

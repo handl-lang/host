@@ -9,6 +9,4 @@ handl-platform.workspace = true
 handl-vm-values-json.workspace = true
 
 [dev-dependencies]
-handl-plugin-operators.workspace = true
-handl-plugin-identifiers.workspace = true
 handl-plugin-grammar-primary-identifier.workspace = true

@@ -410,7 +410,7 @@ checksum = "c6232dd377dcc64799954cbd3a9bb882e9cdc1308ccd87b1c098f1fb2eaf82a8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -548,7 +548,7 @@ checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -1603,24 +1603,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-booleans"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
-name = "handl-plugin-comment-tokens"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
 name = "handl-plugin-comments"
 version = "0.1.0"
 dependencies = [
@@ -1630,15 +1612,6 @@ dependencies = [
  "handl-ext-parser",
  "handl-platform",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-delimiters"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
 ]
 
 [[package]]
@@ -1739,11 +1712,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-operators",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1772,11 +1742,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -1787,8 +1754,6 @@ dependencies = [
  "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
- "handl-plugin-identifiers",
- "handl-plugin-operators",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1800,8 +1765,6 @@ dependencies = [
  "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
- "handl-plugin-identifiers",
- "handl-plugin-operators",
  "handl-vm-values-json",
 ]
 
@@ -1811,12 +1774,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
- "handl-plugin-operators",
  "handl-vm-values-json",
 ]
 
@@ -1826,11 +1785,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -1876,14 +1832,9 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-paren",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
- "handl-plugin-operators",
- "handl-plugin-strings",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1894,10 +1845,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1908,11 +1857,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1923,12 +1869,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-operators",
- "handl-plugin-token-keyword",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1939,9 +1881,7 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -1951,15 +1891,10 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-postfix-call",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-paren",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
- "handl-plugin-strings",
- "handl-plugin-token-keyword",
  "handl-vm-values-json",
 ]
 
@@ -1969,7 +1904,6 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-identifiers",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1980,13 +1914,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
- "handl-plugin-operators",
- "handl-plugin-token-keyword",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1997,9 +1926,7 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-booleans",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-token-keyword",
  "handl-vm-values-json",
 ]
 
@@ -2009,12 +1936,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
- "handl-plugin-strings",
  "handl-vm-values-json",
 ]
 
@@ -2024,9 +1947,7 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -2037,8 +1958,6 @@ dependencies = [
  "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-numbers",
- "handl-plugin-token-keyword",
  "handl-vm-values-json",
 ]
 
@@ -2048,8 +1967,6 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-numbers",
- "handl-plugin-strings",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -2060,11 +1977,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -2074,11 +1988,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -2088,11 +1999,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-strings",
  "handl-vm-values-json",
 ]
 
@@ -2102,11 +2010,8 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
 ]
 
@@ -2116,21 +2021,9 @@ version = "0.1.0"
 dependencies = [
  "handl-expr",
  "handl-platform",
- "handl-plugin-delimiters",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-identifiers",
- "handl-plugin-numbers",
  "handl-vm-values-json",
-]
-
-[[package]]
-name = "handl-plugin-identifiers"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
 ]
 
 [[package]]
@@ -2164,42 +2057,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-null"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
-name = "handl-plugin-numbers"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
-name = "handl-plugin-operators"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
-name = "handl-plugin-strings"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
 name = "handl-plugin-target-native-example"
 version = "0.1.0"
 dependencies = [
@@ -2229,15 +2086,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-token-bytes"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
-]
-
-[[package]]
 name = "handl-plugin-token-comment"
 version = "0.1.0"
 dependencies = [
@@ -2256,15 +2104,6 @@ name = "handl-plugin-token-identifier"
 version = "0.1.0"
 dependencies = [
  "handl-lexer",
-]
-
-[[package]]
-name = "handl-plugin-token-keyword"
-version = "0.1.0"
-dependencies = [
- "handl-expr",
- "handl-lexer",
- "handl-platform",
 ]
 
 [[package]]
@@ -3894,7 +3733,7 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -4049,9 +3888,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.3"
+version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53e9bae58849f64dfa4f5d5ae372c8341f7305f82a3868709269343628b659a3"
+checksum = "e6275cddf4610d1775e6d1fe9469b2e77d0f39fd98fb7450901b821e0c53649f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4130,7 +3969,7 @@ checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -4206,7 +4045,7 @@ checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -4969,7 +4808,7 @@ checksum = "34df6fc39dbd26ddc9c10e6a2984476e13acce22e64e4487636ef494369225da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.4",
 ]
 
 [[package]]

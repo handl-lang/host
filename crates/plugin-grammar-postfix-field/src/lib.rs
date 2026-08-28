@@ -1,6 +1,6 @@
 use handl_ast_canonical::Expr;
 use handl_expr::{ParseContext, PostfixFragment};
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::{Kit, CanonicalKind};
 use handl_vm_values_json::NonFunctionValue;
 
 /// Postfix fragment for field access expressions.
@@ -60,25 +60,13 @@ impl PostfixFragment for PostfixField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_expr::ExpressionPipeline;
-    use handl_lexer_canonical::CanonicalKind;
-    use handl_plugin_delimiters::Delimiters;
-    use handl_plugin_identifiers::Identifiers;
-    use handl_plugin_primary_identifiers::PrimaryIdentifiers;
-
-    fn pipeline() -> ExpressionPipeline {
-        let mut p = ExpressionPipeline::new();
-        p.register_token_rule(Box::new(Identifiers::new()));
-        p.register_token_rule(Box::new(Delimiters::new()));
-        p.register_primary(Box::new(PrimaryIdentifiers::new()));
-        p.register_postfix(Box::new(PostfixField::new()));
-        p
-    }
+use handl_kit_canonical::{Kit, CanonicalKind};
+use handl_plugin_primary_identifiers::PrimaryIdentifiers;
 
     #[test]
     fn field_access() {
         let p = pipeline();
-        let tokens = p.lex("obj.key").unwrap();
+        let tokens = kit.lex("obj.key").unwrap();
         assert_eq!(tokens[0].kind, CanonicalKind::Identifier("obj".to_string()));
 
         let expr = p.parse(tokens).unwrap();
