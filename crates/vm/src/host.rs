@@ -1,7 +1,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use handl_ast_canonical::Expr;
+use crate::Expr;
 
 use crate::{Context, Error, Operation, Value};
 

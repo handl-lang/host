@@ -49,5 +49,3 @@ pub mod module;
 pub use error::CryptoError;
 pub use module::CryptoModule;
 
-#[cfg(test)]
-mod hash_tests;

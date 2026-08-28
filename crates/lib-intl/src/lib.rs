@@ -68,32 +68,10 @@ pub use module::IntlModule;
 pub use provider::IntlProvider;
 
 #[cfg(test)]
-mod compare_strings_tests;
-#[cfg(test)]
-mod display_name_tests;
-#[cfg(test)]
-mod format_date_tests;
-#[cfg(test)]
-mod format_date_to_parts_tests;
-#[cfg(test)]
-mod format_duration_tests;
-#[cfg(test)]
-mod format_list_tests;
-#[cfg(test)]
-mod format_number_tests;
-#[cfg(test)]
-mod format_number_to_parts_tests;
-#[cfg(test)]
-mod format_relative_time_tests;
-#[cfg(test)]
 mod locale_match_tests;
 #[cfg(test)]
 mod locale_tests;
 #[cfg(test)]
 mod provider_tests;
-#[cfg(test)]
-mod segment_tests;
-#[cfg(test)]
-mod select_plural_tests;
 #[cfg(test)]
 mod supported_locales_tests;

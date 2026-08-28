@@ -682,32 +682,3 @@ impl Function<NonFunctionValue> for Match {
 /// Lazy `if(cond, then, else)` — only evaluates the chosen branch.
 #[derive(Clone, Copy)]
 pub struct IfLazy;
-
-impl LazyFunction<NonFunctionValue> for IfLazy {
-    fn call(
-        &self,
-        args: &[Expr<NonFunctionValue>],
-        ctx: &mut dyn Context<NonFunctionValue>,
-        evaluate: &mut dyn FnMut(
-            &Expr<NonFunctionValue>,
-            &mut dyn Context<NonFunctionValue>,
-        ) -> Result<NonFunctionValue, Error>,
-    ) -> Result<NonFunctionValue, Error> {
-        if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
-        }
-        let cond = evaluate(&args[0], ctx)?;
-        let cond = cond.as_bool().ok_or(Error::TypeMismatch {
-            expected: "boolean",
-            got: "non-boolean",
-        })?;
-        if cond {
-            evaluate(&args[1], ctx)
-        } else {
-            evaluate(&args[2], ctx)
-        }
-    }
-}

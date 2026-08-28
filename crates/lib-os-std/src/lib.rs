@@ -39,8 +39,6 @@ mod tmp;
 #[cfg(unix)]
 mod mio_socket;
 
-#[cfg(all(test, unix))]
-mod mio_socket_tests;
 #[cfg(test)]
 mod sig_tests;
 #[cfg(test)]

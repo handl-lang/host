@@ -218,6 +218,8 @@ fn summarize(expr: &Expr<NonFunctionValue>) -> String {
         Expr::Handle { .. } => "Handle".to_string(),
         Expr::Array(elements) => format!("Array({})", elements.len()),
         Expr::Object(entries) => format!("Object({})", entries.len()),
+        Expr::Pipe(_, _) => "Pipe".to_string(),
+        Expr::Match { .. } => "Match".to_string(),
     }
 }
 

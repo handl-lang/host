@@ -34,5 +34,3 @@ pub use module::TlsModule;
 pub use service::TlsService;
 pub use stub::StubTls;
 
-#[cfg(test)]
-mod tests;

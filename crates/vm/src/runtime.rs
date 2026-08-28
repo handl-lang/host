@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use handl_ast_canonical::Expr;
+use crate::Expr;
 use indexmap::IndexMap;
 
 use crate::{AsyncEval, Error, Eval, Value};

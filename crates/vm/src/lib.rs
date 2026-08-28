@@ -12,6 +12,7 @@
 
 pub mod error;
 pub mod eval;
+pub mod expr;
 pub mod function_repr;
 pub mod host;
 pub mod mock;
@@ -19,7 +20,7 @@ pub mod operation;
 pub mod runtime;
 pub mod value;
 
-pub use handl_ast_canonical::{Expr, ExprFactory, HandlerClause, Pattern};
+pub use expr::{Expr, ExprFactory, HandlerClause, Pattern};
 pub use error::Error;
 pub use eval::{AsyncEval, Eval};
 pub use function_repr::FunctionRepr;
