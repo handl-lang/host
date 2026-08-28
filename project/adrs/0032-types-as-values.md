@@ -23,13 +23,13 @@ Current state:
 
 ## Consequences
 
-- Base type predicates (`type.string`, `type.number`, `type.bool`, `type.null`, `type.array`, `type.object`, etc.) are ordinary functions.
+- The `type` module has only six primitive predicates: `type.string`, `type.number`, `type.bool`, `type.null`, `type.array`, `type.object`.
 - Record types are objects of predicates: `Person = { name: type.string, age: type.number }`.
 - Array-of-T is `array.every(arr, T)`, not a special type combinator.
 - Refinement types are ordinary functions with typed parameters: `Even = (n: type.number) -> n % 2 == 0`.
 - Function return types are part of the function signature: `addOne = (n: type.number): type.number -> n + 1`.
-- The `type` module is tiny. It only needs primitive predicates and `type.type_of`. Everything else is ordinary handl code.
-- `type.unknown` remains because it is a value exposed by the typecheck host to signal unknown types to the typechecker. It is not a runtime predicate.
+- `type.any` and `type.unknown` are not in the `type` module. `Any = (_) -> true` is ordinary Handl code. `Unknown` is an internal typecheck-host concept, not a runtime predicate.
+- `type.type_of` is reflection and out of scope for the core design. It can be added later without changing the model.
 - Function values must carry declared parameter/return type metadata so that `f is NumberToNumber` can be checked. Runtime behavior cannot be observed statically.
 - `handl-vm-values-json` will be replaced or become a thin serialization view of `handl-vm-type::Value`.
 - The `mood` module becomes redundant. Its runtime behavior can move into the `type` module or become ordinary handl functions.
