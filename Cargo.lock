@@ -841,6 +841,7 @@ dependencies = [
  "handl-ext-parser",
  "handl-ext-typecheck",
  "handl-lexer",
+ "handl-lexer-common",
  "handl-parser",
  "handl-platform",
  "handl-plugin-ast-apply",

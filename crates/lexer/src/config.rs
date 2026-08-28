@@ -11,7 +11,7 @@
 //! A dialect crate (e.g. `handl-lexer-canonical`) provides a preset function that populates
 //! the config with the dialect's keywords, delimiters, and rules.
 
-use crate::{LexError, LexRule, TokenKind};
+use crate::{DefaultLexError, EofFactory, LexError, LexRule, Span, Token, TokenKind};
 
 /// Configuration for the lexing engine.
 ///
@@ -154,6 +154,50 @@ impl<K: TokenKind, E: LexError> LexerConfig<K, E> {
     /// Returns the ordered list of lexing rules.
     pub fn rules(&self) -> &[Box<dyn LexRule<K, E>>] {
         &self.rules
+    }
+
+    /// Lexes `input` into a token stream using the configured rules, keywords,
+    /// and delimiters.
+    ///
+    /// Whitespace is skipped. On a successful lex, an EOF token is appended
+    /// at the end of the stream. If no rule matches a non-whitespace
+    /// character, an unexpected-character error is returned.
+    pub fn lex(&self, input: &str) -> Result<Vec<Token<K>>, E>
+    where
+        E: From<DefaultLexError>,
+    {
+        let mut tokens = Vec::new();
+        let mut chars = input.char_indices().peekable();
+
+        while let Some(&(start, ch)) = chars.peek() {
+            if ch.is_whitespace() {
+                chars.next();
+                continue;
+            }
+
+            let mut matched = false;
+            for rule in &self.rules {
+                match rule.try_lex(&mut chars, self) {
+                    None => continue,
+                    Some(Ok(token)) => {
+                        tokens.push(token);
+                        matched = true;
+                        break;
+                    }
+                    Some(Err(e)) => return Err(e),
+                }
+            }
+
+            if !matched {
+                return Err(E::from(DefaultLexError::UnexpectedChar {
+                    span: Span::new(start, start + ch.len_utf8()),
+                    char: ch,
+                }));
+            }
+        }
+
+        tokens.push(Token::new(self.factory.eof_kind(), Span::at(input.len())));
+        Ok(tokens)
     }
 
     // --- Composition ---

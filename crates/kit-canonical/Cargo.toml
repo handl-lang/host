@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 handl-ast = { workspace = true }
 handl-lexer = { workspace = true }
+handl-lexer-common = { workspace = true }
 handl-parser = { workspace = true }
 handl-platform = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

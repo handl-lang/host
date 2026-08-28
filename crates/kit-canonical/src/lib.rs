@@ -12,7 +12,15 @@ use std::sync::Arc;
 
 use handl_ast::{Expr, Node, Stmt};
 use handl_lexer::primitives;
-use handl_lexer::{CommentFactory, DefaultLexError, EofFactory, IdentFactory, KeywordFactory, KindFactory, Lexer, NumberFactory, OperatorFactory, Span, StringFactory, Token, TokenKind};
+use handl_lexer::{
+    CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, IdentFactory, KeywordFactory,
+    KindFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory, Token,
+    TokenKind,
+};
+use handl_lexer_common::{
+    BlockCommentRule, DelimiterRule, IdentRule, KeywordRule, LineCommentRule,
+    NumberRule as LexNumberRule, OperatorRule, StringRule as LexStringRule,
+};
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
@@ -51,7 +59,7 @@ use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
 use handl_plugin_token_doc_comment::{
     is_doc_block_comment_start, is_doc_line_comment_start, lex_doc_block_comment,
-    lex_doc_line_comment, DocCommentKind,
+    lex_doc_line_comment, DocCommentKind, DocCommentRule,
 };
 use handl_plugin_token_delimiter::DelimiterKind;
 use handl_plugin_token_identifier::IdentKind;
@@ -355,6 +363,12 @@ impl TokenKind for CanonicalKind {
 
     fn is_error(&self) -> bool {
         false
+    }
+}
+
+impl CommentTokenKind for CanonicalKind {
+    fn is_comment(&self) -> bool {
+        matches!(self, CanonicalKind::Comment(_) | CanonicalKind::DocComment(_))
     }
 }
 
@@ -960,92 +974,29 @@ pub struct CanonicalLexer;
 
 impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
     fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
-        let factory = CanonicalFactory;
-        let mut tokens = Vec::new();
-        let mut chars = input.char_indices().peekable();
+        let tokens = LexerConfig::new(CanonicalFactory)
+            .with_delimiter('(', CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
+            .with_delimiter(')', CanonicalKind::Delimiter(CanonicalDelim::ParenClose))
+            .with_delimiter('[', CanonicalKind::Delimiter(CanonicalDelim::BracketOpen))
+            .with_delimiter(']', CanonicalKind::Delimiter(CanonicalDelim::BracketClose))
+            .with_delimiter('{', CanonicalKind::Delimiter(CanonicalDelim::BraceOpen))
+            .with_delimiter('}', CanonicalKind::Delimiter(CanonicalDelim::BraceClose))
+            .with_delimiter(',', CanonicalKind::Delimiter(CanonicalDelim::Comma))
+            .with_delimiter(':', CanonicalKind::Delimiter(CanonicalDelim::Colon))
+            .with_delimiter('.', CanonicalKind::Delimiter(CanonicalDelim::Dot))
+            .with_delimiter(';', CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
+            .with_rule(DocCommentRule)
+            .with_rule(LineCommentRule)
+            .with_rule(BlockCommentRule)
+            .with_rule(LexStringRule)
+            .with_rule(LexNumberRule)
+            .with_rule(KeywordRule)
+            .with_rule(IdentRule)
+            .with_rule(OperatorRule)
+            .with_rule(DelimiterRule)
+            .lex(input)?;
 
-        while let Some(&(start, ch)) = chars.peek() {
-            if ch.is_whitespace() {
-                chars.next();
-                continue;
-            }
-
-            // Skip comments rather than surfacing them to the parser.
-            if CommentFactory::is_doc_line_comment_start(&factory, &mut chars) {
-                let _ = CommentFactory::lex_doc_line_comment(&factory, &mut chars);
-                continue;
-            }
-
-            if CommentFactory::is_doc_block_comment_start(&factory, &mut chars) {
-                let _ = CommentFactory::lex_doc_block_comment(&factory, &mut chars)?;
-                continue;
-            }
-
-            if CommentFactory::is_line_comment_start(&factory, &mut chars) {
-                let _ = CommentFactory::lex_line_comment(&factory, &mut chars);
-                continue;
-            }
-
-            if CommentFactory::is_block_comment_start(&factory, &mut chars) {
-                let _ = CommentFactory::lex_block_comment(&factory, &mut chars)?;
-                continue;
-            }
-
-            if StringFactory::is_string_start(&factory, ch) {
-                let (value, span) = StringFactory::lex_string(&factory, &mut chars)?;
-                tokens.push(Token::new(CanonicalKind::String(value), span));
-                continue;
-            }
-
-            if NumberFactory::is_number_start(&factory, ch) {
-                let (value, span) = NumberFactory::lex_number(&factory, &mut chars)?;
-                tokens.push(Token::new(CanonicalKind::Number(value), span));
-                continue;
-            }
-
-            if IdentFactory::is_ident_start(&factory, ch) {
-                let (text, span) = IdentFactory::lex_ident(&factory, &mut chars)?;
-                let kind = factory
-                    .keyword_kind(&text)
-                    .unwrap_or_else(|| CanonicalKind::Identifier(text));
-                tokens.push(Token::new(kind, span));
-                continue;
-            }
-
-            if let Some((kind, span)) = OperatorFactory::lex_operator(&factory, &mut chars) {
-                tokens.push(Token::new(kind, span));
-                continue;
-            }
-
-            let delim = match ch {
-                '(' => Some(CanonicalKind::Delimiter(CanonicalDelim::ParenOpen)),
-                ')' => Some(CanonicalKind::Delimiter(CanonicalDelim::ParenClose)),
-                '[' => Some(CanonicalKind::Delimiter(CanonicalDelim::BracketOpen)),
-                ']' => Some(CanonicalKind::Delimiter(CanonicalDelim::BracketClose)),
-                '{' => Some(CanonicalKind::Delimiter(CanonicalDelim::BraceOpen)),
-                '}' => Some(CanonicalKind::Delimiter(CanonicalDelim::BraceClose)),
-                ',' => Some(CanonicalKind::Delimiter(CanonicalDelim::Comma)),
-                ':' => Some(CanonicalKind::Delimiter(CanonicalDelim::Colon)),
-                '.' => Some(CanonicalKind::Delimiter(CanonicalDelim::Dot)),
-                ';' => Some(CanonicalKind::Delimiter(CanonicalDelim::Semicolon)),
-                _ => None,
-            };
-
-            if let Some(kind) = delim {
-                let end = start + ch.len_utf8();
-                tokens.push(Token::new(kind, Span::new(start, end)));
-                chars.next();
-                continue;
-            }
-
-            return Err(DefaultLexError::UnexpectedChar {
-                span: Span::new(start, start + ch.len_utf8()),
-                char: ch,
-            });
-        }
-
-        tokens.push(Token::new(CanonicalKind::Eof, Span::at(input.len())));
-        Ok(tokens)
+        Ok(tokens.into_iter().filter(|t| !t.kind.is_comment()).collect())
     }
 }
 

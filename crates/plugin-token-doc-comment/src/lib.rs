@@ -1,6 +1,9 @@
 #![allow(non_snake_case)]
 use handl_lexer::primitives;
-use handl_lexer::{DefaultLexError, Span, Token, TokenKind};
+use handl_lexer::{
+    CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexerConfig, LexRule, Span, Token,
+    TokenKind,
+};
 use std::fmt;
 
 /// Token kind for canonical doc-comment tokens.
@@ -43,6 +46,48 @@ pub struct TokenFactory;
 impl handl_lexer::EofFactory<DocCommentKind> for TokenFactory {
     fn eof_kind(&self) -> DocCommentKind {
         DocCommentKind::Eof
+    }
+}
+
+/// [`LexRule`] implementation that matches doc line and block comments.
+#[derive(Clone, Default)]
+pub struct DocCommentRule;
+
+impl<K, E> LexRule<K, E> for DocCommentRule
+where
+    K: CommentTokenKind,
+    K::Factory: CommentFactory<K>,
+    E: LexError + From<DefaultLexError>,
+{
+    fn try_lex(
+        &self,
+        chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+        config: &LexerConfig<K, E>,
+    ) -> Option<Result<Token<K>, E>> {
+        if config.factory().is_doc_line_comment_start(chars) {
+            let (text, span) = config.factory().lex_doc_line_comment(chars);
+            return Some(Ok(Token::new(config.factory().doc_comment_kind(text), span)));
+        }
+
+        if config.factory().is_doc_block_comment_start(chars) {
+            return Some(
+                config
+                    .factory()
+                    .lex_doc_block_comment(chars)
+                    .map(|(text, span)| Token::new(config.factory().doc_comment_kind(text), span))
+                    .map_err(E::from),
+            );
+        }
+
+        None
+    }
+
+    fn name(&self) -> &'static str {
+        "doc_comment"
+    }
+
+    fn clone_box(&self) -> Box<dyn LexRule<K, E>> {
+        Box::new(self.clone())
     }
 }
 
