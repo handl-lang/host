@@ -70,6 +70,12 @@ pub fn canonical_manifest() -> KitManifest {
             // Grammar rule plugins
             "plugin-grammar-call".to_string(),
             "plugin-grammar-apply".to_string(),
+            // Runtime built-in plugins
+            "plugin-runtime-arithmetic".to_string(),
+            "plugin-runtime-boolean".to_string(),
+            "plugin-runtime-array".to_string(),
+            "plugin-runtime-object".to_string(),
+            "plugin-runtime-apply".to_string(),
             "plugin-grammar-index".to_string(),
             "plugin-grammar-pipe".to_string(),
             "plugin-grammar-let".to_string(),

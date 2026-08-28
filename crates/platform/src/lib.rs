@@ -27,6 +27,8 @@ pub mod plugin_model;
 pub mod plugin;
 /// Plugin composition resolution.
 pub mod resolve;
+/// Runtime built-in host and behavior rules for ADR-0034.
+pub mod runtime_host;
 /// Unified `Value`/`Term` space for the platform VM.
 pub mod value;
 /// Composable VM wrapper over the unified value space.
@@ -44,6 +46,7 @@ pub use options::*;
 pub use plugin_model::*;
 pub use plugin::*;
 pub use resolve::*;
+pub use runtime_host::*;
 
 /// Unified value space primitives re-exported from `handl_lib_type`.
 pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};

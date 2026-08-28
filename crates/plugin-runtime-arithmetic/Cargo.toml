@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-runtime-arithmetic"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-vm = { workspace = true }
+handl-vm-values-json = { workspace = true }
+serde_json = { workspace = true }

@@ -865,6 +865,11 @@ dependencies = [
  "handl-plugin-grammar-match",
  "handl-plugin-grammar-object",
  "handl-plugin-grammar-pipe",
+ "handl-plugin-runtime-apply",
+ "handl-plugin-runtime-arithmetic",
+ "handl-plugin-runtime-array",
+ "handl-plugin-runtime-boolean",
+ "handl-plugin-runtime-object",
  "handl-plugin-token-bool",
  "handl-plugin-token-comment",
  "handl-plugin-token-delimiter",
@@ -1508,7 +1513,9 @@ name = "handl-platform"
 version = "0.1.0"
 dependencies = [
  "handl-lib-type",
+ "handl-vm",
  "handl-vm-type",
+ "handl-vm-values-json",
  "semver",
  "serde",
  "serde_json",
@@ -2033,6 +2040,56 @@ dependencies = [
  "handl-kit-canonical",
  "handl-platform",
  "handl-tooling",
+]
+
+[[package]]
+name = "handl-plugin-runtime-apply"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-runtime-arithmetic"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-runtime-array"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-runtime-boolean"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-runtime-object"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
+ "serde_json",
 ]
 
 [[package]]

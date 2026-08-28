@@ -21,6 +21,12 @@ handl-ext-typecheck = { path = "../ext-typecheck" }
 handl-ext-eval = { path = "../ext-eval" }
 handl-target-native = { path = "../target-native" }
 
+handl-plugin-runtime-arithmetic = { path = "../plugin-runtime-arithmetic" }
+handl-plugin-runtime-array = { path = "../plugin-runtime-array" }
+handl-plugin-runtime-apply = { path = "../plugin-runtime-apply" }
+handl-plugin-runtime-boolean = { path = "../plugin-runtime-boolean" }
+handl-plugin-runtime-object = { path = "../plugin-runtime-object" }
+
 handl-plugin-ast-apply = { path = "../plugin-ast-apply" }
 handl-plugin-ast-array = { path = "../plugin-ast-array" }
 handl-plugin-ast-assign = { path = "../plugin-ast-assign" }

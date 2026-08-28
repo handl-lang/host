@@ -34,6 +34,12 @@ use handl_ext_typecheck::BasicTypechecker;
 use handl_ext_eval::EvalPlugin;
 
 use handl_target_native::NativeTarget;
+use handl_platform::RuntimeHost;
+use handl_plugin_runtime_arithmetic::ArithmeticPlugin;
+use handl_plugin_runtime_array::ArrayPlugin;
+use handl_plugin_runtime_apply::ApplyPlugin;
+use handl_plugin_runtime_boolean::BooleanPlugin;
+use handl_plugin_runtime_object::ObjectPlugin;
 use handl_plugin_ast_apply::Apply;
 use handl_plugin_ast_array::Array;
 use handl_plugin_ast_assign::Assign;
@@ -1250,6 +1256,14 @@ impl Plugin for CanonicalKit {
 
         // Target and library plugins
         ctx.register_plugin(NativeTarget::new())?;
+
+        // Runtime built-in host and families for the Rust VM target
+        ctx.register_plugin(RuntimeHost::new())?;
+        ctx.register_plugin(ArithmeticPlugin::new())?;
+        ctx.register_plugin(BooleanPlugin::new())?;
+        ctx.register_plugin(ArrayPlugin::new())?;
+        ctx.register_plugin(ObjectPlugin::new())?;
+        ctx.register_plugin(ApplyPlugin::new())?;
 
         // The canonical manifest lists token, AST-shape, and grammar-rule plugins
         // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide

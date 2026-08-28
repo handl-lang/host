@@ -61,4 +61,9 @@ impl<'a> ContributionContext<'a> {
             None => Err(PlatformError::MissingRuleAcceptor(std::any::type_name::<P>().to_string())),
         }
     }
+
+    /// Returns a mutable reference to a registered plugin of the given type, if any.
+    pub fn get_plugin_mut<P: Plugin + 'static>(&mut self) -> Option<&mut P> {
+        self.plugins.get_plugin_mut::<P>()
+    }
 }

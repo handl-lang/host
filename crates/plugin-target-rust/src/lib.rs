@@ -1,21 +1,25 @@
 //! Runtime plugin backed by the Rust VM interpreter.
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use handl_expr::{Pattern, Stmt, StmtKind};
 use handl_platform::{
     CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
+    RuntimeBehavior, RuntimeHost,
 };
 use handl_runtime::{EvalOutput, RuntimePlugin};
 use handl_vm::{Context, Error, Function, Host, VirtualMachine};
 use handl_vm_backend_rust_interpreter::{
-    CanonicalContext, CanonicalEval, CanonicalVm, FunctionValue, NonFunctionValue,
+    CanonicalContext, CanonicalEval, CanonicalVm, NonFunctionValue,
 };
 use handl_vm_common::ModuleHost;
-use serde_json::Value as JsonValue;
 
 /// A `RuntimePlugin` adapter around the canonical Rust VM.
 pub struct RustVm {
     capabilities: Vec<CapabilityId>,
     modules: ModuleHost,
+    rules: Mutex<Vec<Arc<dyn RuntimeBehavior>>>,
 }
 
 impl RustVm {
@@ -24,6 +28,7 @@ impl RustVm {
         Self {
             capabilities: vec![CapabilityId::from("runtime")],
             modules: ModuleHost::new(),
+            rules: Mutex::new(Vec::new()),
         }
     }
 
@@ -32,6 +37,7 @@ impl RustVm {
         Self {
             capabilities: vec![CapabilityId::from("runtime")],
             modules,
+            rules: Mutex::new(Vec::new()),
         }
     }
 }
@@ -48,10 +54,8 @@ impl RuntimePlugin for RustVm {
     }
 
     fn eval(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<EvalOutput, PlatformError> {
-        let host = CompositeHost {
-            builtin: BuiltinHost,
-            modules: self.modules.clone(),
-        };
+        let rules = self.rules.lock().unwrap().clone();
+        let host = CompositeHost::new(&rules, self.modules.clone());
         let mut ctx = CanonicalContext::new();
         ctx.set_eval(Box::new(CanonicalEval::new(host.clone(), None, None)));
         let vm = CanonicalVm::new(host);
@@ -94,6 +98,15 @@ impl Plugin for RustVm {
         Some(serde_json::json!({}))
     }
 
+    fn contribute(&self, ctx: &mut handl_platform::ContributionContext) -> Result<(), PlatformError> {
+        // Snapshot any runtime rules that have already been contributed to the
+        // platform `RuntimeHost`.
+        if let Some(host) = ctx.get_plugin_mut::<RuntimeHost>() {
+            *self.rules.lock().unwrap() = host.rules().to_vec();
+        }
+        Ok(())
+    }
+
     fn run(
         &self,
         _request: &CapabilityRequest,
@@ -119,41 +132,34 @@ fn define_simple(
     }
 }
 
-#[derive(Clone)]
-struct BuiltinHost;
-
-impl Host<NonFunctionValue> for BuiltinHost {
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        match name {
-            "add" => Some(&ADD),
-            "sub" => Some(&SUB),
-            "mul" => Some(&MUL),
-            "div" => Some(&DIV),
-            "eq" => Some(&EQ),
-            "lt" => Some(&LT),
-            "and" => Some(&AND),
-            "or" => Some(&OR),
-            "not" | "bool.not" => Some(&NOT),
-            "array.at" => Some(&ARRAY_AT),
-            "obj.get" => Some(&OBJ_GET),
-            "apply" => Some(&APPLY),
-            "fn.pipe" => Some(&PIPE),
-            _ => None,
-        }
-    }
-}
-
-/// A host that combines built-in functions with a `ModuleHost` of loaded libraries.
+/// A host that combines contributed built-in functions with a `ModuleHost` of loaded libraries.
 #[derive(Clone)]
 struct CompositeHost {
-    builtin: BuiltinHost,
+    functions: HashMap<String, Arc<dyn Function<NonFunctionValue>>>,
     modules: ModuleHost,
+}
+
+impl CompositeHost {
+    fn new(rules: &[Arc<dyn RuntimeBehavior>], modules: ModuleHost) -> Self {
+        let mut functions = HashMap::new();
+        for rule in rules {
+            for &name in rule.provides() {
+                let f: Arc<dyn Function<NonFunctionValue>> = Arc::new(RuntimeFunction {
+                    rule: rule.clone(),
+                    name: name.to_string(),
+                });
+                functions.insert(name.to_string(), f);
+            }
+        }
+        Self { functions, modules }
+    }
 }
 
 impl Host<NonFunctionValue> for CompositeHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        self.builtin
-            .function(name)
+        self.functions
+            .get(name)
+            .map(|f| f.as_ref())
             .or_else(|| self.modules.function(name))
     }
 
@@ -177,282 +183,21 @@ impl Host<NonFunctionValue> for CompositeHost {
     }
 
     fn is_reserved(&self, name: &str) -> bool {
-        self.builtin.is_reserved(name) || self.modules.is_reserved(name)
+        self.functions.contains_key(name) || self.modules.is_reserved(name)
     }
 }
 
-struct Add;
-struct Sub;
-struct Mul;
-struct Div;
-struct Eq;
-struct Lt;
-struct And;
-struct Or;
-struct Not;
-struct ArrayAt;
-struct ObjGet;
-struct Apply;
-struct Pipe;
-
-static ADD: Add = Add;
-static SUB: Sub = Sub;
-static MUL: Mul = Mul;
-static DIV: Div = Div;
-static EQ: Eq = Eq;
-static LT: Lt = Lt;
-static AND: And = And;
-static OR: Or = Or;
-static NOT: Not = Not;
-static ARRAY_AT: ArrayAt = ArrayAt;
-static OBJ_GET: ObjGet = ObjGet;
-static APPLY: Apply = Apply;
-static PIPE: Pipe = Pipe;
-
-fn json_kind(v: &NonFunctionValue) -> &'static str {
-    match v.inner() {
-        JsonValue::Array(_) => "array",
-        JsonValue::Object(_) => "object",
-        JsonValue::String(_) => "string",
-        JsonValue::Number(_) => "number",
-        JsonValue::Bool(_) => "boolean",
-        JsonValue::Null => "null",
-    }
+struct RuntimeFunction {
+    rule: Arc<dyn RuntimeBehavior>,
+    name: String,
 }
 
-fn expect_n(args: &[NonFunctionValue], n: usize) -> Result<(), Error<NonFunctionValue>> {
-    if args.len() != n {
-        Err(Error::ArgumentCount {
-            expected: n,
-            got: args.len(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
-fn as_number(v: &NonFunctionValue) -> Result<f64, Error<NonFunctionValue>> {
-    v.as_number().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: json_kind(v),
-    })
-}
-
-fn as_bool(v: &NonFunctionValue) -> Result<bool, Error<NonFunctionValue>> {
-    v.as_bool().ok_or(Error::TypeMismatch {
-        expected: "boolean",
-        got: json_kind(v),
-    })
-}
-
-impl Function<NonFunctionValue> for Add {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_number(&args[0])?;
-        let b = as_number(&args[1])?;
-        Ok(NonFunctionValue::new(a + b))
-    }
-}
-
-impl Function<NonFunctionValue> for Sub {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_number(&args[0])?;
-        let b = as_number(&args[1])?;
-        Ok(NonFunctionValue::new(a - b))
-    }
-}
-
-impl Function<NonFunctionValue> for Mul {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_number(&args[0])?;
-        let b = as_number(&args[1])?;
-        Ok(NonFunctionValue::new(a * b))
-    }
-}
-
-impl Function<NonFunctionValue> for Div {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_number(&args[0])?;
-        let b = as_number(&args[1])?;
-        if b == 0.0 {
-            return Err(Error::PrimitiveError("division by zero".to_string()));
-        }
-        Ok(NonFunctionValue::new(a / b))
-    }
-}
-
-impl Function<NonFunctionValue> for Eq {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        Ok(NonFunctionValue::new(args[0].inner() == args[1].inner()))
-    }
-}
-
-impl Function<NonFunctionValue> for Lt {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_number(&args[0])?;
-        let b = as_number(&args[1])?;
-        Ok(NonFunctionValue::new(a < b))
-    }
-}
-
-impl Function<NonFunctionValue> for And {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_bool(&args[0])?;
-        let b = as_bool(&args[1])?;
-        Ok(NonFunctionValue::new(a && b))
-    }
-}
-
-impl Function<NonFunctionValue> for Or {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let a = as_bool(&args[0])?;
-        let b = as_bool(&args[1])?;
-        Ok(NonFunctionValue::new(a || b))
-    }
-}
-
-impl Function<NonFunctionValue> for Not {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 1)?;
-        let a = as_bool(&args[0])?;
-        Ok(NonFunctionValue::new(!a))
-    }
-}
-
-impl Function<NonFunctionValue> for ArrayAt {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let arr = args[0].as_array().ok_or(Error::TypeMismatch {
-            expected: "array",
-            got: json_kind(&args[0]),
-        })?;
-        let idx = as_number(&args[1])? as usize;
-        Ok(NonFunctionValue::new(
-            arr.get(idx).cloned().unwrap_or(JsonValue::Null),
-        ))
-    }
-}
-
-impl Function<NonFunctionValue> for ObjGet {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let obj = args[0].as_object().ok_or(Error::TypeMismatch {
-            expected: "object",
-            got: json_kind(&args[0]),
-        })?;
-        let key = args[1].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: json_kind(&args[1]),
-        })?;
-        Ok(NonFunctionValue::new(
-            obj.get(key).cloned().unwrap_or(JsonValue::Null),
-        ))
-    }
-}
-
-impl Function<NonFunctionValue> for Apply {
+impl Function<NonFunctionValue> for RuntimeFunction {
     fn call(
         &self,
         args: &[NonFunctionValue],
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        if args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            });
-        }
-        let fv = FunctionValue::from_json(args[0].inner()).ok_or(Error::TypeMismatch {
-            expected: "function",
-            got: json_kind(&args[0]),
-        })?;
-        let call_args = &args[1..];
-        if call_args.len() != fv.params.len() {
-            return Err(Error::ArgumentCount {
-                expected: fv.params.len(),
-                got: call_args.len(),
-            });
-        }
-        let vars: Vec<(String, NonFunctionValue)> = fv
-            .params
-            .iter()
-            .zip(call_args.iter())
-            .map(|((name, _), value)| (name.clone(), value.clone()))
-            .collect();
-        ctx.eval_expr(&fv.body, &vars)
-    }
-}
-
-impl Function<NonFunctionValue> for Pipe {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        expect_n(args, 2)?;
-        let left = &args[0];
-        let fv = FunctionValue::from_json(args[1].inner()).ok_or(Error::TypeMismatch {
-            expected: "function",
-            got: json_kind(&args[1]),
-        })?;
-        if fv.params.len() != 1 {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: fv.params.len(),
-            });
-        }
-        let name = fv.params[0].0.clone();
-        ctx.eval_expr(&fv.body, &[(name, left.clone())])
+        self.rule.call(&self.name, args, ctx)
     }
 }

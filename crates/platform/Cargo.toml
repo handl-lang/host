@@ -7,6 +7,8 @@ edition.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+handl-vm = { workspace = true }
+handl-vm-values-json = { workspace = true }
 handl-vm-type = { workspace = true }
 handl-lib-type = { workspace = true }
 semver = "1"
