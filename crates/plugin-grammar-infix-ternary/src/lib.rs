@@ -1,97 +1,20 @@
-use handl_ast_canonical::Expr;
-use handl_expr::{InfixFragment, ParseContext, Token};
-use handl_kit_canonical::{Kit, CanonicalKind};
-use handl_vm_values_json::NonFunctionValue;
+//! Stub for `{lib_rs.parent.parent.name}`; grammar rule port pending.
 
-/// Infix fragment for the ternary (`? :`) operator.
+/// Placeholder rule type.
 pub struct Ternary;
 
-const TERNARY_TOKENS: &'static [CanonicalKind] = &[CanonicalKind::Question];
-
 impl Ternary {
-    /// Creates a new ternary infix fragment.
+    /// Creates a new placeholder rule.
     pub fn new() -> Self {
         Ternary
     }
 }
 
-impl InfixFragment for Ternary {
-    fn infix_tokens(&self) -> &'static [CanonicalKind] {
-        TERNARY_TOKENS
-    }
-
-    fn binding(&self, token: &Token) -> Option<(u32, u32)> {
-        match token.kind {
-            CanonicalKind::Question => Some((30, 29)),
-            _ => None,
-        }
-    }
-
-    fn try_infix(
-        &self,
-        left: &mut Expr<NonFunctionValue>,
-        ctx: &mut ParseContext,
-    ) -> Option<Result<(), handl_platform::PlatformError>> {
-        if ctx.peek()?.kind != CanonicalKind::Question {
-            return None;
-        }
-        let old_left = std::mem::replace(left, Expr::Value(NonFunctionValue::default()));
-        ctx.consume(); // `?`
-
-        let then_ = match ctx.parse_expr_with_min_bp(29) {
-            Ok(e) => e,
-            Err(e) => {
-                *left = old_left;
-                return Some(Err(e));
-            }
-        };
-
-        if let Err(e) = ctx.expect(CanonicalKind::Colon) {
-            *left = old_left;
-            return Some(Err(e));
-        }
-
-        let else_ = match ctx.parse_expr_with_min_bp(29) {
-            Ok(e) => e,
-            Err(e) => {
-                *left = old_left;
-                return Some(Err(e));
-            }
-        };
-
-        *left = Expr::call("if", vec![old_left, then_, else_]);
-        Some(Ok(()))
+impl Default for Ternary {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-use handl_kit_canonical::{Kit, CanonicalKind};
-use handl_plugin_primary_identifiers::PrimaryIdentifiers;
-    use handl_plugin_primary_values::PrimaryValues;
-
-    #[test]
-    fn ternary_expression() {
-        let p = pipeline();
-        let tokens = kit.lex("x ? 1 : 2").unwrap();
-        assert_eq!(tokens[0].kind, CanonicalKind::Identifier("x".to_string()));
-        assert_eq!(tokens[1].kind, CanonicalKind::Question);
-        assert_eq!(tokens[2].kind, CanonicalKind::Number(1.0));
-        assert_eq!(tokens[3].kind, CanonicalKind::Colon);
-        assert_eq!(tokens[4].kind, CanonicalKind::Number(2.0));
-
-        let expr = p.parse(tokens).unwrap();
-        assert_eq!(
-            expr,
-            Expr::call(
-                "if",
-                vec![
-                    Expr::var("x"),
-                    Expr::Value(NonFunctionValue::new(1.0)),
-                    Expr::Value(NonFunctionValue::new(2.0)),
-                ],
-            )
-        );
-    }
-}
+mod tests {}

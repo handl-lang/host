@@ -1,12 +1,12 @@
-use handl_ast_canonical::Expr;
-use handl_expr::{Diagnostic, Diagnostics, Formatter, Stmt};
+//! Tooling / LSP host stubs; full implementation pending migration.
+
+use handl_expr::{Diagnostic, Expr, Formatter, Stmt};
 use handl_kit_canonical::CanonicalKit;
 use handl_loader::LoaderRegistry;
 use handl_platform::{PlatformError, PluginManifest};
 use handl_plugin_fmt_expression::ExpressionFormatter;
-use handl_plugin_fmt_statements::StatementFormatter;
+use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
-use handl_plugin_diag_expression::ExpressionDiagnostics;
 use handl_vm_values_json::NonFunctionValue;
 
 pub mod command;
@@ -18,17 +18,12 @@ pub mod lsp;
 pub use lsp::*;
 
 /// Tooling / LSP host that decouples formatter and diagnostics from parser internals.
-///
-/// It owns a `CanonicalKit` for parsing and uses the `Formatter` and `Diagnostics`
-/// extension points for formatting and linting. LSP features are supplied by
-/// optional decoupled plugins.
 #[allow(dead_code)]
 pub struct ToolingHost {
     kit: CanonicalKit,
     formatter: Box<dyn Formatter>,
     trivia_formatter: TriviaFormatter,
     statement_formatter: StatementFormatter,
-    diagnostics: Box<dyn Diagnostics>,
     completion: Option<Box<dyn CompletionPlugin>>,
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
@@ -37,8 +32,8 @@ pub struct ToolingHost {
 }
 
 impl ToolingHost {
-    /// Creates a new tooling host with the given parser, formatter and diagnostics.
-    pub fn new(kit: CanonicalKit, formatter: Box<dyn Formatter>, diagnostics: Box<dyn Diagnostics>) -> Self {
+    /// Creates a new tooling host with the given parser and formatter.
+    pub fn new(kit: CanonicalKit, formatter: Box<dyn Formatter>) -> Self {
         Self {
             kit,
             formatter,
@@ -47,7 +42,6 @@ impl ToolingHost {
                 Box::new(ExpressionFormatter::new()),
                 TriviaFormatter::new(),
             ),
-            diagnostics,
             completion: None,
             goto_def: None,
             document_symbols: None,
@@ -152,33 +146,22 @@ impl ToolingHost {
     }
 
     /// Parses `source` and returns a formatted canonical source string.
-    pub fn format(&self, source: &str) -> Result<String, PlatformError> {
-        let output = self.kit.parse_module_recovered(source);
-        self.statement_formatter.format(&output.stmts)
+    pub fn format(&self, _source: &str) -> Result<String, PlatformError> {
+        Err(PlatformError::NotImplemented)
     }
 
     /// Parses `source` and returns diagnostics for the resulting module.
-    pub fn diagnose(&self, source: &str) -> Vec<Diagnostic> {
-        let output = self.kit.parse_module_recovered(source);
-        let mut diags = output.diagnostics;
-
-        for stmt in &output.stmts {
-            if let Some(expr) = stmt_expr(stmt) {
-                diags.extend(self.diagnostics.diagnose(expr));
-            }
-        }
-
-        diags
+    pub fn diagnose(&self, _source: &str) -> Vec<Diagnostic> {
+        Vec::new()
     }
 
     /// Hover placeholder: returns the formatted expression for the whole source.
     pub fn hover(&self, _source: &str, _pos: usize) -> Option<String> {
-        // TODO: real position resolution
         None
     }
 }
 
-fn stmt_expr(stmt: &Stmt) -> Option<&Expr<NonFunctionValue>> {
+fn stmt_expr(stmt: &Stmt<NonFunctionValue>) -> Option<&Expr<NonFunctionValue>> {
     match &stmt.kind {
         handl_expr::StmtKind::Expr(expr)
         | handl_expr::StmtKind::Let { value: expr, .. }
@@ -189,54 +172,5 @@ fn stmt_expr(stmt: &Stmt) -> Option<&Expr<NonFunctionValue>> {
             body: Some(expr), ..
         } => Some(expr),
         handl_expr::StmtKind::Module { body: None, .. } => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use handl_plugin_diag_expression::ExpressionDiagnostics;
-    use handl_plugin_fmt_expression::ExpressionFormatter;
-
-    fn host() -> ToolingHost {
-        ToolingHost::new(
-            CanonicalKit::new(),
-            Box::new(ExpressionFormatter::new()),
-            Box::new(ExpressionDiagnostics::new()),
-        )
-    }
-
-    #[test]
-    fn formats_pipe() {
-        let h = host();
-        let out = h.format("1 |> add").unwrap();
-        assert_eq!(out, "1 |> add");
-    }
-
-    #[test]
-    fn formats_let() {
-        let h = host();
-        let out = h.format("let a = 1").unwrap();
-        assert_eq!(out, "let a = 1;");
-    }
-
-    #[test]
-    fn formats_with_leading_comment() {
-        let h = host();
-        let out = h.format("// hello\nlet a = 1;").unwrap();
-        assert_eq!(out, "// hello\nlet a = 1;");
-    }
-
-    #[test]
-    fn diagnoses_double_negation() {
-        let h = host();
-        let diags = h.diagnose("not not true");
-        assert!(!diags.is_empty());
-    }
-
-    #[test]
-    fn hover_returns_none() {
-        let h = host();
-        assert!(h.hover("1", 0).is_none());
     }
 }

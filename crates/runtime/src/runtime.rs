@@ -17,5 +17,5 @@ pub trait RuntimePlugin: Send + Sync {
     fn name(&self) -> &str;
 
     /// Evaluate the provided statements.
-    fn eval(&self, stmts: &[Stmt]) -> Result<EvalOutput, PlatformError>;
+    fn eval(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<EvalOutput, PlatformError>;
 }

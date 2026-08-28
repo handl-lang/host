@@ -1,10 +1,10 @@
-use handl_ast_canonical::Pattern;
-use handl_expr::{Formatter, Stmt, StmtKind};
+use handl_expr::*;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
+use handl_vm_values_json::NonFunctionValue;
 use serde_json::{json, Value as JsonValue};
 
 /// Formatter plugin that turns a sequence of canonical `Stmt` values back into
@@ -30,7 +30,7 @@ impl StatementFormatter {
     }
 
     /// Formats a slice of `Stmt` values as a single source string.
-    pub fn format(&self, stmts: &[Stmt]) -> Result<String, PlatformError> {
+    pub fn format(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<String, PlatformError> {
         let mut parts = Vec::new();
         for stmt in stmts {
             let mut s = self.trivia_formatter.format_comments(&stmt.leading);
@@ -52,7 +52,10 @@ impl StatementFormatter {
         Ok(parts.join("\n"))
     }
 
-    fn format_stmt_kind(&self, kind: &StmtKind) -> Result<String, PlatformError> {
+    fn format_stmt_kind(
+        &self,
+        kind: &StmtKind<NonFunctionValue>,
+    ) -> Result<String, PlatformError> {
         match kind {
             StmtKind::Expr(expr) => self.expression_formatter.format(expr),
             StmtKind::Let { pattern, value } => Ok(format!(
@@ -153,9 +156,6 @@ fn is_identifier(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_ast_canonical::{Expr, Pattern};
-    use handl_expr::{Span, Token};
-    use handl_lexer_canonical::CanonicalKind;
     use handl_vm_values_json::NonFunctionValue;
 
     struct TestFormatter;

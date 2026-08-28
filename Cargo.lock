@@ -702,10 +702,12 @@ dependencies = [
 name = "handl-expr"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-ast-common",
+ "handl-kit-canonical",
  "handl-lexer",
  "handl-platform",
+ "handl-vm",
+ "handl-vm-values-json",
  "serde_json",
 ]
 
@@ -1620,7 +1622,6 @@ name = "handl-plugin-diag-expression"
 version = "0.1.0"
 dependencies = [
  "handl-expr",
- "handl-kit-canonical",
  "handl-platform",
  "handl-vm-values-json",
  "serde_json",
@@ -1644,7 +1645,6 @@ name = "handl-plugin-fmt-expression"
 version = "0.1.0"
 dependencies = [
  "handl-expr",
- "handl-kit-canonical",
  "handl-platform",
  "handl-vm-values-json",
  "serde_json",
@@ -1666,6 +1666,7 @@ name = "handl-plugin-fmt-trivia"
 version = "0.1.0"
 dependencies = [
  "handl-expr",
+ "handl-kit-canonical",
  "handl-lexer",
  "handl-platform",
  "serde_json",

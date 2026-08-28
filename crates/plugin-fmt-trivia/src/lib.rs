@@ -1,5 +1,5 @@
 use handl_expr::Token;
-use handl_lexer_canonical::CanonicalKind;
+use handl_kit_canonical::CanonicalKind;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
@@ -23,7 +23,7 @@ impl TriviaFormatter {
     ///
     /// Line comments are emitted as `// text\n`; block comments as
     /// `/* text */`. The comment style is inferred from the token span.
-    pub fn format_comments(&self, tokens: &[Token]) -> String {
+    pub fn format_comments(&self, tokens: &[Token<CanonicalKind>]) -> String {
         let mut out = String::new();
         for token in tokens {
             if let CanonicalKind::Comment(text) = &token.kind {

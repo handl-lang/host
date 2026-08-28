@@ -1,12 +1,11 @@
 //! Runtime plugin backed by the Rust VM interpreter.
 
-use handl_ast_canonical::Pattern;
-use handl_expr::{Stmt, StmtKind};
+use handl_expr::{Pattern, Stmt, StmtKind};
 use handl_platform::{
     CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
 };
 use handl_runtime::{EvalOutput, RuntimePlugin};
-use handl_vm::{Context, Error, Function, Host};
+use handl_vm::{Context, Error, Function, Host, VirtualMachine};
 use handl_vm_backend_rust_interpreter::{
     CanonicalContext, CanonicalEval, CanonicalVm, FunctionValue, NonFunctionValue,
 };
@@ -48,7 +47,7 @@ impl RuntimePlugin for RustVm {
         "vm-rust"
     }
 
-    fn eval(&self, stmts: &[Stmt]) -> Result<EvalOutput, PlatformError> {
+    fn eval(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<EvalOutput, PlatformError> {
         let host = CompositeHost {
             builtin: BuiltinHost,
             modules: self.modules.clone(),

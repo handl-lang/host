@@ -1,4 +1,4 @@
-use handl_ast_canonical::Expr;
+use handl_vm::Expr;
 use handl_vm::{Context, Function, GenericFunction, LazyFunction};
 use handl_vm_values_json::Error;
 
@@ -682,3 +682,33 @@ impl Function<NonFunctionValue> for Match {
 /// Lazy `if(cond, then, else)` — only evaluates the chosen branch.
 #[derive(Clone, Copy)]
 pub struct IfLazy;
+
+impl LazyFunction<NonFunctionValue> for IfLazy {
+    fn call(
+        &self,
+        args: &[Expr<NonFunctionValue>],
+        ctx: &mut dyn Context<NonFunctionValue>,
+        evaluate: &mut dyn FnMut(
+            &Expr<NonFunctionValue>,
+            &mut dyn Context<NonFunctionValue>,
+        ) -> Result<NonFunctionValue, Error>,
+    ) -> Result<NonFunctionValue, Error> {
+        if args.len() < 2 {
+            return Err(Error::ArgumentCount {
+                expected: 2,
+                got: args.len(),
+            });
+        }
+        let cond = evaluate(&args[0], ctx)?;
+        if cond.as_bool().unwrap_or(false) {
+            evaluate(&args[1], ctx)
+        } else if args.len() >= 3 {
+            evaluate(&args[2], ctx)
+        } else {
+            Err(Error::ArgumentCount {
+                expected: 3,
+                got: args.len(),
+            })
+        }
+    }
+}

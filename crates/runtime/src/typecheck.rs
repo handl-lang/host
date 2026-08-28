@@ -2,6 +2,7 @@
 
 use handl_expr::Stmt;
 use handl_platform::PlatformError;
+use handl_vm_values_json::NonFunctionValue;
 
 /// Output of a typecheck pass.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,5 +17,5 @@ pub trait TypecheckPlugin: Send + Sync {
     fn name(&self) -> &str;
 
     /// Typecheck the provided statements.
-    fn typecheck(&self, stmts: &[Stmt]) -> Result<TypecheckedOutput, PlatformError>;
+    fn typecheck(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<TypecheckedOutput, PlatformError>;
 }

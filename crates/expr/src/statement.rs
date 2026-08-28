@@ -1,23 +1,8 @@
 //! Compatibility `Stmt`/`StmtKind` definitions for the migration.
 
+use handl_kit_canonical::CanonicalKind;
 use handl_platform::PlatformError;
-
-/// Placeholder concrete expression type for the legacy `Stmt`/`StmtKind` shape.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expr<V> {
-    Value(V),
-    Var(String),
-    Array(Vec<Expr<V>>),
-    Object(Vec<(String, Expr<V>)>),
-}
-
-/// Placeholder concrete pattern type for the legacy `Stmt` shape.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Pattern {
-    Identifier(String),
-    Array(Vec<Pattern>),
-    Object(Vec<(String, Pattern)>),
-}
+use handl_vm::{Expr, Pattern};
 
 /// The payload of a top-level statement in a handl module.
 #[derive(Debug, Clone, PartialEq)]
@@ -42,9 +27,9 @@ pub struct Stmt<V> {
     /// The statement payload.
     pub kind: StmtKind<V>,
     /// Comment tokens appearing before the statement.
-    pub leading: Vec<crate::Token<crate::LegacyTokenKind>>,
+    pub leading: Vec<crate::Token<CanonicalKind>>,
     /// Comment tokens appearing immediately after the statement.
-    pub trailing: Vec<crate::Token<crate::LegacyTokenKind>>,
+    pub trailing: Vec<crate::Token<CanonicalKind>>,
 }
 
 impl<V> Stmt<V> {

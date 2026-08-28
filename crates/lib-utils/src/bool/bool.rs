@@ -1,4 +1,4 @@
-use handl_ast_canonical::Expr;
+use handl_vm::Expr;
 use handl_vm_values_json::NonFunctionValue;
 
 use handl_vm::{Context, Function, LazyFunction};
@@ -123,3 +123,53 @@ pub struct AndLazy;
 /// Lazy `or(a, b)` — stops at the first `true`.
 #[derive(Clone, Copy)]
 pub struct OrLazy;
+
+impl LazyFunction<NonFunctionValue> for AndLazy {
+    fn call(
+        &self,
+        args: &[Expr<NonFunctionValue>],
+        ctx: &mut dyn Context<NonFunctionValue>,
+        evaluate: &mut dyn FnMut(
+            &Expr<NonFunctionValue>,
+            &mut dyn Context<NonFunctionValue>,
+        ) -> Result<NonFunctionValue, Error>,
+    ) -> Result<NonFunctionValue, Error> {
+        if args.len() < 2 {
+            return Err(Error::ArgumentCount {
+                expected: 2,
+                got: args.len(),
+            });
+        }
+        let a = require_bool(&evaluate(&args[0], ctx)?)?;
+        if !a {
+            return Ok(to_bool(false));
+        }
+        let b = require_bool(&evaluate(&args[1], ctx)?)?;
+        Ok(to_bool(b))
+    }
+}
+
+impl LazyFunction<NonFunctionValue> for OrLazy {
+    fn call(
+        &self,
+        args: &[Expr<NonFunctionValue>],
+        ctx: &mut dyn Context<NonFunctionValue>,
+        evaluate: &mut dyn FnMut(
+            &Expr<NonFunctionValue>,
+            &mut dyn Context<NonFunctionValue>,
+        ) -> Result<NonFunctionValue, Error>,
+    ) -> Result<NonFunctionValue, Error> {
+        if args.len() < 2 {
+            return Err(Error::ArgumentCount {
+                expected: 2,
+                got: args.len(),
+            });
+        }
+        let a = require_bool(&evaluate(&args[0], ctx)?)?;
+        if a {
+            return Ok(to_bool(true));
+        }
+        let b = require_bool(&evaluate(&args[1], ctx)?)?;
+        Ok(to_bool(b))
+    }
+}

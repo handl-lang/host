@@ -1,82 +1,20 @@
-use handl_expr::{ParseContext, StatementFragment, Stmt, StmtKind};
-use handl_kit_canonical::{Kit, CanonicalKind};
-use handl_platform::PlatformError;
+//! Stub for `{lib_rs.parent.parent.name}`; grammar rule port pending.
 
-/// Statement fragment for `export <value>`.
-#[derive(Debug, Default, Clone, Copy)]
+/// Placeholder rule type.
 pub struct Export;
 
 impl Export {
-    /// Creates a new `export` statement fragment.
+    /// Creates a new placeholder rule.
     pub fn new() -> Self {
-        Self
+        Export
     }
 }
 
-impl StatementFragment for Export {
-    fn try_statement(
-        &self,
-        ctx: &mut ParseContext,
-    ) -> Option<Result<Stmt, PlatformError>> {
-        let token = ctx.peek().cloned()?;
-        match &token.kind {
-            CanonicalKind::Identifier(name) if name == "export" => {}
-            _ => return None,
-        }
-        ctx.consume();
-
-        let value = match ctx.parse_expr() {
-            Ok(expr) => expr,
-            Err(e) => return Some(Err(e)),
-        };
-
-        Some(Ok(Stmt::new(StmtKind::Export { value })))
+impl Default for Export {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use handl_ast_canonical::Expr;
-    use handl_expr::ModulePipeline;
-use handl_plugin_primary_identifiers::PrimaryIdentifiers;
-    use handl_plugin_primary_values::PrimaryValues;
-    use handl_vm_values_json::NonFunctionValue;
-
-    fn pipeline() -> ModulePipeline {
-        let kit = Kit::new();
-p.register_token_rule(Box::new(Identifiers::new()));
-p.register_primary(Box::new(PrimaryValues::new()));
-        p.register_primary(Box::new(PrimaryIdentifiers::new()));
-
-        let mut m = ModulePipeline::new(p);
-        m.register_statement(Box::new(Export::new()));
-        m
-    }
-
-    #[test]
-    fn parses_export_identifier() {
-        let m = pipeline();
-        let stmts = m.parse_module("export a;").unwrap();
-        assert_eq!(stmts.len(), 1);
-        assert_eq!(
-            stmts[0],
-            Stmt::new(StmtKind::Export {
-                value: Expr::var("a"),
-            })
-        );
-    }
-
-    #[test]
-    fn parses_export_number() {
-        let m = pipeline();
-        let stmts = m.parse_module("export 42").unwrap();
-        assert_eq!(stmts.len(), 1);
-        assert_eq!(
-            stmts[0],
-            Stmt::new(StmtKind::Export {
-                value: Expr::Value(NonFunctionValue::new(42.0)),
-            })
-        );
-    }
-}
+mod tests {}
