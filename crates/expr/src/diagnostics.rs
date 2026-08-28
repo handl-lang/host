@@ -1,6 +1,6 @@
+//! Compatibility diagnostic types for handl expressions.
+
 use crate::Span;
-use handl_ast_canonical::Expr;
-use handl_vm_values_json::NonFunctionValue;
 
 /// Severity of a diagnostic produced by an expression diagnostics plugin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,11 +18,7 @@ pub struct Diagnostic {
     pub span: Option<Span>,
 }
 
-/// Diagnostics extension point for canonical expression trees.
-///
-/// Implementations inspect an `Expr` AST and emit warnings, errors, or info
-/// without depending on parser internals.
+/// Diagnostics extension point for expression trees.
 pub trait Diagnostics: Send + Sync {
-    /// Inspects `expr` and returns any diagnostics.
-    fn diagnose(&self, expr: &Expr<NonFunctionValue>) -> Vec<Diagnostic>;
+    fn diagnose<N>(&self, expr: &N) -> Vec<Diagnostic>;
 }

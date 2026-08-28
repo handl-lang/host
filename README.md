@@ -9,7 +9,6 @@
 - `handl-lexer` / `handl-lexer-canonical` — token and token-kind abstractions and the canonical token set.
 - `handl-ast` / `handl-ast-canonical` — shared AST shapes and the canonical expression tree.
 - `crates/plugin-*` — individual syntax and tooling plugins: literals, identifiers, delimiters, operators, primary/postfix/infix fragments, statements, comments, formatting, diagnostics, and LSP features.
-- `handl-kit-canonical` — `CanonicalKit` and `CanonicalHost`, a ready-to-use composition of the canonical expression plugins plus optional typecheck and runtime plugins.
 - `handl-runtime` / `handl-typecheck-*` — runtime and typecheck extension points and concrete implementations.
 - `handl-tooling` — `ToolingHost`: decouples parsing (`CanonicalKit`), formatting, diagnostics, and LSP services (completion, goto-definition, document symbols, incremental sync).
 - `handl-host-lsp` — LSP adapter that dispatches to `ToolingHost` and converts results to `lsp-types`.

@@ -24,7 +24,6 @@ cargo test --workspace
 
 - `handl-platform` is the only shared contract crate. Key types: `CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin` trait, `PluginRegistry`, `Kit`/`KitRegistry`, `Host`/`DefaultHost`, `LanguageHost`, `PlatformError`, `Boundary`.
 - `handl-expr` defines the pluggable parser. Entry points: `ExpressionPipeline`, `ModulePipeline`. `Stmt { kind: StmtKind, leading, trailing }` wraps a statement; `StmtKind` covers `Expr`, `Let`, `Const`, `Import`, `Export`, `Module`. `Expr<T>` lives in `handl-ast-canonical`; `Expr<NonFunctionValue>` (from `handl-vm-values-json`) is the canonical expression type.
-- `handl-kit-canonical` provides `CanonicalKit` and `CanonicalHost`. `CanonicalKit` composes a `ModulePipeline` and optional `TypecheckPlugin` / `RuntimePlugin`. Use it for quick parse/typecheck/eval tests.
 - `handl-tooling` provides `ToolingHost`, which owns a `CanonicalKit`, a `Formatter`, and a `Diagnostics` implementation and exposes slots for LSP plugins: `CompletionPlugin`, `GotoDefPlugin`, `DocumentSymbolsPlugin`, `IncrementalSyncPlugin`.
 - `handl-host-lsp` is the LSP adapter: it maps LSP requests to `ToolingHost` calls and converts results to `lsp-types`.
 - Plugins live in `crates/plugin-*` and are registered into `PluginRegistry` / kit manifests.
@@ -33,5 +32,4 @@ cargo test --workspace
 ## Conventions
 
 - New crates must be added to `Cargo.toml` `[workspace.members]` and `[workspace.dependencies]`.
-- Plugin crates are named `crates/plugin-*` and register fragments by id through `CanonicalHost` or `LanguageHost`.
 - Prefer `PlatformError` for plugin/runtime failures; do not leak concrete crate errors into `handl-platform` APIs.

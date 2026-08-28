@@ -702,9 +702,10 @@ dependencies = [
 name = "handl-expr"
 version = "0.1.0"
 dependencies = [
+ "handl-ast",
+ "handl-ast-common",
  "handl-lexer",
  "handl-platform",
- "handl-vm-values-json",
  "serde_json",
 ]
 
