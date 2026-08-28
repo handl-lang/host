@@ -1,13 +1,13 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
-use handl_expr::{Diagnostic, Expr, Formatter, Stmt};
+use handl_expr::{Diagnostic, Formatter};
 use handl_kit_canonical::CanonicalKit;
 use handl_loader::LoaderRegistry;
 use handl_platform::{PlatformError, PluginManifest};
 use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
-use handl_vm_values_json::NonFunctionValue;
+
 
 pub mod command;
 
@@ -161,16 +161,4 @@ impl ToolingHost {
     }
 }
 
-fn stmt_expr(stmt: &Stmt<NonFunctionValue>) -> Option<&Expr<NonFunctionValue>> {
-    match &stmt.kind {
-        handl_expr::StmtKind::Expr(expr)
-        | handl_expr::StmtKind::Let { value: expr, .. }
-        | handl_expr::StmtKind::Const { value: expr, .. }
-        | handl_expr::StmtKind::Import { source: expr }
-        | handl_expr::StmtKind::Export { value: expr }
-        | handl_expr::StmtKind::Module {
-            body: Some(expr), ..
-        } => Some(expr),
-        handl_expr::StmtKind::Module { body: None, .. } => None,
-    }
-}
+

@@ -128,7 +128,7 @@ impl SandboxHost {
     /// Creates a new sandbox host with the given limits and all pure
     /// library modules registered.
     pub fn new(limits: SandboxLimits) -> Self {
-        let mut modules = ModuleHost::new()
+        let modules = ModuleHost::new()
             .with(MathModule)
             .with(StrModule)
             .with(BoolModule)
