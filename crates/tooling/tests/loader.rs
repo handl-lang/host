@@ -26,11 +26,11 @@ fn find_example_cdylib() -> Option<PathBuf> {
 
     let candidates: &[&str] = &[
         "libnative_plugin_example.so",
-        "libnative-plugin-example.so",
+        "libhandl-plugin-target-native-example.so",
         "libnative_plugin_example.dylib",
-        "libnative-plugin-example.dylib",
+        "libhandl-plugin-target-native-example.dylib",
         "native_plugin_example.dll",
-        "native-plugin-example.dll",
+        "handl-plugin-target-native-example.dll",
     ];
 
     for name in candidates {
@@ -46,12 +46,12 @@ fn find_example_cdylib() -> Option<PathBuf> {
 #[test]
 fn tooling_host_loads_native_plugin_and_dispatches_command() {
     let Some(cdylib) = find_example_cdylib() else {
-        eprintln!("native-plugin-example cdylib not found; skipping loader wiring test");
+        eprintln!("handl-plugin-target-native-example cdylib not found; skipping loader wiring test");
         return;
     };
 
     let manifest = PluginManifest {
-        id: "native-plugin-example".to_string(),
+        id: "handl-plugin-target-native-example".to_string(),
         version: "0.1.0".to_string(),
         provides: vec!["echo".into()],
         requires: vec![],

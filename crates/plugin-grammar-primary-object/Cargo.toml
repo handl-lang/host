@@ -1,0 +1,17 @@
+[package]
+name = "handl-plugin-grammar-primary-object"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-expr.workspace = true
+handl-platform.workspace = true
+handl-vm-values-json.workspace = true
+
+[dev-dependencies]
+handl-plugin-numbers.workspace = true
+handl-plugin-strings.workspace = true
+handl-plugin-identifiers.workspace = true
+handl-plugin-delimiters.workspace = true
+handl-plugin-grammar-primary-value.workspace = true
+handl-plugin-grammar-primary-identifier.workspace = true

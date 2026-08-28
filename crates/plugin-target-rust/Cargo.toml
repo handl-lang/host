@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-target-rust"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-runtime = { workspace = true }
+handl-vm = { workspace = true }
+handl-vm-backend-rust-interpreter = { workspace = true }
+handl-vm-values-json = { workspace = true }
+handl-vm-common = { workspace = true }
+handl-platform = { workspace = true }
+handl-expr = { workspace = true }
+serde_json = { workspace = true }

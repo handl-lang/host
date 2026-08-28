@@ -7,41 +7,170 @@ edition = "2024"
 members = [
     "crates/ast",
     "crates/ast-common",
-    "crates/source",
-    "crates/typecheck-core",
-    "crates/vm-type",
-    "crates/vm-type-schema-json",
-    "crates/lexer",
-    "crates/lexer-common",
-    "crates/parser",
-    "crates/parser-common",
-    "crates/kit-canonical",
-    "crates/kit-hello",
-    "crates/lib-hello",
-    "crates/lib-archive",
-    "crates/lib-compress",
-    "crates/lib-encoding",
-    "crates/lib-parse",
-    "crates/lib-serialize",
-    "crates/target-native",
-    "crates/platform",
-    "crates/ext-fmt",
-    "crates/ext-lint",
-    "crates/ext-lexer",
-    "crates/ext-parser",
-    "crates/ext-typecheck",
-    "crates/lib-type",
-    "crates/ext-eval",
+    "crates/dialect",
+    "crates/expr",
     "crates/ext-build",
-    "crates/ext-compile",
-    "crates/ext-kit",
-    "crates/ext-plugin",
     "crates/ext-cli",
+    "crates/ext-compile",
+    "crates/ext-eval",
+    "crates/ext-fmt",
+    "crates/ext-kit",
+    "crates/ext-lexer",
+    "crates/ext-lint",
     "crates/ext-lsp",
+    "crates/ext-parser",
+    "crates/ext-plugin",
+    "crates/ext-typecheck",
     "crates/host-cli",
     "crates/host-lsp",
+    "crates/kit-canonical",
+    "crates/kit-hello",
+    "crates/lexer",
+    "crates/lexer-common",
+    "crates/lib-archive",
+    "crates/lib-archive-tar",
+    "crates/lib-base64",
+    "crates/lib-collections",
+    "crates/lib-compress",
+    "crates/lib-compress-gzip",
+    "crates/lib-concurrent",
+    "crates/lib-crypto",
+    "crates/lib-datetime",
+    "crates/lib-encoding",
+    "crates/lib-hello",
+    "crates/lib-hex",
+    "crates/lib-http-client",
+    "crates/lib-http-client-std",
+    "crates/lib-http-server",
+    "crates/lib-http-server-std",
+    "crates/lib-intl",
+    "crates/lib-ip",
+    "crates/lib-json",
+    "crates/lib-kv",
+    "crates/lib-kv-hashmap",
+    "crates/lib-os",
+    "crates/lib-os-std",
+    "crates/lib-otlp",
+    "crates/lib-otlp-std",
+    "crates/lib-parse",
+    "crates/lib-rand",
+    "crates/lib-serialize",
+    "crates/lib-stats",
+    "crates/lib-test",
+    "crates/lib-tls",
+    "crates/lib-tls-native",
+    "crates/lib-toml",
+    "crates/lib-type",
+    "crates/lib-unicode",
+    "crates/lib-url-rfc",
+    "crates/lib-url-whatwg",
+    "crates/lib-utils",
+    "crates/lib-ws-rfc",
+    "crates/lib-ws-rfc-memory",
+    "crates/lib-ws-rfc-native",
+    "crates/lib-ws-whatwg-native",
+    "crates/lib-ws-whatwg-wasm",
+    "crates/lib-yaml",
+    "crates/loader",
+    "crates/loader-native",
+    "crates/loader-wasm",
+    "crates/loader-web",
+    "crates/parser",
+    "crates/parser-common",
+    "crates/platform",
+    "crates/plugin-ast-apply",
+    "crates/plugin-ast-array",
+    "crates/plugin-ast-assign",
+    "crates/plugin-ast-call",
+    "crates/plugin-ast-field-access",
+    "crates/plugin-ast-function",
+    "crates/plugin-ast-handle",
+    "crates/plugin-ast-index",
+    "crates/plugin-ast-let",
+    "crates/plugin-ast-match",
+    "crates/plugin-ast-object",
+    "crates/plugin-ast-pipe",
+    "crates/plugin-ast-var",
+    "crates/plugin-booleans",
+    "crates/plugin-comment-tokens",
     "crates/plugin-comments",
+    "crates/plugin-delimiters",
+    "crates/plugin-diag-expression",
     "crates/plugin-doc-comments",
+    "crates/plugin-fmt-expression",
+    "crates/plugin-fmt-stmt",
+    "crates/plugin-fmt-trivia",
+    "crates/plugin-grammar-apply",
+    "crates/plugin-grammar-array",
+    "crates/plugin-grammar-assign",
+    "crates/plugin-grammar-call",
+    "crates/plugin-grammar-function-literal",
+    "crates/plugin-grammar-handle",
+    "crates/plugin-grammar-index",
+    "crates/plugin-grammar-infix-assign",
+    "crates/plugin-grammar-infix-fanout",
+    "crates/plugin-grammar-infix-flow",
+    "crates/plugin-grammar-infix-pipe",
+    "crates/plugin-grammar-infix-ternary",
+    "crates/plugin-grammar-let",
+    "crates/plugin-grammar-match",
+    "crates/plugin-grammar-object",
+    "crates/plugin-grammar-pipe",
+    "crates/plugin-grammar-postfix-call",
+    "crates/plugin-grammar-postfix-field",
+    "crates/plugin-grammar-postfix-index",
+    "crates/plugin-grammar-postfix-mood",
+    "crates/plugin-grammar-primary-array",
+    "crates/plugin-grammar-primary-handle",
+    "crates/plugin-grammar-primary-identifier",
+    "crates/plugin-grammar-primary-match",
+    "crates/plugin-grammar-primary-not",
+    "crates/plugin-grammar-primary-object",
+    "crates/plugin-grammar-primary-paren",
+    "crates/plugin-grammar-primary-typeof",
+    "crates/plugin-grammar-primary-value",
+    "crates/plugin-grammar-stmt-const",
+    "crates/plugin-grammar-stmt-export",
+    "crates/plugin-grammar-stmt-import",
+    "crates/plugin-grammar-stmt-let",
+    "crates/plugin-grammar-stmt-module",
+    "crates/plugin-identifiers",
+    "crates/plugin-lsp-completion",
+    "crates/plugin-lsp-goto",
+    "crates/plugin-lsp-symbol",
+    "crates/plugin-null",
+    "crates/plugin-numbers",
+    "crates/plugin-operators",
+    "crates/plugin-strings",
+    "crates/plugin-target-native-example",
+    "crates/plugin-target-rust",
+    "crates/plugin-token-bool",
+    "crates/plugin-token-bytes",
+    "crates/plugin-token-comment",
+    "crates/plugin-token-delimiter",
+    "crates/plugin-token-identifier",
+    "crates/plugin-token-keyword",
+    "crates/plugin-token-keyword-as",
+    "crates/plugin-token-keyword-handle",
+    "crates/plugin-token-null",
+    "crates/plugin-token-number",
+    "crates/plugin-token-operator",
+    "crates/plugin-token-string",
+    "crates/plugin-typecheck-core",
+    "crates/runtime",
+    "crates/source",
+    "crates/target-native",
+    "crates/tooling",
+    "crates/typecheck-core",
+    "crates/vm",
+    "crates/vm-backend-rust-interpreter",
+    "crates/vm-common",
+    "crates/vm-config",
+    "crates/vm-host-eval",
+    "crates/vm-server",
+    "crates/vm-type",
+    "crates/vm-type-schema-json",
+    "crates/vm-values-json",
 ]
 resolver = "3"
 
@@ -65,231 +194,174 @@ tar = "0.4"
 pass-lang = "1"
 driver-lang = "1"
 libloading = "0.8"
-
-[workspace.dependencies.handl-ast]
-path = "crates/ast"
-
-[workspace.dependencies.handl-ast-common]
-path = "crates/ast-common"
-
-[workspace.dependencies.handl-source]
-path = "crates/source"
-
-[workspace.dependencies.handl-typecheck-core]
-path = "crates/typecheck-core"
-
-[workspace.dependencies.handl-lexer]
-path = "crates/lexer"
-
-[workspace.dependencies.handl-lexer-common]
-path = "crates/lexer-common"
-
-[workspace.dependencies.handl-kit-canonical]
-path = "crates/kit-canonical"
-
-[workspace.dependencies.handl-kit-hello]
-path = "crates/kit-hello"
-
-[workspace.dependencies.handl-plugin-ast-call]
-path = "crates/plugin-ast-call"
-
-[workspace.dependencies.handl-plugin-token-number]
-path = "crates/plugin-token-number"
-
-[workspace.dependencies.handl-plugin-grammar-call]
-path = "crates/plugin-grammar-call"
-
-[workspace.dependencies.handl-plugin-typecheck-core]
-path = "crates/plugin-typecheck-core"
-
-[workspace.dependencies.handl-plugin-vm-rust]
-path = "crates/plugin-vm-rust"
-
-[workspace.dependencies.handl-parser]
-path = "crates/parser"
-
-[workspace.dependencies.handl-parser-common]
-path = "crates/parser-common"
-
-[workspace.dependencies.handl-platform]
-path = "crates/platform"
-
-[workspace.dependencies.handl-vm-type]
-path = "crates/vm-type"
-
-[workspace.dependencies.handl-vm-type-schema-json]
-path = "crates/vm-type-schema-json"
-
-[workspace.dependencies.handl-lib-type]
-path = "crates/lib-type"
-
-[workspace.dependencies.handl-ext-cli]
-path = "crates/ext-cli"
-
-[workspace.dependencies.handl-ext-lsp]
-path = "crates/ext-lsp"
-
-[workspace.dependencies.handl-host-cli]
-path = "crates/host-cli"
-
-[workspace.dependencies.handl-host-lsp]
-path = "crates/host-lsp"
-
-[workspace.dependencies.handl-lib-archive]
-path = "crates/lib-archive"
-
-[workspace.dependencies.handl-lib-hello]
-path = "crates/lib-hello"
-
-[workspace.dependencies.handl-lib-compress]
-path = "crates/lib-compress"
-
-[workspace.dependencies.handl-lib-encoding]
-path = "crates/lib-encoding"
-
-[workspace.dependencies.handl-lib-parse]
-path = "crates/lib-parse"
-
-[workspace.dependencies.handl-lib-serialize]
-path = "crates/lib-serialize"
-
-[workspace.dependencies.handl-plugin-comments]
-path = "crates/plugin-comments"
-
-[workspace.dependencies.handl-plugin-doc-comments]
-path = "crates/plugin-doc-comments"
-
-[workspace.dependencies.handl-plugin-numbers]
-path = "crates/plugin-numbers"
-
-[workspace.dependencies.handl-plugin-strings]
-path = "crates/plugin-strings"
-
-[workspace.dependencies.handl-plugin-booleans]
-path = "crates/plugin-booleans"
-
-[workspace.dependencies.handl-plugin-null]
-path = "crates/plugin-null"
-
-[workspace.dependencies.handl-plugin-bytes]
-path = "crates/plugin-bytes"
-
-[workspace.dependencies.handl-plugin-comment-tokens]
-path = "crates/plugin-comment-tokens"
-
-[workspace.dependencies.handl-plugin-identifiers]
-path = "crates/plugin-identifiers"
-
-[workspace.dependencies.handl-plugin-keywords]
-path = "crates/plugin-keywords"
-
-[workspace.dependencies.handl-plugin-delimiters]
-path = "crates/plugin-delimiters"
-
-[workspace.dependencies.handl-plugin-operators]
-path = "crates/plugin-operators"
-
-[workspace.dependencies.handl-plugin-primary-values]
-path = "crates/plugin-primary-values"
-
-[workspace.dependencies.handl-plugin-primary-identifiers]
-path = "crates/plugin-primary-identifiers"
-
-[workspace.dependencies.handl-plugin-primary-arrays]
-path = "crates/plugin-primary-arrays"
-
-[workspace.dependencies.handl-plugin-primary-objects]
-path = "crates/plugin-primary-objects"
-
-[workspace.dependencies.handl-plugin-primary-not]
-path = "crates/plugin-primary-not"
-
-[workspace.dependencies.handl-plugin-primary-typeof]
-path = "crates/plugin-primary-typeof"
-
-[workspace.dependencies.handl-plugin-primary-parens]
-path = "crates/plugin-primary-parens"
-
-[workspace.dependencies.handl-plugin-primary-handle]
-path = "crates/plugin-primary-handle"
-
-[workspace.dependencies.handl-plugin-primary-match]
-path = "crates/plugin-primary-match"
-
-[workspace.dependencies.handl-plugin-postfix-calls]
-path = "crates/plugin-postfix-calls"
-
-[workspace.dependencies.handl-plugin-postfix-index]
-path = "crates/plugin-postfix-index"
-
-[workspace.dependencies.handl-plugin-postfix-field]
-path = "crates/plugin-postfix-field"
-
-[workspace.dependencies.handl-plugin-postfix-mood]
-path = "crates/plugin-postfix-mood"
-
-[workspace.dependencies.handl-plugin-function-literals]
-path = "crates/plugin-function-literals"
-
-[workspace.dependencies.handl-plugin-infix-pipe]
-path = "crates/plugin-infix-pipe"
-
-[workspace.dependencies.handl-plugin-infix-flow]
-path = "crates/plugin-infix-flow"
-
-[workspace.dependencies.handl-plugin-infix-fanout]
-path = "crates/plugin-infix-fanout"
-
-[workspace.dependencies.handl-plugin-infix-ternary]
-path = "crates/plugin-infix-ternary"
-
-[workspace.dependencies.handl-plugin-infix-assign]
-path = "crates/plugin-infix-assign"
-
-[workspace.dependencies.handl-plugin-stmt-let]
-path = "crates/plugin-stmt-let"
-
-[workspace.dependencies.handl-plugin-stmt-const]
-path = "crates/plugin-stmt-const"
-
-[workspace.dependencies.handl-plugin-stmt-import]
-path = "crates/plugin-stmt-import"
-
-[workspace.dependencies.handl-plugin-stmt-export]
-path = "crates/plugin-stmt-export"
-
-[workspace.dependencies.handl-plugin-stmt-module]
-path = "crates/plugin-stmt-module"
-
-[workspace.dependencies.handl-plugin-fmt-expression]
-path = "crates/plugin-fmt-expression"
-
-[workspace.dependencies.handl-plugin-fmt-trivia]
-path = "crates/plugin-fmt-trivia"
-
-[workspace.dependencies.handl-plugin-fmt-statements]
-path = "crates/plugin-fmt-statements"
-
-[workspace.dependencies.handl-plugin-diag-expression]
-path = "crates/plugin-diag-expression"
-
-[workspace.dependencies.handl-plugin-lsp-completion]
-path = "crates/plugin-lsp-completion"
-
-[workspace.dependencies.handl-plugin-lsp-goto]
-path = "crates/plugin-lsp-goto"
-
-[workspace.dependencies.handl-plugin-lsp-symbols]
-path = "crates/plugin-lsp-symbols"
-
-[workspace.dependencies.chrono]
-version = "0.4"
-features = [
-    "serde",
-]
-
-[workspace.dependencies.native-plugin-example]
-path = "crates/plugin-native-example"
+chrono = { version = "0.4", features = ["serde"] }
+
+handl-ast = { path = "crates/ast" }
+handl-ast-common = { path = "crates/ast-common" }
+handl-dialect = { path = "crates/dialect" }
+handl-expr = { path = "crates/expr" }
+handl-ext-build = { path = "crates/ext-build" }
+handl-ext-cli = { path = "crates/ext-cli" }
+handl-ext-compile = { path = "crates/ext-compile" }
+handl-ext-eval = { path = "crates/ext-eval" }
+handl-ext-fmt = { path = "crates/ext-fmt" }
+handl-ext-kit = { path = "crates/ext-kit" }
+handl-ext-lexer = { path = "crates/ext-lexer" }
+handl-ext-lint = { path = "crates/ext-lint" }
+handl-ext-lsp = { path = "crates/ext-lsp" }
+handl-ext-parser = { path = "crates/ext-parser" }
+handl-ext-plugin = { path = "crates/ext-plugin" }
+handl-ext-typecheck = { path = "crates/ext-typecheck" }
+handl-host-cli = { path = "crates/host-cli" }
+handl-host-lsp = { path = "crates/host-lsp" }
+handl-kit-canonical = { path = "crates/kit-canonical" }
+handl-kit-hello = { path = "crates/kit-hello" }
+handl-lexer = { path = "crates/lexer" }
+handl-lexer-common = { path = "crates/lexer-common" }
+handl-lib-archive = { path = "crates/lib-archive" }
+handl-lib-archive-tar = { path = "crates/lib-archive-tar" }
+handl-lib-base64 = { path = "crates/lib-base64" }
+handl-lib-collections = { path = "crates/lib-collections" }
+handl-lib-compress = { path = "crates/lib-compress" }
+handl-lib-compress-gzip = { path = "crates/lib-compress-gzip" }
+handl-lib-concurrent = { path = "crates/lib-concurrent" }
+handl-lib-crypto = { path = "crates/lib-crypto" }
+handl-lib-datetime = { path = "crates/lib-datetime" }
+handl-lib-encoding = { path = "crates/lib-encoding" }
+handl-lib-hello = { path = "crates/lib-hello" }
+handl-lib-hex = { path = "crates/lib-hex" }
+handl-lib-http-client = { path = "crates/lib-http-client" }
+handl-lib-http-client-std = { path = "crates/lib-http-client-std" }
+handl-lib-http-server = { path = "crates/lib-http-server" }
+handl-lib-http-server-std = { path = "crates/lib-http-server-std" }
+handl-lib-intl = { path = "crates/lib-intl" }
+handl-lib-ip = { path = "crates/lib-ip" }
+handl-lib-json = { path = "crates/lib-json" }
+handl-lib-kv = { path = "crates/lib-kv" }
+handl-lib-kv-hashmap = { path = "crates/lib-kv-hashmap" }
+handl-lib-os = { path = "crates/lib-os" }
+handl-lib-os-std = { path = "crates/lib-os-std" }
+handl-lib-otlp = { path = "crates/lib-otlp" }
+handl-lib-otlp-std = { path = "crates/lib-otlp-std" }
+handl-lib-parse = { path = "crates/lib-parse" }
+handl-lib-rand = { path = "crates/lib-rand" }
+handl-lib-serialize = { path = "crates/lib-serialize" }
+handl-lib-stats = { path = "crates/lib-stats" }
+handl-lib-test = { path = "crates/lib-test" }
+handl-lib-tls = { path = "crates/lib-tls" }
+handl-lib-tls-native = { path = "crates/lib-tls-native" }
+handl-lib-toml = { path = "crates/lib-toml" }
+handl-lib-type = { path = "crates/lib-type" }
+handl-lib-unicode = { path = "crates/lib-unicode" }
+handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
+handl-lib-url-whatwg = { path = "crates/lib-url-whatwg" }
+handl-lib-utils = { path = "crates/lib-utils" }
+handl-lib-ws-rfc = { path = "crates/lib-ws-rfc" }
+handl-lib-ws-rfc-memory = { path = "crates/lib-ws-rfc-memory" }
+handl-lib-ws-rfc-native = { path = "crates/lib-ws-rfc-native" }
+handl-lib-ws-whatwg-native = { path = "crates/lib-ws-whatwg-native" }
+handl-lib-ws-whatwg-wasm = { path = "crates/lib-ws-whatwg-wasm" }
+handl-lib-yaml = { path = "crates/lib-yaml" }
+handl-loader = { path = "crates/loader" }
+handl-loader-native = { path = "crates/loader-native" }
+handl-loader-wasm = { path = "crates/loader-wasm" }
+handl-loader-web = { path = "crates/loader-web" }
+handl-parser = { path = "crates/parser" }
+handl-parser-common = { path = "crates/parser-common" }
+handl-platform = { path = "crates/platform" }
+handl-plugin-ast-apply = { path = "crates/plugin-ast-apply" }
+handl-plugin-ast-array = { path = "crates/plugin-ast-array" }
+handl-plugin-ast-assign = { path = "crates/plugin-ast-assign" }
+handl-plugin-ast-call = { path = "crates/plugin-ast-call" }
+handl-plugin-ast-field-access = { path = "crates/plugin-ast-field-access" }
+handl-plugin-ast-function = { path = "crates/plugin-ast-function" }
+handl-plugin-ast-handle = { path = "crates/plugin-ast-handle" }
+handl-plugin-ast-index = { path = "crates/plugin-ast-index" }
+handl-plugin-ast-let = { path = "crates/plugin-ast-let" }
+handl-plugin-ast-match = { path = "crates/plugin-ast-match" }
+handl-plugin-ast-object = { path = "crates/plugin-ast-object" }
+handl-plugin-ast-pipe = { path = "crates/plugin-ast-pipe" }
+handl-plugin-ast-var = { path = "crates/plugin-ast-var" }
+handl-plugin-booleans = { path = "crates/plugin-booleans" }
+handl-plugin-comment-tokens = { path = "crates/plugin-comment-tokens" }
+handl-plugin-comments = { path = "crates/plugin-comments" }
+handl-plugin-delimiters = { path = "crates/plugin-delimiters" }
+handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
+handl-plugin-doc-comments = { path = "crates/plugin-doc-comments" }
+handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
+handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
+handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
+handl-plugin-grammar-apply = { path = "crates/plugin-grammar-apply" }
+handl-plugin-grammar-array = { path = "crates/plugin-grammar-array" }
+handl-plugin-grammar-assign = { path = "crates/plugin-grammar-assign" }
+handl-plugin-grammar-call = { path = "crates/plugin-grammar-call" }
+handl-plugin-grammar-function-literal = { path = "crates/plugin-grammar-function-literal" }
+handl-plugin-grammar-handle = { path = "crates/plugin-grammar-handle" }
+handl-plugin-grammar-index = { path = "crates/plugin-grammar-index" }
+handl-plugin-grammar-infix-assign = { path = "crates/plugin-grammar-infix-assign" }
+handl-plugin-grammar-infix-fanout = { path = "crates/plugin-grammar-infix-fanout" }
+handl-plugin-grammar-infix-flow = { path = "crates/plugin-grammar-infix-flow" }
+handl-plugin-grammar-infix-pipe = { path = "crates/plugin-grammar-infix-pipe" }
+handl-plugin-grammar-infix-ternary = { path = "crates/plugin-grammar-infix-ternary" }
+handl-plugin-grammar-let = { path = "crates/plugin-grammar-let" }
+handl-plugin-grammar-match = { path = "crates/plugin-grammar-match" }
+handl-plugin-grammar-object = { path = "crates/plugin-grammar-object" }
+handl-plugin-grammar-pipe = { path = "crates/plugin-grammar-pipe" }
+handl-plugin-grammar-postfix-call = { path = "crates/plugin-grammar-postfix-call" }
+handl-plugin-grammar-postfix-field = { path = "crates/plugin-grammar-postfix-field" }
+handl-plugin-grammar-postfix-index = { path = "crates/plugin-grammar-postfix-index" }
+handl-plugin-grammar-postfix-mood = { path = "crates/plugin-grammar-postfix-mood" }
+handl-plugin-grammar-primary-array = { path = "crates/plugin-grammar-primary-array" }
+handl-plugin-grammar-primary-handle = { path = "crates/plugin-grammar-primary-handle" }
+handl-plugin-grammar-primary-identifier = { path = "crates/plugin-grammar-primary-identifier" }
+handl-plugin-grammar-primary-match = { path = "crates/plugin-grammar-primary-match" }
+handl-plugin-grammar-primary-not = { path = "crates/plugin-grammar-primary-not" }
+handl-plugin-grammar-primary-object = { path = "crates/plugin-grammar-primary-object" }
+handl-plugin-grammar-primary-paren = { path = "crates/plugin-grammar-primary-paren" }
+handl-plugin-grammar-primary-typeof = { path = "crates/plugin-grammar-primary-typeof" }
+handl-plugin-grammar-primary-value = { path = "crates/plugin-grammar-primary-value" }
+handl-plugin-grammar-stmt-const = { path = "crates/plugin-grammar-stmt-const" }
+handl-plugin-grammar-stmt-export = { path = "crates/plugin-grammar-stmt-export" }
+handl-plugin-grammar-stmt-import = { path = "crates/plugin-grammar-stmt-import" }
+handl-plugin-grammar-stmt-let = { path = "crates/plugin-grammar-stmt-let" }
+handl-plugin-grammar-stmt-module = { path = "crates/plugin-grammar-stmt-module" }
+handl-plugin-identifiers = { path = "crates/plugin-identifiers" }
+handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
+handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
+handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
+handl-plugin-null = { path = "crates/plugin-null" }
+handl-plugin-numbers = { path = "crates/plugin-numbers" }
+handl-plugin-operators = { path = "crates/plugin-operators" }
+handl-plugin-strings = { path = "crates/plugin-strings" }
+handl-plugin-target-native-example = { path = "crates/plugin-target-native-example" }
+handl-plugin-target-rust = { path = "crates/plugin-target-rust" }
+handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
+handl-plugin-token-bytes = { path = "crates/plugin-token-bytes" }
+handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
+handl-plugin-token-delimiter = { path = "crates/plugin-token-delimiter" }
+handl-plugin-token-identifier = { path = "crates/plugin-token-identifier" }
+handl-plugin-token-keyword = { path = "crates/plugin-token-keyword" }
+handl-plugin-token-keyword-as = { path = "crates/plugin-token-keyword-as" }
+handl-plugin-token-keyword-handle = { path = "crates/plugin-token-keyword-handle" }
+handl-plugin-token-null = { path = "crates/plugin-token-null" }
+handl-plugin-token-number = { path = "crates/plugin-token-number" }
+handl-plugin-token-operator = { path = "crates/plugin-token-operator" }
+handl-plugin-token-string = { path = "crates/plugin-token-string" }
+handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
+handl-runtime = { path = "crates/runtime" }
+handl-source = { path = "crates/source" }
+handl-target-native = { path = "crates/target-native" }
+handl-tooling = { path = "crates/tooling" }
+handl-typecheck-core = { path = "crates/typecheck-core" }
+handl-vm = { path = "crates/vm" }
+handl-vm-backend-rust-interpreter = { path = "crates/vm-backend-rust-interpreter" }
+handl-vm-common = { path = "crates/vm-common" }
+handl-vm-config = { path = "crates/vm-config" }
+handl-vm-host-eval = { path = "crates/vm-host-eval" }
+handl-vm-server = { path = "crates/vm-server" }
+handl-vm-type = { path = "crates/vm-type" }
+handl-vm-type-schema-json = { path = "crates/vm-type-schema-json" }
+handl-vm-values-json = { path = "crates/vm-values-json" }
 
 [features]
 default = []

@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lsp-symbol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-tooling.workspace = true
+handl-kit-canonical.workspace = true
+handl-platform.workspace = true
+handl-expr.workspace = true
