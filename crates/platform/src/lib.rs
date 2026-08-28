@@ -27,6 +27,10 @@ pub mod plugin_model;
 pub mod plugin;
 /// Plugin composition resolution.
 pub mod resolve;
+/// Unified `Value`/`Term` space for the platform VM.
+pub mod value;
+/// Composable VM wrapper over the unified value space.
+pub mod vm;
 
 pub use boundary::*;
 pub use capability::*;
@@ -40,6 +44,11 @@ pub use options::*;
 pub use plugin_model::*;
 pub use plugin::*;
 pub use resolve::*;
+
+/// Unified value space primitives re-exported from `handl_lib_type`.
+pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};
+/// Composable VM wrapper.
+pub use vm::Vm;
 
 #[cfg(test)]
 mod tests {

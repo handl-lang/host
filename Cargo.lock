@@ -378,6 +378,8 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
+ "handl-lib-type",
+ "handl-vm-type",
  "semver",
  "serde",
  "serde_json",

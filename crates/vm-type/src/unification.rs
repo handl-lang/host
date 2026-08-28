@@ -111,6 +111,27 @@ impl Substitution {
                 snd: Box::new(self.apply_value(snd)),
             },
             Value::Literal(l) => Value::Literal(l.clone()),
+            Value::Collection(name) => Value::Collection(name.clone()),
+            Value::Membership { value, collection } => Value::Membership {
+                value: Box::new(self.apply_value(value)),
+                collection: Box::new(self.apply_value(collection)),
+            },
+            Value::IsEvidence => Value::IsEvidence,
+            Value::Eq { lhs, rhs } => Value::Eq {
+                lhs: Box::new(self.apply_value(lhs)),
+                rhs: Box::new(self.apply_value(rhs)),
+            },
+            Value::Refl => Value::Refl,
+            Value::Empty => Value::Empty,
+            Value::Null => Value::Null,
+            Value::Array(xs) => Value::Array(
+                xs.iter().map(|x| self.apply_value(x)).collect(),
+            ),
+            Value::Object(xs) => Value::Object(
+                xs.iter()
+                    .map(|(n, v)| (n.clone(), self.apply_value(v)))
+                    .collect(),
+            ),
         }
     }
 
@@ -176,6 +197,18 @@ impl Substitution {
                 None => Value::Neutral(neutral.clone()),
             },
             Neutral::Hole(_) => Value::Neutral(neutral.clone()),
+            Neutral::Is { value, collection } => Value::Neutral(Neutral::Is {
+                value: Box::new(self.apply_value(value)),
+                collection: Box::new(self.apply_value(collection)),
+            }),
+            Neutral::Membership { value, collection } => Value::Neutral(Neutral::Membership {
+                value: Box::new(self.apply_value(value)),
+                collection: Box::new(self.apply_value(collection)),
+            }),
+            Neutral::Eq { lhs, rhs } => Value::Neutral(Neutral::Eq {
+                lhs: Box::new(self.apply_value(lhs)),
+                rhs: Box::new(self.apply_value(rhs)),
+            }),
         }
     }
 
@@ -283,6 +316,46 @@ impl Substitution {
             },
             Term::Hole(_) => term.clone(),
             Term::Literal(_) => term.clone(),
+            Term::Collection(name) => Term::Collection(name.clone()),
+            Term::Membership { value, collection } => Term::Membership {
+                value: Box::new(self.apply_term(value, names)),
+                collection: Box::new(self.apply_term(collection, names)),
+            },
+            Term::Is { value, collection } => Term::Is {
+                value: Box::new(self.apply_term(value, names)),
+                collection: Box::new(self.apply_term(collection, names)),
+            },
+            Term::IsEvidence => term.clone(),
+            Term::Eq { lhs, rhs } => Term::Eq {
+                lhs: Box::new(self.apply_term(lhs, names)),
+                rhs: Box::new(self.apply_term(rhs, names)),
+            },
+            Term::Refl => term.clone(),
+            Term::TypedLet {
+                name,
+                value,
+                ty,
+                body,
+            } => {
+                let mut names2 = names.to_vec();
+                names2.insert(0, name.clone());
+                Term::TypedLet {
+                    name: name.clone(),
+                    value: Box::new(self.apply_term(value, names)),
+                    ty: Box::new(self.apply_term(ty, names)),
+                    body: Box::new(self.apply_term(body, &names2)),
+                }
+            }
+            Term::Empty => term.clone(),
+            Term::Null => term.clone(),
+            Term::Array(xs) => Term::Array(
+                xs.iter().map(|x| self.apply_term(x, names)).collect(),
+            ),
+            Term::Object(xs) => Term::Object(
+                xs.iter()
+                    .map(|(n, x)| (n.clone(), self.apply_term(x, names)))
+                    .collect(),
+            ),
         }
     }
 
@@ -430,6 +503,37 @@ pub fn unify(ctx: &mut MetaContext, lhs: &Value, rhs: &Value) -> Result<(), Unif
                 ))
             }
         }
+        (Value::Null, Value::Null) => Ok(()),
+        (Value::Array(a1), Value::Array(a2)) => {
+            if a1.len() != a2.len() {
+                return Err(UnificationError::Mismatch(
+                    format!("array of length {}", a1.len()),
+                    format!("array of length {}", a2.len()),
+                ));
+            }
+            for (x, y) in a1.iter().zip(a2.iter()) {
+                unify(ctx, x, y)?;
+            }
+            Ok(())
+        }
+        (Value::Object(o1), Value::Object(o2)) => {
+            if o1.keys().ne(o2.keys()) {
+                return Err(UnificationError::Mismatch(
+                    format!("object keys {:?}", o1.keys().collect::<Vec<_>>()),
+                    format!("object keys {:?}", o2.keys().collect::<Vec<_>>()),
+                ));
+            }
+            for (k, v1) in o1 {
+                let v2 = o2.get(k).ok_or_else(|| {
+                    UnificationError::Mismatch(
+                        format!("object key {}", k),
+                        format!("missing key {}", k),
+                    )
+                })?;
+                unify(ctx, v1, v2)?;
+            }
+            Ok(())
+        }
         (l, r) => Err(UnificationError::Mismatch(
             format!("{:?}", l),
             format!("{:?}", r),
@@ -536,6 +640,36 @@ fn unify_neutral(
                 ))
             }
         }
+        (
+            Neutral::Is {
+                value: v1,
+                collection: c1,
+            },
+            Neutral::Is {
+                value: v2,
+                collection: c2,
+            },
+        ) => {
+            unify(ctx, v1, v2)?;
+            unify(ctx, c1, c2)
+        }
+        (
+            Neutral::Membership {
+                value: v1,
+                collection: c1,
+            },
+            Neutral::Membership {
+                value: v2,
+                collection: c2,
+            },
+        ) => {
+            unify(ctx, v1, v2)?;
+            unify(ctx, c1, c2)
+        }
+        (Neutral::Eq { lhs: l1, rhs: r1 }, Neutral::Eq { lhs: l2, rhs: r2 }) => {
+            unify(ctx, l1, l2)?;
+            unify(ctx, r1, r2)
+        }
         _ => Err(UnificationError::Mismatch(
             format!("{:?}", n1),
             format!("{:?}", n2),
@@ -565,6 +699,17 @@ fn occurs_check(ctx: &MetaContext, m: MetaVar, value: &Value) -> bool {
                 || occurs_check_term(ctx, m, &closure.body)
         }
         Value::Pair { fst, snd } => occurs_check(ctx, m, fst) || occurs_check(ctx, m, snd),
+        Value::Collection(_) => false,
+        Value::Membership { value, collection } => {
+            occurs_check(ctx, m, value) || occurs_check(ctx, m, collection)
+        }
+        Value::IsEvidence => false,
+        Value::Eq { lhs, rhs } => occurs_check(ctx, m, lhs) || occurs_check(ctx, m, rhs),
+        Value::Refl => false,
+        Value::Empty => false,
+        Value::Null => false,
+        Value::Array(xs) => xs.iter().any(|x| occurs_check(ctx, m, x)),
+        Value::Object(xs) => xs.iter().any(|(_, v)| occurs_check(ctx, m, v)),
     }
 }
 
@@ -602,6 +747,19 @@ fn occurs_check_tvar(ctx: &MetaContext, name: &Name, value: &Value) -> bool {
         Value::Pair { fst, snd } => {
             occurs_check_tvar(ctx, name, fst) || occurs_check_tvar(ctx, name, snd)
         }
+        Value::Collection(_) => false,
+        Value::Membership { value, collection } => {
+            occurs_check_tvar(ctx, name, value) || occurs_check_tvar(ctx, name, collection)
+        }
+        Value::IsEvidence => false,
+        Value::Eq { lhs, rhs } => {
+            occurs_check_tvar(ctx, name, lhs) || occurs_check_tvar(ctx, name, rhs)
+        }
+        Value::Refl => false,
+        Value::Empty => false,
+        Value::Null => false,
+        Value::Array(xs) => xs.iter().any(|x| occurs_check_tvar(ctx, name, x)),
+        Value::Object(xs) => xs.iter().any(|(_, v)| occurs_check_tvar(ctx, name, v)),
     }
 }
 
@@ -634,6 +792,13 @@ fn occurs_check_neutral(ctx: &MetaContext, m: MetaVar, neutral: &Neutral) -> boo
             }
         }
         Neutral::Hole(_) => false,
+        Neutral::Is { value, collection } => {
+            occurs_check(ctx, m, value) || occurs_check(ctx, m, collection)
+        }
+        Neutral::Membership { value, collection } => {
+            occurs_check(ctx, m, value) || occurs_check(ctx, m, collection)
+        }
+        Neutral::Eq { lhs, rhs } => occurs_check(ctx, m, lhs) || occurs_check(ctx, m, rhs),
     }
 }
 
@@ -658,6 +823,15 @@ fn occurs_check_neutral_tvar(ctx: &MetaContext, name: &Name, neutral: &Neutral) 
         Neutral::Proj1(n) | Neutral::Proj2(n) => occurs_check_neutral_tvar(ctx, name, n),
         Neutral::Meta(_) => false,
         Neutral::Hole(_) => false,
+        Neutral::Is { value, collection } => {
+            occurs_check_tvar(ctx, name, value) || occurs_check_tvar(ctx, name, collection)
+        }
+        Neutral::Membership { value, collection } => {
+            occurs_check_tvar(ctx, name, value) || occurs_check_tvar(ctx, name, collection)
+        }
+        Neutral::Eq { lhs, rhs } => {
+            occurs_check_tvar(ctx, name, lhs) || occurs_check_tvar(ctx, name, rhs)
+        }
     }
 }
 
@@ -697,6 +871,27 @@ fn occurs_check_term(ctx: &MetaContext, m: MetaVar, term: &Term) -> bool {
                 None => false,
             }
         }
+        Term::Collection(_) => false,
+        Term::Membership { value, collection } => {
+            occurs_check_term(ctx, m, value) || occurs_check_term(ctx, m, collection)
+        }
+        Term::Is { value, collection } => {
+            occurs_check_term(ctx, m, value) || occurs_check_term(ctx, m, collection)
+        }
+        Term::IsEvidence => false,
+        Term::Eq { lhs, rhs } => {
+            occurs_check_term(ctx, m, lhs) || occurs_check_term(ctx, m, rhs)
+        }
+        Term::Refl => false,
+        Term::TypedLet { value, ty, body, .. } => {
+            occurs_check_term(ctx, m, value)
+                || occurs_check_term(ctx, m, ty)
+                || occurs_check_term(ctx, m, body)
+        }
+        Term::Empty => false,
+        Term::Null => false,
+        Term::Array(xs) => xs.iter().any(|x| occurs_check_term(ctx, m, x)),
+        Term::Object(xs) => xs.iter().any(|(_, x)| occurs_check_term(ctx, m, x)),
     }
 }
 
@@ -748,6 +943,29 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
                     .any(|a| occurs_check_term_tvar(ctx, name, a))
         }
         Term::Proj1(e) | Term::Proj2(e) => occurs_check_term_tvar(ctx, name, e),
+        Term::Collection(_) => false,
+        Term::Membership { value, collection } => {
+            occurs_check_term_tvar(ctx, name, value)
+                || occurs_check_term_tvar(ctx, name, collection)
+        }
+        Term::Is { value, collection } => {
+            occurs_check_term_tvar(ctx, name, value)
+                || occurs_check_term_tvar(ctx, name, collection)
+        }
+        Term::IsEvidence => false,
+        Term::Eq { lhs, rhs } => {
+            occurs_check_term_tvar(ctx, name, lhs) || occurs_check_term_tvar(ctx, name, rhs)
+        }
+        Term::Refl => false,
+        Term::TypedLet { value, ty, body, .. } => {
+            occurs_check_term_tvar(ctx, name, value)
+                || occurs_check_term_tvar(ctx, name, ty)
+                || occurs_check_term_tvar(ctx, name, body)
+        }
+        Term::Empty => false,
+        Term::Null => false,
+        Term::Array(xs) => xs.iter().any(|x| occurs_check_term_tvar(ctx, name, x)),
+        Term::Object(xs) => xs.iter().any(|(_, x)| occurs_check_term_tvar(ctx, name, x)),
     }
 }
 

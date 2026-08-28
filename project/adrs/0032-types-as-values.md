@@ -48,4 +48,13 @@ Current state:
 
 ## Status
 
-proposed
+accepted
+
+## Implementation
+
+Implemented in the active workspace:
+
+- `crates/vm-type` now has the unified `Value`/`Term` space with `Collection`, `Membership`, `Is`, `Eq`, `Refl`, `TypedLet`, `Empty`, primitive base collections (`type.number`, `type.string`, `type.bool`, `type.null`, `type.array`, `type.object`, `type.eq`), and `Null`/`Array`/`Object` runtime values.
+- `handl-lib-type` re-exports the primitives and provides `typecheck` and `typecheck_with_prelude`.
+- `handl-platform` composes the VM via the new `value` and `vm` modules, re-exporting the unified value and proof system.
+- `handl-target-native` re-exports `Value` from the platform.

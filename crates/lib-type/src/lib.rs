@@ -11,6 +11,21 @@ pub use handl_vm_type_schema_json::{
     AliasEntry, AliasTable, SchemaError, SchemaInterpreter, default_tctx, interpret,
 };
 
+/// Re-export the prelude environment and typing context constructors.
+pub use handl_vm_type::primitives::{prelude_env, prelude_tctx};
+
+/// Convenience `typecheck` using a fresh `MetaContext`, the empty `Env`,
+/// and the supplied `TCtx`.
+pub fn typecheck(term: &Term, tctx: &TCtx) -> Result<Value, TypeError> {
+    let mut ctx = MetaContext::new();
+    synth(&mut ctx, &Env::new(), tctx, term)
+}
+
+/// Convenience `typecheck` using the prelude `TCtx`.
+pub fn typecheck_with_prelude(term: &Term) -> Result<Value, TypeError> {
+    typecheck(term, &prelude_tctx())
+}
+
 /// Typecheck a JSON Schema by interpreting it into a `handl-vm-type` `Term`
 /// and synthesising its type using the schema bridge's default primitive
 /// typing context.

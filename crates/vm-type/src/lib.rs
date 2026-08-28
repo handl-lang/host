@@ -3,6 +3,7 @@
 pub mod checking;
 pub mod core;
 pub mod error;
+pub mod primitives;
 pub mod reduction;
 pub mod types;
 pub mod unification;
@@ -10,6 +11,7 @@ pub mod unification;
 pub use checking::*;
 pub use core::*;
 pub use error::*;
+pub use primitives::*;
 pub use reduction::*;
 pub use types::*;
 pub use unification::*;

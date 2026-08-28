@@ -338,6 +338,42 @@ pub enum Term {
     Meta(MetaVar),
     Hole(HoleId),
     Literal(Literal),
+    /// Base collection (e.g. `type.number`).
+    Collection(Name),
+    /// Membership type `T(x)`.
+    Membership {
+        value: Box<Term>,
+        collection: Box<Term>,
+    },
+    /// Membership evidence expression `x is T`.
+    Is {
+        value: Box<Term>,
+        collection: Box<Term>,
+    },
+    /// Raw membership evidence value.
+    IsEvidence,
+    /// Propositional equality type `x === y`.
+    Eq {
+        lhs: Box<Term>,
+        rhs: Box<Term>,
+    },
+    /// Equality proof.
+    Refl,
+    /// Typed let binding `name: T = e`.
+    TypedLet {
+        name: Name,
+        value: Box<Term>,
+        ty: Box<Term>,
+        body: Box<Term>,
+    },
+    /// Uninhabited type/proposition.
+    Empty,
+    /// JSON null literal.
+    Null,
+    /// JSON array literal.
+    Array(Vec<Term>),
+    /// JSON object literal (sorted by key).
+    Object(std::collections::BTreeMap<Name, Term>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -358,6 +394,21 @@ pub enum Neutral {
     Proj2(Box<Neutral>),
     Meta(MetaVar),
     Hole(HoleId),
+    /// Stuck membership evidence `x is T`.
+    Is {
+        value: Box<Value>,
+        collection: Box<Value>,
+    },
+    /// Stuck membership proposition `T(x)`.
+    Membership {
+        value: Box<Value>,
+        collection: Box<Value>,
+    },
+    /// Stuck equality proposition `x === y`.
+    Eq {
+        lhs: Box<Value>,
+        rhs: Box<Value>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -395,4 +446,28 @@ pub enum Value {
         snd: Box<Value>,
     },
     Literal(Literal),
+    /// Base collection value (e.g. `type.number`).
+    Collection(Name),
+    /// Membership type `T(x)`.
+    Membership {
+        value: Box<Value>,
+        collection: Box<Value>,
+    },
+    /// Membership evidence value.
+    IsEvidence,
+    /// Propositional equality type `x === y`.
+    Eq {
+        lhs: Box<Value>,
+        rhs: Box<Value>,
+    },
+    /// Equality proof.
+    Refl,
+    /// Uninhabited type/proposition.
+    Empty,
+    /// JSON null value.
+    Null,
+    /// JSON array value.
+    Array(Vec<Value>),
+    /// JSON object value (sorted by key).
+    Object(std::collections::BTreeMap<Name, Value>),
 }

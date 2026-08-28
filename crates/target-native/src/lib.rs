@@ -2,6 +2,9 @@
 //!
 //! ADR-0002 `Target` plugin that registers the native compilation target.
 
+/// Re-export the unified platform `Value` type.
+pub use handl_platform::Value;
+
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     OptionSchema, OptionScope, OptionsPlugin, PlatformError, Plugin, PluginContext,

@@ -174,3 +174,71 @@ pub fn val_pi(
         },
     }
 }
+
+pub fn collection(name: impl Into<Name>) -> Term {
+    Term::Collection(name.into())
+}
+
+pub fn collection_value(name: impl Into<Name>) -> Value {
+    Value::Collection(name.into())
+}
+
+pub fn membership(value: Term, collection: Term) -> Term {
+    Term::Membership {
+        value: Box::new(value),
+        collection: Box::new(collection),
+    }
+}
+
+pub fn is(value: Term, collection: Term) -> Term {
+    Term::Is {
+        value: Box::new(value),
+        collection: Box::new(collection),
+    }
+}
+
+pub fn eq(lhs: Term, rhs: Term) -> Term {
+    Term::Eq {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
+}
+
+pub fn refl() -> Term {
+    Term::Refl
+}
+
+pub fn typed_let(name: impl Into<Name>, value: Term, ty: Term, body: Term) -> Term {
+    Term::TypedLet {
+        name: name.into(),
+        value: Box::new(value),
+        ty: Box::new(ty),
+        body: Box::new(body),
+    }
+}
+
+pub fn empty() -> Term {
+    Term::Empty
+}
+
+pub fn membership_value(value: Value, collection: Value) -> Value {
+    Value::Membership {
+        value: Box::new(value),
+        collection: Box::new(collection),
+    }
+}
+
+pub fn eq_value(lhs: Value, rhs: Value) -> Value {
+    Value::Eq {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
+}
+
+pub fn refl_value() -> Value {
+    Value::Refl
+}
+
+pub fn empty_value() -> Value {
+    Value::Empty
+}

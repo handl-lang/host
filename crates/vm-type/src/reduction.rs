@@ -1,4 +1,5 @@
 use crate::core::*;
+use crate::primitives::primitive_member;
 
 pub fn eval(term: &Term, env: &Env) -> Value {
     match term {
@@ -103,6 +104,33 @@ pub fn eval(term: &Term, env: &Env) -> Value {
         Term::Meta(m) => Value::Neutral(Neutral::Meta(*m)),
         Term::Hole(h) => Value::Neutral(Neutral::Hole(*h)),
         Term::Literal(l) => Value::Literal(l.clone()),
+        Term::Collection(name) => Value::Collection(name.clone()),
+        Term::Membership { value, collection } => {
+            eval_membership(eval(value, env), eval(collection, env))
+        }
+        Term::Is { value, collection } => eval_is(eval(value, env), eval(collection, env)),
+        Term::IsEvidence => Value::IsEvidence,
+        Term::Eq { lhs, rhs } => {
+            let a = eval(lhs, env);
+            let b = eval(rhs, env);
+            if a == b {
+                Value::Refl
+            } else {
+                Value::Empty
+            }
+        }
+        Term::Refl => Value::Refl,
+        Term::TypedLet { value, body, .. } => {
+            eval(body, &env.extend(eval(value, env)))
+        }
+        Term::Empty => Value::Empty,
+        Term::Null => Value::Null,
+        Term::Array(xs) => Value::Array(xs.iter().map(|x| eval(x, env)).collect()),
+        Term::Object(xs) => Value::Object(
+            xs.iter()
+                .map(|(n, x)| (n.clone(), eval(x, env)))
+                .collect(),
+        ),
     }
 }
 
@@ -113,7 +141,50 @@ pub fn apply(fun: Value, arg: Value) -> Value {
             fun: Box::new(n),
             arg: Box::new(arg),
         }),
+        Value::Collection(name) => eval_membership(arg, Value::Collection(name.clone())),
         _ => panic!("application of non-function"),
+    }
+}
+
+fn eval_membership(value: Value, collection: Value) -> Value {
+    match (value, collection) {
+        (value, Value::Collection(name)) => match primitive_member(&value, &name) {
+            Some(true) => Value::IsEvidence,
+            Some(false) => Value::Empty,
+            None => Value::Neutral(Neutral::Membership {
+                value: Box::new(value),
+                collection: Box::new(Value::Collection(name)),
+            }),
+        },
+        (value, Value::Neutral(n)) => Value::Neutral(Neutral::Membership {
+            value: Box::new(value),
+            collection: Box::new(Value::Neutral(n)),
+        }),
+        (value, collection) => Value::Neutral(Neutral::Membership {
+            value: Box::new(value),
+            collection: Box::new(collection),
+        }),
+    }
+}
+
+fn eval_is(value: Value, collection: Value) -> Value {
+    match (value, collection) {
+        (value, Value::Collection(name)) => match primitive_member(&value, &name) {
+            Some(true) => Value::IsEvidence,
+            Some(false) => Value::Empty,
+            None => Value::Neutral(Neutral::Is {
+                value: Box::new(value),
+                collection: Box::new(Value::Collection(name)),
+            }),
+        },
+        (value, Value::Neutral(n)) => Value::Neutral(Neutral::Is {
+            value: Box::new(value),
+            collection: Box::new(Value::Neutral(n)),
+        }),
+        (value, collection) => Value::Neutral(Neutral::Is {
+            value: Box::new(value),
+            collection: Box::new(collection),
+        }),
     }
 }
 
@@ -222,6 +293,29 @@ pub fn instantiate_tvar_value(value: &Value, name: &Name, replacement: &Value) -
             snd: Box::new(instantiate_tvar_value(snd, name, replacement)),
         },
         Value::Literal(l) => Value::Literal(l.clone()),
+        Value::Collection(name) => Value::Collection(name.clone()),
+        Value::Membership { value, collection } => Value::Membership {
+            value: Box::new(instantiate_tvar_value(value, name, replacement)),
+            collection: Box::new(instantiate_tvar_value(collection, name, replacement)),
+        },
+        Value::IsEvidence => Value::IsEvidence,
+        Value::Eq { lhs, rhs } => Value::Eq {
+            lhs: Box::new(instantiate_tvar_value(lhs, name, replacement)),
+            rhs: Box::new(instantiate_tvar_value(rhs, name, replacement)),
+        },
+        Value::Refl => Value::Refl,
+        Value::Empty => Value::Empty,
+        Value::Null => Value::Null,
+        Value::Array(xs) => Value::Array(
+            xs.iter()
+                .map(|x| instantiate_tvar_value(x, name, replacement))
+                .collect(),
+        ),
+        Value::Object(xs) => Value::Object(
+            xs.iter()
+                .map(|(n, v)| (n.clone(), instantiate_tvar_value(v, name, replacement)))
+                .collect(),
+        ),
     }
 }
 
@@ -251,6 +345,18 @@ fn instantiate_tvar_neutral(neutral: &Neutral, name: &Name, replacement: &Value)
         }
         Neutral::Meta(_) => neutral.clone(),
         Neutral::Hole(_) => neutral.clone(),
+        Neutral::Is { value, collection } => Neutral::Is {
+            value: Box::new(instantiate_tvar_value(value, name, replacement)),
+            collection: Box::new(instantiate_tvar_value(collection, name, replacement)),
+        },
+        Neutral::Membership { value, collection } => Neutral::Membership {
+            value: Box::new(instantiate_tvar_value(value, name, replacement)),
+            collection: Box::new(instantiate_tvar_value(collection, name, replacement)),
+        },
+        Neutral::Eq { lhs, rhs } => Neutral::Eq {
+            lhs: Box::new(instantiate_tvar_value(lhs, name, replacement)),
+            rhs: Box::new(instantiate_tvar_value(rhs, name, replacement)),
+        },
     }
 }
 
@@ -354,6 +460,48 @@ fn instantiate_tvar_term(term: &Term, name: &Name, replacement: &Value, names: &
         Term::Meta(_) => term.clone(),
         Term::Hole(_) => term.clone(),
         Term::Literal(_) => term.clone(),
+        Term::Collection(name) => Term::Collection(name.clone()),
+        Term::Membership { value, collection } => Term::Membership {
+            value: Box::new(instantiate_tvar_term(value, name, replacement, names)),
+            collection: Box::new(instantiate_tvar_term(collection, name, replacement, names)),
+        },
+        Term::Is { value, collection } => Term::Is {
+            value: Box::new(instantiate_tvar_term(value, name, replacement, names)),
+            collection: Box::new(instantiate_tvar_term(collection, name, replacement, names)),
+        },
+        Term::IsEvidence => term.clone(),
+        Term::Eq { lhs, rhs } => Term::Eq {
+            lhs: Box::new(instantiate_tvar_term(lhs, name, replacement, names)),
+            rhs: Box::new(instantiate_tvar_term(rhs, name, replacement, names)),
+        },
+        Term::Refl => term.clone(),
+        Term::TypedLet {
+            name: n,
+            value,
+            ty,
+            body,
+        } => {
+            let mut names2 = names.to_vec();
+            names2.insert(0, n.clone());
+            Term::TypedLet {
+                name: n.clone(),
+                value: Box::new(instantiate_tvar_term(value, name, replacement, names)),
+                ty: Box::new(instantiate_tvar_term(ty, name, replacement, names)),
+                body: Box::new(instantiate_tvar_term(body, name, replacement, &names2)),
+            }
+        }
+        Term::Empty => term.clone(),
+        Term::Null => term.clone(),
+        Term::Array(xs) => Term::Array(
+            xs.iter()
+                .map(|x| instantiate_tvar_term(x, name, replacement, names))
+                .collect(),
+        ),
+        Term::Object(xs) => Term::Object(
+            xs.iter()
+                .map(|(n, x)| (n.clone(), instantiate_tvar_term(x, name, replacement, names)))
+                .collect(),
+        ),
     }
 }
 
@@ -430,6 +578,25 @@ pub fn quote(value: &Value, names: &[Name]) -> Term {
             snd: Box::new(quote(snd, names)),
         },
         Value::Literal(l) => Term::Literal(l.clone()),
+        Value::Collection(name) => Term::Collection(name.clone()),
+        Value::Membership { value, collection } => Term::Membership {
+            value: Box::new(quote(value, names)),
+            collection: Box::new(quote(collection, names)),
+        },
+        Value::IsEvidence => Term::IsEvidence,
+        Value::Eq { lhs, rhs } => Term::Eq {
+            lhs: Box::new(quote(lhs, names)),
+            rhs: Box::new(quote(rhs, names)),
+        },
+        Value::Refl => Term::Refl,
+        Value::Empty => Term::Empty,
+        Value::Null => Term::Null,
+        Value::Array(xs) => Term::Array(xs.iter().map(|x| quote(x, names)).collect()),
+        Value::Object(xs) => Term::Object(
+            xs.iter()
+                .map(|(n, v)| (n.clone(), quote(v, names)))
+                .collect(),
+        ),
     }
 }
 
@@ -462,6 +629,18 @@ fn quote_neutral(n: &Neutral, names: &[Name]) -> Term {
         Neutral::Proj2(n) => Term::Proj2(Box::new(quote_neutral(n, names))),
         Neutral::Meta(m) => Term::Meta(*m),
         Neutral::Hole(h) => Term::Hole(*h),
+        Neutral::Is { value, collection } => Term::Is {
+            value: Box::new(quote(value, names)),
+            collection: Box::new(quote(collection, names)),
+        },
+        Neutral::Membership { value, collection } => Term::Membership {
+            value: Box::new(quote(value, names)),
+            collection: Box::new(quote(collection, names)),
+        },
+        Neutral::Eq { lhs, rhs } => Term::Eq {
+            lhs: Box::new(quote(lhs, names)),
+            rhs: Box::new(quote(rhs, names)),
+        },
     }
 }
 

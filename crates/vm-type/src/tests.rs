@@ -2654,3 +2654,56 @@ fn comprehensive_coverage() {
         Value::TypeLam { .. }
     ));
 }
+
+#[test]
+fn primitive_membership_inhabited_by_is_evidence() {
+    let proof = is(lit_int(4), collection("type.number"));
+    assert_eq!(eval(&proof, &Env::new()), Value::IsEvidence);
+}
+
+#[test]
+fn is_int_number_well_typed_and_evaluates_to_proof() {
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = prelude_tctx();
+    let ty = synth(&mut ctx, &env, &tctx, &is(lit_int(4), collection("type.number")));
+    assert!(ty.is_ok());
+    assert_eq!(eval(&is(lit_int(4), collection("type.number")), &env), Value::IsEvidence);
+}
+
+#[test]
+fn is_string_number_is_type_error() {
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = prelude_tctx();
+    let err = synth(
+        &mut ctx,
+        &env,
+        &tctx,
+        &is(lit_string("x"), collection("type.number")),
+    )
+    .unwrap_err();
+    assert!(matches!(err, TypeError::TypeMismatch { .. }));
+}
+
+#[test]
+fn refl_checks_against_equal_ints() {
+    let mut ctx = MetaContext::new();
+    let ty = eval(&eq(lit_int(4), lit_int(4)), &Env::new());
+    assert!(check(&mut ctx, &Env::new(), &TCtx::new(), &refl(), &ty).is_ok());
+}
+
+#[test]
+fn typed_let_number_works() {
+    let mut ctx = MetaContext::new();
+    let t = typed_let("n", lit_int(4), collection("type.number"), bvar(0));
+    let ty = synth(&mut ctx, &Env::new(), &prelude_tctx(), &t).unwrap();
+    assert_eq!(ty, Value::Collection(Name::new("type.number")));
+}
+
+#[test]
+fn synth_prelude_collection() {
+    let mut ctx = MetaContext::new();
+    let ty = synth(&mut ctx, &Env::new(), &prelude_tctx(), &var("type.number")).unwrap();
+    assert_eq!(ty, Value::Collection(Name::new("type.number")));
+}

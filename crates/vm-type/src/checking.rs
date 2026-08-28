@@ -1,6 +1,7 @@
 use crate::core::*;
 use crate::error::*;
-use crate::reduction::{apply_type, eval, instantiate_tvar_value, quote};
+use crate::primitives::primitive_member;
+use crate::reduction::{apply_type, eval, instantiate_tvar_value, normalize, quote};
 use crate::unification::{MetaContext, unify};
 
 const MAX_ALIAS_DEPTH: usize = 64;
@@ -17,7 +18,10 @@ pub fn synth(
             .lookup(*i)
             .cloned()
             .ok_or(TypeError::UndefinedVariable(Var::DeBruijn(*i))),
-        Term::Var(Var::Named(name)) => Err(TypeError::ScopeError(name.to_string())),
+        Term::Var(Var::Named(name)) => tctx
+            .lookup_by_name(name)
+            .cloned()
+            .ok_or_else(|| TypeError::ScopeError(name.to_string())),
         Term::Literal(lit) => Ok(Value::Neutral(Neutral::Var(Var::Named(literal_type_name(
             lit,
         ))))),
@@ -163,6 +167,54 @@ pub fn synth(
             }
             Ok(fty)
         }
+        Term::Collection(_) => Ok(Value::Universe(Level::zero())),
+        Term::Membership { .. } => Ok(Value::Universe(Level::zero())),
+        // TODO(ADR0032): We synthesize the unreduced `Membership` value here.
+        // The unification of `Value::Membership` with `Value::IsEvidence` for
+        // true primitive memberships is left for a later phase.
+        Term::Is { value, collection } => {
+            let v = eval(value, env);
+            let c = eval(collection, env);
+            if let Value::Collection(ref name) = c {
+                match primitive_member(&v, name) {
+                    Some(false) => {
+                        return Err(TypeError::TypeMismatch {
+                            expected: format!("member of {}", name),
+                            found: format!("{:?}", quote(&v, &tctx.names())),
+                        });
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Value::Membership {
+                value: Box::new(v),
+                collection: Box::new(c),
+            })
+        }
+        Term::IsEvidence => Err(TypeError::CannotSynthesize("is-evidence".into())),
+        Term::Eq { .. } => Ok(Value::Universe(Level::zero())),
+        Term::Refl => Err(TypeError::CannotSynthesize("refl".into())),
+        Term::TypedLet {
+            name,
+            value,
+            ty,
+            body,
+        } => {
+            let ty_val = eval(ty, env);
+            check(ctx, env, tctx, value, &ty_val)?;
+            let vval = eval(value, env);
+            synth(
+                ctx,
+                &env.extend(vval),
+                &tctx.extend(name.clone(), ty_val),
+                body,
+            )
+        }
+        Term::Empty => Ok(Value::Universe(Level::zero())),
+        Term::Null => Ok(Value::Collection(Name::new("type.null"))),
+        Term::Array(_) | Term::Object(_) => {
+            Err(TypeError::CannotSynthesize("array/object".into()))
+        }
     }
 }
 
@@ -179,7 +231,10 @@ pub fn synth_type(
             .lookup(*i)
             .cloned()
             .ok_or(TypeError::UndefinedVariable(Var::DeBruijn(*i))),
-        Term::Var(Var::Named(name)) => Err(TypeError::ScopeError(name.to_string())),
+        Term::Var(Var::Named(name)) => tctx
+            .lookup_by_name(name)
+            .cloned()
+            .ok_or_else(|| TypeError::ScopeError(name.to_string())),
         Term::TVar(name) => tctx
             .lookup_by_name(name)
             .cloned()
@@ -321,11 +376,23 @@ fn value_universe(value: &Value) -> Result<Level, TypeError> {
             let bl = value_universe(body)?;
             Ok(Level::max(Level::zero(), bl))
         }
+        Value::Collection(_)
+        | Value::Membership { .. }
+        | Value::Eq { .. }
+        | Value::Refl
+        | Value::Empty => Ok(Level::zero()),
+        Value::IsEvidence => Err(TypeError::UniverseMismatch(
+            "expected a universe, found is-evidence".into(),
+        )),
         other => Err(TypeError::UniverseMismatch(format!(
             "expected a universe, found {:?}",
             other
         ))),
     }
+}
+
+fn normalize_value(v: &Value) -> Term {
+    normalize(&quote(v, &[]))
 }
 
 pub fn check(
@@ -403,6 +470,69 @@ pub fn check(
             }
             check(ctx, env, &tctx2, body, &current)
         }
+        (Term::Refl, Value::Refl) => Ok(()),
+        (Term::Refl, Value::Empty) => Err(TypeError::TypeMismatch {
+            expected: "equality".into(),
+            found: "refl".into(),
+        }),
+        (
+            Term::Refl,
+            Value::Eq {
+                ref lhs,
+                ref rhs,
+            },
+        ) => {
+            let a = normalize_value(lhs.as_ref());
+            let b = normalize_value(rhs.as_ref());
+            if a == b {
+                Ok(())
+            } else {
+                Err(TypeError::TypeMismatch {
+                    expected: "equality".into(),
+                    found: "refl".into(),
+                })
+            }
+        }
+        (Term::Literal(lit), Value::Collection(name)) => {
+            if primitive_member(&Value::Literal(lit.clone()), &name) == Some(true) {
+                Ok(())
+            } else {
+                Err(TypeError::TypeMismatch {
+                    expected: format!("member of {}", name),
+                    found: format!("{:?}", lit),
+                })
+            }
+        }
+        (Term::Null, Value::Collection(name)) => {
+            if primitive_member(&Value::Null, &name) == Some(true) {
+                Ok(())
+            } else {
+                Err(TypeError::TypeMismatch {
+                    expected: format!("member of {}", name),
+                    found: "null".into(),
+                })
+            }
+        }
+        (
+            Term::TypedLet {
+                name,
+                value,
+                ty,
+                body,
+            },
+            ref expected,
+        ) => {
+            let ty_val = eval(ty, env);
+            check(ctx, env, tctx, value, &ty_val)?;
+            let vval = eval(value, env);
+            check(
+                ctx,
+                &env.extend(vval),
+                &tctx.extend(name.clone(), ty_val),
+                body,
+                expected,
+            )
+        }
         (_, ty) => {
             let inferred = synth(ctx, env, tctx, term)?;
             if convertible(ctx, &inferred, &ty)? {
@@ -422,6 +552,20 @@ fn convertible(ctx: &mut MetaContext, from: &Value, to: &Value) -> Result<bool, 
     let b = ctx.subst.apply_value(to);
     if let (Value::Universe(l1), Value::Universe(l2)) = (&a, &b) {
         return Ok(l1.le(l2));
+    }
+    if let Value::Eq { ref lhs, ref rhs } = a {
+        if normalize_value(lhs.as_ref()) == normalize_value(rhs.as_ref()) {
+            return convertible(ctx, &Value::Refl, &b);
+        } else {
+            return convertible(ctx, &Value::Empty, &b);
+        }
+    }
+    if let Value::Eq { ref lhs, ref rhs } = b {
+        if normalize_value(lhs.as_ref()) == normalize_value(rhs.as_ref()) {
+            return convertible(ctx, &a, &Value::Refl);
+        } else {
+            return convertible(ctx, &a, &Value::Empty);
+        }
     }
     match unify(ctx, &a, &b) {
         Ok(()) => Ok(true),
