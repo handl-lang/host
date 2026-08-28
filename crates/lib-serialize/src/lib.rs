@@ -24,6 +24,7 @@ where
 /// Deserialize input using the provided decoder.
 pub fn deserialize<I, T, D>(input: &I, decoder: &D) -> Result<T, SerializeError>
 where
+    I: ?Sized,
     D: Decoder<I, T>,
 {
     decoder.decode(input)

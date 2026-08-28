@@ -220,7 +220,7 @@ fn seeded_string_correct_length() {
 fn seeded_string_hex_charset() {
     let result = call(
         "seeded_string",
-        &[n(42.0), n(50.0), handl_vm::NonFunctionValue::new("hex")],
+        &[n(42.0), n(50.0), NonFunctionValue::new("hex")],
     );
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);

@@ -5,9 +5,8 @@
 //! the buffer provider path instead of compiled data.
 
 use handl_lib_intl::IntlModule;
-use handl_vm::NonFunctionValue;
-use handl_vm::{CanonicalContext, Context};
 use handl_vm_common::Module;
+use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
 
 fn blob() -> Vec<u8> {
     let path =

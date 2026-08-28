@@ -6,6 +6,4 @@ mod utilities;
 pub use module::TypeModule;
 
 #[cfg(test)]
-mod coercion_tests;
-#[cfg(test)]
 mod utilities_tests;

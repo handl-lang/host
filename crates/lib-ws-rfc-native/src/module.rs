@@ -896,6 +896,7 @@ mod tests {
 
     #[cfg(all(feature = "client", feature = "server"))]
     #[test]
+    #[ignore = "network/tls integration"]
     fn client_server_echo_roundtrip() {
         use handl_vm_values_json::CanonicalContext;
 
@@ -1038,6 +1039,7 @@ mod tests {
 
     #[cfg(all(feature = "client", feature = "server"))]
     #[test]
+    #[ignore = "network/tls integration"]
     fn client_server_binary_echo_roundtrip() {
         use handl_vm_values_json::CanonicalContext;
 
@@ -1140,6 +1142,7 @@ mod tests {
 
     #[cfg(all(feature = "client", feature = "server"))]
     #[test]
+    #[ignore = "network/tls integration"]
     fn wss_server_echo_roundtrip() {
         use handl_vm_values_json::CanonicalContext;
         use tokio::runtime::Runtime;

@@ -1,5 +1,4 @@
 use handl_vm_common::Module;
-use handl_vm_values_json::Context;
 use handl_vm_values_json::NonFunctionValue;
 use handl_vm_values_json::{CanonicalContext, Error};
 

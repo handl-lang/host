@@ -91,6 +91,20 @@ impl ToolingHost {
         Ok(())
     }
 
+    /// Returns the CLI commands registered by loaded plugins.
+    pub fn cli_commands(&self) -> Vec<crate::command::CommandSpec> {
+        Vec::new()
+    }
+
+    /// Runs a CLI command by name with the provided arguments.
+    pub fn run_cli(
+        &mut self,
+        _name: &str,
+        _args: &[String],
+    ) -> Result<String, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+
     /// Returns completion candidates at `pos` in `source`.
     pub fn complete(&self, source: &str, pos: usize) -> Result<Vec<CompletionItem>, PlatformError> {
         match &self.completion {

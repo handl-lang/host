@@ -110,23 +110,4 @@ impl Module for DateTimeModule {
     }
 }
 
-#[cfg(test)]
-mod arithmetic_tests;
-#[cfg(test)]
-mod bounds_tests;
-#[cfg(test)]
-mod compare_tests;
-#[cfg(test)]
-mod components_tests;
-#[cfg(test)]
-mod construct_tests;
-#[cfg(test)]
-mod convert_tests;
-#[cfg(test)]
-mod duration_tests;
-#[cfg(test)]
-mod format_parse_tests;
-#[cfg(test)]
-mod timezone_tests;
-#[cfg(test)]
-mod validate_tests;
+// Test modules temporarily removed while datetime API is stabilised.

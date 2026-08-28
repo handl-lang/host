@@ -1,6 +1,6 @@
 use handl_vm_common::Module;
 use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::Context;
+use handl_vm_values_json::Error;
 use handl_vm_values_json::NonFunctionValue;
 
 use super::module::IntlModule;
@@ -76,7 +76,7 @@ fn supported_locales_no_args_returns_all() {
 
 // ── Blob provider tests ───────────────────────────────────────────
 
-fn call_supported_with_blob(args: &[NonFunctionValue]) -> Result<NonFunctionValue, handl_vm::Error> {
+fn call_supported_with_blob(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
     let module = IntlModule::with_blob_provider(vec![0u8; 10]);
     let func = module
         .function("supported_locales_of")
