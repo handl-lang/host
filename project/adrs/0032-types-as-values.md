@@ -7,34 +7,34 @@ The handl language is converging on a design where the type language and the exp
 Current state:
 
 - `handl-vm-type` already has a pure `Value` type with `VFun`, `VNeutral`, `VType`, `VLit`, etc.
-- The `.hnl` runtime (`handl-vm-values-json`) only has JSON values: `null`, `bool`, `number`, `string`, `array`, `object`. It has no first-class function values.
-- Because of that split, a type like `type.number = (x) -> type.type_of(x) == "number"` cannot exist as a runtime value, even though it is natural in the typechecker.
-- The typed examples and docs now assume this unified model, but it cannot run yet.
+- The `.hnl` runtime (`handl-vm-values-json`) only has JSON values: `null`, `bool`, `number`, `string`, `array`, `object`. It has no first-class function values and no propositional equality.
+- Because of that split, a type like `type.number` cannot be a runtime value, even though it is natural in the typechecker.
+- The typed examples and docs now assume a unified model, but it cannot run yet.
 
 ## Decision
 
-1. Types are ordinary handl values.
-2. A valid type is a **predicate**: a value that can be applied to another value and returns `type.bool`.
-3. `is` is type application: `x is T` means `T(x)`.
-4. `:` is a typed binding: `name: T = e` means `let name = e in (name is T); name`.
-5. The runtime and the typechecker will share the same `Value` representation.
-6. `handl-vm-type::Value` is the canonical value type for both pure type-level evaluation and effectful runtime evaluation.
-7. Static type expressions must be evaluable in a **pure** context: no effects, no IO, no runtime-only values.
+1. A **type** is a collection of values. It can be applied to a value to produce a **membership type** — a collection of proofs. If the membership type is empty, the value is not a member.
+2. `is` is **membership evidence**: `x is T` is the type `T(x)`. If `T(x)` is empty, `x` is not in `T`.
+3. `:` is a **membership assertion**: `name: T = e` means `let name = e in (e is T); name`.
+4. Equality `≡` is a **type**, not a boolean. `x ≡ y` has one value `refl` when `x` and `y` are equal, and is empty otherwise.
+5. There is **one universe**: `Type`. No separate `Prop` and `Set`. A proposition is a type with at most one inhabitant. A proof is a value.
+6. The `type` module provides the base collections: `type.number`, `type.string`, `type.bool`, `type.null`, `type.array`, `type.object`, and `type.eq` (propositional equality). `->` and `{}` are built-in syntax for function and record types.
+7. The runtime and the typechecker share the same `Value` representation.
+8. Type-level evaluation is **pure, total, and terminating**. Effectful runtime is a separate mode.
 
 ## Consequences
 
-- The `type` module has only six primitive predicates: `type.string`, `type.number`, `type.bool`, `type.null`, `type.array`, `type.object`.
-- A function that does not return `type.bool` is not a valid type and cannot be used after `:` or `is`.
-- Record types are objects of predicates: `Person = { name: type.string, age: type.number }`.
-- Array-of-T is `array.every(arr, T)`, not a special type combinator.
-- Refinement types are ordinary functions with typed parameters: `Even = (n: type.number) -> n % 2 == 0`.
+- `Even = (n: type.number) -> n % 2 ≡ 0` is a type family. `Even(4)` is `0 ≡ 0`, inhabited by `refl`. `Even(3)` is `1 ≡ 0`, which is empty.
+- `Person = { name: type.string, age: type.number }` is a record / sigma type.
+- `n: Even = 4` means `n` is `4` and `Even(4)` is inhabited. The proof is erased at runtime.
+- `array.every(arr, T)` is a library function that returns a membership type (a proof or an empty type).
 - Function return types are part of the function signature: `addOne = (n: type.number): type.number -> n + 1`.
-- `type.any` and `type.unknown` are not in the `type` module. `Any = (_) -> true` is ordinary Handl code. `Unknown` is an internal typecheck-host concept, not a runtime predicate.
+- `f is NumberToNumber` means `NumberToNumber(f)` is inhabited. Function values must carry declared parameter/return type metadata, or the type must be given as a proof.
+- `type.any` and `type.unknown` are not in the `type` module. `Any = (_) -> type.bool` is ordinary Handl code. `Unknown` is an internal typecheck-host concept, not a runtime predicate.
 - `type.type_of` is reflection and out of scope for the core design. It can be added later without changing the model.
-- Function values must carry declared parameter/return type metadata so that `f is NumberToNumber` can be checked. Runtime behavior cannot be observed statically.
 - `handl-vm-values-json` will be replaced or become a thin serialization view of `handl-vm-type::Value`.
 - The `mood` module becomes redundant. Its runtime behavior can move into the `type` module or become ordinary handl functions.
-- The parser/AST needs to support `:` typed bindings and `is` as application.
+- The parser/AST needs to support `:` typed bindings, `is` as membership, and `≡` as a type.
 
 ## Status
 
