@@ -24,6 +24,7 @@ Current state:
 ## Consequences
 
 - The `type` module has only six primitive predicates: `type.string`, `type.number`, `type.bool`, `type.null`, `type.array`, `type.object`.
+- A function that does not return `type.bool` is not a valid type and cannot be used after `:` or `is`.
 - Record types are objects of predicates: `Person = { name: type.string, age: type.number }`.
 - Array-of-T is `array.every(arr, T)`, not a special type combinator.
 - Refinement types are ordinary functions with typed parameters: `Even = (n: type.number) -> n % 2 == 0`.
