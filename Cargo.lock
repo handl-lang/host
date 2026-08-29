@@ -726,6 +726,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-host-tooling"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-platform",
+ "handl-plugin-diag-expression",
+ "handl-plugin-fmt-expression",
+ "handl-plugin-fmt-stmt",
+ "handl-plugin-fmt-trivia",
+ "handl-plugin-load",
+ "handl-plugin-loader-native",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-symbol",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
@@ -2200,27 +2221,27 @@ dependencies = [
 name = "handl-plugin-lsp-completion"
 version = "0.1.0"
 dependencies = [
+ "handl-host-tooling",
  "handl-kit-canonical",
  "handl-platform",
- "handl-tooling",
 ]
 
 [[package]]
 name = "handl-plugin-lsp-goto"
 version = "0.1.0"
 dependencies = [
+ "handl-host-tooling",
  "handl-kit-canonical",
  "handl-platform",
- "handl-tooling",
 ]
 
 [[package]]
 name = "handl-plugin-lsp-symbol"
 version = "0.1.0"
 dependencies = [
+ "handl-host-tooling",
  "handl-kit-canonical",
  "handl-platform",
- "handl-tooling",
 ]
 
 [[package]]
@@ -2473,27 +2494,6 @@ dependencies = [
  "handl-plugin-source",
  "handl-plugin-vm",
  "indexmap",
- "serde_json",
-]
-
-[[package]]
-name = "handl-tooling"
-version = "0.1.0"
-dependencies = [
- "handl-kit-canonical",
- "handl-platform",
- "handl-plugin-diag-expression",
- "handl-plugin-fmt-expression",
- "handl-plugin-fmt-stmt",
- "handl-plugin-fmt-trivia",
- "handl-plugin-load",
- "handl-plugin-loader-native",
- "handl-plugin-lsp-completion",
- "handl-plugin-lsp-goto",
- "handl-plugin-lsp-symbol",
- "handl-plugin-vm-common",
- "handl-plugin-vm-values-json",
- "serde",
  "serde_json",
 ]
 

@@ -1,5 +1,5 @@
 [package]
-name = "handl-tooling"
+name = "handl-host-tooling"
 version.workspace = true
 edition.workspace = true
 

@@ -160,7 +160,7 @@ members = [
     "crates/plugin-runtime",
     "crates/plugin-source",
     "crates/plugin-target-native",
-    "crates/tooling",
+    "crates/host-tooling",
     "crates/plugin-vm",
     "crates/plugin-vm-backend-rust-interpreter",
     "crates/plugin-vm-common",
@@ -354,7 +354,7 @@ handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-runtime = { path = "crates/plugin-runtime" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-plugin-target-native = { path = "crates/plugin-target-native" }
-handl-tooling = { path = "crates/tooling" }
+handl-host-tooling = { path = "crates/host-tooling" }
 handl-plugin-vm = { path = "crates/plugin-vm" }
 handl-plugin-vm-backend-rust-interpreter = { path = "crates/plugin-vm-backend-rust-interpreter" }
 handl-plugin-vm-common = { path = "crates/plugin-vm-common" }

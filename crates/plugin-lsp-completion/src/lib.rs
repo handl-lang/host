@@ -1,7 +1,7 @@
 //! Stub completion plugin; full LSP port pending.
 
 use handl_platform::PlatformError;
-use handl_tooling::lsp::{CompletionPlugin, CompletionRequest, CompletionResponse};
+use handl_host_tooling::lsp::{CompletionPlugin, CompletionRequest, CompletionResponse};
 
 /// A minimal completion plugin.
 #[derive(Debug, Default, Clone, Copy)]

@@ -4,6 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-tooling.workspace = true
+handl-host-tooling.workspace = true
 handl-kit-canonical.workspace = true
 handl-platform.workspace = true

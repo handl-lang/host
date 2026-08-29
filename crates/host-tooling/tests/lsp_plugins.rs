@@ -3,7 +3,7 @@ use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_lsp_completion::BasicCompletion;
 use handl_plugin_lsp_goto::BasicGotoDef;
 use handl_plugin_lsp_symbol::BasicDocumentSymbols;
-use handl_tooling::{Location, TextContentChange, ToolingHost};
+use handl_host_tooling::{Location, TextContentChange, ToolingHost};
 
 fn host() -> ToolingHost<CanonicalKit> {
     ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
