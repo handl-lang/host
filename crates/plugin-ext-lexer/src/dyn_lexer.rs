@@ -297,7 +297,10 @@ mod tests {
 
         let tokens = lexer.lex("hello world").unwrap();
         assert_eq!(tokens.len(), 3);
-        assert!(matches!(&*tokens[2].kind, Kind::Eof));
+        assert!(matches!(
+            tokens[2].kind.as_any().downcast_ref::<Kind>(),
+            Some(Kind::Eof)
+        ));
         assert_eq!(tokens[0].span, Span::new(0, 5));
         assert_eq!(tokens[1].span, Span::new(6, 11));
     }
@@ -347,6 +350,9 @@ mod tests {
             .with_rule(Box::new(Hi))
             .with_eof_kind(Box::new(Kind::Eof));
         let tokens = lexer.lex("ab").unwrap();
-        assert!(matches!(&*tokens[0].kind, Kind::Word(s) if s == "hi"));
+        assert!(matches!(
+            tokens[0].kind.as_any().downcast_ref::<Kind>(),
+            Some(Kind::Word(s)) if s == "hi"
+        ));
     }
 }
