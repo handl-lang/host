@@ -66,7 +66,7 @@ use handl_plugin_grammar_assign::AssignToken;
 use handl_plugin_grammar_call::{CallRule, CallToken};
 use handl_plugin_grammar_handle::HandleToken;
 use handl_plugin_grammar_index::{IndexRule, IndexToken};
-use handl_plugin_grammar_let::LetToken;
+use handl_plugin_grammar_let::{LetRule, LetToken};
 use handl_plugin_grammar_match::MatchToken;
 use handl_plugin_grammar_object::ObjectToken;
 use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
@@ -958,8 +958,26 @@ fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
 
             Ok(KitNode::Pipe(Box::new(Pipe::new(left, right))))
         }
+        "let" => {
+            let name = ast
+                .payload
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| PlatformError::Plugin("missing 'name' field in let AST payload".into()))?;
+
+            let value = ast
+                .payload
+                .get("value")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'value' field in let AST payload".into()))?;
+            let value_ast: AstNode = serde_json::from_value(value)
+                .map_err(|e| PlatformError::Plugin(format!("invalid value in let AST: {e}")))?;
+            let value = ast_to_kitnode(&value_ast)?;
+
+            Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
+        }
         _ => Err(PlatformError::Plugin(format!(
-            "expected a 'value', 'var', 'call', 'index', or 'pipe' AST node, got '{}'",
+            "expected a 'value', 'var', 'call', 'index', 'pipe', or 'let' AST node, got '{}'",
             ast.kind
         ))),
     }
@@ -998,6 +1016,7 @@ impl Kit {
         parser.accept(Box::new(CallRule))?;
         parser.accept(Box::new(IndexRule))?;
         parser.accept(Box::new(PipeRule))?;
+        parser.accept(Box::new(LetRule))?;
         let ast = parser.parse(&tokens)?;
         ast_to_kitnode(&ast)
     }
@@ -1059,6 +1078,7 @@ impl Plugin for CanonicalKit {
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(CallRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IndexRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(PipeRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(LetRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
@@ -1168,7 +1188,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting for grammar rule migration"]
     fn parse_let() {
         let kit = Kit::new();
         let node = kit.parse("let a = 1;").unwrap();
