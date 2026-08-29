@@ -733,6 +733,7 @@ dependencies = [
  "handl-plugin-grammar-match",
  "handl-plugin-grammar-object",
  "handl-plugin-grammar-pipe",
+ "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
@@ -1835,7 +1836,8 @@ name = "handl-plugin-grammar-primary-identifier"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-vm-values-json",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
  "serde_json",
 ]
 

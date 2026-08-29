@@ -70,6 +70,7 @@ use handl_plugin_grammar_let::LetToken;
 use handl_plugin_grammar_match::MatchToken;
 use handl_plugin_grammar_object::ObjectToken;
 use handl_plugin_grammar_pipe::PipeToken;
+use handl_plugin_grammar_primary_identifier::{IdentToken, IdentifierRule};
 use handl_plugin_grammar_primary_value::{ValueRule, ValueToken};
 use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
@@ -403,6 +404,15 @@ impl ValueToken for CanonicalKind {
             CanonicalKind::String(s) => Some(serde_json::Value::String(s.clone())),
             CanonicalKind::Bool(b) => Some(serde_json::Value::Bool(*b)),
             CanonicalKind::Null => Some(serde_json::Value::Null),
+            _ => None,
+        }
+    }
+}
+
+impl IdentToken for CanonicalKind {
+    fn as_ident(&self) -> Option<&str> {
+        match self {
+            CanonicalKind::Identifier(name) => Some(name.as_str()),
             _ => None,
         }
     }
@@ -847,33 +857,43 @@ impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
     }
 }
 
-/// Converts a primary-value `AstNode` into the kit's `KitNode`.
+/// Converts a primary `AstNode` produced by the generic parser into the kit's `KitNode`.
 fn value_ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
-    if ast.kind != "value" {
-        return Err(PlatformError::Plugin(format!(
-            "expected a 'value' AST node, got '{}'",
+    match ast.kind.as_str() {
+        "value" => {
+            let value = ast
+                .payload
+                .get("value")
+                .ok_or_else(|| PlatformError::Plugin("missing 'value' field in AST payload".into()))?;
+
+            let kit_value = if value.is_null() {
+                KitValue::Null
+            } else if let Some(n) = value.as_f64() {
+                KitValue::Number(n)
+            } else if let Some(s) = value.as_str() {
+                KitValue::String(s.to_string())
+            } else if let Some(b) = value.as_bool() {
+                KitValue::Bool(b)
+            } else {
+                return Err(PlatformError::Plugin(format!("unsupported primary value: {value}")));
+            };
+
+            Ok(KitNode::Literal(kit_value))
+        }
+        "var" => {
+            let name = ast
+                .payload
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| PlatformError::Plugin("missing 'name' field in var AST payload".into()))?;
+
+            Ok(KitNode::Var(Var::new(name.into())))
+        }
+        _ => Err(PlatformError::Plugin(format!(
+            "expected a 'value' or 'var' AST node, got '{}'",
             ast.kind
-        )));
+        ))),
     }
-
-    let value = ast
-        .payload
-        .get("value")
-        .ok_or_else(|| PlatformError::Plugin("missing 'value' field in AST payload".into()))?;
-
-    let kit_value = if value.is_null() {
-        KitValue::Null
-    } else if let Some(n) = value.as_f64() {
-        KitValue::Number(n)
-    } else if let Some(s) = value.as_str() {
-        KitValue::String(s.to_string())
-    } else if let Some(b) = value.as_bool() {
-        KitValue::Bool(b)
-    } else {
-        return Err(PlatformError::Plugin(format!("unsupported primary value: {value}")));
-    };
-
-    Ok(KitNode::Literal(kit_value))
 }
 
 /// A curated kit that loads a manifest of plugins and composes a
@@ -905,6 +925,7 @@ impl Kit {
 
         let mut parser = BasicParser::<CanonicalKind>::new();
         parser.accept(Box::new(ValueRule))?;
+        parser.accept(Box::new(IdentifierRule))?;
         let ast = parser.parse(&tokens)?;
         value_ast_to_kitnode(&ast)
     }
@@ -962,6 +983,7 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicLexer::new())?;
         ctx.register_plugin(BasicParser::<CanonicalKind>::new())?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ValueRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IdentifierRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;

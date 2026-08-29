@@ -57,6 +57,7 @@ handl-plugin-grammar-call = { workspace = true }
 handl-plugin-grammar-handle = { path = "../plugin-grammar-handle" }
 handl-plugin-grammar-index = { path = "../plugin-grammar-index" }
 handl-plugin-grammar-let = { path = "../plugin-grammar-let" }
+handl-plugin-grammar-primary-identifier = { workspace = true }
 handl-plugin-grammar-primary-value = { workspace = true }
 handl-plugin-grammar-match = { path = "../plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "../plugin-grammar-object" }
