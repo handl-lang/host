@@ -1503,16 +1503,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-parser-common"
-version = "0.1.0"
-dependencies = [
- "handl-ast-common",
- "handl-lexer",
- "proptest",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
