@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     HostConfig, PlatformError, Plugin, PluginContext, PluginManifest,
@@ -10,7 +8,6 @@ use handl_plugin_load::LoaderHostPlugin;
 pub struct DefaultApplierPlugin {
     config_source: String,
     fallback_kit: Option<String>,
-    applied: AtomicBool,
 }
 
 impl DefaultApplierPlugin {
@@ -18,7 +15,6 @@ impl DefaultApplierPlugin {
         Self {
             config_source: config_source.into(),
             fallback_kit: None,
-            applied: AtomicBool::new(false),
         }
     }
 
@@ -46,11 +42,6 @@ impl Plugin for DefaultApplierPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        if self.applied.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-        self.applied.store(true, Ordering::SeqCst);
-
         let config = match std::fs::read_to_string(&self.config_source) {
             Ok(source) => HostConfig::from_toml(&source)?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => HostConfig::new(),
@@ -114,7 +105,6 @@ pub struct BootstrapPlugin {
     config_path: String,
     fallback_kit: String,
     applier_id: String,
-    bootstrapped: AtomicBool,
 }
 
 impl BootstrapPlugin {
@@ -127,7 +117,6 @@ impl BootstrapPlugin {
             config_path: config_path.into(),
             fallback_kit: fallback_kit.into(),
             applier_id: applier_id.into(),
-            bootstrapped: AtomicBool::new(false),
         }
     }
 }
@@ -150,11 +139,6 @@ impl Plugin for BootstrapPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        if self.bootstrapped.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-        self.bootstrapped.store(true, Ordering::SeqCst);
-
         match self.applier_id.as_str() {
             "applier.default" => {
                 ctx.register_plugin(

@@ -10,7 +10,6 @@ use serde::Deserialize;
 use serde_json::Number;
 
 use crate::error::PlatformError;
-use crate::host::DefaultHost;
 
 /// A reference to a kit that should be loaded by the host.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -85,43 +84,6 @@ impl HostConfig {
                 .map(|(k, v)| (k, toml_value_to_json(v)))
                 .collect(),
         })
-    }
-}
-
-/// A trait for applying a `HostConfig` to a `DefaultHost`.
-pub trait HostApplier: Send + Sync {
-    /// Applies the configuration to the provided host.
-    fn apply(&self, host: &mut DefaultHost) -> Result<(), PlatformError>;
-}
-
-/// A `HostApplier` driven by a parsed `HostConfig`.
-pub struct ConfigHostApplier {
-    config: HostConfig,
-}
-
-impl ConfigHostApplier {
-    /// Creates a new applier from the given configuration.
-    pub fn new(config: HostConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a new applier by parsing a `.handl.toml` style string.
-    pub fn from_toml(source: &str) -> Result<Self, PlatformError> {
-        Ok(Self::new(HostConfig::from_toml(source)?))
-    }
-
-    /// Returns a reference to the parsed configuration.
-    pub fn config(&self) -> &HostConfig {
-        &self.config
-    }
-}
-
-impl HostApplier for ConfigHostApplier {
-    fn apply(&self, _host: &mut DefaultHost) -> Result<(), PlatformError> {
-        // TODO: load kits from references, register direct plugins, and merge
-        // option overrides into the host. For now, the in-memory config is kept
-        // in `HostConfig` and applied as a no-op.
-        Ok(())
     }
 }
 
@@ -215,25 +177,5 @@ register = "handl-plugin-custom-linter"
         assert!(config.options.get("threshold").unwrap().is_number());
         assert!(config.options.get("features").unwrap().is_array());
         assert!(config.options.get("nested").unwrap().is_object());
-    }
-
-    #[test]
-    fn config_host_applier_from_toml() {
-        let source = r#"
-[[kit]]
-include = "handl-kit-canonical"
-
-[[plugin]]
-register = "handl-plugin-custom-linter"
-
-[options]
-"comment.style" = "above"
-"#;
-
-        let applier = ConfigHostApplier::from_toml(source).unwrap();
-        assert_eq!(applier.config().kits.len(), 1);
-
-        let mut host = DefaultHost::new();
-        assert!(applier.apply(&mut host).is_ok());
     }
 }

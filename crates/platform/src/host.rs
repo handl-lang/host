@@ -91,30 +91,25 @@ impl DefaultHost {
             .register(ProcessPlugin::new(name, capabilities));
     }
 
-    /// Loads all registered plugins to a fixed point, repeatedly calling
-    /// `contribute` until a full pass registers no new plugins.
+    /// Loads all registered plugins to a fixed point, calling `contribute`
+    /// exactly once per plugin in registration order.
     pub fn load(&mut self) -> Result<(), PlatformError> {
-        loop {
-            let count = self.plugins.len();
-            let mut changed = false;
-            for i in 0..count {
-                let plugin = match self.plugins.take_at(i) {
-                    Some(p) => p,
-                    None => continue,
-                };
-                let result = {
-                    let mut ctx = ContributionContext::new(&mut self.plugins, &mut self.kits);
-                    plugin.contribute(&mut ctx)
-                };
-                self.plugins.replace_at(i, plugin);
-                result?;
-                if self.plugins.len() > count {
-                    changed = true;
+        let mut next = 0;
+        while next < self.plugins.len() {
+            let plugin = match self.plugins.take_at(next) {
+                Some(p) => p,
+                None => {
+                    next += 1;
+                    continue;
                 }
-            }
-            if !changed {
-                break;
-            }
+            };
+            let result = {
+                let mut ctx = ContributionContext::new(&mut self.plugins, &mut self.kits);
+                plugin.contribute(&mut ctx)
+            };
+            self.plugins.replace_at(next, plugin);
+            result?;
+            next += 1;
         }
         Ok(())
     }

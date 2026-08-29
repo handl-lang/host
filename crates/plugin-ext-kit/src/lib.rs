@@ -2,7 +2,7 @@ use handl_kit_canonical::CanonicalKit;
 use handl_kit_hello::HelloKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    Kit, KitLoader, KitManifest, PlatformError, Plugin, PluginContext,
+    Kit, KitManifest, PlatformError, Plugin, PluginContext,
 };
 
 pub struct KitManagerPlugin {
@@ -258,25 +258,18 @@ impl Plugin for BasicKit {
     }
 }
 
-/// A static kit loader that maps built-in kit names to their plugins and
-/// supports loading a `KitManifest` from a file path.
-pub struct BasicKitLoader;
-
-impl Default for BasicKitLoader {
-    fn default() -> Self {
-        Self::new()
-    }
+/// A plugin that exposes the built-in kit loader as a `kit/load` capability.
+pub struct BasicKitLoaderPlugin {
+    capabilities: Vec<CapabilityId>,
 }
 
-impl BasicKitLoader {
-    /// Create a new `BasicKitLoader`.
+impl BasicKitLoaderPlugin {
+    /// Creates a new `BasicKitLoaderPlugin`.
     pub fn new() -> Self {
-        Self
+        Self {
+            capabilities: vec![CapabilityId::from("kit/load")],
+        }
     }
-}
-
-impl KitLoader for BasicKitLoader {
-    type Kit = BasicKit;
 
     fn load(&self, name_or_path: &str) -> Result<BasicKit, PlatformError> {
         if is_kit_path(name_or_path) {
@@ -290,20 +283,6 @@ impl KitLoader for BasicKitLoader {
             _ => Err(PlatformError::InvalidMetadata(format!(
                 "unknown kit: {name_or_path}"
             ))),
-        }
-    }
-}
-
-/// A plugin that exposes the built-in kit loader as a `kit/load` capability.
-pub struct BasicKitLoaderPlugin {
-    capabilities: Vec<CapabilityId>,
-}
-
-impl BasicKitLoaderPlugin {
-    /// Creates a new `BasicKitLoaderPlugin`.
-    pub fn new() -> Self {
-        Self {
-            capabilities: vec![CapabilityId::from("kit/load")],
         }
     }
 }
@@ -345,7 +324,7 @@ impl Plugin for BasicKitLoaderPlugin {
         }
         let name = serde_json::from_value::<String>(request.payload.clone())
             .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
-        let kit = BasicKitLoader::new().load(&name)?;
+        let kit = self.load(&name)?;
         ctx.plugins.register(kit);
         Ok(CapabilityResponse(serde_json::Value::Null))
     }
