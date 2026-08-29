@@ -730,6 +730,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-lsp",
+ "handl-plugin-lexer",
  "serde",
  "serde_json",
  "tempfile",

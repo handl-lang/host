@@ -32,6 +32,15 @@ pub fn send_error(writer: &mut impl Write, id: Value, code: i32, message: &str) 
     write_message(writer, &response);
 }
 
+pub fn send_notification(writer: &mut impl Write, method: &str, params: Value) {
+    let notification = json!({
+        "jsonrpc": "2.0",
+        "method": method,
+        "params": params,
+    });
+    write_message(writer, &notification);
+}
+
 fn write_message(writer: &mut impl Write, body: &Value) {
     let serialized = serde_json::to_string(body).unwrap();
     let _ = write!(

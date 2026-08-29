@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::protocol::{send_error, send_response};
+use crate::protocol::{send_error, send_notification, send_response};
 
 fn extract_body(raw: &[u8]) -> String {
     let s = String::from_utf8_lossy(raw);
@@ -73,4 +73,24 @@ fn content_length_matches_body_size() {
         .parse()
         .unwrap();
     assert_eq!(len, body.len());
+}
+
+#[test]
+fn send_notification_has_no_id() {
+    let mut buf = Vec::new();
+    send_notification(
+        &mut buf,
+        "textDocument/publishDiagnostics",
+        json!({ "uri": "file:///foo.hnl" }),
+    );
+
+    let body = extract_body(&buf);
+    let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(parsed["jsonrpc"], "2.0");
+    assert_eq!(parsed["method"], "textDocument/publishDiagnostics");
+    assert_eq!(parsed["params"]["uri"], "file:///foo.hnl");
+    assert!(parsed.get("id").is_none() || parsed["id"].is_null());
+    assert!(parsed.get("result").is_none());
+    assert!(parsed.get("error").is_none());
 }

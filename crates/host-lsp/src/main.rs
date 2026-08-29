@@ -1,19 +1,29 @@
+mod diagnostics;
 mod document;
 mod handlers;
+mod hover;
 mod protocol;
 
+#[cfg(test)]
+mod diagnostics_tests;
 #[cfg(test)]
 mod document_tests;
 #[cfg(test)]
 mod handlers_tests;
 #[cfg(test)]
+mod hover_tests;
+#[cfg(test)]
 mod protocol_tests;
 
-use std::io::{self, BufRead, Read};
+use std::io::{self, BufRead};
 
-use handl_host_tooling::{SemanticTokensPlugin, canonical_semantic_tokens};
+use handl_host_tooling::{SemanticTokensPlugin, TextContentChange, canonical_semantic_tokens};
 
-use handlers::{handle_initialize, handle_semantic_tokens_full, handle_shutdown, handle_unknown};
+use document::DocumentStore;
+use handlers::{
+    handle_initialize, handle_hover, handle_publish_diagnostics, handle_semantic_tokens_full,
+    handle_shutdown, handle_unknown,
+};
 use protocol::Message;
 
 fn read_message(reader: &mut impl BufRead) -> Option<Message> {
@@ -49,6 +59,7 @@ fn main() {
     let stdout = io::stdout();
     let mut writer = stdout.lock();
     let mut reader = stdin.lock();
+    let mut store = DocumentStore::new();
 
     while let Some(msg) = read_message(&mut reader) {
         let id = msg.id.clone().unwrap_or(serde_json::Value::Null);
@@ -59,7 +70,93 @@ fn main() {
             }
             "initialized" => {}
             "textDocument/semanticTokens/full" => {
-                handle_semantic_tokens_full(&mut writer, id, &msg, &tokens_provider);
+                handle_semantic_tokens_full(&mut writer, id, &msg, &tokens_provider, &store);
+            }
+            "textDocument/hover" => {
+                handle_hover(&mut writer, id, &msg, &store);
+            }
+            "textDocument/didOpen" => {
+                if let Some(p) = &msg.params {
+                    if let (Some(uri), Some(text)) = (
+                        p.get("textDocument")
+                            .and_then(|td| td.get("uri"))
+                            .and_then(|u| u.as_str()),
+                        p.get("textDocument")
+                            .and_then(|td| td.get("text"))
+                            .and_then(|t| t.as_str()),
+                    ) {
+                        store.open(uri, text);
+                        let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
+                        handle_publish_diagnostics(&mut writer, uri, &text);
+                    }
+                }
+            }
+            "textDocument/didChange" => {
+                if let Some(p) = &msg.params {
+                    if let (Some(uri), Some(changes)) = (
+                        p.get("textDocument")
+                            .and_then(|td| td.get("uri"))
+                            .and_then(|u| u.as_str()),
+                        p.get("contentChanges").and_then(|c| c.as_array()),
+                    ) {
+                        for change in changes {
+                            if let Some(text) = change.get("text").and_then(|t| t.as_str()) {
+                                if let Some(range) = change.get("range") {
+                                    let current = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
+                                    let start = position_from(range.get("start"), &current);
+                                    let end = position_from(range.get("end"), &current);
+                                    let _ = store.apply_incremental(
+                                        uri,
+                                        TextContentChange {
+                                            start,
+                                            end,
+                                            text: text.to_string(),
+                                        },
+                                    );
+                                } else {
+                                    store.update_full(uri, text);
+                                }
+                            }
+                        }
+                        if let Some(current) = store.get(uri) {
+                            handle_publish_diagnostics(&mut writer, uri, current);
+                        }
+                    }
+                }
+            }
+            "textDocument/didClose" => {
+                if let Some(uri) = msg
+                    .params
+                    .as_ref()
+                    .and_then(|p| p.get("textDocument"))
+                    .and_then(|td| td.get("uri"))
+                    .and_then(|u| u.as_str())
+                {
+                    store.close(uri);
+                }
+            }
+            "textDocument/willSave" => {}
+            "textDocument/didSave" => {
+                if let Some(p) = &msg.params {
+                    if let Some(uri) = p
+                        .get("textDocument")
+                        .and_then(|td| td.get("uri"))
+                        .and_then(|u| u.as_str())
+                    {
+                        let text = p
+                            .get("text")
+                            .and_then(|t| t.as_str())
+                            .map(|s| s.to_string())
+                            .or_else(|| {
+                                uri.strip_prefix("file://")
+                                    .and_then(|path| std::fs::read_to_string(path).ok())
+                            })
+                            .unwrap_or_default();
+                        store.update_full(uri, &text);
+                        let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
+                        handle_publish_diagnostics(&mut writer, uri, &text);
+                    }
+                }
             }
             "shutdown" => {
                 handle_shutdown(&mut writer, id);
@@ -74,4 +171,13 @@ fn main() {
             }
         }
     }
+}
+
+fn position_from(pos: Option<&serde_json::Value>, text: &str) -> usize {
+    pos.and_then(|p| {
+        let line = p.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as u32;
+        let character = p.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as u32;
+        Some(document::position_to_offset(text, line, character))
+    })
+    .unwrap_or(0)
 }

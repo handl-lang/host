@@ -2,6 +2,7 @@ use serde_json::json;
 
 use handl_host_tooling::{SemanticTokenLegend, canonical_semantic_tokens};
 
+use crate::document::DocumentStore;
 use crate::handlers::{
     build_initialize_result, handle_initialize, handle_semantic_tokens_full, handle_shutdown,
     handle_unknown,
@@ -28,7 +29,13 @@ fn initialize_result_has_semantic_tokens_provider() {
         result["capabilities"]["semanticTokensProvider"]["range"],
         false
     );
-    assert_eq!(result["capabilities"]["textDocumentSync"], 1);
+    assert_eq!(result["capabilities"]["textDocumentSync"]["openClose"], true);
+    assert_eq!(result["capabilities"]["textDocumentSync"]["change"], 1);
+    assert_eq!(
+        result["capabilities"]["textDocumentSync"]["save"]["includeText"],
+        true
+    );
+    assert_eq!(result["capabilities"]["hoverProvider"], true);
 
     let token_types = result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
         .as_array()
@@ -87,7 +94,8 @@ fn semantic_tokens_full_returns_delta_encoded_data() {
 
     // We can't easily test with a file URI in unit tests, so the source
     // will be empty and we just verify the response shape.
-    handle_semantic_tokens_full(&mut buf, json!(1), &msg, &provider);
+    let store = DocumentStore::new();
+    handle_semantic_tokens_full(&mut buf, json!(1), &msg, &provider, &store);
 
     let parsed: serde_json::Value =
         serde_json::from_str(&extract_body(&buf)).unwrap();
@@ -111,7 +119,8 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
         id: Some(json!(2)),
     };
 
-    handle_semantic_tokens_full(&mut buf, json!(2), &msg, &provider);
+    let store = DocumentStore::new();
+    handle_semantic_tokens_full(&mut buf, json!(2), &msg, &provider, &store);
 
     let parsed: serde_json::Value =
         serde_json::from_str(&extract_body(&buf)).unwrap();

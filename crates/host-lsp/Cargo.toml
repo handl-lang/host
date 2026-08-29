@@ -12,6 +12,7 @@ handl-platform.workspace = true
 handl-plugin-applier.workspace = true
 handl-plugin-ext-lsp.workspace = true
 handl-kit-canonical.workspace = true
+handl-plugin-lexer.workspace = true
 handl-host-tooling.workspace = true
 serde.workspace = true
 serde_json.workspace = true
