@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use handl_ast_common::Span as AstSpan;
-use handl_lexer::{KindFactory, Span, Token, TokenKind};
+use handl_lexer::{EofFactory, KindFactory, Span, Token, TokenKind};
 
 use crate::{DefaultParseError, ParseError, Parser, Rule, SimpleGrammar};
 use proptest::prelude::*;
@@ -26,6 +26,12 @@ impl std::fmt::Display for MyKind {
 #[derive(Clone)]
 struct MyFactory;
 
+impl EofFactory<MyKind> for MyFactory {
+    fn eof_kind(&self) -> MyKind {
+        MyKind::Eof
+    }
+}
+
 impl KindFactory<MyKind> for MyFactory {
     fn string_kind(&self, _value: String) -> MyKind {
         MyKind::Eof
@@ -36,8 +42,11 @@ impl KindFactory<MyKind> for MyFactory {
     fn ident_kind(&self, _text: String) -> MyKind {
         MyKind::Eof
     }
-    fn eof_kind(&self) -> MyKind {
-        MyKind::Eof
+    fn keyword_kind(&self, _text: &str) -> Option<MyKind> {
+        None
+    }
+    fn operator_kind(&self, _text: &str) -> Option<MyKind> {
+        None
     }
 }
 

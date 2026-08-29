@@ -27,10 +27,6 @@ fn s(v: &str) -> NonFunctionValue {
     NonFunctionValue::new(v.to_string())
 }
 
-fn boolean(v: bool) -> NonFunctionValue {
-    NonFunctionValue::new(v)
-}
-
 fn arr(values: &[serde_json::Value]) -> NonFunctionValue {
     NonFunctionValue::new(serde_json::Value::Array(values.to_vec()))
 }

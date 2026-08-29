@@ -1,6 +1,13 @@
-//! Compatibility `Stmt`/`StmtKind` definitions for the migration.
+//! Canonical statement types for the canonical kit.
+//!
+//! These compatibility `Stmt`/`StmtKind` definitions have moved here from
+//! `handl-expr` as part of ADR-0034 P0.4.  In the long term they should be
+//! dissolved into per-statement `plugin-ast-stmt-*` shapes and `AstNode`
+//! contributions; for now they live in `kit-canonical` so that `handl-expr`
+//! remains a thin compatibility re-export crate.
 
-use handl_kit_canonical::CanonicalKind;
+use crate::CanonicalKind;
+use handl_lexer::Token;
 use handl_platform::PlatformError;
 use handl_vm::{Expr, Pattern};
 
@@ -27,9 +34,9 @@ pub struct Stmt<V> {
     /// The statement payload.
     pub kind: StmtKind<V>,
     /// Comment tokens appearing before the statement.
-    pub leading: Vec<crate::Token<CanonicalKind>>,
+    pub leading: Vec<Token<CanonicalKind>>,
     /// Comment tokens appearing immediately after the statement.
-    pub trailing: Vec<crate::Token<CanonicalKind>>,
+    pub trailing: Vec<Token<CanonicalKind>>,
 }
 
 impl<V> Stmt<V> {

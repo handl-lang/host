@@ -1,6 +1,6 @@
 //! Typecheck plugin stub; concrete canonical typecheck implementation pending.
 
-use handl_expr::Stmt;
+use handl_kit_canonical::Stmt;
 use handl_platform::{
     CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
 };

@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-expr.workspace = true
+handl-kit-canonical.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-platform.workspace = true
 handl-vm-values-json.workspace = true

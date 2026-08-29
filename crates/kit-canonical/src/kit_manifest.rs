@@ -84,6 +84,12 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-handle".to_string(),
             "plugin-grammar-array".to_string(),
             "plugin-grammar-object".to_string(),
+            // Statement grammar plugins (ADR-0034 P0.4)
+            "plugin-grammar-stmt-let".to_string(),
+            "plugin-grammar-stmt-const".to_string(),
+            "plugin-grammar-stmt-import".to_string(),
+            "plugin-grammar-stmt-export".to_string(),
+            "plugin-grammar-stmt-module".to_string(),
         ],
     }
 }

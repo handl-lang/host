@@ -1,6 +1,6 @@
 //! Runtime / evaluation plugin trait.
 
-use handl_expr::Stmt;
+use handl_kit_canonical::Stmt;
 use handl_platform::PlatformError;
 use handl_vm_values_json::NonFunctionValue;
 

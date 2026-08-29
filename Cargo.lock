@@ -882,6 +882,7 @@ dependencies = [
  "handl-plugin-token-operator",
  "handl-plugin-token-string",
  "handl-target-native",
+ "handl-vm",
  "serde",
  "serde_json",
  "toml",
@@ -1639,6 +1640,7 @@ name = "handl-plugin-fmt-stmt"
 version = "0.1.0"
 dependencies = [
  "handl-expr",
+ "handl-kit-canonical",
  "handl-platform",
  "handl-plugin-fmt-trivia",
  "handl-vm-values-json",
@@ -2104,7 +2106,7 @@ dependencies = [
 name = "handl-plugin-target-rust"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
+ "handl-kit-canonical",
  "handl-platform",
  "handl-runtime",
  "handl-vm",
@@ -2195,7 +2197,7 @@ dependencies = [
 name = "handl-plugin-typecheck-core"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
+ "handl-kit-canonical",
  "handl-platform",
  "handl-runtime",
  "handl-typecheck-core",
@@ -2207,7 +2209,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
+ "handl-kit-canonical",
  "handl-platform",
  "handl-vm-values-json",
 ]

@@ -10,7 +10,7 @@ use std::iter::Peekable;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use handl_ast::{Expr, Node, Stmt};
+use handl_ast::{Expr as ExprTrait, Node, Stmt as StmtTrait};
 use handl_lexer::primitives;
 use handl_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, IdentFactory, KeywordFactory,
@@ -75,6 +75,12 @@ use handl_plugin_token_null::NullKind;
 use handl_plugin_token_number::NumberKind;
 use handl_plugin_token_operator::{OperatorKind, CANONICAL_OPERATOR_CHARS};
 use handl_plugin_token_string::StringKind;
+
+pub mod diagnostics;
+pub use diagnostics::{Diagnostic, DiagnosticLevel, Diagnostics};
+
+pub mod statement;
+pub use statement::{expr_to_pattern, ModuleOutput, Stmt, StmtKind};
 
 pub mod kit_manifest;
 pub use kit_manifest::{canonical_manifest, KitManifest};
@@ -681,7 +687,7 @@ impl Node for KitNode {
     }
 }
 
-impl Expr for KitNode {
+impl ExprTrait for KitNode {
     fn value(value: Self::Value) -> Self
     where
         Self: Sized,
@@ -758,7 +764,7 @@ impl Expr for KitNode {
     }
 }
 
-impl Stmt for KitNode {
+impl StmtTrait for KitNode {
     type Expr = KitNode;
 
     fn expression(expr: Self::Expr) -> Self

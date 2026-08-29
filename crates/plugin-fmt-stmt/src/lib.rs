@@ -1,4 +1,6 @@
-use handl_expr::*;
+use handl_expr::{Formatter, Pattern};
+use handl_kit_canonical::{Stmt, StmtKind};
+
 use handl_plugin_fmt_trivia::TriviaFormatter;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
@@ -156,6 +158,7 @@ fn is_identifier(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_expr::{CanonicalKind, Expr, Span, Token};
     use handl_vm_values_json::NonFunctionValue;
 
     struct TestFormatter;

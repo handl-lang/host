@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use handl_expr::{Pattern, Stmt, StmtKind};
+use handl_kit_canonical::{Stmt, StmtKind};
+use handl_vm::Pattern;
 use handl_platform::{
     CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
     RuntimeBehavior, RuntimeHost,

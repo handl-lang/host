@@ -1,8 +1,8 @@
-//! Compatibility diagnostic types for handl expressions.
+//! Compatibility diagnostic types for the canonical kit.
 
-use crate::Span;
+use handl_lexer::Span;
 
-/// Severity of a diagnostic produced by an expression diagnostics plugin.
+/// Severity of a diagnostic produced by a diagnostics plugin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiagnosticLevel {
     Error,
