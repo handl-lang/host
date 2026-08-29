@@ -6,7 +6,6 @@ edition = "2024"
 [workspace]
 members = [
     "crates/ast",
-    "crates/ast-common",
     "crates/schema",
     "crates/plugin-ext-build",
     "crates/plugin-ext-cli",
@@ -200,7 +199,6 @@ libloading = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 
 handl-ast = { path = "crates/ast" }
-handl-ast-common = { path = "crates/ast-common" }
 handl-schema = { path = "crates/schema" }
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
@@ -373,9 +371,6 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 default = []
 
 [dependencies.handl-ast]
-workspace = true
-
-[dependencies.handl-ast-common]
 workspace = true
 
 [dependencies.handl-source]

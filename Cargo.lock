@@ -671,7 +671,6 @@ name = "handl"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-ast-common",
  "handl-platform",
  "handl-source",
  "serde_json",
@@ -680,13 +679,6 @@ dependencies = [
 [[package]]
 name = "handl-ast"
 version = "0.1.0"
-
-[[package]]
-name = "handl-ast-common"
-version = "0.1.0"
-dependencies = [
- "handl-ast",
-]
 
 [[package]]
 name = "handl-host-cli"
