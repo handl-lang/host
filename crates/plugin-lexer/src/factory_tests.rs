@@ -91,6 +91,7 @@ fn ident_factory_default_regex() {
 
 #[test]
 fn number_factory_regex_can_be_overridden() {
+    #[derive(Clone)]
     struct CustomFactory;
     impl EofFactory<DummyKind> for CustomFactory {
         fn eof_kind(&self) -> DummyKind { DummyKind("eof".to_string()) }
@@ -114,6 +115,7 @@ fn number_factory_regex_can_be_overridden() {
 
 #[test]
 fn ident_factory_regex_can_be_overridden() {
+    #[derive(Clone)]
     struct CustomFactory;
     impl EofFactory<DummyKind> for CustomFactory {
         fn eof_kind(&self) -> DummyKind { DummyKind("eof".to_string()) }
