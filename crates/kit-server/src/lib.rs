@@ -68,13 +68,12 @@ impl Plugin for ServerKit {
 
         ctx.register_plugin(ConfigKit::new())?;
 
+        // Server-side concrete plugins — ConfigKit already registered
+        // CanonicalKit (which provides ModuleRuntime) and the pure plugins.
         ctx.register_plugin(handl_plugin_lib_test::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_rand::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_os::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_os_std::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_http_server::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_http_server_std::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_http_client::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_http_client_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_otlp_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ws_rfc_native::LibraryPlugin)?;

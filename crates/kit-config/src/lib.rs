@@ -24,6 +24,7 @@
 //!   process spawning, system clock
 //! - [`handl-lib-http-client`] / [`handl-lib-http-client-std`] — HTTP client
 
+use handl_kit_canonical::CanonicalKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
@@ -74,6 +75,11 @@ impl Plugin for ConfigKit {
             return Ok(());
         }
         self.registered.store(true, Ordering::SeqCst);
+
+        // CanonicalKit provides the language operations (lexer, parser,
+        // formatter, etc.) and the ModuleRuntime that the library plugins
+        // below contribute their modules into.
+        ctx.register_plugin(CanonicalKit::new())?;
 
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin)?;

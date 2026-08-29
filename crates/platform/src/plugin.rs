@@ -282,6 +282,17 @@ impl PluginRegistry {
         None
     }
 
+    /// Returns a shared reference to a registered plugin of concrete type `P`, if any.
+    pub fn get_plugin<P: Plugin + 'static>(&self) -> Option<&P> {
+        for arc in self.plugins.iter().flatten() {
+            let any = arc.as_ref() as &dyn Any;
+            if let Some(concrete) = any.downcast_ref::<P>() {
+                return Some(concrete);
+            }
+        }
+        None
+    }
+
     /// Returns a mutable reference to a registered plugin with the given name, if any.
     pub fn get_plugin_by_name_mut(&mut self, name: &str) -> Option<&mut (dyn Plugin + 'static)> {
         for arc in self.plugins.iter_mut().flatten() {

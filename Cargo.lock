@@ -714,12 +714,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-cli",
- "handl-plugin-lib-collections",
- "handl-plugin-lib-json",
- "handl-plugin-lib-os-std",
- "handl-plugin-lib-toml",
- "handl-plugin-lib-utils",
- "handl-plugin-lib-yaml",
  "handl-plugin-vm",
  "handl-plugin-vm-backend-rust-interpreter",
  "handl-plugin-vm-common",
@@ -864,14 +858,19 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
  "handl-platform",
- "handl-plugin-lib-os",
+ "handl-plugin-lib-collections",
+ "handl-plugin-lib-json",
+ "handl-plugin-lib-os-std",
+ "handl-plugin-lib-toml",
  "handl-plugin-lib-utils",
+ "handl-plugin-lib-yaml",
 ]
 
 [[package]]
 name = "handl-kit-config"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-canonical",
  "handl-platform",
  "handl-plugin-lib-archive-tar",
  "handl-plugin-lib-collections",
@@ -905,11 +904,8 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-config",
  "handl-platform",
- "handl-plugin-lib-http-client",
  "handl-plugin-lib-http-client-std",
- "handl-plugin-lib-http-server",
  "handl-plugin-lib-http-server-std",
- "handl-plugin-lib-os",
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-rand",
@@ -1717,6 +1713,7 @@ dependencies = [
 name = "handl-plugin-lexer-number"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-ext-lexer",
  "handl-plugin-lexer",
  "handl-plugin-lexer-common",
 ]

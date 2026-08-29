@@ -7,4 +7,5 @@ edition.workspace = true
 handl-plugin-lexer.workspace = true
 
 [dev-dependencies]
+handl-plugin-ext-lexer.workspace = true
 handl-plugin-lexer-common.workspace = true
