@@ -3,7 +3,7 @@
 //! Demo kit that extends `kit-canonical` with the `hello` library.
 
 use handl_kit_canonical::CanonicalKit;
-use handl_lib_hello::HelloLibraryPlugin;
+use handl_plugin_lib_hello::HelloLibraryPlugin;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,

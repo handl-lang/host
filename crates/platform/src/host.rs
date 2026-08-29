@@ -5,7 +5,7 @@
 use handl_plugin_vm_common::ModuleHost;
 
 #[cfg(feature = "concurrent")]
-use handl_lib_concurrent::ConcurrencyModule;
+use handl_plugin_lib_concurrent::ConcurrencyModule;
 
 use crate::error::PlatformError;
 use crate::kit::{Kit, KitRegistry};

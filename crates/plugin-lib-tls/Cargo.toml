@@ -1,0 +1,13 @@
+[package]
+name = "handl-plugin-lib-tls"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-vm-common.workspace = true
+handl-plugin-vm.workspace = true
+handl-plugin-vm-values-json.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+handl-plugin-vm-backend-rust-interpreter.workspace = true

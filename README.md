@@ -40,7 +40,7 @@ The workspace can also be checked with `cargo check --workspace` and tested with
 - `crates/host-lsp` — LSP server host.
 - `crates/kit-canonical` — canonical ready-made kit.
 - `crates/lexer*` — lexer framework and canonical token set.
-- `crates/lib-*` / `crates/crate-*` — runtime/utility libraries.
+- `crates/plugin-lib-*` / `crates/crate-*` — runtime/utility libraries.
 - `crates/loader*` — plugin loaders (native, wasm, web).
 - `crates/module-resolver*` — module resolution strategies.
 - `crates/parser*` — parser framework and canonical parser.

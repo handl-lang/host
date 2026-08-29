@@ -69,7 +69,7 @@ pub use plugin::*;
 pub use resolve::*;
 pub use runtime_host::*;
 
-/// Unified value space primitives re-exported from `handl_lib_type`.
+/// Unified value space primitives re-exported from `handl_plugin_lib_type`.
 pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};
 /// Composable VM wrapper.
 pub use vm::Vm;

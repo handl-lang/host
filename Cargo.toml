@@ -36,50 +36,50 @@ members = [
     "crates/plugin-loader-native",
     "crates/plugin-loader-wasm",
     "crates/plugin-loader-web",
-    "crates/lib-archive",
-    "crates/lib-archive-tar",
-    "crates/lib-base64",
-    "crates/lib-collections",
-    "crates/lib-compress",
-    "crates/lib-compress-gzip",
-    "crates/lib-concurrent",
-    "crates/lib-crypto",
-    "crates/lib-datetime",
-    "crates/lib-encoding",
-    "crates/lib-hello",
-    "crates/lib-hex",
-    "crates/lib-http-client",
-    "crates/lib-http-client-std",
-    "crates/lib-http-server",
-    "crates/lib-http-server-std",
-    "crates/lib-intl",
-    "crates/lib-ip",
-    "crates/lib-json",
-    "crates/lib-kv",
-    "crates/lib-kv-hashmap",
-    "crates/lib-os",
-    "crates/lib-os-std",
-    "crates/lib-otlp",
-    "crates/lib-otlp-std",
-    "crates/lib-parse",
-    "crates/lib-rand",
-    "crates/lib-serialize",
-    "crates/lib-stats",
-    "crates/lib-test",
-    "crates/lib-tls",
-    "crates/lib-tls-native",
-    "crates/lib-toml",
-    "crates/lib-type",
-    "crates/lib-unicode",
-    "crates/lib-url-rfc",
-    "crates/lib-url-whatwg",
-    "crates/lib-utils",
-    "crates/lib-ws-rfc",
-    "crates/lib-ws-rfc-memory",
-    "crates/lib-ws-rfc-native",
-    "crates/lib-ws-whatwg-native",
-    "crates/lib-ws-whatwg-wasm",
-    "crates/lib-yaml",
+    "crates/plugin-lib-archive",
+    "crates/plugin-lib-archive-tar",
+    "crates/plugin-lib-base64",
+    "crates/plugin-lib-collections",
+    "crates/plugin-lib-compress",
+    "crates/plugin-lib-compress-gzip",
+    "crates/plugin-lib-concurrent",
+    "crates/plugin-lib-crypto",
+    "crates/plugin-lib-datetime",
+    "crates/plugin-lib-encoding",
+    "crates/plugin-lib-hello",
+    "crates/plugin-lib-hex",
+    "crates/plugin-lib-http-client",
+    "crates/plugin-lib-http-client-std",
+    "crates/plugin-lib-http-server",
+    "crates/plugin-lib-http-server-std",
+    "crates/plugin-lib-intl",
+    "crates/plugin-lib-ip",
+    "crates/plugin-lib-json",
+    "crates/plugin-lib-kv",
+    "crates/plugin-lib-kv-hashmap",
+    "crates/plugin-lib-os",
+    "crates/plugin-lib-os-std",
+    "crates/plugin-lib-otlp",
+    "crates/plugin-lib-otlp-std",
+    "crates/plugin-lib-parse",
+    "crates/plugin-lib-rand",
+    "crates/plugin-lib-serialize",
+    "crates/plugin-lib-stats",
+    "crates/plugin-lib-test",
+    "crates/plugin-lib-tls",
+    "crates/plugin-lib-tls-native",
+    "crates/plugin-lib-toml",
+    "crates/plugin-lib-type",
+    "crates/plugin-lib-unicode",
+    "crates/plugin-lib-url-rfc",
+    "crates/plugin-lib-url-whatwg",
+    "crates/plugin-lib-utils",
+    "crates/plugin-lib-ws-rfc",
+    "crates/plugin-lib-ws-rfc-memory",
+    "crates/plugin-lib-ws-rfc-native",
+    "crates/plugin-lib-ws-whatwg-native",
+    "crates/plugin-lib-ws-whatwg-wasm",
+    "crates/plugin-lib-yaml",
     "crates/plugin-parser",
     "crates/platform",
     "crates/plugin-ast-apply",
@@ -227,50 +227,50 @@ handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
 handl-plugin-loader-web = { path = "crates/plugin-loader-web" }
-handl-lib-archive = { path = "crates/lib-archive" }
-handl-lib-archive-tar = { path = "crates/lib-archive-tar" }
-handl-lib-base64 = { path = "crates/lib-base64" }
-handl-lib-collections = { path = "crates/lib-collections" }
-handl-lib-compress = { path = "crates/lib-compress" }
-handl-lib-compress-gzip = { path = "crates/lib-compress-gzip" }
-handl-lib-concurrent = { path = "crates/lib-concurrent" }
-handl-lib-crypto = { path = "crates/lib-crypto" }
-handl-lib-datetime = { path = "crates/lib-datetime" }
-handl-lib-encoding = { path = "crates/lib-encoding" }
-handl-lib-hello = { path = "crates/lib-hello" }
-handl-lib-hex = { path = "crates/lib-hex" }
-handl-lib-http-client = { path = "crates/lib-http-client" }
-handl-lib-http-client-std = { path = "crates/lib-http-client-std" }
-handl-lib-http-server = { path = "crates/lib-http-server" }
-handl-lib-http-server-std = { path = "crates/lib-http-server-std" }
-handl-lib-intl = { path = "crates/lib-intl" }
-handl-lib-ip = { path = "crates/lib-ip" }
-handl-lib-json = { path = "crates/lib-json" }
-handl-lib-kv = { path = "crates/lib-kv" }
-handl-lib-kv-hashmap = { path = "crates/lib-kv-hashmap" }
-handl-lib-os = { path = "crates/lib-os" }
-handl-lib-os-std = { path = "crates/lib-os-std" }
-handl-lib-otlp = { path = "crates/lib-otlp" }
-handl-lib-otlp-std = { path = "crates/lib-otlp-std" }
-handl-lib-parse = { path = "crates/lib-parse" }
-handl-lib-rand = { path = "crates/lib-rand" }
-handl-lib-serialize = { path = "crates/lib-serialize" }
-handl-lib-stats = { path = "crates/lib-stats" }
-handl-lib-test = { path = "crates/lib-test" }
-handl-lib-tls = { path = "crates/lib-tls" }
-handl-lib-tls-native = { path = "crates/lib-tls-native" }
-handl-lib-toml = { path = "crates/lib-toml" }
-handl-lib-type = { path = "crates/lib-type" }
-handl-lib-unicode = { path = "crates/lib-unicode" }
-handl-lib-url-rfc = { path = "crates/lib-url-rfc" }
-handl-lib-url-whatwg = { path = "crates/lib-url-whatwg" }
-handl-lib-utils = { path = "crates/lib-utils" }
-handl-lib-ws-rfc = { path = "crates/lib-ws-rfc" }
-handl-lib-ws-rfc-memory = { path = "crates/lib-ws-rfc-memory" }
-handl-lib-ws-rfc-native = { path = "crates/lib-ws-rfc-native" }
-handl-lib-ws-whatwg-native = { path = "crates/lib-ws-whatwg-native" }
-handl-lib-ws-whatwg-wasm = { path = "crates/lib-ws-whatwg-wasm" }
-handl-lib-yaml = { path = "crates/lib-yaml" }
+handl-plugin-lib-archive = { path = "crates/plugin-lib-archive" }
+handl-plugin-lib-archive-tar = { path = "crates/plugin-lib-archive-tar" }
+handl-plugin-lib-base64 = { path = "crates/plugin-lib-base64" }
+handl-plugin-lib-collections = { path = "crates/plugin-lib-collections" }
+handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
+handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
+handl-plugin-lib-concurrent = { path = "crates/plugin-lib-concurrent" }
+handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
+handl-plugin-lib-datetime = { path = "crates/plugin-lib-datetime" }
+handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
+handl-plugin-lib-hello = { path = "crates/plugin-lib-hello" }
+handl-plugin-lib-hex = { path = "crates/plugin-lib-hex" }
+handl-plugin-lib-http-client = { path = "crates/plugin-lib-http-client" }
+handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" }
+handl-plugin-lib-http-server = { path = "crates/plugin-lib-http-server" }
+handl-plugin-lib-http-server-std = { path = "crates/plugin-lib-http-server-std" }
+handl-plugin-lib-intl = { path = "crates/plugin-lib-intl" }
+handl-plugin-lib-ip = { path = "crates/plugin-lib-ip" }
+handl-plugin-lib-json = { path = "crates/plugin-lib-json" }
+handl-plugin-lib-kv = { path = "crates/plugin-lib-kv" }
+handl-plugin-lib-kv-hashmap = { path = "crates/plugin-lib-kv-hashmap" }
+handl-plugin-lib-os = { path = "crates/plugin-lib-os" }
+handl-plugin-lib-os-std = { path = "crates/plugin-lib-os-std" }
+handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
+handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
+handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
+handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
+handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }
+handl-plugin-lib-stats = { path = "crates/plugin-lib-stats" }
+handl-plugin-lib-test = { path = "crates/plugin-lib-test" }
+handl-plugin-lib-tls = { path = "crates/plugin-lib-tls" }
+handl-plugin-lib-tls-native = { path = "crates/plugin-lib-tls-native" }
+handl-plugin-lib-toml = { path = "crates/plugin-lib-toml" }
+handl-plugin-lib-type = { path = "crates/plugin-lib-type" }
+handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
+handl-plugin-lib-url-rfc = { path = "crates/plugin-lib-url-rfc" }
+handl-plugin-lib-url-whatwg = { path = "crates/plugin-lib-url-whatwg" }
+handl-plugin-lib-utils = { path = "crates/plugin-lib-utils" }
+handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }
+handl-plugin-lib-ws-rfc-memory = { path = "crates/plugin-lib-ws-rfc-memory" }
+handl-plugin-lib-ws-rfc-native = { path = "crates/plugin-lib-ws-rfc-native" }
+handl-plugin-lib-ws-whatwg-native = { path = "crates/plugin-lib-ws-whatwg-native" }
+handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
+handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
 handl-plugin-parser = { path = "crates/plugin-parser" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-ast-apply = { path = "crates/plugin-ast-apply" }

@@ -1,9 +1,0 @@
-[package]
-name = "handl-lib-type"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-kit-type = { workspace = true }
-handl-kit-type-schema-json = { workspace = true }
-serde_json = { workspace = true }

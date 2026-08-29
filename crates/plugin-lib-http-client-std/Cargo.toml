@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-lib-http-client-std"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-lib-http-client.workspace = true
+ureq = "2"

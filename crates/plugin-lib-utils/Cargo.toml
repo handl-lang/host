@@ -1,0 +1,26 @@
+[package]
+name = "handl-plugin-lib-utils"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-ast.workspace = true
+handl-plugin-lib-base64 = { path = "../lib-base64" }
+handl-plugin-lib-encoding = { path = "../lib-encoding" }
+handl-plugin-lib-hex = { path = "../lib-hex" }
+handl-plugin-lib-json = { path = "../lib-json" }
+handl-plugin-lib-parse = { path = "../lib-parse" }
+handl-plugin-lib-serialize = { path = "../lib-serialize" }
+handl-plugin-lib-toml = { path = "../lib-toml" }
+handl-plugin-lib-url-rfc = { path = "../lib-url-rfc" }
+handl-plugin-lib-url-whatwg = { path = "../lib-url-whatwg" }
+handl-plugin-lib-yaml = { path = "../lib-yaml" }
+handl-plugin-vm-common.workspace = true
+handl-plugin-vm.workspace = true
+handl-plugin-vm-backend-rust-interpreter.workspace = true
+handl-plugin-vm-values-json.workspace = true
+serde_json = "1"
+
+[dev-dependencies]
+handl-plugin-ast.workspace = true
+handl-plugin-vm-host-eval.workspace = true
