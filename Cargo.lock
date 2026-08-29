@@ -689,10 +689,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-dialect"
-version = "0.1.0"
-
-[[package]]
 name = "handl-expr"
 version = "0.1.0"
 dependencies = [
