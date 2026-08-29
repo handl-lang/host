@@ -1038,6 +1038,13 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
             StepResult::Yield { value, frames } => {
                 return StepResult::Yield { value, frames };
             }
+            // If the target is an undefined module name (e.g. `cmp` in
+            // `cmp.eq`), fall back to the qualified name string so a
+            // surrounding `Apply` can dispatch to `host.function`.
+            StepResult::Error(Error::UnknownVariable(_)) if qualified_name(target).is_some() => {
+                let qualified = format!("{}.{field}", qualified_name(target).unwrap());
+                return StepResult::Done(NonFunctionValue::new(JsonValue::String(qualified)));
+            }
             StepResult::Error(err) => return StepResult::Error(err),
         };
 
@@ -1357,6 +1364,19 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                 match self.eval_step_with_handlers(subject, ctx, stack, inherited_handlers) {
                     StepResult::Done(subject_value) => {
                         for (pattern, guard, body) in arms {
+                            // Bind the pattern in a fresh scope before
+                            // evaluating the guard, so guards can reference
+                            // the matched value (e.g. the `__match_subject`
+                            // binding used for literal patterns). If the
+                            // guard fails, drop the scope and try the next
+                            // arm.
+                            ctx.push_scope();
+                            if let Err(err) =
+                                define_pattern(ctx, pattern, subject_value.clone())
+                            {
+                                ctx.pop_scope();
+                                return StepResult::Error(err);
+                            }
                             if let Some(guard_expr) = guard {
                                 match self.eval_step_with_handlers(
                                     guard_expr,
@@ -1366,21 +1386,28 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                                 ) {
                                     StepResult::Done(guard_value) => {
                                         if guard_value.as_bool() != Some(true) {
+                                            ctx.pop_scope();
                                             continue;
                                         }
                                     }
-                                    other => return other,
+                                    StepResult::Yield { value, frames } => {
+                                        ctx.pop_scope();
+                                        return StepResult::Yield { value, frames };
+                                    }
+                                    StepResult::Error(err) => {
+                                        ctx.pop_scope();
+                                        return StepResult::Error(err);
+                                    }
                                 }
                             }
-                            if let Err(err) = define_pattern(ctx, pattern, subject_value.clone()) {
-                                return StepResult::Error(err);
-                            }
-                            return self.eval_step_with_handlers(
+                            let body_result = self.eval_step_with_handlers(
                                 body,
                                 ctx,
                                 stack,
                                 inherited_handlers,
                             );
+                            ctx.pop_scope();
+                            return body_result;
                         }
                         StepResult::Error(Error::PrimitiveError("no matching pattern".to_string()))
                     }

@@ -21,7 +21,7 @@ pub mod module;
 pub mod prelude;
 pub mod sandbox;
 
-pub use host::{DynamicHost, ModuleHost, ModuleRule};
+pub use host::{DynamicRuntime, ModuleRuntime, ModuleRule};
 pub use module::{Module, module_stub};
 
 pub use adapter::{

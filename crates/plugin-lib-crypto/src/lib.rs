@@ -10,7 +10,7 @@
 //! handl-plugin-vm-common          handl-lib-crypto
 //! ─────────────            ─────────────
 //! Module trait             CryptoModule (Copy, zero-alloc)
-//! ModuleHost               *Function structs
+//! ModuleRuntime               *Function structs
 //!                          CryptoError → VmError
 //! ```
 //!
@@ -31,10 +31,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_crypto::CryptoModule;
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(CryptoModule);
 //! ```
 //!

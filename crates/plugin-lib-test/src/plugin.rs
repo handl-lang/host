@@ -4,7 +4,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
@@ -32,12 +32,12 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(TestModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(AssertModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(PropertyModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(BenchmarkModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(FuzzModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(SnapshotModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TestModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(AssertModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(PropertyModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(BenchmarkModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(FuzzModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SnapshotModule))?;
         Ok(())
     }
 

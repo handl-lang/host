@@ -3,7 +3,7 @@
 //! Concrete HTTP server implementation backed by `tokio` and `hyper`.
 //!
 //! Provides [`StdHttpServer`] and a preconfigured
-//! [`StdHttpServerModule`] ready for use with `ModuleHost`.
+//! [`StdHttpServerModule`] ready for use with `ModuleRuntime`.
 
 mod http_server;
 

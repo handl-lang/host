@@ -45,11 +45,11 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_utils::{MathModule, StrModule, BoolModule, CmpModule,
 //!     FnModule, TypeModule, OptionModule};
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(MathModule)
 //!     .with(StrModule)
 //!     .with(BoolModule)

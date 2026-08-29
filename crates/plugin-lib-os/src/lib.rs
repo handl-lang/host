@@ -13,7 +13,7 @@
 //! handl-plugin-vm-common          handl-lib-os                     handl-lib-os-std
 //! ─────────────            ──────────────────            ─────────────────────
 //! Module trait             Fs trait                      StdFs (std::fs)
-//! ModuleHost               Env trait                     StdEnv (std::env)
+//! ModuleRuntime               Env trait                     StdEnv (std::env)
 //!                          Path trait                    StdPath (std::path)
 //!                          Time trait                    StdTime (std::time)
 //!                          Cmd trait                     StdCmd (std::process)
@@ -32,7 +32,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_utils::{MathModule, StrModule};
 //! use handl_plugin_lib_os::{
 //!     FsModule, EnvModule, PathModule, TimeModule,
@@ -47,7 +47,7 @@
 //!     sig::sig_stub::StubSig,
 //! };
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(MathModule)
 //!     .with(StrModule)
 //!     .with(FsModule::new(StubFs::default()))

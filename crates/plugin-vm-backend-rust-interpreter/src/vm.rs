@@ -285,7 +285,19 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
             }
 
             Expr::FieldAccess { target, field } => {
-                let target_value = self.eval(target, ctx)?;
+                // If the target is an undefined module name (e.g. `cmp` in
+                // `cmp.eq`), evaluating it yields `UnknownVariable`. In that
+                // case fall back to the qualified name (`cmp.eq`) as a string
+                // so a surrounding `Apply` can dispatch to `host.function`.
+                let target_value = match self.eval(target, ctx) {
+                    Ok(v) => v,
+                    Err(Error::UnknownVariable(_)) if qualified_name(target).is_some() => {
+                        let qualified =
+                            format!("{}.{field}", qualified_name(target).unwrap());
+                        return Ok(NonFunctionValue::new(JsonValue::String(qualified)));
+                    }
+                    Err(e) => return Err(e),
+                };
                 match target_value.inner() {
                     JsonValue::Object(map) => {
                         let value = map.get(field).cloned().unwrap_or(JsonValue::Null);
@@ -347,14 +359,32 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
             Expr::Match { subject, arms } => {
                 let subject_value = self.eval(subject, ctx)?;
                 for (pattern, guard, body) in arms {
+                    // Bind the pattern in a fresh scope before evaluating
+                    // the guard, so guards can reference the matched value
+                    // (e.g. the `__match_subject` binding used for literal
+                    // patterns). If the guard fails, drop the scope and try
+                    // the next arm.
+                    ctx.push_scope();
+                    if let Err(err) = define_pattern(ctx, pattern, subject_value.clone()) {
+                        ctx.pop_scope();
+                        return Err(err);
+                    }
                     if let Some(guard_expr) = guard {
-                        let guard_value = self.eval(guard_expr, ctx)?;
+                        let guard_value = match self.eval(guard_expr, ctx) {
+                            Ok(v) => v,
+                            Err(err) => {
+                                ctx.pop_scope();
+                                return Err(err);
+                            }
+                        };
                         if guard_value.as_bool() != Some(true) {
+                            ctx.pop_scope();
                             continue;
                         }
                     }
-                    define_pattern(ctx, pattern, subject_value.clone())?;
-                    return self.eval(body, ctx);
+                    let body_value = self.eval(body, ctx);
+                    ctx.pop_scope();
+                    return body_value;
                 }
                 Err(Error::PrimitiveError("no matching pattern".to_string()))
             }
@@ -576,7 +606,18 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
             }
 
             Expr::FieldAccess { target, field } => {
-                let target_value = Box::pin(self.eval_async(target, ctx)).await?;
+                // See the sync `eval` arm: fall back to the qualified name
+                // string when the target is an undefined module name, so a
+                // surrounding `Apply` can dispatch to `host.function`.
+                let target_value = match Box::pin(self.eval_async(target, ctx)).await {
+                    Ok(v) => v,
+                    Err(Error::UnknownVariable(_)) if qualified_name(target).is_some() => {
+                        let qualified =
+                            format!("{}.{field}", qualified_name(target).unwrap());
+                        return Ok(NonFunctionValue::new(JsonValue::String(qualified)));
+                    }
+                    Err(e) => return Err(e),
+                };
                 match target_value.inner() {
                     JsonValue::Object(map) => {
                         let value = map.get(field).cloned().unwrap_or(JsonValue::Null);
@@ -661,14 +702,30 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
             Expr::Match { subject, arms } => {
                 let subject_value = Box::pin(self.eval_async(subject, ctx)).await?;
                 for (pattern, guard, body) in arms {
+                    // Bind the pattern in a fresh scope before evaluating
+                    // the guard — see the sync `eval` arm for rationale.
+                    ctx.push_scope();
+                    if let Err(err) = define_pattern(ctx, pattern, subject_value.clone()) {
+                        ctx.pop_scope();
+                        return Err(err);
+                    }
                     if let Some(guard_expr) = guard {
-                        let guard_value = Box::pin(self.eval_async(guard_expr, ctx)).await?;
+                        let guard_value =
+                            match Box::pin(self.eval_async(guard_expr, ctx)).await {
+                                Ok(v) => v,
+                                Err(err) => {
+                                    ctx.pop_scope();
+                                    return Err(err);
+                                }
+                            };
                         if guard_value.as_bool() != Some(true) {
+                            ctx.pop_scope();
                             continue;
                         }
                     }
-                    define_pattern(ctx, pattern, subject_value.clone())?;
-                    return Box::pin(self.eval_async(body, ctx)).await;
+                    let body_value = Box::pin(self.eval_async(body, ctx)).await;
+                    ctx.pop_scope();
+                    return body_value;
                 }
                 Err(Error::PrimitiveError("no matching pattern".to_string()))
             }

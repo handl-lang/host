@@ -4,7 +4,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::Base64Module;
 
@@ -30,7 +30,7 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(Base64Module))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(Base64Module))?;
         Ok(())
     }
 

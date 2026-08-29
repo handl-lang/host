@@ -4,7 +4,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::CollectionsModule;
 
@@ -30,7 +30,7 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(CollectionsModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(CollectionsModule))?;
         Ok(())
     }
 

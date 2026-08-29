@@ -1,15 +1,15 @@
 //! A host assembled dynamically from plugin contributions.
 //!
-//! [`DynamicHost`] combines the built-in functions provided by [`EvalHost`]
+//! [`DynamicRuntime`] combines the built-in functions provided by [`EvalHost`]
 //! with library modules contributed by `plugin-lib-*` plugins (collected in a
-//! [`ModuleHost`]). Resource limits (scope depth, call count) can be applied
-//! via [`DynamicHost::with_max_depth`] / [`DynamicHost::with_max_calls`] and
+//! [`ModuleRuntime`]). Resource limits (scope depth, call count) can be applied
+//! via [`DynamicRuntime::with_max_depth`] / [`DynamicRuntime::with_max_calls`] and
 //! are enforced on the [`CanonicalContext`] returned by
-//! [`DynamicHost::new_context`].
+//! [`DynamicRuntime::new_context`].
 //!
 //! This replaces the hardcoded `SandboxHost` / `ServerHost` / `CliHost`
 //! structs: a kit curates its plugins, their `contribute` methods register
-//! modules into the [`ModuleHost`], and [`DynamicHost`] wraps the result.
+//! modules into the [`ModuleRuntime`], and [`DynamicRuntime`] wraps the result.
 
 use handl_platform::{
     ContributionContext, KitRegistry, PlatformError, Plugin, PluginRegistry,
@@ -19,29 +19,29 @@ use handl_plugin_vm_values_json::{
     CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
 };
 
-use crate::host::ModuleHost;
+use crate::host::ModuleRuntime;
 
 /// A host assembled dynamically from plugin contributions.
 ///
 /// Combines built-in functions ([`EvalHost`]) with library modules
-/// contributed by `plugin-lib-*` plugins ([`ModuleHost`]). Resource limits
+/// contributed by `plugin-lib-*` plugins ([`ModuleRuntime`]). Resource limits
 /// can be applied via the builder methods.
 #[derive(Clone)]
-pub struct DynamicHost {
+pub struct DynamicRuntime {
     default: EvalHost,
-    modules: ModuleHost,
+    modules: ModuleRuntime,
     max_depth: Option<usize>,
     max_calls: Option<usize>,
 }
 
-impl DynamicHost {
+impl DynamicRuntime {
     /// Assembles a host from a list of plugins.
     ///
-    /// A [`ModuleHost`] is registered first so that `plugin-lib-*` plugins
+    /// A [`ModuleRuntime`] is registered first so that `plugin-lib-*` plugins
     /// can contribute their modules to it via
-    /// `ctx.contribute::<ModuleHost>(ModuleRule::new(...))`. Each plugin's
+    /// `ctx.contribute::<ModuleRuntime>(ModuleRule::new(...))`. Each plugin's
     /// [`Plugin::contribute`] method is then called, allowing modules to be
-    /// registered into the [`ModuleHost`]. The assembled [`ModuleHost`] is
+    /// registered into the [`ModuleRuntime`]. The assembled [`ModuleRuntime`] is
     /// extracted and combined with a default [`EvalHost`].
     pub fn from_plugins<I, P>(plugins: I) -> Result<Self, PlatformError>
     where
@@ -49,7 +49,7 @@ impl DynamicHost {
         P: Plugin + 'static,
     {
         let mut registry = PluginRegistry::new();
-        registry.register(ModuleHost::new());
+        registry.register(ModuleRuntime::new());
         for plugin in plugins {
             registry.register(plugin);
         }
@@ -58,9 +58,9 @@ impl DynamicHost {
 
     /// Assembles a host from a pre-built [`PluginRegistry`].
     ///
-    /// The registry must already contain a [`ModuleHost`] (registered first).
+    /// The registry must already contain a [`ModuleRuntime`] (registered first).
     /// Each plugin's [`Plugin::contribute`] method is called, allowing modules
-    /// to be registered into the [`ModuleHost`]. The assembled [`ModuleHost`]
+    /// to be registered into the [`ModuleRuntime`]. The assembled [`ModuleRuntime`]
     /// is extracted and combined with a default [`EvalHost`].
     pub fn from_registry(mut registry: PluginRegistry) -> Result<Self, PlatformError> {
         let mut kits = KitRegistry::new();
@@ -77,8 +77,8 @@ impl DynamicHost {
         }
 
         let modules = registry
-            .get_plugin_mut::<ModuleHost>()
-            .ok_or_else(|| PlatformError::Plugin("ModuleHost not found in registry".into()))?
+            .get_plugin_mut::<ModuleRuntime>()
+            .ok_or_else(|| PlatformError::Plugin("ModuleRuntime not found in registry".into()))?
             .clone();
 
         Ok(Self {
@@ -89,12 +89,12 @@ impl DynamicHost {
         })
     }
 
-    /// Creates a `DynamicHost` from an already-assembled [`ModuleHost`].
+    /// Creates a `DynamicRuntime` from an already-assembled [`ModuleRuntime`].
     ///
     /// This is the simpler entry point for callers (e.g. a kit's `contribute`
     /// method) that have already assembled their modules: it just wraps the
-    /// [`ModuleHost`] with a default [`EvalHost`] and no resource limits.
-    pub fn new(modules: ModuleHost) -> Self {
+    /// [`ModuleRuntime`] with a default [`EvalHost`] and no resource limits.
+    pub fn new(modules: ModuleRuntime) -> Self {
         Self {
             default: EvalHost::default(),
             modules,
@@ -115,8 +115,8 @@ impl DynamicHost {
         self
     }
 
-    /// Returns the inner [`ModuleHost`].
-    pub fn modules(&self) -> &ModuleHost {
+    /// Returns the inner [`ModuleRuntime`].
+    pub fn modules(&self) -> &ModuleRuntime {
         &self.modules
     }
 
@@ -154,13 +154,13 @@ impl DynamicHost {
     }
 }
 
-impl Default for DynamicHost {
+impl Default for DynamicRuntime {
     fn default() -> Self {
-        Self::new(ModuleHost::new())
+        Self::new(ModuleRuntime::new())
     }
 }
 
-impl Host<NonFunctionValue> for DynamicHost {
+impl Host<NonFunctionValue> for DynamicRuntime {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.default
             .function(name)
@@ -186,8 +186,8 @@ impl Host<NonFunctionValue> for DynamicHost {
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicHost;
-    use crate::host::{ModuleHost, ModuleRule};
+    use super::DynamicRuntime;
+    use crate::host::{ModuleRuntime, ModuleRule};
     use crate::module::module_stub::StubModule;
     use handl_platform::{
         CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
@@ -195,7 +195,7 @@ mod tests {
     };
     use handl_plugin_vm_values_json::Host;
 
-    /// A test plugin that contributes [`StubModule`] into the [`ModuleHost`].
+    /// A test plugin that contributes [`StubModule`] into the [`ModuleRuntime`].
     struct StubPlugin;
 
     impl Plugin for StubPlugin {
@@ -212,7 +212,7 @@ mod tests {
             None
         }
         fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-            ctx.contribute::<ModuleHost>(ModuleRule::new(StubModule))?;
+            ctx.contribute::<ModuleRuntime>(ModuleRule::new(StubModule))?;
             Ok(())
         }
         fn run(
@@ -227,28 +227,28 @@ mod tests {
     #[test]
     fn from_plugins_contributes_modules() {
         // `StubPlugin::contribute` registers `StubModule` into the
-        // `ModuleHost` via the contribution pipeline.
-        let host = DynamicHost::from_plugins([StubPlugin]).expect("assembly succeeds");
+        // `ModuleRuntime` via the contribution pipeline.
+        let host = DynamicRuntime::from_plugins([StubPlugin]).expect("assembly succeeds");
         assert!(host.function("stub.echo").is_some());
         assert_eq!(host.modules().module_count(), 1);
     }
 
     #[test]
     fn new_wraps_preassembled_modules() {
-        let host = DynamicHost::new(ModuleHost::new().with(StubModule));
+        let host = DynamicRuntime::new(ModuleRuntime::new().with(StubModule));
         assert!(host.function("stub.echo").is_some());
     }
 
     #[test]
     fn empty_host_has_no_functions() {
-        let host = DynamicHost::default();
+        let host = DynamicRuntime::default();
         assert!(host.function("stub.echo").is_none());
         assert_eq!(host.modules().module_count(), 0);
     }
 
     #[test]
     fn builder_sets_limits() {
-        let host = DynamicHost::default().with_max_depth(50).with_max_calls(1_000);
+        let host = DynamicRuntime::default().with_max_depth(50).with_max_calls(1_000);
         let ctx = host.new_context();
         assert_eq!(ctx.max_depth(), Some(50));
         assert_eq!(ctx.max_calls(), Some(1_000));

@@ -294,7 +294,17 @@ impl ExprHandler for FieldAccessHandler {
             return Err(Error::PrimitiveError("expected field access".to_string()));
         };
 
-        let target_value = dispatch(target, ctx)?;
+        // If the target is an undefined module name (e.g. `cmp` in
+        // `cmp.eq`), fall back to the qualified name string so a
+        // surrounding `Apply` can dispatch to `host.function`.
+        let target_value = match dispatch(target, ctx) {
+            Ok(v) => v,
+            Err(Error::UnknownVariable(_)) if qualified_name(target).is_some() => {
+                let qualified = format!("{}.{field}", qualified_name(target).unwrap());
+                return Ok(NonFunctionValue::new(JsonValue::String(qualified)));
+            }
+            Err(e) => return Err(e),
+        };
         match target_value.inner() {
             JsonValue::Object(map) => {
                 let value = map.get(field).cloned().unwrap_or(JsonValue::Null);

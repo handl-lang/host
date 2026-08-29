@@ -4,7 +4,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::{
     Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule, JsonModule,
@@ -34,25 +34,25 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(MathModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(StrModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(BoolModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(CmpModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(FnModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(TypeModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(OptionModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(ResultModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(MoodModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(EncodingModule::new()))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(ParseModule::new()))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(SerializeModule::new()))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(Base64Module))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(HexModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(JsonModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(TomlModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(YamlModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(UrlRfcModule))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(UrlWhatwgModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(MathModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(StrModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(BoolModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(CmpModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(FnModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ResultModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(MoodModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(EncodingModule::new()))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ParseModule::new()))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SerializeModule::new()))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(Base64Module))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(HexModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(JsonModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TomlModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(YamlModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(UrlRfcModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(UrlWhatwgModule))?;
         Ok(())
     }
 

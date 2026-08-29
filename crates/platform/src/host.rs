@@ -1,7 +1,7 @@
 //! Host implementations that coordinate plugins and kits.
 
 #[cfg(feature = "concurrent")]
-use handl_plugin_vm_common::ModuleHost;
+use handl_plugin_vm_common::ModuleRuntime;
 
 #[cfg(feature = "concurrent")]
 use handl_plugin_lib_concurrent::ConcurrencyModule;
@@ -25,14 +25,14 @@ pub struct DefaultHost {
     plugins: PluginRegistry,
     kits: KitRegistry,
     #[cfg(feature = "concurrent")]
-    modules: ModuleHost,
+    modules: ModuleRuntime,
 }
 
 impl DefaultHost {
     /// Creates a new, empty default host.
     pub fn new() -> Self {
         #[cfg(feature = "concurrent")]
-        let mut modules = ModuleHost::new();
+        let mut modules = ModuleRuntime::new();
 
         #[cfg(feature = "concurrent")]
         {

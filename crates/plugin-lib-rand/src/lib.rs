@@ -12,7 +12,7 @@
 //! handl-plugin-vm-common          handl-lib-rand
 //! ─────────────            ────────────
 //! Module trait             RandModule (Copy, zero-alloc)
-//! ModuleHost               *Function structs
+//! ModuleRuntime               *Function structs
 //!                          RandError → VmError
 //! ```
 //!
@@ -35,10 +35,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_rand::RandModule;
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(RandModule);
 //! ```
 //!

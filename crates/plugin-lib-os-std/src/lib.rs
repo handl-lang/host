@@ -10,11 +10,11 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_os::{FsModule, EnvModule, PathModule, TimeModule, CmdModule, ProcessModule, TmpModule, SocketModule, SigModule};
 //! use handl_plugin_lib_os_std::{StdFs, StdEnv, StdPath, StdTime, StdCmd, StdProcess, StdTmp, StdSocket, StdSig};
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(FsModule::new(StdFs))
 //!     .with(EnvModule::new(StdEnv))
 //!     .with(PathModule::new(StdPath))

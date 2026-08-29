@@ -12,7 +12,7 @@
 //! handl-plugin-vm-common          handl-lib-intl
 //! ─────────────            ────────────
 //! Module trait             IntlModule
-//! ModuleHost               ICU4X compiled_data (600+ locales)
+//! ModuleRuntime               ICU4X compiled_data (600+ locales)
 //!                          IntlError → VmError
 //!                          *Function structs
 //! ```
@@ -34,10 +34,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_intl::IntlModule;
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(IntlModule);
 //! ```
 //!

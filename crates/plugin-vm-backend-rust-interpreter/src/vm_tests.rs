@@ -85,6 +85,107 @@ fn vm_eval_call() {
     assert_eq!(result.as_number(), Some(3.0));
 }
 
+/// Regression: `cmp.eq(1, 1)` written in source parses to
+/// `Apply { target: FieldAccess { Var("cmp"), "eq" }, args: [1, 1] }`
+/// (the parser turns `cmp.eq` into an index/field-access, and `convert_call`
+/// only folds bare `Var` callees into `Call`). The host registers `cmp.eq`
+/// but not the bare module name `cmp`, so evaluating the target yields
+/// `UnknownVariable("cmp")`. FieldAccess must fall back to the qualified
+/// name string so the surrounding `Apply` can dispatch to `host.function`.
+#[derive(Clone)]
+struct CmpEq;
+impl Function<NonFunctionValue> for CmpEq {
+    fn call(
+        &self,
+        args: &[NonFunctionValue],
+        _ctx: &mut dyn Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
+        let (a, b) = (&args[0], &args[1]);
+        Ok(NonFunctionValue::new(a.inner() == b.inner()))
+    }
+}
+
+#[derive(Clone)]
+struct QualifiedHost {
+    add: Add,
+    cmp_eq: CmpEq,
+}
+
+impl Host<NonFunctionValue> for QualifiedHost {
+    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+        match name {
+            "add" => Some(&self.add),
+            // Registered as a qualified name only — bare "cmp" is NOT a
+            // function, mirroring how `ModuleRuntime` exposes module functions.
+            "cmp.eq" => Some(&self.cmp_eq),
+            _ => None,
+        }
+    }
+}
+
+impl Default for QualifiedHost {
+    fn default() -> Self {
+        QualifiedHost {
+            add: Add,
+            cmp_eq: CmpEq,
+        }
+    }
+}
+
+#[test]
+fn vm_eval_qualified_call_via_field_access() {
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    // `cmp.eq(1, 1)` as the parser produces it.
+    let expr = Expr::Apply {
+        target: Box::new(Expr::FieldAccess {
+            target: Box::new(Expr::Var("cmp".into())),
+            field: "eq".into(),
+        }),
+        args: vec![
+            Expr::value(NonFunctionValue::new(1)),
+            Expr::value(NonFunctionValue::new(1)),
+        ],
+    };
+    let result = vm.eval(&expr, &mut ctx).unwrap();
+    assert_eq!(result.as_bool(), Some(true));
+}
+
+#[test]
+fn vm_eval_qualified_call_via_field_access_unequal() {
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    let expr = Expr::Apply {
+        target: Box::new(Expr::FieldAccess {
+            target: Box::new(Expr::Var("cmp".into())),
+            field: "eq".into(),
+        }),
+        args: vec![
+            Expr::value(NonFunctionValue::new(1)),
+            Expr::value(NonFunctionValue::new(2)),
+        ],
+    };
+    let result = vm.eval(&expr, &mut ctx).unwrap();
+    assert_eq!(result.as_bool(), Some(false));
+}
+
+#[test]
+fn vm_eval_field_access_unknown_module_without_qualifier_errors() {
+    // A bare `Var` target that is neither a variable nor a function should
+    // still error — the fallback only applies when a qualified name can be
+    // formed (i.e. the target is itself a Var or FieldAccess chain).
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    let expr = Expr::FieldAccess {
+        target: Box::new(Expr::Var("totally_undefined".into())),
+        field: "thing".into(),
+    };
+    let result = vm.eval(&expr, &mut ctx).unwrap();
+    // No host function for "totally_undefined.thing"; the FieldAccess
+    // evaluates to the qualified-name string.
+    assert_eq!(result.as_str(), Some("totally_undefined.thing"));
+}
+
 #[test]
 fn vm_eval_unknown_function() {
     let vm = Vm::new(VmTestHost::default());

@@ -13,7 +13,7 @@
 //! handl-plugin-vm-common          handl-lib-datetime
 //! ─────────────            ────────────────
 //! Module trait             DateTimeModule (Copy, zero-alloc)
-//! ModuleHost               *Function structs
+//! ModuleRuntime               *Function structs
 //!                          chrono → VmError
 //! ```
 //!
@@ -45,10 +45,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_datetime::DateTimeModule;
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(DateTimeModule);
 //! ```
 

@@ -3,7 +3,7 @@
 //! Concrete OTLP/HTTP exporter using `ureq`.
 //!
 //! Provides [`HttpOtlpState`] and a preconfigured
-//! [`StdOtlpModule`] ready for use with `ModuleHost`.
+//! [`StdOtlpModule`] ready for use with `ModuleRuntime`.
 
 mod http_state;
 

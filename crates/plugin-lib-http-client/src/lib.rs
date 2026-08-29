@@ -11,7 +11,7 @@
 //! handl-plugin-vm-common          handl-lib-http-client            handl-lib-http-client-std
 //! ─────────────            ─────────────────────         ───────────────────────────
 //! Module trait             HttpClient trait              StdHttpClient (ureq)
-//! ModuleHost               HttpMethod/HttpRequest/HttpResponse
+//! ModuleRuntime               HttpMethod/HttpRequest/HttpResponse
 //!                          HttpError
 //!                          HttpClientModule adapter
 //! ```
@@ -23,10 +23,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_http_client::{HttpClientModule, http_client_stub::StubHttpClient};
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(HttpClientModule::new(StubHttpClient::default()));
 //! ```
 //!

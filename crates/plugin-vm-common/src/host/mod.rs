@@ -1,8 +1,8 @@
-mod dynamic_host;
+mod dynamic_runtime;
 mod host;
 
-pub use dynamic_host::DynamicHost;
-pub use host::{ModuleHost, ModuleRule};
+pub use dynamic_runtime::DynamicRuntime;
+pub use host::{ModuleRuntime, ModuleRule};
 
 #[cfg(test)]
 mod host_tests;

@@ -11,7 +11,7 @@ use crate::module::Module;
 
 /// A composite host that dispatches function calls to registered modules.
 ///
-/// `ModuleHost` implements [`Host`] by splitting the function name on the
+/// `ModuleRuntime` implements [`Host`] by splitting the function name on the
 /// first `.`. The left segment is the module name; the right segment is
 /// the function name within that module. For example, `math.abs(x)` is
 /// split into module `"math"` and function `"abs"`.
@@ -23,7 +23,7 @@ use crate::module::Module;
 /// # Architecture
 ///
 /// ```text
-///            ModuleHost
+///            ModuleRuntime
 ///                │
 ///                │ Host::function("math.abs")
 ///                ▼
@@ -38,14 +38,14 @@ use crate::module::Module;
 ///
 /// The VM sees only the `Host` interface — it does not know about modules.
 #[derive(Clone)]
-pub struct ModuleHost {
+pub struct ModuleRuntime {
     modules: Vec<Arc<dyn Module>>,
 }
 
-impl ModuleHost {
+impl ModuleRuntime {
     /// Creates a new empty host.
     pub fn new() -> Self {
-        ModuleHost {
+        ModuleRuntime {
             modules: Vec::new(),
         }
     }
@@ -62,13 +62,13 @@ impl ModuleHost {
     }
 }
 
-impl Default for ModuleHost {
+impl Default for ModuleRuntime {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Host<NonFunctionValue> for ModuleHost {
+impl Host<NonFunctionValue> for ModuleRuntime {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if let Some((module_name, func_name)) = name.split_once('.') {
             self.modules
@@ -140,15 +140,15 @@ impl Host<NonFunctionValue> for ModuleHost {
 }
 
 /// A [`Contribution`] that registers a single [`Module`] with a
-/// [`ModuleHost`] [`RuleAcceptor`].
+/// [`ModuleRuntime`] [`RuleAcceptor`].
 ///
 /// This wraps a module in an `Arc` so it can be passed through the platform
 /// contribution pipeline via
-/// `ctx.contribute::<ModuleHost>(ModuleRule::new(MyModule))`.
+/// `ctx.contribute::<ModuleRuntime>(ModuleRule::new(MyModule))`.
 pub struct ModuleRule(pub Arc<dyn Module + Send + Sync>);
 
 impl ModuleRule {
-    /// Wrap a module for contribution to a [`ModuleHost`].
+    /// Wrap a module for contribution to a [`ModuleRuntime`].
     pub fn new(module: impl Module + 'static) -> Self {
         Self(Arc::new(module))
     }
@@ -160,7 +160,7 @@ impl Contribution for ModuleRule {
     }
 }
 
-impl Plugin for ModuleHost {
+impl Plugin for ModuleRuntime {
     fn id(&self) -> &str {
         "runtime.module-host"
     }
@@ -186,7 +186,7 @@ impl Plugin for ModuleHost {
     }
 }
 
-impl RuleAcceptor for ModuleHost {
+impl RuleAcceptor for ModuleRuntime {
     type Rule = ModuleRule;
 
     fn accept(&mut self, rule: ModuleRule) -> Result<(), PlatformError> {

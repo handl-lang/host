@@ -8,7 +8,7 @@ use handl_plugin_lib_os::{
     CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule,
     TimeModule, TmpModule,
 };
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::{StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp};
 
@@ -34,19 +34,19 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(FsModule::new(StdFs)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(EnvModule::new(StdEnv)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(PathModule::new(StdPath)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(TimeModule::new(StdTime)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(CmdModule::new(StdCmd)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(ProcessModule::new(
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(FsModule::new(StdFs)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(EnvModule::new(StdEnv)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(PathModule::new(StdPath)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TimeModule::new(StdTime)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(CmdModule::new(StdCmd)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ProcessModule::new(
             StdProcess::default(),
         )))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(TmpModule::new(StdTmp)))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(SocketModule::new(
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TmpModule::new(StdTmp)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SocketModule::new(
             StdSocket::default(),
         )))?;
-        ctx.contribute::<ModuleHost>(ModuleRule::new(SigModule::new(StdSig)))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SigModule::new(StdSig)))?;
         Ok(())
     }
 

@@ -12,7 +12,7 @@
 //! handl-plugin-vm-common          handl-lib-http-server            handl-lib-http-server-std
 //! ─────────────            ─────────────────────         ───────────────────────────
 //! Module trait             HttpServer trait              StdHttpServer
-//! ModuleHost               HttpServerRequest/Response
+//! ModuleRuntime               HttpServerRequest/Response
 //!                          HttpServerError
 //!                          HttpServerModule adapter
 //! ```

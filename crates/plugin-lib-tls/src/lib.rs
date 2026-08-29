@@ -13,7 +13,7 @@
 //! handl-plugin-vm-common          handl-lib-tls          handl-lib-tls-native
 //! ─────────────            ─────────────          ────────────────────
 //! Module trait             TlsService trait       NativeTls
-//! ModuleHost               TlsModule              rcgen, rustls,
+//! ModuleRuntime               TlsModule              rcgen, rustls,
 //!                          StubTls                tokio-rustls
 //! ```
 //!

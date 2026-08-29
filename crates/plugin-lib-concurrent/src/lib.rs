@@ -24,10 +24,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_concurrency::ConcurrencyModule;
 //!
-//! let host = ModuleHost::new().with(ConcurrencyModule::new());
+//! let host = ModuleRuntime::new().with(ConcurrencyModule::new());
 //! ```
 //!
 //! ## Canonical syntax
