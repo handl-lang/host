@@ -1567,6 +1567,7 @@ name = "handl-plugin-ext-parser"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lexer",
  "serde_json",
 ]
 

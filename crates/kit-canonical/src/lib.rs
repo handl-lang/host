@@ -1262,7 +1262,7 @@ impl Plugin for CanonicalKit {
 
         // Canonical language operation RuleAcceptors
         ctx.register_plugin(BasicLexer::new())?;
-        ctx.register_plugin(BasicParser::new())?;
+        ctx.register_plugin(BasicParser::<CanonicalKind>::new())?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
