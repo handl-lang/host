@@ -138,22 +138,8 @@ impl DefaultHost {
     ) -> Result<crate::resolve::ResolvedComposition, crate::resolve::ResolutionError> {
         let manifests: Vec<crate::manifest::PluginManifest> = self
             .plugins
-            .ids()
+            .iter_manifests()
             .into_iter()
-            .zip(self.plugins.names())
-            .map(|(id, _)| crate::manifest::PluginManifest {
-                id,
-                version: "0.0.0".into(),
-                provides: Vec::new(),
-                requires: Vec::new(),
-                optional: Vec::new(),
-                extends: Vec::new(),
-                conflicts: Vec::new(),
-                replaces: Vec::new(),
-                targets: Vec::new(),
-                exclusive: Vec::new(),
-                metadata: serde_json::Value::Null,
-            })
             .collect();
         crate::resolve::resolve(&manifests, &[], None)
     }

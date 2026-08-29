@@ -63,6 +63,15 @@ pub trait Plugin: Send + Sync + Any {
     /// Returns metadata for a capability, if available.
     fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata>;
 
+    /// Returns the plugin's manifest, if it has one.
+    ///
+    /// Plugins that were loaded from a manifest or want to participate in
+    /// composition resolution should return it here. Plugins that are
+    /// built-in and have no manifest data return `None` (the default).
+    fn manifest(&self) -> Option<&crate::manifest::PluginManifest> {
+        None
+    }
+
     /// Contributes rules or other plugins during host loading.
     fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         Ok(())
@@ -190,6 +199,36 @@ impl PluginRegistry {
         for id in &excludes {
             self.remove_by_id(id);
         }
+    }
+
+    /// Returns manifests for all registered plugins.
+    ///
+    /// Plugins that return a manifest from `Plugin::manifest` use it directly.
+    /// Others get a synthesized manifest from their id, version, and capabilities.
+    pub fn iter_manifests(&self) -> Vec<crate::manifest::PluginManifest> {
+        self.plugins
+            .iter()
+            .flatten()
+            .map(|p| {
+                if let Some(m) = p.manifest() {
+                    m.clone()
+                } else {
+                    crate::manifest::PluginManifest {
+                        id: p.id().to_string(),
+                        version: p.version().to_string(),
+                        provides: p.capabilities().to_vec(),
+                        requires: Vec::new(),
+                        optional: Vec::new(),
+                        extends: Vec::new(),
+                        conflicts: Vec::new(),
+                        replaces: Vec::new(),
+                        targets: Vec::new(),
+                        exclusive: Vec::new(),
+                        metadata: serde_json::Value::Null,
+                    }
+                }
+            })
+            .collect()
     }
 
     /// Rebuilds the capability index from the current plugin list.
