@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
@@ -75,5 +76,34 @@ pub struct TokenFactory;
 impl handl_plugin_lexer::EofFactory<DelimiterKind> for TokenFactory {
     fn eof_kind(&self) -> DelimiterKind {
         DelimiterKind::Eof
+    }
+}
+
+fn regex_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
+            | '/' => format!("\\{c}"),
+            _ => c.to_string(),
+        })
+        .collect()
+}
+
+/// All delimiter characters recognized by this plugin.
+pub const DELIMITER_CHARS: &[&str] = &["(", ")", "[", "]", "{", "}", ",", ":", ".", ";"];
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        let alt = DELIMITER_CHARS
+            .iter()
+            .map(|s| regex_escape(s))
+            .collect::<Vec<_>>()
+            .join("|");
+        vec![GrammarRule::match_rule(
+            "delimiters",
+            "punctuation",
+            &format!("[{alt}]"),
+            58,
+        )]
     }
 }

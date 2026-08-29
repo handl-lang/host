@@ -2530,6 +2530,7 @@ dependencies = [
 name = "handl-plugin-token-bool"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
 ]
 
@@ -2537,6 +2538,7 @@ dependencies = [
 name = "handl-plugin-token-comment"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-line-comment",
@@ -2546,6 +2548,7 @@ dependencies = [
 name = "handl-plugin-token-delimiter"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-delimiter",
 ]
@@ -2554,6 +2557,7 @@ dependencies = [
 name = "handl-plugin-token-doc-comment"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-line-comment",
@@ -2563,6 +2567,7 @@ dependencies = [
 name = "handl-plugin-token-identifier"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-ident",
 ]
@@ -2571,6 +2576,7 @@ dependencies = [
 name = "handl-plugin-token-keyword-as"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-keyword",
 ]
@@ -2579,6 +2585,7 @@ dependencies = [
 name = "handl-plugin-token-keyword-handle"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-keyword",
 ]
@@ -2617,6 +2624,7 @@ dependencies = [
 name = "handl-plugin-token-null"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
 ]
 
@@ -2624,6 +2632,7 @@ dependencies = [
 name = "handl-plugin-token-number"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-number",
 ]
@@ -2632,6 +2641,7 @@ dependencies = [
 name = "handl-plugin-token-operator"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-operator",
 ]
@@ -2640,6 +2650,7 @@ dependencies = [
 name = "handl-plugin-token-string"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-string",
 ]

@@ -1,6 +1,17 @@
 #![allow(non_snake_case)]
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
+
+fn regex_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
+            | '/' => format!("\\{c}"),
+            _ => c.to_string(),
+        })
+        .collect()
+}
 
 /// Token kind for canonical comment tokens.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,5 +58,25 @@ pub struct TokenFactory;
 impl handl_plugin_lexer::EofFactory<CommentKind> for TokenFactory {
     fn eof_kind(&self) -> CommentKind {
         CommentKind::Eof
+    }
+}
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        vec![
+            GrammarRule::match_rule(
+                "comments",
+                "comment.line",
+                &format!("{}.*", regex_escape("//")),
+                20,
+            ),
+            GrammarRule::begin_end_rule(
+                "block_comment",
+                "comment.block",
+                &regex_escape("/*"),
+                &regex_escape("*/"),
+                21,
+            ),
+        ]
     }
 }

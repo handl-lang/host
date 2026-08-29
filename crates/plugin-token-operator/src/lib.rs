@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
@@ -75,5 +76,35 @@ pub struct TokenFactory;
 impl handl_plugin_lexer::EofFactory<OperatorKind> for TokenFactory {
     fn eof_kind(&self) -> OperatorKind {
         OperatorKind::Eof
+    }
+}
+
+fn regex_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
+            | '/' => format!("\\{c}"),
+            _ => c.to_string(),
+        })
+        .collect()
+}
+
+/// All operator strings recognized by this plugin, in priority order
+/// (longest first so that multi-char operators match before single-char).
+pub const OPERATOR_STRINGS: &[&str] = &["|>", "->", "=", "+", "-", "*", "/", "<", ">"];
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        let alt = OPERATOR_STRINGS
+            .iter()
+            .map(|s| regex_escape(s))
+            .collect::<Vec<_>>()
+            .join("|");
+        vec![GrammarRule::match_rule(
+            "operators",
+            "keyword.operator",
+            &format!("({alt})"),
+            55,
+        )]
     }
 }

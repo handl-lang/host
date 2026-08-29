@@ -5,6 +5,7 @@
 //! `handl_plugin_lexer::TokenKind`, the base capability trait from the generic
 //! lexer crate.
 
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
@@ -82,5 +83,16 @@ pub struct TokenFactory;
 impl handl_plugin_lexer::EofFactory<NumberKind> for TokenFactory {
     fn eof_kind(&self) -> NumberKind {
         NumberKind::Eof
+    }
+}
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        vec![GrammarRule::match_rule(
+            "numbers",
+            "constant.numeric",
+            r"-?\d+(\.\d+)?([eE][+-]?\d+)?",
+            30,
+        )]
     }
 }

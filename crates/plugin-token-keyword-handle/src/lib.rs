@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
@@ -42,5 +43,16 @@ pub struct TokenFactory;
 impl handl_plugin_lexer::EofFactory<HandleKind> for TokenFactory {
     fn eof_kind(&self) -> HandleKind {
         HandleKind::Eof
+    }
+}
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        vec![GrammarRule::match_rule(
+            "keyword_handle",
+            "keyword",
+            r"\b(handle)\b",
+            50,
+        )]
     }
 }

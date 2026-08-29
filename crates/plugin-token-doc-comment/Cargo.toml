@@ -7,3 +7,4 @@ edition.workspace = true
 handl-plugin-lexer.workspace = true
 handl-plugin-lexer-line-comment.workspace = true
 handl-plugin-lexer-block-comment.workspace = true
+handl-plugin-grammar-textmate = { workspace = true }

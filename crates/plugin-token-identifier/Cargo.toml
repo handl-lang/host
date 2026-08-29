@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 handl-plugin-lexer.workspace = true
 handl-plugin-lexer-ident.workspace = true
+handl-plugin-grammar-textmate = { workspace = true }

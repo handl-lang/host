@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 use handl_plugin_lexer::{
     CommentTokenKind, DefaultLexError, LexError, LexRule, LexerConfig, Span, Token, TokenKind,
 };
@@ -7,6 +8,16 @@ use handl_plugin_lexer_line_comment::{
 };
 use std::fmt;
 use std::iter::Peekable;
+
+fn regex_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
+            | '/' => format!("\\{c}"),
+            _ => c.to_string(),
+        })
+        .collect()
+}
 
 /// Token kind for canonical doc-comment tokens.
 #[derive(Debug, Clone, PartialEq)]
@@ -72,6 +83,30 @@ impl CommentToken<DocCommentKind> for TokenFactory {
 
     fn doc_block_comment_delims(&self) -> Option<(&str, &str)> {
         Some(("/**", "*/"))
+    }
+}
+
+impl GrammarContributor for TokenFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        let mut rules = Vec::new();
+        if let Some(prefix) = self.doc_line_comment_prefix() {
+            rules.push(GrammarRule::match_rule(
+                "doc_comments",
+                "comment.documentation",
+                &format!("{}.*", regex_escape(prefix)),
+                10,
+            ));
+        }
+        if let Some((start, end)) = self.doc_block_comment_delims() {
+            rules.push(GrammarRule::begin_end_rule(
+                "doc_block_comment",
+                "comment.documentation.block",
+                &regex_escape(start),
+                &regex_escape(end),
+                11,
+            ));
+        }
+        rules
     }
 }
 
