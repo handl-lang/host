@@ -30,6 +30,9 @@ use handl_ext_lexer::BasicLexer;
 use handl_ext_parser::BasicParser;
 use handl_ext_fmt::BasicFormatter;
 use handl_ext_lint::BasicLinter;
+use handl_plugin_diag_expression::ExpressionDiagnostics;
+use handl_plugin_fmt_stmt::StatementFormatter;
+use handl_plugin_fmt_trivia::TriviaFormatter;
 
 use handl_target_native::NativeTarget;
 use handl_platform::RuntimeHost;
@@ -1258,6 +1261,11 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
         ctx.register_plugin(BasicEvaluator::new())?;
+
+        // Format and lint behavior contributors (ADR-0034 P1.3)
+        ctx.register_plugin(TriviaFormatter::new())?;
+        ctx.register_plugin(StatementFormatter::new())?;
+        ctx.register_plugin(ExpressionDiagnostics::new())?;
         ctx.register_plugin(HelloEvalPlugin::new())?;
         ctx.register_plugin(JsonEvalPlugin::new())?;
         ctx.register_plugin(OptionsPlugin::new())?;

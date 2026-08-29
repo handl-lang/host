@@ -11,18 +11,22 @@ pub mod capability;
 pub mod config;
 /// Platform error types.
 pub mod error;
+/// Generic evaluation operation and rule acceptor.
+pub mod eval;
+/// Generic format operation and rule acceptor.
+pub mod format;
 /// Host implementations that coordinate plugins and kits.
 pub mod host;
 /// Kit manifests and registries.
 pub mod kit;
+/// Generic lint operation and rule acceptor.
+pub mod lint;
 /// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
 /// Generic, composable AST node for ADR-0002.
 pub mod ast_node;
 /// Plugin-provided option schemas and resolved values.
 pub mod options;
-/// Generic evaluation operation and rule acceptor.
-pub mod eval;
 /// Generic typecheck operation and rule acceptor.
 pub mod typecheck;
 /// Foundational composable plugin types for ADR-0002.
@@ -42,13 +46,15 @@ pub use boundary::*;
 pub use capability::*;
 pub use config::*;
 pub use error::*;
+pub use eval::*;
+pub use format::*;
 pub use host::*;
 pub use kit::*;
+pub use lint::*;
 pub use manifest::*;
 pub use ast_node::*;
 pub use options::*;
 pub use typecheck::*;
-pub use eval::*;
 pub use plugin_model::*;
 pub use plugin::*;
 pub use resolve::*;

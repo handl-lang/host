@@ -63,3 +63,8 @@ handl-plugin-token-null = { path = "../plugin-token-null" }
 handl-plugin-token-number = { workspace = true }
 handl-plugin-token-operator = { path = "../plugin-token-operator" }
 handl-plugin-token-string = { path = "../plugin-token-string" }
+
+# Format and lint behavior plugins (ADR-0034 P1.3)
+handl-plugin-fmt-trivia = { path = "../plugin-fmt-trivia" }
+handl-plugin-fmt-stmt = { path = "../plugin-fmt-stmt" }
+handl-plugin-diag-expression = { path = "../plugin-diag-expression" }

@@ -1,109 +1,93 @@
-use handl_expr::Token;
-use handl_kit_canonical::CanonicalKind;
-use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
-};
-use serde_json::{json, Value as JsonValue};
+//! `FormatBehavior` contributor for trivia/comment formatting.
+//!
+//! This plugin is currently a no-op contributor to `BasicFormatter` pending
+//! a generic way to pass token-stream data through `FormatRequest`.
 
-/// Formatter plugin that formats trivia comments from a token stream.
-pub struct TriviaFormatter {
-    capabilities: Vec<CapabilityId>,
-}
+use handl_platform::{
+    BasicFormatter, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest,
+    CapabilityResponse, ContributionContext, Format, FormatBehavior, FormatRequest, PlatformError,
+    Plugin, PluginContext,
+};
+
+/// Trivia `FormatBehavior` contributor.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TriviaFormatter;
 
 impl TriviaFormatter {
-    /// Creates a new trivia formatter.
+    /// Creates a new trivia formatter rule.
     pub fn new() -> Self {
-        Self {
-            capabilities: vec![CapabilityId::from("fmt.trivia")],
-        }
-    }
-
-    /// Formats the `Comment` tokens in `tokens` as source text.
-    ///
-    /// Line comments are emitted as `// text\n`; block comments as
-    /// `/* text */`. The comment style is inferred from the token span.
-    pub fn format_comments(&self, tokens: &[Token<CanonicalKind>]) -> String {
-        let mut out = String::new();
-        for token in tokens {
-            if let CanonicalKind::Comment(text) = &token.kind {
-                let span_len = token.span.end - token.span.start;
-                let body_len = text.len();
-                if span_len == body_len + 2 {
-                    // Line comment: the span covers `//` + body.
-                    out.push_str("//");
-                    out.push_str(text);
-                    out.push('\n');
-                } else {
-                    // Block comment: the span covers `/*` + body + `*/`.
-                    out.push_str("/*");
-                    out.push_str(text);
-                    out.push_str("*/");
-                }
-            }
-        }
-        out
+        Self
     }
 }
 
-impl Default for TriviaFormatter {
-    fn default() -> Self {
-        Self::new()
+impl Behavior<Format> for TriviaFormatter {
+    fn kind(&self) -> &str {
+        "fmt.trivia"
+    }
+
+    fn apply(&self, _op: &mut FormatRequest) -> Result<(), PlatformError> {
+        // TODO: the concrete `Token<CanonicalKind>` formatting path cannot be
+        // cleanly adapted to the generic `FormatRequest`; wire the token stream
+        // through the request once a canonical representation is available.
+        Ok(())
     }
 }
+
+impl FormatBehavior for TriviaFormatter {}
 
 impl Plugin for TriviaFormatter {
+    fn id(&self) -> &str {
+        "fmt.trivia"
+    }
+
     fn name(&self) -> &str {
         "handl-plugin-fmt-trivia"
     }
 
     fn capabilities(&self) -> &[CapabilityId] {
-        &self.capabilities
+        &[]
     }
 
     fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
-        Some(json!({ "description": "format comment trivia from a token stream" }))
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        let rule: Box<dyn FormatBehavior> = Box::new(TriviaFormatter);
+        ctx.contribute::<BasicFormatter>(rule)
     }
 
     fn run(
         &self,
-        request: &CapabilityRequest,
+        _request: &CapabilityRequest,
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
-        let tokens = match &request.payload {
-            JsonValue::Array(arr) => arr,
-            _ => {
-                return Err(PlatformError::Plugin(
-                    "expected a JSON array of tokens".to_string(),
-                ))
-            }
-        };
-        let _ = tokens;
-        Err(PlatformError::Plugin(
-            "fmt.trivia is not exposed through the capability interface".to_string(),
-        ))
+        Err(PlatformError::NotImplemented)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_lexer::Span;
+    use handl_platform::FormatRequest;
 
     #[test]
-    fn format_line_and_block_comments() {
-        let tokens = vec![
-            Token::new(CanonicalKind::Comment(" hello".to_string()), Span::new(0, 8)),
-            Token::new(CanonicalKind::Comment(" world ".to_string()), Span::new(9, 20)),
-        ];
-        let f = TriviaFormatter::new();
-        let formatted = f.format_comments(&tokens);
-        assert_eq!(formatted, "// hello\n/* world */");
+    fn kind_is_fmt_trivia() {
+        assert_eq!(TriviaFormatter::new().kind(), "fmt.trivia");
     }
 
     #[test]
-    fn plugin_reports_capability() {
-        let p = TriviaFormatter::new();
-        assert!(p.capabilities().iter().any(|c| c.as_str() == "fmt.trivia"));
+    fn apply_is_noop() {
+        use handl_platform::{AstNode, ResolvedOptions};
+        let mut req = FormatRequest {
+            ast: AstNode {
+                kind: "fmt.trivia".to_string(),
+                span: None,
+                payload: serde_json::Value::Null,
+            },
+            output: String::new(),
+            options: ResolvedOptions::new(),
+        };
+        assert!(TriviaFormatter::new().apply(&mut req).is_ok());
     }
 }

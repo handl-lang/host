@@ -1,49 +1,58 @@
-//! Diagnostics plugin stub; concrete rule implementation pending migration.
+//! `LintBehavior` contributor for expression diagnostics.
+//!
+//! This plugin is currently a no-op contributor to `BasicLinter` pending a
+//! generic way to pass expression data through `LintRequest`.
 
-use handl_expr::{Diagnostic, Diagnostics};
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
+    BasicLinter, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
+    ContributionContext, Lint, LintBehavior, LintRequest, PlatformError, Plugin, PluginContext,
 };
-use serde_json::json;
 
-/// Diagnostics plugin that currently reports no diagnostics.
-pub struct ExpressionDiagnostics {
-    capabilities: Vec<CapabilityId>,
-}
+/// Expression `LintBehavior` contributor.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ExpressionDiagnostics;
 
 impl ExpressionDiagnostics {
-    /// Creates a new expression diagnostics plugin.
+    /// Creates a new expression diagnostics rule.
     pub fn new() -> Self {
-        Self {
-            capabilities: vec![CapabilityId::from("diag.expression")],
-        }
+        Self
     }
 }
 
-impl Default for ExpressionDiagnostics {
-    fn default() -> Self {
-        Self::new()
+impl Behavior<Lint> for ExpressionDiagnostics {
+    fn kind(&self) -> &str {
+        "lint.expression"
+    }
+
+    fn apply(&self, _op: &mut LintRequest) -> Result<(), PlatformError> {
+        // TODO: wire expression-specific diagnostics through the generic
+        // `LintRequest` once an expression payload is available.
+        Ok(())
     }
 }
 
-impl Diagnostics for ExpressionDiagnostics {
-    fn diagnose<N>(&self, _expr: &N) -> Vec<Diagnostic> {
-        Vec::new()
-    }
-}
+impl LintBehavior for ExpressionDiagnostics {}
 
 impl Plugin for ExpressionDiagnostics {
+    fn id(&self) -> &str {
+        "lint.expression"
+    }
+
     fn name(&self) -> &str {
         "handl-plugin-diag-expression"
     }
 
     fn capabilities(&self) -> &[CapabilityId] {
-        &self.capabilities
+        &[]
     }
 
     fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
-        Some(json!({ "description": "expression diagnostics" }))
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        let rule: Box<dyn LintBehavior> = Box::new(ExpressionDiagnostics);
+        ctx.contribute::<BasicLinter>(rule)
     }
 
     fn run(

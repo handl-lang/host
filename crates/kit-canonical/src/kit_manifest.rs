@@ -95,6 +95,10 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-stmt-module".to_string(),
             // Typecheck behavior plugin (ADR-0034 P1.1)
             "plugin-typecheck-core".to_string(),
+            // Format and lint behavior plugins (ADR-0034 P1.3)
+            "plugin-fmt-trivia".to_string(),
+            "plugin-fmt-stmt".to_string(),
+            "plugin-diag-expression".to_string(),
         ],
     }
 }
