@@ -12,5 +12,5 @@ serde_json = "1"
 chrono.workspace = true
 
 [dev-dependencies]
-handl-ast.workspace = true
+handl-plugin-ast.workspace = true
 handl-vm-host-eval.workspace = true

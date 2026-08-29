@@ -6,7 +6,7 @@
 //! denotation) or `led` (left denotation) action.
 
 use crate::ParseError;
-use handl_ast::Expr;
+use handl_plugin_ast::Expr;
 use handl_plugin_lexer::{Token, TokenKind};
 
 /// Context passed to grammar rules while parsing.

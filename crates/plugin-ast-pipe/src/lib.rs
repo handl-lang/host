@@ -1,4 +1,4 @@
-use handl_ast::{Node, NodeMetadata};
+use handl_plugin_ast::{Node, NodeMetadata};
 
 /// pipe expression
 #[derive(Debug, Clone)]

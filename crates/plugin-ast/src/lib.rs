@@ -1,4 +1,4 @@
-//! # handl-ast
+//! # handl-plugin-ast
 //!
 //! Generic, trait-based AST abstractions for the handl language.
 //!

@@ -10,15 +10,15 @@
 //!
 //! ## Architectural rule
 //!
-//! > **The parser consumes tokens and produces generic [`Node`](handl_ast::Node)s.**
+//! > **The parser consumes tokens and produces generic [`Node`](handl_plugin_ast::Node)s.**
 //!
 //! The parser is the bridge between the lexer and the AST. It depends on
-//! `handl-plugin-lexer` (for `Token`/`TokenKind`) and `handl-ast` (for the
+//! `handl-plugin-lexer` (for `Token`/`TokenKind`) and `handl-plugin-ast` (for the
 //! `Node`/`Expr` capabilities), but not on the VM or any concrete node
 //! type. This keeps the parsing pipeline independent of evaluation
 //! strategy.
 
-use handl_ast::Node;
+use handl_plugin_ast::Node;
 use handl_plugin_lexer::{LexError, Lexer, Token, TokenKind};
 
 mod error;

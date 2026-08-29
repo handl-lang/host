@@ -4,7 +4,7 @@
 //! `CallRule` implements `handl_parser::GrammarRule`, the base capability
 //! trait from the generic parser crate.
 
-use handl_ast::Expr;
+use handl_plugin_ast::Expr;
 use handl_plugin_lexer::{Token, TokenKind};
 use handl_parser::{GrammarRule, ParseError, ParserContext};
 
@@ -96,7 +96,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_ast::Node;
+    use handl_plugin_ast::Node;
     use handl_plugin_lexer::{EofFactory, Span, Token};
     use std::fmt;
 

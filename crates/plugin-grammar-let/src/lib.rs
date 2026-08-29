@@ -1,4 +1,4 @@
-use handl_ast::{Expr, Stmt};
+use handl_plugin_ast::{Expr, Stmt};
 use handl_plugin_lexer::{Token, TokenKind};
 use handl_parser::{GrammarRule, ParseError, ParserContext};
 

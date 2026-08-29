@@ -10,7 +10,7 @@ use std::iter::Peekable;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use handl_ast::{Expr as ExprTrait, Node, Stmt as StmtTrait};
+use handl_plugin_ast::{Expr as ExprTrait, Node, Stmt as StmtTrait};
 use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, IdentFactory, KeywordFactory,

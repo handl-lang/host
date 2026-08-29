@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-handl-ast = { workspace = true }
+handl-plugin-ast = { workspace = true }
 handl-plugin-lexer = { workspace = true }
 handl-plugin-lexer-block-comment = { workspace = true }
 handl-plugin-lexer-delimiter = { workspace = true }

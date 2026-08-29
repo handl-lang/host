@@ -1,7 +1,7 @@
 //! Placeholder expression, pattern, and handler types for the VM migration.
 //!
 //! These are compatibility types that mirror the old `handl-ast-canonical`
-//! concrete enum while the platform moves to the generic `handl-ast` trait
+//! concrete enum while the platform moves to the generic `handl-plugin-ast` trait
 //! model. They are intentionally minimal: the core VM only needs to pass
 //! references to expressions around; the backend interpreter may expand the
 //! variants as it ports to the new AST.

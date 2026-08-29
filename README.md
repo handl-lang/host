@@ -7,7 +7,7 @@
 - `handl-platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `Host`, `DefaultHost`, `LanguageHost`, `Boundary`, `PlatformError`.
 - `handl-expr` — pluggable expression-to-AST pipeline: `ExpressionPipeline`, `ModulePipeline`, `TokenRule`, `ParseContext`, and the statement/expression fragment traits. `Stmt` wraps a `StmtKind`; `Expr<T>` is in `handl-ast-canonical`; `Expr<NonFunctionValue>` (from `handl-vm-values-json`) is the canonical expression type.
 - `handl-plugin-lexer` / `handl-lexer-canonical` — token and token-kind abstractions and the canonical token set.
-- `handl-ast` / `handl-ast-canonical` — shared AST shapes and the canonical expression tree.
+- `handl-plugin-ast` / `handl-ast-canonical` — shared AST shapes and the canonical expression tree.
 - `crates/plugin-*` — individual syntax and tooling plugins: literals, identifiers, delimiters, operators, primary/postfix/infix fragments, statements, comments, formatting, diagnostics, and LSP features.
 - `handl-runtime` / `handl-typecheck-*` — runtime and typecheck extension points and concrete implementations.
 - `handl-tooling` — `ToolingHost`: decouples parsing (`CanonicalKit`), formatting, diagnostics, and LSP services (completion, goto-definition, document symbols, incremental sync).

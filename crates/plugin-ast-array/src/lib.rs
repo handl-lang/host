@@ -1,4 +1,4 @@
-use handl_ast::{Node, NodeMetadata};
+use handl_plugin_ast::{Node, NodeMetadata};
 
 /// array literal
 #[derive(Debug, Clone)]

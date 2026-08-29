@@ -1,4 +1,4 @@
-use handl_ast::{Node, NodeMetadata};
+use handl_plugin_ast::{Node, NodeMetadata};
 
 /// match expression
 #[derive(Debug, Clone)]

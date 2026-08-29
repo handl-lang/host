@@ -5,7 +5,7 @@ edition = "2024"
 
 [workspace]
 members = [
-    "crates/ast",
+    "crates/plugin-ast",
     "crates/schema",
     "crates/plugin-ext-build",
     "crates/plugin-ext-cli",
@@ -198,7 +198,7 @@ driver-lang = "1"
 libloading = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 
-handl-ast = { path = "crates/ast" }
+handl-plugin-ast = { path = "crates/plugin-ast" }
 handl-schema = { path = "crates/schema" }
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
@@ -370,7 +370,7 @@ handl-vm-values-json = { path = "crates/vm-values-json" }
 [features]
 default = []
 
-[dependencies.handl-ast]
+[dependencies.handl-plugin-ast]
 workspace = true
 
 [dependencies.handl-source]

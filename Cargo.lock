@@ -670,15 +670,11 @@ dependencies = [
 name = "handl"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-platform",
+ "handl-plugin-ast",
  "handl-source",
  "serde_json",
 ]
-
-[[package]]
-name = "handl-ast"
-version = "0.1.0"
 
 [[package]]
 name = "handl-host-cli"
@@ -703,9 +699,9 @@ dependencies = [
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
  "handl-platform",
+ "handl-plugin-ast",
  "handl-plugin-ast-apply",
  "handl-plugin-ast-array",
  "handl-plugin-ast-assign",
@@ -816,7 +812,7 @@ dependencies = [
 name = "handl-lib-collections"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -868,7 +864,7 @@ dependencies = [
 name = "handl-lib-crypto"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -885,7 +881,7 @@ name = "handl-lib-datetime"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "handl-ast",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -974,7 +970,7 @@ name = "handl-lib-intl"
 version = "0.1.0"
 dependencies = [
  "fixed_decimal",
- "handl-ast",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -1086,7 +1082,7 @@ dependencies = [
 name = "handl-lib-rand"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -1213,7 +1209,6 @@ dependencies = [
 name = "handl-lib-utils"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-lib-base64",
  "handl-lib-encoding",
  "handl-lib-hex",
@@ -1224,6 +1219,7 @@ dependencies = [
  "handl-lib-url-rfc",
  "handl-lib-url-whatwg",
  "handl-lib-yaml",
+ "handl-plugin-ast",
  "handl-vm",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
@@ -1362,7 +1358,7 @@ dependencies = [
 name = "handl-parser"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
  "thiserror 2.0.20",
 ]
@@ -1383,94 +1379,98 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ast"
+version = "0.1.0"
+
+[[package]]
 name = "handl-plugin-ast-apply"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-array"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-assign"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-call"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-field-access"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-function"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-handle"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-index"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-let"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-match"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-object"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-pipe"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
 name = "handl-plugin-ast-var"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
+ "handl-plugin-ast",
 ]
 
 [[package]]
@@ -1625,8 +1625,8 @@ dependencies = [
 name = "handl-plugin-grammar-apply"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1634,8 +1634,8 @@ dependencies = [
 name = "handl-plugin-grammar-array"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1643,8 +1643,8 @@ dependencies = [
 name = "handl-plugin-grammar-assign"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1652,8 +1652,8 @@ dependencies = [
 name = "handl-plugin-grammar-call"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1672,8 +1672,8 @@ dependencies = [
 name = "handl-plugin-grammar-handle"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1681,8 +1681,8 @@ dependencies = [
 name = "handl-plugin-grammar-index"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1739,8 +1739,8 @@ dependencies = [
 name = "handl-plugin-grammar-let"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1748,8 +1748,8 @@ dependencies = [
 name = "handl-plugin-grammar-match"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1757,8 +1757,8 @@ dependencies = [
 name = "handl-plugin-grammar-object"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 
@@ -1766,8 +1766,8 @@ dependencies = [
 name = "handl-plugin-grammar-pipe"
 version = "0.1.0"
 dependencies = [
- "handl-ast",
  "handl-parser",
+ "handl-plugin-ast",
  "handl-plugin-lexer",
 ]
 

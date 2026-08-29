@@ -1,9 +1,9 @@
 //! Canonical `Call` AST-node plugin.
 //!
 //! Provides the `Call` concrete node shape. The node implements
-//! `handl_ast::Node`, the base capability trait from the generic AST crate.
+//! `handl_plugin_ast::Node`, the base capability trait from the generic AST crate.
 
-use handl_ast::{Node, NodeMetadata};
+use handl_plugin_ast::{Node, NodeMetadata};
 
 /// A canonical function-call expression node: `name(arg1, arg2, ...)`.
 ///
