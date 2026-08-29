@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::PlatformError;
 use crate::manifest::PluginManifest;
-use crate::plugin::Plugin;
 use crate::resolve::{CapabilitySelector, ResolutionError, ResolvedComposition};
 
 /// A manifest describing a kit: a named composition of language plugins.

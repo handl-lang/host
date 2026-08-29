@@ -1,6 +1,6 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    HostConfig, PlatformError, Plugin, PluginContext, PluginManifest,
+    HostConfig, OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest,
 };
 use handl_plugin_ext_kit::BasicKitLoaderPlugin;
 use handl_plugin_load::LoaderHostPlugin;
@@ -56,6 +56,10 @@ impl Plugin for DefaultApplierPlugin {
             ctx.register_plugin(LoaderHostPlugin::default())?;
         }
 
+        if ctx.get_plugin_mut::<OptionsPlugin>().is_none() {
+            ctx.register_plugin(OptionsPlugin::new())?;
+        }
+
         for kit in &config.kits {
             let name = kit.path.as_ref().unwrap_or(&kit.include);
             ctx.run(&CapabilityRequest {
@@ -87,6 +91,13 @@ impl Plugin for DefaultApplierPlugin {
                     })?;
                 }
             }
+        }
+
+        for (id, value) in &config.options {
+            ctx.run(&CapabilityRequest {
+                capability: "option/set".into(),
+                payload: serde_json::json!({ "id": id, "value": value }),
+            })?;
         }
 
         Ok(())

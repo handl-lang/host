@@ -5,6 +5,7 @@
 //! runtime.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use serde_json::Value;
 
@@ -85,26 +86,36 @@ impl ResolvedOptions {
 /// Plugin that accepts `OptionSchema` contributions and resolves option values.
 pub struct OptionsPlugin {
     schemas: Vec<OptionSchema>,
+    overrides: Mutex<HashMap<String, Value>>,
+    capabilities: Vec<crate::capability::CapabilityId>,
 }
 
 impl OptionsPlugin {
     /// Create a new `OptionsPlugin` with no registered schemas.
     pub fn new() -> Self {
-        Self { schemas: Vec::new() }
+        Self {
+            schemas: Vec::new(),
+            overrides: Mutex::new(HashMap::new()),
+            capabilities: vec![crate::capability::CapabilityId::from("option/set")],
+        }
     }
 
     /// Resolve the registered schemas into a `ResolvedOptions` map.
     ///
-    /// For now this simply uses each schema's default value. Overrides from
-    /// kit/host/user config can be merged here later.
+    /// Defaults are merged with any overrides set via the `option/set`
+    /// capability.
     pub fn resolve(&self) -> ResolvedOptions {
-        ResolvedOptions {
-            values: self
-                .schemas
-                .iter()
-                .map(|schema| (schema.id.clone(), schema.default.clone()))
-                .collect(),
+        let mut values: HashMap<String, Value> = self
+            .schemas
+            .iter()
+            .map(|schema| (schema.id.clone(), schema.default.clone()))
+            .collect();
+        if let Ok(overrides) = self.overrides.lock() {
+            for (id, value) in overrides.iter() {
+                values.insert(id.clone(), value.clone());
+            }
         }
+        ResolvedOptions { values }
     }
 }
 
@@ -128,7 +139,7 @@ impl Plugin for OptionsPlugin {
     }
 
     fn capabilities(&self) -> &[crate::capability::CapabilityId] {
-        &[]
+        &self.capabilities
     }
 
     fn requires(&self) -> &[crate::capability::CapabilityId] {
@@ -152,10 +163,31 @@ impl Plugin for OptionsPlugin {
 
     fn run(
         &self,
-        _request: &CapabilityRequest,
+        request: &CapabilityRequest,
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
-        Err(PlatformError::NotImplemented)
+        if request.capability.as_str() != "option/set" {
+            return Err(PlatformError::UnknownCapability(request.capability.clone()));
+        }
+        let id = request
+            .payload
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                PlatformError::InvalidMetadata("missing 'id' in option/set payload".into())
+            })?;
+        let value = request
+            .payload
+            .get("value")
+            .cloned()
+            .ok_or_else(|| {
+                PlatformError::InvalidMetadata("missing 'value' in option/set payload".into())
+            })?;
+        self.overrides
+            .lock()
+            .map_err(|e| PlatformError::Plugin(e.to_string()))?
+            .insert(id.to_string(), value);
+        Ok(CapabilityResponse(Value::Null))
     }
 }
 
