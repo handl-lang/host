@@ -4,13 +4,13 @@ use std::collections::HashMap;
 /// Maps dotted paths (e.g. `"server.port"`) to [`SourceLocation`]s.
 ///
 /// Pure data structure — populated by each frontend's `build_source_map`
-/// function using format-specific scanning. `handl-source` itself knows
+/// function using format-specific scanning. `handl-plugin-source` itself knows
 /// nothing about YAML, JSON, or TOML syntax.
 ///
 /// # Example
 ///
 /// ```
-/// use handl_source::{SourceMap, SourceLocation};
+/// use handl_plugin_source::{SourceMap, SourceLocation};
 ///
 /// let mut map = SourceMap::new();
 /// map.insert("server", SourceLocation::new(1, 1));

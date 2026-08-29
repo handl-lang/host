@@ -1,4 +1,4 @@
-//! # handl-source
+//! # handl-plugin-source
 //!
 //! Source location tracking for the handl language.
 //!
@@ -8,7 +8,7 @@
 //!
 //! ## Architectural rule
 //!
-//! > **`handl-source` is format-agnostic.** Each frontend builds a
+//! > **`handl-plugin-source` is format-agnostic.** Each frontend builds a
 //! > `SourceMap` using its own format-specific knowledge (indentation,
 //! > braces, sections, etc.).
 

@@ -130,7 +130,7 @@ fn type_error_display_with_location() {
     );
 
     let mut err = err;
-    err.location = Some(handl_source::SourceLocation::new(5, 10));
+    err.location = Some(handl_plugin_source::SourceLocation::new(5, 10));
     let displayed = err.display();
     assert!(
         displayed.contains("[5:10]"),

@@ -1,5 +1,5 @@
 use crate::Type;
-use handl_source::SourceLocation;
+use handl_plugin_source::SourceLocation;
 
 /// A type error detected during static checking.
 #[derive(Debug, Clone, PartialEq, Eq)]

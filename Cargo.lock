@@ -672,7 +672,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-ast",
- "handl-source",
+ "handl-plugin-source",
  "serde_json",
 ]
 
@@ -2122,6 +2122,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-source"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-target-native-example"
 version = "0.1.0"
 dependencies = [
@@ -2238,13 +2245,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-source"
-version = "0.1.0"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
 name = "handl-target-native"
 version = "0.1.0"
 dependencies = [
@@ -2277,7 +2277,7 @@ dependencies = [
 name = "handl-typecheck-core"
 version = "0.1.0"
 dependencies = [
- "handl-source",
+ "handl-plugin-source",
  "serde_json",
 ]
 
@@ -2401,7 +2401,7 @@ dependencies = [
 name = "handl-vm-values-json"
 version = "0.1.0"
 dependencies = [
- "handl-source",
+ "handl-plugin-source",
  "handl-vm",
  "indexmap",
  "serde_json",

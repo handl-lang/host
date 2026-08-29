@@ -11,7 +11,7 @@
 //! > `NonFunctionValue` and serialize back can implement it.
 
 use crate::NonFunctionValue;
-use handl_source::SourceMap;
+use handl_plugin_source::SourceMap;
 
 /// A format frontend that parses and serializes `NonFunctionValue`s.
 pub trait Frontend {
@@ -25,7 +25,7 @@ pub trait Frontend {
     fn serialize(&self, value: &NonFunctionValue) -> Result<String, Self::Error>;
 
     /// Parses a string and builds a [`SourceMap`] mapping dotted paths
-    /// to [`handl_source::SourceLocation`]s.
+    /// to [`handl_plugin_source::SourceLocation`]s.
     ///
     /// Default implementation calls [`parse`](Self::parse) and returns
     /// an empty `SourceMap`. Frontends override this to provide
