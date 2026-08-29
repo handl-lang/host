@@ -5,6 +5,8 @@
 //! has no knowledge of concrete language builtins; it dispatches to registered
 //! `EvalBehavior` rules keyed by `AstNode.kind`.
 
+use std::sync::Arc;
+
 use serde_json::Value;
 
 use crate::{
@@ -35,7 +37,7 @@ pub struct EvalRequest {
 /// Behavior trait for evaluating a specific `AstNode.kind`.
 pub trait EvalBehavior: Behavior<Eval> {}
 
-impl Contribution for Box<dyn EvalBehavior> {
+impl Contribution for Arc<dyn EvalBehavior> {
     fn id(&self) -> &str {
         self.kind()
     }
@@ -46,7 +48,7 @@ pub struct BasicEvaluator {
     /// Capabilities provided by this plugin.
     capabilities: Vec<CapabilityId>,
     /// Registered evaluation rules, keyed by `AstNode.kind`.
-    pub rules: Vec<Box<dyn EvalBehavior>>,
+    pub rules: Vec<Arc<dyn EvalBehavior>>,
     /// Option schemas contributed for the evaluator.
     pub option_schemas: Vec<OptionSchema>,
 }
@@ -127,7 +129,7 @@ impl Plugin for BasicEvaluator {
 }
 
 impl RuleAcceptor for BasicEvaluator {
-    type Rule = Box<dyn EvalBehavior>;
+    type Rule = Arc<dyn EvalBehavior>;
 
     fn accept(&mut self, rule: Self::Rule) -> Result<(), PlatformError> {
         self.rules.push(rule);
@@ -166,7 +168,7 @@ mod tests {
         impl EvalBehavior for Echo {}
 
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Box::new(Echo)).unwrap();
+        evaluator.accept(Arc::new(Echo) as Arc<dyn EvalBehavior>).unwrap();
 
         let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {

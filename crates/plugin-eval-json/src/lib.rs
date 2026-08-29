@@ -1,6 +1,7 @@
 //! JSON value evaluation rule for the generic `BasicEvaluator`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use handl_platform::{
     BasicEvaluator, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest,
@@ -96,7 +97,7 @@ impl Plugin for JsonEvalPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
-            ctx.contribute::<BasicEvaluator>(Box::new(JsonEval))?;
+            ctx.contribute::<BasicEvaluator>(Arc::new(JsonEval) as Arc<dyn EvalBehavior>)?;
         }
         Ok(())
     }

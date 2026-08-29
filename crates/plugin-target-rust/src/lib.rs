@@ -1,44 +1,31 @@
 //! Runtime plugin backed by the Rust VM interpreter.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use handl_kit_canonical::{Stmt, StmtKind};
-use handl_vm::Pattern;
 use handl_platform::{
-    CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
-    RuntimeBehavior, RuntimeHost,
+    AstNode, BasicEvaluator, CapabilityId, CapabilityRequest, CapabilityResponse,
+    ContributionContext, EvalBehavior, EvalRequest, PlatformError, Plugin, PluginContext,
+    ResolvedOptions, RuntimeBehavior, RuntimeHost,
 };
+use handl_platform::value::{Literal, Name, Value as RuntimeValue};
 use handl_runtime::{EvalOutput, RuntimePlugin};
-use handl_vm::{Context, Error, Function, Host, VirtualMachine};
-use handl_vm_backend_rust_interpreter::{
-    CanonicalContext, CanonicalEval, CanonicalVm, NonFunctionValue,
-};
-use handl_vm_common::ModuleHost;
+use serde_json::Value as JsonValue;
 
-/// A `RuntimePlugin` adapter around the canonical Rust VM.
+/// A `RuntimePlugin` adapter around the Rust VM.
 pub struct RustVm {
     capabilities: Vec<CapabilityId>,
-    modules: ModuleHost,
-    rules: Mutex<Vec<Arc<dyn RuntimeBehavior>>>,
+    eval_rules: Mutex<Vec<Arc<dyn EvalBehavior>>>,
+    runtime_rules: Mutex<Vec<Arc<dyn RuntimeBehavior>>>,
 }
 
 impl RustVm {
-    /// Creates a new `RustVm` plugin with the built-in host and no extra libraries.
+    /// Creates a new `RustVm` plugin with no extra libraries.
     pub fn new() -> Self {
         Self {
             capabilities: vec![CapabilityId::from("runtime")],
-            modules: ModuleHost::new(),
-            rules: Mutex::new(Vec::new()),
-        }
-    }
-
-    /// Creates a new `RustVm` with the given pre-installed library `ModuleHost`.
-    pub fn with_modules(modules: ModuleHost) -> Self {
-        Self {
-            capabilities: vec![CapabilityId::from("runtime")],
-            modules,
-            rules: Mutex::new(Vec::new()),
+            eval_rules: Mutex::new(Vec::new()),
+            runtime_rules: Mutex::new(Vec::new()),
         }
     }
 }
@@ -49,43 +36,33 @@ impl Default for RustVm {
     }
 }
 
-// TODO(ADR-0034): this is a canonical-language compatibility bridge.
-// Once the target adapter can operate over generic `handl_platform::AstNode`
-// values, remove the concrete `Stmt<NonFunctionValue>` instantiation.
-impl RuntimePlugin<Stmt<NonFunctionValue>, NonFunctionValue> for RustVm {
+impl RuntimePlugin for RustVm {
     fn name(&self) -> &str {
         "vm-rust"
     }
 
-    fn eval(
-        &self,
-        stmts: &[Stmt<NonFunctionValue>],
-    ) -> Result<EvalOutput<NonFunctionValue>, PlatformError> {
-        let rules = self.rules.lock().unwrap().clone();
-        let host = CompositeHost::new(&rules, self.modules.clone());
-        let mut ctx = CanonicalContext::new();
-        ctx.set_eval(Box::new(CanonicalEval::new(host.clone(), None, None)));
-        let vm = CanonicalVm::new(host);
-
+    fn eval(&self, stmts: &[AstNode]) -> Result<EvalOutput, PlatformError> {
+        let rules = self.eval_rules.lock().unwrap().clone();
         let mut values = Vec::new();
+
         for stmt in stmts {
-            match &stmt.kind {
-                StmtKind::Expr(expr) => match vm.eval(expr, &mut ctx) {
-                    Ok(value) => values.push(value),
-                    Err(e) => return Err(PlatformError::Plugin(e.to_string())),
-                },
-                StmtKind::Let { pattern, value } | StmtKind::Const { pattern, value } => {
-                    match vm.eval(value, &mut ctx) {
-                        Ok(value) => {
-                            if let Err(e) = define_simple(&mut ctx, pattern, value) {
-                                return Err(PlatformError::Plugin(e.to_string()));
-                            }
-                        }
-                        Err(e) => return Err(PlatformError::Plugin(e.to_string())),
-                    }
+            let mut req = EvalRequest {
+                ast: stmt.clone(),
+                options: ResolvedOptions::new(),
+                result: None,
+            };
+
+            for rule in &rules {
+                if rule.kind() == stmt.kind {
+                    rule.apply(&mut req)?;
                 }
-                _ => {}
             }
+
+            let value = match req.result {
+                Some(v) => json_to_runtime(v),
+                None => RuntimeValue::Null,
+            };
+            values.push(value);
         }
 
         Ok(EvalOutput { values })
@@ -105,11 +82,12 @@ impl Plugin for RustVm {
         Some(serde_json::json!({}))
     }
 
-    fn contribute(&self, ctx: &mut handl_platform::ContributionContext) -> Result<(), PlatformError> {
-        // Snapshot any runtime rules that have already been contributed to the
-        // platform `RuntimeHost`.
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if let Some(evaluator) = ctx.get_plugin_mut::<BasicEvaluator>() {
+            *self.eval_rules.lock().unwrap() = evaluator.rules.clone();
+        }
         if let Some(host) = ctx.get_plugin_mut::<RuntimeHost>() {
-            *self.rules.lock().unwrap() = host.rules().to_vec();
+            *self.runtime_rules.lock().unwrap() = host.rules().to_vec();
         }
         Ok(())
     }
@@ -123,88 +101,23 @@ impl Plugin for RustVm {
     }
 }
 
-fn define_simple(
-    ctx: &mut dyn Context<NonFunctionValue>,
-    pattern: &Pattern,
-    value: NonFunctionValue,
-) -> Result<(), Error<NonFunctionValue>> {
-    match pattern {
-        Pattern::Identifier(name) => {
-            ctx.define(name, value);
-            Ok(())
-        }
-        _ => Err(Error::PrimitiveError(
-            "unsupported binding pattern".to_string(),
-        )),
-    }
-}
-
-/// A host that combines contributed built-in functions with a `ModuleHost` of loaded libraries.
-#[derive(Clone)]
-struct CompositeHost {
-    functions: HashMap<String, Arc<dyn Function<NonFunctionValue>>>,
-    modules: ModuleHost,
-}
-
-impl CompositeHost {
-    fn new(rules: &[Arc<dyn RuntimeBehavior>], modules: ModuleHost) -> Self {
-        let mut functions = HashMap::new();
-        for rule in rules {
-            for &name in rule.provides() {
-                let f: Arc<dyn Function<NonFunctionValue>> = Arc::new(RuntimeFunction {
-                    rule: rule.clone(),
-                    name: name.to_string(),
-                });
-                functions.insert(name.to_string(), f);
+fn json_to_runtime(v: JsonValue) -> RuntimeValue {
+    match v {
+        JsonValue::Null => RuntimeValue::Null,
+        JsonValue::Bool(b) => RuntimeValue::Literal(Literal::Bool(b)),
+        JsonValue::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                RuntimeValue::Literal(Literal::Int(i))
+            } else {
+                RuntimeValue::Literal(Literal::String(n.to_string()))
             }
         }
-        Self { functions, modules }
-    }
-}
-
-impl Host<NonFunctionValue> for CompositeHost {
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
-        self.functions
-            .get(name)
-            .map(|f| f.as_ref())
-            .or_else(|| self.modules.function(name))
-    }
-
-    fn lazy_function(&self, name: &str) -> Option<&dyn handl_vm::LazyFunction<NonFunctionValue>> {
-        self.modules.lazy_function(name)
-    }
-
-    fn generic_function(
-        &self,
-        name: &str,
-    ) -> Option<&dyn handl_vm::GenericFunction<NonFunctionValue>> {
-        self.modules.generic_function(name)
-    }
-
-    fn async_function(&self, name: &str) -> Option<&dyn handl_vm::AsyncFunction<NonFunctionValue>> {
-        self.modules.async_function(name)
-    }
-
-    fn operation(&self, name: &str) -> Option<&dyn handl_vm::Operation<NonFunctionValue>> {
-        self.modules.operation(name)
-    }
-
-    fn is_reserved(&self, name: &str) -> bool {
-        self.functions.contains_key(name) || self.modules.is_reserved(name)
-    }
-}
-
-struct RuntimeFunction {
-    rule: Arc<dyn RuntimeBehavior>,
-    name: String,
-}
-
-impl Function<NonFunctionValue> for RuntimeFunction {
-    fn call(
-        &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        self.rule.call(&self.name, args, ctx)
+        JsonValue::String(s) => RuntimeValue::Literal(Literal::String(s)),
+        JsonValue::Array(a) => RuntimeValue::Array(a.into_iter().map(json_to_runtime).collect()),
+        JsonValue::Object(o) => RuntimeValue::Object(
+            o.into_iter()
+                .map(|(k, v)| (Name::new(k), json_to_runtime(v)))
+                .collect::<BTreeMap<_, _>>(),
+        ),
     }
 }

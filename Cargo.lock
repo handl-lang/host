@@ -2106,13 +2106,8 @@ dependencies = [
 name = "handl-plugin-target-rust"
 version = "0.1.0"
 dependencies = [
- "handl-kit-canonical",
  "handl-platform",
  "handl-runtime",
- "handl-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-values-json",
  "serde_json",
 ]
 

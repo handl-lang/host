@@ -1,6 +1,7 @@
 //! `hello.greet` evaluation rule for the generic `BasicEvaluator`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use handl_lib_hello::greet;
 use handl_platform::{
@@ -90,7 +91,7 @@ impl Plugin for HelloEvalPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
-            ctx.contribute::<BasicEvaluator>(Box::new(HelloGreet))?;
+            ctx.contribute::<BasicEvaluator>(Arc::new(HelloGreet) as Arc<dyn EvalBehavior>)?;
         }
         Ok(())
     }
