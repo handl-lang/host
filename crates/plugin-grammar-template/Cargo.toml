@@ -1,0 +1,11 @@
+[package]
+name = "handl-plugin-grammar-template"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform.workspace = true
+handl-plugin-ext-parser.workspace = true
+handl-plugin-lexer.workspace = true
+handl-plugin-lexer-template = { path = "../plugin-lexer-template" }
+serde_json = "1"

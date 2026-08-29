@@ -21,12 +21,14 @@ members = [
     "crates/host-cli",
     "crates/host-lsp",
     "crates/kit-canonical",
+    "crates/kit-cli",
     "crates/kit-hello",
     "crates/plugin-lexer",
     "crates/plugin-lexer-common",
     "crates/plugin-lexer-ident",
     "crates/plugin-lexer-number",
     "crates/plugin-lexer-string",
+    "crates/plugin-lexer-template",
     "crates/plugin-lexer-operator",
     "crates/plugin-lexer-delimiter",
     "crates/plugin-lexer-keyword",
@@ -73,6 +75,7 @@ members = [
     "crates/plugin-lib-unicode",
     "crates/plugin-lib-url-rfc",
     "crates/plugin-lib-url-whatwg",
+    "crates/plugin-lib-dedent",
     "crates/plugin-lib-utils",
     "crates/plugin-lib-ws-rfc",
     "crates/plugin-lib-ws-rfc-memory",
@@ -115,6 +118,7 @@ members = [
     "crates/plugin-grammar-match",
     "crates/plugin-grammar-object",
     "crates/plugin-grammar-pipe",
+    "crates/plugin-grammar-template",
     "crates/plugin-grammar-postfix-call",
     "crates/plugin-grammar-postfix-field",
     "crates/plugin-grammar-postfix-index",
@@ -215,12 +219,14 @@ handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
 handl-kit-canonical = { path = "crates/kit-canonical" }
+handl-kit-cli = { path = "crates/kit-cli" }
 handl-kit-hello = { path = "crates/kit-hello" }
 handl-plugin-lexer = { path = "crates/plugin-lexer" }
 handl-plugin-lexer-common = { path = "crates/plugin-lexer-common" }
 handl-plugin-lexer-ident = { path = "crates/plugin-lexer-ident" }
 handl-plugin-lexer-number = { path = "crates/plugin-lexer-number" }
 handl-plugin-lexer-string = { path = "crates/plugin-lexer-string" }
+handl-plugin-lexer-template = { path = "crates/plugin-lexer-template" }
 handl-plugin-lexer-operator = { path = "crates/plugin-lexer-operator" }
 handl-plugin-lexer-delimiter = { path = "crates/plugin-lexer-delimiter" }
 handl-plugin-lexer-keyword = { path = "crates/plugin-lexer-keyword" }
@@ -267,6 +273,7 @@ handl-plugin-lib-type = { path = "crates/plugin-lib-type", default-features = fa
 handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-plugin-lib-url-rfc = { path = "crates/plugin-lib-url-rfc" }
 handl-plugin-lib-url-whatwg = { path = "crates/plugin-lib-url-whatwg" }
+handl-plugin-lib-dedent = { path = "crates/plugin-lib-dedent" }
 handl-plugin-lib-utils = { path = "crates/plugin-lib-utils" }
 handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }
 handl-plugin-lib-ws-rfc-memory = { path = "crates/plugin-lib-ws-rfc-memory" }
@@ -309,6 +316,7 @@ handl-plugin-grammar-let = { path = "crates/plugin-grammar-let" }
 handl-plugin-grammar-match = { path = "crates/plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "crates/plugin-grammar-object" }
 handl-plugin-grammar-pipe = { path = "crates/plugin-grammar-pipe" }
+handl-plugin-grammar-template = { path = "crates/plugin-grammar-template" }
 handl-plugin-grammar-postfix-call = { path = "crates/plugin-grammar-postfix-call" }
 handl-plugin-grammar-postfix-field = { path = "crates/plugin-grammar-postfix-field" }
 handl-plugin-grammar-postfix-index = { path = "crates/plugin-grammar-postfix-index" }
