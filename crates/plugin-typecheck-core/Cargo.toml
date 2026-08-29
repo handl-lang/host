@@ -9,5 +9,5 @@ handl-typecheck-core = { workspace = true }
 handl-platform = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-plugin-vm-values-json = { workspace = true }
-handl-plugin-lib-type = { workspace = true }
+handl-lib-type = { workspace = true }
 serde_json = { workspace = true }

@@ -5,48 +5,48 @@
 //! Includes everything from [`handl-kit-config`] plus:
 //!
 //! - **OS stdlib** (`fs.*`, `env.*`, `path.*`, `time.*`, `cmd.*`, `process.*`, `tmp.*`, `socket.*`, `sig.*`)
-//!   from [`handl-plugin-lib-os-std`].
-//! - **HTTP server** (`http_server.*`) from [`handl-plugin-lib-http-server-std`].
-//! - **HTTP client** (`http_client.*`) from [`handl-plugin-lib-http-client-std`].
-//! - **Random** (`rand.*`) from [`handl-plugin-lib-rand`].
+//!   from [`handl-lib-os-std`].
+//! - **HTTP server** (`http_server.*`) from [`handl-lib-http-server-std`].
+//! - **HTTP client** (`http_client.*`) from [`handl-lib-http-client-std`].
+//! - **Random** (`rand.*`) from [`handl-lib-rand`].
 //!
 //! This is the host you want when handl needs to open ports, read files,
 //! spawn processes, or make HTTP requests.
 
-use handl_plugin_lib_crypto::CryptoModule;
-use handl_plugin_lib_datetime::DateTimeModule;
-use handl_plugin_lib_http_client::HttpClientModule;
-use handl_plugin_lib_http_client_std::StdHttpClient;
-use handl_plugin_lib_http_server_std::std_http_server_module;
-use handl_plugin_lib_intl::IntlModule;
-use handl_plugin_lib_kv::KeyValueStoreModule;
-use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
-use handl_plugin_lib_os::{
+use handl_lib_crypto::CryptoModule;
+use handl_lib_datetime::DateTimeModule;
+use handl_lib_http_client::HttpClientModule;
+use handl_lib_http_client_std::StdHttpClient;
+use handl_lib_http_server_std::std_http_server_module;
+use handl_lib_intl::IntlModule;
+use handl_lib_kv::KeyValueStoreModule;
+use handl_lib_kv_hashmap::HashKeyValueStore;
+use handl_lib_os::{
     CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule, TimeModule,
     TmpModule,
 };
-use handl_plugin_lib_os_std::{
+use handl_lib_os_std::{
     StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp,
 };
-use handl_plugin_lib_otlp_std::std_otlp_module;
-use handl_plugin_lib_archive_tar::TarModule;
-use handl_plugin_lib_compress_gzip::GzipModule;
-use handl_plugin_lib_ip::IpModule;
-use handl_plugin_lib_rand::RandModule;
-use handl_plugin_lib_ws_rfc_native::WsRfcNativeModule;
-use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
-use handl_plugin_lib_stats::StatsModule;
-use handl_plugin_lib_test::{
+use handl_lib_otlp_std::std_otlp_module;
+use handl_lib_archive_tar::TarModule;
+use handl_lib_compress_gzip::GzipModule;
+use handl_lib_ip::IpModule;
+use handl_lib_rand::RandModule;
+use handl_lib_ws_rfc_native::WsRfcNativeModule;
+use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
+use handl_lib_stats::StatsModule;
+use handl_lib_test::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
 };
-use handl_plugin_lib_unicode::UnicodeModule;
-use handl_plugin_lib_utils::{
+use handl_lib_unicode::UnicodeModule;
+use handl_lib_utils::{
     Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
     JsonModule, MathModule, MoodModule, OptionModule, ParseModule, ResultModule,
     SerializeModule, StrModule, TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule,
     YamlModule,
 };
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_lib_collections::CollectionsModule;
 use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
 use handl_plugin_vm_common::ModuleHost;
 use handl_plugin_vm_host_eval::EvalHost;

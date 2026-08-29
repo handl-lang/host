@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use handl_plugin_lib_hello::greet;
+use handl_lib_hello::greet;
 use handl_platform::{
     BasicEvaluator, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest,
     CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalRequest, PlatformError, Plugin,

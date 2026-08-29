@@ -9,7 +9,7 @@ use handl_platform::{
     CapabilityResponse, ContributionContext, PlatformError, Plugin, PluginContext, Typecheck,
     TypecheckBehavior, TypecheckRequest,
 };
-use handl_plugin_lib_type::{
+use handl_lib_type::{
     interpret, synth, synth_type, Env, MetaContext, TCtx, Term, TypeError, Value,
 };
 
@@ -56,7 +56,7 @@ fn typecheck_payload(payload: &serde_json::Value) -> Result<Value, String> {
         let tctx = TCtx::new();
         return synth_type(&mut ctx, &env, &tctx, &term).map_err(|e| e.to_string());
     }
-    typecheck(&handl_plugin_lib_type::u0()).map_err(|e| e.to_string())
+    typecheck(&handl_lib_type::u0()).map_err(|e| e.to_string())
 }
 
 /// Plugin that contributes the canonical typecheck rule to `BasicTypechecker`.
@@ -114,14 +114,14 @@ mod tests {
 
     #[test]
     fn typecheck_instantiates_vm() {
-        let term = handl_plugin_lib_type::u0();
+        let term = handl_lib_type::u0();
         let result = typecheck(&term);
         assert!(result.is_ok());
     }
 
     #[test]
     fn typecheck_rejects_ill_typed_term() {
-        let term = handl_plugin_lib_type::lam("x", handl_plugin_lib_type::bvar(0));
+        let term = handl_lib_type::lam("x", handl_lib_type::bvar(0));
         let result = typecheck(&term);
         assert!(result.is_err());
     }

@@ -15,18 +15,18 @@
 //!
 //! - **Built-ins** (`add`, `mul`, `concat`, `len`, `var`, `resolve`, `apply`, `array`)
 //! - **`math.*`**, **`str.*`**, **`array.*`**, **`set.*`**, **`bool.*`**,
-//!   **`cmp.*`**, **`obj.*`**, **`fn.*`**, **`type.*`** — from [`handl-plugin-lib-utils`]
-//! - **`crypto.*`** — SHA-256, MD5, Base64, hex — from [`handl-plugin-lib-crypto`]
-//! - **`datetime.*`** — parsing, formatting, arithmetic — from [`handl-plugin-lib-datetime`]
-//! - **`intl.*`** — locale-aware formatting (ICU4X) — from [`handl-plugin-lib-intl`]
-//! - **`kv.*`** — in-memory key-value store — from [`handl-plugin-lib-kv`] + [`handl-plugin-lib-kv-hashmap`]
+//!   **`cmp.*`**, **`obj.*`**, **`fn.*`**, **`type.*`** — from [`handl-lib-utils`]
+//! - **`crypto.*`** — SHA-256, MD5, Base64, hex — from [`handl-lib-crypto`]
+//! - **`datetime.*`** — parsing, formatting, arithmetic — from [`handl-lib-datetime`]
+//! - **`intl.*`** — locale-aware formatting (ICU4X) — from [`handl-lib-intl`]
+//! - **`kv.*`** — in-memory key-value store — from [`handl-lib-kv`] + [`handl-lib-kv-hashmap`]
 //!
 //! ## What's excluded
 //!
-//! - [`handl-plugin-lib-rand`] — non-deterministic RNG
-//! - [`handl-plugin-lib-os`] / [`handl-plugin-lib-os-std`] — filesystem, env,
+//! - [`handl-lib-rand`] — non-deterministic RNG
+//! - [`handl-lib-os`] / [`handl-lib-os-std`] — filesystem, env,
 //!   process spawning, system clock
-//! - [`handl-plugin-lib-http-client`] / [`handl-plugin-lib-http-client-std`] — HTTP client
+//! - [`handl-lib-http-client`] / [`handl-lib-http-client-std`] — HTTP client
 //!
 //! ## Usage
 //!
@@ -52,28 +52,28 @@
 //! let ctx = host.new_context();
 //! ```
 
-use handl_plugin_lib_crypto::CryptoModule;
-use handl_plugin_lib_datetime::DateTimeModule;
-use handl_plugin_lib_intl::IntlModule;
-use handl_plugin_lib_kv::KeyValueStoreModule;
-use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
-use handl_plugin_lib_archive_tar::TarModule;
-use handl_plugin_lib_compress_gzip::GzipModule;
-use handl_plugin_lib_ip::IpModule;
-use handl_plugin_lib_stats::StatsModule;
+use handl_lib_crypto::CryptoModule;
+use handl_lib_datetime::DateTimeModule;
+use handl_lib_intl::IntlModule;
+use handl_lib_kv::KeyValueStoreModule;
+use handl_lib_kv_hashmap::HashKeyValueStore;
+use handl_lib_archive_tar::TarModule;
+use handl_lib_compress_gzip::GzipModule;
+use handl_lib_ip::IpModule;
+use handl_lib_stats::StatsModule;
 
 #[cfg(feature = "concurrent")]
-use handl_plugin_lib_concurrent::ConcurrencyModule;
-use handl_plugin_lib_ws_rfc_memory::WsRfcModule;
-use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
-use handl_plugin_lib_unicode::UnicodeModule;
-use handl_plugin_lib_utils::{
+use handl_lib_concurrent::ConcurrencyModule;
+use handl_lib_ws_rfc_memory::WsRfcModule;
+use handl_lib_ws_whatwg_native::WsWhatwgNativeModule;
+use handl_lib_unicode::UnicodeModule;
+use handl_lib_utils::{
     Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
     JsonModule, MathModule, MoodModule, OptionModule, ParseModule, ResultModule,
     SerializeModule, StrModule, TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule,
     YamlModule,
 };
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_lib_collections::CollectionsModule;
 use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
 use handl_plugin_vm_common::ModuleHost;
 use handl_plugin_vm_host_eval::EvalHost;

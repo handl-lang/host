@@ -1,0 +1,14 @@
+[package]
+name = "handl-lib-archive-tar"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-lib-archive = { path = "../lib-archive" }
+tar.workspace = true
+thiserror.workspace = true
+handl-plugin-vm.workspace = true
+handl-plugin-vm-common.workspace = true
+handl-plugin-vm-values-json.workspace = true
+serde_json.workspace = true
+base64 = "0.22"

@@ -1,7 +1,0 @@
-[package]
-name = "handl-plugin-lib-archive"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-thiserror.workspace = true
