@@ -26,6 +26,14 @@ members = [
     "crates/kit-hello",
     "crates/plugin-lexer",
     "crates/plugin-lexer-common",
+    "crates/plugin-lexer-ident",
+    "crates/plugin-lexer-number",
+    "crates/plugin-lexer-string",
+    "crates/plugin-lexer-operator",
+    "crates/plugin-lexer-delimiter",
+    "crates/plugin-lexer-keyword",
+    "crates/plugin-lexer-line-comment",
+    "crates/plugin-lexer-block-comment",
     "crates/lib-archive",
     "crates/lib-archive-tar",
     "crates/lib-base64",
@@ -212,6 +220,14 @@ handl-kit-canonical = { path = "crates/kit-canonical" }
 handl-kit-hello = { path = "crates/kit-hello" }
 handl-plugin-lexer = { path = "crates/plugin-lexer" }
 handl-plugin-lexer-common = { path = "crates/plugin-lexer-common" }
+handl-plugin-lexer-ident = { path = "crates/plugin-lexer-ident" }
+handl-plugin-lexer-number = { path = "crates/plugin-lexer-number" }
+handl-plugin-lexer-string = { path = "crates/plugin-lexer-string" }
+handl-plugin-lexer-operator = { path = "crates/plugin-lexer-operator" }
+handl-plugin-lexer-delimiter = { path = "crates/plugin-lexer-delimiter" }
+handl-plugin-lexer-keyword = { path = "crates/plugin-lexer-keyword" }
+handl-plugin-lexer-line-comment = { path = "crates/plugin-lexer-line-comment" }
+handl-plugin-lexer-block-comment = { path = "crates/plugin-lexer-block-comment" }
 handl-lib-archive = { path = "crates/lib-archive" }
 handl-lib-archive-tar = { path = "crates/lib-archive-tar" }
 handl-lib-base64 = { path = "crates/lib-base64" }

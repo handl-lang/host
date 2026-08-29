@@ -17,10 +17,14 @@ use handl_plugin_lexer::{
     KindFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory, Token,
     TokenKind,
 };
-use handl_plugin_lexer_common::{
-    BlockCommentRule, DelimiterRule, IdentRule, KeywordRule, LineCommentRule,
-    NumberRule as LexNumberRule, OperatorRule, StringRule as LexStringRule,
-};
+use handl_plugin_lexer_block_comment::BlockCommentRule;
+use handl_plugin_lexer_delimiter::DelimiterRule;
+use handl_plugin_lexer_ident::IdentRule;
+use handl_plugin_lexer_keyword::KeywordRule;
+use handl_plugin_lexer_line_comment::LineCommentRule;
+use handl_plugin_lexer_number::NumberRule as LexNumberRule;
+use handl_plugin_lexer_operator::OperatorRule;
+use handl_plugin_lexer_string::StringRule as LexStringRule;
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
     BasicEvaluator, BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest,

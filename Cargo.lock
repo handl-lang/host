@@ -747,7 +747,14 @@ dependencies = [
  "handl-plugin-grammar-object",
  "handl-plugin-grammar-pipe",
  "handl-plugin-lexer",
- "handl-plugin-lexer-common",
+ "handl-plugin-lexer-block-comment",
+ "handl-plugin-lexer-delimiter",
+ "handl-plugin-lexer-ident",
+ "handl-plugin-lexer-keyword",
+ "handl-plugin-lexer-line-comment",
+ "handl-plugin-lexer-number",
+ "handl-plugin-lexer-operator",
+ "handl-plugin-lexer-string",
  "handl-plugin-runtime-apply",
  "handl-plugin-runtime-arithmetic",
  "handl-plugin-runtime-array",
@@ -1962,10 +1969,74 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lexer-block-comment"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
 name = "handl-plugin-lexer-common"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+]
+
+[[package]]
+name = "handl-plugin-lexer-delimiter"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-ident"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-keyword"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-line-comment"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-number"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-operator"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-string"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
 ]
 
 [[package]]
@@ -2074,6 +2145,8 @@ name = "handl-plugin-token-comment"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-block-comment",
+ "handl-plugin-lexer-line-comment",
 ]
 
 [[package]]
@@ -2081,6 +2154,7 @@ name = "handl-plugin-token-delimiter"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-delimiter",
 ]
 
 [[package]]
@@ -2095,6 +2169,7 @@ name = "handl-plugin-token-identifier"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-ident",
 ]
 
 [[package]]
@@ -2102,6 +2177,7 @@ name = "handl-plugin-token-keyword-as"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-keyword",
 ]
 
 [[package]]
@@ -2109,6 +2185,7 @@ name = "handl-plugin-token-keyword-handle"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-keyword",
 ]
 
 [[package]]
@@ -2123,6 +2200,7 @@ name = "handl-plugin-token-number"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-number",
 ]
 
 [[package]]
@@ -2130,6 +2208,7 @@ name = "handl-plugin-token-operator"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-operator",
 ]
 
 [[package]]
@@ -2137,6 +2216,7 @@ name = "handl-plugin-token-string"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-string",
 ]
 
 [[package]]

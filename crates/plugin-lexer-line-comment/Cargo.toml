@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lexer-line-comment"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-lexer.workspace = true
+
+[dev-dependencies]
+handl-plugin-lexer-common.workspace = true

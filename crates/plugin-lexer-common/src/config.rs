@@ -1,6 +1,5 @@
 //! Config builders for tests.
 
-use super::{DelimiterRule, IdentRule, NumberRule, StringRule};
 use crate::tokens::{MockFactory, MockKind};
 use handl_plugin_lexer::{DefaultLexError, LexerConfig};
 
@@ -11,8 +10,9 @@ pub fn empty_config() -> LexerConfig<MockKind, DefaultLexError> {
     LexerConfig::new(MockFactory::new())
 }
 
-/// Returns a `LexerConfig<MockKind, DefaultLexError>` with all built-in rules
-/// and a few common keywords/delimiters pre-configured.
+/// Returns a `LexerConfig<MockKind, DefaultLexError>` with a few common
+/// keywords and delimiters pre-configured. Rules must be added by the caller
+/// from the individual `plugin-lexer-*` rule crates.
 pub fn test_config() -> LexerConfig<MockKind, DefaultLexError> {
     LexerConfig::new(MockFactory::new())
         .with_keyword("true", MockKind::Bool(true))
@@ -26,8 +26,4 @@ pub fn test_config() -> LexerConfig<MockKind, DefaultLexError> {
         .with_delimiter(']', MockKind::Delim(']'))
         .with_delimiter(',', MockKind::Comma)
         .with_delimiter(':', MockKind::Colon)
-        .with_rule(StringRule)
-        .with_rule(NumberRule)
-        .with_rule(DelimiterRule)
-        .with_rule(IdentRule)
 }

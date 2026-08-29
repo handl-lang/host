@@ -6,7 +6,14 @@ edition = "2024"
 [dependencies]
 handl-ast = { workspace = true }
 handl-plugin-lexer = { workspace = true }
-handl-plugin-lexer-common = { workspace = true }
+handl-plugin-lexer-block-comment = { workspace = true }
+handl-plugin-lexer-delimiter = { workspace = true }
+handl-plugin-lexer-ident = { workspace = true }
+handl-plugin-lexer-keyword = { workspace = true }
+handl-plugin-lexer-line-comment = { workspace = true }
+handl-plugin-lexer-number = { workspace = true }
+handl-plugin-lexer-operator = { workspace = true }
+handl-plugin-lexer-string = { workspace = true }
 handl-parser = { workspace = true }
 handl-platform = { workspace = true }
 handl-vm = { workspace = true }
