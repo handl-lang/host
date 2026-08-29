@@ -5,31 +5,33 @@ use handl_plugin_vm::{Context, Function};
 use handl_plugin_vm_common::Module;
 use handl_plugin_vm_values_json::NonFunctionValue;
 
-fn codec_name(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
-    let obj = value.as_object().ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
-        expected: "codec object",
-        got: "non-object",
-    })?;
-    let ty = obj
-        .get("type")
-        .and_then(|v| v.as_str())
+fn codec_name(
+    value: &NonFunctionValue,
+) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
+    let obj = value
+        .as_object()
         .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
+            expected: "codec object",
+            got: "non-object",
+        })?;
+    let ty = obj.get("type").and_then(|v| v.as_str()).ok_or_else(|| {
+        handl_plugin_vm::Error::TypeMismatch {
             expected: "codec object with type",
             got: "object without type",
-        })?;
+        }
+    })?;
     if ty != "encoding" {
         return Err(handl_plugin_vm::Error::TypeMismatch {
             expected: "type: encoding",
             got: "non-encoding",
         });
     }
-    let name = obj
-        .get("name")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
+    let name = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+        handl_plugin_vm::Error::TypeMismatch {
             expected: "codec object with name",
             got: "object without name",
-        })?;
+        }
+    })?;
     Ok(name.to_string())
 }
 
@@ -52,8 +54,12 @@ impl EncodingModule {
                 .with("hex", handl_plugin_lib_hex::Hex),
         );
         Self {
-            encode: Encode { registry: Arc::clone(&registry) },
-            decode: Decode { registry: Arc::clone(&registry) },
+            encode: Encode {
+                registry: Arc::clone(&registry),
+            },
+            decode: Decode {
+                registry: Arc::clone(&registry),
+            },
         }
     }
 }
@@ -95,10 +101,9 @@ impl Function<NonFunctionValue> for Encode {
             });
         }
         let name = codec_name(&args[1])?;
-        let encoding = self
-            .registry
-            .get(&name)
-            .ok_or_else(|| handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}")))?;
+        let encoding = self.registry.get(&name).ok_or_else(|| {
+            handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}"))
+        })?;
         let output = encoding
             .encode(args[0].inner())
             .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
@@ -123,10 +128,9 @@ impl Function<NonFunctionValue> for Decode {
             });
         }
         let name = codec_name(&args[1])?;
-        let encoding = self
-            .registry
-            .get(&name)
-            .ok_or_else(|| handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}")))?;
+        let encoding = self.registry.get(&name).ok_or_else(|| {
+            handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}"))
+        })?;
         let output = encoding
             .decode(args[0].inner())
             .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;

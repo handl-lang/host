@@ -21,7 +21,8 @@ where
     /// Creates a new Apply node with default metadata.
     pub fn new(target: E, args: Vec<E>) -> Self {
         Self {
-            target, args,
+            target,
+            args,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            target: self.target, args: self.args,
+            target: self.target,
+            args: self.args,
             metadata,
         }
     }

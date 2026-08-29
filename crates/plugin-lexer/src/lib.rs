@@ -22,6 +22,8 @@ mod config;
 mod config_test;
 mod error;
 mod factory;
+#[cfg(test)]
+mod factory_tests;
 mod grammar_info;
 #[cfg(test)]
 mod grammar_info_tests;
@@ -38,7 +40,7 @@ mod token_test;
 pub use config::LexerConfig;
 pub use error::{DefaultLexError, LexError};
 pub use factory::*;
-pub use grammar_info::{GrammarInfo, GrammarInfoProvider};
+pub use grammar_info::{GrammarInfo, GrammarInfoProvider, KitGrammarMetadata};
 pub use lexer::Lexer;
 pub use rule::{FnRule, LexRule};
 pub use span::Span;

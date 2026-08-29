@@ -113,24 +113,16 @@ pub fn eval(term: &Term, env: &Env) -> Value {
         Term::Eq { lhs, rhs } => {
             let a = eval(lhs, env);
             let b = eval(rhs, env);
-            if a == b {
-                Value::Refl
-            } else {
-                Value::Empty
-            }
+            if a == b { Value::Refl } else { Value::Empty }
         }
         Term::Refl => Value::Refl,
-        Term::TypedLet { value, body, .. } => {
-            eval(body, &env.extend(eval(value, env)))
-        }
+        Term::TypedLet { value, body, .. } => eval(body, &env.extend(eval(value, env))),
         Term::Empty => Value::Empty,
         Term::Null => Value::Null,
         Term::Array(xs) => Value::Array(xs.iter().map(|x| eval(x, env)).collect()),
-        Term::Object(xs) => Value::Object(
-            xs.iter()
-                .map(|(n, x)| (n.clone(), eval(x, env)))
-                .collect(),
-        ),
+        Term::Object(xs) => {
+            Value::Object(xs.iter().map(|(n, x)| (n.clone(), eval(x, env))).collect())
+        }
     }
 }
 
@@ -499,7 +491,12 @@ fn instantiate_tvar_term(term: &Term, name: &Name, replacement: &Value, names: &
         ),
         Term::Object(xs) => Term::Object(
             xs.iter()
-                .map(|(n, x)| (n.clone(), instantiate_tvar_term(x, name, replacement, names)))
+                .map(|(n, x)| {
+                    (
+                        n.clone(),
+                        instantiate_tvar_term(x, name, replacement, names),
+                    )
+                })
                 .collect(),
         ),
     }

@@ -493,7 +493,8 @@ fn factory() -> Arc<dyn HttpServer> {
 }
 
 /// Preconfigured `HttpServerModule` that builds [`StdHttpServer`] instances.
-pub type StdHttpServerModule = handl_plugin_lib_http_server::HttpServerModule<fn() -> Arc<dyn HttpServer>>;
+pub type StdHttpServerModule =
+    handl_plugin_lib_http_server::HttpServerModule<fn() -> Arc<dyn HttpServer>>;
 
 /// Creates a new [`StdHttpServerModule`].
 pub fn std_http_server_module() -> StdHttpServerModule {

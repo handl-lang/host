@@ -1,6 +1,8 @@
 //! [`BlockCommentRule`] — matches block comments.
 
-use handl_plugin_lexer::{CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexerConfig, LexRule, Token};
+use handl_plugin_lexer::{
+    CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexRule, LexerConfig, Token,
+};
 
 /// Matches block comments using the factory's [`CommentFactory::is_block_comment_start`]
 /// and [`CommentFactory::lex_block_comment`].
@@ -44,7 +46,7 @@ where
 mod tests {
     use super::*;
     use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{empty_config as cfg, MockKind};
+    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
 
     const RULE: BlockCommentRule = BlockCommentRule;
 

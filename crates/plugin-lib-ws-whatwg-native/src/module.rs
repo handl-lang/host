@@ -8,11 +8,11 @@ use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc as tokio_mpsc;
-use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 static INNER: OnceLock<Arc<Mutex<Inner>>> = OnceLock::new();
@@ -95,7 +95,9 @@ fn parse_id(value: &NonFunctionValue) -> Result<usize, Error> {
 fn tungstenite_to_json(msg: TungsteniteMessage) -> JsonValue {
     match msg {
         TungsteniteMessage::Text(t) => serde_json::json!({ "text": t }),
-        TungsteniteMessage::Binary(b) => serde_json::json!({ "binary": BASE64_STANDARD.encode(&b) }),
+        TungsteniteMessage::Binary(b) => {
+            serde_json::json!({ "binary": BASE64_STANDARD.encode(&b) })
+        }
         TungsteniteMessage::Ping(b) => serde_json::json!({ "ping": BASE64_STANDARD.encode(&b) }),
         TungsteniteMessage::Pong(b) => serde_json::json!({ "pong": BASE64_STANDARD.encode(&b) }),
         TungsteniteMessage::Close(cf) => match cf {
@@ -170,7 +172,8 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
         })));
     }
     Err(Error::PrimitiveError(
-        "websocket message must be a string, {text}, {binary}, {ping}, {pong}, or {close}".to_string(),
+        "websocket message must be a string, {text}, {binary}, {ping}, {pong}, or {close}"
+            .to_string(),
     ))
 }
 
@@ -212,8 +215,7 @@ impl Function<NonFunctionValue> for ConnectionConnect {
         let (cmd_tx, mut cmd_rx) = tokio_mpsc::unbounded_channel::<TungsteniteMessage>();
 
         let url_string = url.to_string();
-        let connect_result =
-            runtime().block_on(tokio_tungstenite::connect_async(&url_string));
+        let connect_result = runtime().block_on(tokio_tungstenite::connect_async(&url_string));
         let (ws_stream, _) =
             connect_result.map_err(|e| Error::PrimitiveError(format!("connect failed: {e}")))?;
 

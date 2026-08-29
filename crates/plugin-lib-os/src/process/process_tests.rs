@@ -92,21 +92,30 @@ fn status_finished() {
 fn kill_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "kill", &[n(1)]);
-    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(
+        err,
+        handl_plugin_vm_values_json::Error::PrimitiveError(_)
+    ));
 }
 
 #[test]
 fn wait_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "wait", &[n(1)]);
-    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(
+        err,
+        handl_plugin_vm_values_json::Error::PrimitiveError(_)
+    ));
 }
 
 #[test]
 fn status_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "status", &[n(1)]);
-    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(
+        err,
+        handl_plugin_vm_values_json::Error::PrimitiveError(_)
+    ));
 }
 
 #[test]

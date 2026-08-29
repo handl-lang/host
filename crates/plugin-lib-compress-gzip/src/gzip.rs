@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use handl_plugin_lib_compress::{CompressError, Compressor, Decompressor};
 use flate2::Compression;
 use flate2::write::{GzDecoder, GzEncoder};
+use handl_plugin_lib_compress::{CompressError, Compressor, Decompressor};
 
 /// Gzip compression/decompression codec.
 #[derive(Clone, Copy, Debug, Default)]

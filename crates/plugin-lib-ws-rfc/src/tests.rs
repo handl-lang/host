@@ -56,8 +56,14 @@ fn error_display_and_source() {
         format!("{}", Error::InvalidOpCode(0x0B)),
         "invalid websocket opcode: 11"
     );
-    assert_eq!(format!("{}", Error::InvalidPayloadLength), "invalid payload length");
-    assert_eq!(format!("{}", Error::Incomplete), "incomplete websocket frame");
+    assert_eq!(
+        format!("{}", Error::InvalidPayloadLength),
+        "invalid payload length"
+    );
+    assert_eq!(
+        format!("{}", Error::Incomplete),
+        "incomplete websocket frame"
+    );
     assert_eq!(
         format!("{}", Error::FragmentedControl),
         "fragmented or oversized control frame"
@@ -479,11 +485,19 @@ mod module_helpers {
         CanonicalContext::new()
     }
 
-    fn call_err<F: Function<NonFunctionValue>>(f: &F, args: &[NonFunctionValue], ctx: &mut CanonicalContext) {
+    fn call_err<F: Function<NonFunctionValue>>(
+        f: &F,
+        args: &[NonFunctionValue],
+        ctx: &mut CanonicalContext,
+    ) {
         assert!(f.call(args, ctx).is_err());
     }
 
-    fn call_ok<F: Function<NonFunctionValue>>(f: &F, args: &[NonFunctionValue], ctx: &mut CanonicalContext) -> NonFunctionValue {
+    fn call_ok<F: Function<NonFunctionValue>>(
+        f: &F,
+        args: &[NonFunctionValue],
+        ctx: &mut CanonicalContext,
+    ) -> NonFunctionValue {
         f.call(args, ctx).unwrap()
     }
 
@@ -612,7 +626,9 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"unknown": "value"}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"unknown": "value"}),
+            )],
             &mut ctx,
         );
     }
@@ -642,7 +658,9 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"binary": "not-base64"}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"binary": "not-base64"}),
+            )],
             &mut ctx,
         );
     }
@@ -752,7 +770,9 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ClientRecv,
-            &[NonFunctionValue::new(serde_json::json!({"type": "websocket_client"}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"type": "websocket_client"}),
+            )],
             &mut ctx,
         );
     }
@@ -762,7 +782,9 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ClientRecv,
-            &[NonFunctionValue::new(serde_json::json!({"client_id": "foo"}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"client_id": "foo"}),
+            )],
             &mut ctx,
         );
     }
@@ -788,7 +810,10 @@ mod module_helpers {
         assert!(frame.inner().is_string());
 
         let round = call_ok(&FrameDecode, &[frame], &mut ctx);
-        assert_eq!(round.inner().get("opcode"), Some(&serde_json::json!("text")));
+        assert_eq!(
+            round.inner().get("opcode"),
+            Some(&serde_json::json!("text"))
+        );
     }
 
     #[test]
@@ -821,7 +846,9 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"binary": "aGVsbG8="}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"binary": "aGVsbG8="}),
+            )],
             &mut ctx,
         );
         assert!(encoded.inner().is_string());
@@ -883,7 +910,9 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"binary": "aGVsbG8="}))],
+            &[NonFunctionValue::new(
+                serde_json::json!({"binary": "aGVsbG8="}),
+            )],
             &mut ctx,
         );
         let frame = call_ok(&FrameDecode, &[encoded], &mut ctx);
@@ -895,7 +924,14 @@ mod module_helpers {
     fn client_new_and_connect() {
         let mut ctx = ctx();
         let c = call_ok(&ClientNew, &[], &mut ctx);
-        call_ok(&ClientConnect, &[c, NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0"))], &mut ctx);
+        call_ok(
+            &ClientConnect,
+            &[
+                c,
+                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+            ],
+            &mut ctx,
+        );
     }
 
     #[test]
@@ -904,7 +940,10 @@ mod module_helpers {
         let c = call_ok(&ClientNew, &[], &mut ctx);
         call_ok(
             &ClientSend,
-            &[c.clone(), NonFunctionValue::new(serde_json::json!({"text": "hello"}))],
+            &[
+                c.clone(),
+                NonFunctionValue::new(serde_json::json!({"text": "hello"})),
+            ],
             &mut ctx,
         );
         call_ok(&ClientRecv, &[c.clone()], &mut ctx);
@@ -921,7 +960,11 @@ mod module_helpers {
         }));
         call_ok(
             &ServerListen,
-            &[s.clone(), NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")), handler],
+            &[
+                s.clone(),
+                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                handler,
+            ],
             &mut ctx,
         );
         call_ok(&ServerStop, &[s], &mut ctx);
@@ -1030,13 +1073,21 @@ mod module_helpers {
     #[test]
     fn client_new_rejects_arguments() {
         let mut ctx = ctx();
-        call_err(&ClientNew, &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+        call_err(
+            &ClientNew,
+            &[NonFunctionValue::new(serde_json::json!(null))],
+            &mut ctx,
+        );
     }
 
     #[test]
     fn server_new_rejects_arguments() {
         let mut ctx = ctx();
-        call_err(&ServerNew, &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+        call_err(
+            &ServerNew,
+            &[NonFunctionValue::new(serde_json::json!(null))],
+            &mut ctx,
+        );
     }
 
     #[test]

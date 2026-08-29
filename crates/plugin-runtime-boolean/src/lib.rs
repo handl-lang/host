@@ -1,14 +1,14 @@
 //! Boolean runtime builtins: `and`, `or`, `not`, `eq`, `lt`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_runtime::{
-    as_bool, as_number, expect_n, RuntimeBehavior, RuntimeHost, RuntimeRule,
+    RuntimeBehavior, RuntimeHost, RuntimeRule, as_bool, as_number, expect_n,
 };
 use handl_plugin_vm::{Context, Error};
 use handl_plugin_vm_values_json::NonFunctionValue;

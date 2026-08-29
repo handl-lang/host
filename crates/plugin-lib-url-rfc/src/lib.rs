@@ -125,7 +125,8 @@ mod tests {
 
     #[test]
     fn parses_http_uri() {
-        let u = handl_plugin_lib_parse::parse("https://example.com:8080/path?a=1#frag", Rfc).unwrap();
+        let u =
+            handl_plugin_lib_parse::parse("https://example.com:8080/path?a=1#frag", Rfc).unwrap();
         assert_eq!(u.scheme(), "https");
         assert_eq!(u.authority(), Some("example.com:8080"));
         assert_eq!(u.path(), "/path");

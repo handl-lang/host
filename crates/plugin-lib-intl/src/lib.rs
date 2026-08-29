@@ -79,8 +79,8 @@ mod supported_locales_tests;
 pub mod plugin;
 pub use plugin::LibraryPlugin;
 
-pub mod icu4x;
-pub mod traits;
-pub mod extra;
-pub mod rust;
 pub mod api;
+pub mod extra;
+pub mod icu4x;
+pub mod rust;
+pub mod traits;

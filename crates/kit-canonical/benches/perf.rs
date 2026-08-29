@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use handl_kit_canonical::CanonicalKit;
 
 fn pipe_expr(n: usize) -> String {
@@ -31,7 +31,12 @@ fn bench_typecheck(c: &mut Criterion) {
     for n in [100, 1000] {
         let input = pipe_module(n);
         let output = kit.parse_module_recovered(&input);
-        assert!(output.diagnostics.is_empty(), "parse errors at {}: {:?}", n, output.diagnostics);
+        assert!(
+            output.diagnostics.is_empty(),
+            "parse errors at {}: {:?}",
+            n,
+            output.diagnostics
+        );
         group.bench_with_input(format!("{}", n), &output.stmts, |b, stmts| {
             b.iter(|| kit.typecheck(black_box(stmts)));
         });
@@ -45,7 +50,12 @@ fn bench_eval(c: &mut Criterion) {
     for n in [100, 1000] {
         let input = pipe_module(n);
         let output = kit.parse_module_recovered(&input);
-        assert!(output.diagnostics.is_empty(), "parse errors at {}: {:?}", n, output.diagnostics);
+        assert!(
+            output.diagnostics.is_empty(),
+            "parse errors at {}: {:?}",
+            n,
+            output.diagnostics
+        );
         group.bench_with_input(format!("{}", n), &output.stmts, |b, stmts| {
             b.iter(|| kit.eval(black_box(stmts)));
         });

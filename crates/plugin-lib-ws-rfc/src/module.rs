@@ -32,7 +32,9 @@ use crate::{CloseCode, CloseFrame, Frame, Message, OpCode};
 static INNER: OnceLock<Arc<Mutex<Inner>>> = OnceLock::new();
 
 fn inner() -> Arc<Mutex<Inner>> {
-    INNER.get_or_init(|| Arc::new(Mutex::new(Inner::new()))).clone()
+    INNER
+        .get_or_init(|| Arc::new(Mutex::new(Inner::new())))
+        .clone()
 }
 
 struct Client {
@@ -90,7 +92,9 @@ fn parse_opcode(s: &str) -> Result<OpCode, Error> {
         "close" => Ok(OpCode::Close),
         "ping" => Ok(OpCode::Ping),
         "pong" => Ok(OpCode::Pong),
-        _ => Err(Error::PrimitiveError(format!("unknown websocket opcode: {s}"))),
+        _ => Err(Error::PrimitiveError(format!(
+            "unknown websocket opcode: {s}"
+        ))),
     }
 }
 
@@ -140,18 +144,22 @@ fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, Error>
             let bytes = BASE64_STANDARD
                 .decode(s)
                 .map_err(|e| Error::PrimitiveError(format!("mask base64 decode error: {e}")))?;
-            let bytes: [u8; 4] = bytes.try_into().map_err(|_| {
-                Error::PrimitiveError("mask must be exactly 4 bytes".to_string())
-            })?;
+            let bytes: [u8; 4] = bytes
+                .try_into()
+                .map_err(|_| Error::PrimitiveError("mask must be exactly 4 bytes".to_string()))?;
             Some(bytes)
         }
         None => None,
     };
 
-    Ok(Frame::new(opcode, payload).with_fin(fin).with_mask_opt(mask))
+    Ok(Frame::new(opcode, payload)
+        .with_fin(fin)
+        .with_mask_opt(mask))
 }
 
-fn require_one_object(args: &[NonFunctionValue]) -> Result<&serde_json::Map<String, JsonValue>, Error> {
+fn require_one_object(
+    args: &[NonFunctionValue],
+) -> Result<&serde_json::Map<String, JsonValue>, Error> {
     let arg = args.first().ok_or(Error::ArgumentCount {
         expected: 1,
         got: args.len(),
@@ -243,11 +251,7 @@ impl Function<NonFunctionValue> for ClientNew {
         let id = {
             let guard = inner.lock().unwrap();
             let id = guard.next_id();
-            guard
-                .clients
-                .lock()
-                .unwrap()
-                .insert(id, Client::new());
+            guard.clients.lock().unwrap().insert(id, Client::new());
             id
         };
 
@@ -469,7 +473,9 @@ impl Function<NonFunctionValue> for FrameEncode {
     ) -> Result<NonFunctionValue, Error> {
         let obj = require_one_object(args)?;
         let frame = build_frame(obj)?;
-        Ok(NonFunctionValue::new(BASE64_STANDARD.encode(&frame.encode())))
+        Ok(NonFunctionValue::new(
+            BASE64_STANDARD.encode(&frame.encode()),
+        ))
     }
 }
 
@@ -490,7 +496,10 @@ impl Function<NonFunctionValue> for FrameDecode {
             .map_err(|e| Error::PrimitiveError(format!("frame decode error: {e}")))?;
 
         let mut obj = serde_json::Map::new();
-        obj.insert("opcode".to_string(), JsonValue::String(opcode_to_string(frame.opcode).to_string()));
+        obj.insert(
+            "opcode".to_string(),
+            JsonValue::String(opcode_to_string(frame.opcode).to_string()),
+        );
         obj.insert(
             "payload".to_string(),
             JsonValue::String(BASE64_STANDARD.encode(&frame.payload)),
@@ -525,7 +534,9 @@ impl Function<NonFunctionValue> for MessageFromFrame {
 
         let value = match message {
             Message::Text(text) => serde_json::json!({ "text": text }),
-            Message::Binary(bytes) => serde_json::json!({ "binary": BASE64_STANDARD.encode(&bytes) }),
+            Message::Binary(bytes) => {
+                serde_json::json!({ "binary": BASE64_STANDARD.encode(&bytes) })
+            }
             Message::Ping(bytes) => serde_json::json!({ "ping": BASE64_STANDARD.encode(&bytes) }),
             Message::Pong(bytes) => serde_json::json!({ "pong": BASE64_STANDARD.encode(&bytes) }),
             Message::Close(Some(frame)) => {
@@ -616,11 +627,13 @@ impl Function<NonFunctionValue> for MessageToFrame {
             _ => {
                 return Err(Error::PrimitiveError(format!(
                     "unknown message type: {key}"
-                )))
+                )));
             }
         };
 
         let frame = message.into_frame(None);
-        Ok(NonFunctionValue::new(BASE64_STANDARD.encode(&frame.encode())))
+        Ok(NonFunctionValue::new(
+            BASE64_STANDARD.encode(&frame.encode()),
+        ))
     }
 }

@@ -21,7 +21,9 @@ impl ParseModule {
         let mut parsers: HashMap<String, Arc<dyn DynParser>> = HashMap::new();
         parsers.insert("url_whatwg".to_string(), Arc::new(Whatwg));
         parsers.insert("url_rfc".to_string(), Arc::new(Rfc));
-        Self { parse: Parse { parsers } }
+        Self {
+            parse: Parse { parsers },
+        }
     }
 }
 
@@ -63,10 +65,9 @@ impl Function<NonFunctionValue> for Parse {
 
         let input = value_as_string(&args[0])?;
         let name = parser_name(&args[1])?;
-        let parser = self
-            .parsers
-            .get(&name)
-            .ok_or_else(|| handl_plugin_vm::Error::PrimitiveError(format!("unknown parser: {name}")))?;
+        let parser = self.parsers.get(&name).ok_or_else(|| {
+            handl_plugin_vm::Error::PrimitiveError(format!("unknown parser: {name}"))
+        })?;
 
         let value = parser
             .parse(&input)
@@ -76,7 +77,9 @@ impl Function<NonFunctionValue> for Parse {
     }
 }
 
-fn parser_name(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
+fn parser_name(
+    value: &NonFunctionValue,
+) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
     let Some(obj) = value.as_object() else {
         return Err(handl_plugin_vm::Error::TypeMismatch {
             expected: "parser object",

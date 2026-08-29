@@ -1,9 +1,9 @@
 //! Error-path tests for `handl-lib-concurrent` backends and module resolution.
 
+use crate::ConcurrencyModule;
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
 use crate::scheduler::{DefaultScheduler, Scheduler};
 use crate::sync::{DefaultSyncRuntime, SyncRuntime};
-use crate::ConcurrencyModule;
 use handl_plugin_vm_common::Module;
 use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
@@ -45,9 +45,7 @@ fn send_to_closed_channel_returns_error() {
     let s = DefaultSyncRuntime::new();
     let ch = s.channel(None);
     s.close(ch.clone()).unwrap();
-    assert!(s
-        .send(ch, NonFunctionValue::new(json!(42)))
-        .is_err());
+    assert!(s.send(ch, NonFunctionValue::new(json!(42))).is_err());
 }
 
 #[test]
@@ -62,9 +60,7 @@ fn recv_from_closed_channel_returns_error() {
 fn acquire_more_than_semaphore_max_returns_error() {
     let s = DefaultSyncRuntime::new();
     let sem = s.semaphore(NonFunctionValue::new(json!(3)));
-    assert!(s
-        .acquire(sem, NonFunctionValue::new(json!(5)))
-        .is_err());
+    assert!(s.acquire(sem, NonFunctionValue::new(json!(5))).is_err());
 }
 
 #[test]

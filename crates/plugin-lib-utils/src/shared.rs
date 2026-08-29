@@ -545,5 +545,3 @@ where
 {
     find_index(ctx, fn_val, iter)
 }
-
-

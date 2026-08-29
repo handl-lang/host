@@ -1,15 +1,13 @@
 //! Apply / pipe runtime builtins: `apply`, `fn.pipe`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_runtime::{
-    expect_n, json_kind, RuntimeBehavior, RuntimeHost, RuntimeRule,
-};
+use handl_plugin_runtime::{RuntimeBehavior, RuntimeHost, RuntimeRule, expect_n, json_kind};
 use handl_plugin_vm::{Context, Error};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 

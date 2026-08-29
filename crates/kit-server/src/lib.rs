@@ -13,12 +13,16 @@
 //! This is the host you want when handl needs to open ports, read files,
 //! spawn processes, or make HTTP requests.
 
+use handl_plugin_lib_archive_tar::TarModule;
+use handl_plugin_lib_collections::CollectionsModule;
+use handl_plugin_lib_compress_gzip::GzipModule;
 use handl_plugin_lib_crypto::CryptoModule;
 use handl_plugin_lib_datetime::DateTimeModule;
 use handl_plugin_lib_http_client::HttpClientModule;
 use handl_plugin_lib_http_client_std::StdHttpClient;
 use handl_plugin_lib_http_server_std::std_http_server_module;
 use handl_plugin_lib_intl::IntlModule;
+use handl_plugin_lib_ip::IpModule;
 use handl_plugin_lib_kv::KeyValueStoreModule;
 use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
 use handl_plugin_lib_os::{
@@ -29,24 +33,19 @@ use handl_plugin_lib_os_std::{
     StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp,
 };
 use handl_plugin_lib_otlp_std::std_otlp_module;
-use handl_plugin_lib_archive_tar::TarModule;
-use handl_plugin_lib_compress_gzip::GzipModule;
-use handl_plugin_lib_ip::IpModule;
 use handl_plugin_lib_rand::RandModule;
-use handl_plugin_lib_ws_rfc_native::WsRfcNativeModule;
-use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_plugin_lib_stats::StatsModule;
 use handl_plugin_lib_test::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
 };
 use handl_plugin_lib_unicode::UnicodeModule;
 use handl_plugin_lib_utils::{
-    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
-    JsonModule, MathModule, MoodModule, OptionModule, ParseModule, ResultModule,
-    SerializeModule, StrModule, TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule,
-    YamlModule,
+    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule, JsonModule,
+    MathModule, MoodModule, OptionModule, ParseModule, ResultModule, SerializeModule, StrModule,
+    TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule, YamlModule,
 };
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_plugin_lib_ws_rfc_native::WsRfcNativeModule;
+use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
 use handl_plugin_vm_common::ModuleHost;
 use handl_plugin_vm_host_eval::EvalHost;

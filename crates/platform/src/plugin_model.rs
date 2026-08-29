@@ -6,12 +6,10 @@
 
 use std::sync::Arc;
 
+use crate::capability::CapabilityId;
 use crate::error::PlatformError;
 use crate::kit::KitRegistry;
-use crate::capability::CapabilityId;
-use crate::plugin::{
-    CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry,
-};
+use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry};
 
 /// A contribution that can be accepted by a [`RuleAcceptor`].
 pub trait Contribution: Send + Sync + 'static {

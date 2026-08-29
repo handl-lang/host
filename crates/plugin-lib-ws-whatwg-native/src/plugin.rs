@@ -1,8 +1,8 @@
 //! Plugin registration for the `ws-whatwg-native` library.
 
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
-    ContributionContext, PlatformError, Plugin, PluginContext,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
 };
 
 /// A `Library` plugin that registers the `ws-whatwg-native` implementation.

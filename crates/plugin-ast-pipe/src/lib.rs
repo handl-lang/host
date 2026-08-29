@@ -21,7 +21,8 @@ where
     /// Creates a new Pipe node with default metadata.
     pub fn new(left: E, right: E) -> Self {
         Self {
-            left, right,
+            left,
+            right,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            left: self.left, right: self.right,
+            left: self.left,
+            right: self.right,
             metadata,
         }
     }

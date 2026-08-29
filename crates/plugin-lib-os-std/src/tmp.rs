@@ -15,7 +15,11 @@ impl Tmp for StdTmp {
 
     fn dir(&self) -> Result<String, OsError> {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!("handl-dir-{}-{}", std::process::id(), unique_suffix()));
+        let path = dir.join(format!(
+            "handl-dir-{}-{}",
+            std::process::id(),
+            unique_suffix()
+        ));
         fs::create_dir_all(&path).map_err(|e| OsError::Io {
             message: e.to_string(),
         })?;

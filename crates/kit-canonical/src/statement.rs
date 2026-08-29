@@ -7,8 +7,8 @@
 //! remains a thin compatibility re-export crate.
 
 use crate::CanonicalKind;
-use handl_plugin_lexer::Token;
 use handl_platform::PlatformError;
+use handl_plugin_lexer::Token;
 use handl_plugin_vm::{Expr, Pattern};
 
 /// The payload of a top-level statement in a handl module.

@@ -112,7 +112,10 @@ mod tests {
             &self.capabilities
         }
 
-        fn metadata(&self, capability: &CapabilityId) -> Option<handl_platform::CapabilityMetadata> {
+        fn metadata(
+            &self,
+            capability: &CapabilityId,
+        ) -> Option<handl_platform::CapabilityMetadata> {
             self.capabilities
                 .contains(capability)
                 .then(|| serde_json::json!({ "command": "echo" }))

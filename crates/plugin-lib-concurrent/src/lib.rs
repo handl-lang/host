@@ -55,9 +55,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{
-    Context, Error, Function, FunctionValue, NonFunctionValue,
-};
+use handl_plugin_vm_values_json::{Context, Error, Function, FunctionValue, NonFunctionValue};
 
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
 use crate::cancel::{CancelRuntime, DefaultCancelRuntime};
@@ -66,17 +64,17 @@ use crate::sync::{DefaultSyncRuntime, SyncError, SyncRuntime};
 
 pub mod atomic;
 pub mod cancel;
+pub mod io;
 pub mod scheduler;
 pub mod sync;
 pub mod sync_parking_lot;
-pub mod io;
 pub mod timer;
 
 pub use cancel::CancelableEval;
+pub use io::{IoRuntime, MioIoRuntime, StdNetIoRuntime};
 pub use scheduler::ThreadPoolScheduler;
 pub use scheduler::WorkStealingScheduler;
 pub use sync_parking_lot::ParkingLotSyncRuntime;
-pub use io::{IoRuntime, MioIoRuntime, StdNetIoRuntime};
 pub use timer::{ThreadTimerRuntime, TimerRuntime};
 
 fn expect_args(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
@@ -285,8 +283,14 @@ impl SyncFn {
             Err(SyncError::WouldBlock)
                 if matches!(
                     self.name.as_str(),
-                    "send" | "recv" | "acquire" | "select"
-                        | "try_send" | "try_recv" | "try_acquire" | "try_lock"
+                    "send"
+                        | "recv"
+                        | "acquire"
+                        | "select"
+                        | "try_send"
+                        | "try_recv"
+                        | "try_acquire"
+                        | "try_lock"
                 ) =>
             {
                 Err(Error::Operation {
@@ -329,11 +333,13 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "select" => {
                 expect_args(args, 1)?;
-                let arr = args[0]
-                    .as_array()
-                    .ok_or_else(|| Error::PrimitiveError("select expected an array of channels".to_string()))?;
-                let channels: Vec<NonFunctionValue> =
-                    arr.iter().map(|v| NonFunctionValue::new(v.clone())).collect();
+                let arr = args[0].as_array().ok_or_else(|| {
+                    Error::PrimitiveError("select expected an array of channels".to_string())
+                })?;
+                let channels: Vec<NonFunctionValue> = arr
+                    .iter()
+                    .map(|v| NonFunctionValue::new(v.clone()))
+                    .collect();
                 self.translate(args, self.sync.select(&channels))
             }
             "mutex" => {
@@ -342,14 +348,16 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner())
-                    .ok_or_else(|| Error::PrimitiveError("lock expected a function value".to_string()))?;
+                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
+                    Error::PrimitiveError("lock expected a function value".to_string())
+                })?;
                 self.translate(args, self.sync.lock(args[0].clone(), thunk, ctx))
             }
             "try_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner())
-                    .ok_or_else(|| Error::PrimitiveError("try_lock expected a function value".to_string()))?;
+                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
+                    Error::PrimitiveError("try_lock expected a function value".to_string())
+                })?;
                 self.translate(args, self.sync.try_lock(args[0].clone(), thunk, ctx))
             }
             "unlock" => {
@@ -362,14 +370,16 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "read_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner())
-                    .ok_or_else(|| Error::PrimitiveError("read_lock expected a function value".to_string()))?;
+                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
+                    Error::PrimitiveError("read_lock expected a function value".to_string())
+                })?;
                 self.translate(args, self.sync.read_lock(args[0].clone(), thunk, ctx))
             }
             "write_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner())
-                    .ok_or_else(|| Error::PrimitiveError("write_lock expected a function value".to_string()))?;
+                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
+                    Error::PrimitiveError("write_lock expected a function value".to_string())
+                })?;
                 self.translate(args, self.sync.write_lock(args[0].clone(), thunk, ctx))
             }
             "semaphore" => {
@@ -382,7 +392,10 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "try_acquire" => {
                 expect_args(args, 2)?;
-                self.translate(args, self.sync.try_acquire(args[0].clone(), args[1].clone()))
+                self.translate(
+                    args,
+                    self.sync.try_acquire(args[0].clone(), args[1].clone()),
+                )
             }
             "release" => {
                 expect_args(args, 2)?;
@@ -454,14 +467,14 @@ impl Function<NonFunctionValue> for CancelFn {
             }
             "cancelable" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner())
-                    .ok_or_else(|| Error::PrimitiveError("cancelable expected a function value".to_string()))?;
+                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
+                    Error::PrimitiveError("cancelable expected a function value".to_string())
+                })?;
                 // Obtain the shared cancel flag so the scheduler and runtime are
                 // observing the same token.
-                let _ = self
-                    .cancel
-                    .cancel_flag(&args[0])
-                    .ok_or_else(|| Error::PrimitiveError("cancelable expected a valid cancel token".to_string()))?;
+                let _ = self.cancel.cancel_flag(&args[0]).ok_or_else(|| {
+                    Error::PrimitiveError("cancelable expected a valid cancel token".to_string())
+                })?;
                 self.scheduler.spawn_cancelable(args[0].clone(), thunk, ctx)
             }
             _ => Err(Error::UnknownFunction(self.name.clone())),
@@ -724,7 +737,10 @@ impl Module for ConcurrencyModule {
         }
     }
 
-    fn operation(&self, _name: &str) -> Option<&dyn handl_plugin_vm_values_json::Operation<NonFunctionValue>> {
+    fn operation(
+        &self,
+        _name: &str,
+    ) -> Option<&dyn handl_plugin_vm_values_json::Operation<NonFunctionValue>> {
         None
     }
 }
@@ -748,12 +764,7 @@ const SYNC_FUNCTIONS: &[&str] = &[
     "release",
 ];
 
-const ATOMIC_FUNCTIONS: &[&str] = &[
-    "atomic",
-    "atomic_read",
-    "atomic_write",
-    "atomic_cas",
-];
+const ATOMIC_FUNCTIONS: &[&str] = &["atomic", "atomic_read", "atomic_write", "atomic_cas"];
 
 const CANCEL_FUNCTIONS: &[&str] = &["cancel_token", "cancel", "cancelable"];
 
@@ -762,8 +773,8 @@ const IO_FUNCTIONS: &[&str] = &["tcp_connect", "tcp_send", "tcp_recv", "tcp_clos
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::Eval;
     use handl_plugin_vm_values_json::CanonicalContext;
+    use handl_plugin_vm_values_json::Eval;
     use serde_json::json;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -818,7 +829,11 @@ mod tests {
     fn sync_functions_are_resolved() {
         let module = ConcurrencyModule::new();
         for name in SYNC_FUNCTIONS {
-            assert!(module.function(name).is_some(), "{} should be a function", name);
+            assert!(
+                module.function(name).is_some(),
+                "{} should be a function",
+                name
+            );
         }
     }
 
@@ -826,7 +841,11 @@ mod tests {
     fn atomic_functions_are_resolved() {
         let module = ConcurrencyModule::new();
         for name in ATOMIC_FUNCTIONS {
-            assert!(module.function(name).is_some(), "{} should be a function", name);
+            assert!(
+                module.function(name).is_some(),
+                "{} should be a function",
+                name
+            );
         }
     }
 
@@ -834,7 +853,11 @@ mod tests {
     fn cancel_functions_are_resolved() {
         let module = ConcurrencyModule::new();
         for name in CANCEL_FUNCTIONS {
-            assert!(module.function(name).is_some(), "{} should be a function", name);
+            assert!(
+                module.function(name).is_some(),
+                "{} should be a function",
+                name
+            );
         }
     }
 
@@ -842,7 +865,11 @@ mod tests {
     fn io_functions_are_resolved() {
         let module = ConcurrencyModule::new();
         for name in IO_FUNCTIONS {
-            assert!(module.function(name).is_some(), "{} should be a function", name);
+            assert!(
+                module.function(name).is_some(),
+                "{} should be a function",
+                name
+            );
         }
     }
 
@@ -881,7 +908,10 @@ mod tests {
         module
             .function("send")
             .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(42))], &mut sync_ctx)
+            .call(
+                &[ch.clone(), NonFunctionValue::new(json!(42))],
+                &mut sync_ctx,
+            )
             .unwrap();
         let arg = NonFunctionValue::new(json!([ch.inner().clone()]));
         let got = module
@@ -954,16 +984,20 @@ mod tests {
         let two = NonFunctionValue::new(json!(2));
         let three = NonFunctionValue::new(json!(3));
 
-        assert!(module
-            .function("send")
-            .unwrap()
-            .call(&[ch.clone(), one], &mut ctx)
-            .is_ok());
-        assert!(module
-            .function("send")
-            .unwrap()
-            .call(&[ch.clone(), two.clone()], &mut ctx)
-            .is_ok());
+        assert!(
+            module
+                .function("send")
+                .unwrap()
+                .call(&[ch.clone(), one], &mut ctx)
+                .is_ok()
+        );
+        assert!(
+            module
+                .function("send")
+                .unwrap()
+                .call(&[ch.clone(), two.clone()], &mut ctx)
+                .is_ok()
+        );
 
         let err = module
             .function("send")
@@ -1075,16 +1109,20 @@ mod tests {
             .call(&[NonFunctionValue::new(json!(2))], &mut ctx)
             .unwrap();
 
-        assert!(module
-            .function("send")
-            .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(1))], &mut ctx)
-            .is_ok());
-        assert!(module
-            .function("send")
-            .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
-            .is_ok());
+        assert!(
+            module
+                .function("send")
+                .unwrap()
+                .call(&[ch.clone(), NonFunctionValue::new(json!(1))], &mut ctx)
+                .is_ok()
+        );
+        assert!(
+            module
+                .function("send")
+                .unwrap()
+                .call(&[ch.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .is_ok()
+        );
 
         let three = NonFunctionValue::new(json!(3));
         assert_eq!(
@@ -1105,11 +1143,13 @@ mod tests {
             .unwrap();
         assert_eq!(got, NonFunctionValue::new(json!(1)));
 
-        assert!(module
-            .function("send")
-            .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(3))], &mut ctx)
-            .is_ok());
+        assert!(
+            module
+                .function("send")
+                .unwrap()
+                .call(&[ch.clone(), NonFunctionValue::new(json!(3))], &mut ctx)
+                .is_ok()
+        );
 
         assert_eq!(
             module
@@ -1130,7 +1170,10 @@ mod tests {
 
         let arg = ch.clone();
         assert_eq!(
-            module.function("recv").unwrap().call(&[arg.clone()], &mut ctx),
+            module
+                .function("recv")
+                .unwrap()
+                .call(&[arg.clone()], &mut ctx),
             Err(Error::Operation {
                 name: "recv".to_string(),
                 args: vec![arg],
@@ -1143,7 +1186,11 @@ mod tests {
         let module = ConcurrencyModule::new();
         let mut ctx = ctx();
 
-        let m = module.function("mutex").unwrap().call(&[], &mut ctx).unwrap();
+        let m = module
+            .function("mutex")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
 
         let result = module
             .function("lock")
@@ -1152,11 +1199,11 @@ mod tests {
             .unwrap();
         assert_eq!(result, NonFunctionValue::new(json!({ "body": "locked!" })));
 
-        let err = module
-            .function("unlock")
-            .unwrap()
-            .call(&[m], &mut ctx);
-        assert!(matches!(err, Err(Error::PrimitiveError(_))), "unlock on unlocked mutex should error");
+        let err = module.function("unlock").unwrap().call(&[m], &mut ctx);
+        assert!(
+            matches!(err, Err(Error::PrimitiveError(_))),
+            "unlock on unlocked mutex should error"
+        );
     }
 
     #[test]
@@ -1170,26 +1217,34 @@ mod tests {
             .call(&[NonFunctionValue::new(json!(3))], &mut ctx)
             .unwrap();
 
-        assert!(module
-            .function("acquire")
-            .unwrap()
-            .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
-            .is_ok());
-        assert!(module
-            .function("acquire")
-            .unwrap()
-            .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
-            .is_err());
-        assert!(module
-            .function("release")
-            .unwrap()
-            .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
-            .is_ok());
-        assert!(module
-            .function("acquire")
-            .unwrap()
-            .call(&[sem, NonFunctionValue::new(json!(2))], &mut ctx)
-            .is_ok());
+        assert!(
+            module
+                .function("acquire")
+                .unwrap()
+                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .is_ok()
+        );
+        assert!(
+            module
+                .function("acquire")
+                .unwrap()
+                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .is_err()
+        );
+        assert!(
+            module
+                .function("release")
+                .unwrap()
+                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .is_ok()
+        );
+        assert!(
+            module
+                .function("acquire")
+                .unwrap()
+                .call(&[sem, NonFunctionValue::new(json!(2))], &mut ctx)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -1197,18 +1252,26 @@ mod tests {
         let module = ConcurrencyModule::new();
         let mut ctx = ctx();
 
-        let rw = module.function("rwlock").unwrap().call(&[], &mut ctx).unwrap();
+        let rw = module
+            .function("rwlock")
+            .unwrap()
+            .call(&[], &mut ctx)
+            .unwrap();
 
-        assert!(module
-            .function("read_lock")
-            .unwrap()
-            .call(&[rw.clone(), thunk("read")], &mut ctx)
-            .is_ok());
-        assert!(module
-            .function("write_lock")
-            .unwrap()
-            .call(&[rw, thunk("write")], &mut ctx)
-            .is_ok());
+        assert!(
+            module
+                .function("read_lock")
+                .unwrap()
+                .call(&[rw.clone(), thunk("read")], &mut ctx)
+                .is_ok()
+        );
+        assert!(
+            module
+                .function("write_lock")
+                .unwrap()
+                .call(&[rw, thunk("write")], &mut ctx)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -1348,10 +1411,7 @@ mod tests {
             .call(&[token], &mut ctx)
             .unwrap();
 
-        let err = module
-            .function("await")
-            .unwrap()
-            .call(&[task], &mut ctx);
+        let err = module.function("await").unwrap().call(&[task], &mut ctx);
         assert!(matches!(err, Err(Error::PrimitiveError(_))));
         assert!(eval.calls.lock().unwrap().is_empty());
     }
@@ -1412,7 +1472,10 @@ mod tests {
     fn try_sync_functions_are_resolved() {
         let module = ConcurrencyModule::new();
         for name in ["try_send", "try_acquire", "try_lock"] {
-            assert!(module.function(name).is_some(), "{name} should be a function");
+            assert!(
+                module.function(name).is_some(),
+                "{name} should be a function"
+            );
         }
     }
 

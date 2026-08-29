@@ -7,8 +7,8 @@ pub use handl_kit_type::Term::{
     Array, Collection, Empty, Eq, Is, Membership, Null, Object, Refl, TypedLet,
 };
 pub use handl_kit_type::{
-    check, eval, normalize, synth, synth_type, Env, Kind, Level, Literal, MetaContext, Name, TCtx,
-    Term, TypeError, Value, Var,
+    Env, Kind, Level, Literal, MetaContext, Name, TCtx, Term, TypeError, Value, Var, check, eval,
+    normalize, synth, synth_type,
 };
 pub use handl_kit_type::{prelude_env, prelude_tctx};
 

@@ -6,14 +6,14 @@
 //! run real OS threads and want fair, low-latency synchronization.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use handl_plugin_vm_values_json::{Context, FunctionValue, NonFunctionValue};
 use parking_lot::{Condvar, FairMutex, Mutex, RwLock};
 use serde_json::json;
 
-use crate::sync::{as_u64, resource_id, resource_value, SyncError, SyncRuntime};
+use crate::sync::{SyncError, SyncRuntime, as_u64, resource_id, resource_value};
 
 struct ChannelState {
     capacity: Option<usize>,
@@ -421,15 +421,18 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let sem = s.semaphore(NonFunctionValue::new(json!(2)));
 
-        assert!(s
-            .acquire(sem.clone(), NonFunctionValue::new(json!(1)))
-            .is_ok());
-        assert!(s
-            .acquire(sem.clone(), NonFunctionValue::new(json!(1)))
-            .is_ok());
-        assert!(s
-            .release(sem.clone(), NonFunctionValue::new(json!(1)))
-            .is_ok());
+        assert!(
+            s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+                .is_ok()
+        );
+        assert!(
+            s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+                .is_ok()
+        );
+        assert!(
+            s.release(sem.clone(), NonFunctionValue::new(json!(1)))
+                .is_ok()
+        );
         assert!(s.acquire(sem, NonFunctionValue::new(json!(1))).is_ok());
     }
 
@@ -440,10 +443,7 @@ mod tests {
 
         s.send(ch.clone(), NonFunctionValue::new(json!(42)))
             .unwrap();
-        assert_eq!(
-            s.recv(ch).unwrap(),
-            NonFunctionValue::new(json!(42))
-        );
+        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(42)));
     }
 
     #[test]
@@ -451,26 +451,14 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let ch = s.channel(Some(NonFunctionValue::new(json!(2))));
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(1)))
-            .unwrap();
-        s.send(ch.clone(), NonFunctionValue::new(json!(2)))
-            .unwrap();
+        s.send(ch.clone(), NonFunctionValue::new(json!(1))).unwrap();
+        s.send(ch.clone(), NonFunctionValue::new(json!(2))).unwrap();
 
-        assert_eq!(
-            s.recv(ch.clone()).unwrap(),
-            NonFunctionValue::new(json!(1))
-        );
-        assert_eq!(
-            s.recv(ch.clone()).unwrap(),
-            NonFunctionValue::new(json!(2))
-        );
+        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(1)));
+        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(2)));
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(3)))
-            .unwrap();
-        assert_eq!(
-            s.recv(ch).unwrap(),
-            NonFunctionValue::new(json!(3))
-        );
+        s.send(ch.clone(), NonFunctionValue::new(json!(3))).unwrap();
+        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(3)));
     }
 
     #[test]
@@ -493,10 +481,7 @@ mod tests {
             s.try_send(ch.clone(), NonFunctionValue::new(json!(3))),
             Err(SyncError::WouldBlock)
         );
-        assert_eq!(
-            s.recv(ch).unwrap(),
-            NonFunctionValue::new(json!(1))
-        );
+        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(1)));
     }
 
     #[test]

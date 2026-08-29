@@ -28,10 +28,7 @@ impl<K: ArrayToken> Behavior<Parser<K>> for ArrayRule {
         "array"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         Ok(())
     }
 }
@@ -64,7 +61,10 @@ impl<K: ArrayToken> ParserBehavior<K> for ArrayRule {
 
         let close = ctx.advance()?;
         if !close.kind.is_bracket_close() {
-            return Err(PlatformError::Plugin(format!("expected `]`, got {}", close.kind)));
+            return Err(PlatformError::Plugin(format!(
+                "expected `]`, got {}",
+                close.kind
+            )));
         }
 
         let start = token.span.start;

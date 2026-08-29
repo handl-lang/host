@@ -68,23 +68,23 @@ impl Function<NonFunctionValue> for TarPack {
                     "tar.pack entry missing path".to_string(),
                 ))?;
 
-            let contents = obj
-                .get("contents")
-                .and_then(|v| v.as_str())
-                .ok_or(Error::PrimitiveError(
-                    "tar.pack entry missing contents".to_string(),
-                ))?;
+            let contents =
+                obj.get("contents")
+                    .and_then(|v| v.as_str())
+                    .ok_or(Error::PrimitiveError(
+                        "tar.pack entry missing contents".to_string(),
+                    ))?;
 
-            let bytes = BASE64_STANDARD.decode(contents).map_err(|e| {
-                Error::PrimitiveError(format!("base64 decode error: {e}"))
-            })?;
+            let bytes = BASE64_STANDARD
+                .decode(contents)
+                .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
 
             entries.push(ArchiveEntry::new(path, bytes));
         }
 
-        let archive = TarArchive.pack(&entries).map_err(|e| {
-            Error::PrimitiveError(format!("tar pack error: {e}"))
-        })?;
+        let archive = TarArchive
+            .pack(&entries)
+            .map_err(|e| Error::PrimitiveError(format!("tar pack error: {e}")))?;
 
         let encoded = BASE64_STANDARD.encode(&archive);
         Ok(NonFunctionValue::new(encoded))
@@ -110,13 +110,13 @@ impl Function<NonFunctionValue> for TarUnpack {
             got: "non-string",
         })?;
 
-        let bytes = BASE64_STANDARD.decode(s).map_err(|e| {
-            Error::PrimitiveError(format!("base64 decode error: {e}"))
-        })?;
+        let bytes = BASE64_STANDARD
+            .decode(s)
+            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
 
-        let entries = TarArchive.unpack(&bytes).map_err(|e| {
-            Error::PrimitiveError(format!("tar unpack error: {e}"))
-        })?;
+        let entries = TarArchive
+            .unpack(&bytes)
+            .map_err(|e| Error::PrimitiveError(format!("tar unpack error: {e}")))?;
 
         let objects: Vec<JsonValue> = entries
             .into_iter()

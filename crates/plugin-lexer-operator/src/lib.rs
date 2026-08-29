@@ -1,6 +1,6 @@
 //! [`OperatorRule`] — matches operators.
 
-use handl_plugin_lexer::{LexError, LexerConfig, LexRule, OperatorFactory, Token, TokenKind};
+use handl_plugin_lexer::{LexError, LexRule, LexerConfig, OperatorFactory, Token, TokenKind};
 
 /// Matches operators using the factory's [`OperatorFactory::lex_operator`].
 #[derive(Clone, Default)]

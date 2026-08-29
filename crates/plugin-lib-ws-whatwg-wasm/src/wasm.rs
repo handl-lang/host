@@ -10,8 +10,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use web_sys::{BinaryType, CloseEvent, Event, MessageEvent, WebSocket};
 
 thread_local! {
@@ -264,7 +264,9 @@ impl Function<NonFunctionValue> for ConnectionSend {
                     .send_with_array_buffer_view(arr)
                     .map_err(|e| Error::PrimitiveError(format!("send failed: {e:?}")))?;
             } else {
-                return Err(Error::PrimitiveError("unsupported message type".to_string()));
+                return Err(Error::PrimitiveError(
+                    "unsupported message type".to_string(),
+                ));
             }
 
             Ok(NonFunctionValue::new(JsonValue::Null))
@@ -348,9 +350,13 @@ fn js_err(e: Error) -> JsValue {
 pub fn ws_whatwg_wasm_connect(url: &str) -> Result<JsValue, JsValue> {
     let mut ctx = CanonicalContext::new();
     let value = ConnectionConnect
-        .call(&[NonFunctionValue::new(JsonValue::String(url.to_string()))], &mut ctx)
+        .call(
+            &[NonFunctionValue::new(JsonValue::String(url.to_string()))],
+            &mut ctx,
+        )
         .map_err(js_err)?;
-    let json = serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let json =
+        serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(JsValue::from_str(&json))
 }
 
@@ -376,11 +382,14 @@ pub fn ws_whatwg_wasm_recv(connection_id: usize) -> Result<JsValue, JsValue> {
     let mut ctx = CanonicalContext::new();
     let value = ConnectionRecv
         .call(
-            &[NonFunctionValue::new(JsonValue::Number(serde_json::Number::from(connection_id)))],
+            &[NonFunctionValue::new(JsonValue::Number(
+                serde_json::Number::from(connection_id),
+            ))],
             &mut ctx,
         )
         .map_err(js_err)?;
-    let json = serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let json =
+        serde_json::to_string(value.inner()).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(JsValue::from_str(&json))
 }
 
@@ -389,7 +398,9 @@ pub fn ws_whatwg_wasm_close(connection_id: usize) -> Result<(), JsValue> {
     let mut ctx = CanonicalContext::new();
     ConnectionClose
         .call(
-            &[NonFunctionValue::new(JsonValue::Number(serde_json::Number::from(connection_id)))],
+            &[NonFunctionValue::new(JsonValue::Number(
+                serde_json::Number::from(connection_id),
+            ))],
             &mut ctx,
         )
         .map_err(js_err)?;

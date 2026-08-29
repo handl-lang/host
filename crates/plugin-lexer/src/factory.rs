@@ -57,6 +57,15 @@ pub trait NumberFactory<K: TokenKind>: KindFactory<K> {
         &self,
         chars: &mut Peekable<std::str::CharIndices<'_>>,
     ) -> Result<(f64, Span), DefaultLexError>;
+
+    /// Returns a regex pattern that matches number literals for this dialect,
+    /// e.g. `r"-?\d+(\.\d+)?([eE][+-]?\d+)?"`.
+    ///
+    /// Override this to provide a dialect-specific number regex for grammar
+    /// generators. The default returns a basic integer/decimal pattern.
+    fn number_regex(&self) -> &str {
+        r"-?\d+(\.\d+)?([eE][+-]?\d+)?"
+    }
 }
 
 /// Factory for identifiers and keywords.
@@ -72,6 +81,15 @@ pub trait IdentFactory<K: TokenKind>: KindFactory<K> {
         &self,
         chars: &mut Peekable<std::str::CharIndices<'_>>,
     ) -> Result<(String, Span), DefaultLexError>;
+
+    /// Returns a regex pattern that matches identifiers for this dialect,
+    /// e.g. `r"[a-zA-Z_][a-zA-Z0-9_]*"`.
+    ///
+    /// Override this to provide a dialect-specific identifier regex for grammar
+    /// generators. The default returns a basic ASCII identifier pattern.
+    fn identifier_regex(&self) -> &str {
+        r"[a-zA-Z_][a-zA-Z0-9_]*"
+    }
 }
 
 /// Marker trait for factories that can map identifier text to keyword kinds.

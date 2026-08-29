@@ -21,7 +21,8 @@ where
     /// Creates a new FieldAccess node with default metadata.
     pub fn new(target: E, field: String) -> Self {
         Self {
-            target, field,
+            target,
+            field,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            target: self.target, field: self.field,
+            target: self.target,
+            field: self.field,
             metadata,
         }
     }

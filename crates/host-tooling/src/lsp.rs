@@ -129,12 +129,18 @@ pub trait GotoDefPlugin: Send + Sync {
 
 /// Plugin contract for `textDocument/documentSymbol`.
 pub trait DocumentSymbolsPlugin: Send + Sync {
-    fn run(&self, request: &DocumentSymbolsRequest) -> Result<DocumentSymbolsResponse, PlatformError>;
+    fn run(
+        &self,
+        request: &DocumentSymbolsRequest,
+    ) -> Result<DocumentSymbolsResponse, PlatformError>;
 }
 
 /// Plugin contract for incremental `textDocument/didChange`.
 pub trait IncrementalSyncPlugin: Send + Sync {
-    fn run(&self, request: &IncrementalSyncRequest) -> Result<IncrementalSyncResponse, PlatformError>;
+    fn run(
+        &self,
+        request: &IncrementalSyncRequest,
+    ) -> Result<IncrementalSyncResponse, PlatformError>;
 }
 
 /// A default incremental-sync implementation that simply replaces the
@@ -149,7 +155,10 @@ impl BasicIncrementalSync {
 }
 
 impl IncrementalSyncPlugin for BasicIncrementalSync {
-    fn run(&self, request: &IncrementalSyncRequest) -> Result<IncrementalSyncResponse, PlatformError> {
+    fn run(
+        &self,
+        request: &IncrementalSyncRequest,
+    ) -> Result<IncrementalSyncResponse, PlatformError> {
         let IncrementalSyncRequest { source, change } = request;
         let start = change.start.min(source.len());
         let end = change.end.min(source.len());

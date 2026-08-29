@@ -24,10 +24,7 @@ impl<K: HandleToken> Behavior<Parser<K>> for HandleRule {
         "handle"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         Ok(())
     }
 }

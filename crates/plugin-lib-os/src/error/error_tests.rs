@@ -45,7 +45,9 @@ fn converts_to_vm_error() {
     let err = OsError::NotFound { path: "/x".into() };
     let vm_err: handl_plugin_vm_values_json::Error = err.into();
     match vm_err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+            assert!(msg.contains("not found"))
+        }
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }

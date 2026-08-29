@@ -1,6 +1,8 @@
 //! [`NumberRule`] — matches numbers including negative numbers.
 
-use handl_plugin_lexer::{DefaultLexError, KindFactory, LexError, LexerConfig, LexRule, NumberFactory, Token, TokenKind};
+use handl_plugin_lexer::{
+    DefaultLexError, KindFactory, LexError, LexRule, LexerConfig, NumberFactory, Token, TokenKind,
+};
 
 /// Matches number literals using the factory's [`NumberFactory::is_number_start`]
 /// and [`NumberFactory::lex_number`].
@@ -52,7 +54,7 @@ where
 mod tests {
     use super::*;
     use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{empty_config as cfg, MockKind};
+    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
 
     const RULE: NumberRule = NumberRule;
 

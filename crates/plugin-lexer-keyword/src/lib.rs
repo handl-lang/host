@@ -1,6 +1,8 @@
 //! [`KeywordRule`] — matches identifiers the factory recognizes as keywords.
 
-use handl_plugin_lexer::{IdentFactory, KeywordFactory, KindFactory, LexError, LexerConfig, LexRule, Token, TokenKind};
+use handl_plugin_lexer::{
+    IdentFactory, KeywordFactory, KindFactory, LexError, LexRule, LexerConfig, Token, TokenKind,
+};
 
 /// Matches identifiers that the factory's [`KeywordFactory::keyword_kind`] maps
 /// to a keyword kind. Non-keyword identifiers are left for other rules.

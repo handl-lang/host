@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-pub use handl_plugin_lexer::{GrammarInfo, GrammarInfoProvider};
+pub use handl_plugin_lexer::{GrammarInfo, GrammarInfoProvider, KitGrammarMetadata};
 
 /// Generate a TextMate grammar JSON from a [`GrammarInfo`].
 ///

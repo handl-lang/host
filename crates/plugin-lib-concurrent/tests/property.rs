@@ -6,12 +6,15 @@ use serde_json::json;
 use std::sync::{Arc, Mutex};
 
 fn thunk(body: &str) -> NonFunctionValue {
-    NonFunctionValue::new(FunctionValue {
-        params: Vec::new(),
-        return_schema: None,
-        body: body.to_string(),
-        patterns: Vec::new(),
-    }.to_json())
+    NonFunctionValue::new(
+        FunctionValue {
+            params: Vec::new(),
+            return_schema: None,
+            body: body.to_string(),
+            patterns: Vec::new(),
+        }
+        .to_json(),
+    )
 }
 
 #[derive(Clone)]
@@ -23,9 +26,11 @@ impl Eval<NonFunctionValue> for NumberEval {
         expr: &str,
         _vars: &[(String, NonFunctionValue)],
     ) -> Result<NonFunctionValue, handl_plugin_vm_values_json::Error> {
-        let n: u64 = expr
-            .parse()
-            .map_err(|_| handl_plugin_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
+        let n: u64 = expr.parse().map_err(|_| {
+            handl_plugin_vm_values_json::Error::PrimitiveError(format!(
+                "expected a u64, got {expr:?}"
+            ))
+        })?;
         Ok(NonFunctionValue::new(json!(n)))
     }
 }
@@ -41,9 +46,11 @@ impl Eval<NonFunctionValue> for PushToListEval {
         expr: &str,
         _vars: &[(String, NonFunctionValue)],
     ) -> Result<NonFunctionValue, handl_plugin_vm_values_json::Error> {
-        let n: u64 = expr
-            .parse()
-            .map_err(|_| handl_plugin_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
+        let n: u64 = expr.parse().map_err(|_| {
+            handl_plugin_vm_values_json::Error::PrimitiveError(format!(
+                "expected a u64, got {expr:?}"
+            ))
+        })?;
         self.list.lock().unwrap().push(n);
         Ok(NonFunctionValue::new(json!(n)))
     }
@@ -72,10 +79,10 @@ impl Eval<NonFunctionValue> for LockingEval {
         ctx.set_eval(Box::new(PushToListEval {
             list: self.list.clone(),
         }));
-        self.module
-            .function("lock")
-            .unwrap()
-            .call(&[self.mutex.clone(), NonFunctionValue::new(inner.to_json())], &mut ctx)
+        self.module.function("lock").unwrap().call(
+            &[self.mutex.clone(), NonFunctionValue::new(inner.to_json())],
+            &mut ctx,
+        )
     }
 }
 

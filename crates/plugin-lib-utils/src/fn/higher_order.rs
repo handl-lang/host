@@ -2,8 +2,7 @@ use handl_plugin_vm::{Context, Function, GenericFunction};
 use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
 use crate::shared::{
-    apply_fn, arr, b, find_first, is_truthy_fn, key_to_string, map_iter,
-    require_function_and_array,
+    apply_fn, arr, b, find_first, is_truthy_fn, key_to_string, map_iter, require_function_and_array,
 };
 
 // ── flat_map ───────────────────────────────────────────────────────

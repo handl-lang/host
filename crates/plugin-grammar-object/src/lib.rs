@@ -7,7 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Token capability required by the object grammar rule.
 pub trait ObjectToken: TokenKind {
@@ -32,10 +32,7 @@ impl<K: ObjectToken> Behavior<Parser<K>> for ObjectRule {
         "object"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         Ok(())
     }
 }
@@ -55,14 +52,16 @@ impl<K: ObjectToken> ParserBehavior<K> for ObjectRule {
         if !ctx.peek().map_or(true, |t| t.kind.is_brace_close()) {
             loop {
                 let key_tok = ctx.advance()?;
-                let key = key_tok
-                    .kind
-                    .as_object_key()
-                    .ok_or_else(|| PlatformError::Plugin(format!("expected an object key, got {}", key_tok.kind)))?;
+                let key = key_tok.kind.as_object_key().ok_or_else(|| {
+                    PlatformError::Plugin(format!("expected an object key, got {}", key_tok.kind))
+                })?;
 
                 let colon = ctx.advance()?;
                 if !colon.kind.is_colon() {
-                    return Err(PlatformError::Plugin(format!("expected `:`, got {}", colon.kind)));
+                    return Err(PlatformError::Plugin(format!(
+                        "expected `:`, got {}",
+                        colon.kind
+                    )));
                 }
 
                 let value = ctx.expression(0)?;
@@ -80,7 +79,10 @@ impl<K: ObjectToken> ParserBehavior<K> for ObjectRule {
 
         let close = ctx.advance()?;
         if !close.kind.is_brace_close() {
-            return Err(PlatformError::Plugin(format!("expected `}}`, got {}", close.kind)));
+            return Err(PlatformError::Plugin(format!(
+                "expected `}}`, got {}",
+                close.kind
+            )));
         }
 
         let start = token.span.start;

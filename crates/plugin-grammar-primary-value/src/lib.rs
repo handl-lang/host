@@ -7,7 +7,7 @@
 use handl_platform::{AstNode, Behavior, PlatformError};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Token capability required by the primary value grammar rule.
 pub trait ValueToken: TokenKind {
@@ -31,7 +31,10 @@ impl<K: ValueToken> Behavior<Parser<K>> for ValueRule {
         "value"
     }
 
-    fn apply(&self, _op: &mut <Parser<K> as handl_platform::Operation>::Request) -> Result<(), PlatformError> {
+    fn apply(
+        &self,
+        _op: &mut <Parser<K> as handl_platform::Operation>::Request,
+    ) -> Result<(), PlatformError> {
         // Parser rules do their work through the Pratt callbacks, not `apply`.
         Ok(())
     }
@@ -47,10 +50,9 @@ impl<K: ValueToken> ParserBehavior<K> for ValueRule {
         token: Token<K>,
         _ctx: &mut ParserContext<'_, K>,
     ) -> Result<AstNode, PlatformError> {
-        let value = token
-            .kind
-            .as_value()
-            .ok_or_else(|| PlatformError::Plugin(format!("expected a primary value, got {}", token.kind)))?;
+        let value = token.kind.as_value().ok_or_else(|| {
+            PlatformError::Plugin(format!("expected a primary value, got {}", token.kind))
+        })?;
 
         Ok(AstNode {
             kind: "value".into(),

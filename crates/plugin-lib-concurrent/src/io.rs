@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc::{Sender, channel};
 use std::thread;
 
 use handl_plugin_vm_values_json::{Error, NonFunctionValue};
-use mio::{Events, Interest, Poll, Token, Waker};
 use mio::net::TcpStream as MioTcpStream;
+use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::Mutex;
 use serde_json::json;
 
@@ -18,7 +18,11 @@ pub trait IoRuntime: Send + Sync {
     fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error>;
 
     /// Send `data` over `socket`.
-    fn tcp_send(&self, socket: NonFunctionValue, data: NonFunctionValue) -> Result<NonFunctionValue, Error>;
+    fn tcp_send(
+        &self,
+        socket: NonFunctionValue,
+        data: NonFunctionValue,
+    ) -> Result<NonFunctionValue, Error>;
 
     /// Receive up to 4096 bytes from `socket`.
     fn tcp_recv(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error>;
@@ -64,12 +68,11 @@ impl Default for StdNetIoRuntime {
 
 impl IoRuntime for StdNetIoRuntime {
     fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error> {
-        let addr = addr
-            .as_str()
-            .ok_or_else(|| Error::PrimitiveError("tcp_connect expected a host:port string".to_string()))?;
+        let addr = addr.as_str().ok_or_else(|| {
+            Error::PrimitiveError("tcp_connect expected a host:port string".to_string())
+        })?;
 
-        let stream = TcpStream::connect(addr)
-            .map_err(|e| Error::PrimitiveError(e.to_string()))?;
+        let stream = TcpStream::connect(addr).map_err(|e| Error::PrimitiveError(e.to_string()))?;
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         self.streams.lock().insert(id, stream);
@@ -77,7 +80,11 @@ impl IoRuntime for StdNetIoRuntime {
         Ok(tcp_socket_value(id))
     }
 
-    fn tcp_send(&self, socket: NonFunctionValue, data: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_send(
+        &self,
+        socket: NonFunctionValue,
+        data: NonFunctionValue,
+    ) -> Result<NonFunctionValue, Error> {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         let stream = streams
@@ -116,7 +123,9 @@ impl IoRuntime for StdNetIoRuntime {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         if streams.remove(&id).is_none() {
-            return Err(Error::PrimitiveError("tcp_close: unknown socket".to_string()));
+            return Err(Error::PrimitiveError(
+                "tcp_close: unknown socket".to_string(),
+            ));
         }
         Ok(NonFunctionValue::new(json!(null)))
     }
@@ -166,7 +175,10 @@ fn update_interest(registry: &mio::Registry, token: Token, state: &mut MioSocket
         if state.registered {
             let _ = registry.reregister(&mut state.stream, token, Interest::WRITABLE);
         } else {
-            if registry.register(&mut state.stream, token, Interest::WRITABLE).is_ok() {
+            if registry
+                .register(&mut state.stream, token, Interest::WRITABLE)
+                .is_ok()
+            {
                 state.registered = true;
             }
         }
@@ -186,7 +198,10 @@ fn update_interest(registry: &mio::Registry, token: Token, state: &mut MioSocket
     };
     if state.registered {
         let _ = registry.reregister(&mut state.stream, token, interest);
-    } else if registry.register(&mut state.stream, token, interest).is_ok() {
+    } else if registry
+        .register(&mut state.stream, token, interest)
+        .is_ok()
+    {
         state.registered = true;
     }
 }
@@ -316,7 +331,8 @@ impl MioIoRuntime {
     pub fn new() -> Self {
         let (tx, rx) = channel::<Command>();
         let (waker_tx, waker_rx) = channel::<Waker>();
-        let sockets: Arc<Mutex<HashMap<Token, MioSocketState>>> = Arc::new(Mutex::new(HashMap::new()));
+        let sockets: Arc<Mutex<HashMap<Token, MioSocketState>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         let sockets2 = sockets.clone();
         let next_token = AtomicUsize::new(1);
         thread::spawn(move || {
@@ -365,43 +381,49 @@ impl MioIoRuntime {
                 }
                 while let Ok(cmd) = rx.try_recv() {
                     match cmd {
-                        Command::Connect { addr, token, tx } => {
-                            match MioTcpStream::connect(addr) {
-                                Ok(stream) => {
-                                    let state = MioSocketState {
-                                        stream,
-                                        connected: false,
-                                        registered: false,
-                                        connect_tx: Some(tx),
-                                        send: None,
-                                        recv: None,
-                                    };
-                                    let mut guard = sockets2.lock();
-                                    guard.insert(token, state);
-                                    if let Some(state) = guard.get_mut(&token) {
-                                        update_interest(poll.registry(), token, state);
-                                    }
-                                }
-                                Err(err) => {
-                                    let _ = tx.send(Err(Error::PrimitiveError(err.to_string())));
+                        Command::Connect { addr, token, tx } => match MioTcpStream::connect(addr) {
+                            Ok(stream) => {
+                                let state = MioSocketState {
+                                    stream,
+                                    connected: false,
+                                    registered: false,
+                                    connect_tx: Some(tx),
+                                    send: None,
+                                    recv: None,
+                                };
+                                let mut guard = sockets2.lock();
+                                guard.insert(token, state);
+                                if let Some(state) = guard.get_mut(&token) {
+                                    update_interest(poll.registry(), token, state);
                                 }
                             }
-                        }
+                            Err(err) => {
+                                let _ = tx.send(Err(Error::PrimitiveError(err.to_string())));
+                            }
+                        },
                         Command::Send { token, data, tx } => {
                             let mut guard = sockets2.lock();
                             let mut remove = false;
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.send.is_some() {
-                                    let _ = tx.send(Err(Error::PrimitiveError("tcp_send: a send is already pending".to_string())));
+                                    let _ = tx.send(Err(Error::PrimitiveError(
+                                        "tcp_send: a send is already pending".to_string(),
+                                    )));
                                 } else {
-                                    state.send = Some(Sending { data, offset: 0, tx });
+                                    state.send = Some(Sending {
+                                        data,
+                                        offset: 0,
+                                        tx,
+                                    });
                                     update_interest(poll.registry(), token, state);
                                     if state.connected {
                                         remove = handle_writable(token, state, poll.registry());
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError("tcp_send: unknown socket".to_string())));
+                                let _ = tx.send(Err(Error::PrimitiveError(
+                                    "tcp_send: unknown socket".to_string(),
+                                )));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -412,7 +434,9 @@ impl MioIoRuntime {
                             let mut remove = false;
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.recv.is_some() {
-                                    let _ = tx.send(Err(Error::PrimitiveError("tcp_recv: a recv is already pending".to_string())));
+                                    let _ = tx.send(Err(Error::PrimitiveError(
+                                        "tcp_recv: a recv is already pending".to_string(),
+                                    )));
                                 } else {
                                     state.recv = Some(tx);
                                     update_interest(poll.registry(), token, state);
@@ -421,7 +445,9 @@ impl MioIoRuntime {
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError("tcp_recv: unknown socket".to_string())));
+                                let _ = tx.send(Err(Error::PrimitiveError(
+                                    "tcp_recv: unknown socket".to_string(),
+                                )));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -433,7 +459,9 @@ impl MioIoRuntime {
                                 let _ = poll.registry().deregister(&mut state.stream);
                                 let _ = tx.send(Ok(()));
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError("tcp_close: unknown socket".to_string())));
+                                let _ = tx.send(Err(Error::PrimitiveError(
+                                    "tcp_close: unknown socket".to_string(),
+                                )));
                             }
                         }
                         Command::Shutdown(ack) => {
@@ -445,7 +473,12 @@ impl MioIoRuntime {
             }
         });
         let waker = waker_rx.recv().expect("mio waker");
-        Self { tx, waker: Mutex::new(waker), next_token, sockets }
+        Self {
+            tx,
+            waker: Mutex::new(waker),
+            next_token,
+            sockets,
+        }
     }
 }
 
@@ -457,20 +490,24 @@ impl Default for MioIoRuntime {
 
 impl IoRuntime for MioIoRuntime {
     fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error> {
-        let addr = addr
-            .as_str()
-            .ok_or_else(|| Error::PrimitiveError("tcp_connect expected a host:port string".to_string()))?;
+        let addr = addr.as_str().ok_or_else(|| {
+            Error::PrimitiveError("tcp_connect expected a host:port string".to_string())
+        })?;
         let mut addrs = addr
             .to_socket_addrs()
             .map_err(|e| Error::PrimitiveError(e.to_string()))?;
-        let socket_addr = addrs
-            .next()
-            .ok_or_else(|| Error::PrimitiveError("tcp_connect could not resolve address".to_string()))?;
+        let socket_addr = addrs.next().ok_or_else(|| {
+            Error::PrimitiveError("tcp_connect could not resolve address".to_string())
+        })?;
         let id = self.next_token.fetch_add(1, Ordering::SeqCst) as u64;
         let token = Token(id as usize);
         let (tx, rx) = channel::<Result<u64, Error>>();
         self.tx
-            .send(Command::Connect { addr: socket_addr, token, tx })
+            .send(Command::Connect {
+                addr: socket_addr,
+                token,
+                tx,
+            })
             .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         let result = rx
@@ -482,7 +519,11 @@ impl IoRuntime for MioIoRuntime {
         }
     }
 
-    fn tcp_send(&self, socket: NonFunctionValue, data: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_send(
+        &self,
+        socket: NonFunctionValue,
+        data: NonFunctionValue,
+    ) -> Result<NonFunctionValue, Error> {
         let id = socket_id(&socket)?;
         let token = Token(id as usize);
         let payload = data
@@ -491,7 +532,11 @@ impl IoRuntime for MioIoRuntime {
             .unwrap_or_else(|| data.inner().to_string());
         let (tx, rx) = channel::<Result<usize, Error>>();
         self.tx
-            .send(Command::Send { token, data: payload.into_bytes(), tx })
+            .send(Command::Send {
+                token,
+                data: payload.into_bytes(),
+                tx,
+            })
             .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         match rx.recv() {
@@ -559,9 +604,7 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_send(socket.clone(), NonFunctionValue::new(json!("hello")))
             .unwrap();
@@ -597,9 +640,7 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_close(socket.clone()).unwrap();
         let res = io.tcp_send(socket, NonFunctionValue::new(json!("hello")));
@@ -617,9 +658,7 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         let resp = io.tcp_recv(socket).unwrap();
         assert_eq!(resp.as_str(), Some(""));
@@ -646,9 +685,7 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_send(socket.clone(), NonFunctionValue::new(json!(123)))
             .unwrap();
@@ -679,9 +716,7 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_send(socket.clone(), NonFunctionValue::new(json!("hello")))
             .unwrap();
@@ -723,9 +758,7 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_send(socket.clone(), NonFunctionValue::new(json!("one")))
             .unwrap();
@@ -752,9 +785,7 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io
-            .tcp_connect(NonFunctionValue::new(json!(addr)))
-            .unwrap();
+        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
 
         io.tcp_close(socket.clone()).unwrap();
 

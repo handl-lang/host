@@ -4,8 +4,8 @@ use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::r#type::coercion::{ToBool, ToNumber, ToString};
 use crate::r#type::predicates::{
-    TypeIs, TypeMay, TypeMust, TypeNot, TypeOf, TypeWhen, ANY_TAG, ARRAY_TAG, ARR_TAG, BOOL_TAG,
-    NULL_TAG, NUMBER_TAG, NUM_TAG, OBJECT_TAG, OBJ_TAG, STRING_TAG, STR_TAG, UNKNOWN_TAG,
+    ANY_TAG, ARR_TAG, ARRAY_TAG, BOOL_TAG, NULL_TAG, NUM_TAG, NUMBER_TAG, OBJ_TAG, OBJECT_TAG,
+    STR_TAG, STRING_TAG, TypeIs, TypeMay, TypeMust, TypeNot, TypeOf, TypeWhen, UNKNOWN_TAG,
 };
 use crate::r#type::utilities::{Coalesce, Default, Identity};
 

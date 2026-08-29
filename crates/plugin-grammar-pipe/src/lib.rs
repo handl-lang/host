@@ -24,10 +24,7 @@ impl<K: PipeToken> Behavior<Parser<K>> for PipeRule {
         "pipe"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         // Parser rules do their work through the Pratt callbacks, not `apply`.
         Ok(())
     }
@@ -47,11 +44,7 @@ impl<K: PipeToken> ParserBehavior<K> for PipeRule {
     }
 
     fn infix_binding(&self, kind: &K) -> Option<(u32, u32)> {
-        if kind.is_pipe() {
-            Some((30, 31))
-        } else {
-            None
-        }
+        if kind.is_pipe() { Some((30, 31)) } else { None }
     }
 
     fn infix(

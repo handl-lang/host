@@ -157,7 +157,10 @@ impl Plugin for OptionsPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut crate::plugin_model::ContributionContext) -> Result<(), PlatformError> {
+    fn contribute(
+        &self,
+        _ctx: &mut crate::plugin_model::ContributionContext,
+    ) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -176,13 +179,9 @@ impl Plugin for OptionsPlugin {
             .ok_or_else(|| {
                 PlatformError::InvalidMetadata("missing 'id' in option/set payload".into())
             })?;
-        let value = request
-            .payload
-            .get("value")
-            .cloned()
-            .ok_or_else(|| {
-                PlatformError::InvalidMetadata("missing 'value' in option/set payload".into())
-            })?;
+        let value = request.payload.get("value").cloned().ok_or_else(|| {
+            PlatformError::InvalidMetadata("missing 'value' in option/set payload".into())
+        })?;
         self.overrides
             .lock()
             .map_err(|e| PlatformError::Plugin(e.to_string()))?

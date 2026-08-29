@@ -202,7 +202,8 @@ mod tests {
         host.register_plugin(BasicKitLoaderPlugin::new());
         host.register_plugin(LoaderHostPlugin::default());
         host.register_plugin(
-            DefaultApplierPlugin::new(path.as_path().to_str().unwrap()).with_fallback_kit("canonical"),
+            DefaultApplierPlugin::new(path.as_path().to_str().unwrap())
+                .with_fallback_kit("canonical"),
         );
         host.load().unwrap();
 
@@ -228,7 +229,10 @@ mod tests {
 
         let names = host.plugins().names();
         assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
-        assert!(names.iter().any(|n| n == "default-applier"), "names: {names:?}");
+        assert!(
+            names.iter().any(|n| n == "default-applier"),
+            "names: {names:?}"
+        );
 
         let _ = fs::remove_file(&path);
     }
@@ -236,7 +240,11 @@ mod tests {
     #[test]
     fn bootstrap_rejects_unknown_applier() {
         let mut host = DefaultHost::new();
-        host.register_plugin(BootstrapPlugin::new(".handl.toml", "hello", "applier.custom"));
+        host.register_plugin(BootstrapPlugin::new(
+            ".handl.toml",
+            "hello",
+            "applier.custom",
+        ));
         let result = host.load();
         assert!(result.is_err());
     }
@@ -297,7 +305,10 @@ register = "nonexistent.plugin.id"
                 .with_fallback_kit("canonical"),
         );
         let result = host.load();
-        assert!(result.is_ok(), "register is a declaration, not an immediate check: {result:?}");
+        assert!(
+            result.is_ok(),
+            "register is a declaration, not an immediate check: {result:?}"
+        );
 
         let _ = fs::remove_file(&config_path);
     }
@@ -327,8 +338,14 @@ exclude = ["lib.hello"]
         host.load().unwrap();
 
         let ids = host.plugins().ids();
-        assert!(!ids.iter().any(|id| id == "lib.hello"), "lib.hello should be excluded: {ids:?}");
-        assert!(ids.iter().any(|id| id == "kit.hello"), "kit.hello should remain: {ids:?}");
+        assert!(
+            !ids.iter().any(|id| id == "lib.hello"),
+            "lib.hello should be excluded: {ids:?}"
+        );
+        assert!(
+            ids.iter().any(|id| id == "kit.hello"),
+            "kit.hello should remain: {ids:?}"
+        );
 
         let _ = fs::remove_file(&config_path);
     }
@@ -357,7 +374,10 @@ exclude = ["lib.hello"]
         host.load().unwrap();
 
         let ids = host.plugins().ids();
-        assert!(!ids.iter().any(|id| id == "lib.hello"), "lib.hello should be excluded: {ids:?}");
+        assert!(
+            !ids.iter().any(|id| id == "lib.hello"),
+            "lib.hello should be excluded: {ids:?}"
+        );
 
         let _ = fs::remove_file(&config_path);
     }

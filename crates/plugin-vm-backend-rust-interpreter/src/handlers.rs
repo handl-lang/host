@@ -3,6 +3,7 @@ use handl_plugin_vm_common::{ExprHandler, LegoVm};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
+use crate::continuation::expr_to_json;
 use crate::pattern::{define_pattern, pattern_to_json};
 use crate::vm::{json_kind, qualified_name};
 
@@ -482,7 +483,8 @@ impl ExprHandler for FunctionHandler {
         let function_value = FunctionValue {
             params: evaluated_params,
             return_schema,
-            body: body.clone(),
+            body: serde_json::to_string(&expr_to_json(body))
+                .unwrap_or_default(),
             patterns: pattern_json,
         };
 

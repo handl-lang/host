@@ -100,12 +100,13 @@ fn as_ip(value: &NonFunctionValue) -> Result<IpAddr, Error> {
     if let Some(s) = value.as_str() {
         IpAddr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
-        let s = obj.get("address").and_then(|v| v.as_str()).ok_or(
-            Error::TypeMismatch {
+        let s = obj
+            .get("address")
+            .and_then(|v| v.as_str())
+            .ok_or(Error::TypeMismatch {
                 expected: "ip object with address",
                 got: "object without address",
-            },
-        )?;
+            })?;
         IpAddr::parse(s).map_err(ip_err)
     } else {
         Err(Error::TypeMismatch {
@@ -119,18 +120,20 @@ fn as_cidr(value: &NonFunctionValue) -> Result<Cidr, Error> {
     if let Some(s) = value.as_str() {
         Cidr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
-        let s = obj.get("address").and_then(|v| v.as_str()).ok_or(
-            Error::TypeMismatch {
+        let s = obj
+            .get("address")
+            .and_then(|v| v.as_str())
+            .ok_or(Error::TypeMismatch {
                 expected: "cidr object with address",
                 got: "object without address",
-            },
-        )?;
-        let prefix = obj.get("prefix").and_then(|v| v.as_f64()).ok_or(
-            Error::TypeMismatch {
+            })?;
+        let prefix = obj
+            .get("prefix")
+            .and_then(|v| v.as_f64())
+            .ok_or(Error::TypeMismatch {
                 expected: "cidr object with prefix",
                 got: "object without numeric prefix",
-            },
-        )?;
+            })?;
         if prefix < 0.0 || prefix.fract() != 0.0 {
             return Err(Error::TypeMismatch {
                 expected: "non-negative integer prefix",
@@ -155,12 +158,13 @@ fn as_socket(value: &NonFunctionValue) -> Result<SocketAddr, Error> {
             got: "object without ip",
         })?;
         let ip = as_ip(&NonFunctionValue::new(ip_value.clone()))?;
-        let port = obj.get("port").and_then(|v| v.as_f64()).ok_or(
-            Error::TypeMismatch {
+        let port = obj
+            .get("port")
+            .and_then(|v| v.as_f64())
+            .ok_or(Error::TypeMismatch {
                 expected: "socket object with numeric port",
                 got: "object without port",
-            },
-        )?;
+            })?;
         if port < 0.0 || port.fract() != 0.0 || port > u16::MAX as f64 {
             return Err(Error::TypeMismatch {
                 expected: "valid port number",

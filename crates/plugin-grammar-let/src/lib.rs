@@ -30,10 +30,7 @@ impl<K: LetToken> Behavior<Parser<K>> for LetRule {
         "let"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         // Parser rules do their work through the Pratt callbacks, not `apply`.
         Ok(())
     }
@@ -53,19 +50,27 @@ impl<K: LetToken> ParserBehavior<K> for LetRule {
         let name = name_tok
             .kind
             .as_let_name()
-            .ok_or_else(|| PlatformError::Plugin(format!("expected a binding name, got {}", name_tok.kind)))?
+            .ok_or_else(|| {
+                PlatformError::Plugin(format!("expected a binding name, got {}", name_tok.kind))
+            })?
             .to_string();
 
         let eq = ctx.advance()?;
         if !eq.kind.is_let_equal() {
-            return Err(PlatformError::Plugin(format!("expected `=`, got {}", eq.kind)));
+            return Err(PlatformError::Plugin(format!(
+                "expected `=`, got {}",
+                eq.kind
+            )));
         }
 
         let value = ctx.expression(0)?;
 
         let semi = ctx.advance()?;
         if !semi.kind.is_let_semicolon() {
-            return Err(PlatformError::Plugin(format!("expected `;`, got {}", semi.kind)));
+            return Err(PlatformError::Plugin(format!(
+                "expected `;`, got {}",
+                semi.kind
+            )));
         }
 
         let start = _token.span.start;

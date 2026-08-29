@@ -127,7 +127,7 @@ impl Continuation {
     }
 }
 
-fn expr_to_json(expr: &RuntimeExpr) -> serde_json::Value {
+pub(crate) fn expr_to_json(expr: &RuntimeExpr) -> serde_json::Value {
     match expr {
         Expr::Value(value) => serde_json::json!({
             "type": "value",
@@ -148,10 +148,10 @@ fn expr_to_json(expr: &RuntimeExpr) -> serde_json::Value {
             "type": "function",
             "type_params": type_params,
             "params": params.iter().map(|(p, t)| {
-                serde_json::json!([pattern_to_json(p), t.as_deref().map(expr_to_json)])
+                serde_json::json!([pattern_to_json(p), t.as_ref().map(expr_to_json)])
             }).collect::<Vec<_>>(),
-            "ret": ret.as_deref().map(expr_to_json),
-            "body": body}),
+            "ret": ret.as_ref().map(|r| expr_to_json(r)),
+            "body": expr_to_json(body)}),
         Expr::Call { name, args, .. } => serde_json::json!({
             "type": "call",
             "name": name,
@@ -178,6 +178,20 @@ fn expr_to_json(expr: &RuntimeExpr) -> serde_json::Value {
         Expr::Object(entries) => serde_json::json!({
             "type": "object",
             "entries": entries.iter().map(|(k, v)| serde_json::json!([k, expr_to_json(v)])).collect::<Vec<_>>()}),
+        Expr::Pipe(left, right) => serde_json::json!({
+            "type": "pipe",
+            "left": expr_to_json(left),
+            "right": expr_to_json(right)}),
+        Expr::Match { subject, arms } => serde_json::json!({
+            "type": "match",
+            "subject": expr_to_json(subject),
+            "arms": arms.iter().map(|(p, g, b)| {
+                serde_json::json!({
+                    "pattern": pattern_to_json(p),
+                    "guard": g.as_ref().map(expr_to_json),
+                    "body": expr_to_json(b)
+                })
+            }).collect::<Vec<_>>()}),
     }
 }
 
@@ -250,8 +264,7 @@ fn expr_from_json(value: &serde_json::Value) -> Result<RuntimeExpr, Error<NonFun
                         .get(1)
                         .filter(|v| !v.is_null())
                         .map(expr_from_json)
-                        .transpose()?
-                        .map(Box::new);
+                        .transpose()?;
                     Ok((pattern, ty))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -265,11 +278,11 @@ fn expr_from_json(value: &serde_json::Value) -> Result<RuntimeExpr, Error<NonFun
 
             let body = obj
                 .get("body")
-                .and_then(|v| v.as_str())
                 .ok_or_else(|| {
-                    Error::PrimitiveError("function expression missing 'body' string".to_string())
-                })?
-                .to_string();
+                    Error::PrimitiveError("function expression missing 'body'".to_string())
+                })
+                .and_then(expr_from_json)
+                .map(Box::new)?;
 
             Ok(Expr::Function {
                 type_params,
@@ -417,6 +430,64 @@ fn expr_from_json(value: &serde_json::Value) -> Result<RuntimeExpr, Error<NonFun
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Expr::Object(entries))
+        }
+        Some("pipe") => {
+            let left = obj
+                .get("left")
+                .ok_or_else(|| {
+                    Error::PrimitiveError("pipe expression missing 'left' field".to_string())
+                })
+                .and_then(expr_from_json)
+                .map(Box::new)?;
+            let right = obj
+                .get("right")
+                .ok_or_else(|| {
+                    Error::PrimitiveError("pipe expression missing 'right' field".to_string())
+                })
+                .and_then(expr_from_json)
+                .map(Box::new)?;
+            Ok(Expr::Pipe(left, right))
+        }
+        Some("match") => {
+            let subject = obj
+                .get("subject")
+                .ok_or_else(|| {
+                    Error::PrimitiveError("match expression missing 'subject' field".to_string())
+                })
+                .and_then(expr_from_json)
+                .map(Box::new)?;
+            let arms = obj
+                .get("arms")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| {
+                    Error::PrimitiveError("match expression missing 'arms' array".to_string())
+                })?
+                .iter()
+                .map(|arm| {
+                    let a = arm.as_object().ok_or_else(|| {
+                        Error::PrimitiveError("match arm must be an object".to_string())
+                    })?;
+                    let pattern = a
+                        .get("pattern")
+                        .and_then(pattern_from_json)
+                        .ok_or_else(|| {
+                            Error::PrimitiveError("match arm missing pattern".to_string())
+                        })?;
+                    let guard = a
+                        .get("guard")
+                        .filter(|v| !v.is_null())
+                        .map(expr_from_json)
+                        .transpose()?;
+                    let body = a
+                        .get("body")
+                        .ok_or_else(|| {
+                            Error::PrimitiveError("match arm missing 'body' field".to_string())
+                        })
+                        .and_then(expr_from_json)?;
+                    Ok((pattern, guard, body))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Expr::Match { subject, arms })
         }
         other => Err(Error::PrimitiveError(format!(
             "unknown expression type: {other:?}"
@@ -1093,7 +1164,8 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
-                    body: body.clone(),
+                    body: serde_json::to_string(&expr_to_json(body))
+                        .unwrap_or_default(),
                     patterns: pattern_json,
                 };
 
@@ -1219,6 +1291,95 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
             Expr::FieldAccess { target, field } => {
                 self.eval_field(target, field, ctx, stack, inherited_handlers)
             }
+
+            Expr::Pipe(left, right) => {
+                match self.eval_step_with_handlers(left, ctx, stack, inherited_handlers) {
+                    StepResult::Done(left_value) => {
+                        let apply_fn = match self.host().function("apply") {
+                            Some(f) => f,
+                            None => return StepResult::Error(Error::UnknownFunction("apply".to_string())),
+                        };
+                        match self.eval_step_with_handlers(right, ctx, stack, inherited_handlers) {
+                            StepResult::Done(right_value) => {
+                                match apply_fn.call(&[right_value, left_value], ctx) {
+                                    Ok(v) => StepResult::Done(v),
+                                    Err(Error::Yield(value)) => StepResult::Yield {
+                                        value,
+                                        frames: std::mem::take(stack),
+                                    },
+                                    Err(Error::Operation { name, args }) => {
+                                        let matching_clause =
+                                            inherited_handlers.iter().rev().find(|h| h.op_name == name);
+                                        if let Some(clause) = matching_clause {
+                                            self.handle_operation(
+                                                name.clone(),
+                                                args,
+                                                clause,
+                                                inherited_handlers,
+                                                ctx,
+                                                stack,
+                                            )
+                                        } else {
+                                            stack.push(Frame {
+                                                name: name.clone(),
+                                                evaluated: args.clone(),
+                                                pending: vec![],
+                                                handlers: inherited_handlers.to_vec(),
+                                            });
+                                            let op_value = NonFunctionValue::new(serde_json::json!({
+                                                "type": "operation",
+                                                "name": name,
+                                                "args": args.iter().map(|v| v.clone().into_inner()).collect::<Vec<_>>()}));
+                                            StepResult::Yield {
+                                                value: op_value,
+                                                frames: std::mem::take(stack),
+                                            }
+                                        }
+                                    }
+                                    Err(err) => StepResult::Error(err),
+                                }
+                            }
+                            other => other,
+                        }
+                    }
+                    other => other,
+                }
+            }
+
+            Expr::Match { subject, arms } => {
+                match self.eval_step_with_handlers(subject, ctx, stack, inherited_handlers) {
+                    StepResult::Done(subject_value) => {
+                        for (pattern, guard, body) in arms {
+                            if let Some(guard_expr) = guard {
+                                match self.eval_step_with_handlers(
+                                    guard_expr,
+                                    ctx,
+                                    stack,
+                                    inherited_handlers,
+                                ) {
+                                    StepResult::Done(guard_value) => {
+                                        if guard_value.as_bool() != Some(true) {
+                                            continue;
+                                        }
+                                    }
+                                    other => return other,
+                                }
+                            }
+                            if let Err(err) = define_pattern(ctx, pattern, subject_value.clone()) {
+                                return StepResult::Error(err);
+                            }
+                            return self.eval_step_with_handlers(
+                                body,
+                                ctx,
+                                stack,
+                                inherited_handlers,
+                            );
+                        }
+                        StepResult::Error(Error::PrimitiveError("no matching pattern".to_string()))
+                    }
+                    other => other,
+                }
+            }
         }
     }
 
@@ -1329,7 +1490,8 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
-                    body: body.clone(),
+                    body: serde_json::to_string(&expr_to_json(body))
+                        .unwrap_or_default(),
                     patterns: pattern_json,
                 };
 
@@ -1445,6 +1607,78 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
 
             Expr::FieldAccess { target, field } => {
                 self.eval_field(target, field, ctx, stack, handlers)
+            }
+
+            Expr::Pipe(left, right) => {
+                match self.eval_handle(left, handlers, ctx, stack) {
+                    StepResult::Done(left_value) => {
+                        let apply_fn = match self.host().function("apply") {
+                            Some(f) => f,
+                            None => return StepResult::Error(Error::UnknownFunction("apply".to_string())),
+                        };
+                        match self.eval_handle(right, handlers, ctx, stack) {
+                            StepResult::Done(right_value) => {
+                                match apply_fn.call(&[right_value, left_value], ctx) {
+                                    Ok(v) => StepResult::Done(v),
+                                    Err(Error::Yield(value)) => StepResult::Yield {
+                                        value,
+                                        frames: std::mem::take(stack),
+                                    },
+                                    Err(Error::Operation { name, args }) => {
+                                        let matching_clause =
+                                            handlers.iter().rev().find(|h| h.op_name == name);
+                                        if let Some(clause) = matching_clause {
+                                            self.handle_operation(name.clone(), args, clause, handlers, ctx, stack)
+                                        } else {
+                                            stack.push(Frame {
+                                                name: name.clone(),
+                                                evaluated: args.clone(),
+                                                pending: vec![],
+                                                handlers: handlers.to_vec(),
+                                            });
+                                            let op_value = NonFunctionValue::new(serde_json::json!({
+                                                "type": "operation",
+                                                "name": name,
+                                                "args": args.iter().map(|v| v.clone().into_inner()).collect::<Vec<_>>()}));
+                                            StepResult::Yield {
+                                                value: op_value,
+                                                frames: std::mem::take(stack),
+                                            }
+                                        }
+                                    }
+                                    Err(err) => StepResult::Error(err),
+                                }
+                            }
+                            other => other,
+                        }
+                    }
+                    other => other,
+                }
+            }
+
+            Expr::Match { subject, arms } => {
+                match self.eval_handle(subject, handlers, ctx, stack) {
+                    StepResult::Done(subject_value) => {
+                        for (pattern, guard, body) in arms {
+                            if let Some(guard_expr) = guard {
+                                match self.eval_handle(guard_expr, handlers, ctx, stack) {
+                                    StepResult::Done(guard_value) => {
+                                        if guard_value.as_bool() != Some(true) {
+                                            continue;
+                                        }
+                                    }
+                                    other => return other,
+                                }
+                            }
+                            if let Err(err) = define_pattern(ctx, pattern, subject_value.clone()) {
+                                return StepResult::Error(err);
+                            }
+                            return self.eval_handle(body, handlers, ctx, stack);
+                        }
+                        StepResult::Error(Error::PrimitiveError("no matching pattern".to_string()))
+                    }
+                    other => other,
+                }
             }
         }
     }

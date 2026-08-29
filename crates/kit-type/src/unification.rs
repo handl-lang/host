@@ -124,9 +124,7 @@ impl Substitution {
             Value::Refl => Value::Refl,
             Value::Empty => Value::Empty,
             Value::Null => Value::Null,
-            Value::Array(xs) => Value::Array(
-                xs.iter().map(|x| self.apply_value(x)).collect(),
-            ),
+            Value::Array(xs) => Value::Array(xs.iter().map(|x| self.apply_value(x)).collect()),
             Value::Object(xs) => Value::Object(
                 xs.iter()
                     .map(|(n, v)| (n.clone(), self.apply_value(v)))
@@ -348,9 +346,7 @@ impl Substitution {
             }
             Term::Empty => term.clone(),
             Term::Null => term.clone(),
-            Term::Array(xs) => Term::Array(
-                xs.iter().map(|x| self.apply_term(x, names)).collect(),
-            ),
+            Term::Array(xs) => Term::Array(xs.iter().map(|x| self.apply_term(x, names)).collect()),
             Term::Object(xs) => Term::Object(
                 xs.iter()
                     .map(|(n, x)| (n.clone(), self.apply_term(x, names)))
@@ -879,11 +875,11 @@ fn occurs_check_term(ctx: &MetaContext, m: MetaVar, term: &Term) -> bool {
             occurs_check_term(ctx, m, value) || occurs_check_term(ctx, m, collection)
         }
         Term::IsEvidence => false,
-        Term::Eq { lhs, rhs } => {
-            occurs_check_term(ctx, m, lhs) || occurs_check_term(ctx, m, rhs)
-        }
+        Term::Eq { lhs, rhs } => occurs_check_term(ctx, m, lhs) || occurs_check_term(ctx, m, rhs),
         Term::Refl => false,
-        Term::TypedLet { value, ty, body, .. } => {
+        Term::TypedLet {
+            value, ty, body, ..
+        } => {
             occurs_check_term(ctx, m, value)
                 || occurs_check_term(ctx, m, ty)
                 || occurs_check_term(ctx, m, body)
@@ -957,7 +953,9 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
             occurs_check_term_tvar(ctx, name, lhs) || occurs_check_term_tvar(ctx, name, rhs)
         }
         Term::Refl => false,
-        Term::TypedLet { value, ty, body, .. } => {
+        Term::TypedLet {
+            value, ty, body, ..
+        } => {
             occurs_check_term_tvar(ctx, name, value)
                 || occurs_check_term_tvar(ctx, name, ty)
                 || occurs_check_term_tvar(ctx, name, body)

@@ -221,7 +221,10 @@ impl CommentFactory<MockKind> for MockFactory {
         primitives::starts_with(chars, "///")
     }
 
-    fn lex_doc_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span) {
+    fn lex_doc_line_comment(
+        &self,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
+    ) -> (String, Span) {
         primitives::lex_line_comment(chars, "///")
     }
 

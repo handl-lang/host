@@ -42,3 +42,17 @@ pub struct GrammarInfo {
 pub trait GrammarInfoProvider {
     fn grammar_info(&self) -> GrammarInfo;
 }
+
+/// Trait for kit-level metadata that is not derivable from the lexer config.
+///
+/// This includes the TextMate scope name and file extensions, which are
+/// editorial conventions rather than lexical properties. Kits implement this
+/// to provide values for [`GrammarInfo::scope_name`] and
+/// [`GrammarInfo::file_extensions`].
+pub trait KitGrammarMetadata {
+    /// Returns the TextMate scope name, e.g. `"source.handl"`.
+    fn scope_name(&self) -> &str;
+
+    /// Returns the file extensions, e.g. `["hnl"]`.
+    fn file_extensions(&self) -> Vec<String>;
+}

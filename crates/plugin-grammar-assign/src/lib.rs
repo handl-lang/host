@@ -24,10 +24,7 @@ impl<K: AssignToken> Behavior<Parser<K>> for AssignRule {
         "assign"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         Ok(())
     }
 }

@@ -26,10 +26,7 @@ impl<K: IndexToken> Behavior<Parser<K>> for IndexRule {
         "index"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         // Parser rules do their work through the Pratt callbacks, not `apply`.
         Ok(())
     }

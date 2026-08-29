@@ -6,39 +6,39 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_plugin_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
-use handl_plugin_vm::{Context, Function};
 #[cfg(feature = "server")]
 use handl_plugin_vm::Eval;
+use handl_plugin_vm::{Context, Function};
 #[cfg(feature = "server")]
 use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
 use handl_plugin_vm_common::Module;
 #[cfg(feature = "server")]
 use handl_plugin_vm_host_eval::EvalHost;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 #[cfg(feature = "server")]
 use handl_plugin_vm_values_json::FunctionValue;
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 #[cfg(feature = "server")]
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{mpsc, Arc, Mutex, OnceLock};
-#[cfg(feature = "client")]
-use tokio::runtime::Runtime;
-#[cfg(feature = "client")]
-use tokio::sync::mpsc as tokio_mpsc;
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 #[cfg(feature = "server")]
 use tokio::io::{AsyncRead, AsyncWrite};
 #[cfg(feature = "server")]
 use tokio::net::TcpListener;
+#[cfg(feature = "client")]
+use tokio::runtime::Runtime;
+#[cfg(feature = "server")]
+use tokio::sync::Semaphore;
+#[cfg(feature = "client")]
+use tokio::sync::mpsc as tokio_mpsc;
 #[cfg(feature = "server")]
 use tokio::sync::oneshot;
 #[cfg(feature = "server")]
-use tokio::sync::Semaphore;
-#[cfg(feature = "server")]
 use tokio_rustls::TlsAcceptor;
-use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 
 static INNER: OnceLock<Arc<Mutex<Inner>>> = OnceLock::new();
 
@@ -193,7 +193,9 @@ fn parse_id(value: &NonFunctionValue, key: &str) -> Result<usize, Error> {
 fn tungstenite_to_json(msg: TungsteniteMessage) -> JsonValue {
     match msg {
         TungsteniteMessage::Text(t) => serde_json::json!({ "text": t }),
-        TungsteniteMessage::Binary(b) => serde_json::json!({ "binary": BASE64_STANDARD.encode(&b) }),
+        TungsteniteMessage::Binary(b) => {
+            serde_json::json!({ "binary": BASE64_STANDARD.encode(&b) })
+        }
         TungsteniteMessage::Ping(b) => serde_json::json!({ "ping": BASE64_STANDARD.encode(&b) }),
         TungsteniteMessage::Pong(b) => serde_json::json!({ "pong": BASE64_STANDARD.encode(&b) }),
         TungsteniteMessage::Close(cf) => match cf {
@@ -283,25 +285,34 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
     if let Ok(sa) = addr.parse::<SocketAddr>() {
         return Ok(sa);
     }
-    let url = url::Url::parse(addr).map_err(|e| Error::PrimitiveError(format!("url parse: {e}")))?;
+    let url =
+        url::Url::parse(addr).map_err(|e| Error::PrimitiveError(format!("url parse: {e}")))?;
     let host = url
         .host_str()
         .ok_or(Error::PrimitiveError("missing host".to_string()))?;
-    let port = url.port().or_else(|| match url.scheme() {
-        "ws" => Some(80),
-        "wss" => Some(443),
-        _ => None,
-    }).ok_or(Error::PrimitiveError("missing port".to_string()))?;
+    let port = url
+        .port()
+        .or_else(|| match url.scheme() {
+            "ws" => Some(80),
+            "wss" => Some(443),
+            _ => None,
+        })
+        .ok_or(Error::PrimitiveError("missing port".to_string()))?;
     let ip = (host, port)
         .to_socket_addrs()
         .map_err(|e| Error::PrimitiveError(format!("dns lookup: {e}")))?
         .next()
-        .ok_or(Error::PrimitiveError("could not resolve address".to_string()))?;
+        .ok_or(Error::PrimitiveError(
+            "could not resolve address".to_string(),
+        ))?;
     Ok(ip)
 }
 
 #[cfg(feature = "server")]
-fn build_tls_config(cert_pem: &str, key_pem: &str) -> Result<Arc<tokio_rustls::rustls::ServerConfig>, Error> {
+fn build_tls_config(
+    cert_pem: &str,
+    key_pem: &str,
+) -> Result<Arc<tokio_rustls::rustls::ServerConfig>, Error> {
     use tokio_rustls::rustls::pki_types::CertificateDer;
 
     let mut cert_reader = cert_pem.as_bytes();
@@ -387,8 +398,7 @@ impl Function<NonFunctionValue> for ClientConnect {
         let (cmd_tx, mut cmd_rx) = tokio_mpsc::unbounded_channel::<TungsteniteMessage>();
 
         let url_string = url.to_string();
-        let connect_result =
-            runtime().block_on(tokio_tungstenite::connect_async(&url_string));
+        let connect_result = runtime().block_on(tokio_tungstenite::connect_async(&url_string));
         let (ws_stream, _) =
             connect_result.map_err(|e| Error::PrimitiveError(format!("connect failed: {e}")))?;
 
@@ -491,8 +501,13 @@ impl Function<NonFunctionValue> for ClientRecv {
 
         let rx = rx.lock().unwrap();
         let value = match timeout {
-            None => rx.recv().ok().unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)),
-            Some(t) if t <= 0.0 => rx.try_recv().unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null)),
+            None => rx
+                .recv()
+                .ok()
+                .unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)),
+            Some(t) if t <= 0.0 => rx
+                .try_recv()
+                .unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null)),
             Some(t) => match rx.recv_timeout(std::time::Duration::from_secs_f64(t)) {
                 Ok(v) => v,
                 Err(_) => NonFunctionValue::new(JsonValue::Null),
@@ -656,7 +671,11 @@ impl Function<NonFunctionValue> for ServerListen {
             let guard = inner.lock().unwrap();
             let mut servers = guard.servers.lock().unwrap();
             let server = servers.get_mut(&id).unwrap();
-            (server.handler.clone(), server.tls.clone(), server.max_connections)
+            (
+                server.handler.clone(),
+                server.tls.clone(),
+                server.max_connections,
+            )
         };
 
         let handle = std::thread::spawn(move || {
@@ -677,9 +696,9 @@ impl Function<NonFunctionValue> for ServerListen {
             ));
         });
 
-        let local_addr = local_addr_rx.recv().map_err(|_| {
-            Error::PrimitiveError("websocket server failed to bind".to_string())
-        })?;
+        let local_addr = local_addr_rx
+            .recv()
+            .map_err(|_| Error::PrimitiveError("websocket server failed to bind".to_string()))?;
 
         {
             let inner = inner();
@@ -903,11 +922,7 @@ mod tests {
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
 
-        let server_id = m
-            .function("server")
-            .unwrap()
-            .call(&[], &mut ctx)
-            .unwrap();
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
 
         let handler = NonFunctionValue::new(serde_json::json!({
             "params": [
@@ -930,11 +945,7 @@ mod tests {
             )
             .unwrap();
 
-        let client = m
-            .function("client")
-            .unwrap()
-            .call(&[], &mut ctx)
-            .unwrap();
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
 
         m.function("connect")
             .unwrap()
@@ -944,7 +955,10 @@ mod tests {
         m.function("send")
             .unwrap()
             .call(
-                &[client.clone(), NonFunctionValue::new(serde_json::json!("hello"))],
+                &[
+                    client.clone(),
+                    NonFunctionValue::new(serde_json::json!("hello")),
+                ],
                 &mut ctx,
             )
             .unwrap();
@@ -992,11 +1006,7 @@ mod tests {
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
 
-        let client = m
-            .function("client")
-            .unwrap()
-            .call(&[], &mut ctx)
-            .unwrap();
+        let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
 
         let msg = m
             .function("recv")
@@ -1015,24 +1025,21 @@ mod tests {
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
 
-        let server_id = m
-            .function("server")
-            .unwrap()
-            .call(&[], &mut ctx)
-            .unwrap();
+        let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
 
         let handler = NonFunctionValue::new(serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
         }));
 
-        let result = m
-            .function("listen")
-            .unwrap()
-            .call(
-                &[server_id, NonFunctionValue::new(serde_json::json!("not-an-address")), handler],
-                &mut ctx,
-            );
+        let result = m.function("listen").unwrap().call(
+            &[
+                server_id,
+                NonFunctionValue::new(serde_json::json!("not-an-address")),
+                handler,
+            ],
+            &mut ctx,
+        );
 
         assert!(result.is_err());
     }
@@ -1083,14 +1090,21 @@ mod tests {
             )
             .unwrap();
 
-        let msg = m.function("recv").unwrap().call(&[client.clone()], &mut ctx).unwrap();
-        assert_eq!(
-            msg.inner().get("binary"),
-            Some(&serde_json::json!(payload))
-        );
+        let msg = m
+            .function("recv")
+            .unwrap()
+            .call(&[client.clone()], &mut ctx)
+            .unwrap();
+        assert_eq!(msg.inner().get("binary"), Some(&serde_json::json!(payload)));
 
-        m.function("close").unwrap().call(&[client], &mut ctx).unwrap();
-        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
+        m.function("close")
+            .unwrap()
+            .call(&[client], &mut ctx)
+            .unwrap();
+        m.function("stop")
+            .unwrap()
+            .call(&[server_id], &mut ctx)
+            .unwrap();
     }
 
     #[cfg(feature = "client")]
@@ -1102,16 +1116,13 @@ mod tests {
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
-        let result = m
-            .function("connect")
-            .unwrap()
-            .call(
-                &[
-                    client,
-                    NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:1")),
-                ],
-                &mut ctx,
-            );
+        let result = m.function("connect").unwrap().call(
+            &[
+                client,
+                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:1")),
+            ],
+            &mut ctx,
+        );
 
         assert!(result.is_err());
     }
@@ -1129,10 +1140,7 @@ mod tests {
             .function("recv")
             .unwrap()
             .call(
-                &[
-                    client,
-                    NonFunctionValue::new(serde_json::json!(0)),
-                ],
+                &[client, NonFunctionValue::new(serde_json::json!(0))],
                 &mut ctx,
             )
             .unwrap();
@@ -1146,10 +1154,14 @@ mod tests {
     fn wss_server_echo_roundtrip() {
         use handl_plugin_vm_values_json::CanonicalContext;
         use tokio::runtime::Runtime;
-        use tokio_rustls::rustls::{ClientConfig, RootCertStore};
         use tokio_rustls::rustls::pki_types::ServerName;
+        use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
-        let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string(), "127.0.0.1".to_string()]).unwrap();
+        let cert = rcgen::generate_simple_self_signed(vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+        ])
+        .unwrap();
         let cert_pem = cert.cert.pem();
         let key_pem = cert.key_pair.serialize_pem();
 
@@ -1197,7 +1209,11 @@ mod tests {
                 .with_no_client_auth();
             let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config));
 
-            let bind = url.strip_prefix("wss://").unwrap().parse::<std::net::SocketAddr>().unwrap();
+            let bind = url
+                .strip_prefix("wss://")
+                .unwrap()
+                .parse::<std::net::SocketAddr>()
+                .unwrap();
             let tcp = tokio::net::TcpStream::connect(bind).await.unwrap();
             let server_name = ServerName::IpAddress(std::net::Ipv4Addr::new(127, 0, 0, 1).into());
             let tls = connector.connect(server_name, tcp).await.unwrap();
@@ -1206,15 +1222,23 @@ mod tests {
                 .await
                 .unwrap();
 
-            ws.send(TungsteniteMessage::Text("hello".to_string())).await.unwrap();
+            ws.send(TungsteniteMessage::Text("hello".to_string()))
+                .await
+                .unwrap();
             let reply = ws.next().await.unwrap().unwrap();
             let _ = ws.close(None).await;
             reply
         });
 
-        assert_eq!(tungstenite_to_json(reply), serde_json::json!({"text": "hello"}));
+        assert_eq!(
+            tungstenite_to_json(reply),
+            serde_json::json!({"text": "hello"})
+        );
 
-        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
+        m.function("stop")
+            .unwrap()
+            .call(&[server_id], &mut ctx)
+            .unwrap();
     }
 
     #[cfg(feature = "server")]
@@ -1249,7 +1273,10 @@ mod tests {
 
         assert!(url.inner().as_str().unwrap().starts_with("ws://"));
 
-        m.function("stop").unwrap().call(&[server_id], &mut ctx).unwrap();
+        m.function("stop")
+            .unwrap()
+            .call(&[server_id], &mut ctx)
+            .unwrap();
     }
 
     #[cfg(feature = "client")]
@@ -1261,16 +1288,13 @@ mod tests {
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
-        let result = m
-            .function("connect")
-            .unwrap()
-            .call(
-                &[
-                    client,
-                    NonFunctionValue::new(serde_json::json!("not-a-url")),
-                ],
-                &mut ctx,
-            );
+        let result = m.function("connect").unwrap().call(
+            &[
+                client,
+                NonFunctionValue::new(serde_json::json!("not-a-url")),
+            ],
+            &mut ctx,
+        );
 
         assert!(result.is_err());
     }
@@ -1283,16 +1307,13 @@ mod tests {
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
 
-        let result = m
-            .function("send")
-            .unwrap()
-            .call(
-                &[
-                    NonFunctionValue::new(serde_json::json!({"client_id": 99999})),
-                    NonFunctionValue::new(serde_json::json!("hello")),
-                ],
-                &mut ctx,
-            );
+        let result = m.function("send").unwrap().call(
+            &[
+                NonFunctionValue::new(serde_json::json!({"client_id": 99999})),
+                NonFunctionValue::new(serde_json::json!("hello")),
+            ],
+            &mut ctx,
+        );
 
         assert!(result.is_err());
     }
@@ -1305,13 +1326,12 @@ mod tests {
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
 
-        let result = m
-            .function("recv")
-            .unwrap()
-            .call(
-                &[NonFunctionValue::new(serde_json::json!({"client_id": 99999}))],
-                &mut ctx,
-            );
+        let result = m.function("recv").unwrap().call(
+            &[NonFunctionValue::new(
+                serde_json::json!({"client_id": 99999}),
+            )],
+            &mut ctx,
+        );
 
         assert!(result.is_err());
     }
@@ -1409,5 +1429,4 @@ mod tests {
         );
         assert!(result.is_err());
     }
-
 }

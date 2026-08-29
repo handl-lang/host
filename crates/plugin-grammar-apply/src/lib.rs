@@ -27,10 +27,7 @@ impl<K: ApplyToken> Behavior<Parser<K>> for ApplyRule {
         "apply"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         Ok(())
     }
 }
@@ -48,7 +45,10 @@ impl<K: ApplyToken> ParserBehavior<K> for ApplyRule {
         let inner = ctx.expression(0)?;
         let close = ctx.advance()?;
         if !close.kind.is_paren_close() {
-            return Err(PlatformError::Plugin(format!("expected `)`, got {}", close.kind)));
+            return Err(PlatformError::Plugin(format!(
+                "expected `)`, got {}",
+                close.kind
+            )));
         }
         Ok(inner)
     }

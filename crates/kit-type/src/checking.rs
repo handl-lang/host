@@ -212,9 +212,7 @@ pub fn synth(
         }
         Term::Empty => Ok(Value::Universe(Level::zero())),
         Term::Null => Ok(Value::Collection(Name::new("type.null"))),
-        Term::Array(_) | Term::Object(_) => {
-            Err(TypeError::CannotSynthesize("array/object".into()))
-        }
+        Term::Array(_) | Term::Object(_) => Err(TypeError::CannotSynthesize("array/object".into())),
     }
 }
 
@@ -475,13 +473,7 @@ pub fn check(
             expected: "equality".into(),
             found: "refl".into(),
         }),
-        (
-            Term::Refl,
-            Value::Eq {
-                ref lhs,
-                ref rhs,
-            },
-        ) => {
+        (Term::Refl, Value::Eq { ref lhs, ref rhs }) => {
             let a = normalize_value(lhs.as_ref());
             let b = normalize_value(rhs.as_ref());
             if a == b {

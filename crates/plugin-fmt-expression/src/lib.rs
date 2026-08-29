@@ -1,8 +1,8 @@
 //! Expression formatter stub; canonical formatting implementation pending.
 
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError,
-    Plugin, PluginContext,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
+    PluginContext,
 };
 use handl_plugin_vm::Expr;
 use handl_plugin_vm_values_json::{Formatter, NonFunctionValue};

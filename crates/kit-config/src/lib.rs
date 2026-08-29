@@ -52,28 +52,27 @@
 //! let ctx = host.new_context();
 //! ```
 
+use handl_plugin_lib_archive_tar::TarModule;
+use handl_plugin_lib_compress_gzip::GzipModule;
 use handl_plugin_lib_crypto::CryptoModule;
 use handl_plugin_lib_datetime::DateTimeModule;
 use handl_plugin_lib_intl::IntlModule;
+use handl_plugin_lib_ip::IpModule;
 use handl_plugin_lib_kv::KeyValueStoreModule;
 use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
-use handl_plugin_lib_archive_tar::TarModule;
-use handl_plugin_lib_compress_gzip::GzipModule;
-use handl_plugin_lib_ip::IpModule;
 use handl_plugin_lib_stats::StatsModule;
 
+use handl_plugin_lib_collections::CollectionsModule;
 #[cfg(feature = "concurrent")]
 use handl_plugin_lib_concurrent::ConcurrencyModule;
-use handl_plugin_lib_ws_rfc_memory::WsRfcModule;
-use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_plugin_lib_unicode::UnicodeModule;
 use handl_plugin_lib_utils::{
-    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule,
-    JsonModule, MathModule, MoodModule, OptionModule, ParseModule, ResultModule,
-    SerializeModule, StrModule, TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule,
-    YamlModule,
+    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule, JsonModule,
+    MathModule, MoodModule, OptionModule, ParseModule, ResultModule, SerializeModule, StrModule,
+    TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule, YamlModule,
 };
-use handl_plugin_lib_collections::CollectionsModule;
+use handl_plugin_lib_ws_rfc_memory::WsRfcModule;
+use handl_plugin_lib_ws_whatwg_native::WsWhatwgNativeModule;
 use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
 use handl_plugin_vm_common::ModuleHost;
 use handl_plugin_vm_host_eval::EvalHost;

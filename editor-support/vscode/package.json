@@ -1,0 +1,18 @@
+{
+  "contributes": {
+    "languages": [
+      {
+        "id": "handl",
+        "extensions": [".hnl"],
+        "aliases": ["handl"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "handl",
+        "scopeName": "source.handl",
+        "path": "./hnl.tmLanguage.json"
+      }
+    ]
+  }
+}

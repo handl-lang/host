@@ -1,12 +1,12 @@
 //! JSON value evaluation rule for the generic `BasicEvaluator`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     BasicEvaluator, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest,
-    CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalRequest, PlatformError, Plugin,
-    PluginContext,
+    CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalRequest, PlatformError,
+    Plugin, PluginContext,
 };
 use serde_json::Value;
 
@@ -50,9 +50,9 @@ fn expr_text(payload: &Value) -> Option<String> {
 
 fn normalize_number(value: Value) -> Value {
     match value {
-        Value::Number(n) => Value::Number(
-            serde_json::Number::from_f64(n.as_f64().unwrap_or_default()).unwrap_or(n),
-        ),
+        Value::Number(n) => {
+            Value::Number(serde_json::Number::from_f64(n.as_f64().unwrap_or_default()).unwrap_or(n))
+        }
         _ => value,
     }
 }

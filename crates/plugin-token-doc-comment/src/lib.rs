@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
-    CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexerConfig, LexRule, Span, Token,
+    CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexRule, LexerConfig, Span, Token,
     TokenKind,
 };
 use std::fmt;
@@ -66,7 +66,10 @@ where
     ) -> Option<Result<Token<K>, E>> {
         if config.factory().is_doc_line_comment_start(chars) {
             let (text, span) = config.factory().lex_doc_line_comment(chars);
-            return Some(Ok(Token::new(config.factory().doc_comment_kind(text), span)));
+            return Some(Ok(Token::new(
+                config.factory().doc_comment_kind(text),
+                span,
+            )));
         }
 
         if config.factory().is_doc_block_comment_start(chars) {

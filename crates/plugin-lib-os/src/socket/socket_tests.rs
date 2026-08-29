@@ -59,7 +59,10 @@ fn send_and_close() {
     assert_eq!(sent, 4);
     call(&module, "close", &[n(handle)]);
     let err = call_err(&module, "recv", &[n(handle), n(1024)]);
-    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(
+        err,
+        handl_plugin_vm_values_json::Error::PrimitiveError(_)
+    ));
 }
 
 #[test]

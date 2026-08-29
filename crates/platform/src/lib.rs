@@ -3,6 +3,8 @@
 //! resolution, hosts, and boundaries.
 #![warn(missing_docs)]
 
+/// Generic, composable AST node.
+pub mod ast_node;
 /// Types for describing runtime isolation boundaries.
 pub mod boundary;
 /// Generic build operation and rule acceptor.
@@ -29,25 +31,24 @@ pub mod kit;
 pub mod lint;
 /// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
-/// Generic, composable AST node.
-pub mod ast_node;
 /// Plugin-provided option schemas and resolved values.
 pub mod options;
-/// Generic typecheck operation and rule acceptor.
-pub mod typecheck;
-/// Foundational composable plugin types.
-pub mod plugin_model;
 /// Plugin traits, registries, and built-in plugin implementations.
 pub mod plugin;
+/// Foundational composable plugin types.
+pub mod plugin_model;
 /// Plugin composition resolution.
 pub mod resolve;
 /// Runtime built-in host and behavior rules.
 pub mod runtime_host;
+/// Generic typecheck operation and rule acceptor.
+pub mod typecheck;
 /// Unified `Value`/`Term` space for the platform VM.
 pub mod value;
 /// Composable VM wrapper over the unified value space.
 pub mod vm;
 
+pub use ast_node::*;
 pub use boundary::*;
 pub use build::*;
 pub use capability::*;
@@ -61,13 +62,12 @@ pub use host::*;
 pub use kit::*;
 pub use lint::*;
 pub use manifest::*;
-pub use ast_node::*;
 pub use options::*;
-pub use typecheck::*;
-pub use plugin_model::*;
 pub use plugin::*;
+pub use plugin_model::*;
 pub use resolve::*;
 pub use runtime_host::*;
+pub use typecheck::*;
 
 /// Unified value space primitives re-exported from `handl_kit_type`.
 pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};

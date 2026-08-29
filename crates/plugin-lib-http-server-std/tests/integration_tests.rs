@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
+use bytes::Bytes;
 use handl_plugin_lib_http_server::{HttpMethod, HttpServer, HttpServerRequest, HttpServerResponse};
 use handl_plugin_lib_http_server_std::{ServerConfig, StdHttpServer};
 use handl_plugin_vm_values_json::FunctionValue;
-use bytes::Bytes;
 use http_body_util::{BodyExt, Empty};
 use hyper::Request;
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -136,7 +136,8 @@ fn payload_too_large_returns_413() {
 
 #[test]
 fn static_file_guesses_mime_type() {
-    let dir = PathBuf::from(std::env::temp_dir()).join(format!("handl-test-{}", std::process::id()));
+    let dir =
+        PathBuf::from(std::env::temp_dir()).join(format!("handl-test-{}", std::process::id()));
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("icon.svg"), "<svg></svg>").unwrap();
 
@@ -257,7 +258,6 @@ fn path_parameter_route() {
 }
 
 #[test]
-
 #[ignore = "function value patterns not wired"]
 fn function_value_handler_returns_string() {
     let function = FunctionValue {
@@ -285,7 +285,6 @@ fn function_value_handler_returns_string() {
 }
 
 #[test]
-
 #[ignore = "function value patterns not wired"]
 fn function_value_handler_uses_path_param() {
     let function = FunctionValue {

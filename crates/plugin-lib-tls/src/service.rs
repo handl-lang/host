@@ -23,8 +23,12 @@ pub trait TlsService: Send + Sync {
     fn fingerprint(&self, pem: &str) -> Result<String, TlsError>;
 
     /// Builds a client configuration and returns a `config_id`.
-    fn client_config(&self, roots: &[String], cert: Option<&str>, key: Option<&str>)
-        -> Result<usize, TlsError>;
+    fn client_config(
+        &self,
+        roots: &[String],
+        cert: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<usize, TlsError>;
 
     /// Builds a server configuration and returns a `config_id`.
     fn server_config(&self, cert: &str, key: &str) -> Result<usize, TlsError>;

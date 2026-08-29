@@ -136,11 +136,8 @@ impl DefaultHost {
     pub fn resolve_composition(
         &self,
     ) -> Result<crate::resolve::ResolvedComposition, crate::resolve::ResolutionError> {
-        let manifests: Vec<crate::manifest::PluginManifest> = self
-            .plugins
-            .iter_manifests()
-            .into_iter()
-            .collect();
+        let manifests: Vec<crate::manifest::PluginManifest> =
+            self.plugins.iter_manifests().into_iter().collect();
         crate::resolve::resolve(&manifests, &[], None)
     }
 }

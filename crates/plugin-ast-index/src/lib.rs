@@ -21,7 +21,8 @@ where
     /// Creates a new Index node with default metadata.
     pub fn new(target: E, index: E) -> Self {
         Self {
-            target, index,
+            target,
+            index,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            target: self.target, index: self.index,
+            target: self.target,
+            index: self.index,
             metadata,
         }
     }

@@ -7,11 +7,7 @@ fn ctx() -> CanonicalContext {
 }
 
 fn call(name: &str, args: &[NonFunctionValue], ctx: &mut CanonicalContext) -> NonFunctionValue {
-    WsRfcModule
-        .function(name)
-        .unwrap()
-        .call(args, ctx)
-        .unwrap()
+    WsRfcModule.function(name).unwrap().call(args, ctx).unwrap()
 }
 
 fn call_err(name: &str, args: &[NonFunctionValue], ctx: &mut CanonicalContext) {
@@ -26,9 +22,19 @@ fn call_err(name: &str, args: &[NonFunctionValue], ctx: &mut CanonicalContext) {
 fn client_create_connect_close() {
     let mut ctx = ctx();
     let c = call("client", &[], &mut ctx);
-    assert_eq!(c.inner().get("type"), Some(&serde_json::json!("websocket_client")));
+    assert_eq!(
+        c.inner().get("type"),
+        Some(&serde_json::json!("websocket_client"))
+    );
 
-    let connected = call("connect", &[c.clone(), NonFunctionValue::new(serde_json::json!("ws://test"))], &mut ctx);
+    let connected = call(
+        "connect",
+        &[
+            c.clone(),
+            NonFunctionValue::new(serde_json::json!("ws://test")),
+        ],
+        &mut ctx,
+    );
     assert_eq!(connected.inner(), &serde_json::json!(null));
 
     let closed = call("close", &[c], &mut ctx);
@@ -39,8 +45,19 @@ fn client_create_connect_close() {
 fn client_send_recv_roundtrip() {
     let mut ctx = ctx();
     let c = call("client", &[], &mut ctx);
-    call("connect", &[c.clone(), NonFunctionValue::new(serde_json::json!("ws://test"))], &mut ctx);
-    call("send", &[c.clone(), NonFunctionValue::new(serde_json::json!("hello"))], &mut ctx);
+    call(
+        "connect",
+        &[
+            c.clone(),
+            NonFunctionValue::new(serde_json::json!("ws://test")),
+        ],
+        &mut ctx,
+    );
+    call(
+        "send",
+        &[c.clone(), NonFunctionValue::new(serde_json::json!("hello"))],
+        &mut ctx,
+    );
 
     let msg = call("recv", &[c.clone()], &mut ctx);
     assert_eq!(msg.inner(), &serde_json::json!("hello"));
@@ -55,7 +72,10 @@ fn client_send_recv_roundtrip() {
 fn server_listen_stop() {
     let mut ctx = ctx();
     let s = call("server", &[], &mut ctx);
-    assert_eq!(s.inner().get("type"), Some(&serde_json::json!("websocket_server")));
+    assert_eq!(
+        s.inner().get("type"),
+        Some(&serde_json::json!("websocket_server"))
+    );
 
     let handler = NonFunctionValue::new(serde_json::json!({
         "params": [
@@ -64,11 +84,15 @@ fn server_listen_stop() {
         ],
         "body": "msg",
     }));
-    let listened = call("listen", &[
-        s.clone(),
-        NonFunctionValue::new(serde_json::json!("ws://0.0.0.0:9001")),
-        handler,
-    ], &mut ctx);
+    let listened = call(
+        "listen",
+        &[
+            s.clone(),
+            NonFunctionValue::new(serde_json::json!("ws://0.0.0.0:9001")),
+            handler,
+        ],
+        &mut ctx,
+    );
     assert_eq!(listened.inner(), &serde_json::json!(null));
 
     let stopped = call("stop", &[s], &mut ctx);
@@ -86,7 +110,10 @@ fn frame_encode_decode_roundtrip() {
     assert!(encoded.inner().is_string());
 
     let decoded = call("frame.decode", &[encoded], &mut ctx);
-    assert_eq!(decoded.inner().get("opcode"), Some(&serde_json::json!("text")));
+    assert_eq!(
+        decoded.inner().get("opcode"),
+        Some(&serde_json::json!("text"))
+    );
 }
 
 #[test]
@@ -156,24 +183,34 @@ fn frame_encode_rejects_fin_non_bool() {
     call_err("frame.encode", &[frame], &mut ctx);
 }
 
-
-
 #[test]
 fn frame_decode_rejects_non_base64() {
     let mut ctx = ctx();
-    call_err("frame.decode", &[NonFunctionValue::new(serde_json::json!("not-base64!!!"))], &mut ctx);
+    call_err(
+        "frame.decode",
+        &[NonFunctionValue::new(serde_json::json!("not-base64!!!"))],
+        &mut ctx,
+    );
 }
 
 #[test]
 fn frame_encode_rejects_non_object() {
     let mut ctx = ctx();
-    call_err("frame.encode", &[NonFunctionValue::new(serde_json::json!("not an object"))], &mut ctx);
+    call_err(
+        "frame.encode",
+        &[NonFunctionValue::new(serde_json::json!("not an object"))],
+        &mut ctx,
+    );
 }
 
 #[test]
 fn message_from_frame_rejects_non_object() {
     let mut ctx = ctx();
-    call_err("message.from_frame", &[NonFunctionValue::new(serde_json::json!("not an object"))], &mut ctx);
+    call_err(
+        "message.from_frame",
+        &[NonFunctionValue::new(serde_json::json!("not an object"))],
+        &mut ctx,
+    );
 }
 
 #[test]
@@ -300,7 +337,11 @@ fn message_to_frame_close_null() {
 #[test]
 fn message_to_frame_rejects_empty_object() {
     let mut ctx = ctx();
-    call_err("message.to_frame", &[NonFunctionValue::new(serde_json::json!({}))], &mut ctx);
+    call_err(
+        "message.to_frame",
+        &[NonFunctionValue::new(serde_json::json!({}))],
+        &mut ctx,
+    );
 }
 
 #[test]
@@ -313,7 +354,11 @@ fn frame_encode_rejects_missing_opcode() {
 #[test]
 fn client_rejects_arguments() {
     let mut ctx = ctx();
-    call_err("client", &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+    call_err(
+        "client",
+        &[NonFunctionValue::new(serde_json::json!(null))],
+        &mut ctx,
+    );
 }
 
 #[test]
@@ -339,20 +384,32 @@ fn recv_requires_arguments() {
 #[test]
 fn recv_rejects_string_client_id() {
     let mut ctx = ctx();
-    call_err("recv", &[NonFunctionValue::new(serde_json::json!("not-an-id"))], &mut ctx);
+    call_err(
+        "recv",
+        &[NonFunctionValue::new(serde_json::json!("not-an-id"))],
+        &mut ctx,
+    );
 }
 
 #[test]
 fn connect_rejects_non_string_url() {
     let mut ctx = ctx();
     let c = call("client", &[], &mut ctx);
-    call_err("connect", &[c, NonFunctionValue::new(serde_json::json!(123))], &mut ctx);
+    call_err(
+        "connect",
+        &[c, NonFunctionValue::new(serde_json::json!(123))],
+        &mut ctx,
+    );
 }
 
 #[test]
 fn close_rejects_string_client_id() {
     let mut ctx = ctx();
-    call_err("close", &[NonFunctionValue::new(serde_json::json!("not-an-id"))], &mut ctx);
+    call_err(
+        "close",
+        &[NonFunctionValue::new(serde_json::json!("not-an-id"))],
+        &mut ctx,
+    );
 }
 
 #[test]
@@ -371,7 +428,13 @@ fn send_to_unknown_client_fails() {
 #[test]
 fn recv_from_unknown_client_fails() {
     let mut ctx = ctx();
-    call_err("recv", &[NonFunctionValue::new(serde_json::json!({"client_id": 99999}))], &mut ctx);
+    call_err(
+        "recv",
+        &[NonFunctionValue::new(
+            serde_json::json!({"client_id": 99999}),
+        )],
+        &mut ctx,
+    );
 }
 
 #[test]
@@ -401,7 +464,11 @@ fn close_requires_arguments() {
 #[test]
 fn server_rejects_arguments() {
     let mut ctx = ctx();
-    call_err("server", &[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+    call_err(
+        "server",
+        &[NonFunctionValue::new(serde_json::json!(null))],
+        &mut ctx,
+    );
 }
 
 #[test]

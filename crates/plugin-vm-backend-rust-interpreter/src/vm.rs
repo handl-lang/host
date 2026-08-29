@@ -1,3 +1,4 @@
+use crate::continuation::expr_to_json;
 use crate::pattern::{define_pattern, pattern_to_json};
 use crate::{Context, Error, Expr, Host, VirtualMachine};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
@@ -119,7 +120,7 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
-                    body: body.clone(),
+                    body: serde_json::to_string(&expr_to_json(body)).unwrap_or_default(),
                     patterns: pattern_json,
                 };
 
@@ -313,6 +314,43 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
                 }
                 Ok(NonFunctionValue::new(JsonValue::Object(map)))
             }
+
+            Expr::Pipe(left, right) => {
+                let left_value = self.eval(left, ctx)?;
+                match right.as_ref() {
+                    Expr::Function { .. } => {
+                        let fn_value = self.eval(right, ctx)?;
+                        let apply = self
+                            .host
+                            .function("apply")
+                            .ok_or_else(|| Error::UnknownFunction("apply".to_string()))?;
+                        apply.call(&[fn_value, left_value], ctx)
+                    }
+                    _ => {
+                        let right_value = self.eval(right, ctx)?;
+                        let apply = self
+                            .host
+                            .function("apply")
+                            .ok_or_else(|| Error::UnknownFunction("apply".to_string()))?;
+                        apply.call(&[right_value, left_value], ctx)
+                    }
+                }
+            }
+
+            Expr::Match { subject, arms } => {
+                let subject_value = self.eval(subject, ctx)?;
+                for (pattern, guard, body) in arms {
+                    if let Some(guard_expr) = guard {
+                        let guard_value = self.eval(guard_expr, ctx)?;
+                        if guard_value.as_bool() != Some(true) {
+                            continue;
+                        }
+                    }
+                    define_pattern(ctx, pattern, subject_value.clone())?;
+                    return self.eval(body, ctx);
+                }
+                Err(Error::PrimitiveError("no matching pattern".to_string()))
+            }
         }
     }
 
@@ -399,7 +437,7 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
-                    body: body.clone(),
+                    body: serde_json::to_string(&expr_to_json(body)).unwrap_or_default(),
                     patterns: pattern_json,
                 };
 
@@ -594,6 +632,31 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
                     map.insert(key.clone(), value);
                 }
                 Ok(NonFunctionValue::new(JsonValue::Object(map)))
+            }
+
+            Expr::Pipe(left, right) => {
+                let left_value = Box::pin(self.eval_async(left, ctx)).await?;
+                let right_value = Box::pin(self.eval_async(right, ctx)).await?;
+                let apply = self
+                    .host
+                    .function("apply")
+                    .ok_or_else(|| Error::UnknownFunction("apply".to_string()))?;
+                apply.call(&[right_value, left_value], ctx)
+            }
+
+            Expr::Match { subject, arms } => {
+                let subject_value = Box::pin(self.eval_async(subject, ctx)).await?;
+                for (pattern, guard, body) in arms {
+                    if let Some(guard_expr) = guard {
+                        let guard_value = Box::pin(self.eval_async(guard_expr, ctx)).await?;
+                        if guard_value.as_bool() != Some(true) {
+                            continue;
+                        }
+                    }
+                    define_pattern(ctx, pattern, subject_value.clone())?;
+                    return Box::pin(self.eval_async(body, ctx)).await;
+                }
+                Err(Error::PrimitiveError("no matching pattern".to_string()))
             }
         }
     }

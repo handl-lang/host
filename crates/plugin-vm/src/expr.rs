@@ -19,6 +19,8 @@ pub enum Expr<V> {
         name: String,
         /// Function arguments.
         args: Vec<Expr<V>>,
+        /// Type arguments (for generic functions).
+        type_args: Vec<String>,
     },
     /// Invocation of a first-class function value.
     Apply {
@@ -54,10 +56,12 @@ pub enum Expr<V> {
         /// Match arms: (pattern, guard, body).
         arms: Vec<(Pattern, Option<Expr<V>>, Expr<V>)>,
     },
-    /// A handle expression: `handle expr`.
+    /// A handle expression: `handle body { ... }`.
     Handle {
-        /// The handled expression.
-        expr: Box<Expr<V>>,
+        /// The handled expression body.
+        body: Box<Expr<V>>,
+        /// Handler clauses.
+        handlers: Vec<HandlerClause<V>>,
     },
     /// An assignment expression: `target = value`.
     Assign {
@@ -70,11 +74,73 @@ pub enum Expr<V> {
     Function {
         /// Type parameters.
         type_params: Vec<String>,
-        /// Parameters with optional default expressions.
+        /// Parameters with optional type annotations.
         params: Vec<(Pattern, Option<Expr<V>>)>,
+        /// Optional return type annotation.
+        ret: Option<Box<Expr<V>>>,
         /// Function body.
         body: Box<Expr<V>>,
     },
+}
+
+impl<V> Expr<V> {
+    /// Creates a `Value` expression.
+    pub fn value(v: V) -> Self {
+        Expr::Value(v)
+    }
+
+    /// Creates a `Var` expression.
+    pub fn var(name: impl Into<String>) -> Self {
+        Expr::Var(name.into())
+    }
+
+    /// Creates a `Call` expression with no type arguments.
+    pub fn call(name: impl Into<String>, args: Vec<Expr<V>>) -> Self {
+        Expr::Call {
+            name: name.into(),
+            args,
+            type_args: Vec::new(),
+        }
+    }
+
+    /// Creates a `Call` expression with type arguments (for generic functions).
+    pub fn call_with_type_args(
+        name: impl Into<String>,
+        args: Vec<Expr<V>>,
+        type_args: Vec<String>,
+    ) -> Self {
+        Expr::Call {
+            name: name.into(),
+            args,
+            type_args,
+        }
+    }
+
+    /// Creates a `Handle` expression.
+    pub fn handle(body: Expr<V>, handlers: Vec<HandlerClause<V>>) -> Self {
+        Expr::Handle {
+            body: Box::new(body),
+            handlers,
+        }
+    }
+
+    /// Creates an `Assign` expression.
+    pub fn assign(target: Pattern, value: Expr<V>) -> Self {
+        Expr::Assign {
+            target,
+            value: Box::new(value),
+        }
+    }
+
+    /// Creates an `Array` expression.
+    pub fn array(elements: Vec<Expr<V>>) -> Self {
+        Expr::Array(elements)
+    }
+
+    /// Creates an `Object` expression.
+    pub fn object(entries: Vec<(String, Expr<V>)>) -> Self {
+        Expr::Object(entries)
+    }
 }
 
 /// A concrete pattern used in `let`/`const` bindings, match arms, and parameters.
@@ -115,9 +181,18 @@ impl Pattern {
     }
 }
 
-/// Placeholder for a handler clause.
+/// A handler clause in a `handle` expression.
 #[derive(Debug, Clone, PartialEq)]
-pub struct HandlerClause;
+pub struct HandlerClause<V> {
+    /// The operation name this clause matches.
+    pub op_name: String,
+    /// Parameter names bound when the handler fires.
+    pub params: Vec<String>,
+    /// The continuation name (bound to a resume function).
+    pub continuation_name: String,
+    /// The handler body expression.
+    pub body: Expr<V>,
+}
 
 /// Placeholder factory for constructing `Expr` nodes from a source node.
 pub trait ExprFactory<E, V> {

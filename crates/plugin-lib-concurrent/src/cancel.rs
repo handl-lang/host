@@ -125,9 +125,9 @@ impl CancelRuntime for DefaultCancelRuntime {
     }
 
     fn cancel_flag(&self, token: &NonFunctionValue) -> Option<Arc<AtomicBool>> {
-        token_id(token).ok().and_then(|id| {
-            self.flags.lock().ok()?.get(&id).cloned()
-        })
+        token_id(token)
+            .ok()
+            .and_then(|id| self.flags.lock().ok()?.get(&id).cloned())
     }
 
     fn cancelable(

@@ -232,11 +232,12 @@ impl Function<NonFunctionValue> for Min {
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Less)
-            .ok_or(Error::ArgumentCount {
+        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Less).ok_or(
+            Error::ArgumentCount {
                 expected: 1,
                 got: 0,
-            })?;
+            },
+        )?;
         Ok(best.clone())
     }
 }
@@ -249,11 +250,12 @@ impl Function<NonFunctionValue> for Max {
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Greater)
-            .ok_or(Error::ArgumentCount {
+        let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Greater).ok_or(
+            Error::ArgumentCount {
                 expected: 1,
                 got: 0,
-            })?;
+            },
+        )?;
         Ok(best.clone())
     }
 }

@@ -1,9 +1,9 @@
 //! Stub document-symbols plugin; full LSP port pending.
 
-use handl_platform::PlatformError;
 use handl_host_tooling::lsp::{
     DocumentSymbolsPlugin, DocumentSymbolsRequest, DocumentSymbolsResponse,
 };
+use handl_platform::PlatformError;
 
 /// A minimal document-symbols plugin.
 #[derive(Debug, Default, Clone, Copy)]

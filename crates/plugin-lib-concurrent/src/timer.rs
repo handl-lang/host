@@ -5,8 +5,8 @@
 //! [`ThreadTimerRuntime`] is the bundled, in-memory, `std`-based default
 //! backed by a dedicated worker thread.
 
-use std::sync::mpsc;
 use std::sync::Mutex;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -86,13 +86,10 @@ impl ThreadTimerRuntime {
             .lock()
             .map_err(|_| Error::PrimitiveError("timer runtime lock poisoned".to_string()))?;
         if let Some(tx) = guard.as_ref() {
-            tx.send(cmd).map_err(|_| {
-                Error::PrimitiveError("timer runtime shut down".to_string())
-            })
+            tx.send(cmd)
+                .map_err(|_| Error::PrimitiveError("timer runtime shut down".to_string()))
         } else {
-            Err(Error::PrimitiveError(
-                "timer runtime shut down".to_string(),
-            ))
+            Err(Error::PrimitiveError("timer runtime shut down".to_string()))
         }
     }
 }
@@ -126,9 +123,8 @@ impl TimerRuntime for ThreadTimerRuntime {
     fn sleep(&self, delay_ms: u64) -> Result<(), Error> {
         let (tx, rx) = mpsc::channel::<()>();
         self.send(Command::Sleep { delay_ms, tx })?;
-        rx.recv().map_err(|_| {
-            Error::PrimitiveError("timer runtime shut down".to_string())
-        })
+        rx.recv()
+            .map_err(|_| Error::PrimitiveError("timer runtime shut down".to_string()))
     }
 }
 
@@ -164,9 +160,14 @@ impl TimerRuntime for NoopTimerRuntime {
 mod tests {
     use super::*;
     use crate::scheduler::Scheduler;
-    use handl_plugin_vm_values_json::{CanonicalContext, Error as _Error, Eval, FunctionValue, NonFunctionValue};
+    use handl_plugin_vm_values_json::{
+        CanonicalContext, Error as _Error, Eval, FunctionValue, NonFunctionValue,
+    };
     use serde_json::json;
-    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -244,7 +245,11 @@ mod tests {
         timer.sleep(50).unwrap();
 
         let elapsed = start.elapsed();
-        assert!(elapsed >= Duration::from_millis(45), "sleep returned too early: {:?}", elapsed);
+        assert!(
+            elapsed >= Duration::from_millis(45),
+            "sleep returned too early: {:?}",
+            elapsed
+        );
     }
 
     #[test]

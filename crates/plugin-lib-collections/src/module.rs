@@ -2,9 +2,14 @@ use handl_plugin_vm::Function;
 use handl_plugin_vm_common::Module;
 use handl_plugin_vm_values_json::NonFunctionValue;
 
+use super::array::{
+    At, Chunk, Compact, Concat, Contains, Dedupe, DeepFlatten, Drop, DropWhile, Enumerate, Fill,
+    FindIndex, FindLast, FindLastIndex, First, Flatten, Foldr, IndexOf, InsertAt, Intercalate,
+    Intersperse, Last, Length, Pluck, Pop as ArrayPop, Prepend, Push as ArrayPush, Range, RemoveAt,
+    Reverse, Scan, Shift as ArrayShift, Slice, Take, TakeWhile, Transpose, Unzip, Windows, Zip,
+};
 use super::hash_map as hm;
 use super::hash_set as hs;
-use super::array::{At, Chunk, Compact, Concat, Contains, Dedupe, DeepFlatten, Drop, DropWhile, Enumerate, Fill, FindIndex, FindLast, FindLastIndex, First, Flatten, Foldr, IndexOf, InsertAt, Intercalate, Intersperse, Last, Length, Pluck, Pop as ArrayPop, Prepend, Push as ArrayPush, Range, RemoveAt, Reverse, Scan, Shift as ArrayShift, Slice, Take, TakeWhile, Transpose, Unzip, Windows, Zip};
 use super::ops::{End, From, IsEmpty, Len, New, Peek, Pop, Push, ToArray};
 
 static NEW: New = New;

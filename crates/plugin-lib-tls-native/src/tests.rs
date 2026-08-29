@@ -8,7 +8,9 @@ use super::NativeTls;
 #[test]
 fn generate_self_signed_round_trip() {
     let tls = NativeTls::new();
-    let value = tls.generate_self_signed(&["localhost".to_string()]).unwrap();
+    let value = tls
+        .generate_self_signed(&["localhost".to_string()])
+        .unwrap();
     let cert = value["cert"].as_str().unwrap().to_string();
     let fp = tls.fingerprint(&cert).unwrap();
     assert_eq!(fp.len(), 64);
@@ -35,7 +37,6 @@ fn parse_cert_empty_pem() {
 }
 
 #[test]
-
 #[ignore = "rustls crypto provider not configured"]
 fn client_and_server_config() {
     let tls = NativeTls::new();
@@ -52,7 +53,6 @@ fn client_and_server_config() {
 }
 
 #[test]
-
 #[ignore = "rustls crypto provider not configured"]
 fn connect_accept_echo() {
     let tls = NativeTls::new();

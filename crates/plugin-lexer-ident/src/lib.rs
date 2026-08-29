@@ -1,6 +1,8 @@
 //! [`IdentRule`] — matches identifiers and keywords.
 
-use handl_plugin_lexer::{DefaultLexError, IdentFactory, KindFactory, LexError, LexerConfig, LexRule, Token, TokenKind};
+use handl_plugin_lexer::{
+    DefaultLexError, IdentFactory, KindFactory, LexError, LexRule, LexerConfig, Token, TokenKind,
+};
 
 /// Matches identifiers and keywords (identifiers in the keyword table
 /// are remapped to their token kind).
@@ -49,7 +51,7 @@ where
 mod tests {
     use super::*;
     use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{empty_config as cfg, MockKind};
+    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
 
     const RULE: IdentRule = IdentRule;
 

@@ -1,0 +1,107 @@
+{
+  "patterns": [
+    {
+      "include": "#doc_comments"
+    },
+    {
+      "include": "#doc_block_comment"
+    },
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#block_comment"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#booleans"
+    },
+    {
+      "include": "#nulls"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#delimiters"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "block_comment": {
+      "begin": "\\/\\*",
+      "end": "\\*\\/",
+      "name": "comment.block",
+      "patterns": []
+    },
+    "booleans": {
+      "match": "\\b(true|false)\\b",
+      "name": "constant.language.boolean"
+    },
+    "comments": {
+      "match": "\\/\\/.*",
+      "name": "comment.line"
+    },
+    "delimiters": {
+      "match": "[\\(|\\)|\\[|\\]|\\{|\\}|,|:|\\.|;]",
+      "name": "punctuation"
+    },
+    "doc_block_comment": {
+      "begin": "\\/\\*\\*",
+      "end": "\\*\\/",
+      "name": "comment.documentation.block",
+      "patterns": []
+    },
+    "doc_comments": {
+      "match": "\\/\\/\\/.*",
+      "name": "comment.documentation"
+    },
+    "identifiers": {
+      "match": "[a-zA-Z_][a-zA-Z0-9_.]*",
+      "name": "variable"
+    },
+    "keywords": {
+      "match": "\\b(let|const|match|handle|as|typeof|not)\\b",
+      "name": "keyword"
+    },
+    "nulls": {
+      "match": "\\b(null)\\b",
+      "name": "constant.language.null"
+    },
+    "numbers": {
+      "match": "-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?",
+      "name": "constant.numeric"
+    },
+    "operators": {
+      "match": "(\\|>|->|=|\\+|-|\\*|\\/|<|>)",
+      "name": "keyword.operator"
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted",
+          "patterns": []
+        },
+        {
+          "begin": "'",
+          "end": "'",
+          "name": "string.quoted",
+          "patterns": []
+        }
+      ]
+    }
+  },
+  "scopeName": "source.handl"
+}

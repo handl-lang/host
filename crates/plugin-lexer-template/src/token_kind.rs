@@ -1,4 +1,4 @@
-use handl_plugin_lexer::{DefaultLexError, LexError, Span, TokenKind};
+use handl_plugin_lexer::{TokenKind};
 
 use crate::segment::TemplateSegment;
 

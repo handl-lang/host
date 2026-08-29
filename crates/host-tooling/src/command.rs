@@ -79,8 +79,7 @@ pub fn read_source_or_stdin(file: Option<&str>) -> Result<String, PlatformError>
                 .map_err(|e| PlatformError::Plugin(e.to_string()))?;
             Ok(buf)
         }
-        Some(p) => std::fs::read_to_string(p)
-            .map_err(|e| PlatformError::Plugin(e.to_string())),
+        Some(p) => std::fs::read_to_string(p).map_err(|e| PlatformError::Plugin(e.to_string())),
         None => {
             let mut buf = String::new();
             std::io::stdin()
@@ -90,4 +89,3 @@ pub fn read_source_or_stdin(file: Option<&str>) -> Result<String, PlatformError>
         }
     }
 }
-

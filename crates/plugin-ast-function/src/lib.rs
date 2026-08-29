@@ -21,7 +21,8 @@ where
     /// Creates a new Function node with default metadata.
     pub fn new(params: Vec<String>, body: E) -> Self {
         Self {
-            params, body,
+            params,
+            body,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            params: self.params, body: self.body,
+            params: self.params,
+            body: self.body,
             metadata,
         }
     }

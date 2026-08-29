@@ -2666,9 +2666,17 @@ fn is_int_number_well_typed_and_evaluates_to_proof() {
     let mut ctx = MetaContext::new();
     let env = Env::new();
     let tctx = prelude_tctx();
-    let ty = synth(&mut ctx, &env, &tctx, &is(lit_int(4), collection("type.number")));
+    let ty = synth(
+        &mut ctx,
+        &env,
+        &tctx,
+        &is(lit_int(4), collection("type.number")),
+    );
     assert!(ty.is_ok());
-    assert_eq!(eval(&is(lit_int(4), collection("type.number")), &env), Value::IsEvidence);
+    assert_eq!(
+        eval(&is(lit_int(4), collection("type.number")), &env),
+        Value::IsEvidence
+    );
 }
 
 #[test]

@@ -1,0 +1,35 @@
+Flag = {
+  name: "",
+  short: "",
+  description: "",
+  default: "",
+  required: false
+};
+
+Command = {
+  name: "",
+  description: "",
+  flags: [],
+  subcommands: [],
+  handler: ""
+};
+
+ParsedArgs = {
+  command: "",
+  flags: {},
+  positional: []
+};
+
+HelpText = {
+  usage: "",
+  description: "",
+  flags: [],
+  subcommands: []
+};
+
+{
+  Flag: Flag,
+  Command: Command,
+  ParsedArgs: ParsedArgs,
+  HelpText: HelpText
+}

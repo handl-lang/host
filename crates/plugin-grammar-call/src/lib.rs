@@ -30,10 +30,7 @@ impl<K: CallToken> Behavior<Parser<K>> for CallRule {
         "call"
     }
 
-    fn apply(
-        &self,
-        _op: &mut <Parser<K> as Operation>::Request,
-    ) -> Result<(), PlatformError> {
+    fn apply(&self, _op: &mut <Parser<K> as Operation>::Request) -> Result<(), PlatformError> {
         // Parser rules do their work through the Pratt callbacks, not `apply`.
         Ok(())
     }

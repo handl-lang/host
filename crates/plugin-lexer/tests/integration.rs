@@ -342,8 +342,9 @@ fn custom_fn_rule_works() {
 
 #[test]
 fn config_merge_combines_rules() {
-    let base: LexerConfig<IntegKind, DefaultLexError> =
-        LexerConfig::new(()).with_rule(StringRule).with_rule(NumberRule);
+    let base: LexerConfig<IntegKind, DefaultLexError> = LexerConfig::new(())
+        .with_rule(StringRule)
+        .with_rule(NumberRule);
     let ext = LexerConfig::new(()).with_rule(IdentRule);
 
     let merged = base.merge(ext);

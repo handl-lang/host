@@ -10,9 +10,9 @@
 //! value type fixed to `NonFunctionValue`.
 
 mod canonical_context;
+mod formatter;
 mod frontend;
 mod value;
-mod formatter;
 
 #[cfg(test)]
 mod canonical_context_tests;
@@ -22,9 +22,9 @@ mod error_tests;
 mod value_tests;
 
 pub use canonical_context::CanonicalContext;
+pub use formatter::Formatter;
 pub use frontend::Frontend;
 pub use value::{FunctionValue, HostValue, NonFunctionValue};
-pub use formatter::Formatter;
 
 /// Concrete error type for the JSON-backed value representation.
 pub type Error = handl_plugin_vm::Error<NonFunctionValue>;

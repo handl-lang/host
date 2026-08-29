@@ -9,9 +9,7 @@ pub use handl_platform::{BasicTypechecker, Typecheck, TypecheckBehavior, Typeche
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{
-        CapabilityRequest, KitRegistry, Plugin, PluginContext, PluginRegistry,
-    };
+    use handl_platform::{CapabilityRequest, KitRegistry, Plugin, PluginContext, PluginRegistry};
 
     #[test]
     fn reexported_basic_typechecker_can_run() {

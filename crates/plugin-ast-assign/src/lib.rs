@@ -21,7 +21,8 @@ where
     /// Creates a new Assign node with default metadata.
     pub fn new(target: E, value: E) -> Self {
         Self {
-            target, value,
+            target,
+            value,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            target: self.target, value: self.value,
+            target: self.target,
+            value: self.value,
             metadata,
         }
     }

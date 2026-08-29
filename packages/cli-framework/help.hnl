@@ -1,0 +1,73 @@
+Flag: type.object = {
+  name: type.string,
+  short: type.string,
+  description: type.string,
+  default: type.string,
+  required: type.bool
+};
+
+Command: type.object = {
+  name: type.string,
+  description: type.string,
+  flags: type.arr,
+  subcommands: type.arr,
+  handler: type.string
+};
+
+format_flag_line = (flag: Flag): type.string ->
+  str.concat("  --", flag.name)
+  |> (base) -> str.concat(base, str.concat(", -", flag.short))
+  |> (base) -> str.concat(base, str.concat("    ", flag.description))
+  |> (base) -> str.concat(base, str.concat(" (default: ", str.concat(flag.default, ")")));
+
+format_flag_lines = (flags: type.arr): type.arr ->
+  array.map(flags, (flag: Flag) -> format_flag_line(flag));
+
+format_subcommand_line = (cmd: Command): type.string ->
+  str.concat("  ", str.concat(cmd.name, str.concat("    ", cmd.description)));
+
+format_subcommand_lines = (cmds: type.arr): type.arr ->
+  array.map(cmds, (cmd: Command) -> format_subcommand_line(cmd));
+
+build_usage = (cmd: Command): type.string ->
+  str.concat("Usage: ", cmd.name)
+  |> (base) -> str.concat(base, " [options]")
+  |> (base) -> bool.when(
+      array.is_empty(cmd.subcommands),
+      false,
+      str.concat(base, " <command>")
+    );
+
+build_help = (cmd: Command): type.object ->
+  {
+    usage: build_usage(cmd),
+    description: cmd.description,
+    flags: format_flag_lines(cmd.flags),
+    subcommands: format_subcommand_lines(cmd.subcommands)
+  };
+
+render_help = (help: type.object): type.string ->
+  help.usage
+  |> (s) -> str.concat(s, "\n\n")
+  |> (s) -> str.concat(s, help.description)
+  |> (s) -> str.concat(s, "\n\nOptions:\n")
+  |> (s) -> str.concat(s, str.join(help.flags, "\n"))
+  |> (s) -> bool.when(
+      array.is_empty(help.subcommands),
+      false,
+      str.concat(s, str.concat("\n\nCommands:\n", str.join(help.subcommands, "\n")))
+    );
+
+generate_help = (cmd: Command): type.string ->
+  cmd |> build_help |> render_help;
+
+{
+  format_flag_line: format_flag_line,
+  format_flag_lines: format_flag_lines,
+  format_subcommand_line: format_subcommand_line,
+  format_subcommand_lines: format_subcommand_lines,
+  build_usage: build_usage,
+  build_help: build_help,
+  render_help: render_help,
+  generate_help: generate_help
+}

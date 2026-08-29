@@ -1,6 +1,6 @@
+use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use handl_plugin_vm_values_json::Error;
 use handl_plugin_vm_values_json::NonFunctionValue;
-use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use std::str::FromStr;
 
 use crate::DatetimeError;

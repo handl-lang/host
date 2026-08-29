@@ -66,7 +66,10 @@ impl Plugin for LoaderHostPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut handl_platform::ContributionContext) -> Result<(), PlatformError> {
+    fn contribute(
+        &self,
+        _ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -87,7 +90,9 @@ impl Plugin for LoaderHostPlugin {
             return Ok(CapabilityResponse(serde_json::Value::Null));
         }
 
-        Err(PlatformError::Plugin("no loader could load manifest".to_string()))
+        Err(PlatformError::Plugin(
+            "no loader could load manifest".to_string(),
+        ))
     }
 }
 
@@ -132,7 +137,10 @@ impl Plugin for LoadedPlugin {
         self.0.metadata(cap)
     }
 
-    fn contribute(&self, ctx: &mut handl_platform::ContributionContext) -> Result<(), PlatformError> {
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), PlatformError> {
         self.0.contribute(ctx)
     }
 

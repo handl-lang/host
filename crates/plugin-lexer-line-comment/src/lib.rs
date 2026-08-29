@@ -1,6 +1,6 @@
 //! [`LineCommentRule`] — matches line comments.
 
-use handl_plugin_lexer::{CommentFactory, CommentTokenKind, LexError, LexerConfig, LexRule, Token};
+use handl_plugin_lexer::{CommentFactory, CommentTokenKind, LexError, LexRule, LexerConfig, Token};
 
 /// Matches line comments using the factory's [`CommentFactory::is_line_comment_start`]
 /// and [`CommentFactory::lex_line_comment`].
@@ -39,7 +39,7 @@ where
 mod tests {
     use super::*;
     use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{empty_config as cfg, MockKind};
+    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
 
     const RULE: LineCommentRule = LineCommentRule;
 

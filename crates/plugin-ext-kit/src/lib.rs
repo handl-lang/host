@@ -1,4 +1,5 @@
 use handl_kit_canonical::CanonicalKit;
+use handl_kit_cli::CliKit;
 use handl_kit_hello::HelloKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
@@ -200,6 +201,8 @@ impl Plugin for ManifestKit {
 pub enum BasicKit {
     /// The canonical kit.
     Canonical(CanonicalKit),
+    /// The CLI kit.
+    Cli(CliKit),
     /// The hello kit.
     Hello(HelloKit),
     /// A kit loaded from a manifest path.
@@ -216,6 +219,7 @@ impl Plugin for BasicKit {
     fn id(&self) -> &str {
         match self {
             Self::Canonical(k) => k.id(),
+            Self::Cli(k) => k.id(),
             Self::Hello(k) => k.id(),
             Self::Manifest(k) => k.id(),
         }
@@ -224,6 +228,7 @@ impl Plugin for BasicKit {
     fn name(&self) -> &str {
         match self {
             Self::Canonical(k) => k.name(),
+            Self::Cli(k) => k.name(),
             Self::Hello(k) => k.name(),
             Self::Manifest(k) => k.name(),
         }
@@ -240,6 +245,7 @@ impl Plugin for BasicKit {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         match self {
             Self::Canonical(k) => k.contribute(ctx),
+            Self::Cli(k) => k.contribute(ctx),
             Self::Hello(k) => k.contribute(ctx),
             Self::Manifest(k) => k.contribute(ctx),
         }
@@ -252,6 +258,7 @@ impl Plugin for BasicKit {
     ) -> Result<CapabilityResponse, PlatformError> {
         match self {
             Self::Canonical(k) => k.run(request, ctx),
+            Self::Cli(k) => k.run(request, ctx),
             Self::Hello(k) => k.run(request, ctx),
             Self::Manifest(k) => k.run(request, ctx),
         }
@@ -279,6 +286,7 @@ impl BasicKitLoaderPlugin {
 
         match name_or_path {
             "canonical" => Ok(BasicKit::Canonical(CanonicalKit::new())),
+            "cli" => Ok(BasicKit::Cli(CliKit::new())),
             "hello" => Ok(BasicKit::Hello(HelloKit::new())),
             _ => Err(PlatformError::InvalidMetadata(format!(
                 "unknown kit: {name_or_path}"

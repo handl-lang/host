@@ -121,7 +121,9 @@ impl Plugin for BasicFormatter {
             }
         }
 
-        Ok(CapabilityResponse(serde_json::json!({"formatted": req.output})))
+        Ok(CapabilityResponse(
+            serde_json::json!({"formatted": req.output}),
+        ))
     }
 }
 

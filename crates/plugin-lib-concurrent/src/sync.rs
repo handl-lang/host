@@ -189,7 +189,6 @@ impl From<Error> for SyncError {
     }
 }
 
-
 #[derive(Debug)]
 struct Channel {
     capacity: Option<usize>,
@@ -570,7 +569,10 @@ mod tests {
         let value = NonFunctionValue::new(json!(42));
         assert!(s.send(ch.clone(), value).is_ok());
 
-        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(42)));
+        assert_eq!(
+            s.recv(ch.clone()).unwrap(),
+            NonFunctionValue::new(json!(42))
+        );
         assert_eq!(s.recv(ch), Err(SyncError::WouldBlock));
     }
 
@@ -630,11 +632,18 @@ mod tests {
         let s = DefaultSyncRuntime::new();
         let sem = s.semaphore(NonFunctionValue::new(json!(3)));
 
-        assert!(s.acquire(sem.clone(), NonFunctionValue::new(json!(2))).is_ok());
-        assert!(s
-            .acquire(sem.clone(), NonFunctionValue::new(json!(2)))
-            .is_err());
-        assert!(s.release(sem.clone(), NonFunctionValue::new(json!(2))).is_ok());
+        assert!(
+            s.acquire(sem.clone(), NonFunctionValue::new(json!(2)))
+                .is_ok()
+        );
+        assert!(
+            s.acquire(sem.clone(), NonFunctionValue::new(json!(2)))
+                .is_err()
+        );
+        assert!(
+            s.release(sem.clone(), NonFunctionValue::new(json!(2)))
+                .is_ok()
+        );
         assert!(s.acquire(sem, NonFunctionValue::new(json!(2))).is_ok());
     }
 
@@ -666,12 +675,14 @@ mod tests {
         let s = DefaultSyncRuntime::new();
         let sem = s.semaphore(NonFunctionValue::new(json!(2)));
 
-        assert!(s
-            .try_acquire(sem.clone(), NonFunctionValue::new(json!(1)))
-            .is_ok());
-        assert!(s
-            .try_acquire(sem.clone(), NonFunctionValue::new(json!(1)))
-            .is_ok());
+        assert!(
+            s.try_acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+                .is_ok()
+        );
+        assert!(
+            s.try_acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+                .is_ok()
+        );
         assert_eq!(
             s.try_acquire(sem, NonFunctionValue::new(json!(1))),
             Err(SyncError::WouldBlock)
@@ -683,13 +694,7 @@ mod tests {
         let s = DefaultSyncRuntime::new();
         let m = s.mutex();
         let id = resource_id(&m, "mutex").unwrap();
-        let inner = s
-            .mutexes
-            .lock()
-            .unwrap()
-            .get(&id)
-            .unwrap()
-            .clone();
+        let inner = s.mutexes.lock().unwrap().get(&id).unwrap().clone();
 
         {
             let mut guard = inner.lock().unwrap();

@@ -1,8 +1,8 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
 use fixed_decimal::{
     Decimal, FloatPrecision, SignDisplay, SignedRoundingMode, UnsignedRoundingMode,
 };
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use icu::locale::Locale;
 use icu_provider_blob::BlobDataProvider;
 

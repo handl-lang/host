@@ -1,7 +1,7 @@
 //! Stub goto-definition plugin; full LSP port pending.
 
-use handl_platform::PlatformError;
 use handl_host_tooling::lsp::{GotoDefPlugin, GotoDefRequest, GotoDefResponse};
+use handl_platform::PlatformError;
 
 /// A minimal goto-definition plugin.
 #[derive(Debug, Default, Clone, Copy)]

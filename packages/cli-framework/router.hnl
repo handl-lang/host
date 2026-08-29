@@ -1,0 +1,40 @@
+Command: type.object = {
+  name: type.string,
+  description: type.string,
+  flags: type.arr,
+  subcommands: type.arr,
+  handler: type.string
+};
+
+find_subcommand = (cmd: Command, name: type.string): type.string ->
+  cmd.subcommands
+  |> (subs) -> array.find(subs, (sub: Command) -> cmp.eq(sub.name, name))
+  |> (sub) -> option.unwrap_or(sub, { name: "" });
+
+has_subcommands = (cmd: Command): type.bool ->
+  bool.not(array.is_empty(cmd.subcommands));
+
+route = (cmd: Command, args: type.arr): type.object ->
+  args
+  |> (a) -> option.unwrap_or(array.first(a), "")
+  |> (first) -> bool.when(
+      cmp.eq(first, ""),
+      false,
+      { command: cmd.name, matched: cmd, remaining: [] }
+    );
+
+resolve_command = (root: Command, args: type.arr): type.object ->
+  args
+  |> (a) -> option.unwrap_or(array.first(a), "")
+  |> (first) -> bool.when(
+      cmp.eq(first, ""),
+      false,
+      { command: root.name, matched: root, remaining: a }
+    );
+
+{
+  find_subcommand: find_subcommand,
+  has_subcommands: has_subcommands,
+  route: route,
+  resolve_command: resolve_command
+}

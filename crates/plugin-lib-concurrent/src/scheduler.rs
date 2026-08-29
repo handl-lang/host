@@ -10,8 +10,8 @@
 //! via [`ConcurrencyModule::with_scheduler`](crate::ConcurrencyModule::with_scheduler),
 //! making this the first lego piece of the `lib-concurrent` family.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -42,10 +42,8 @@ pub trait Scheduler: Send + Sync {
     ) -> Result<NonFunctionValue, Error>;
 
     /// Yield control to the scheduler and run one pending task if any.
-    fn yield_now(
-        &self,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error>;
+    fn yield_now(&self, ctx: &mut dyn Context<NonFunctionValue>)
+    -> Result<NonFunctionValue, Error>;
 
     /// Cancel any pending or running tasks associated with `token`.
     fn cancel(&self, token: NonFunctionValue) -> Result<(), Error> {
@@ -299,9 +297,7 @@ impl Scheduler for DefaultScheduler {
                     return Ok(rec.result.clone().unwrap_or_default());
                 }
                 TaskStatus::Failed => {
-                    return Err(Error::PrimitiveError(
-                        rec.error.clone().unwrap_or_default(),
-                    ));
+                    return Err(Error::PrimitiveError(rec.error.clone().unwrap_or_default()));
                 }
                 TaskStatus::Running => {
                     return Err(Error::PrimitiveError(format!(
@@ -327,8 +323,7 @@ impl Scheduler for DefaultScheduler {
         }
 
         let res = if let Some(eval) = ctx.eval_arc() {
-            let flag = cancel_flag
-                .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
+            let flag = cancel_flag.unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
             CancelableEval::new(eval, flag).eval_expr(&body, &[])
         } else {
             if let Some(flag) = &cancel_flag {
@@ -402,8 +397,7 @@ impl Scheduler for DefaultScheduler {
             }
 
             let res = if let Some(eval) = ctx.eval_arc() {
-                let flag = cancel_flag
-                    .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
+                let flag = cancel_flag.unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
                 CancelableEval::new(eval, flag).eval_expr(&body, &[])
             } else {
                 if let Some(flag) = &cancel_flag {
@@ -503,9 +497,12 @@ impl Scheduler for DefaultScheduler {
         }
 
         let flag = cancel_flag;
-        self.timer.schedule_boxed(ms, Box::new(move || {
-            flag.store(true, Ordering::SeqCst);
-        }));
+        self.timer.schedule_boxed(
+            ms,
+            Box::new(move || {
+                flag.store(true, Ordering::SeqCst);
+            }),
+        );
 
         self.await_task(task, ctx)
     }
@@ -528,9 +525,13 @@ fn worker_thread(jobs: Arc<Mutex<mpsc::Receiver<Job>>>, results: mpsc::Sender<(u
     while let Ok(job) = jobs.lock().unwrap().recv() {
         match job {
             Job::Shutdown => break,
-            Job::Execute { id, body, eval, cancel_flag } => {
-                let flag = cancel_flag
-                    .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
+            Job::Execute {
+                id,
+                body,
+                eval,
+                cancel_flag,
+            } => {
+                let flag = cancel_flag.unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
                 let eval = CancelableEval::new(eval, flag);
 
                 let res = eval.eval_expr(&body, &[]);
@@ -629,9 +630,7 @@ impl ThreadPoolScheduler {
                 Ok((id, res)) => {
                     let mut tasks = self.lock_tasks()?;
                     if let Some(rec) = tasks.iter_mut().find(|t| t.id == id) {
-                        if rec.status == TaskStatus::Pending
-                            || rec.status == TaskStatus::Running
-                        {
+                        if rec.status == TaskStatus::Pending || rec.status == TaskStatus::Running {
                             match res {
                                 Ok(value) => {
                                     rec.status = TaskStatus::Completed;
@@ -748,12 +747,13 @@ impl Scheduler for ThreadPoolScheduler {
         work: FunctionValue,
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let eval = ctx
-            .eval_arc()
-            .ok_or_else(|| Error::PrimitiveError(
+        let eval = ctx.eval_arc().ok_or_else(|| {
+            Error::PrimitiveError(
                 "ThreadPoolScheduler requires a Send + Sync eval callback; \
-                 set one with CanonicalContext::set_sync_eval".to_string(),
-            ))?;
+                 set one with CanonicalContext::set_sync_eval"
+                    .to_string(),
+            )
+        })?;
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let body = work.body.clone();
@@ -777,7 +777,12 @@ impl Scheduler for ThreadPoolScheduler {
             .as_ref()
             .ok_or_else(|| Error::PrimitiveError("scheduler shut down".to_string()))?;
         if tx
-            .send(Job::Execute { id, body, eval, cancel_flag: None })
+            .send(Job::Execute {
+                id,
+                body,
+                eval,
+                cancel_flag: None,
+            })
             .is_err()
         {
             drop(guard);
@@ -798,12 +803,13 @@ impl Scheduler for ThreadPoolScheduler {
         work: FunctionValue,
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let eval = ctx
-            .eval_arc()
-            .ok_or_else(|| Error::PrimitiveError(
+        let eval = ctx.eval_arc().ok_or_else(|| {
+            Error::PrimitiveError(
                 "ThreadPoolScheduler requires a Send + Sync eval callback; \
-                 set one with CanonicalContext::set_sync_eval".to_string(),
-            ))?;
+                 set one with CanonicalContext::set_sync_eval"
+                    .to_string(),
+            )
+        })?;
 
         let token_id = cancel_token_id(&token)?;
 
@@ -838,7 +844,12 @@ impl Scheduler for ThreadPoolScheduler {
             .as_ref()
             .ok_or_else(|| Error::PrimitiveError("scheduler shut down".to_string()))?;
         if tx
-            .send(Job::Execute { id, body, eval, cancel_flag: Some(cancel_flag) })
+            .send(Job::Execute {
+                id,
+                body,
+                eval,
+                cancel_flag: Some(cancel_flag),
+            })
             .is_err()
         {
             drop(guard);
@@ -981,10 +992,13 @@ impl Scheduler for ThreadPoolScheduler {
 
         let (timeout_tx, timeout_rx) = mpsc::channel();
         let flag = cancel_flag;
-        self.timer.schedule_boxed(ms, Box::new(move || {
-            flag.store(true, Ordering::SeqCst);
-            let _ = timeout_tx.send(());
-        }));
+        self.timer.schedule_boxed(
+            ms,
+            Box::new(move || {
+                flag.store(true, Ordering::SeqCst);
+                let _ = timeout_tx.send(());
+            }),
+        );
 
         loop {
             self.process_results()?;
@@ -1020,10 +1034,7 @@ impl Scheduler for ThreadPoolScheduler {
                 continue;
             }
 
-            match self
-                .lock_results()?
-                .recv_timeout(Duration::from_millis(1))
-            {
+            match self.lock_results()?.recv_timeout(Duration::from_millis(1)) {
                 Ok((rid, res)) => {
                     let mut tasks = self.lock_tasks()?;
                     if let Some(rec) = tasks.iter_mut().find(|t| t.id == rid) {
@@ -1177,10 +1188,8 @@ impl WorkStealingScheduler {
         let (results_tx, results_rx) = mpsc::channel();
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        let worker_queue: Vec<Worker<WsJob>> =
-            (0..workers).map(|_| Worker::new_fifo()).collect();
-        let all_stealers: Vec<Stealer<WsJob>> =
-            worker_queue.iter().map(|w| w.stealer()).collect();
+        let worker_queue: Vec<Worker<WsJob>> = (0..workers).map(|_| Worker::new_fifo()).collect();
+        let all_stealers: Vec<Stealer<WsJob>> = worker_queue.iter().map(|w| w.stealer()).collect();
 
         let mut handles = Vec::with_capacity(workers);
         for (i, local) in worker_queue.into_iter().enumerate() {
@@ -1340,15 +1349,13 @@ impl Scheduler for WorkStealingScheduler {
         work: FunctionValue,
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let eval = ctx
-            .eval_arc()
-            .ok_or_else(|| {
-                Error::PrimitiveError(
-                    "WorkStealingScheduler requires a Send + Sync eval callback; \
+        let eval = ctx.eval_arc().ok_or_else(|| {
+            Error::PrimitiveError(
+                "WorkStealingScheduler requires a Send + Sync eval callback; \
                      set one with CanonicalContext::set_sync_eval"
-                        .to_string(),
-                )
-            })?;
+                    .to_string(),
+            )
+        })?;
 
         if self.shutdown.load(Ordering::SeqCst) {
             return Err(Error::PrimitiveError("scheduler shut down".to_string()));
@@ -1387,15 +1394,13 @@ impl Scheduler for WorkStealingScheduler {
         work: FunctionValue,
         ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let eval = ctx
-            .eval_arc()
-            .ok_or_else(|| {
-                Error::PrimitiveError(
-                    "WorkStealingScheduler requires a Send + Sync eval callback; \
+        let eval = ctx.eval_arc().ok_or_else(|| {
+            Error::PrimitiveError(
+                "WorkStealingScheduler requires a Send + Sync eval callback; \
                      set one with CanonicalContext::set_sync_eval"
-                        .to_string(),
-                )
-            })?;
+                    .to_string(),
+            )
+        })?;
 
         let token_id = cancel_token_id(&token)?;
 
@@ -1598,10 +1603,13 @@ impl Scheduler for WorkStealingScheduler {
 
         let (timeout_tx, timeout_rx) = mpsc::channel();
         let flag = cancel_flag;
-        self.timer.schedule_boxed(ms, Box::new(move || {
-            flag.store(true, Ordering::SeqCst);
-            let _ = timeout_tx.send(());
-        }));
+        self.timer.schedule_boxed(
+            ms,
+            Box::new(move || {
+                flag.store(true, Ordering::SeqCst);
+                let _ = timeout_tx.send(());
+            }),
+        );
 
         loop {
             self.process_results()?;
@@ -1637,14 +1645,12 @@ impl Scheduler for WorkStealingScheduler {
                 continue;
             }
 
-            match self
-                .lock_results()?
-                .recv_timeout(Duration::from_millis(1))
-            {
+            match self.lock_results()?.recv_timeout(Duration::from_millis(1)) {
                 Ok((rid, res)) => {
                     let mut tasks = self.lock_tasks()?;
                     if let Some(state) = tasks.get_mut(&rid) {
-                        if state.status == TaskStatus::Pending || state.status == TaskStatus::Running
+                        if state.status == TaskStatus::Pending
+                            || state.status == TaskStatus::Running
                         {
                             match res {
                                 TaskResult::Ok(value) => {
@@ -1786,7 +1792,9 @@ mod tests {
 
         let s = DefaultScheduler::new();
         let token = s.cancel_runtime().cancel_token();
-        let task = s.spawn_cancelable(token.clone(), work("hello()"), &mut ctx).unwrap();
+        let task = s
+            .spawn_cancelable(token.clone(), work("hello()"), &mut ctx)
+            .unwrap();
 
         s.cancel(token).unwrap();
 
@@ -1811,7 +1819,6 @@ mod tests {
     }
 
     #[test]
-
     #[ignore = "flaky race; see thread pool scheduler"]
     fn thread_pool_cancel_pending_prevents_execution() {
         let s = ThreadPoolScheduler::new(1);
@@ -1825,7 +1832,9 @@ mod tests {
         };
         ctx.set_sync_eval(Arc::new(eval.clone()));
 
-        let task = s.spawn_cancelable(token.clone(), work("hello()"), &mut ctx).unwrap();
+        let task = s
+            .spawn_cancelable(token.clone(), work("hello()"), &mut ctx)
+            .unwrap();
 
         s.cancel(token).unwrap();
 
@@ -1956,8 +1965,12 @@ mod tests {
         let eval = MockEval::default();
         ctx.set_sync_eval(Arc::new(eval.clone()));
 
-        let task1 = s.spawn_cancelable(token.clone(), work("one()"), &mut ctx).unwrap();
-        let task2 = s.spawn_cancelable(token.clone(), work("two()"), &mut ctx).unwrap();
+        let task1 = s
+            .spawn_cancelable(token.clone(), work("one()"), &mut ctx)
+            .unwrap();
+        let task2 = s
+            .spawn_cancelable(token.clone(), work("two()"), &mut ctx)
+            .unwrap();
 
         s.cancel(token).unwrap();
 
@@ -2088,9 +2101,7 @@ mod tests {
             let mut ctx = CanonicalContext::new();
             ctx.set_eval(Box::new(SlowEval { sleep_ms: 15 }));
 
-            let task = s
-                .spawn_cancelable(token, work("slow"), &mut ctx)
-                .unwrap();
+            let task = s.spawn_cancelable(token, work("slow"), &mut ctx).unwrap();
 
             let t = std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(delay));

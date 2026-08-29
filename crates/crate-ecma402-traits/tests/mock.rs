@@ -13,9 +13,7 @@ use crate_ecma402_traits::display_names::{DisplayNames, DisplayNamesOptions, Typ
 use crate_ecma402_traits::list_format::{ListFormat, ListFormatPart, ListFormatPartType};
 use crate_ecma402_traits::locale::{Locale, LocaleInfo, LocaleOverrides};
 use crate_ecma402_traits::locale_match::{CanonicalLocales, SupportedLocalesOf};
-use crate_ecma402_traits::number_format::{
-    NumberFormat, NumberFormatPart, NumberFormatPartType,
-};
+use crate_ecma402_traits::number_format::{NumberFormat, NumberFormatPart, NumberFormatPartType};
 use crate_ecma402_traits::plural_rules::{PluralCategory, PluralRules};
 use crate_ecma402_traits::relative_time::{RelativeTimeFormat, RelativeTimeFormatPart};
 use crate_ecma402_traits::segmenter::{Segment, Segmenter};

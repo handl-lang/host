@@ -1,14 +1,14 @@
 //! `hello.greet` evaluation rule for the generic `BasicEvaluator`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use handl_plugin_lib_hello::greet;
 use handl_platform::{
     BasicEvaluator, Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest,
-    CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalRequest, PlatformError, Plugin,
-    PluginContext,
+    CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalRequest, PlatformError,
+    Plugin, PluginContext,
 };
+use handl_plugin_lib_hello::greet;
 
 /// Evaluation rule that handles `hello.greet(...)` expressions.
 #[derive(Debug, Default, Clone, Copy)]

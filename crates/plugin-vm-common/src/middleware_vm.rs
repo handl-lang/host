@@ -361,6 +361,7 @@ mod tests {
         Expr::Call {
             name: "inc".to_string(),
             args: vec![Expr::Value(NonFunctionValue::new(serde_json::json!(1.0)))],
+            type_args: Vec::new(),
         }
     }
 

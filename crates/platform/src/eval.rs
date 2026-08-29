@@ -168,7 +168,9 @@ mod tests {
         impl EvalBehavior for Echo {}
 
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Echo) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Echo) as Arc<dyn EvalBehavior>)
+            .unwrap();
 
         let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {

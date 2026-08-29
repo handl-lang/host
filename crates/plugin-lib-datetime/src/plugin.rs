@@ -1,8 +1,8 @@
 //! Plugin registration for the `datetime` library.
 
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
-    ContributionContext, PlatformError, Plugin, PluginContext,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
 };
 
 /// A `Library` plugin that registers the `datetime` implementation.

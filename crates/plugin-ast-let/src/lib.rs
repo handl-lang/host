@@ -21,7 +21,8 @@ where
     /// Creates a new Let node with default metadata.
     pub fn new(name: String, value: E) -> Self {
         Self {
-            name, value,
+            name,
+            value,
             metadata: M::default(),
         }
     }
@@ -54,7 +55,8 @@ where
         Self: Sized,
     {
         Self {
-            name: self.name, value: self.value,
+            name: self.name,
+            value: self.value,
             metadata,
         }
     }

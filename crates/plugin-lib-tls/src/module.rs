@@ -102,7 +102,10 @@ impl Module for TlsModule {
     }
 }
 
-fn require_arg<'a>(args: &'a [NonFunctionValue], idx: usize) -> Result<&'a NonFunctionValue, Error> {
+fn require_arg<'a>(
+    args: &'a [NonFunctionValue],
+    idx: usize,
+) -> Result<&'a NonFunctionValue, Error> {
     args.get(idx).ok_or(Error::ArgumentCount {
         expected: idx + 1,
         got: args.len(),
@@ -110,12 +113,10 @@ fn require_arg<'a>(args: &'a [NonFunctionValue], idx: usize) -> Result<&'a NonFu
 }
 
 fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    require_arg(args, idx)?
-        .as_str()
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+    require_arg(args, idx)?.as_str().ok_or(Error::TypeMismatch {
+        expected: "string",
+        got: "non-string",
+    })
 }
 
 fn require_number_at(args: &[NonFunctionValue], idx: usize) -> Result<f64, Error> {

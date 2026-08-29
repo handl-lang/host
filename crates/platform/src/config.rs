@@ -165,15 +165,27 @@ register = "handl-plugin-custom-linter"
 
         assert_eq!(config.kits.len(), 1);
         assert_eq!(config.kits[0].include, "handl-kit-canonical");
-        assert_eq!(config.kits[0].exclude, vec!["handl-plugin-deprecated-grammar"]);
+        assert_eq!(
+            config.kits[0].exclude,
+            vec!["handl-plugin-deprecated-grammar"]
+        );
 
         assert_eq!(config.plugins.len(), 1);
         assert_eq!(config.plugins[0].register, "handl-plugin-custom-linter");
 
         assert_eq!(config.options.get("comment.style").unwrap(), "above");
-        assert_eq!(config.options.get("no-unused-imports.level").unwrap(), "error");
-        assert_eq!(config.options.get("experimental.lifetime-check").unwrap(), &serde_json::Value::Bool(false));
-        assert_eq!(config.options.get("max-line-length").unwrap(), &serde_json::Value::Number(Number::from(120)));
+        assert_eq!(
+            config.options.get("no-unused-imports.level").unwrap(),
+            "error"
+        );
+        assert_eq!(
+            config.options.get("experimental.lifetime-check").unwrap(),
+            &serde_json::Value::Bool(false)
+        );
+        assert_eq!(
+            config.options.get("max-line-length").unwrap(),
+            &serde_json::Value::Number(Number::from(120))
+        );
         assert!(config.options.get("threshold").unwrap().is_number());
         assert!(config.options.get("features").unwrap().is_array());
         assert!(config.options.get("nested").unwrap().is_object());

@@ -39,7 +39,10 @@ fn is_truthy_value(value: &NonFunctionValue) -> bool {
     }
 }
 
-fn bind_param(fn_val: &FunctionValue, value: &serde_json::Value) -> Vec<(String, NonFunctionValue)> {
+fn bind_param(
+    fn_val: &FunctionValue,
+    value: &serde_json::Value,
+) -> Vec<(String, NonFunctionValue)> {
     fn_val
         .params
         .first()
@@ -146,7 +149,10 @@ macro_rules! array_unary_fn {
 // Basic operations
 // ════════════════════════════════════════════════════════════════════
 
-array_unary_fn!(Length, |input: &[serde_json::Value]| num(input.len() as f64));
+array_unary_fn!(
+    Length,
+    |input: &[serde_json::Value]| num(input.len() as f64)
+);
 array_unary_fn!(Reverse, |input: &[serde_json::Value]| {
     let reversed: Vec<serde_json::Value> = input.iter().rev().cloned().collect();
     arr(&reversed)
@@ -402,8 +408,7 @@ impl Function<NonFunctionValue> for Fill {
             });
         }
         let value = args[1].inner().clone();
-        let result: Vec<serde_json::Value> =
-            (0..count as usize).map(|_| value.clone()).collect();
+        let result: Vec<serde_json::Value> = (0..count as usize).map(|_| value.clone()).collect();
         Ok(arr(&result))
     }
 }
@@ -808,12 +813,10 @@ impl Function<NonFunctionValue> for Transpose {
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
-        let array = require_array_value(
-            args.first().ok_or(Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            })?,
-        )?;
+        let array = require_array_value(args.first().ok_or(Error::ArgumentCount {
+            expected: 1,
+            got: 0,
+        })?)?;
         if array.is_empty() {
             return Ok(arr(&[]));
         }
@@ -1071,5 +1074,3 @@ impl Function<NonFunctionValue> for Pluck {
         Ok(arr(&result))
     }
 }
-
-

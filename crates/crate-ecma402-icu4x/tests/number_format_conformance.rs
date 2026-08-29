@@ -1,9 +1,9 @@
+use crate_ecma402_icu4x::number_format::NumberFormat;
 use ecma402_traits::number_format::{
     CompactDisplay, CurrencyDisplay, CurrencySign, Notation, NumberFormat as _,
     NumberFormatOptions, NumberFormatPart, NumberFormatStyle, RoundingMode, SignDisplay,
     UnitDisplay, UseGrouping,
 };
-use crate_ecma402_icu4x::number_format::NumberFormat;
 use serde::Deserialize;
 use std::fs;
 

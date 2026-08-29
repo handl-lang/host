@@ -53,7 +53,9 @@ impl<K: IdentToken> ParserBehavior<K> for IdentifierRule {
         let name = token
             .kind
             .as_ident()
-            .ok_or_else(|| PlatformError::Plugin(format!("expected an identifier, got {}", token.kind)))?
+            .ok_or_else(|| {
+                PlatformError::Plugin(format!("expected an identifier, got {}", token.kind))
+            })?
             .to_string();
 
         Ok(AstNode {

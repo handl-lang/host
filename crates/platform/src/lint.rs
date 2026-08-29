@@ -121,7 +121,9 @@ impl Plugin for BasicLinter {
             }
         }
 
-        Ok(CapabilityResponse(serde_json::json!({"diagnostics": req.diagnostics})))
+        Ok(CapabilityResponse(
+            serde_json::json!({"diagnostics": req.diagnostics}),
+        ))
     }
 }
 

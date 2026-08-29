@@ -1,6 +1,8 @@
 //! [`StringRule`] — matches string literals.
 
-use handl_plugin_lexer::{DefaultLexError, KindFactory, LexError, LexerConfig, LexRule, StringFactory, Token, TokenKind};
+use handl_plugin_lexer::{
+    DefaultLexError, KindFactory, LexError, LexRule, LexerConfig, StringFactory, Token, TokenKind,
+};
 
 /// Matches string literals using the factory's [`StringFactory::is_string_start`]
 /// and [`StringFactory::lex_string`].
@@ -43,7 +45,7 @@ where
 mod tests {
     use super::*;
     use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{empty_config as cfg, MockKind};
+    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
 
     const RULE: StringRule = StringRule;
 

@@ -14,8 +14,8 @@ use handl_plugin_ast::{Expr as ExprTrait, Node, NodeMetadata, Stmt as StmtTrait}
 use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, GrammarInfo,
-    GrammarInfoProvider, IdentFactory, KeywordFactory, KindFactory, Lexer, LexerConfig,
-    NumberFactory, OperatorFactory, Span, StringFactory, Token,
+    GrammarInfoProvider, IdentFactory, KitGrammarMetadata, KeywordFactory, KindFactory, Lexer,
+    LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory, Token,
 };
 use handl_plugin_lexer_block_comment::BlockCommentRule;
 use handl_plugin_lexer_delimiter::DelimiterRule;
@@ -422,6 +422,10 @@ impl NumberFactory<CanonicalKind> for CanonicalFactory {
     ) -> Result<(f64, Span), DefaultLexError> {
         primitives::lex_number(chars)
     }
+
+    fn number_regex(&self) -> &str {
+        r"-?\d+(\.\d+)?([eE][+-]?\d+)?"
+    }
 }
 
 impl IdentFactory<CanonicalKind> for CanonicalFactory {
@@ -438,6 +442,10 @@ impl IdentFactory<CanonicalKind> for CanonicalFactory {
         chars: &mut Peekable<std::str::CharIndices<'_>>,
     ) -> Result<(String, Span), DefaultLexError> {
         primitives::lex_ident(chars, |c| self.is_ident_continue(c))
+    }
+
+    fn identifier_regex(&self) -> &str {
+        r"[a-zA-Z_.][a-zA-Z0-9_.]*"
     }
 }
 
@@ -1811,8 +1819,8 @@ impl Kit {
             .map(|(s, e)| (s.to_string(), e.to_string()));
 
         GrammarInfo {
-            scope_name: "source.handl".to_string(),
-            file_extensions: vec!["hnl".to_string()],
+            scope_name: self.scope_name().to_string(),
+            file_extensions: self.file_extensions(),
             keywords,
             booleans,
             nulls,
@@ -1823,9 +1831,19 @@ impl Kit {
             doc_line_comment_start,
             doc_block_comment,
             string_delimiters,
-            number_regex: r"-?\d+(\.\d+)?([eE][+-]?\d+)?".to_string(),
-            identifier_regex: r"[a-zA-Z_][a-zA-Z0-9_.]*".to_string(),
+            number_regex: factory.number_regex().to_string(),
+            identifier_regex: factory.identifier_regex().to_string(),
         }
+    }
+}
+
+impl KitGrammarMetadata for Kit {
+    fn scope_name(&self) -> &str {
+        "source.handl"
+    }
+
+    fn file_extensions(&self) -> Vec<String> {
+        vec!["hnl".to_string()]
     }
 }
 

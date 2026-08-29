@@ -46,7 +46,9 @@ fn read_file_not_found() {
     let module = FsModule::new(StubFs::default());
     let err = call_err(&module, "read", &[s("missing.txt")]);
     match err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+            assert!(msg.contains("not found"))
+        }
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }

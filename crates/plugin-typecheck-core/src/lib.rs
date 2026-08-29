@@ -10,7 +10,7 @@ use handl_platform::{
     TypecheckBehavior, TypecheckRequest,
 };
 use handl_plugin_lib_type::{
-    interpret, synth, synth_type, Env, MetaContext, TCtx, Term, TypeError, Value,
+    Env, MetaContext, TCtx, Term, TypeError, Value, interpret, synth, synth_type,
 };
 
 /// A `TypecheckBehavior` that performs the canonical handl typecheck.

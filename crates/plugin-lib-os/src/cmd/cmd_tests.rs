@@ -79,7 +79,9 @@ fn run_not_found() {
     let mut ctx = CanonicalContext::new();
     let err = func.call(&[s("nope")], &mut ctx).unwrap_err();
     match err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+            assert!(msg.contains("not found"))
+        }
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }

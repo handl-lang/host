@@ -53,7 +53,10 @@ fn send_signal() {
 fn send_unknown_signal() {
     let module = SigModule::new(StubSig::default());
     let err = call_err(&module, "send", &[n(42), s("BOGUS")]);
-    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(
+        err,
+        handl_plugin_vm_values_json::Error::PrimitiveError(_)
+    ));
 }
 
 #[test]

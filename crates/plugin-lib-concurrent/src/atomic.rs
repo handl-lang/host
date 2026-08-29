@@ -9,8 +9,8 @@
 //! `Arc<dyn AtomicRuntime + Send + Sync>`.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::json;
@@ -114,10 +114,7 @@ impl AtomicRuntime for DefaultAtomicRuntime {
     ) -> Result<NonFunctionValue, Error> {
         let id = resource_id(&r, "atomic")?;
         let mut cells = self.cells.lock().map_err(poison)?;
-        let old = cells
-            .get(&id)
-            .cloned()
-            .unwrap_or_default();
+        let old = cells.get(&id).cloned().unwrap_or_default();
         cells.insert(id, value);
         Ok(old)
     }
@@ -154,12 +151,20 @@ mod tests {
         let r = a.atomic(NonFunctionValue::new(json!(0))).unwrap();
         assert_eq!(r.get("type"), Some(&json!("atomic")));
 
-        assert_eq!(a.atomic_read(r.clone()).unwrap(), NonFunctionValue::new(json!(0)));
+        assert_eq!(
+            a.atomic_read(r.clone()).unwrap(),
+            NonFunctionValue::new(json!(0))
+        );
 
-        let old = a.atomic_write(r.clone(), NonFunctionValue::new(json!(42))).unwrap();
+        let old = a
+            .atomic_write(r.clone(), NonFunctionValue::new(json!(42)))
+            .unwrap();
         assert_eq!(old, NonFunctionValue::new(json!(0)));
 
-        assert_eq!(a.atomic_read(r.clone()).unwrap(), NonFunctionValue::new(json!(42)));
+        assert_eq!(
+            a.atomic_read(r.clone()).unwrap(),
+            NonFunctionValue::new(json!(42))
+        );
 
         let swapped = a
             .atomic_cas(
@@ -169,7 +174,10 @@ mod tests {
             )
             .unwrap();
         assert_eq!(swapped, NonFunctionValue::new(json!(true)));
-        assert_eq!(a.atomic_read(r.clone()).unwrap(), NonFunctionValue::new(json!(7)));
+        assert_eq!(
+            a.atomic_read(r.clone()).unwrap(),
+            NonFunctionValue::new(json!(7))
+        );
 
         let failed = a
             .atomic_cas(

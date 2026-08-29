@@ -1,15 +1,13 @@
 //! Object runtime builtins: `obj.get`, `obj.keys`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_runtime::{
-    expect_n, json_kind, RuntimeBehavior, RuntimeHost, RuntimeRule,
-};
+use handl_plugin_runtime::{RuntimeBehavior, RuntimeHost, RuntimeRule, expect_n, json_kind};
 use handl_plugin_vm::{Context, Error};
 use handl_plugin_vm_values_json::NonFunctionValue;
 use serde_json::Value as JsonValue;
@@ -53,8 +51,7 @@ impl RuntimeBehavior for ObjectFamily {
                     expected: "object",
                     got: json_kind(&args[0]),
                 })?;
-                let keys: Vec<JsonValue> =
-                    obj.keys().cloned().map(JsonValue::String).collect();
+                let keys: Vec<JsonValue> = obj.keys().cloned().map(JsonValue::String).collect();
                 Ok(NonFunctionValue::new(keys))
             }
             _ => Err(Error::PrimitiveError(format!(

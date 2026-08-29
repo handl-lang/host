@@ -20,9 +20,9 @@ pub mod operation;
 pub mod runtime;
 pub mod value;
 
-pub use expr::{Expr, ExprFactory, HandlerClause, Pattern};
 pub use error::Error;
 pub use eval::{AsyncEval, Eval};
+pub use expr::{Expr, ExprFactory, HandlerClause, Pattern};
 pub use function_repr::FunctionRepr;
 pub use host::{AsyncFunction, Function, GenericFunction, Host, HostRef, LazyFunction};
 pub use mock::{MockHost, NoopHost};

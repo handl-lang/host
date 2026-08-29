@@ -7,7 +7,10 @@ use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 
-use super::common::{arr, b, num, obj as object_value, require_array, require_object, require_one_array, require_one_object};
+use super::common::{
+    arr, b, num, obj as object_value, require_array, require_object, require_one_array,
+    require_one_object,
+};
 
 // ── shared helpers ────────────────────────────────────────────────
 
@@ -152,8 +155,7 @@ fn key_to_string(value: &NonFunctionValue) -> String {
     } else if value.is_null() {
         "null".to_string()
     } else {
-        serde_json::to_string(&value.clone().into_inner())
-            .unwrap_or_else(|_| "unknown".to_string())
+        serde_json::to_string(&value.clone().into_inner()).unwrap_or_else(|_| "unknown".to_string())
     }
 }
 
@@ -302,10 +304,7 @@ impl Function<NonFunctionValue> for Keys {
         _ctx: &mut dyn Context<NonFunctionValue>,
     ) -> Result<NonFunctionValue, Error> {
         let input = require_one_object(args)?;
-        let keys: Vec<Value> = input
-            .keys()
-            .map(|k| Value::String(k.clone()))
-            .collect();
+        let keys: Vec<Value> = input.keys().map(|k| Value::String(k.clone())).collect();
         Ok(arr(&keys))
     }
 }
@@ -447,9 +446,7 @@ impl Function<NonFunctionValue> for DeepGet {
                 continue;
             }
             current = match &current {
-                Value::Object(obj) => {
-                    obj.get(segment).cloned().unwrap_or(Value::Null)
-                }
+                Value::Object(obj) => obj.get(segment).cloned().unwrap_or(Value::Null),
                 Value::Array(arr) => {
                     if let Ok(idx) = segment.parse::<usize>() {
                         arr.get(idx).cloned().unwrap_or(Value::Null)
@@ -485,9 +482,7 @@ impl Function<NonFunctionValue> for PathOr {
                 continue;
             }
             current = match &current {
-                Value::Object(obj) => {
-                    obj.get(segment).cloned().unwrap_or(Value::Null)
-                }
+                Value::Object(obj) => obj.get(segment).cloned().unwrap_or(Value::Null),
                 Value::Array(arr) => {
                     if let Ok(idx) = segment.parse::<usize>() {
                         arr.get(idx).cloned().unwrap_or(Value::Null)
@@ -794,8 +789,7 @@ impl Function<NonFunctionValue> for Omit {
         }
         let obj = require_object_value(&args[0])?;
         let keys = require_array(args, 1)?;
-        let omit_set: HashSet<&str> =
-            keys.iter().filter_map(|v| v.as_str()).collect();
+        let omit_set: HashSet<&str> = keys.iter().filter_map(|v| v.as_str()).collect();
         let mut result = Map::new();
         for (k, v) in obj {
             if !omit_set.contains(k.as_str()) {
@@ -842,10 +836,7 @@ impl Function<NonFunctionValue> for DeepMerge {
         let (a_arg, b_arg) = require_two_args(args)?;
         let a = require_object_value(a_arg)?;
         let b = require_object_value(b_arg)?;
-        let merged = deep_merge_values(
-            &Value::Object(a.clone()),
-            &Value::Object(b.clone()),
-        );
+        let merged = deep_merge_values(&Value::Object(a.clone()), &Value::Object(b.clone()));
         Ok(NonFunctionValue::new(merged))
     }
 }

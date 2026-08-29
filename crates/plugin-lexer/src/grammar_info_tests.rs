@@ -1,4 +1,4 @@
-use crate::{GrammarInfo, GrammarInfoProvider};
+use crate::{GrammarInfo, GrammarInfoProvider, KitGrammarMetadata};
 
 #[test]
 fn grammar_info_is_serializable() {
@@ -79,4 +79,59 @@ fn grammar_info_provider_trait_can_be_generic() {
     let kit = DummyKit;
     let info = kit.grammar_info();
     assert_eq!(info.scope_name, "source.dummy");
+}
+
+#[test]
+fn kit_grammar_metadata_trait_can_be_implemented() {
+    struct DummyKit;
+    impl KitGrammarMetadata for DummyKit {
+        fn scope_name(&self) -> &str {
+            "source.dummy"
+        }
+        fn file_extensions(&self) -> Vec<String> {
+            vec!["dum".to_string()]
+        }
+    }
+
+    let kit = DummyKit;
+    assert_eq!(kit.scope_name(), "source.dummy");
+    assert_eq!(kit.file_extensions(), vec!["dum".to_string()]);
+}
+
+#[test]
+fn kit_grammar_metadata_decouples_scope_from_grammar_info() {
+    struct DummyKit;
+    impl KitGrammarMetadata for DummyKit {
+        fn scope_name(&self) -> &str {
+            "source.custom"
+        }
+        fn file_extensions(&self) -> Vec<String> {
+            vec!["custom".to_string(), "cst".to_string()]
+        }
+    }
+    impl GrammarInfoProvider for DummyKit {
+        fn grammar_info(&self) -> GrammarInfo {
+            GrammarInfo {
+                scope_name: self.scope_name().to_string(),
+                file_extensions: self.file_extensions(),
+                keywords: Vec::new(),
+                booleans: Vec::new(),
+                nulls: Vec::new(),
+                operators: Vec::new(),
+                delimiters: Vec::new(),
+                line_comment_start: None,
+                block_comment: None,
+                doc_line_comment_start: None,
+                doc_block_comment: None,
+                string_delimiters: Vec::new(),
+                number_regex: r"\d+".to_string(),
+                identifier_regex: r"[a-z]+".to_string(),
+            }
+        }
+    }
+
+    let kit = DummyKit;
+    let info = kit.grammar_info();
+    assert_eq!(info.scope_name, "source.custom");
+    assert_eq!(info.file_extensions, vec!["custom".to_string(), "cst".to_string()]);
 }

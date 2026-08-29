@@ -1,14 +1,14 @@
 //! Array runtime builtins: `array.at`, `array.length`.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_runtime::{
-    as_number, expect_n, json_kind, RuntimeBehavior, RuntimeHost, RuntimeRule,
+    RuntimeBehavior, RuntimeHost, RuntimeRule, as_number, expect_n, json_kind,
 };
 use handl_plugin_vm::{Context, Error};
 use handl_plugin_vm_values_json::NonFunctionValue;

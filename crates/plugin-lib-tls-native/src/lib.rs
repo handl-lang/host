@@ -9,17 +9,19 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use handl_plugin_lib_tls::{TlsError, TlsService};
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
-use rustls::{ClientConfig as RustlsClientConfig, RootCertStore, ServerConfig as RustlsServerConfig};
-use serde_json::{json, Value};
+use rustls::{
+    ClientConfig as RustlsClientConfig, RootCertStore, ServerConfig as RustlsServerConfig,
+};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex as TokioMutex;
-use tokio_rustls::TlsConnector;
 use tokio_rustls::TlsAcceptor;
+use tokio_rustls::TlsConnector;
 
 struct NativeInner {
     next_id: AtomicUsize,
@@ -200,7 +202,9 @@ impl TlsService for NativeTls {
         self.inner.runtime.block_on(async move {
             let stream = TcpStream::connect((host.clone(), port))
                 .await
-                .map_err(|e| TlsError::Io { message: e.to_string() })?;
+                .map_err(|e| TlsError::Io {
+                    message: e.to_string(),
+                })?;
             let server_name = ServerName::try_from(host).map_err(|_| TlsError::InvalidInput {
                 message: "invalid server name".to_string(),
             })?;
@@ -208,7 +212,9 @@ impl TlsService for NativeTls {
             let tls = connector
                 .connect(server_name, stream)
                 .await
-                .map_err(|e| TlsError::Io { message: e.to_string() })?;
+                .map_err(|e| TlsError::Io {
+                    message: e.to_string(),
+                })?;
             let id = inner.next_id.fetch_add(1, Ordering::Relaxed);
             inner.connections.lock().await.insert(id, Conn::Client(tls));
             Ok(id)
@@ -228,25 +234,26 @@ impl TlsService for NativeTls {
             })?;
 
         let inner = self.inner.clone();
-        let bind_addr: SocketAddr = format!("{}:{}", addr, port)
-            .parse()
-            .map_err(|e: std::net::AddrParseError| TlsError::InvalidInput {
-                message: e.to_string(),
-            })?;
+        let bind_addr: SocketAddr =
+            format!("{}:{}", addr, port)
+                .parse()
+                .map_err(|e: std::net::AddrParseError| TlsError::InvalidInput {
+                    message: e.to_string(),
+                })?;
 
         self.inner.runtime.block_on(async move {
             let listener = TcpListener::bind(bind_addr)
                 .await
-                .map_err(|e| TlsError::Io { message: e.to_string() })?;
-            let (stream, _) = listener
-                .accept()
-                .await
-                .map_err(|e| TlsError::Io { message: e.to_string() })?;
+                .map_err(|e| TlsError::Io {
+                    message: e.to_string(),
+                })?;
+            let (stream, _) = listener.accept().await.map_err(|e| TlsError::Io {
+                message: e.to_string(),
+            })?;
             let acceptor = TlsAcceptor::from(server_config);
-            let tls = acceptor
-                .accept(stream)
-                .await
-                .map_err(|e| TlsError::Io { message: e.to_string() })?;
+            let tls = acceptor.accept(stream).await.map_err(|e| TlsError::Io {
+                message: e.to_string(),
+            })?;
             let id = inner.next_id.fetch_add(1, Ordering::Relaxed);
             inner.connections.lock().await.insert(id, Conn::Server(tls));
             Ok(id)
@@ -266,7 +273,9 @@ impl TlsService for NativeTls {
                 Conn::Client(s) => s.read(&mut buf).await,
                 Conn::Server(s) => s.read(&mut buf).await,
             }
-            .map_err(|e| TlsError::Io { message: e.to_string() })?;
+            .map_err(|e| TlsError::Io {
+                message: e.to_string(),
+            })?;
             buf.truncate(n);
             String::from_utf8(buf).map_err(|e| TlsError::Io {
                 message: format!("invalid utf-8: {e}"),
@@ -287,7 +296,9 @@ impl TlsService for NativeTls {
                 Conn::Client(s) => s.write_all(&data).await,
                 Conn::Server(s) => s.write_all(&data).await,
             }
-            .map_err(|e| TlsError::Io { message: e.to_string() })
+            .map_err(|e| TlsError::Io {
+                message: e.to_string(),
+            })
         })
     }
 
@@ -333,9 +344,11 @@ fn add_roots(pem: &str, store: &mut RootCertStore) -> Result<(), TlsError> {
         let cert = cert.map_err(|e| TlsError::InvalidConfig {
             message: e.to_string(),
         })?;
-        store.add(cert.into_owned()).map_err(|e| TlsError::InvalidConfig {
-            message: e.to_string(),
-        })?;
+        store
+            .add(cert.into_owned())
+            .map_err(|e| TlsError::InvalidConfig {
+                message: e.to_string(),
+            })?;
     }
     Ok(())
 }

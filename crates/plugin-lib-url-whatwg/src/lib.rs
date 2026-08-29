@@ -128,7 +128,8 @@ mod tests {
 
     #[test]
     fn parses_http_url() {
-        let u = handl_plugin_lib_parse::parse("https://example.com:8080/path?a=1#frag", Whatwg).unwrap();
+        let u = handl_plugin_lib_parse::parse("https://example.com:8080/path?a=1#frag", Whatwg)
+            .unwrap();
         assert_eq!(u.scheme(), "https");
         assert_eq!(u.host(), Some("example.com"));
         assert_eq!(u.port(), Some(8080));

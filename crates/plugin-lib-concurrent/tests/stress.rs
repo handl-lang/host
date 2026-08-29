@@ -1,8 +1,10 @@
 use handl_plugin_lib_concurrent::atomic::DefaultAtomicRuntime;
 use handl_plugin_lib_concurrent::cancel::DefaultCancelRuntime;
 use handl_plugin_lib_concurrent::scheduler::{DefaultScheduler, Scheduler, ThreadPoolScheduler};
-use handl_plugin_lib_concurrent::{ConcurrencyModule, ParkingLotSyncRuntime, StdNetIoRuntime, ThreadTimerRuntime};
 use handl_plugin_lib_concurrent::sync::{DefaultSyncRuntime, SyncRuntime};
+use handl_plugin_lib_concurrent::{
+    ConcurrencyModule, ParkingLotSyncRuntime, StdNetIoRuntime, ThreadTimerRuntime,
+};
 use handl_plugin_vm_common::Module;
 use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
