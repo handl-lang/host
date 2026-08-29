@@ -1,7 +1,0 @@
-[package]
-name = "handl-plugin-lexer-common"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lexer.workspace = true
