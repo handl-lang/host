@@ -59,7 +59,9 @@ render_help = (help: type.object): type.string ->
     );
 
 generate_help = (cmd: Command): type.string ->
-  cmd |> build_help |> render_help;
+  cmd
+  |> build_help
+  |> render_help;
 
 {
   format_flag_line: format_flag_line,

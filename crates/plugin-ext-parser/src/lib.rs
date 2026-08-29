@@ -16,6 +16,9 @@ use handl_platform::{
 };
 use handl_plugin_lexer::{Token, TokenKind};
 
+mod dyn_parser;
+pub use dyn_parser::{DynGrammarRule, DynParser, DynParserContext, StaticGrammarRuleAdapter};
+
 /// `Parser` operation marker, generic over the concrete token kind `K`.
 #[derive(Debug, Clone, Copy)]
 pub struct Parser<K: TokenKind>(PhantomData<K>);

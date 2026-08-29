@@ -71,6 +71,7 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-primary-identifier".to_string(),
             "plugin-grammar-call".to_string(),
             "plugin-grammar-apply".to_string(),
+            "plugin-grammar-arrow".to_string(),
             // Eval behavior plugins
             "plugin-eval-hello".to_string(),
             "plugin-eval-json".to_string(),

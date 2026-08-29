@@ -769,6 +769,7 @@ dependencies = [
  "handl-plugin-ast-array",
  "handl-plugin-ast-assign",
  "handl-plugin-ast-call",
+ "handl-plugin-ast-function",
  "handl-plugin-ast-handl-value",
  "handl-plugin-ast-handle",
  "handl-plugin-ast-index",
@@ -794,6 +795,7 @@ dependencies = [
  "handl-plugin-fmt-trivia",
  "handl-plugin-grammar-apply",
  "handl-plugin-grammar-array",
+ "handl-plugin-grammar-arrow",
  "handl-plugin-grammar-assign",
  "handl-plugin-grammar-call",
  "handl-plugin-grammar-handle",
@@ -835,6 +837,7 @@ dependencies = [
  "handl-plugin-token-comment",
  "handl-plugin-token-delimiter",
  "handl-plugin-token-doc-comment",
+ "handl-plugin-token-handl",
  "handl-plugin-token-identifier",
  "handl-plugin-token-keyword-as",
  "handl-plugin-token-keyword-handle",
@@ -1275,6 +1278,16 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-grammar-array"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-grammar-arrow"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -2523,6 +2536,44 @@ name = "handl-plugin-token-doc-comment"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+]
+
+[[package]]
+name = "handl-plugin-token-handl"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-ext-parser",
+ "handl-plugin-grammar-apply",
+ "handl-plugin-grammar-array",
+ "handl-plugin-grammar-arrow",
+ "handl-plugin-grammar-assign",
+ "handl-plugin-grammar-call",
+ "handl-plugin-grammar-handle",
+ "handl-plugin-grammar-index",
+ "handl-plugin-grammar-match",
+ "handl-plugin-grammar-object",
+ "handl-plugin-grammar-pipe",
+ "handl-plugin-grammar-primary-identifier",
+ "handl-plugin-grammar-primary-value",
+ "handl-plugin-grammar-stmt-export",
+ "handl-plugin-grammar-stmt-import",
+ "handl-plugin-grammar-stmt-module",
+ "handl-plugin-grammar-template",
+ "handl-plugin-grammar-type-annot",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-template",
+ "handl-plugin-token-bool",
+ "handl-plugin-token-comment",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-doc-comment",
+ "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword-as",
+ "handl-plugin-token-keyword-handle",
+ "handl-plugin-token-null",
+ "handl-plugin-token-number",
+ "handl-plugin-token-operator",
+ "handl-plugin-token-string",
+ "serde_json",
 ]
 
 [[package]]

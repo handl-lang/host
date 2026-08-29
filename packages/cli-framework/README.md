@@ -30,11 +30,11 @@ The `kit-cli` crate provides the runtime modules needed to evaluate these expres
 
 ```bash
 # Use the cli kit
-hnl --kit cli eval example.hnl
+hnl --kit cli run example.hnl 
 
 # Or set it as default
 export HANDL_KIT=cli
-hnl eval example.hnl
+hnl run example.hnl
 ```
 
 ### Using the kit-cli crate in Rust
