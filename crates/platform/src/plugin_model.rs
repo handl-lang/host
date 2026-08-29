@@ -1,4 +1,4 @@
-//! Foundational composable plugin types for ADR-0002.
+//! Foundational composable plugin types.
 //!
 //! This module defines the base traits and context used by the
 //! `handl-platform` composition model: `Contribution`, `RuleAcceptor`,

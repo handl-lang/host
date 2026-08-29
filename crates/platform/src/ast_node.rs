@@ -1,4 +1,4 @@
-//! Generic, composable AST node type for ADR-0002.
+//! Generic, composable AST node type.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

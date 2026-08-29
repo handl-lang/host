@@ -29,19 +29,19 @@ pub mod kit;
 pub mod lint;
 /// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
-/// Generic, composable AST node for ADR-0002.
+/// Generic, composable AST node.
 pub mod ast_node;
 /// Plugin-provided option schemas and resolved values.
 pub mod options;
 /// Generic typecheck operation and rule acceptor.
 pub mod typecheck;
-/// Foundational composable plugin types for ADR-0002.
+/// Foundational composable plugin types.
 pub mod plugin_model;
 /// Plugin traits, registries, and built-in plugin implementations.
 pub mod plugin;
 /// Plugin composition resolution.
 pub mod resolve;
-/// Runtime built-in host and behavior rules for ADR-0034.
+/// Runtime built-in host and behavior rules.
 pub mod runtime_host;
 /// Unified `Value`/`Term` space for the platform VM.
 pub mod value;

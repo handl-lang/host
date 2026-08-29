@@ -87,19 +87,19 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-handle".to_string(),
             "plugin-grammar-array".to_string(),
             "plugin-grammar-object".to_string(),
-            // Statement grammar plugins (ADR-0034 P0.4)
+            // Statement grammar plugins
             "plugin-grammar-stmt-let".to_string(),
             "plugin-grammar-stmt-const".to_string(),
             "plugin-grammar-stmt-import".to_string(),
             "plugin-grammar-stmt-export".to_string(),
             "plugin-grammar-stmt-module".to_string(),
-            // Typecheck behavior plugin (ADR-0034 P1.1)
+            // Typecheck behavior plugin
             "plugin-typecheck-core".to_string(),
-            // Format and lint behavior plugins (ADR-0034 P1.3)
+            // Format and lint behavior plugins
             "plugin-fmt-trivia".to_string(),
             "plugin-fmt-stmt".to_string(),
             "plugin-diag-expression".to_string(),
-            // Build and compile behavior plugins (ADR-0034 P1.4, placeholders)
+            // Build and compile behavior plugins (placeholders)
             // "plugin-build-core".to_string(),
             // "plugin-compile-core".to_string(),
         ],

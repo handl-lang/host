@@ -2,7 +2,7 @@
 //!
 //! Minimal example standard library for the handl runtime.
 //!
-//! Provides the `hello` library as an ADR-0002 `Library` plugin.
+//! Provides the `hello` library as a `Library` plugin.
 
 /// Greet `name` with the canonical Handl hello message.
 pub fn greet(name: &str) -> String {

@@ -1,11 +1,11 @@
-//! Runtime built-in composition for ADR-0034.
+//! Runtime built-in composition.
 //!
 //! Provides the `Runtime` operation, `RuntimeBehavior` rules, and the
 //! `RuntimeHost` `RuleAcceptor` that collects built-in function families.
 
 use std::sync::Arc;
 
-use handl_vm::{Context, Error};
+use handl_plugin_vm::{Context, Error};
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value as JsonValue;
 

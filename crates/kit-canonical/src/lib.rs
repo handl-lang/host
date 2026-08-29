@@ -964,7 +964,7 @@ impl Kit {
     }
 }
 
-/// ADR-0002 `Library` plugin for the canonical kit.
+/// `Library` plugin for the canonical kit.
 pub struct CanonicalKit {
     registered: AtomicBool,
 }
@@ -1020,7 +1020,7 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicBuilder::new())?;
         ctx.register_plugin(BasicCompiler::new())?;
 
-        // Format and lint behavior contributors (ADR-0034 P1.3)
+        // Format and lint behavior contributors
         ctx.register_plugin(TriviaFormatter::new())?;
         ctx.register_plugin(StatementFormatter::new())?;
         ctx.register_plugin(ExpressionDiagnostics::new())?;

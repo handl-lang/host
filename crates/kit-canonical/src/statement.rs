@@ -1,7 +1,7 @@
 //! Canonical statement types for the canonical kit.
 //!
 //! These compatibility `Stmt`/`StmtKind` definitions have moved here from
-//! `handl-expr` as part of ADR-0034 P0.4.  In the long term they should be
+//! `handl-expr`.  In the long term they should be
 //! dissolved into per-statement `plugin-ast-stmt-*` shapes and `AstNode`
 //! contributions; for now they live in `kit-canonical` so that `handl-expr`
 //! remains a thin compatibility re-export crate.
@@ -9,7 +9,7 @@
 use crate::CanonicalKind;
 use handl_plugin_lexer::Token;
 use handl_platform::PlatformError;
-use handl_vm::{Expr, Pattern};
+use handl_plugin_vm::{Expr, Pattern};
 
 /// The payload of a top-level statement in a handl module.
 #[derive(Debug, Clone, PartialEq)]
