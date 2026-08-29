@@ -42,4 +42,4 @@ The platform may keep shared, minimal types such as `Value`, `Term`, `Env`, and 
 
 ## Status
 
-proposed
+accepted

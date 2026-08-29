@@ -2303,6 +2303,7 @@ name = "handl-plugin-target-native"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-type",
  "serde_json",
 ]
 
@@ -2319,6 +2320,7 @@ name = "handl-plugin-target-rust"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-type",
  "handl-plugin-runtime",
  "serde_json",
 ]

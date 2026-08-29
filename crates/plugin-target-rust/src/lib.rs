@@ -6,10 +6,10 @@ use std::sync::{Arc, Mutex};
 use handl_platform::{
     AstNode, BasicEvaluator, CapabilityId, CapabilityRequest, CapabilityResponse,
     ContributionContext, EvalBehavior, EvalRequest, PlatformError, Plugin, PluginContext,
-    ResolvedOptions, RuntimeBehavior, RuntimeHost,
+    ResolvedOptions,
 };
-use handl_platform::value::{Literal, Name, Value as RuntimeValue};
-use handl_plugin_runtime::{EvalOutput, RuntimePlugin};
+use handl_plugin_lib_type::{Literal, Name, Value as RuntimeValue};
+use handl_plugin_runtime::{EvalOutput, RuntimeBehavior, RuntimeHost, RuntimePlugin};
 use serde_json::Value as JsonValue;
 
 /// A `RuntimePlugin` adapter around the Rust VM.
