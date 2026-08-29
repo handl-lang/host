@@ -9,6 +9,7 @@ handl-plugin-fmt-expression.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-plugin-fmt-stmt.workspace = true
 handl-plugin-diag-expression.workspace = true
+handl-plugin-diag-core.workspace = true
 handl-plugin-lexer.workspace = true
 handl-kit-canonical.workspace = true
 handl-platform.workspace = true

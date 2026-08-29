@@ -27,7 +27,7 @@ pub use expr::Expr;
 pub use expr_factory::ExprFactory;
 pub use field::Field;
 pub use metadata::{Attrs, Both, NodeMetadata, Span};
-pub use node::Node;
+pub use node::{DynNode, Node};
 pub use pattern::Pattern;
 pub use stmt::Stmt;
 pub use stmt_factory::StmtFactory;

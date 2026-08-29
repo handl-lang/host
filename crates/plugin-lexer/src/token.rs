@@ -1,4 +1,5 @@
 use crate::Span;
+use std::any::Any;
 use std::fmt;
 
 /// A token kind — the type of a lexed token.
@@ -59,6 +60,71 @@ pub trait TokenKind: Clone + fmt::Debug + fmt::Display + PartialEq + Send + Sync
 pub trait CommentTokenKind: TokenKind {
     /// Returns `true` if this is a comment token (to be filtered by the lexer).
     fn is_comment(&self) -> bool;
+}
+
+/// Object-safe token kind trait for dynamic composition.
+pub trait DynTokenKind: fmt::Debug + fmt::Display + Send + Sync + 'static {
+    fn is_eof(&self) -> bool;
+    fn is_error(&self) -> bool;
+    fn eq_kind(&self, other: &dyn DynTokenKind) -> bool;
+    fn dyn_clone(&self) -> Box<dyn DynTokenKind>;
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> DynTokenKind for T
+where
+    T: TokenKind + Clone + 'static,
+{
+    fn is_eof(&self) -> bool {
+        TokenKind::is_eof(self)
+    }
+
+    fn is_error(&self) -> bool {
+        TokenKind::is_error(self)
+    }
+
+    fn eq_kind(&self, other: &dyn DynTokenKind) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<T>()
+            .map_or(false, |o| self == o)
+    }
+
+    fn dyn_clone(&self) -> Box<dyn DynTokenKind> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// A token with a dynamically-typed kind.
+#[derive(Debug)]
+pub struct DynToken {
+    pub kind: Box<dyn DynTokenKind>,
+    pub span: Span,
+}
+
+impl DynToken {
+    pub fn new(kind: Box<dyn DynTokenKind>, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+impl Clone for DynToken {
+    fn clone(&self) -> Self {
+        Self {
+            kind: self.kind.dyn_clone(),
+            span: self.span,
+        }
+    }
+}
+
+impl fmt::Display for DynToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{:?}", self.kind, self.span)
+    }
 }
 
 /// A lexed token — its kind and source span.

@@ -1,16 +1,16 @@
 //! Unified value/proof space for the handl VM.
 //!
-//! This module re-exports the `handl-kit-type` primitives that make up the
+//! This module re-exports the `handl-plugin-typecheck-nbe` primitives that make up the
 //! single `Value`/`Term` space used by the platform VM.
 
-pub use handl_kit_type::Term::{
+pub use handl_plugin_typecheck_nbe::Term::{
     Array, Collection, Empty, Eq, Is, Membership, Null, Object, Refl, TypedLet,
 };
-pub use handl_kit_type::{
+pub use handl_plugin_typecheck_nbe::{
     Env, Kind, Level, Literal, MetaContext, Name, TCtx, Term, TypeError, Value, Var, check, eval,
     normalize, synth, synth_type,
 };
-pub use handl_kit_type::{prelude_env, prelude_tctx};
+pub use handl_plugin_typecheck_nbe::{prelude_env, prelude_tctx};
 
 /// Convenience `typecheck` using a fresh `MetaContext`, the empty `Env`,
 /// and the supplied `TCtx`.

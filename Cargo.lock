@@ -742,6 +742,7 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
  "handl-platform",
+ "handl-plugin-diag-core",
  "handl-plugin-diag-expression",
  "handl-plugin-fmt-expression",
  "handl-plugin-fmt-stmt",
@@ -768,13 +769,18 @@ dependencies = [
  "handl-plugin-ast-array",
  "handl-plugin-ast-assign",
  "handl-plugin-ast-call",
+ "handl-plugin-ast-handl-value",
  "handl-plugin-ast-handle",
  "handl-plugin-ast-index",
  "handl-plugin-ast-let",
  "handl-plugin-ast-match",
  "handl-plugin-ast-object",
  "handl-plugin-ast-pipe",
+ "handl-plugin-ast-stmt-export",
+ "handl-plugin-ast-stmt-import",
+ "handl-plugin-ast-stmt-module",
  "handl-plugin-ast-var",
+ "handl-plugin-diag-core",
  "handl-plugin-diag-expression",
  "handl-plugin-eval-hello",
  "handl-plugin-eval-json",
@@ -804,6 +810,7 @@ dependencies = [
  "handl-plugin-grammar-stmt-let",
  "handl-plugin-grammar-stmt-module",
  "handl-plugin-grammar-template",
+ "handl-plugin-grammar-type-annot",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-delimiter",
@@ -866,6 +873,7 @@ dependencies = [
 name = "handl-kit-config"
 version = "0.1.0"
 dependencies = [
+ "handl-platform",
  "handl-plugin-lib-archive-tar",
  "handl-plugin-lib-collections",
  "handl-plugin-lib-compress-gzip",
@@ -901,6 +909,8 @@ dependencies = [
 name = "handl-kit-server"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-config",
+ "handl-platform",
  "handl-plugin-lib-archive-tar",
  "handl-plugin-lib-collections",
  "handl-plugin-lib-compress-gzip",
@@ -935,14 +945,15 @@ dependencies = [
 name = "handl-kit-type"
 version = "0.1.0"
 dependencies = [
- "thiserror 2.0.20",
+ "handl-platform",
+ "handl-plugin-typecheck-nbe",
 ]
 
 [[package]]
 name = "handl-kit-type-schema-json"
 version = "0.1.0"
 dependencies = [
- "handl-kit-type",
+ "handl-plugin-typecheck-nbe",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -951,7 +962,7 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
- "handl-kit-type",
+ "handl-plugin-typecheck-nbe",
  "handl-plugin-vm",
  "handl-plugin-vm-values-json",
  "semver",
@@ -1018,6 +1029,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ast-handl-value"
+version = "0.1.0"
+
+[[package]]
 name = "handl-plugin-ast-handle"
 version = "0.1.0"
 dependencies = [
@@ -1060,10 +1075,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ast-stmt-export"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-ast",
+]
+
+[[package]]
+name = "handl-plugin-ast-stmt-import"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-ast",
+]
+
+[[package]]
+name = "handl-plugin-ast-stmt-module"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-ast",
+]
+
+[[package]]
 name = "handl-plugin-ast-var"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-ast",
+]
+
+[[package]]
+name = "handl-plugin-diag-core"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1136,7 +1179,9 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
  "handl-kit-cli",
+ "handl-kit-config",
  "handl-kit-hello",
+ "handl-kit-server",
  "handl-platform",
  "serde_json",
 ]
@@ -1146,7 +1191,9 @@ name = "handl-plugin-ext-lexer"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lexer",
  "serde_json",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1578,6 +1625,16 @@ dependencies = [
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
  "handl-plugin-lexer-template",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-grammar-type-annot"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
  "serde_json",
 ]
 
@@ -2102,9 +2159,9 @@ dependencies = [
 name = "handl-plugin-lib-type"
 version = "0.1.0"
 dependencies = [
- "handl-kit-type",
  "handl-kit-type-schema-json",
  "handl-platform",
+ "handl-plugin-typecheck-nbe",
  "serde_json",
 ]
 
@@ -2533,6 +2590,13 @@ dependencies = [
  "handl-plugin-runtime",
  "handl-plugin-vm-values-json",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-typecheck-nbe"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.20",
 ]
 
 [[package]]

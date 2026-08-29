@@ -1,6 +1,6 @@
 use crate::alias_table::AliasTable;
 use crate::error::SchemaError;
-use handl_kit_type::{
+use handl_plugin_typecheck_nbe::{
     Kind, Name, TCtx, Term, bvar, meta, named_ty, pi, sigma, tvar, type_app, type_lam, u0,
 };
 use serde_json::Value;
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 const MAX_DEPTH: usize = 64;
 
-/// Stateful interpreter that converts a JSON Schema fragment into a `handl-kit-type` `Term`.
+/// Stateful interpreter that converts a JSON Schema fragment into a `handl-plugin-typecheck-nbe` `Term`.
 #[derive(Debug)]
 pub struct SchemaInterpreter {
     table: AliasTable,

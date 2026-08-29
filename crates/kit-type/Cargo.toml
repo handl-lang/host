@@ -4,6 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-thiserror.workspace = true
-
-[dev-dependencies]
+handl-platform = { workspace = true }
+handl-plugin-typecheck-nbe = { workspace = true }

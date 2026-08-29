@@ -1,3 +1,7 @@
+mod dyn_lexer;
+
+pub use dyn_lexer::{DynLexError, DynLexRule, DynLexer, StaticRuleAdapter};
+
 use handl_platform::{
     Behavior, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
     Contribution, Operation, OptionSchema, PlatformError, Plugin, PluginContext, ResolvedOptions,

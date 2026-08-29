@@ -31,10 +31,9 @@ use handl_plugin_lexer_template::{
 pub use handl_plugin_lexer_template::TemplateSegment as CanonicalTemplateSegment;
 
 use handl_platform::{
-    AstKindDeclaration, AstKindRole, AstNode, BasicEvaluator, BasicTypechecker, Behavior,
+    AstKindDeclaration, AstKindRole, AstNode, BasicEvaluator, BasicTypechecker,
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    Operation, OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest, RuleAcceptor,
-    Span as PlatformSpan,
+    OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest, RuleAcceptor,
 };
 use handl_plugin_diag_expression::ExpressionDiagnostics;
 use handl_plugin_ext_build::BasicBuilder;
@@ -42,8 +41,7 @@ use handl_plugin_ext_compile::BasicCompiler;
 use handl_plugin_ext_fmt::BasicFormatter;
 use handl_plugin_ext_lexer::BasicLexer;
 use handl_plugin_ext_lint::BasicLinter;
-use handl_plugin_ext_parser::{BasicParser, Parser, ParserBehavior, ParserContext, SemicolonToken};
-use serde_json::json;
+use handl_plugin_ext_parser::{BasicParser, ParserBehavior, SemicolonToken};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
@@ -62,6 +60,10 @@ use handl_plugin_ast_match::Match;
 use handl_plugin_ast_object::Object;
 use handl_plugin_ast_pipe::Pipe;
 use handl_plugin_ast_var::Var;
+pub use handl_plugin_ast_handl_value::KitValue;
+pub use handl_plugin_ast_stmt_export::Export;
+pub use handl_plugin_ast_stmt_import::Import;
+pub use handl_plugin_ast_stmt_module::Module;
 use handl_plugin_eval_hello::HelloEvalPlugin;
 use handl_plugin_eval_json::JsonEvalPlugin;
 use handl_plugin_grammar_apply::{ApplyRule, ApplyToken};
@@ -79,6 +81,7 @@ use handl_plugin_grammar_stmt_export::{ExportStmtRule, ExportStmtToken};
 use handl_plugin_grammar_stmt_import::{ImportStmtRule, ImportStmtToken};
 use handl_plugin_grammar_stmt_module::{ModuleStmtRule, ModuleStmtToken};
 use handl_plugin_grammar_template::{TemplateRule, TemplateToken};
+use handl_plugin_grammar_type_annot::{TypeAnnotRule, TypeAnnotToken};
 use handl_plugin_runtime::RuntimeHost;
 use handl_plugin_runtime_apply::ApplyPlugin;
 use handl_plugin_runtime_arithmetic::ArithmeticPlugin;
@@ -101,8 +104,7 @@ use handl_plugin_token_number::NumberKind;
 use handl_plugin_token_operator::{CANONICAL_OPERATOR_CHARS, OperatorKind};
 use handl_plugin_token_string::StringKind;
 
-pub mod diagnostics;
-pub use diagnostics::{Diagnostic, DiagnosticLevel, Diagnostics};
+pub use handl_plugin_diag_core::{Diagnostic, DiagnosticLevel, Diagnostics};
 
 pub mod statement;
 pub use statement::{ModuleOutput, Stmt, StmtKind, expr_to_pattern};
@@ -725,203 +727,6 @@ impl ApplyToken for CanonicalKind {
     }
 }
 
-/// A runtime value carried by a kit node.
-#[derive(Debug, Clone, PartialEq)]
-pub enum KitValue {
-    /// A numeric value.
-    Number(f64),
-    /// A string literal.
-    String(String),
-    /// A boolean value.
-    Bool(bool),
-    /// The `null` value.
-    Null,
-}
-
-/// An `import` statement: `import source`.
-#[derive(Debug, Clone)]
-pub struct Import<E, M = ()>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// The imported source expression.
-    pub source: E,
-    /// Node metadata.
-    pub metadata: M,
-}
-
-impl<E, M> Import<E, M>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// Creates a new `Import` node with default metadata.
-    pub fn new(source: E) -> Self {
-        Self {
-            source,
-            metadata: M::default(),
-        }
-    }
-}
-
-impl<E, M> PartialEq for Import<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.source == other.source && self.metadata == other.metadata
-    }
-}
-
-impl<E, M> Node for Import<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    type Value = E::Value;
-    type Metadata = M;
-
-    fn metadata(&self) -> &Self::Metadata {
-        &self.metadata
-    }
-
-    fn with_metadata(self, metadata: Self::Metadata) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            source: self.source,
-            metadata,
-        }
-    }
-}
-
-/// An `export` statement: `export value`.
-#[derive(Debug, Clone)]
-pub struct Export<E, M = ()>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// The exported value expression.
-    pub value: E,
-    /// Node metadata.
-    pub metadata: M,
-}
-
-impl<E, M> Export<E, M>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// Creates a new `Export` node with default metadata.
-    pub fn new(value: E) -> Self {
-        Self {
-            value,
-            metadata: M::default(),
-        }
-    }
-}
-
-impl<E, M> PartialEq for Export<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value && self.metadata == other.metadata
-    }
-}
-
-impl<E, M> Node for Export<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    type Value = E::Value;
-    type Metadata = M;
-
-    fn metadata(&self) -> &Self::Metadata {
-        &self.metadata
-    }
-
-    fn with_metadata(self, metadata: Self::Metadata) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            value: self.value,
-            metadata,
-        }
-    }
-}
-
-/// A `module` declaration: `module name` or `module name = value`.
-#[derive(Debug, Clone)]
-pub struct Module<E, M = ()>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// The module name.
-    pub name: String,
-    /// An optional module body expression.
-    pub value: Option<E>,
-    /// Node metadata.
-    pub metadata: M,
-}
-
-impl<E, M> Module<E, M>
-where
-    E: Node,
-    M: NodeMetadata,
-{
-    /// Creates a new `Module` node with default metadata.
-    pub fn new(name: String, value: Option<E>) -> Self {
-        Self {
-            name,
-            value,
-            metadata: M::default(),
-        }
-    }
-}
-
-impl<E, M> PartialEq for Module<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.value == other.value && self.metadata == other.metadata
-    }
-}
-
-impl<E, M> Node for Module<E, M>
-where
-    E: Node,
-    M: NodeMetadata + PartialEq,
-{
-    type Value = E::Value;
-    type Metadata = M;
-
-    fn metadata(&self) -> &Self::Metadata {
-        &self.metadata
-    }
-
-    fn with_metadata(self, metadata: Self::Metadata) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            name: self.name,
-            value: self.value,
-            metadata,
-        }
-    }
-}
-
 /// Generic AST node produced by the canonical kit.
 #[derive(Debug, Clone, PartialEq)]
 pub enum KitNode {
@@ -1501,91 +1306,20 @@ fn ast_to_kitnode_with_kit(ast: &AstNode, kit: &Kit) -> Result<KitNode, Platform
     }
 }
 
-/// Grammar rule for typed assignments: `name: type = value`.
-///
-/// This is an infix rule triggered by the `:` delimiter. It parses the
-/// type name (an identifier), expects `=`, then parses the value
-/// expression. Produces a `stmt.let` AST node with an optional `type` field.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TypeAnnotRule;
-
-impl Behavior<Parser<CanonicalKind>> for TypeAnnotRule {
-    fn kind(&self) -> &str {
-        "type-annot"
+impl TypeAnnotToken for CanonicalKind {
+    fn is_colon(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Colon))
     }
 
-    fn apply(&self, _op: &mut <Parser<CanonicalKind> as Operation>::Request) -> Result<(), PlatformError> {
-        Ok(())
-    }
-}
-
-impl ParserBehavior<CanonicalKind> for TypeAnnotRule {
-    fn matches_prefix(&self, _kind: &CanonicalKind) -> bool {
-        false
+    fn is_equal(&self) -> bool {
+        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
     }
 
-    fn prefix(
-        &self,
-        _token: Token<CanonicalKind>,
-        _ctx: &mut ParserContext<'_, CanonicalKind>,
-    ) -> Result<AstNode, PlatformError> {
-        unreachable!("TypeAnnotRule is an infix rule and cannot be used as a prefix operator")
-    }
-
-    fn infix_binding(&self, kind: &CanonicalKind) -> Option<(u32, u32)> {
-        if matches!(kind, CanonicalKind::Delimiter(CanonicalDelim::Colon)) {
-            Some((15, 16))
-        } else {
-            None
+    fn ident_text(&self) -> Option<&str> {
+        match self {
+            CanonicalKind::Identifier(s) => Some(s.as_str()),
+            _ => None,
         }
-    }
-
-    fn infix(
-        &self,
-        left: AstNode,
-        _token: Token<CanonicalKind>,
-        ctx: &mut ParserContext<'_, CanonicalKind>,
-        _rbp: u32,
-    ) -> Result<AstNode, PlatformError> {
-        let name = left
-            .payload
-            .get("name")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                PlatformError::Plugin(format!("expected identifier before ':', got {:?}", left.kind))
-            })?;
-
-        let type_tok = ctx.advance()?;
-        let type_name = match &type_tok.kind {
-            CanonicalKind::Identifier(s) => s.clone(),
-            _ => return Err(PlatformError::Plugin(format!(
-                "expected type name after ':', got {}",
-                type_tok.kind
-            ))),
-        };
-
-        let eq = ctx.advance()?;
-        if !matches!(eq.kind, CanonicalKind::Operator(CanonicalOp::Equal)) {
-            return Err(PlatformError::Plugin(format!(
-                "expected '=' after type annotation, got {}",
-                eq.kind
-            )));
-        }
-
-        let value = ctx.expression(0)?;
-
-        let start = left.span.map_or(0, |s| s.start);
-        let end = value.span.map_or(start, |s| s.end);
-
-        Ok(AstNode {
-            kind: "stmt.let".into(),
-            span: Some(PlatformSpan { start, end }),
-            payload: json!({
-                "name": name,
-                "type": type_name,
-                "value": &value,
-            }),
-        })
     }
 }
 

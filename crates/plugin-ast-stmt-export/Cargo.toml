@@ -1,0 +1,7 @@
+[package]
+name = "handl-plugin-ast-stmt-export"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-ast.workspace = true

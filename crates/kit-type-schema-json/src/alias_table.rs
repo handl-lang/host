@@ -1,4 +1,4 @@
-use handl_kit_type::Name;
+use handl_plugin_typecheck_nbe::Name;
 use serde_json::Value;
 use std::collections::HashMap;
 

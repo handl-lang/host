@@ -92,12 +92,17 @@ members = [
     "crates/plugin-ast-field-access",
     "crates/plugin-ast-function",
     "crates/plugin-ast-handle",
+    "crates/plugin-ast-handl-value",
     "crates/plugin-ast-index",
     "crates/plugin-ast-let",
     "crates/plugin-ast-match",
     "crates/plugin-ast-object",
     "crates/plugin-ast-pipe",
+    "crates/plugin-ast-stmt-export",
+    "crates/plugin-ast-stmt-import",
+    "crates/plugin-ast-stmt-module",
     "crates/plugin-ast-var",
+    "crates/plugin-diag-core",
     "crates/plugin-diag-expression",
     "crates/plugin-fmt-expression",
     "crates/plugin-fmt-stmt",
@@ -137,6 +142,7 @@ members = [
     "crates/plugin-grammar-stmt-import",
     "crates/plugin-grammar-stmt-let",
     "crates/plugin-grammar-stmt-module",
+    "crates/plugin-grammar-type-annot",
     "crates/plugin-lsp-completion",
     "crates/plugin-lsp-goto",
     "crates/plugin-lsp-symbol",
@@ -171,6 +177,7 @@ members = [
     "crates/kit-config",
     "crates/plugin-vm-host-eval",
     "crates/kit-server",
+    "crates/plugin-typecheck-nbe",
     "crates/kit-type",
     "crates/kit-type-schema-json",
     "crates/plugin-vm-values-json",
@@ -290,12 +297,17 @@ handl-plugin-ast-call = { path = "crates/plugin-ast-call" }
 handl-plugin-ast-field-access = { path = "crates/plugin-ast-field-access" }
 handl-plugin-ast-function = { path = "crates/plugin-ast-function" }
 handl-plugin-ast-handle = { path = "crates/plugin-ast-handle" }
+handl-plugin-ast-handl-value = { path = "crates/plugin-ast-handl-value" }
 handl-plugin-ast-index = { path = "crates/plugin-ast-index" }
 handl-plugin-ast-let = { path = "crates/plugin-ast-let" }
 handl-plugin-ast-match = { path = "crates/plugin-ast-match" }
 handl-plugin-ast-object = { path = "crates/plugin-ast-object" }
 handl-plugin-ast-pipe = { path = "crates/plugin-ast-pipe" }
+handl-plugin-ast-stmt-export = { path = "crates/plugin-ast-stmt-export" }
+handl-plugin-ast-stmt-import = { path = "crates/plugin-ast-stmt-import" }
+handl-plugin-ast-stmt-module = { path = "crates/plugin-ast-stmt-module" }
 handl-plugin-ast-var = { path = "crates/plugin-ast-var" }
+handl-plugin-diag-core = { path = "crates/plugin-diag-core" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
@@ -335,6 +347,7 @@ handl-plugin-grammar-stmt-export = { path = "crates/plugin-grammar-stmt-export" 
 handl-plugin-grammar-stmt-import = { path = "crates/plugin-grammar-stmt-import" }
 handl-plugin-grammar-stmt-let = { path = "crates/plugin-grammar-stmt-let" }
 handl-plugin-grammar-stmt-module = { path = "crates/plugin-grammar-stmt-module" }
+handl-plugin-grammar-type-annot = { path = "crates/plugin-grammar-type-annot" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
@@ -370,6 +383,7 @@ handl-kit-config = { path = "crates/kit-config" }
 handl-plugin-vm-host-eval = { path = "crates/plugin-vm-host-eval" }
 handl-kit-server = { path = "crates/kit-server" }
 handl-kit-type = { path = "crates/kit-type" }
+handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
 handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
 handl-plugin-vm-values-json = { path = "crates/plugin-vm-values-json" }
 

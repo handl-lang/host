@@ -1,6 +1,8 @@
 use handl_kit_canonical::CanonicalKit;
 use handl_kit_cli::CliKit;
+use handl_kit_config::ConfigKit;
 use handl_kit_hello::HelloKit;
+use handl_kit_server::ServerKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,
@@ -205,6 +207,10 @@ pub enum BasicKit {
     Cli(CliKit),
     /// The hello kit.
     Hello(HelloKit),
+    /// The config kit.
+    Config(ConfigKit),
+    /// The server kit.
+    Server(ServerKit),
     /// A kit loaded from a manifest path.
     Manifest(ManifestKit),
 }
@@ -221,6 +227,8 @@ impl Plugin for BasicKit {
             Self::Canonical(k) => k.id(),
             Self::Cli(k) => k.id(),
             Self::Hello(k) => k.id(),
+            Self::Config(k) => k.id(),
+            Self::Server(k) => k.id(),
             Self::Manifest(k) => k.id(),
         }
     }
@@ -230,6 +238,8 @@ impl Plugin for BasicKit {
             Self::Canonical(k) => k.name(),
             Self::Cli(k) => k.name(),
             Self::Hello(k) => k.name(),
+            Self::Config(k) => k.name(),
+            Self::Server(k) => k.name(),
             Self::Manifest(k) => k.name(),
         }
     }
@@ -247,6 +257,8 @@ impl Plugin for BasicKit {
             Self::Canonical(k) => k.contribute(ctx),
             Self::Cli(k) => k.contribute(ctx),
             Self::Hello(k) => k.contribute(ctx),
+            Self::Config(k) => k.contribute(ctx),
+            Self::Server(k) => k.contribute(ctx),
             Self::Manifest(k) => k.contribute(ctx),
         }
     }
@@ -260,6 +272,8 @@ impl Plugin for BasicKit {
             Self::Canonical(k) => k.run(request, ctx),
             Self::Cli(k) => k.run(request, ctx),
             Self::Hello(k) => k.run(request, ctx),
+            Self::Config(k) => k.run(request, ctx),
+            Self::Server(k) => k.run(request, ctx),
             Self::Manifest(k) => k.run(request, ctx),
         }
     }
@@ -288,6 +302,8 @@ impl BasicKitLoaderPlugin {
             "canonical" => Ok(BasicKit::Canonical(CanonicalKit::new())),
             "cli" => Ok(BasicKit::Cli(CliKit::new())),
             "hello" => Ok(BasicKit::Hello(HelloKit::new())),
+            "config" => Ok(BasicKit::Config(ConfigKit::new())),
+            "server" => Ok(BasicKit::Server(ServerKit::new())),
             _ => Err(PlatformError::InvalidMetadata(format!(
                 "unknown kit: {name_or_path}"
             ))),

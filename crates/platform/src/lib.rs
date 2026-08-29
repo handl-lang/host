@@ -69,7 +69,7 @@ pub use resolve::*;
 pub use runtime_host::*;
 pub use typecheck::*;
 
-/// Unified value space primitives re-exported from `handl_kit_type`.
+/// Unified value space primitives re-exported from `handl_plugin_typecheck_nbe`.
 pub use value::{Env, Term, Value, prelude_env, prelude_tctx, typecheck, typecheck_with_prelude};
 /// Composable VM wrapper.
 pub use vm::Vm;

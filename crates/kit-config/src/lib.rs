@@ -79,6 +79,89 @@ use handl_plugin_vm_host_eval::EvalHost;
 use handl_plugin_vm_values_json::{
     CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
 };
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// A kit that curates the pure (side-effect-free) library plugins.
+///
+/// Registered as `kit.config` in the plugin registry. When contributed, it
+/// registers every pure `plugin-lib-*` library plugin that backs the
+/// modules wired into [`SandboxHost`].
+pub struct ConfigKit {
+    registered: AtomicBool,
+}
+
+impl ConfigKit {
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for ConfigKit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for ConfigKit {
+    fn id(&self) -> &str {
+        "kit.config"
+    }
+
+    fn name(&self) -> &str {
+        "kit-config"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_kv::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_stats::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ws_whatwg_native::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ip::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_archive_tar::LibraryPlugin)?;
+
+        #[cfg(feature = "concurrent")]
+        {
+            ctx.register_plugin(handl_plugin_lib_concurrent::LibraryPlugin)?;
+        }
+
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
 
 /// Resource limits for sandboxed evaluation.
 ///

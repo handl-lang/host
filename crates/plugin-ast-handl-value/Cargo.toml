@@ -1,0 +1,4 @@
+[package]
+name = "handl-plugin-ast-handl-value"
+version.workspace = true
+edition.workspace = true

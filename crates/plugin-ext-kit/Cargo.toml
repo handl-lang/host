@@ -8,6 +8,8 @@ handl-platform = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-kit-cli = { workspace = true }
 handl-kit-hello = { workspace = true }
+handl-kit-config = { workspace = true }
+handl-kit-server = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

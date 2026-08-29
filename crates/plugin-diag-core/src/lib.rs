@@ -1,4 +1,4 @@
-//! Compatibility diagnostic types for the canonical kit.
+//! Core diagnostic types for diagnostics plugins.
 
 use handl_plugin_lexer::Span;
 

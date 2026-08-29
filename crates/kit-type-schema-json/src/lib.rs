@@ -1,4 +1,4 @@
-//! JSON Schema to `handl-kit-type` bridge.
+//! JSON Schema to `handl-plugin-typecheck-nbe` bridge.
 
 pub mod alias_table;
 pub mod error;

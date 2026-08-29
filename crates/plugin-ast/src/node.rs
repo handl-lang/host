@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::Debug;
 
 use crate::NodeMetadata;
@@ -21,4 +22,34 @@ pub trait Node: Debug + Clone + PartialEq {
     fn with_metadata(self, metadata: Self::Metadata) -> Self
     where
         Self: Sized;
+}
+
+/// Object-safe node trait for dynamic composition.
+pub trait DynNode: Debug + Send + Sync + 'static {
+    fn metadata(&self) -> &dyn Any;
+    fn kind(&self) -> &str;
+    fn dyn_clone(&self) -> Box<dyn DynNode>;
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> DynNode for T
+where
+    T: Node + Send + Sync + 'static,
+    T::Metadata: 'static,
+{
+    fn metadata(&self) -> &dyn Any {
+        Node::metadata(self)
+    }
+
+    fn kind(&self) -> &str {
+        std::any::type_name::<T>()
+    }
+
+    fn dyn_clone(&self) -> Box<dyn DynNode> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }

@@ -44,11 +44,15 @@ handl-plugin-ast-array = { path = "../plugin-ast-array" }
 handl-plugin-ast-assign = { path = "../plugin-ast-assign" }
 handl-plugin-ast-call = { workspace = true }
 handl-plugin-ast-handle = { path = "../plugin-ast-handle" }
+handl-plugin-ast-handl-value = { workspace = true }
 handl-plugin-ast-index = { path = "../plugin-ast-index" }
 handl-plugin-ast-let = { path = "../plugin-ast-let" }
 handl-plugin-ast-match = { path = "../plugin-ast-match" }
 handl-plugin-ast-object = { path = "../plugin-ast-object" }
 handl-plugin-ast-pipe = { path = "../plugin-ast-pipe" }
+handl-plugin-ast-stmt-export = { workspace = true }
+handl-plugin-ast-stmt-import = { workspace = true }
+handl-plugin-ast-stmt-module = { workspace = true }
 handl-plugin-ast-var = { path = "../plugin-ast-var" }
 
 handl-plugin-grammar-apply = { path = "../plugin-grammar-apply" }
@@ -64,6 +68,7 @@ handl-plugin-grammar-match = { path = "../plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "../plugin-grammar-object" }
 handl-plugin-grammar-pipe = { path = "../plugin-grammar-pipe" }
 handl-plugin-grammar-template = { path = "../plugin-grammar-template" }
+handl-plugin-grammar-type-annot = { path = "../plugin-grammar-type-annot" }
 
 handl-plugin-grammar-stmt-let = { path = "../plugin-grammar-stmt-let" }
 handl-plugin-grammar-stmt-const = { path = "../plugin-grammar-stmt-const" }
@@ -87,6 +92,7 @@ handl-plugin-token-string = { path = "../plugin-token-string" }
 handl-plugin-fmt-trivia = { path = "../plugin-fmt-trivia" }
 handl-plugin-fmt-stmt = { path = "../plugin-fmt-stmt" }
 handl-plugin-diag-expression = { path = "../plugin-diag-expression" }
+handl-plugin-diag-core = { path = "../plugin-diag-core" }
 
 handl-plugin-load = { path = "../plugin-load" }
 handl-plugin-loader-native = { path = "../plugin-loader-native" }

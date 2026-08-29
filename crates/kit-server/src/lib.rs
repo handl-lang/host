@@ -52,6 +52,84 @@ use handl_plugin_vm_host_eval::EvalHost;
 use handl_plugin_vm_values_json::{
     CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
 };
+use handl_kit_config::ConfigKit;
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// A kit that curates the server-side library plugins.
+///
+/// Registered as `kit.server` in the plugin registry. When contributed, it
+/// extends [`ConfigKit`] (pure plugins) with the effectful `plugin-lib-*`
+/// library plugins (OS, HTTP, rand, test, otlp) that back the modules
+/// wired into [`ServerHost`].
+pub struct ServerKit {
+    registered: AtomicBool,
+}
+
+impl ServerKit {
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for ServerKit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for ServerKit {
+    fn id(&self) -> &str {
+        "kit.server"
+    }
+
+    fn name(&self) -> &str {
+        "kit-server"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        ctx.register_plugin(ConfigKit::new())?;
+
+        ctx.register_plugin(handl_plugin_lib_test::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_rand::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_os::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_os_std::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_http_server::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_http_server_std::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_http_client::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_http_client_std::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_otlp_std::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ws_rfc_native::LibraryPlugin)?;
+
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
 
 /// Resource limits for server-side evaluation.
 ///

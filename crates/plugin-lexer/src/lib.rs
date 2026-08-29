@@ -44,4 +44,4 @@ pub use grammar_info::{GrammarInfo, GrammarInfoProvider, KitGrammarMetadata};
 pub use lexer::Lexer;
 pub use rule::{FnRule, LexRule};
 pub use span::Span;
-pub use token::{CommentTokenKind, Token, TokenKind};
+pub use token::{DynToken, DynTokenKind, CommentTokenKind, Token, TokenKind};
