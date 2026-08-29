@@ -1,7 +1,8 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
-use handl_expr::{Diagnostic, Formatter};
+use handl_kit_canonical::Diagnostic;
 use handl_loader::LoaderRegistry;
+use handl_platform::Formatter;
 use handl_platform::{PlatformError, Plugin, PluginManifest};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;

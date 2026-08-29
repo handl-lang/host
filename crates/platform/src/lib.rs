@@ -19,6 +19,8 @@ pub mod error;
 pub mod eval;
 /// Generic format operation and rule acceptor.
 pub mod format;
+/// Expression formatter trait for formatting concrete VM expression trees.
+pub mod formatter;
 /// Host implementations that coordinate plugins and kits.
 pub mod host;
 /// Kit manifests and registries.
@@ -54,6 +56,7 @@ pub use config::*;
 pub use error::*;
 pub use eval::*;
 pub use format::*;
+pub use formatter::*;
 pub use host::*;
 pub use kit::*;
 pub use lint::*;

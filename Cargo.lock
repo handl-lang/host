@@ -689,19 +689,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-expr"
-version = "0.1.0"
-dependencies = [
- "handl-ast-common",
- "handl-kit-canonical",
- "handl-lexer",
- "handl-platform",
- "handl-vm",
- "handl-vm-values-json",
- "serde_json",
-]
-
-[[package]]
 name = "handl-ext-build"
 version = "0.1.0"
 dependencies = [
@@ -1627,8 +1614,8 @@ dependencies = [
 name = "handl-plugin-fmt-expression"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
+ "handl-vm",
  "handl-vm-values-json",
  "serde_json",
 ]
@@ -1689,7 +1676,6 @@ dependencies = [
 name = "handl-plugin-grammar-function-literal"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1719,7 +1705,6 @@ dependencies = [
 name = "handl-plugin-grammar-infix-assign"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1730,7 +1715,6 @@ dependencies = [
 name = "handl-plugin-grammar-infix-fanout"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-vm-values-json",
@@ -1741,7 +1725,6 @@ dependencies = [
 name = "handl-plugin-grammar-infix-flow"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-vm-values-json",
@@ -1751,7 +1734,6 @@ dependencies = [
 name = "handl-plugin-grammar-infix-pipe"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1762,7 +1744,6 @@ dependencies = [
 name = "handl-plugin-grammar-infix-ternary"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1809,7 +1790,6 @@ dependencies = [
 name = "handl-plugin-grammar-postfix-call"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-paren",
@@ -1822,7 +1802,6 @@ dependencies = [
 name = "handl-plugin-grammar-postfix-field"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1834,7 +1813,6 @@ dependencies = [
 name = "handl-plugin-grammar-postfix-index"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1846,7 +1824,6 @@ dependencies = [
 name = "handl-plugin-grammar-postfix-mood"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1858,7 +1835,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-array"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-value",
  "handl-vm-values-json",
@@ -1868,7 +1844,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-handle"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-postfix-call",
  "handl-plugin-grammar-primary-identifier",
@@ -1881,7 +1856,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-identifier"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-vm-values-json",
  "serde_json",
@@ -1891,7 +1865,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-match"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1903,7 +1876,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-not"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-value",
  "handl-vm-values-json",
@@ -1913,7 +1885,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-object"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1924,7 +1895,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-paren"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-value",
  "handl-vm-values-json",
@@ -1934,7 +1904,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-typeof"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-value",
  "handl-vm-values-json",
@@ -1944,7 +1913,6 @@ dependencies = [
 name = "handl-plugin-grammar-primary-value"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-vm-values-json",
  "serde_json",
@@ -1954,7 +1922,6 @@ dependencies = [
 name = "handl-plugin-grammar-stmt-const"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1965,7 +1932,6 @@ dependencies = [
 name = "handl-plugin-grammar-stmt-export"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1976,7 +1942,6 @@ dependencies = [
 name = "handl-plugin-grammar-stmt-import"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1987,7 +1952,6 @@ dependencies = [
 name = "handl-plugin-grammar-stmt-let"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -1998,7 +1962,6 @@ dependencies = [
 name = "handl-plugin-grammar-stmt-module"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
@@ -2009,7 +1972,6 @@ dependencies = [
 name = "handl-plugin-lsp-completion"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-kit-canonical",
  "handl-platform",
  "handl-tooling",
@@ -2019,7 +1981,6 @@ dependencies = [
 name = "handl-plugin-lsp-goto"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-kit-canonical",
  "handl-platform",
  "handl-tooling",
@@ -2029,7 +1990,6 @@ dependencies = [
 name = "handl-plugin-lsp-symbol"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-kit-canonical",
  "handl-platform",
  "handl-tooling",
@@ -2231,7 +2191,6 @@ dependencies = [
 name = "handl-tooling"
 version = "0.1.0"
 dependencies = [
- "handl-expr",
  "handl-kit-canonical",
  "handl-loader",
  "handl-loader-native",

@@ -1,10 +1,10 @@
 //! Expression formatter stub; canonical formatting implementation pending.
 
-use handl_expr::{Expr, Formatter};
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
-    PluginContext,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Formatter, PlatformError,
+    Plugin, PluginContext,
 };
+use handl_vm::Expr;
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::json;
 
@@ -32,7 +32,7 @@ impl Formatter for ExpressionFormatter {
     fn format(
         &self,
         _expr: &Expr<NonFunctionValue>,
-    ) -> Result<String, handl_platform::PlatformError> {
+    ) -> Result<String, PlatformError> {
         Err(PlatformError::NotImplemented)
     }
 }

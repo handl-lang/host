@@ -4,12 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-expr.workspace = true
 handl-loader.workspace = true
 handl-plugin-fmt-expression.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-plugin-fmt-stmt.workspace = true
 handl-plugin-diag-expression.workspace = true
+handl-kit-canonical.workspace = true
 handl-platform.workspace = true
 handl-vm-values-json.workspace = true
 handl-vm-common.workspace = true
