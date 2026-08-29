@@ -242,7 +242,6 @@ impl Module for CollectionsModule {
             "hash_set.without" => Some(&HASH_SET_WITHOUT),
             "hash_set.unique_by" => Some(&HASH_SET_UNIQUE_BY),
             // array
-            "array.length" => Some(&ARRAY_LENGTH),
             "array.len" => Some(&ARRAY_LENGTH),
             "array.reverse" => Some(&ARRAY_REVERSE),
             "array.concat" => Some(&ARRAY_CONCAT),
