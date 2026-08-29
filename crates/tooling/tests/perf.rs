@@ -8,7 +8,7 @@ use handl_kit_canonical::CanonicalKit;
 use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_tooling::ToolingHost;
 
-fn host() -> ToolingHost {
+fn host() -> ToolingHost<CanonicalKit> {
     ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
 }
 

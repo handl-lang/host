@@ -5,7 +5,7 @@ use handl_plugin_lsp_goto::BasicGotoDef;
 use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 use handl_tooling::{Location, TextContentChange, ToolingHost};
 
-fn host() -> ToolingHost {
+fn host() -> ToolingHost<CanonicalKit> {
     ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
         .with_completion_plugin(Box::new(BasicCompletion::new()))
         .with_goto_def_plugin(Box::new(BasicGotoDef::new()))

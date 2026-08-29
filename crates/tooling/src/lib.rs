@@ -1,9 +1,8 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
 use handl_expr::{Diagnostic, Formatter};
-use handl_kit_canonical::CanonicalKit;
 use handl_loader::LoaderRegistry;
-use handl_platform::{PlatformError, PluginManifest};
+use handl_platform::{PlatformError, Plugin, PluginManifest};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
@@ -18,8 +17,8 @@ pub use lsp::*;
 
 /// Tooling / LSP host that decouples formatter and diagnostics from parser internals.
 #[allow(dead_code)]
-pub struct ToolingHost {
-    kit: CanonicalKit,
+pub struct ToolingHost<K: Plugin> {
+    kit: K,
     formatter: Box<dyn Formatter>,
     trivia_formatter: TriviaFormatter,
     statement_formatter: StatementFormatter,
@@ -30,9 +29,9 @@ pub struct ToolingHost {
     loaders: LoaderRegistry,
 }
 
-impl ToolingHost {
-    /// Creates a new tooling host with the given parser and formatter.
-    pub fn new(kit: CanonicalKit, formatter: Box<dyn Formatter>) -> Self {
+impl<K: Plugin> ToolingHost<K> {
+    /// Creates a new tooling host with the given kit and formatter.
+    pub fn new(kit: K, formatter: Box<dyn Formatter>) -> Self {
         Self {
             kit,
             formatter,
@@ -76,8 +75,8 @@ impl ToolingHost {
         self
     }
 
-    /// Returns a reference to the configured `CanonicalKit`.
-    pub fn kit(&self) -> &CanonicalKit {
+    /// Returns a reference to the configured kit.
+    pub fn kit(&self) -> &K {
         &self.kit
     }
 
