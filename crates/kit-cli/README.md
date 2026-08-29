@@ -57,13 +57,13 @@ host.load().unwrap();
 
 ## Relationship to other kits
 
-| Kit | Purpose |
-|-----|---------|
-| `kit-canonical` | Language operations only (no library modules) |
-| `kit-cli` | Canonical + OS + utils + collections (CLI tools) |
-| `kit-config` | Canonical + pure modules (sandboxed, no I/O) |
-| `kit-server` | kit-config + server modules (HTTP, WS, OS, rand) |
-| `kit-hello` | Canonical + hello demo module |
+| Kit             | Purpose                                          |
+| --------------- | ------------------------------------------------ |
+| `kit-canonical` | Language operations only (no library modules)    |
+| `kit-cli`       | Canonical + OS + utils + collections (CLI tools) |
+| `kit-config`    | Canonical + pure modules (sandboxed, no I/O)     |
+| `kit-server`    | kit-config + server modules (HTTP, WS, OS, rand) |
+| `kit-hello`     | Canonical + hello demo module                    |
 
 `kit-cli` is the starting point for most CLI applications. If you need
 server capabilities (HTTP server, WebSocket, etc.), use `kit-server`

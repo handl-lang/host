@@ -414,7 +414,281 @@ impl GrammarInfoProvider for Kit {
     }
 }
 
+/// Sub-kit that registers the canonical language operation plugins: the
+/// lexer, parser (with all grammar rules), formatter, linter, typechecker,
+/// evaluator, builder, compiler, trivia/statement formatters, expression
+/// diagnostics, and the options plugin.
+pub struct KitLang {
+    registered: AtomicBool,
+}
+
+impl KitLang {
+    /// Create a new `KitLang`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for KitLang {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for KitLang {
+    fn id(&self) -> &str {
+        "kit.lang"
+    }
+
+    fn name(&self) -> &str {
+        "kit-lang"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        // Canonical language operation RuleAcceptors
+        ctx.register_plugin(BasicLexer::new())?;
+        ctx.register_plugin(BasicParser::<LexKind>::new())?;
+        let grammar_rules = resolve_grammar_rules(&canonical_manifest().plugins)?;
+        for id in &grammar_rules {
+            if let Some(rule) = rule_for_plugin_id(id) {
+                ctx.contribute::<BasicParser<LexKind>>(rule)?;
+            }
+        }
+        ctx.register_plugin(BasicFormatter::new())?;
+        ctx.register_plugin(BasicLinter::new())?;
+        ctx.register_plugin(BasicTypechecker::new())?;
+        ctx.register_plugin(BasicEvaluator::new())?;
+        ctx.register_plugin(BasicBuilder::new())?;
+        ctx.register_plugin(BasicCompiler::new())?;
+
+        // Format and lint behavior contributors
+        ctx.register_plugin(TriviaFormatter::new())?;
+        ctx.register_plugin(StatementFormatter::new())?;
+        ctx.register_plugin(ExpressionDiagnostics::new())?;
+        ctx.register_plugin(OptionsPlugin::new())?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+/// Sub-kit that registers the runtime plugins: the native target, the runtime
+/// host, the arithmetic/boolean/array/object/apply builtin families, and the
+/// module runtime.
+pub struct KitRuntime {
+    registered: AtomicBool,
+}
+
+impl KitRuntime {
+    /// Create a new `KitRuntime`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for KitRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for KitRuntime {
+    fn id(&self) -> &str {
+        "kit.runtime"
+    }
+
+    fn name(&self) -> &str {
+        "kit-runtime"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        // Target and library plugins
+        ctx.register_plugin(NativeTarget::new())?;
+
+        // Runtime built-in host and families for the Rust VM target
+        ctx.register_plugin(RuntimeHost::new())?;
+        ctx.register_plugin(ArithmeticPlugin::new())?;
+        ctx.register_plugin(BooleanPlugin::new())?;
+        ctx.register_plugin(ArrayPlugin::new())?;
+        ctx.register_plugin(ObjectPlugin::new())?;
+        ctx.register_plugin(ApplyPlugin::new())?;
+
+        // Module runtime — the RuleAcceptor for library modules.
+        // Downstream kits (kit-cli, kit-server, etc.) register plugin-lib-*
+        // plugins whose contribute() methods register ModuleRules here.
+        ctx.register_plugin(ModuleRuntime::new())?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+/// Sub-kit that registers the out-of-process plugin loaders. The
+/// `LoaderHostPlugin` is registered first so the loaders' `contribute` methods
+/// can find it.
+pub struct KitLoaders {
+    registered: AtomicBool,
+}
+
+impl KitLoaders {
+    /// Create a new `KitLoaders`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for KitLoaders {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for KitLoaders {
+    fn id(&self) -> &str {
+        "kit.loaders"
+    }
+
+    fn name(&self) -> &str {
+        "kit-loaders"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        // Out-of-process plugin loaders. `LoaderHostPlugin` must be registered
+        // before the loaders so their `contribute` methods can find it.
+        ctx.register_plugin(LoaderHostPlugin::default())?;
+        ctx.register_plugin(NativeLoader::new())?;
+        ctx.register_plugin(WasmLoader::new())?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+/// Sub-kit that registers the eval plugins: the hello and json eval plugins.
+pub struct KitEval {
+    registered: AtomicBool,
+}
+
+impl KitEval {
+    /// Create a new `KitEval`.
+    pub fn new() -> Self {
+        Self {
+            registered: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Default for KitEval {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for KitEval {
+    fn id(&self) -> &str {
+        "kit.eval"
+    }
+
+    fn name(&self) -> &str {
+        "kit-eval"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.registered.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.registered.store(true, Ordering::SeqCst);
+
+        ctx.register_plugin(HelloEvalPlugin::new())?;
+        ctx.register_plugin(JsonEvalPlugin::new())?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
 /// `Library` plugin for the canonical kit.
+///
+/// `CanonicalKit` composes the four sub-kits — [`KitLang`], [`KitRuntime`],
+/// [`KitLoaders`], and [`KitEval`] — so that downstream kits can pick and
+/// choose individual groups of plugins instead of pulling in everything.
 pub struct CanonicalKit {
     registered: AtomicBool,
 }
@@ -457,57 +731,16 @@ impl Plugin for CanonicalKit {
         }
         self.registered.store(true, Ordering::SeqCst);
 
-        // Canonical language operation RuleAcceptors
-        ctx.register_plugin(BasicLexer::new())?;
-        ctx.register_plugin(BasicParser::<LexKind>::new())?;
-        let grammar_rules = resolve_grammar_rules(&canonical_manifest().plugins)?;
-        for id in &grammar_rules {
-            if let Some(rule) = rule_for_plugin_id(id) {
-                ctx.contribute::<BasicParser<LexKind>>(rule)?;
-            }
-        }
-        ctx.register_plugin(BasicFormatter::new())?;
-        ctx.register_plugin(BasicLinter::new())?;
-        ctx.register_plugin(BasicTypechecker::new())?;
-        ctx.register_plugin(BasicEvaluator::new())?;
-        ctx.register_plugin(BasicBuilder::new())?;
-        ctx.register_plugin(BasicCompiler::new())?;
-
-        // Format and lint behavior contributors
-        ctx.register_plugin(TriviaFormatter::new())?;
-        ctx.register_plugin(StatementFormatter::new())?;
-        ctx.register_plugin(ExpressionDiagnostics::new())?;
-        ctx.register_plugin(HelloEvalPlugin::new())?;
-        ctx.register_plugin(JsonEvalPlugin::new())?;
-        ctx.register_plugin(OptionsPlugin::new())?;
-
-        // Target and library plugins
-        ctx.register_plugin(NativeTarget::new())?;
-
-        // Runtime built-in host and families for the Rust VM target
-        ctx.register_plugin(RuntimeHost::new())?;
-        ctx.register_plugin(ArithmeticPlugin::new())?;
-        ctx.register_plugin(BooleanPlugin::new())?;
-        ctx.register_plugin(ArrayPlugin::new())?;
-        ctx.register_plugin(ObjectPlugin::new())?;
-        ctx.register_plugin(ApplyPlugin::new())?;
-
-        // Module runtime — the RuleAcceptor for library modules.
-        // Downstream kits (kit-cli, kit-server, etc.) register plugin-lib-*
-        // plugins whose contribute() methods register ModuleRules here.
-        ctx.register_plugin(ModuleRuntime::new())?;
-
         // The canonical manifest lists token, AST-shape, and grammar-rule plugins
         // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide
         // shared types and rules rather than `Plugin` implementations, so they are
         // wired directly by the existing `Kit` lexer/parser pipeline and are not
         // registered here.
 
-        // Out-of-process plugin loaders. `LoaderHostPlugin` must be registered
-        // before the loaders so their `contribute` methods can find it.
-        ctx.register_plugin(LoaderHostPlugin::default())?;
-        ctx.register_plugin(NativeLoader::new())?;
-        ctx.register_plugin(WasmLoader::new())?;
+        ctx.register_plugin(KitLang::new())?;
+        ctx.register_plugin(KitRuntime::new())?;
+        ctx.register_plugin(KitLoaders::new())?;
+        ctx.register_plugin(KitEval::new())?;
         Ok(())
     }
 
