@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     HostConfig, PlatformError, Plugin, PluginContext, PluginManifest,
@@ -8,6 +10,7 @@ use handl_plugin_load::LoaderHostPlugin;
 pub struct DefaultApplierPlugin {
     config_source: String,
     fallback_kit: Option<String>,
+    applied: AtomicBool,
 }
 
 impl DefaultApplierPlugin {
@@ -15,6 +18,7 @@ impl DefaultApplierPlugin {
         Self {
             config_source: config_source.into(),
             fallback_kit: None,
+            applied: AtomicBool::new(false),
         }
     }
 
@@ -42,6 +46,11 @@ impl Plugin for DefaultApplierPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if self.applied.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.applied.store(true, Ordering::SeqCst);
+
         let config = match std::fs::read_to_string(&self.config_source) {
             Ok(source) => HostConfig::from_toml(&source)?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => HostConfig::new(),
