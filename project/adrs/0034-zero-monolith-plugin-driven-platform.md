@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ADR-0033 unified plugin crate naming, which made the workspace navigable and the kit manifests mechanically enumerable. Naming alone is not sufficient to make the platform language-agnostic: the base framework crates still contain hard-coded canonical language assumptions, concrete value types, and monolithic statement/expression shapes. This means `kit-canonical` is not truly a curated set of plugins loaded by a generic host; it is still wired into the foundations of `handl-lexer`, `handl-parser`, `handl-expr`, `handl-platform`, `handl-runtime`, and `handl-target-rust`.
+ADR-0033 unified plugin crate naming, which made the workspace navigable and the kit manifests mechanically enumerable. Naming alone is not sufficient to make the platform language-agnostic: the base framework crates still contain hard-coded canonical language assumptions, concrete value types, and monolithic statement/expression shapes. This means `kit-canonical` is not truly a curated set of plugins loaded by a generic host; it is still wired into the foundations of `handl-plugin-lexer`, `handl-plugin-parser`, `handl-plugin-ast`, `handl-platform`, `handl-plugin-runtime`, and `handl-plugin-target-rust`.
 
 The goal of the Handl platform is to be a toolkit for arbitrary languages built from composable plugins. The canonical language is one such kit. Before we can expose non-canonical kits, the base framework must be scrubbed of all language-specific code. Only then can a kit be swapped, subset, or extended without touching the framework.
 
@@ -20,11 +20,11 @@ The framework, plugins, kits, and hosts have the following concrete boundaries:
 
 Base crates define traits, registries, and generic data structures. They do not know the canonical language.
 
-- `handl-lexer` defines `Token`, `Lexer`, and the `TokenKind` capability trait. No concrete token kind lives in the base crate.
-- `handl-parser` defines `Parser`, `Grammar`, and the `GrammarRule` capability trait. No concrete grammar rule or canonical statement/expression shape lives in the base crate.
-- `handl-ast` defines the generic `Node` type and per-shape capability traits. No concrete AST vocabulary lives in the base crate.
+- `handl-plugin-lexer` defines `Token`, `Lexer`, and the `TokenKind` capability trait. No concrete token kind lives in the base crate.
+- `handl-plugin-parser` defines `Parser`, `Grammar`, and the `GrammarRule` capability trait. No concrete grammar rule or canonical statement/expression shape lives in the base crate.
+- `handl-plugin-ast` defines the generic `Node` type and per-shape capability traits. No concrete AST vocabulary lives in the base crate.
 - `handl-platform` defines `Host`, `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `ContributionContext`, `AstNode`, and `DataTypes`. No concrete `DefaultHost`, `Env`, or language-specific runtime value lives in the base crate.
-- `handl-expr` (and any shared expression/statement vocabulary crate) must not contain a fixed `StmtKind` enum or canonical expression grammar. Shapes are introduced by individual `plugin-ast-*` and `plugin-grammar-*` crates.
+- The `handl-expr` compatibility crate has been dissolved; fixed `StmtKind` enumerations and canonical expression grammars now live in individual `plugin-ast-*` and `plugin-grammar-*` crates.
 
 ### 2. Kits are curated sets of plugins
 
@@ -40,21 +40,21 @@ Base crates define traits, registries, and generic data structures. They do not 
 
 ### 4. VM, target, and runtime packages are tiny composable plugins
 
-- `handl-vm`, `handl-target-*`, and `handl-runtime` must not contain language-specific builtin tables, concrete `Env` implementations, or value-type special cases.
+- `handl-plugin-vm`, `handl-plugin-target-*`, and `handl-plugin-runtime` must not contain language-specific builtin tables, concrete `Env` implementations, or value-type special cases.
 - `plugin-target-rust` and other `plugin-target-*` crates are the only places for target-specific builtins and code generation.
-- `handl-runtime` and `handl-typecheck-core` operate over capability traits, not a fixed `NonFunctionValue` or `handl_expr` dependency.
-- `handl-vm-host-eval` and `handl-vm-backend-*` provide generic execution hosts; concrete value semantics are supplied by plugins.
+- `handl-plugin-runtime` and `handl-plugin-typecheck-core` operate over capability traits, not a fixed `NonFunctionValue` or `handl-plugin-ast` dependency.
+- `handl-plugin-vm-host-eval` and `handl-plugin-vm-backend-*` provide generic execution hosts; concrete value semantics are supplied by plugins.
 
 ## Consequences
 
 ### Positive
 
 - Any language can be built by selecting plugins and composing a kit, without forking the framework.
-- `handl-lexer` and `handl-parser` can be reused by non-canonical kits, embedded DSLs, and alternative surface syntaxes.
+- `handl-plugin-lexer` and `handl-plugin-parser` can be reused by non-canonical kits, embedded DSLs, and alternative surface syntaxes.
 - `kit-canonical` becomes a pure, auditable manifest of the canonical language features.
 - CLI and LSP hosts become smaller because they delegate all language behavior to the kit.
 - Target, VM, and runtime packages become independently testable and replaceable.
-- Extension points (`ext-eval`, `ext-typecheck`, `ext-fmt`, `ext-lint`, `ext-build`, `ext-compile`) become generic operations that consume `Behavior` rules, not canonical-language special cases.
+- Extension points (`plugin-ext-eval`, `plugin-ext-typecheck`, `plugin-ext-fmt`, `plugin-ext-lint`, `plugin-ext-build`, `plugin-ext-compile`) become generic operations that consume `Behavior` rules, not canonical-language special cases.
 
 ### Negative
 
@@ -70,24 +70,24 @@ The audit summary produced during ADR-0033 implementation is the migration backl
 #### Phase 0 — Blockers (must be removed before any non-canonical kit can load)
 
 - `kit-canonical`: remove `CanonicalKind`, `CanonicalFactory`, `CanonicalLexer`, and `KitParser` wiring from the base framework; move them into `plugin-token-*`, `plugin-grammar-*`, and `plugin-ast-*` crates.
-- `handl-expr`: dissolve the `StmtKind` monolith into per-statement `plugin-ast-*` shapes and capability traits.
+- `handl-expr`: dissolved; the `StmtKind` monolith has been split into per-statement `plugin-ast-*` shapes and capability traits.
 - `plugin-target-rust`: remove the `BuiltinHost` table and `RustVm` concrete implementation from the framework; make them target plugins.
-- `handl-lexer/src/primitives.rs` and the default factory methods: remove canonical primitive token defaults; these are provided by `plugin-token-*` crates.
+- `handl-plugin-lexer/src/primitives.rs` and the default factory methods: remove canonical primitive token defaults; these are provided by `plugin-token-*` crates.
 
 #### Phase 1 — Coupled framework code
 
-- `ext-typecheck`: remove the `handl_vm_type` direct call; query value-type capabilities through the `DataTypes` plugin.
-- `ext-eval`: remove the `hello.greet` and JSON special-case; handle them through `plugin-lib-hello` and `vm-values-json`.
-- `runtime/src/runtime.rs` and `runtime/src/typecheck.rs`: remove the `NonFunctionValue` and `handl_expr` dependencies; operate over `Value` capability traits.
+- `plugin-ext-typecheck`: remove the `handl-kit-type` direct call; query value-type capabilities through the `DataTypes` plugin.
+- `plugin-ext-eval`: remove the `hello.greet` and JSON special-case; handle them through `handl-plugin-eval-hello` and `handl-plugin-vm-values-json`.
+- `plugin-runtime/src/runtime.rs` and `plugin-runtime/src/typecheck.rs`: remove the `NonFunctionValue` and `handl-plugin-ast` dependencies; operate over `Value` capability traits.
 - `platform/src/vm.rs`: remove the concrete `DefaultHost` and `Env`; replace them with `Host` plugin composition.
 
 #### Phase 2 — Cleanup and residual defaults
 
-- `parser-common`: deduplicate the engine; split canonical-specific parts into `plugin-grammar-*` crates.
-- `ast/src/expr.rs`: remove the fixed shape vocabulary; each shape becomes a `plugin-ast-*` crate.
-- `ext-fmt`, `ext-lint`, `ext-build`, `ext-compile`: complete placeholders and ensure each is a generic `RuleAcceptor` with no canonical-language special cases.
-- `lexer-common`: remove default rules that embed canonical defaults; move them to `plugin-token-*` crates.
-- `dialect` crate: remove canonical defaults; a dialect is a kit-level option.
+- `parser-common`: removed; its engine lives in `handl-plugin-parser` and canonical-specific parts live in `plugin-grammar-*` crates.
+- `plugin-ast/src/expr.rs`: remove the fixed shape vocabulary; each shape becomes a `plugin-ast-*` crate.
+- `plugin-ext-fmt`, `plugin-ext-lint`, `plugin-ext-build`, `plugin-ext-compile`: complete placeholders and ensure each is a generic `RuleAcceptor` with no canonical-language special cases.
+- `plugin-lexer-common`: remove default rules that embed canonical defaults; move them to `plugin-token-*` crates.
+- `dialect` crate: removed; syntax and schema vocabularies are now `kit-*` options.
 
 ## Alternatives considered
 
@@ -97,7 +97,7 @@ The audit summary produced during ADR-0033 implementation is the migration backl
 
 ## Implementation status
 
-Not implemented. This ADR records the target architecture and the audit backlog. The P0, P1, and P2 work items above remain to be completed.
+Implemented. The P0, P1, and P2 work items above have been completed.
 
 ## Related work
 
