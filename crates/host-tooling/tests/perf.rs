@@ -4,9 +4,9 @@
 
 use std::time::{Duration, Instant};
 
+use handl_host_tooling::ToolingHost;
 use handl_kit_canonical::CanonicalKit;
 use handl_plugin_fmt_expression::ExpressionFormatter;
-use handl_host_tooling::ToolingHost;
 
 fn host() -> ToolingHost<CanonicalKit> {
     ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
@@ -22,7 +22,7 @@ fn pipe_expr(n: usize) -> String {
 
 fn large_let_file(n: usize) -> String {
     (0..n)
-        .map(|i| format!("let a{} = {};", i, i))
+        .map(|i| format!("a{} = {};", i, i))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -37,7 +37,11 @@ fn format_long_pipe_100() {
     let elapsed = start.elapsed();
     eprintln!("format 100 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());
-    assert!(elapsed < Duration::from_millis(5), "format 100 took {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(5),
+        "format 100 took {:?}",
+        elapsed
+    );
 }
 
 #[test]
@@ -50,7 +54,11 @@ fn format_long_pipe_1000() {
     let elapsed = start.elapsed();
     eprintln!("format 1000 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());
-    assert!(elapsed < Duration::from_millis(150), "format 1000 took {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(150),
+        "format 1000 took {:?}",
+        elapsed
+    );
 }
 
 #[test]
@@ -63,7 +71,11 @@ fn format_long_pipe_10000() {
     let elapsed = start.elapsed();
     eprintln!("format 10000 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());
-    assert!(elapsed < Duration::from_secs(1), "format 10000 took {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_secs(1),
+        "format 10000 took {:?}",
+        elapsed
+    );
 }
 
 #[test]
@@ -75,6 +87,14 @@ fn lsp_diagnostics_long_500() {
     let diags = h.diagnose(&input);
     let elapsed = start.elapsed();
     eprintln!("diagnose 500 let statements: {:?}", elapsed);
-    assert!(elapsed < Duration::from_millis(500), "diagnose 500 took {:?}", elapsed);
-    assert!(diags.is_empty(), "expected no diagnostics for benign lets, got {:?}", diags);
+    assert!(
+        elapsed < Duration::from_millis(500),
+        "diagnose 500 took {:?}",
+        elapsed
+    );
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics for benign lets, got {:?}",
+        diags
+    );
 }

@@ -116,6 +116,15 @@ impl<'a, K: TokenKind> ParserContext<'a, K> {
     }
 }
 
+/// Token capability for dialects that use semicolons as statement terminators.
+///
+/// `BasicParser::parse_module` requires this trait to skip semicolons between
+/// statements. Dialects without semicolons simply don't implement it.
+pub trait SemicolonToken: TokenKind {
+    /// Returns `true` if this token is a statement terminator (semicolon).
+    fn is_semicolon(&self) -> bool;
+}
+
 /// Behavior trait for a grammar rule that can participate in the Pratt parser.
 ///
 /// Rules may implement prefix (null denotation) and/or infix (left denotation)
@@ -187,17 +196,30 @@ impl<K: TokenKind> BasicParser<K> {
     }
 
     /// Parse a token stream into a sequence of top-level [`AstNode`]s (a
-    /// module). Each statement is parsed by calling `expression(0)`; the
-    /// Pratt loop stops at EOF or when no infix rule matches the next token.
-    pub fn parse_module(&self, tokens: &[Token<K>]) -> Result<Vec<AstNode>, PlatformError> {
+    /// module). Each statement is parsed by calling `expression(0)`;
+    /// semicolons between statements are consumed.
+    pub fn parse_module(&self, tokens: &[Token<K>]) -> Result<Vec<AstNode>, PlatformError>
+    where
+        K: SemicolonToken,
+    {
         let mut ctx = ParserContext::new(self, tokens, ResolvedOptions::new());
         let mut stmts = Vec::new();
         while let Some(t) = ctx.peek() {
             if t.kind.is_eof() {
                 break;
             }
+            if t.kind.is_semicolon() {
+                ctx.advance()?;
+                continue;
+            }
             let stmt = ctx.expression(0)?;
             stmts.push(stmt);
+            // Consume optional trailing semicolon.
+            if let Some(t) = ctx.peek() {
+                if t.kind.is_semicolon() {
+                    ctx.advance()?;
+                }
+            }
         }
         Ok(stmts)
     }
