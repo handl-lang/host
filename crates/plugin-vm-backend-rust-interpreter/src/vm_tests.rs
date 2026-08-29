@@ -4,6 +4,7 @@ use crate::Context;
 use crate::Error;
 use crate::Expr;
 use crate::NonFunctionValue;
+use crate::Pattern;
 use crate::{AsyncFunction, Function, Host};
 use std::future::Future;
 use std::pin::Pin;
@@ -184,6 +185,86 @@ fn vm_eval_field_access_unknown_module_without_qualifier_errors() {
     // No host function for "totally_undefined.thing"; the FieldAccess
     // evaluates to the qualified-name string.
     assert_eq!(result.as_str(), Some("totally_undefined.thing"));
+}
+
+/// Regression: the Match eval must bind the arm pattern in a fresh scope
+/// *before* evaluating the guard, so guards can reference the matched
+/// value. The host-cli guard generator builds `cmp.eq(__match_subject,
+/// <literal>)` and uses `Pattern::Identifier("__match_subject")` as the
+/// arm pattern — if the guard runs before binding, `__match_subject` is
+/// undefined and every literal-pattern arm fails to match.
+#[test]
+fn vm_eval_match_binds_subject_before_guard() {
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    // Mirrors how host-cli lowers `match 1 { 1 => "one", _ => "other" }`.
+    let expr = Expr::Match {
+        subject: Box::new(Expr::value(NonFunctionValue::new(1))),
+        arms: vec![
+            (
+                Pattern::Identifier("__match_subject".into()),
+                Some(Expr::call(
+                    "cmp.eq",
+                    vec![
+                        Expr::Var("__match_subject".into()),
+                        Expr::value(NonFunctionValue::new(1)),
+                    ],
+                )),
+                Expr::value(NonFunctionValue::new("one")),
+            ),
+            (
+                Pattern::Identifier("__match_subject".into()),
+                None,
+                Expr::value(NonFunctionValue::new("other")),
+            ),
+        ],
+    };
+    let result = vm.eval(&expr, &mut ctx).unwrap();
+    assert_eq!(result.as_str(), Some("one"));
+}
+
+#[test]
+fn vm_eval_match_guard_failure_falls_through() {
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    let expr = Expr::Match {
+        subject: Box::new(Expr::value(NonFunctionValue::new(5))),
+        arms: vec![
+            (
+                Pattern::Identifier("__match_subject".into()),
+                Some(Expr::call(
+                    "cmp.eq",
+                    vec![
+                        Expr::Var("__match_subject".into()),
+                        Expr::value(NonFunctionValue::new(1)),
+                    ],
+                )),
+                Expr::value(NonFunctionValue::new("one")),
+            ),
+            (
+                Pattern::Identifier("__match_subject".into()),
+                None,
+                Expr::value(NonFunctionValue::new("other")),
+            ),
+        ],
+    };
+    let result = vm.eval(&expr, &mut ctx).unwrap();
+    assert_eq!(result.as_str(), Some("other"));
+}
+
+#[test]
+fn vm_eval_match_no_arms_errors() {
+    let vm = Vm::new(QualifiedHost::default());
+    let mut ctx = CanonicalContext::new();
+    let expr = Expr::Match {
+        subject: Box::new(Expr::value(NonFunctionValue::new(1))),
+        arms: vec![],
+    };
+    let result = vm.eval(&expr, &mut ctx);
+    assert!(matches!(
+        result,
+        Err(Error::PrimitiveError(ref msg)) if msg == "no matching pattern"
+    ));
 }
 
 #[test]
