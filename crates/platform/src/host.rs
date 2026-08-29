@@ -111,6 +111,7 @@ impl DefaultHost {
             result?;
             next += 1;
         }
+        self.plugins.apply_pending_excludes();
         Ok(())
     }
 
@@ -128,6 +129,33 @@ impl DefaultHost {
             .resolve(&request.capability)
             .ok_or_else(|| PlatformError::UnknownCapability(request.capability.clone()))?;
         plugin.run(request, &mut ctx)
+    }
+
+    /// Validates the current composition by building manifests from the live
+    /// registry and running the manifest-level resolver.
+    pub fn resolve_composition(
+        &self,
+    ) -> Result<crate::resolve::ResolvedComposition, crate::resolve::ResolutionError> {
+        let manifests: Vec<crate::manifest::PluginManifest> = self
+            .plugins
+            .ids()
+            .into_iter()
+            .zip(self.plugins.names())
+            .map(|(id, _)| crate::manifest::PluginManifest {
+                id,
+                version: "0.0.0".into(),
+                provides: Vec::new(),
+                requires: Vec::new(),
+                optional: Vec::new(),
+                extends: Vec::new(),
+                conflicts: Vec::new(),
+                replaces: Vec::new(),
+                targets: Vec::new(),
+                exclusive: Vec::new(),
+                metadata: serde_json::Value::Null,
+            })
+            .collect();
+        crate::resolve::resolve(&manifests, &[], None)
     }
 }
 

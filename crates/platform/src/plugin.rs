@@ -81,6 +81,7 @@ pub trait Plugin: Send + Sync + Any {
 pub struct PluginRegistry {
     plugins: Vec<Option<Arc<dyn Plugin + 'static>>>,
     by_capability: HashMap<CapabilityId, usize>,
+    pending_excludes: Vec<String>,
 }
 
 impl PluginRegistry {
@@ -160,6 +161,39 @@ impl PluginRegistry {
                 "plugin not found: {name}"
             )));
         }
+        self.reindex();
+        Ok(())
+    }
+
+    /// Removes the plugin with the given id, returning `true` if removed.
+    pub fn remove_by_id(&mut self, id: &str) -> bool {
+        let len_before = self.plugins.len();
+        self.plugins.retain(|p| p.as_ref().map_or(true, |p| p.id() != id));
+        let removed = self.plugins.len() < len_before;
+        if removed {
+            self.reindex();
+        }
+        removed
+    }
+
+    /// Schedules a plugin id for exclusion after all plugins have loaded.
+    pub fn pending_exclude(&mut self, id: String) {
+        self.pending_excludes.push(id);
+    }
+
+    /// Removes all plugins scheduled via `pending_exclude`.
+    pub fn apply_pending_excludes(&mut self) {
+        if self.pending_excludes.is_empty() {
+            return;
+        }
+        let excludes = std::mem::take(&mut self.pending_excludes);
+        for id in &excludes {
+            self.remove_by_id(id);
+        }
+    }
+
+    /// Rebuilds the capability index from the current plugin list.
+    fn reindex(&mut self) {
         self.by_capability.clear();
         for (idx, p) in self.plugins.iter().enumerate() {
             if let Some(p) = p {
@@ -168,7 +202,6 @@ impl PluginRegistry {
                 }
             }
         }
-        Ok(())
     }
 
     /// Returns the names of all registered plugins.

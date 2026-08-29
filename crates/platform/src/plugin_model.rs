@@ -100,4 +100,9 @@ impl<'a> ContributionContext<'a> {
     pub fn has_plugin_id(&self, id: &str) -> bool {
         self.plugins.has_id(id)
     }
+
+    /// Schedules a plugin id for exclusion after all plugins have loaded.
+    pub fn exclude_plugin(&mut self, id: String) {
+        self.plugins.pending_exclude(id);
+    }
 }

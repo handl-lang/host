@@ -100,6 +100,16 @@ impl Plugin for DefaultApplierPlugin {
             })?;
         }
 
+        for id in &config.excludes {
+            ctx.exclude_plugin(id.clone());
+        }
+
+        for kit in &config.kits {
+            for id in &kit.exclude {
+                ctx.exclude_plugin(id.clone());
+            }
+        }
+
         Ok(())
     }
 
@@ -288,6 +298,66 @@ register = "nonexistent.plugin.id"
         );
         let result = host.load();
         assert!(result.is_ok(), "register is a declaration, not an immediate check: {result:?}");
+
+        let _ = fs::remove_file(&config_path);
+    }
+
+    #[test]
+    fn excludes_remove_plugin_by_id() {
+        let mut config_path = std::env::temp_dir();
+        config_path.push("excludes_test.handl.toml");
+        fs::write(
+            &config_path,
+            r#"
+[[kit]]
+include = "hello"
+
+exclude = ["lib.hello"]
+"#,
+        )
+        .unwrap();
+
+        let mut host = DefaultHost::new();
+        host.register_plugin(BasicKitLoaderPlugin::new());
+        host.register_plugin(LoaderHostPlugin::default());
+        host.register_plugin(
+            DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap())
+                .with_fallback_kit("canonical"),
+        );
+        host.load().unwrap();
+
+        let ids = host.plugins().ids();
+        assert!(!ids.iter().any(|id| id == "lib.hello"), "lib.hello should be excluded: {ids:?}");
+        assert!(ids.iter().any(|id| id == "kit.hello"), "kit.hello should remain: {ids:?}");
+
+        let _ = fs::remove_file(&config_path);
+    }
+
+    #[test]
+    fn per_kit_exclude_removes_plugin() {
+        let mut config_path = std::env::temp_dir();
+        config_path.push("kit_exclude_test.handl.toml");
+        fs::write(
+            &config_path,
+            r#"
+[[kit]]
+include = "hello"
+exclude = ["lib.hello"]
+"#,
+        )
+        .unwrap();
+
+        let mut host = DefaultHost::new();
+        host.register_plugin(BasicKitLoaderPlugin::new());
+        host.register_plugin(LoaderHostPlugin::default());
+        host.register_plugin(
+            DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap())
+                .with_fallback_kit("canonical"),
+        );
+        host.load().unwrap();
+
+        let ids = host.plugins().ids();
+        assert!(!ids.iter().any(|id| id == "lib.hello"), "lib.hello should be excluded: {ids:?}");
 
         let _ = fs::remove_file(&config_path);
     }
