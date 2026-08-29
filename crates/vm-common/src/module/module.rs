@@ -1,4 +1,4 @@
-use handl_vm::{AsyncFunction, Function, GenericFunction, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, LazyFunction, Operation};
 use handl_vm_values_json::NonFunctionValue;
 
 /// A named group of functions.

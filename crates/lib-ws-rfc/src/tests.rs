@@ -472,7 +472,7 @@ mod module_helpers {
         ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
         MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
     };
-    use handl_vm::Function;
+    use handl_plugin_vm::Function;
     use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
 
     fn ctx() -> CanonicalContext {

@@ -9,7 +9,7 @@
 //! - `unicode.code_point_at(string, index)` — number or `null`
 //! - `unicode.decode(string)` — array of `[byte_offset, code_point]` pairs
 
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;

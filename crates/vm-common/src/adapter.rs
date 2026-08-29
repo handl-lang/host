@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Instant;
 
-use handl_vm::{Context, Error, Function, Operation};
+use handl_plugin_vm::{Context, Error, Function, Operation};
 use handl_vm_values_json::NonFunctionValue;
 use serde_json;
 
@@ -318,7 +318,7 @@ where
     O: Operation<NonFunctionValue> + 'static,
     H: Fn(Error<NonFunctionValue>) -> Result<NonFunctionValue, Error<NonFunctionValue>> + 'static,
 {
-    fn signature(&self) -> handl_vm::OperationSig<NonFunctionValue> {
+    fn signature(&self) -> handl_plugin_vm::OperationSig<NonFunctionValue> {
         self.inner.signature()
     }
 

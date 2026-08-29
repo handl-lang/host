@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use handl_vm::{
+use handl_plugin_vm::{
     AsyncFunction, Context, Error, Function, GenericFunction, Host, LazyFunction, Operation,
 };
 use handl_vm_values_json::NonFunctionValue;

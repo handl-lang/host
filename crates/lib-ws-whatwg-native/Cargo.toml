@@ -5,7 +5,7 @@ edition.workspace = true
 description = "Native WHATWG-style WebSocket client module for the handl runtime."
 
 [dependencies]
-handl-vm.workspace = true
+handl-plugin-vm.workspace = true
 handl-vm-common.workspace = true
 handl-vm-values-json.workspace = true
 serde = "1"

@@ -154,7 +154,7 @@ fn poison<T>(_: std::sync::PoisonError<T>) -> SyncError {
 /// These are intentionally distinct from VM errors so that the host
 /// functions in [`ConcurrencyModule`](crate::ConcurrencyModule) can
 /// translate a `WouldBlock` condition into an effect-style
-/// [`handl_vm::Error::Operation`] for the scheduler to intercept.
+/// [`handl_plugin_vm::Error::Operation`] for the scheduler to intercept.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncError {
     /// The operation would block and should be retried/parked by the scheduler.

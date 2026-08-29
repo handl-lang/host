@@ -1,7 +1,7 @@
-use handl_vm::Expr;
+use handl_plugin_vm::Expr;
 use handl_vm_values_json::NonFunctionValue;
 
-use handl_vm::{Context, Function, LazyFunction};
+use handl_plugin_vm::{Context, Function, LazyFunction};
 use handl_vm_values_json::Error;
 
 use handl_vm_common::Module;

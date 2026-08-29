@@ -4,7 +4,7 @@ use rand::prelude::IndexedRandom;
 use rand::seq::SliceRandom;
 use serde_json::Value;
 
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_values_json::Error;
 
 use super::common::{array, require_array, require_int};

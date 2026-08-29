@@ -1,4 +1,4 @@
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 
 fn resolve_path(value: &NonFunctionValue, path: &[&str]) -> Result<NonFunctionValue, Error> {

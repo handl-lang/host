@@ -1,4 +1,4 @@
-use handl_vm::{
+use handl_plugin_vm::{
     AsyncFunction, Context, Error, Function, GenericFunction, LazyFunction, Operation, OperationSig,
 };
 use handl_vm_values_json::NonFunctionValue;
@@ -105,10 +105,10 @@ impl<F> FnLazy<F> {
 impl<F> LazyFunction<NonFunctionValue> for FnLazy<F>
 where
     F: Fn(
-            &[handl_vm::Expr<NonFunctionValue>],
+            &[handl_plugin_vm::Expr<NonFunctionValue>],
             &mut dyn Context<NonFunctionValue>,
             &mut dyn FnMut(
-                &handl_vm::Expr<NonFunctionValue>,
+                &handl_plugin_vm::Expr<NonFunctionValue>,
                 &mut dyn Context<NonFunctionValue>,
             ) -> Result<NonFunctionValue, Error<NonFunctionValue>>,
         ) -> Result<NonFunctionValue, Error<NonFunctionValue>>
@@ -116,10 +116,10 @@ where
 {
     fn call(
         &self,
-        args: &[handl_vm::Expr<NonFunctionValue>],
+        args: &[handl_plugin_vm::Expr<NonFunctionValue>],
         ctx: &mut dyn Context<NonFunctionValue>,
         evaluate: &mut dyn FnMut(
-            &handl_vm::Expr<NonFunctionValue>,
+            &handl_plugin_vm::Expr<NonFunctionValue>,
             &mut dyn Context<NonFunctionValue>,
         ) -> Result<NonFunctionValue, Error<NonFunctionValue>>,
     ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
@@ -131,10 +131,10 @@ where
 pub fn fn_lazy<F>(f: F) -> Box<dyn LazyFunction<NonFunctionValue>>
 where
     F: Fn(
-            &[handl_vm::Expr<NonFunctionValue>],
+            &[handl_plugin_vm::Expr<NonFunctionValue>],
             &mut dyn Context<NonFunctionValue>,
             &mut dyn FnMut(
-                &handl_vm::Expr<NonFunctionValue>,
+                &handl_plugin_vm::Expr<NonFunctionValue>,
                 &mut dyn Context<NonFunctionValue>,
             ) -> Result<NonFunctionValue, Error<NonFunctionValue>>,
         ) -> Result<NonFunctionValue, Error<NonFunctionValue>>

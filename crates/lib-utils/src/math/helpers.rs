@@ -25,11 +25,11 @@ macro_rules! unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_plugin_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
             fn call(
                 &self,
                 args: &[handl_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_vm::Context<handl_vm_values_json::NonFunctionValue>,
+                _ctx: &mut dyn handl_plugin_vm::Context<handl_vm_values_json::NonFunctionValue>,
             ) -> Result<handl_vm_values_json::NonFunctionValue, handl_vm_values_json::Error> {
                 let arg = args
                     .first()
@@ -50,11 +50,11 @@ macro_rules! bool_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_plugin_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
             fn call(
                 &self,
                 args: &[handl_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_vm::Context<handl_vm_values_json::NonFunctionValue>,
+                _ctx: &mut dyn handl_plugin_vm::Context<handl_vm_values_json::NonFunctionValue>,
             ) -> Result<handl_vm_values_json::NonFunctionValue, handl_vm_values_json::Error> {
                 let arg = args
                     .first()

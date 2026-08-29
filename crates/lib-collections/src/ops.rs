@@ -1,4 +1,4 @@
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_values_json::{Error, NonFunctionValue};
 
 use super::common::{arr, b, num, require_array, require_one_array};

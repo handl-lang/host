@@ -1,7 +1,7 @@
 use handl_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_common::Module;
 use handl_vm_values_json::Error;
 

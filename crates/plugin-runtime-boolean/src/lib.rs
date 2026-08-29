@@ -8,7 +8,7 @@ use handl_platform::{
     CapabilityResponse, ContributionContext, PlatformError, Plugin, PluginContext, RuntimeBehavior,
     RuntimeHost, RuntimeRule,
 };
-use handl_vm::{Context, Error};
+use handl_plugin_vm::{Context, Error};
 use handl_vm_values_json::NonFunctionValue;
 
 /// Boolean built-in family.

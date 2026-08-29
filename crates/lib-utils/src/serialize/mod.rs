@@ -1,27 +1,27 @@
 use std::sync::Arc;
 
 use handl_lib_serialize::SerializerRegistry;
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_common::Module;
 use handl_vm_values_json::NonFunctionValue;
 
-fn format_name(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFunctionValue>> {
+fn format_name(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
     if let Some(s) = value.as_str() {
         return Ok(s.to_string());
     }
-    let obj = value.as_object().ok_or_else(|| handl_vm::Error::TypeMismatch {
+    let obj = value.as_object().ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
         expected: "string or serializer object",
         got: "non-string, non-object",
     })?;
     let ty = obj
         .get("type")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| handl_vm::Error::TypeMismatch {
+        .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
             expected: "serializer object with type",
             got: "object without type",
         })?;
     if ty != "serializer" {
-        return Err(handl_vm::Error::TypeMismatch {
+        return Err(handl_plugin_vm::Error::TypeMismatch {
             expected: "type: serializer",
             got: "non-serializer",
         });
@@ -29,7 +29,7 @@ fn format_name(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFu
     let name = obj
         .get("name")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| handl_vm::Error::TypeMismatch {
+        .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
             expected: "serializer object with name",
             got: "object without name",
         })?;
@@ -91,9 +91,9 @@ impl Function<NonFunctionValue> for Serialize {
         &self,
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
         if args.len() != 2 {
-            return Err(handl_vm::Error::ArgumentCount {
+            return Err(handl_plugin_vm::Error::ArgumentCount {
                 expected: 2,
                 got: args.len(),
             });
@@ -102,10 +102,10 @@ impl Function<NonFunctionValue> for Serialize {
         let serializer = self
             .registry
             .get(&name)
-            .ok_or_else(|| handl_vm::Error::PrimitiveError(format!("unknown serializer: {name}")))?;
+            .ok_or_else(|| handl_plugin_vm::Error::PrimitiveError(format!("unknown serializer: {name}")))?;
         let output = serializer
             .serialize(args[0].inner())
-            .map_err(|e| handl_vm::Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
         Ok(NonFunctionValue::new(output))
     }
 }
@@ -119,9 +119,9 @@ impl Function<NonFunctionValue> for Deserialize {
         &self,
         args: &[NonFunctionValue],
         _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
         if args.len() != 2 {
-            return Err(handl_vm::Error::ArgumentCount {
+            return Err(handl_plugin_vm::Error::ArgumentCount {
                 expected: 2,
                 got: args.len(),
             });
@@ -130,18 +130,18 @@ impl Function<NonFunctionValue> for Deserialize {
         let serializer = self
             .registry
             .get(&name)
-            .ok_or_else(|| handl_vm::Error::PrimitiveError(format!("unknown serializer: {name}")))?;
+            .ok_or_else(|| handl_plugin_vm::Error::PrimitiveError(format!("unknown serializer: {name}")))?;
         let input = value_as_string(&args[0])?;
         let output = serializer
             .deserialize(&input)
-            .map_err(|e| handl_vm::Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
         Ok(NonFunctionValue::new(output))
     }
 }
 
-fn value_as_string(value: &NonFunctionValue) -> Result<String, handl_vm::Error<NonFunctionValue>> {
+fn value_as_string(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
     value.as_str().map(String::from).ok_or_else(|| {
-        handl_vm::Error::TypeMismatch {
+        handl_plugin_vm::Error::TypeMismatch {
             expected: "string",
             got: "non-string",
         }

@@ -1,5 +1,5 @@
-use handl_vm::Expr;
-use handl_vm::{Host, VirtualMachine};
+use handl_plugin_vm::Expr;
+use handl_plugin_vm::{Host, VirtualMachine};
 use handl_vm_backend_rust_interpreter::{CanonicalContext, Vm};
 use handl_vm_values_json::NonFunctionValue;
 

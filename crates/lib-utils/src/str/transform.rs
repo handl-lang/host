@@ -1,6 +1,6 @@
 use handl_vm_values_json::NonFunctionValue;
 
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_values_json::Error;
 
 use super::common::{require_one_string, require_string, require_two_strings, s};

@@ -11,7 +11,7 @@ server = []
 
 [dependencies]
 handl-lib-ws-rfc.workspace = true
-handl-vm.workspace = true
+handl-plugin-vm.workspace = true
 handl-vm-common.workspace = true
 handl-vm-values-json.workspace = true
 handl-vm-backend-rust-interpreter.workspace = true

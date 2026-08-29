@@ -9,4 +9,4 @@ handl-vm-values-json.workspace = true
 
 [dev-dependencies]
 handl-vm-common.workspace = true
-handl-vm.workspace = true
+handl-plugin-vm.workspace = true

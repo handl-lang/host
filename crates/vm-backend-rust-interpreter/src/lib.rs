@@ -5,7 +5,7 @@
 //! continue to compile; the actual evaluation and handler methods return
 //! `Error::PrimitiveError` as a placeholder.
 
-pub use handl_vm::{
+pub use handl_plugin_vm::{
     AsyncEval, AsyncFunction, Context, Error, Eval, Expr, Function, GenericFunction, HandlerClause,
     Host, HostRef, LazyFunction, NoopHost, Operation, OperationSig, Pattern, Value, VirtualMachine,
 };

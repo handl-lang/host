@@ -16,7 +16,7 @@ handl-plugin-lexer-operator = { workspace = true }
 handl-plugin-lexer-string = { workspace = true }
 handl-plugin-parser = { workspace = true }
 handl-platform = { workspace = true }
-handl-vm = { workspace = true }
+handl-plugin-vm = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"

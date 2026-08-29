@@ -1,4 +1,4 @@
-use handl_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
 use handl_vm_values_json::NonFunctionValue;
 use std::collections::HashMap;
 
@@ -142,15 +142,15 @@ impl<F> Function<NonFunctionValue> for CaptureFn<F>
 where
     F: Fn(
             &[NonFunctionValue],
-            &mut dyn handl_vm::Context<NonFunctionValue>,
-        ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>>
+            &mut dyn handl_plugin_vm::Context<NonFunctionValue>,
+        ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>>
         + 'static,
 {
     fn call(
         &self,
         args: &[NonFunctionValue],
-        ctx: &mut dyn handl_vm::Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_vm::Error<NonFunctionValue>> {
+        ctx: &mut dyn handl_plugin_vm::Context<NonFunctionValue>,
+    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
         self.calls.borrow_mut().push(args.to_vec());
         (self.inner)(args, ctx)
     }

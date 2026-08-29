@@ -1,4 +1,4 @@
-use handl_vm::{Context, Error, Expr, Host, VirtualMachine};
+use handl_plugin_vm::{Context, Error, Expr, Host, VirtualMachine};
 use handl_vm_values_json::NonFunctionValue;
 
 type RuntimeExpr = Expr<NonFunctionValue>;

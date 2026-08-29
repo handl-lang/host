@@ -3,7 +3,7 @@ use std::fmt;
 
 /// Errors produced by OS service implementations.
 ///
-/// Converts to [`handl_vm::Error`] via `From`, so service methods can return
+/// Converts to [`handl_plugin_vm::Error`] via `From`, so service methods can return
 /// `Result<T, OsError>` and the adapter handles the conversion.
 #[derive(Debug, Clone)]
 pub enum OsError {

@@ -1,4 +1,4 @@
-use handl_vm::Function;
+use handl_plugin_vm::Function;
 use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
 use serde_json::Value as JsonValue;
 

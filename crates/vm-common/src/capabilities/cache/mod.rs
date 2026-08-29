@@ -13,7 +13,7 @@
 //! - [`CallCache`] — a serializable cache mapping `(function, args)`
 //!   keys to result values. Can be serialized to JSON and sent
 //!   across machines.
-//! - [`CacheHost`] — a decorator [`Host`][handl_vm::Host] that wraps an
+//! - [`CacheHost`] — a decorator [`Host`][handl_plugin_vm::Host] that wraps an
 //!   inner host and caches results for registered functions.
 //!   Unregistered function lookups delegate to the inner host.
 //!
@@ -34,7 +34,7 @@
 //! use handl_vm_host_eval::EvalHost;
 //! use handl_vm_common::capabilities::cache::{CacheHost, CallCache};
 //! use handl_vm_backend_rust_interpreter::{Vm, Context, EvalResult, Continuation};
-//! use handl_vm::NonFunctionValue;
+//! use handl_plugin_vm::NonFunctionValue;
 //!
 //! // Server: wrap EvalHost, register fetch for caching, evaluate
 //! let mut host = CacheHost::new(EvalHost::default());

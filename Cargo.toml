@@ -162,7 +162,7 @@ members = [
     "crates/target-native",
     "crates/tooling",
     "crates/typecheck-core",
-    "crates/vm",
+    "crates/plugin-vm",
     "crates/vm-backend-rust-interpreter",
     "crates/vm-common",
     "crates/vm-config",
@@ -353,7 +353,7 @@ handl-plugin-source = { path = "crates/plugin-source" }
 handl-target-native = { path = "crates/target-native" }
 handl-tooling = { path = "crates/tooling" }
 handl-typecheck-core = { path = "crates/typecheck-core" }
-handl-vm = { path = "crates/vm" }
+handl-plugin-vm = { path = "crates/plugin-vm" }
 handl-vm-backend-rust-interpreter = { path = "crates/vm-backend-rust-interpreter" }
 handl-vm-common = { path = "crates/vm-common" }
 handl-vm-config = { path = "crates/vm-config" }

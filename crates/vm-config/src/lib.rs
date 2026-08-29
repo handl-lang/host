@@ -85,7 +85,7 @@ use handl_vm_values_json::{
 ///
 /// Configured on the [`SandboxHost`] and applied to every [`Context`]
 /// created via [`SandboxHost::new_context`]. The VM enforces these
-/// limits during evaluation — see [`Error::ResourceLimit`](handl_vm::Error::ResourceLimit).
+/// limits during evaluation — see [`Error::ResourceLimit`](handl_plugin_vm::Error::ResourceLimit).
 #[derive(Clone, Debug)]
 pub struct SandboxLimits {
     /// Maximum scope depth (function call nesting).
@@ -98,7 +98,7 @@ pub struct SandboxLimits {
     ///
     /// `None` means no limit. Each `Call` expression increments the
     /// counter; exceeding the limit returns
-    /// [`Error::ResourceLimit`](handl_vm::Error::ResourceLimit).
+    /// [`Error::ResourceLimit`](handl_plugin_vm::Error::ResourceLimit).
     pub max_calls: Option<usize>,
 }
 
@@ -176,7 +176,7 @@ impl SandboxHost {
     /// Creates a [`Context`] with the sandbox limits applied.
     ///
     /// The VM will enforce `max_depth` and `max_calls` during evaluation,
-    /// returning [`Error::ResourceLimit`](handl_vm::Error::ResourceLimit) if
+    /// returning [`Error::ResourceLimit`](handl_plugin_vm::Error::ResourceLimit) if
     /// either limit is exceeded.
     pub fn new_context(&self) -> CanonicalContext {
         let mut ctx = CanonicalContext::new();

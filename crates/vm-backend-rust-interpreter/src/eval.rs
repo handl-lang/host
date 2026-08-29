@@ -1,7 +1,7 @@
 use handl_lexer_canonical::CanonicalLexer;
 use handl_plugin_parser::Parser;
 use handl_parser_canonical::CanonicalParser;
-use handl_vm::{Error, Eval, Host};
+use handl_plugin_vm::{Error, Eval, Host};
 use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
 
 use crate::CanonicalVm;

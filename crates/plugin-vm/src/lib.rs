@@ -1,4 +1,4 @@
-//! # handl-vm
+//! # handl-plugin-vm
 //!
 //! Core virtual-machine abstractions for the handl language.
 //!

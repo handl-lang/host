@@ -4,7 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use handl_vm::{AsyncEval, Context, Error, Eval};
+use handl_plugin_vm::{AsyncEval, Context, Error, Eval};
 use indexmap::IndexMap;
 use serde_json::Value as JsonValue;
 

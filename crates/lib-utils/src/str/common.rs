@@ -45,11 +45,11 @@ macro_rules! string_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_plugin_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
             fn call(
                 &self,
                 args: &[handl_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_vm::Context<handl_vm_values_json::NonFunctionValue>,
+                _ctx: &mut dyn handl_plugin_vm::Context<handl_vm_values_json::NonFunctionValue>,
             ) -> Result<handl_vm_values_json::NonFunctionValue, handl_vm_values_json::Error> {
                 let input = $crate::r#str::common::require_one_string(args)?;
                 Ok($crate::r#str::common::s($body(input)))
@@ -63,11 +63,11 @@ macro_rules! string_predicate_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_plugin_vm::Function<handl_vm_values_json::NonFunctionValue> for $struct_name {
             fn call(
                 &self,
                 args: &[handl_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_vm::Context<handl_vm_values_json::NonFunctionValue>,
+                _ctx: &mut dyn handl_plugin_vm::Context<handl_vm_values_json::NonFunctionValue>,
             ) -> Result<handl_vm_values_json::NonFunctionValue, handl_vm_values_json::Error> {
                 let (input, pattern) = $crate::r#str::common::require_two_strings(args)?;
                 Ok($crate::r#str::common::b($body(input, pattern)))

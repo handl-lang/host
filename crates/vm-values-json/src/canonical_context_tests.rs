@@ -1,4 +1,4 @@
-use handl_vm::{AsyncEval, Eval};
+use handl_plugin_vm::{AsyncEval, Eval};
 
 use crate::{CanonicalContext, Error, NonFunctionValue};
 use std::future::Future;

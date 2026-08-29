@@ -3,7 +3,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use handl_vm::{AsyncEval, Error, Eval, Expr, VirtualMachine};
+use handl_plugin_vm::{AsyncEval, Error, Eval, Expr, VirtualMachine};
 use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
 use serde_json::Value as JsonValue;
 

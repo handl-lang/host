@@ -1,4 +1,4 @@
-use handl_vm::FunctionRepr;
+use handl_plugin_vm::FunctionRepr;
 use serde_json::Value as JsonValue;
 
 /// A serializable function value — pure, no closures.

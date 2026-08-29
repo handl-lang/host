@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use handl_vm_values_json::{Error, NonFunctionValue};
 
-use handl_vm::{AsyncFunction, Context, Function};
+use handl_plugin_vm::{AsyncFunction, Context, Function};
 use handl_vm_common::Module;
 
 use crate::error::OsError;

@@ -1,6 +1,6 @@
 //! Convenience prelude for VM consumers and tests.
 
-pub use handl_vm::{
+pub use handl_plugin_vm::{
     AsyncEval, AsyncFunction, Context, Error, Eval, Expr, Function, GenericFunction, HandlerClause,
     Host, HostRef, LazyFunction, Operation, OperationSig, Value, VirtualMachine,
 };

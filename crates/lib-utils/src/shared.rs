@@ -1,4 +1,4 @@
-use handl_vm::Context;
+use handl_plugin_vm::Context;
 use handl_vm_values_json::Error;
 use serde_json::{Map, Value as JsonValue};
 

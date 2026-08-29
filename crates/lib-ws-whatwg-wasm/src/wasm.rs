@@ -1,7 +1,7 @@
 //! Browser `WebSocket` implementation for `websocket_whatwg` on `wasm32`.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_common::Module;
 use handl_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
 use js_sys::{ArrayBuffer, Uint8Array};

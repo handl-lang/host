@@ -1,4 +1,4 @@
-use handl_vm::{Context, Error, Expr, Host};
+use handl_plugin_vm::{Context, Error, Expr, Host};
 use handl_vm_common::{ExprHandler, LegoVm};
 use handl_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;

@@ -9,7 +9,7 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_lib_archive::{Archive, ArchiveEntry};
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_common::Module;
 use handl_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;

@@ -1,10 +1,10 @@
 //! # handl-vm-common
 //!
-//! Reusable building blocks, mocks, and helpers for `handl-vm`.
+//! Reusable building blocks, mocks, and helpers for `handl-plugin-vm`.
 //!
 //! This crate is the "Lego library" for the VM: host combinators,
 //! function builders, test mocks, and sandbox utilities. It depends
-//! on `handl-vm` and only contains generic machinery — no concrete
+//! on `handl-plugin-vm` and only contains generic machinery — no concrete
 //! evaluator and no built-in function semantics.
 
 pub mod adapter;

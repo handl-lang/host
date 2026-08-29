@@ -1,4 +1,4 @@
-use handl_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
 use handl_vm_values_json::NonFunctionValue;
 
 /// A host that queries a list of child hosts in order and returns the

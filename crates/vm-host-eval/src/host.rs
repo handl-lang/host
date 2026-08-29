@@ -1,5 +1,5 @@
 use handl_platform::DefaultHost;
-use handl_vm::{Function, Host};
+use handl_plugin_vm::{Function, Host};
 use handl_vm_values_json::NonFunctionValue;
 
 use crate::functions::{Apply, Resolve, Var};

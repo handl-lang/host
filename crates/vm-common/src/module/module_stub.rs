@@ -2,7 +2,7 @@
 
 use std::pin::Pin;
 
-use handl_vm::{AsyncFunction, Context, Function, Operation, OperationSig};
+use handl_plugin_vm::{AsyncFunction, Context, Function, Operation, OperationSig};
 use handl_vm_values_json::{Error, NonFunctionValue};
 
 use crate::module::Module;

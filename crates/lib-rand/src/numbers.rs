@@ -1,7 +1,7 @@
 use handl_vm_values_json::NonFunctionValue;
 use rand::Rng;
 
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 use handl_vm_values_json::Error;
 
 use super::common::{bool_val, num, require_int, require_number};

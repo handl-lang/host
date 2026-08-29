@@ -6,9 +6,9 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
-use handl_vm::{Context, Function};
+use handl_plugin_vm::{Context, Function};
 #[cfg(feature = "server")]
-use handl_vm::Eval;
+use handl_plugin_vm::Eval;
 #[cfg(feature = "server")]
 use handl_vm_backend_rust_interpreter::CanonicalEval;
 use handl_vm_common::Module;

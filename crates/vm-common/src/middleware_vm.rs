@@ -2,7 +2,7 @@ use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use handl_vm::{Context, Error, Expr, VirtualMachine};
+use handl_plugin_vm::{Context, Error, Expr, VirtualMachine};
 use handl_vm_values_json::NonFunctionValue;
 
 /// Whether an evaluation is synchronous or asynchronous.
@@ -318,7 +318,7 @@ impl VmMiddleware for Counter {
 mod tests {
     use super::*;
     use crate::{MockHost, NoopHost, fn_function};
-    use handl_vm::Expr;
+    use handl_plugin_vm::Expr;
     use handl_vm_backend_rust_interpreter::CanonicalVm;
     use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
     use std::future::Future;

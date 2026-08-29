@@ -1,4 +1,4 @@
-use handl_vm::{Context, Error, Pattern};
+use handl_plugin_vm::{Context, Error, Pattern};
 use handl_vm_values_json::NonFunctionValue;
 use serde_json::Value as JsonValue;
 
