@@ -69,7 +69,7 @@ use handl_plugin_grammar_index::{IndexRule, IndexToken};
 use handl_plugin_grammar_let::LetToken;
 use handl_plugin_grammar_match::MatchToken;
 use handl_plugin_grammar_object::ObjectToken;
-use handl_plugin_grammar_pipe::PipeToken;
+use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
 use handl_plugin_grammar_primary_identifier::{IdentToken, IdentifierRule};
 use handl_plugin_grammar_primary_value::{ValueRule, ValueToken};
 use handl_plugin_token_bool::BoolKind;
@@ -937,8 +937,29 @@ fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
 
             Ok(KitNode::Index(Box::new(Index::new(target, index))))
         }
+        "pipe" => {
+            let left = ast
+                .payload
+                .get("left")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'left' field in pipe AST payload".into()))?;
+            let left_ast: AstNode = serde_json::from_value(left)
+                .map_err(|e| PlatformError::Plugin(format!("invalid left in pipe AST: {e}")))?;
+            let left = ast_to_kitnode(&left_ast)?;
+
+            let right = ast
+                .payload
+                .get("right")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'right' field in pipe AST payload".into()))?;
+            let right_ast: AstNode = serde_json::from_value(right)
+                .map_err(|e| PlatformError::Plugin(format!("invalid right in pipe AST: {e}")))?;
+            let right = ast_to_kitnode(&right_ast)?;
+
+            Ok(KitNode::Pipe(Box::new(Pipe::new(left, right))))
+        }
         _ => Err(PlatformError::Plugin(format!(
-            "expected a 'value', 'var', 'call', or 'index' AST node, got '{}'",
+            "expected a 'value', 'var', 'call', 'index', or 'pipe' AST node, got '{}'",
             ast.kind
         ))),
     }
@@ -976,6 +997,7 @@ impl Kit {
         parser.accept(Box::new(IdentifierRule))?;
         parser.accept(Box::new(CallRule))?;
         parser.accept(Box::new(IndexRule))?;
+        parser.accept(Box::new(PipeRule))?;
         let ast = parser.parse(&tokens)?;
         ast_to_kitnode(&ast)
     }
@@ -1036,6 +1058,7 @@ impl Plugin for CanonicalKit {
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IdentifierRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(CallRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IndexRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(PipeRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
@@ -1130,7 +1153,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting for grammar rule migration"]
     fn parse_pipe() {
         let kit = Kit::new();
         let node = kit.parse("1 |> add(2, 3)").unwrap();
