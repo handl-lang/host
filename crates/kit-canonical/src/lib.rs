@@ -65,7 +65,7 @@ use handl_plugin_grammar_array::ArrayToken;
 use handl_plugin_grammar_assign::AssignToken;
 use handl_plugin_grammar_call::{CallRule, CallToken};
 use handl_plugin_grammar_handle::HandleToken;
-use handl_plugin_grammar_index::IndexToken;
+use handl_plugin_grammar_index::{IndexRule, IndexToken};
 use handl_plugin_grammar_let::LetToken;
 use handl_plugin_grammar_match::MatchToken;
 use handl_plugin_grammar_object::ObjectToken;
@@ -916,8 +916,29 @@ fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
                 _ => Ok(KitNode::Apply(Box::new(Apply::new(callee, call_args)))),
             }
         }
+        "index" => {
+            let target = ast
+                .payload
+                .get("target")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'target' field in index AST payload".into()))?;
+            let target_ast: AstNode = serde_json::from_value(target)
+                .map_err(|e| PlatformError::Plugin(format!("invalid target in index AST: {e}")))?;
+            let target = ast_to_kitnode(&target_ast)?;
+
+            let index = ast
+                .payload
+                .get("index")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'index' field in index AST payload".into()))?;
+            let index_ast: AstNode = serde_json::from_value(index)
+                .map_err(|e| PlatformError::Plugin(format!("invalid index in index AST: {e}")))?;
+            let index = ast_to_kitnode(&index_ast)?;
+
+            Ok(KitNode::Index(Box::new(Index::new(target, index))))
+        }
         _ => Err(PlatformError::Plugin(format!(
-            "expected a 'value', 'var', or 'call' AST node, got '{}'",
+            "expected a 'value', 'var', 'call', or 'index' AST node, got '{}'",
             ast.kind
         ))),
     }
@@ -954,6 +975,7 @@ impl Kit {
         parser.accept(Box::new(ValueRule))?;
         parser.accept(Box::new(IdentifierRule))?;
         parser.accept(Box::new(CallRule))?;
+        parser.accept(Box::new(IndexRule))?;
         let ast = parser.parse(&tokens)?;
         ast_to_kitnode(&ast)
     }
@@ -1013,6 +1035,7 @@ impl Plugin for CanonicalKit {
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ValueRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IdentifierRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(CallRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IndexRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
@@ -1096,7 +1119,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting for grammar rule migration"]
     fn parse_index() {
         let kit = Kit::new();
         let node = kit.parse("arr[0]").unwrap();
