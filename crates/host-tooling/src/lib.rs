@@ -1,11 +1,10 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
 use handl_kit_canonical::Diagnostic;
-use handl_plugin_vm_values_json::Formatter;
 use handl_platform::{PlatformError, Plugin};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
-
+use handl_plugin_vm_values_json::Formatter;
 
 pub mod command;
 
@@ -14,6 +13,16 @@ pub use config::*;
 
 pub mod lsp;
 pub use lsp::*;
+
+pub mod grammar;
+pub use grammar::*;
+#[cfg(test)]
+mod grammar_tests;
+
+pub mod semantic_tokens;
+pub use semantic_tokens::*;
+#[cfg(test)]
+mod semantic_tokens_tests;
 
 /// Tooling / LSP host that decouples formatter and diagnostics from parser internals.
 #[allow(dead_code)]
@@ -26,6 +35,7 @@ pub struct ToolingHost<K: Plugin> {
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
+    semantic_tokens: Option<Box<dyn SemanticTokensPlugin>>,
 }
 
 impl<K: Plugin> ToolingHost<K> {
@@ -40,6 +50,7 @@ impl<K: Plugin> ToolingHost<K> {
             goto_def: None,
             document_symbols: None,
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
+            semantic_tokens: None,
         }
     }
 
@@ -67,6 +78,12 @@ impl<K: Plugin> ToolingHost<K> {
         self
     }
 
+    /// Registers a semantic-tokens plugin.
+    pub fn with_semantic_tokens_plugin(mut self, plugin: Box<dyn SemanticTokensPlugin>) -> Self {
+        self.semantic_tokens = Some(plugin);
+        self
+    }
+
     /// Returns a reference to the configured kit.
     pub fn kit(&self) -> &K {
         &self.kit
@@ -78,11 +95,7 @@ impl<K: Plugin> ToolingHost<K> {
     }
 
     /// Runs a CLI command by name with the provided arguments.
-    pub fn run_cli(
-        &mut self,
-        _name: &str,
-        _args: &[String],
-    ) -> Result<String, PlatformError> {
+    pub fn run_cli(&mut self, _name: &str, _args: &[String]) -> Result<String, PlatformError> {
         Err(PlatformError::NotImplemented)
     }
 
@@ -127,7 +140,11 @@ impl<K: Plugin> ToolingHost<K> {
 
     /// Applies an incremental `TextContentChange` to `source` and returns
     /// the resulting string.
-    pub fn change(&mut self, source: &str, delta: TextContentChange) -> Result<String, PlatformError> {
+    pub fn change(
+        &mut self,
+        source: &str,
+        delta: TextContentChange,
+    ) -> Result<String, PlatformError> {
         match &self.incremental_sync {
             Some(plugin) => {
                 let resp = plugin.run(&IncrementalSyncRequest {
@@ -137,6 +154,28 @@ impl<K: Plugin> ToolingHost<K> {
                 Ok(resp.0)
             }
             None => Ok(source.to_string()),
+        }
+    }
+
+    /// Returns semantic tokens for `source`.
+    pub fn semantic_tokens(&self, source: &str) -> Result<Vec<SemanticToken>, PlatformError> {
+        match &self.semantic_tokens {
+            Some(plugin) => {
+                let resp = plugin.run(&SemanticTokensRequest {
+                    source: source.to_string(),
+                })?;
+                Ok(resp.0)
+            }
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Returns the semantic token legend from the configured plugin, or a
+    /// default legend if no plugin is set.
+    pub fn semantic_tokens_legend(&self) -> SemanticTokenLegend {
+        match &self.semantic_tokens {
+            Some(plugin) => plugin.legend(),
+            None => SemanticTokenLegend::default(),
         }
     }
 
@@ -155,5 +194,3 @@ impl<K: Plugin> ToolingHost<K> {
         None
     }
 }
-
-

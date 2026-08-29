@@ -80,10 +80,7 @@ pub trait KeywordFactory<K: TokenKind>: IdentFactory<K> {}
 /// Factory for operator tokens.
 pub trait OperatorFactory<K: TokenKind>: KindFactory<K> {
     /// Tries to lex an operator at the current position.
-    fn lex_operator(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Option<(K, Span)>;
+    fn lex_operator(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> Option<(K, Span)>;
 }
 
 /// Factory for comment tokens.
@@ -94,14 +91,34 @@ pub trait CommentFactory<K: TokenKind>: KindFactory<K> {
     /// Builds a doc comment token kind from the doc comment text.
     fn doc_comment_kind(&self, text: String) -> K;
 
+    /// Returns the line comment prefix string, if any (e.g. `"//"`).
+    ///
+    /// Override this to enable grammar generators to introspect comment styles
+    /// without peeking into the lexing logic.
+    fn line_comment_prefix(&self) -> Option<&str> {
+        None
+    }
+
+    /// Returns the block comment (start, end) strings, if any (e.g. `("/*", "*/")`).
+    fn block_comment_delims(&self) -> Option<(&str, &str)> {
+        None
+    }
+
+    /// Returns the doc line comment prefix string, if any (e.g. `"///"`).
+    fn doc_line_comment_prefix(&self) -> Option<&str> {
+        None
+    }
+
+    /// Returns the doc block comment (start, end) strings, if any (e.g. `("/**", "*/")`).
+    fn doc_block_comment_delims(&self) -> Option<(&str, &str)> {
+        None
+    }
+
     /// Returns `true` if the iterator is at the start of a line comment.
     fn is_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool;
 
     /// Lexes a line comment and returns its text and span.
-    fn lex_line_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> (String, Span);
+    fn lex_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span);
 
     /// Returns `true` if the iterator is at the start of a block comment.
     fn is_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool;

@@ -156,6 +156,16 @@ impl<K: TokenKind, E: LexError> LexerConfig<K, E> {
         &self.rules
     }
 
+    /// Returns the keyword mappings as `(text, kind)` pairs.
+    pub fn keywords(&self) -> &[(String, K)] {
+        &self.keywords
+    }
+
+    /// Returns the delimiter mappings as `(char, kind)` pairs.
+    pub fn delimiters(&self) -> &[(char, K)] {
+        &self.delimiters
+    }
+
     /// Lexes `input` into a token stream using the configured rules, keywords,
     /// and delimiters.
     ///
