@@ -195,7 +195,7 @@ pub(crate) fn expr_to_json(expr: &RuntimeExpr) -> serde_json::Value {
     }
 }
 
-fn expr_from_json(value: &serde_json::Value) -> Result<RuntimeExpr, Error<NonFunctionValue>> {
+pub(crate) fn expr_from_json(value: &serde_json::Value) -> Result<RuntimeExpr, Error<NonFunctionValue>> {
     let obj = value
         .as_object()
         .ok_or_else(|| Error::PrimitiveError("expression must be a JSON object".to_string()))?;

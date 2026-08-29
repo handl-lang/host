@@ -45,15 +45,34 @@ impl<H> CanonicalEval<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue>> Eval<NonFunctionValue> for CanonicalEval<H> {
+impl<H: Host<NonFunctionValue> + Clone + 'static> Eval<NonFunctionValue> for CanonicalEval<H> {
     fn eval_expr(
         &self,
-        _expr: &str,
-        _vars: &[(String, NonFunctionValue)],
+        expr: &str,
+        vars: &[(String, NonFunctionValue)],
     ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
-        Err(Error::PrimitiveError(
-            "CanonicalEval::eval_expr not implemented".to_string(),
-        ))
+        let json: serde_json::Value = serde_json::from_str(expr).map_err(|e| {
+            Error::PrimitiveError(format!("failed to parse expression JSON: {e}"))
+        })?;
+        let parsed = continuation::expr_from_json(&json)?;
+
+        let vm = CanonicalVm::new(self.host.clone());
+        let mut ctx = CanonicalContext::new();
+        if let Some(max) = self.max_depth {
+            ctx.set_max_depth(max);
+        }
+        if let Some(max) = self.max_calls {
+            ctx.set_max_calls(max);
+        }
+        ctx.set_eval(Box::new(CanonicalEval::new(
+            self.host.clone(),
+            self.max_depth,
+            self.max_calls,
+        )));
+        for (name, value) in vars {
+            ctx.define(name.clone(), value.clone());
+        }
+        vm.eval(&parsed, &mut ctx)
     }
 }
 

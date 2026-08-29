@@ -4,8 +4,18 @@ use std::iter::Peekable;
 use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, KindFactory, IdentFactory,
-    KeywordFactory, NumberFactory, OperatorFactory, Span, StringFactory,
+    KeywordFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory,
+    Token,
 };
+use handl_plugin_lexer_block_comment::BlockCommentRule;
+use handl_plugin_lexer_delimiter::DelimiterRule;
+use handl_plugin_lexer_ident::IdentRule;
+use handl_plugin_lexer_keyword::KeywordRule;
+use handl_plugin_lexer_line_comment::LineCommentRule;
+use handl_plugin_lexer_number::NumberRule as LexNumberRule;
+use handl_plugin_lexer_operator::OperatorRule;
+use handl_plugin_lexer_string::StringRule as LexStringRule;
+use handl_plugin_lexer_template::TemplateRule as LexTemplateRule;
 use handl_plugin_lexer_template::TemplateSegment;
 use handl_plugin_lexer_template::TemplateTokenKind;
 
@@ -25,14 +35,15 @@ use handl_plugin_grammar_stmt_export::ExportStmtToken;
 use handl_plugin_grammar_stmt_import::ImportStmtToken;
 use handl_plugin_grammar_stmt_module::ModuleStmtToken;
 use handl_plugin_grammar_template::TemplateToken;
+use handl_plugin_grammar_function_literal::ArrowToken;
 use handl_plugin_grammar_type_annot::TypeAnnotToken;
 
 use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
 use handl_plugin_token_delimiter::DelimiterKind;
 use handl_plugin_token_doc_comment::{
-    DocCommentKind, is_doc_block_comment_start, is_doc_line_comment_start, lex_doc_block_comment,
-    lex_doc_line_comment,
+    DocCommentKind, DocCommentRule, is_doc_block_comment_start, is_doc_line_comment_start,
+    lex_doc_block_comment, lex_doc_line_comment,
 };
 use handl_plugin_token_identifier::IdentKind;
 use handl_plugin_token_keyword_as::AsKind;
@@ -359,11 +370,11 @@ impl NumberFactory<CanonicalKind> for CanonicalFactory {
 
 impl IdentFactory<CanonicalKind> for CanonicalFactory {
     fn is_ident_start(&self, ch: char) -> bool {
-        ch.is_alphabetic() || ch == '_' || ch == '.'
+        ch.is_alphabetic() || ch == '_'
     }
 
     fn is_ident_continue(&self, ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_' || ch == '.'
+        ch.is_alphanumeric() || ch == '_'
     }
 
     fn lex_ident(
@@ -517,11 +528,28 @@ impl IndexToken for CanonicalKind {
     fn is_bracket_close(&self) -> bool {
         matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BracketClose))
     }
+
+    fn is_dot(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Dot))
+    }
+
+    fn ident_text(&self) -> Option<&str> {
+        match self {
+            CanonicalKind::Identifier(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
 }
 
 impl PipeToken for CanonicalKind {
     fn is_pipe(&self) -> bool {
         matches!(self, CanonicalKind::Operator(CanonicalOp::Pipe))
+    }
+}
+
+impl ArrowToken for CanonicalKind {
+    fn is_arrow(&self) -> bool {
+        matches!(self, CanonicalKind::Operator(CanonicalOp::Arrow))
     }
 }
 
@@ -667,5 +695,51 @@ impl TypeAnnotToken for CanonicalKind {
             CanonicalKind::Identifier(s) => Some(s.as_str()),
             _ => None,
         }
+    }
+}
+
+/// The kit's concrete lexer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CanonicalLexer;
+
+impl CanonicalLexer {
+    /// Returns the lexer configuration used by this lexer.
+    ///
+    /// This exposes the config so tooling (grammar generators, semantic token
+    /// providers) can introspect keywords, delimiters, and rules without
+    /// duplicating them.
+    pub fn config() -> LexerConfig<CanonicalKind, DefaultLexError> {
+        LexerConfig::new(CanonicalFactory)
+            .with_delimiter('(', CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
+            .with_delimiter(')', CanonicalKind::Delimiter(CanonicalDelim::ParenClose))
+            .with_delimiter('[', CanonicalKind::Delimiter(CanonicalDelim::BracketOpen))
+            .with_delimiter(']', CanonicalKind::Delimiter(CanonicalDelim::BracketClose))
+            .with_delimiter('{', CanonicalKind::Delimiter(CanonicalDelim::BraceOpen))
+            .with_delimiter('}', CanonicalKind::Delimiter(CanonicalDelim::BraceClose))
+            .with_delimiter(',', CanonicalKind::Delimiter(CanonicalDelim::Comma))
+            .with_delimiter(':', CanonicalKind::Delimiter(CanonicalDelim::Colon))
+            .with_delimiter('.', CanonicalKind::Delimiter(CanonicalDelim::Dot))
+            .with_delimiter(';', CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
+            .with_rule(DocCommentRule)
+            .with_rule(LineCommentRule)
+            .with_rule(BlockCommentRule)
+            .with_rule(LexStringRule)
+            .with_rule(LexTemplateRule)
+            .with_rule(LexNumberRule)
+            .with_rule(KeywordRule)
+            .with_rule(IdentRule)
+            .with_rule(OperatorRule)
+            .with_rule(DelimiterRule)
+    }
+}
+
+impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
+    fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
+        let tokens = Self::config().lex(input)?;
+
+        Ok(tokens
+            .into_iter()
+            .filter(|t| !t.kind.is_comment())
+            .collect())
     }
 }

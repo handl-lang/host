@@ -5,12 +5,21 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-lexer.workspace = true
+handl-plugin-lexer-block-comment.workspace = true
+handl-plugin-lexer-delimiter.workspace = true
+handl-plugin-lexer-ident.workspace = true
+handl-plugin-lexer-keyword.workspace = true
+handl-plugin-lexer-line-comment.workspace = true
+handl-plugin-lexer-number.workspace = true
+handl-plugin-lexer-operator.workspace = true
+handl-plugin-lexer-string.workspace = true
 handl-plugin-lexer-template.workspace = true
 handl-plugin-ext-parser = { path = "../plugin-ext-parser" }
 handl-plugin-grammar-apply = { path = "../plugin-grammar-apply" }
 handl-plugin-grammar-array = { path = "../plugin-grammar-array" }
 handl-plugin-grammar-assign = { path = "../plugin-grammar-assign" }
 handl-plugin-grammar-call.workspace = true
+handl-plugin-grammar-function-literal.workspace = true
 handl-plugin-grammar-handle = { path = "../plugin-grammar-handle" }
 handl-plugin-grammar-index = { path = "../plugin-grammar-index" }
 handl-plugin-grammar-match = { path = "../plugin-grammar-match" }

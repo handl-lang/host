@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Contribution,
+    PlatformError, Plugin, PluginContext, RuleAcceptor,
+};
 use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
@@ -35,7 +39,7 @@ use crate::module::Module;
 /// The VM sees only the `Host` interface — it does not know about modules.
 #[derive(Clone)]
 pub struct ModuleHost {
-    modules: Vec<Arc<dyn Module + Send + Sync>>,
+    modules: Vec<Arc<dyn Module>>,
 }
 
 impl ModuleHost {
@@ -132,5 +136,61 @@ impl Host<NonFunctionValue> for ModuleHost {
             || self.generic_function(name).is_some()
             || self.async_function(name).is_some()
             || self.operation(name).is_some()
+    }
+}
+
+/// A [`Contribution`] that registers a single [`Module`] with a
+/// [`ModuleHost`] [`RuleAcceptor`].
+///
+/// This wraps a module in an `Arc` so it can be passed through the platform
+/// contribution pipeline via
+/// `ctx.contribute::<ModuleHost>(ModuleRule::new(MyModule))`.
+pub struct ModuleRule(pub Arc<dyn Module + Send + Sync>);
+
+impl ModuleRule {
+    /// Wrap a module for contribution to a [`ModuleHost`].
+    pub fn new(module: impl Module + 'static) -> Self {
+        Self(Arc::new(module))
+    }
+}
+
+impl Contribution for ModuleRule {
+    fn id(&self) -> &str {
+        self.0.name()
+    }
+}
+
+impl Plugin for ModuleHost {
+    fn id(&self) -> &str {
+        "runtime.module-host"
+    }
+
+    fn name(&self) -> &str {
+        "module-host"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+impl RuleAcceptor for ModuleHost {
+    type Rule = ModuleRule;
+
+    fn accept(&mut self, rule: ModuleRule) -> Result<(), PlatformError> {
+        self.modules.push(rule.0);
+        Ok(())
     }
 }

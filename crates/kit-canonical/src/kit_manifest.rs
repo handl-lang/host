@@ -71,7 +71,6 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-grammar-primary-identifier".to_string(),
             "plugin-grammar-call".to_string(),
             "plugin-grammar-apply".to_string(),
-            "plugin-grammar-arrow".to_string(),
             // Eval behavior plugins
             "plugin-eval-hello".to_string(),
             "plugin-eval-json".to_string(),
@@ -83,6 +82,7 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-runtime-apply".to_string(),
             "plugin-grammar-index".to_string(),
             "plugin-grammar-pipe".to_string(),
+            "plugin-grammar-function-literal".to_string(),
             "plugin-grammar-template".to_string(),
             "plugin-grammar-assign".to_string(),
             "plugin-grammar-type-annot".to_string(),

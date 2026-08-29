@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 handl-plugin-ast = { workspace = true }
+handl-plugin-ast-handl = { workspace = true }
 handl-plugin-lexer = { workspace = true }
 handl-plugin-lexer-block-comment = { workspace = true }
 handl-plugin-lexer-delimiter = { workspace = true }
@@ -67,6 +68,7 @@ handl-plugin-grammar-primary-value = { workspace = true }
 handl-plugin-grammar-match = { path = "../plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "../plugin-grammar-object" }
 handl-plugin-grammar-pipe = { path = "../plugin-grammar-pipe" }
+handl-plugin-grammar-function-literal = { path = "../plugin-grammar-function-literal" }
 handl-plugin-grammar-template = { path = "../plugin-grammar-template" }
 handl-plugin-grammar-type-annot = { path = "../plugin-grammar-type-annot" }
 

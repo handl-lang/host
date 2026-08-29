@@ -72,12 +72,20 @@ impl Function<NonFunctionValue> for Apply {
         })?;
 
         let fn_args = &args[1..];
-        let vars: Vec<(String, NonFunctionValue)> = fn_val
+        let mut vars = ctx.collect_vars();
+        let param_vars: Vec<(String, NonFunctionValue)> = fn_val
             .params
             .iter()
             .zip(fn_args.iter())
             .map(|((pname, _), arg)| (pname.clone(), arg.clone()))
             .collect();
+        for (name, value) in param_vars {
+            if let Some(slot) = vars.iter_mut().find(|(n, _)| n == &name) {
+                slot.1 = value;
+            } else {
+                vars.push((name, value));
+            }
+        }
 
         ctx.eval_expr(&fn_val.body, &vars)
     }

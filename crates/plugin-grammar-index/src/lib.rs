@@ -15,6 +15,10 @@ pub trait IndexToken: TokenKind {
     fn is_bracket_open(&self) -> bool;
     /// Returns `true` for the token that closes an index, e.g. `]`.
     fn is_bracket_close(&self) -> bool;
+    /// Returns `true` for the dot delimiter token, e.g. `.`.
+    fn is_dot(&self) -> bool;
+    /// If this token represents an identifier, return its text.
+    fn ident_text(&self) -> Option<&str>;
 }
 
 /// Grammar rule that parses postfix index syntax: `target[index]`.
@@ -46,7 +50,7 @@ impl<K: IndexToken> ParserBehavior<K> for IndexRule {
     }
 
     fn infix_binding(&self, kind: &K) -> Option<(u32, u32)> {
-        if kind.is_bracket_open() {
+        if kind.is_bracket_open() || kind.is_dot() {
             Some((90, 91))
         } else {
             None
@@ -56,30 +60,58 @@ impl<K: IndexToken> ParserBehavior<K> for IndexRule {
     fn infix(
         &self,
         left: AstNode,
-        _token: Token<K>,
+        token: Token<K>,
         ctx: &mut ParserContext<'_, K>,
         rbp: u32,
     ) -> Result<AstNode, PlatformError> {
-        let index = ctx.expression(rbp)?;
+        if token.kind.is_dot() {
+            let field = ctx.advance()?;
+            let field_name = field.kind.ident_text().ok_or_else(|| {
+                PlatformError::Plugin(format!(
+                    "expected identifier after '.', got {}",
+                    field.kind
+                ))
+            })?;
 
-        let close = ctx.advance()?;
-        if !close.kind.is_bracket_close() {
-            return Err(PlatformError::Plugin(format!(
-                "expected `]`, got {}",
-                close.kind
-            )));
+            let start = left.span.map_or(0, |s| s.start);
+            let end = field.span.end;
+
+            Ok(AstNode {
+                kind: "index".into(),
+                span: Some(Span { start, end }),
+                payload: json!({
+                    "target": &left,
+                    "index": {
+                        "kind": "value",
+                        "span": null,
+                        "payload": {
+                            "value": field_name
+                        }
+                    },
+                }),
+            })
+        } else {
+            let index = ctx.expression(rbp)?;
+
+            let close = ctx.advance()?;
+            if !close.kind.is_bracket_close() {
+                return Err(PlatformError::Plugin(format!(
+                    "expected `]`, got {}",
+                    close.kind
+                )));
+            }
+
+            let start = left.span.map_or(0, |s| s.start);
+            let end = close.span.end;
+
+            Ok(AstNode {
+                kind: "index".into(),
+                span: Some(Span { start, end }),
+                payload: json!({
+                    "target": &left,
+                    "index": &index,
+                }),
+            })
         }
-
-        let start = left.span.map_or(0, |s| s.start);
-        let end = close.span.end;
-
-        Ok(AstNode {
-            kind: "index".into(),
-            span: Some(Span { start, end }),
-            payload: json!({
-                "target": &left,
-                "index": &index,
-            }),
-        })
     }
 }

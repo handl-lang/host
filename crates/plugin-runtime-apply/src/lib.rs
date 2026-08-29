@@ -48,12 +48,20 @@ impl RuntimeBehavior for ApplyFamily {
                         got: call_args.len(),
                     });
                 }
-                let vars: Vec<(String, NonFunctionValue)> = fv
+                let mut vars = ctx.collect_vars();
+                let param_vars: Vec<(String, NonFunctionValue)> = fv
                     .params
                     .iter()
                     .zip(call_args.iter())
                     .map(|((name, _), value)| (name.clone(), value.clone()))
                     .collect();
+                for (name, value) in param_vars {
+                    if let Some(slot) = vars.iter_mut().find(|(n, _)| n == &name) {
+                        slot.1 = value;
+                    } else {
+                        vars.push((name, value));
+                    }
+                }
                 ctx.eval_expr(&fv.body, &vars)
             }
             "fn.pipe" => {
@@ -69,8 +77,14 @@ impl RuntimeBehavior for ApplyFamily {
                         got: fv.params.len(),
                     });
                 }
+                let mut vars = ctx.collect_vars();
                 let name = fv.params[0].0.clone();
-                ctx.eval_expr(&fv.body, &[(name, left.clone())])
+                if let Some(slot) = vars.iter_mut().find(|(n, _)| n == &name) {
+                    slot.1 = left.clone();
+                } else {
+                    vars.push((name, left.clone()));
+                }
+                ctx.eval_expr(&fv.body, &vars)
             }
             _ => Err(Error::PrimitiveError(format!(
                 "unknown apply builtin: {name}"
