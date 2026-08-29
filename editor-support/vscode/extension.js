@@ -26,24 +26,48 @@ function activate(context) {
     return;
   }
 
-  const serverOptions = {
-    command: serverPath,
-    args: [],
-    transport: TransportKind.stdio,
-  };
+  console.log("[handl-lsp] server path:", serverPath);
 
-  const clientOptions = {
-    documentSelector: [{ scheme: "file", language: "handl" }],
-  };
+  let client;
+  try {
+    const { LanguageClient, TransportKind } = require("vscode-languageclient");
+    console.log("[handl-lsp] vscode-languageclient loaded");
 
-  const client = new LanguageClient(
-    "handl-lsp",
-    "handl LSP",
-    serverOptions,
-    clientOptions
-  );
+    const serverOptions = {
+      command: serverPath,
+      args: [],
+      transport: TransportKind.stdio,
+    };
 
-  context.subscriptions.push(client.start());
+    const outputChannel = vscode.window.createOutputChannel("handl LSP");
+    console.log("[handl-lsp] output channel created");
+
+    const clientOptions = {
+      documentSelector: [{ scheme: "file", language: "handl" }],
+      outputChannel: outputChannel,
+    };
+
+    client = new LanguageClient(
+      "handl-lsp",
+      "handl LSP",
+      serverOptions,
+      clientOptions
+    );
+    console.log("[handl-lsp] client created, starting...");
+
+    client.start().then(
+      () => console.log("[handl-lsp] client started successfully"),
+      (err) => {
+        console.error("[handl-lsp] client failed to start:", err);
+        vscode.window.showErrorMessage("handl-lsp: " + err.message);
+      }
+    );
+
+    context.subscriptions.push(client);
+  } catch (err) {
+    console.error("[handl-lsp] activation error:", err);
+    vscode.window.showErrorMessage("handl-lsp: failed to start LSP client: " + err.message);
+  }
 }
 
 function deactivate() {}

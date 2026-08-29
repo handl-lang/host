@@ -2,14 +2,14 @@
   "name": "handl-lsp",
   "displayName": "handl Language Support",
   "description": "Syntax highlighting and LSP semantic tokens for .hnl files",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "handl-lang",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": ["Programming Languages"],
   "activationEvents": [
-    "onLanguage:handl"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
