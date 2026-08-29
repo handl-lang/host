@@ -74,7 +74,6 @@ Runtime value types will also be assembled from capabilities (`Addable`, `Compar
 - `handl-lexer` and `handl-parser` have been genericized to `Token`/`Lexer` and `Parser`/`Grammar` abstractions with `TokenKind` and `GrammarRule` capability traits.
 - `kit-canonical` has been rewritten as a curated plugin manifest rather than a concrete implementation crate.
 - `handl-ast-canonical`, `handl-lexer-canonical`, and `handl-parser-canonical` crates have been removed.
-- Cleanup and stabilization of the remaining canonical token/grammar/value plugins are continuing / out of scope.
 
 ## Related work
 

@@ -36,16 +36,6 @@ Current state:
 - The `mood` module becomes redundant. Its runtime behavior can move into the `type` module or become ordinary handl functions.
 - The parser/AST needs to support `:` typed bindings, `is` as membership, and `===` as a type.
 
-## Roadmap
-
-1. Universe levels + `data` declarations for inductive types.
-2. `rec` / termination checking for the pure type level.
-3. Inductive families like `Vec(A, n)`.
-4. Dependent pattern matching with a motive.
-5. Type inference and unification (`_` holes).
-6. Proof erasure at runtime.
-7. Tactics (`auto`, `induction`, `rewrite`).
-
 ## Status
 
 accepted

@@ -450,7 +450,6 @@ The design is **safe for trusted, curated plugin graphs** (the normal Rust packa
 - `AstNode`, `OptionsPlugin`, `HostConfig`, and `Host::load` are implemented.
 - `LanguagePipeline`, `SyntaxNode`, `LanguageHost`, `Extension`, `CommandProvider`, and `Library` have been removed.
 - Legacy `plugin-comments` and `plugin-doc-comments` were removed; comment handling is tokenized by `plugin-token-comment` and formatted by `plugin-fmt-trivia`.
-- Cleanup of the remaining `plugin-*` and `lib-*` crates to pure `Behavior<Op>` is continuing / out of scope.
 
 ## Related work
 
