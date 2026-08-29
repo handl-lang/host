@@ -230,4 +230,65 @@ mod tests {
         let result = host.load();
         assert!(result.is_err());
     }
+
+    #[test]
+    fn full_config_flow_kits_plugins_options() {
+        let mut config_path = std::env::temp_dir();
+        config_path.push("full_flow.handl.toml");
+        fs::write(
+            &config_path,
+            r#"
+[[kit]]
+include = "hello"
+
+[[plugin]]
+register = "lib.hello"
+
+[options]
+"comment.style" = "above"
+"#,
+        )
+        .unwrap();
+
+        let mut host = DefaultHost::new();
+        host.register_plugin(BasicKitLoaderPlugin::new());
+        host.register_plugin(LoaderHostPlugin::default());
+        host.register_plugin(
+            DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap())
+                .with_fallback_kit("canonical"),
+        );
+        host.load().unwrap();
+
+        let names = host.plugins().names();
+        assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
+        assert!(names.iter().any(|n| n == "options"), "names: {names:?}");
+
+        let _ = fs::remove_file(&config_path);
+    }
+
+    #[test]
+    fn register_accepts_unresolved_declaration() {
+        let mut config_path = std::env::temp_dir();
+        config_path.push("missing_plugin.handl.toml");
+        fs::write(
+            &config_path,
+            r#"
+[[plugin]]
+register = "nonexistent.plugin.id"
+"#,
+        )
+        .unwrap();
+
+        let mut host = DefaultHost::new();
+        host.register_plugin(BasicKitLoaderPlugin::new());
+        host.register_plugin(LoaderHostPlugin::default());
+        host.register_plugin(
+            DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap())
+                .with_fallback_kit("canonical"),
+        );
+        let result = host.load();
+        assert!(result.is_ok(), "register is a declaration, not an immediate check: {result:?}");
+
+        let _ = fs::remove_file(&config_path);
+    }
 }

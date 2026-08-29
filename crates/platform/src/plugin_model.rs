@@ -95,4 +95,9 @@ impl<'a> ContributionContext<'a> {
     pub fn get_plugin_mut<P: Plugin + 'static>(&mut self) -> Option<&mut P> {
         self.plugins.get_plugin_mut::<P>()
     }
+
+    /// Returns `true` if a plugin with the given id is registered.
+    pub fn has_plugin_id(&self, id: &str) -> bool {
+        self.plugins.has_id(id)
+    }
 }

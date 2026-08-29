@@ -180,6 +180,23 @@ impl PluginRegistry {
             .collect()
     }
 
+    /// Returns the ids of all registered plugins.
+    pub fn ids(&self) -> Vec<String> {
+        self.plugins
+            .iter()
+            .flatten()
+            .map(|p| p.id().to_string())
+            .collect()
+    }
+
+    /// Returns `true` if a plugin with the given id is registered.
+    pub fn has_id(&self, id: &str) -> bool {
+        self.plugins
+            .iter()
+            .flatten()
+            .any(|p| p.id() == id)
+    }
+
     /// Returns a mutable reference to a registered plugin of concrete type `P`, if any.
     pub fn get_plugin_mut<P: Plugin + 'static>(&mut self) -> Option<&mut P> {
         for arc in self.plugins.iter_mut().flatten() {
