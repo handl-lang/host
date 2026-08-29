@@ -2,37 +2,37 @@
 //!
 //! The `Vm` is generic over the host and environment types so that the
 //! concrete `DefaultHost` and `Env` are no longer hard-coded.  A
-//! `RuntimeHost` (or any other `Host` implementation) can be supplied
+//! `RuntimeHost` (or any other `CallableLookup` implementation) can be supplied
 //! instead.
 
 pub use crate::value::*;
 
 /// A composable handl VM that pairs a host with a runtime environment.
-pub struct Vm<Host, Env> {
-    host: Host,
+pub struct Vm<CallableLookup, Env> {
+    host: CallableLookup,
     env: Env,
 }
 
-impl<Host, Env> Vm<Host, Env> {
+impl<CallableLookup, Env> Vm<CallableLookup, Env> {
     /// Creates a new VM with a default host and environment.
     pub fn new() -> Self
     where
-        Host: Default,
+        CallableLookup: Default,
         Env: Default,
     {
         Self {
-            host: Host::default(),
+            host: CallableLookup::default(),
             env: Env::default(),
         }
     }
 
     /// Returns a reference to the host.
-    pub fn host(&self) -> &Host {
+    pub fn host(&self) -> &CallableLookup {
         &self.host
     }
 
     /// Returns a mutable reference to the host.
-    pub fn host_mut(&mut self) -> &mut Host {
+    pub fn host_mut(&mut self) -> &mut CallableLookup {
         &mut self.host
     }
 
@@ -47,9 +47,9 @@ impl<Host, Env> Vm<Host, Env> {
     }
 }
 
-impl<Host, Env> Default for Vm<Host, Env>
+impl<CallableLookup, Env> Default for Vm<CallableLookup, Env>
 where
-    Host: Default,
+    CallableLookup: Default,
     Env: Default,
 {
     fn default() -> Self {

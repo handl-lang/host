@@ -13,7 +13,7 @@
 //! - [`CallCache`] — a serializable cache mapping `(function, args)`
 //!   keys to result values. Can be serialized to JSON and sent
 //!   across machines.
-//! - [`CacheHost`] — a decorator [`Host`][handl_plugin_vm::Host] that wraps an
+//! - [`CacheHost`] — a decorator [`CallableLookup`][handl_plugin_vm::CallableLookup] that wraps an
 //!   inner host and caches results for registered functions.
 //!   Unregistered function lookups delegate to the inner host.
 //!

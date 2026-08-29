@@ -1,4 +1,4 @@
-//! Host implementations that coordinate plugins and kits.
+//! Runtime implementations that coordinate plugins and kits.
 
 #[cfg(feature = "concurrent")]
 use handl_plugin_vm_common::ModuleRuntime;
@@ -13,7 +13,7 @@ use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext
 use crate::plugin_model::ContributionContext;
 
 /// A host that exposes the plugin and kit registries.
-pub trait Host: Send + Sync {
+pub trait CallableLookup: Send + Sync {
     /// Returns the plugin registry.
     fn plugins(&self) -> &PluginRegistry;
     /// Returns the kit registry.
@@ -142,7 +142,7 @@ impl DefaultHost {
     }
 }
 
-impl Host for DefaultHost {
+impl CallableLookup for DefaultHost {
     fn plugins(&self) -> &PluginRegistry {
         &self.plugins
     }

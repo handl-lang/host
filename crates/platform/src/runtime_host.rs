@@ -66,7 +66,7 @@ impl Contribution for RuntimeRule {
     }
 }
 
-/// Host that collects `RuntimeBehavior` rules for the runtime target adapter.
+/// CallableLookup that collects `RuntimeBehavior` rules for the runtime target adapter.
 #[derive(Default, Clone)]
 pub struct RuntimeHost {
     /// Registered runtime rules.

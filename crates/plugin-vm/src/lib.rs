@@ -3,7 +3,7 @@
 //! Core virtual-machine abstractions for the handl language.
 //!
 //! This crate defines the evaluation contract: `VirtualMachine`,
-//! `Context`, `Host`, `Function`, `Operation`, `Error`, etc.
+//! `Context`, `CallableLookup`, `Function`, `Operation`, `Error`, etc.
 //! It does not contain a concrete implementation; it is generic over
 //! the value type `V` via the [`Value`] trait.
 //!
@@ -24,7 +24,7 @@ pub use error::Error;
 pub use eval::{AsyncEval, Eval};
 pub use expr::{Expr, ExprFactory, HandlerClause, Pattern};
 pub use function_repr::FunctionRepr;
-pub use host::{AsyncFunction, Function, GenericFunction, Host, HostRef, LazyFunction};
+pub use host::{AsyncFunction, Function, GenericFunction, CallableLookup, CallableLookupRef, LazyFunction};
 pub use mock::{MockHost, NoopHost};
 pub use operation::{Operation, OperationSig};
 pub use runtime::{Context, VirtualMachine};

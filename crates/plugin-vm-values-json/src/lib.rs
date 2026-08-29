@@ -32,6 +32,6 @@ pub type Error = handl_plugin_vm::Error<NonFunctionValue>;
 // Re-export the generic VM traits and value bound so consumers can write
 // `Eval<NonFunctionValue>`, `Context<NonFunctionValue>`, etc.
 pub use handl_plugin_vm::{
-    AsyncEval, AsyncFunction, Context, Eval, Function, GenericFunction, Host, HostRef,
+    AsyncEval, AsyncFunction, Context, Eval, Function, GenericFunction, CallableLookup, CallableLookupRef,
     LazyFunction, Operation, OperationSig, Value, VirtualMachine,
 };

@@ -1,4 +1,4 @@
-//! Host configuration and appliers.
+//! Runtime configuration and appliers.
 //!
 //! This module provides the in-memory description of which kits and plugins a
 //! host should load, what to exclude, and which option overrides to apply. It

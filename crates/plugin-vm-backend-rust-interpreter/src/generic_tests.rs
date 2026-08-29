@@ -4,7 +4,7 @@ use crate::Error;
 use crate::Expr;
 use crate::NonFunctionValue;
 use crate::Vm;
-use crate::{Function, GenericFunction, Host};
+use crate::{Function, GenericFunction, CallableLookup};
 
 // ── test host with a generic identity function ─────────────────────
 
@@ -48,7 +48,7 @@ struct GenericHost {
     identity: TypedIdentity,
 }
 
-impl Host<NonFunctionValue> for GenericHost {
+impl CallableLookup<NonFunctionValue> for GenericHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "identity" => Some(&self.identity),
@@ -121,7 +121,7 @@ fn generic_function_falls_back_to_function_when_no_type_args() {
 
 #[test]
 fn generic_function_falls_back_to_function_when_not_registered() {
-    // Host has generic_function but returns None for unknown name.
+    // CallableLookup has generic_function but returns None for unknown name.
     let vm = Vm::new(GenericHost::default());
     let mut ctx = CanonicalContext::new();
 
@@ -184,7 +184,7 @@ impl GenericFunction<NonFunctionValue> for TypedArrayify {
 #[derive(Clone)]
 struct ArrayifyHost;
 
-impl Host<NonFunctionValue> for ArrayifyHost {
+impl CallableLookup<NonFunctionValue> for ArrayifyHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "arrayify" => Some(&TypedArrayify),

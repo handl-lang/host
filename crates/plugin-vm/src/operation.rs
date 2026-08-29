@@ -18,7 +18,7 @@
 //!   carrying its name and arguments. The VM captures the continuation
 //!   and yields `EvalResult::Yielded`.
 //!
-//! The VM checks `Host::operation` before `Host::function`. If a name
+//! The VM checks `CallableLookup::operation` before `CallableLookup::function`. If a name
 //! resolves to an operation, the operation's `perform` method is called.
 //! If `perform` returns `Err(Error::Operation { ... })`, the VM captures
 //! the continuation and yields. If `perform` returns `Ok(value)`, the
@@ -43,7 +43,7 @@ pub struct OperationSig<V: Value> {
 /// A typed operation that signals instead of completing.
 ///
 /// When the VM dispatches a call and the name resolves to an operation
-/// (via [`Host::operation`](crate::Host::operation)), the operation's
+/// (via [`CallableLookup::operation`](crate::CallableLookup::operation)), the operation's
 /// [`perform`](Operation::perform) method is called. If it returns
 /// `Err(Error::Operation { ... })`, the VM captures the continuation
 /// and yields. If it returns `Ok(value)`, the operation completed

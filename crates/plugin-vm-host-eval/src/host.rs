@@ -1,5 +1,5 @@
 use handl_platform::DefaultHost;
-use handl_plugin_vm::{Function, Host};
+use handl_plugin_vm::{Function, CallableLookup};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::functions::{Apply, Resolve, Var};
@@ -39,7 +39,7 @@ impl Clone for EvalHost {
     }
 }
 
-impl handl_platform::host::Host for EvalHost {
+impl handl_platform::host::CallableLookup for EvalHost {
     fn plugins(&self) -> &handl_platform::PluginRegistry {
         self.platform.plugins()
     }
@@ -49,7 +49,7 @@ impl handl_platform::host::Host for EvalHost {
     }
 }
 
-impl Host<NonFunctionValue> for EvalHost {
+impl CallableLookup<NonFunctionValue> for EvalHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "var" => Some(&self.var),
@@ -67,7 +67,7 @@ impl Host<NonFunctionValue> for EvalHost {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::host::Host as PlatformHost;
+    use handl_platform::host::CallableLookup as PlatformHost;
     use handl_platform::{
         CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
     };

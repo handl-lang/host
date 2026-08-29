@@ -1,18 +1,18 @@
-use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, CallableLookup, LazyFunction, Operation};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// A host that rewrites lookup names before forwarding them.
 ///
 /// Useful for namespacing or versioning: `"math.add"` → `"add"`.
 pub struct MapHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     mapper: Box<dyn Fn(&str) -> String + 'static>,
 }
 
 impl MapHost {
     /// Creates a host that maps names through `mapper`.
     pub fn new(
-        inner: Box<dyn Host<NonFunctionValue>>,
+        inner: Box<dyn CallableLookup<NonFunctionValue>>,
         mapper: impl Fn(&str) -> String + 'static,
     ) -> Self {
         MapHost {
@@ -22,13 +22,13 @@ impl MapHost {
     }
 
     /// Convenience constructor that prepends a fixed prefix.
-    pub fn with_prefix(inner: Box<dyn Host<NonFunctionValue>>, prefix: impl Into<String>) -> Self {
+    pub fn with_prefix(inner: Box<dyn CallableLookup<NonFunctionValue>>, prefix: impl Into<String>) -> Self {
         let prefix = prefix.into();
         MapHost::new(inner, move |name| format!("{prefix}{name}"))
     }
 
     /// Convenience constructor that strips a fixed prefix.
-    pub fn strip_prefix(inner: Box<dyn Host<NonFunctionValue>>, prefix: impl Into<String>) -> Self {
+    pub fn strip_prefix(inner: Box<dyn CallableLookup<NonFunctionValue>>, prefix: impl Into<String>) -> Self {
         let prefix = prefix.into();
         MapHost::new(inner, move |name| {
             name.strip_prefix(&prefix).unwrap_or(name).to_string()
@@ -40,7 +40,7 @@ impl MapHost {
     }
 }
 
-impl Host<NonFunctionValue> for MapHost {
+impl CallableLookup<NonFunctionValue> for MapHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.inner.function(&self.map(name))
     }
@@ -64,7 +64,7 @@ impl Host<NonFunctionValue> for MapHost {
 
 /// A host that logs every lookup it forwards.
 pub struct LoggingHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     log: Box<dyn Fn(&HostEvent<'_>) + 'static>,
 }
 
@@ -89,7 +89,7 @@ pub struct HostEvent<'a> {
 impl LoggingHost {
     /// Creates a host that logs every lookup to `logger`.
     pub fn new(
-        inner: Box<dyn Host<NonFunctionValue>>,
+        inner: Box<dyn CallableLookup<NonFunctionValue>>,
         logger: impl Fn(&HostEvent<'_>) + 'static,
     ) -> Self {
         LoggingHost {
@@ -99,7 +99,7 @@ impl LoggingHost {
     }
 
     /// Creates a host that prints every lookup to stderr.
-    pub fn eprint(inner: Box<dyn Host<NonFunctionValue>>) -> Self {
+    pub fn eprint(inner: Box<dyn CallableLookup<NonFunctionValue>>) -> Self {
         LoggingHost::new(inner, |event| {
             eprintln!(
                 "[host] {:?} {} found={}",
@@ -109,7 +109,7 @@ impl LoggingHost {
     }
 }
 
-impl Host<NonFunctionValue> for LoggingHost {
+impl CallableLookup<NonFunctionValue> for LoggingHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         let result = self.inner.function(name);
         (self.log)(&HostEvent {
@@ -163,14 +163,14 @@ impl Host<NonFunctionValue> for LoggingHost {
 
 /// A host that only forwards a fixed set of allowed names.
 pub struct AllowHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     allowed: std::collections::HashSet<String>,
 }
 
 impl AllowHost {
     /// Creates a host that only resolves names in `allowed`.
     pub fn new(
-        inner: Box<dyn Host<NonFunctionValue>>,
+        inner: Box<dyn CallableLookup<NonFunctionValue>>,
         allowed: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
         AllowHost {
@@ -180,7 +180,7 @@ impl AllowHost {
     }
 }
 
-impl Host<NonFunctionValue> for AllowHost {
+impl CallableLookup<NonFunctionValue> for AllowHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if self.allowed.contains(name) {
             self.inner.function(name)
@@ -224,14 +224,14 @@ impl Host<NonFunctionValue> for AllowHost {
 
 /// A host that blocks a fixed set of names.
 pub struct DenyHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     denied: std::collections::HashSet<String>,
 }
 
 impl DenyHost {
     /// Creates a host that denies names in `denied`.
     pub fn new(
-        inner: Box<dyn Host<NonFunctionValue>>,
+        inner: Box<dyn CallableLookup<NonFunctionValue>>,
         denied: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
         DenyHost {
@@ -241,7 +241,7 @@ impl DenyHost {
     }
 }
 
-impl Host<NonFunctionValue> for DenyHost {
+impl CallableLookup<NonFunctionValue> for DenyHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if self.denied.contains(name) {
             None

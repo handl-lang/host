@@ -1,4 +1,4 @@
-use handl_plugin_vm::{Context, Error, Expr, Host};
+use handl_plugin_vm::{Context, Error, Expr, CallableLookup};
 use handl_plugin_vm_common::{ExprHandler, LegoVm};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
@@ -22,7 +22,7 @@ impl ExprHandler for ValueHandler {
         &self,
         expr: &RuntimeExpr,
         _ctx: &mut dyn Context<NonFunctionValue>,
-        _host: &dyn Host<NonFunctionValue>,
+        _host: &dyn CallableLookup<NonFunctionValue>,
         _dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -48,7 +48,7 @@ impl ExprHandler for CallHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -117,7 +117,7 @@ impl ExprHandler for ApplyHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -169,7 +169,7 @@ impl ExprHandler for ArrayHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        _host: &dyn Host<NonFunctionValue>,
+        _host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -200,7 +200,7 @@ impl ExprHandler for ObjectHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        _host: &dyn Host<NonFunctionValue>,
+        _host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -232,7 +232,7 @@ impl ExprHandler for IndexHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -284,7 +284,7 @@ impl ExprHandler for FieldAccessHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        _host: &dyn Host<NonFunctionValue>,
+        _host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -338,14 +338,14 @@ impl ExprHandler for HandleHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         _dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
         ) -> Result<NonFunctionValue, Error<NonFunctionValue>>,
     ) -> Result<NonFunctionValue, Error<NonFunctionValue>> {
         let result =
-            crate::CanonicalVm::new(crate::HostRef::new(host)).eval_resumable(expr, ctx, None);
+            crate::CanonicalVm::new(crate::CallableLookupRef::new(host)).eval_resumable(expr, ctx, None);
 
         match result {
             crate::EvalResult::Done(value) => Ok(value),
@@ -386,7 +386,7 @@ impl ExprHandler for VarHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         _dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -422,7 +422,7 @@ impl ExprHandler for AssignHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -456,7 +456,7 @@ impl ExprHandler for FunctionHandler {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        _host: &dyn Host<NonFunctionValue>,
+        _host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -510,7 +510,7 @@ impl ExprHandler for FunctionHandler {
 }
 
 /// Builds a canonical `LegoVm` with the default expression handlers.
-pub fn canonical_vm<H: Host<NonFunctionValue>>(host: H) -> LegoVm<H> {
+pub fn canonical_vm<H: CallableLookup<NonFunctionValue>>(host: H) -> LegoVm<H> {
     LegoVm::new(host)
         .with(ValueHandler)
         .with(VarHandler)

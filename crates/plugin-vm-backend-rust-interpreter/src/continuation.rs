@@ -45,7 +45,7 @@
 
 use crate::pattern::{define_pattern, pattern_from_json, pattern_to_json};
 use crate::vm::{json_kind, qualified_name};
-use crate::{Context, Error, Expr, HandlerClause, Host};
+use crate::{Context, Error, Expr, HandlerClause, CallableLookup};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
@@ -606,7 +606,7 @@ pub enum EvalResult {
     Error(Error<NonFunctionValue>),
 }
 
-impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
+impl<H: CallableLookup<NonFunctionValue>> crate::CanonicalVm<H> {
     /// Evaluates an expression using an explicit frame stack.
     ///
     /// This is the resumable evaluation mode. Unlike [`eval`](crate::CanonicalVm::eval)

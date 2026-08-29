@@ -22,7 +22,7 @@ use crate::{Context, Error, Operation, Value};
 ///     functions: Vec<(String, Box<dyn Function<V>>)>,
 /// }
 ///
-/// impl<V: Value> Host<V> for MyHost<V> {
+/// impl<V: Value> CallableLookup<V> for MyHost<V> {
 ///     fn function(&self, name: &str) -> Option<&dyn Function<V>> {
 ///         self.functions
 ///             .iter()
@@ -31,7 +31,7 @@ use crate::{Context, Error, Operation, Value};
 ///     }
 /// }
 /// ```
-pub trait Host<V: Value> {
+pub trait CallableLookup<V: Value> {
     /// Resolve a function name to a callable [`Function`].
     ///
     /// Returns `None` if the name is not recognized.
@@ -41,7 +41,7 @@ pub trait Host<V: Value> {
     ///
     /// Returns `None` by default. Override to provide async functions
     /// (network I/O, timers, cooperative yielding). The async VM
-    /// checks this after [`Host::function`] returns `None`.
+    /// checks this after [`CallableLookup::function`] returns `None`.
     fn async_function(&self, _name: &str) -> Option<&dyn AsyncFunction<V>> {
         None
     }
@@ -50,7 +50,7 @@ pub trait Host<V: Value> {
     ///
     /// Returns `None` by default. Override to provide operations that
     /// signal (yield) instead of completing. The VM checks this before
-    /// [`Host::function`] — if a name resolves to an operation, the
+    /// [`CallableLookup::function`] — if a name resolves to an operation, the
     /// operation's `perform` method is called instead of a function's
     /// `call` method.
     ///
@@ -66,8 +66,8 @@ pub trait Host<V: Value> {
     ///
     /// Returns `None` by default. Override to provide functions that
     /// need lazy (short-circuit) argument evaluation — e.g. `if`,
-    /// `and`, `or`. The VM checks this before [`Host::function`] and
-    /// [`Host::operation`]. If a name resolves to a lazy function,
+    /// `and`, `or`. The VM checks this before [`CallableLookup::function`] and
+    /// [`CallableLookup::operation`]. If a name resolves to a lazy function,
     /// the VM passes the raw expression tree instead of pre-evaluated
     /// values, and the function decides which arguments to evaluate.
     fn lazy_function(&self, _name: &str) -> Option<&dyn LazyFunction<V>> {
@@ -80,7 +80,7 @@ pub trait Host<V: Value> {
     /// Returns `None` by default. The VM checks this when a call carries
     /// non-empty `type_args`. If a generic function is registered, it
     /// receives the type arguments via [`GenericFunction::call_with_types`].
-    /// Otherwise, the VM falls back to [`Host::function`].
+    /// Otherwise, the VM falls back to [`CallableLookup::function`].
     fn generic_function(&self, _name: &str) -> Option<&dyn GenericFunction<V>> {
         None
     }
@@ -140,7 +140,7 @@ impl<V: Value> Function<V> for Box<dyn Function<V>> {
 /// string representation of the concrete type (e.g. `"string"`,
 /// `"array<number>"`).
 ///
-/// The VM checks [`Host::generic_function`] for calls that carry
+/// The VM checks [`CallableLookup::generic_function`] for calls that carry
 /// type arguments. If a generic function is registered, it receives
 /// the type arguments. Otherwise, the VM falls back to [`Function`].
 ///
@@ -183,7 +183,7 @@ pub trait GenericFunction<V: Value>: Function<V> {
 /// calling thread.
 ///
 /// The async VM ([`Vm::eval_async`](crate::VirtualMachine::eval_async)) checks
-/// [`Host::async_function`] after [`Host::function`] returns `None`.
+/// [`CallableLookup::async_function`] after [`CallableLookup::function`] returns `None`.
 /// This means a host can provide both sync and async functions, and
 /// the VM will use whichever is available for a given name.
 ///
@@ -239,10 +239,10 @@ pub trait AsyncFunction<V: Value> {
 /// - `and(a, b)` stops at the first `false`.
 /// - `or(a, b)` stops at the first `true`.
 ///
-/// The VM checks [`Host::lazy_function`] before [`Host::function`]
-/// and [`Host::operation`]. If a name resolves to a lazy function,
+/// The VM checks [`CallableLookup::lazy_function`] before [`CallableLookup::function`]
+/// and [`CallableLookup::operation`]. If a name resolves to a lazy function,
 /// the VM calls it with unevaluated args. Otherwise, the VM eagerly
-/// evaluates args and dispatches to [`Host::function`].
+/// evaluates args and dispatches to [`CallableLookup::function`].
 ///
 /// # Implementing
 ///
@@ -291,21 +291,21 @@ pub trait LazyFunction<V: Value> {
     ) -> Result<V, Error<V>>;
 }
 
-/// A borrowed reference to a [`Host`] that itself implements [`Host`].
+/// A borrowed reference to a [`CallableLookup`] that itself implements [`CallableLookup`].
 ///
-/// This lets the generic [`VirtualMachine`] run against a `&dyn Host` without
+/// This lets the generic [`VirtualMachine`] run against a `&dyn CallableLookup` without
 /// needing ownership of the host value.
 #[derive(Clone, Copy)]
-pub struct HostRef<'a, V: Value>(pub &'a dyn Host<V>);
+pub struct CallableLookupRef<'a, V: Value>(pub &'a dyn CallableLookup<V>);
 
-impl<'a, V: Value> HostRef<'a, V> {
-    /// Wraps a `&dyn Host` for use with the VM.
-    pub fn new(host: &'a dyn Host<V>) -> Self {
-        HostRef(host)
+impl<'a, V: Value> CallableLookupRef<'a, V> {
+    /// Wraps a `&dyn CallableLookup` for use with the VM.
+    pub fn new(host: &'a dyn CallableLookup<V>) -> Self {
+        CallableLookupRef(host)
     }
 }
 
-impl<'a, V: Value> Host<V> for HostRef<'a, V> {
+impl<'a, V: Value> CallableLookup<V> for CallableLookupRef<'a, V> {
     fn function(&self, name: &str) -> Option<&dyn Function<V>> {
         self.0.function(name)
     }

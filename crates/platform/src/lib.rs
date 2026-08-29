@@ -13,7 +13,7 @@ pub mod build;
 pub mod capability;
 /// Generic compile operation and rule acceptor.
 pub mod compile;
-/// Host configuration and appliers.
+/// Runtime configuration and appliers.
 pub mod config;
 /// Platform error types.
 pub mod error;
@@ -23,7 +23,7 @@ pub mod eval;
 pub mod format;
 /// Expression formatter trait for formatting concrete VM expression trees.
 pub mod formatter;
-/// Host implementations that coordinate plugins and kits.
+/// Runtime implementations that coordinate plugins and kits.
 pub mod host;
 /// Kit manifests and registries.
 pub mod kit;

@@ -16,7 +16,7 @@ use handl_platform::{
 };
 use handl_plugin_vm_host_eval::EvalHost;
 use handl_plugin_vm_values_json::{
-    CanonicalContext, Function, GenericFunction, Host, LazyFunction, NonFunctionValue,
+    CanonicalContext, Function, GenericFunction, CallableLookup, LazyFunction, NonFunctionValue,
 };
 
 use crate::host::ModuleRuntime;
@@ -160,7 +160,7 @@ impl Default for DynamicRuntime {
     }
 }
 
-impl Host<NonFunctionValue> for DynamicRuntime {
+impl CallableLookup<NonFunctionValue> for DynamicRuntime {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.default
             .function(name)
@@ -193,7 +193,7 @@ mod tests {
         CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
         ContributionContext, PlatformError, Plugin, PluginContext,
     };
-    use handl_plugin_vm_values_json::Host;
+    use handl_plugin_vm_values_json::CallableLookup;
 
     /// A test plugin that contributes [`StubModule`] into the [`ModuleRuntime`].
     struct StubPlugin;

@@ -1,4 +1,4 @@
-use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, CallableLookup, LazyFunction, Operation};
 use handl_plugin_vm_values_json::NonFunctionValue;
 use std::collections::HashMap;
 
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoopHost;
 
-impl Host<NonFunctionValue> for NoopHost {
+impl CallableLookup<NonFunctionValue> for NoopHost {
     fn function(&self, _name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         None
     }
@@ -95,7 +95,7 @@ impl MockHost {
     }
 }
 
-impl Host<NonFunctionValue> for MockHost {
+impl CallableLookup<NonFunctionValue> for MockHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.functions.get(name).map(|f| f.as_ref())
     }

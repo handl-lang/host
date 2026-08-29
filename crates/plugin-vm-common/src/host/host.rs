@@ -4,14 +4,14 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Contribution,
     PlatformError, Plugin, PluginContext, RuleAcceptor,
 };
-use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, CallableLookup, LazyFunction, Operation};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::module::Module;
 
 /// A composite host that dispatches function calls to registered modules.
 ///
-/// `ModuleRuntime` implements [`Host`] by splitting the function name on the
+/// `ModuleRuntime` implements [`CallableLookup`] by splitting the function name on the
 /// first `.`. The left segment is the module name; the right segment is
 /// the function name within that module. For example, `math.abs(x)` is
 /// split into module `"math"` and function `"abs"`.
@@ -25,7 +25,7 @@ use crate::module::Module;
 /// ```text
 ///            ModuleRuntime
 ///                │
-///                │ Host::function("math.abs")
+///                │ CallableLookup::function("math.abs")
 ///                ▼
 ///          split on "."
 ///           ┌────┴────┐
@@ -36,7 +36,7 @@ use crate::module::Module;
 ///       Module    Function
 /// ```
 ///
-/// The VM sees only the `Host` interface — it does not know about modules.
+/// The VM sees only the `CallableLookup` interface — it does not know about modules.
 #[derive(Clone)]
 pub struct ModuleRuntime {
     modules: Vec<Arc<dyn Module>>,
@@ -68,7 +68,7 @@ impl Default for ModuleRuntime {
     }
 }
 
-impl Host<NonFunctionValue> for ModuleRuntime {
+impl CallableLookup<NonFunctionValue> for ModuleRuntime {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if let Some((module_name, func_name)) = name.split_once('.') {
             self.modules

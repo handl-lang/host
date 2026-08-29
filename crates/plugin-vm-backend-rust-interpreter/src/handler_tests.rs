@@ -4,7 +4,7 @@ use crate::Error;
 use crate::NonFunctionValue;
 use crate::{Continuation, EvalResult};
 use crate::{Expr, HandlerClause};
-use crate::{Function, Host};
+use crate::{Function, CallableLookup};
 use crate::{Operation, OperationSig};
 
 // ── test operations and functions ────────────────────────────────
@@ -85,7 +85,7 @@ impl Default for OpHost {
     }
 }
 
-impl Host<NonFunctionValue> for OpHost {
+impl CallableLookup<NonFunctionValue> for OpHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -450,7 +450,7 @@ fn handler_operation_completes_without_signaling() {
         add: Add,
         fetch: CachedOp,
     }
-    impl Host<NonFunctionValue> for CachedHost {
+    impl CallableLookup<NonFunctionValue> for CachedHost {
         fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
             match name {
                 "add" => Some(&self.add),

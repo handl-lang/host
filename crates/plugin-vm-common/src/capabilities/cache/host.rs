@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use handl_plugin_vm::{
-    AsyncFunction, Context, Error, Function, GenericFunction, Host, LazyFunction, Operation,
+    AsyncFunction, Context, Error, Function, GenericFunction, CallableLookup, LazyFunction, Operation,
 };
 use handl_plugin_vm_values_json::NonFunctionValue;
 
@@ -42,7 +42,7 @@ impl Function<NonFunctionValue> for CachedFunction {
     }
 }
 
-/// A decorator [`Host`] that caches function call results.
+/// A decorator [`CallableLookup`] that caches function call results.
 ///
 /// Wraps an inner host. Functions registered with
 /// [`register`](Self::register) are checked against the
@@ -76,13 +76,13 @@ impl Function<NonFunctionValue> for CachedFunction {
 /// // register expensive functions for caching:
 /// // host.register("fetch", Box::new(FetchFunction));
 /// ```
-pub struct CacheHost<H: Host<NonFunctionValue>> {
+pub struct CacheHost<H: CallableLookup<NonFunctionValue>> {
     inner: H,
     registered: HashMap<String, CachedFunction>,
     cache: Arc<Mutex<CallCache>>,
 }
 
-impl<H: Host<NonFunctionValue>> CacheHost<H> {
+impl<H: CallableLookup<NonFunctionValue>> CacheHost<H> {
     /// Creates a new `CacheHost` wrapping `inner` with an empty cache.
     pub fn new(inner: H) -> Self {
         CacheHost {
@@ -143,13 +143,13 @@ impl<H: Host<NonFunctionValue>> CacheHost<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue> + Default> Default for CacheHost<H> {
+impl<H: CallableLookup<NonFunctionValue> + Default> Default for CacheHost<H> {
     fn default() -> Self {
         Self::new(H::default())
     }
 }
 
-impl<H: Host<NonFunctionValue>> Host<NonFunctionValue> for CacheHost<H> {
+impl<H: CallableLookup<NonFunctionValue>> CallableLookup<NonFunctionValue> for CacheHost<H> {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if let Some(f) = self.registered.get(name) {
             return Some(f as &dyn Function<NonFunctionValue>);
@@ -174,7 +174,7 @@ impl<H: Host<NonFunctionValue>> Host<NonFunctionValue> for CacheHost<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue> + Clone> Clone for CacheHost<H> {
+impl<H: CallableLookup<NonFunctionValue> + Clone> Clone for CacheHost<H> {
     fn clone(&self) -> Self {
         CacheHost {
             inner: self.inner.clone(),

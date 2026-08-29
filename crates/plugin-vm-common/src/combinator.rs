@@ -1,9 +1,9 @@
-use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation};
+use handl_plugin_vm::{AsyncFunction, Function, GenericFunction, CallableLookup, LazyFunction, Operation};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// A host that queries a list of child hosts in order and returns the
 /// first match found.
-pub struct ChainHost(Vec<Box<dyn Host<NonFunctionValue>>>);
+pub struct ChainHost(Vec<Box<dyn CallableLookup<NonFunctionValue>>>);
 
 impl ChainHost {
     /// Creates an empty chain host.
@@ -12,13 +12,13 @@ impl ChainHost {
     }
 
     /// Adds a child host to the end of the chain.
-    pub fn push(mut self, host: Box<dyn Host<NonFunctionValue>>) -> Self {
+    pub fn push(mut self, host: Box<dyn CallableLookup<NonFunctionValue>>) -> Self {
         self.0.push(host);
         self
     }
 
     /// Adds a child host by value.
-    pub fn with<H: Host<NonFunctionValue> + 'static>(mut self, host: H) -> Self {
+    pub fn with<H: CallableLookup<NonFunctionValue> + 'static>(mut self, host: H) -> Self {
         self.0.push(Box::new(host));
         self
     }
@@ -30,7 +30,7 @@ impl Default for ChainHost {
     }
 }
 
-impl Host<NonFunctionValue> for ChainHost {
+impl CallableLookup<NonFunctionValue> for ChainHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.0.iter().find_map(|h| h.function(name))
     }
@@ -55,14 +55,14 @@ impl Host<NonFunctionValue> for ChainHost {
 /// A host that wraps another host and filters out names matching a
 /// predicate. Useful for forbidding specific functions in a sandbox.
 pub struct FilterHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     predicate: Box<dyn Fn(&str) -> bool + 'static>,
 }
 
 impl FilterHost {
     /// Creates a host that forwards only names allowed by `predicate`.
     pub fn new(
-        inner: Box<dyn Host<NonFunctionValue>>,
+        inner: Box<dyn CallableLookup<NonFunctionValue>>,
         predicate: impl Fn(&str) -> bool + 'static,
     ) -> Self {
         FilterHost {
@@ -72,13 +72,13 @@ impl FilterHost {
     }
 
     /// Creates a host that blocks the given names.
-    pub fn block(inner: Box<dyn Host<NonFunctionValue>>, names: &[&str]) -> Self {
+    pub fn block(inner: Box<dyn CallableLookup<NonFunctionValue>>, names: &[&str]) -> Self {
         let set: std::collections::HashSet<String> = names.iter().map(|&s| s.to_string()).collect();
         FilterHost::new(inner, move |name| !set.contains(name))
     }
 }
 
-impl Host<NonFunctionValue> for FilterHost {
+impl CallableLookup<NonFunctionValue> for FilterHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         if !(self.predicate)(name) {
             return None;
@@ -117,13 +117,13 @@ impl Host<NonFunctionValue> for FilterHost {
 
 /// A host that wraps another host and logs every lookup.
 pub struct SpyHost {
-    inner: Box<dyn Host<NonFunctionValue>>,
+    inner: Box<dyn CallableLookup<NonFunctionValue>>,
     lookups: std::cell::RefCell<Vec<String>>,
 }
 
 impl SpyHost {
     /// Creates a host that records every name it is asked to resolve.
-    pub fn new(inner: Box<dyn Host<NonFunctionValue>>) -> Self {
+    pub fn new(inner: Box<dyn CallableLookup<NonFunctionValue>>) -> Self {
         SpyHost {
             inner,
             lookups: std::cell::RefCell::new(Vec::new()),
@@ -136,7 +136,7 @@ impl SpyHost {
     }
 }
 
-impl Host<NonFunctionValue> for SpyHost {
+impl CallableLookup<NonFunctionValue> for SpyHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         self.lookups.borrow_mut().push(name.to_string());
         self.inner.function(name)

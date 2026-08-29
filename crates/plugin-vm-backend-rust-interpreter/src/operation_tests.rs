@@ -4,7 +4,7 @@ use crate::Error;
 use crate::Expr;
 use crate::NonFunctionValue;
 use crate::{Continuation, EvalResult};
-use crate::{Function, Host};
+use crate::{Function, CallableLookup};
 use crate::{Operation, OperationSig};
 
 // ── test operations ──────────────────────────────────────────────
@@ -99,7 +99,7 @@ impl Default for OpHost {
     }
 }
 
-impl Host<NonFunctionValue> for OpHost {
+impl CallableLookup<NonFunctionValue> for OpHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -130,7 +130,7 @@ impl Default for CachingHost {
     }
 }
 
-impl Host<NonFunctionValue> for CachingHost {
+impl CallableLookup<NonFunctionValue> for CachingHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -222,7 +222,7 @@ fn vm_eval_operation_takes_precedence_over_function() {
     struct DualHost {
         fetch: DualFetch,
     }
-    impl Host<NonFunctionValue> for DualHost {
+    impl CallableLookup<NonFunctionValue> for DualHost {
         fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
             match name {
                 "fetch" => Some(&self.fetch),

@@ -2,7 +2,7 @@
 
 pub use handl_plugin_vm::{
     AsyncEval, AsyncFunction, Context, Error, Eval, Expr, Function, GenericFunction, HandlerClause,
-    Host, HostRef, LazyFunction, Operation, OperationSig, Value, VirtualMachine,
+    CallableLookup, CallableLookupRef, LazyFunction, Operation, OperationSig, Value, VirtualMachine,
 };
 pub use handl_plugin_vm_values_json::{CanonicalContext, FunctionValue, NonFunctionValue};
 

@@ -88,7 +88,7 @@ fn expect_args(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> 
     }
 }
 
-/// Host function for `concurrent.spawn`.
+/// Runtime function for `concurrent.spawn`.
 pub struct SpawnFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
@@ -111,7 +111,7 @@ impl Function<NonFunctionValue> for SpawnFn {
     }
 }
 
-/// Host function for `concurrent.await`.
+/// Runtime function for `concurrent.await`.
 pub struct AwaitFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
@@ -132,7 +132,7 @@ impl Function<NonFunctionValue> for AwaitFn {
     }
 }
 
-/// Host function for `concurrent.yield`.
+/// Runtime function for `concurrent.yield`.
 pub struct YieldFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
@@ -153,7 +153,7 @@ impl Function<NonFunctionValue> for YieldFn {
     }
 }
 
-/// Host function for `concurrent.sleep`.
+/// Runtime function for `concurrent.sleep`.
 pub struct SleepFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
@@ -184,7 +184,7 @@ impl Function<NonFunctionValue> for SleepFn {
     }
 }
 
-/// Host function for `concurrent.timeout`.
+/// Runtime function for `concurrent.timeout`.
 pub struct TimeoutFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
@@ -215,7 +215,7 @@ impl Function<NonFunctionValue> for TimeoutFn {
     }
 }
 
-/// Host function for `concurrent.may`.
+/// Runtime function for `concurrent.may`.
 ///
 /// Alias for `concurrent.spawn`.
 pub struct MayFn {
@@ -232,7 +232,7 @@ impl Function<NonFunctionValue> for MayFn {
     }
 }
 
-/// Host function for `concurrent.must`.
+/// Runtime function for `concurrent.must`.
 ///
 /// Alias for `concurrent.timeout`.
 pub struct MustFn {
@@ -249,7 +249,7 @@ impl Function<NonFunctionValue> for MustFn {
     }
 }
 
-/// Host function for `concurrent.when`.
+/// Runtime function for `concurrent.when`.
 ///
 /// Alias for `concurrent.select`.
 pub struct WhenFn {

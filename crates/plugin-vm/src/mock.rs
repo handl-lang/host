@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{AsyncFunction, Function, GenericFunction, Host, LazyFunction, Operation, Value};
+use crate::{AsyncFunction, Function, GenericFunction, CallableLookup, LazyFunction, Operation, Value};
 
 /// A host that resolves nothing.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoopHost;
 
-impl<V: Value> Host<V> for NoopHost {
+impl<V: Value> CallableLookup<V> for NoopHost {
     fn function(&self, _name: &str) -> Option<&dyn Function<V>> {
         None
     }
@@ -86,7 +86,7 @@ impl<V: Value> MockHost<V> {
     }
 }
 
-impl<V: Value> Host<V> for MockHost<V> {
+impl<V: Value> CallableLookup<V> for MockHost<V> {
     fn function(&self, name: &str) -> Option<&dyn Function<V>> {
         self.functions.get(name).map(|f| f.as_ref())
     }

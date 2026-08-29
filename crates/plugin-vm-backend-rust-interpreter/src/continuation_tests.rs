@@ -4,7 +4,7 @@ use crate::Error;
 use crate::Expr;
 use crate::NonFunctionValue;
 use crate::{Continuation, EvalResult, Frame};
-use crate::{Function, Host};
+use crate::{Function, CallableLookup};
 
 // ── test hosts ───────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ struct ServerHost {
     fetch: YieldingFetch,
 }
 
-impl Host<NonFunctionValue> for ServerHost {
+impl CallableLookup<NonFunctionValue> for ServerHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -108,7 +108,7 @@ struct ClientHost {
     fetch: CachingFetch,
 }
 
-impl Host<NonFunctionValue> for ClientHost {
+impl CallableLookup<NonFunctionValue> for ClientHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),

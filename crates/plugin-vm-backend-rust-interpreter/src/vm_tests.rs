@@ -5,7 +5,7 @@ use crate::Error;
 use crate::Expr;
 use crate::NonFunctionValue;
 use crate::Pattern;
-use crate::{AsyncFunction, Function, Host};
+use crate::{AsyncFunction, Function, CallableLookup};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll, RawWaker, RawWakerVTable, Waker};
@@ -47,7 +47,7 @@ struct VmTestHost {
     add: Add,
 }
 
-impl Host<NonFunctionValue> for VmTestHost {
+impl CallableLookup<NonFunctionValue> for VmTestHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -112,7 +112,7 @@ struct QualifiedHost {
     cmp_eq: CmpEq,
 }
 
-impl Host<NonFunctionValue> for QualifiedHost {
+impl CallableLookup<NonFunctionValue> for QualifiedHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -338,7 +338,7 @@ struct MixedHost {
     yield_once: YieldOnce,
 }
 
-impl Host<NonFunctionValue> for MixedHost {
+impl CallableLookup<NonFunctionValue> for MixedHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),
@@ -514,7 +514,7 @@ fn vm_eval_call_with_no_args() {
     struct AnswerHost {
         answer: GetAnswer,
     }
-    impl Host<NonFunctionValue> for AnswerHost {
+    impl CallableLookup<NonFunctionValue> for AnswerHost {
         fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
             match name {
                 "answer" => Some(&self.answer),
@@ -606,7 +606,7 @@ struct PingHost {
     add: Add,
     ping: PingOp,
 }
-impl Host<NonFunctionValue> for PingHost {
+impl CallableLookup<NonFunctionValue> for PingHost {
     fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
         match name {
             "add" => Some(&self.add),

@@ -1,6 +1,6 @@
 use crate::continuation::expr_to_json;
 use crate::pattern::{define_pattern, pattern_to_json};
-use crate::{Context, Error, Expr, Host, VirtualMachine};
+use crate::{Context, Error, Expr, CallableLookup, VirtualMachine};
 use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
@@ -31,16 +31,16 @@ pub(crate) fn qualified_name(expr: &RuntimeExpr) -> Option<String> {
 ///
 /// The VM evaluates expressions by walking the expression tree.
 /// Values are returned as-is, calls are dispatched to host-provided
-/// functions via the [`Host`] trait.
+/// functions via the [`CallableLookup`] trait.
 ///
 /// # Type parameters
 ///
-/// - `H` — the host type, which must implement [`Host`].
-pub struct CanonicalVm<H: Host<NonFunctionValue>> {
+/// - `H` — the host type, which must implement [`CallableLookup`].
+pub struct CanonicalVm<H: CallableLookup<NonFunctionValue>> {
     host: H,
 }
 
-impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
+impl<H: CallableLookup<NonFunctionValue>> CanonicalVm<H> {
     /// Creates a new VM with the given host.
     pub fn new(host: H) -> Self {
         CanonicalVm { host }
@@ -57,12 +57,12 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
     /// sub-expressions, dispatches calls to host functions, and
     /// returns the resulting [`NonFunctionValue`].
     ///
-    /// For `Call` expressions, the VM checks [`Host::lazy_function`]
+    /// For `Call` expressions, the VM checks [`CallableLookup::lazy_function`]
     /// first. If the name resolves to a lazy function, the VM passes
     /// the unevaluated argument expressions and an evaluate closure.
     /// The function decides which arguments to evaluate (short-circuit).
     /// Otherwise, the VM eagerly evaluates all arguments and dispatches
-    /// to [`Host::function`] or [`Host::operation`].
+    /// to [`CallableLookup::function`] or [`CallableLookup::operation`].
     pub fn eval(
         &self,
         expr: &RuntimeExpr,
@@ -394,8 +394,8 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
     /// Evaluates an expression asynchronously.
     ///
     /// Like [`eval`](CanonicalVm::eval), but supports async host functions.
-    /// The VM checks [`Host::function`] first (sync), then falls back
-    /// to [`Host::async_function`] (async). This means a host can
+    /// The VM checks [`CallableLookup::function`] first (sync), then falls back
+    /// to [`CallableLookup::async_function`] (async). This means a host can
     /// provide both sync and async functions, and the VM will use
     /// whichever is available.
     ///
@@ -409,7 +409,7 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
     /// returns `Err(Error::Yield(value))`. The caller receives
     /// `Err(Error::Yield(value))` and can inspect the yielded value.
     ///
-    /// Like [`eval`](CanonicalVm::eval), this checks [`Host::lazy_function`]
+    /// Like [`eval`](CanonicalVm::eval), this checks [`CallableLookup::lazy_function`]
     /// first for short-circuit evaluation.
     pub async fn eval_async(
         &self,
@@ -733,7 +733,7 @@ impl<H: Host<NonFunctionValue>> CanonicalVm<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue>> VirtualMachine<NonFunctionValue> for CanonicalVm<H> {
+impl<H: CallableLookup<NonFunctionValue>> VirtualMachine<NonFunctionValue> for CanonicalVm<H> {
     fn eval(
         &self,
         expr: &RuntimeExpr,

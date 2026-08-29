@@ -34,7 +34,7 @@ impl Contribution for LoaderRule {
     }
 }
 
-/// Host plugin that collects [`LoaderRule`] contributions and exposes a `load` capability.
+/// Runtime plugin that collects [`LoaderRule`] contributions and exposes a `load` capability.
 pub struct LoaderHostPlugin {
     loaders: Vec<Box<dyn PluginLoader>>,
     capabilities: Vec<CapabilityId>,

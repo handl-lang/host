@@ -9,7 +9,7 @@ pub mod vm;
 
 pub use handl_plugin_vm::{
     AsyncEval, AsyncFunction, Context, Error, Eval, Expr, Function, GenericFunction, HandlerClause,
-    Host, HostRef, LazyFunction, NoopHost, Operation, OperationSig, Pattern, Value, VirtualMachine,
+    CallableLookup, CallableLookupRef, LazyFunction, NoopHost, Operation, OperationSig, Pattern, Value, VirtualMachine,
 };
 pub use handl_plugin_vm_values_json::{CanonicalContext, FunctionValue, NonFunctionValue};
 
@@ -45,7 +45,7 @@ impl<H> CanonicalEval<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue> + Clone + 'static> Eval<NonFunctionValue> for CanonicalEval<H> {
+impl<H: CallableLookup<NonFunctionValue> + Clone + 'static> Eval<NonFunctionValue> for CanonicalEval<H> {
     fn eval_expr(
         &self,
         expr: &str,
@@ -76,7 +76,7 @@ impl<H: Host<NonFunctionValue> + Clone + 'static> Eval<NonFunctionValue> for Can
     }
 }
 
-impl<H: Host<NonFunctionValue>> AsyncEval<NonFunctionValue> for CanonicalEval<H> {
+impl<H: CallableLookup<NonFunctionValue>> AsyncEval<NonFunctionValue> for CanonicalEval<H> {
     fn eval_expr_async<'a>(
         &'a self,
         _expr: &'a str,
@@ -93,7 +93,7 @@ pub fn canonical_vm() -> Vm {
     Vm::new(NoopHost)
 }
 
-pub fn canonical_eval<H: Host<NonFunctionValue>>(
+pub fn canonical_eval<H: CallableLookup<NonFunctionValue>>(
     host: H,
     max_depth: Option<usize>,
     max_calls: Option<usize>,

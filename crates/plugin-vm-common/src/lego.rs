@@ -1,4 +1,4 @@
-use handl_plugin_vm::{Context, Error, Expr, Host, VirtualMachine};
+use handl_plugin_vm::{Context, Error, Expr, CallableLookup, VirtualMachine};
 use handl_plugin_vm_values_json::NonFunctionValue;
 
 type RuntimeExpr = Expr<NonFunctionValue>;
@@ -13,7 +13,7 @@ pub trait ExprHandler: Send + Sync + 'static {
         &self,
         expr: &RuntimeExpr,
         ctx: &mut dyn Context<NonFunctionValue>,
-        host: &dyn Host<NonFunctionValue>,
+        host: &dyn CallableLookup<NonFunctionValue>,
         dispatch: &mut dyn FnMut(
             &RuntimeExpr,
             &mut dyn Context<NonFunctionValue>,
@@ -22,12 +22,12 @@ pub trait ExprHandler: Send + Sync + 'static {
 }
 
 /// A virtual machine assembled from an ordered list of expression handlers.
-pub struct LegoVm<H: Host<NonFunctionValue>> {
+pub struct LegoVm<H: CallableLookup<NonFunctionValue>> {
     host: H,
     handlers: Vec<Box<dyn ExprHandler>>,
 }
 
-impl<H: Host<NonFunctionValue>> LegoVm<H> {
+impl<H: CallableLookup<NonFunctionValue>> LegoVm<H> {
     /// Creates a new `LegoVm` with the given host and no handlers.
     pub fn new(host: H) -> Self {
         LegoVm {
@@ -68,7 +68,7 @@ impl<H: Host<NonFunctionValue>> LegoVm<H> {
     }
 }
 
-impl<H: Host<NonFunctionValue>> VirtualMachine<NonFunctionValue> for LegoVm<H> {
+impl<H: CallableLookup<NonFunctionValue>> VirtualMachine<NonFunctionValue> for LegoVm<H> {
     fn eval(
         &self,
         expr: &RuntimeExpr,

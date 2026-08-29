@@ -468,7 +468,7 @@ mod tests {
             }
         }
 
-        // Host that would fail; middleware bypasses it.
+        // Runtime that would fail; middleware bypasses it.
         let vm = MiddlewareVm::new(CanonicalVm::new(NoopHost), AlwaysAnswer);
         let mut ctx = CanonicalContext::new();
         let result = vm.eval(&inc_expr(), &mut ctx).unwrap();
