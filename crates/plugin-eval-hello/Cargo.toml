@@ -4,6 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-lib-hello = { workspace = true }
+handl-plugin-lib-hello = { workspace = true }
 handl-platform = { workspace = true }
 serde_json = { workspace = true }

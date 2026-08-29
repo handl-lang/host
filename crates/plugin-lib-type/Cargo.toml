@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-lib-type"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true, optional = true }
+handl-kit-type = { workspace = true }
+handl-kit-type-schema-json = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+default = []
+plugin = ["dep:handl-platform"]

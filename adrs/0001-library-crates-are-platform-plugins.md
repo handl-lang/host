@@ -17,6 +17,7 @@ Every standard-library crate is a Platform plugin:
 2. Each crate contains a `plugin` module that exposes a minimal `Plugin` implementation.
 3. The plugin's `id` is `lib.<name>` (e.g. `lib.json`), and its `contribute` method registers the concrete library implementation(s) with the host.
 4. The plugin does not declare capabilities of its own unless the library is directly invokable; its purpose is to add the library's rules/modules to the host.
+5. `plugin-lib-type` keeps its `Plugin` module behind a `plugin` feature so that consumers that only need the type definitions (such as `handl-platform`) can depend on it with the feature disabled, while the host can enable the `plugin` feature to load it.
 
 ## Consequences
 
@@ -24,6 +25,7 @@ Every standard-library crate is a Platform plugin:
 - All library crates gain a runtime identity, which simplifies host loading, kit manifests, and dependency resolution.
 - The refactor touches the workspace `Cargo.toml`, all `lib-*` crate directories, and every crate that depends on them.
 - The `lib-` prefix is removed from crate names, so references in docs and kits must be updated.
+- `plugin-lib-type` remains a regular library crate because the circular dependency with `handl-platform` cannot be broken without splitting out the core type definitions.
 
 ## Status
 

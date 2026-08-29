@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-lib-archive"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+thiserror.workspace = true

@@ -1,0 +1,86 @@
+//! # handl-lib-intl
+//!
+//! Internationalization library for the handl runtime, backed by ICU4X.
+//!
+//! Provides locale-aware functions for formatting numbers, selecting
+//! plural categories, formatting lists, relative time, dates, durations,
+//! comparing strings, display names, and text segmentation.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! handl-plugin-vm-common          handl-lib-intl
+//! ─────────────            ────────────
+//! Module trait             IntlModule
+//! ModuleHost               ICU4X compiled_data (600+ locales)
+//!                          IntlError → VmError
+//!                          *Function structs
+//! ```
+//!
+//! All locale data is provided by ICU4X's `compiled_data` feature,
+//! which bundles CLDR data at compile time. This gives full CLDR
+//! coverage (600+ locales) with no runtime data loading.
+//!
+//! For smaller binaries, use [`IntlModule::with_blob_provider`] to
+//! load a subset of CLDR data at runtime from a `.postcard` blob.
+//!
+//! ## Functions
+//!
+//! - [`IntlModule`] — `intl.format_number`, `intl.select_plural`,
+//!   `intl.format_list`, `intl.format_relative_time`, `intl.format_date`,
+//!   `intl.format_duration`, `intl.compare_strings`, `intl.display_name`,
+//!   `intl.segment`
+//!
+//! ## Usage
+//!
+//! ```ignore
+//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_lib_intl::IntlModule;
+//!
+//! let host = ModuleHost::new()
+//!     .with(IntlModule);
+//! ```
+//!
+//! Expressions can then call `intl.format_number(1234567.89, "pt-BR")`,
+//! `intl.select_plural(0, "ar")`, `intl.format_list(["a", "b", "c"], "en")`,
+//! `intl.format_relative_time(5, "second")`, `intl.format_date("2024-05-08")`,
+//! etc.
+
+mod common;
+mod compare_strings;
+mod display_name;
+mod error;
+mod format_date;
+mod format_duration;
+mod format_list;
+mod format_number;
+mod format_relative_time;
+mod locale;
+mod locale_match;
+pub mod module;
+mod parts;
+pub mod provider;
+mod segment;
+mod select_plural;
+
+pub use error::IntlError;
+pub use module::IntlModule;
+pub use provider::IntlProvider;
+
+#[cfg(test)]
+mod locale_match_tests;
+#[cfg(test)]
+mod locale_tests;
+#[cfg(test)]
+mod provider_tests;
+#[cfg(test)]
+mod supported_locales_tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;
+
+pub mod icu4x;
+pub mod traits;
+pub mod extra;
+pub mod rust;
+pub mod api;
