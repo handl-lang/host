@@ -804,8 +804,6 @@ name = "handl-ext-typecheck"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-vm-type",
- "handl-vm-type-schema-json",
  "serde_json",
 ]
 
@@ -839,7 +837,6 @@ dependencies = [
  "handl-ext-lexer",
  "handl-ext-lint",
  "handl-ext-parser",
- "handl-ext-typecheck",
  "handl-lexer",
  "handl-lexer-common",
  "handl-parser",
@@ -2198,6 +2195,7 @@ name = "handl-plugin-typecheck-core"
 version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
+ "handl-lib-type",
  "handl-platform",
  "handl-runtime",
  "handl-typecheck-core",

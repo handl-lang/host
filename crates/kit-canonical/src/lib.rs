@@ -23,14 +23,13 @@ use handl_lexer_common::{
 };
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    PlatformError, Plugin, PluginContext, OptionsPlugin,
+    BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
+    ContributionContext, OptionsPlugin, PlatformError, Plugin, PluginContext,
 };
 use handl_ext_lexer::BasicLexer;
 use handl_ext_parser::BasicParser;
 use handl_ext_fmt::BasicFormatter;
 use handl_ext_lint::BasicLinter;
-use handl_ext_typecheck::BasicTypechecker;
 use handl_ext_eval::EvalPlugin;
 
 use handl_target_native::NativeTarget;

@@ -18,7 +18,6 @@ handl-ext-lexer = { path = "../ext-lexer" }
 handl-ext-parser = { path = "../ext-parser" }
 handl-ext-fmt = { path = "../ext-fmt" }
 handl-ext-lint = { path = "../ext-lint" }
-handl-ext-typecheck = { path = "../ext-typecheck" }
 handl-ext-eval = { path = "../ext-eval" }
 handl-target-native = { path = "../target-native" }
 
