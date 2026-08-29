@@ -4,7 +4,6 @@ use handl_expr::{Diagnostic, Formatter};
 use handl_kit_canonical::CanonicalKit;
 use handl_loader::LoaderRegistry;
 use handl_platform::{PlatformError, PluginManifest};
-use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
@@ -38,10 +37,7 @@ impl ToolingHost {
             kit,
             formatter,
             trivia_formatter: TriviaFormatter::new(),
-            statement_formatter: StatementFormatter::new(
-                Box::new(ExpressionFormatter::new()),
-                TriviaFormatter::new(),
-            ),
+            statement_formatter: StatementFormatter::new(),
             completion: None,
             goto_def: None,
             document_symbols: None,

@@ -2220,9 +2220,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
- "handl-kit-canonical",
  "handl-platform",
- "handl-vm-values-json",
 ]
 
 [[package]]

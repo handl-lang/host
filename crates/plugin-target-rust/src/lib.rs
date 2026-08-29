@@ -49,12 +49,18 @@ impl Default for RustVm {
     }
 }
 
-impl RuntimePlugin for RustVm {
+// TODO(ADR-0034): this is a canonical-language compatibility bridge.
+// Once the target adapter can operate over generic `handl_platform::AstNode`
+// values, remove the concrete `Stmt<NonFunctionValue>` instantiation.
+impl RuntimePlugin<Stmt<NonFunctionValue>, NonFunctionValue> for RustVm {
     fn name(&self) -> &str {
         "vm-rust"
     }
 
-    fn eval(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<EvalOutput, PlatformError> {
+    fn eval(
+        &self,
+        stmts: &[Stmt<NonFunctionValue>],
+    ) -> Result<EvalOutput<NonFunctionValue>, PlatformError> {
         let rules = self.rules.lock().unwrap().clone();
         let host = CompositeHost::new(&rules, self.modules.clone());
         let mut ctx = CanonicalContext::new();

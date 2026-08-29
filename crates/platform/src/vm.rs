@@ -1,42 +1,38 @@
 //! Minimal, composable VM piece for the handl platform.
 //!
-//! The `Vm` pairs a host with the unified `handl-vm-type` value/term
-//! environment, allowing the runtime to be composed from `handl-platform`.
+//! The `Vm` is generic over the host and environment types so that the
+//! concrete `DefaultHost` and `Env` are no longer hard-coded.  A
+//! `RuntimeHost` (or any other `Host` implementation) can be supplied
+//! instead.
 
 pub use crate::value::*;
 
-use crate::host::DefaultHost;
-
-/// A composable handl VM that pairs a host with a type/runtime environment.
-pub struct Vm {
-    host: DefaultHost,
+/// A composable handl VM that pairs a host with a runtime environment.
+pub struct Vm<Host, Env> {
+    host: Host,
     env: Env,
 }
 
-impl Vm {
-    /// Creates a new VM with an empty host and environment.
-    pub fn new() -> Self {
+impl<Host, Env> Vm<Host, Env> {
+    /// Creates a new VM with a default host and environment.
+    pub fn new() -> Self
+    where
+        Host: Default,
+        Env: Default,
+    {
         Self {
-            host: DefaultHost::new(),
-            env: Env::new(),
-        }
-    }
-
-    /// Creates a new VM pre-populated with the prelude environment.
-    pub fn with_prelude() -> Self {
-        Self {
-            host: DefaultHost::new(),
-            env: prelude_env(),
+            host: Host::default(),
+            env: Env::default(),
         }
     }
 
     /// Returns a reference to the host.
-    pub fn host(&self) -> &DefaultHost {
+    pub fn host(&self) -> &Host {
         &self.host
     }
 
     /// Returns a mutable reference to the host.
-    pub fn host_mut(&mut self) -> &mut DefaultHost {
+    pub fn host_mut(&mut self) -> &mut Host {
         &mut self.host
     }
 
@@ -51,7 +47,11 @@ impl Vm {
     }
 }
 
-impl Default for Vm {
+impl<Host, Env> Default for Vm<Host, Env>
+where
+    Host: Default,
+    Env: Default,
+{
     fn default() -> Self {
         Self::new()
     }

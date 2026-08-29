@@ -1,8 +1,6 @@
 //! Typecheck plugin trait.
 
-use handl_kit_canonical::Stmt;
-use handl_platform::PlatformError;
-use handl_vm_values_json::NonFunctionValue;
+use handl_platform::{AstNode, PlatformError, Value};
 
 /// Output of a typecheck pass.
 #[derive(Debug, Clone, PartialEq)]
@@ -12,10 +10,10 @@ pub struct TypecheckedOutput {
 }
 
 /// A plugin that can typecheck a sequence of handl statements.
-pub trait TypecheckPlugin: Send + Sync {
+pub trait TypecheckPlugin<N = AstNode, V = Value>: Send + Sync {
     /// The plugin name.
     fn name(&self) -> &str;
 
     /// Typecheck the provided statements.
-    fn typecheck(&self, stmts: &[Stmt<NonFunctionValue>]) -> Result<TypecheckedOutput, PlatformError>;
+    fn typecheck(&self, stmts: &[N]) -> Result<TypecheckedOutput, PlatformError>;
 }
