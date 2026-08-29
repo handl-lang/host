@@ -33,3 +33,30 @@ cargo test --workspace
 
 - New crates must be added to `Cargo.toml` `[workspace.members]` and `[workspace.dependencies]`.
 - Prefer `PlatformError` for plugin/runtime failures; do not leak concrete crate errors into `handl-platform` APIs.
+
+## Coverage
+
+The repo uses LLVM source-based coverage via `cargo-llvm-cov` (install with
+`cargo install cargo-llvm-cov`). It requires the `llvm-tools-preview` rustup
+component. Cargo aliases are defined in `.cargo/config.toml`; the runner script
+is `scripts/coverage.sh`.
+
+```bash
+cargo cov                 # terminal summary of per-crate coverage
+cargo cov-html            # HTML report under coverage/html/ (opens browser)
+cargo cov-lcov            # lcov.info at coverage/lcov.info (for IDEs/CI)
+cargo cov-xml             # Cobertura XML at coverage/cobertura.xml
+cargo cov-clean           # discard stale instrumentation artifacts
+
+scripts/coverage.sh                       # HTML + lcov + summary
+scripts/coverage.sh --summary             # summary only, no files
+scripts/coverage.sh --doctests            # include doctests
+scripts/coverage.sh -p handl-platform     # single crate
+scripts/coverage.sh --fail-under 80       # exit 1 if line coverage < 80%
+scripts/coverage.sh --clean               # clean stale artifacts first
+```
+
+Notes:
+- Coverage builds disable incremental compilation (`CARGO_INCREMENTAL=0`).
+- The `fuzz/` workspace is separate and not covered by `--workspace`.
+- Outputs go to `coverage/` (gitignored). CI runs in `.github/workflows/coverage.yml`.

@@ -1,0 +1,60 @@
+name: coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: llvm-cov (linux)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          rustup update stable
+          rustup component add llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cov-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cov-cargo-${{ runner.os }}-
+
+      - name: Run coverage
+        run: ./scripts/coverage.sh --summary
+
+      - name: Generate lcov report
+        run: |
+          mkdir -p coverage
+          cargo llvm-cov --workspace --lcov --output-path coverage/lcov.info
+
+      - name: Upload lcov to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+
+      - name: Upload HTML report artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage/html/
+          if-no-files-found: ignore
+          retention-days: 14

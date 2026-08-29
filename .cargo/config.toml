@@ -1,0 +1,26 @@
+# Cargo configuration for the handl platform workspace.
+#
+# Coverage aliases use `cargo-llvm-cov` (LLVM source-based coverage), which is
+# the repo's coverage tool. Install it with:
+#   cargo install cargo-llvm-cov
+#
+# Reports are written under `coverage/` (gitignored). Run `cargo cov-clean`
+# between runs to discard stale instrumentation data.
+
+[alias]
+# Print a per-crate coverage summary to the terminal (fast feedback).
+cov = "llvm-cov --workspace --summary-only"
+
+# Generate an HTML report under coverage/html/ and open it in a browser.
+# (cargo-llvm-cov creates an `html/` subdir inside --output-dir, so the
+# entry point is coverage/html/index.html.)
+cov-html = "llvm-cov --workspace --html --output-dir coverage --open"
+
+# Generate an lcov.info report at coverage/lcov.info (for CI / IDE consumers).
+cov-lcov = "llvm-cov --workspace --lcov --output-path coverage/lcov.info"
+
+# Generate a Cobertura XML report at coverage/cobertura.xml.
+cov-xml = "llvm-cov --workspace --cobertura --output-path coverage/cobertura.xml"
+
+# Remove stale profraw / instrumented build artifacts.
+cov-clean = "llvm-cov clean --workspace"
