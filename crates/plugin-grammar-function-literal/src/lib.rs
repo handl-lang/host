@@ -8,6 +8,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexKind, LexOperator};
 use serde_json::json;
 
 /// Token capability required by the function-literal grammar rule.
@@ -121,3 +122,9 @@ fn extract_params(node: &AstNode) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {}
+
+impl ArrowToken for LexKind {
+    fn is_arrow(&self) -> bool {
+        matches!(self, LexKind::Operator(LexOperator::Arrow))
+    }
+}

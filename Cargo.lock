@@ -843,15 +843,16 @@ dependencies = [
  "handl-plugin-token-comment",
  "handl-plugin-token-delimiter",
  "handl-plugin-token-doc-comment",
- "handl-plugin-token-handl",
  "handl-plugin-token-identifier",
  "handl-plugin-token-keyword-as",
  "handl-plugin-token-keyword-handle",
+ "handl-plugin-token-kind",
  "handl-plugin-token-null",
  "handl-plugin-token-number",
  "handl-plugin-token-operator",
  "handl-plugin-token-string",
  "handl-plugin-vm",
+ "handl-plugin-vm-common",
  "serde",
  "serde_json",
  "toml",
@@ -1271,6 +1272,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
 ]
 
 [[package]]
@@ -1280,6 +1282,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1290,6 +1293,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1300,6 +1304,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1312,6 +1317,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1322,6 +1328,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1332,6 +1339,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1401,6 +1409,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1411,6 +1420,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1421,6 +1431,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1497,6 +1508,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1555,6 +1567,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1579,6 +1592,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1591,6 +1605,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1615,6 +1630,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1626,6 +1642,7 @@ dependencies = [
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
  "handl-plugin-lexer-template",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -1636,6 +1653,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-kind",
  "serde_json",
 ]
 
@@ -2531,27 +2549,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-token-handl"
+name = "handl-plugin-token-identifier"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-ident",
+]
+
+[[package]]
+name = "handl-plugin-token-keyword-as"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-keyword",
+]
+
+[[package]]
+name = "handl-plugin-token-keyword-handle"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-keyword",
+]
+
+[[package]]
+name = "handl-plugin-token-kind"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-ext-parser",
- "handl-plugin-grammar-apply",
- "handl-plugin-grammar-array",
- "handl-plugin-grammar-assign",
- "handl-plugin-grammar-call",
- "handl-plugin-grammar-function-literal",
- "handl-plugin-grammar-handle",
- "handl-plugin-grammar-index",
- "handl-plugin-grammar-match",
- "handl-plugin-grammar-object",
- "handl-plugin-grammar-pipe",
- "handl-plugin-grammar-primary-identifier",
- "handl-plugin-grammar-primary-value",
- "handl-plugin-grammar-stmt-export",
- "handl-plugin-grammar-stmt-import",
- "handl-plugin-grammar-stmt-module",
- "handl-plugin-grammar-template",
- "handl-plugin-grammar-type-annot",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-delimiter",
@@ -2574,30 +2599,6 @@ dependencies = [
  "handl-plugin-token-operator",
  "handl-plugin-token-string",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-token-identifier"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-lexer",
- "handl-plugin-lexer-ident",
-]
-
-[[package]]
-name = "handl-plugin-token-keyword-as"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-lexer",
- "handl-plugin-lexer-keyword",
-]
-
-[[package]]
-name = "handl-plugin-token-keyword-handle"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-lexer",
- "handl-plugin-lexer-keyword",
 ]
 
 [[package]]

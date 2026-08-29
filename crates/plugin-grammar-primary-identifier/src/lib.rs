@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, PlatformError};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::LexKind;
 use serde_json::json;
 
 /// Token capability required by the primary identifier grammar rule.
@@ -80,5 +81,14 @@ impl<K: IdentToken> ParserBehavior<K> for IdentifierRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("IdentifierRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl IdentToken for LexKind {
+    fn as_ident(&self) -> Option<&str> {
+        match self {
+            LexKind::Identifier(name) => Some(name.as_str()),
+            _ => None,
+        }
     }
 }

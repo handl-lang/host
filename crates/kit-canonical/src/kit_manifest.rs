@@ -36,7 +36,7 @@ impl KitManifest {
 /// Returns the default manifest for the canonical kit.
 ///
 /// The manifest lists the token, AST-shape, and grammar-rule plugins that
-/// the kit wires together into a single `CanonicalKind` token stream and
+/// the kit wires together into a single `LexKind` token stream and
 /// a shared `KitNode` AST.
 pub fn canonical_manifest() -> KitManifest {
     KitManifest {

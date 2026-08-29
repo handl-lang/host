@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, PlatformError};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::LexKind;
 use serde_json::{Value, json};
 
 /// Token capability required by the primary value grammar rule.
@@ -79,5 +80,19 @@ impl<K: ValueToken> ParserBehavior<K> for ValueRule {
             "token {} cannot be used as an infix operator",
             token.kind
         )))
+    }
+}
+
+impl ValueToken for LexKind {
+    fn as_value(&self) -> Option<serde_json::Value> {
+        match self {
+            LexKind::Number(n) => serde_json::Number::from_f64(*n)
+                .map(serde_json::Value::Number)
+                .or(Some(serde_json::Value::Null)),
+            LexKind::String(s) => Some(serde_json::Value::String(s.clone())),
+            LexKind::Bool(b) => Some(serde_json::Value::Bool(*b)),
+            LexKind::Null => Some(serde_json::Value::Null),
+            _ => None,
+        }
     }
 }

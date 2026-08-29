@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword};
 use serde_json::json;
 
 /// Token capability required by the import statement grammar rule.
@@ -76,6 +77,16 @@ impl<K: ImportStmtToken> ParserBehavior<K> for ImportStmtRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ImportStmtRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ImportStmtToken for LexKind {
+    fn is_import_stmt(&self) -> bool {
+        matches!(self, LexKind::Keyword(LexKeyword::Import))
+    }
+
+    fn is_import_stmt_semicolon(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
     }
 }
 

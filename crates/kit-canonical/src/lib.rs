@@ -12,9 +12,9 @@ use handl_plugin_lexer::{
     CommentFactory, DefaultLexError, GrammarInfo, GrammarInfoProvider, IdentFactory,
     KitGrammarMetadata, Lexer, NumberFactory, StringFactory, Token,
 };
-pub use handl_plugin_token_handl::{
-    CanonicalDelim, CanonicalFactory, CanonicalKeyword, CanonicalKind, CanonicalLexer, CanonicalOp,
-    CanonicalTemplateSegment,
+pub use handl_plugin_token_kind::{
+    LexDelimiter, LexFactory, LexKeyword, LexKind, LexLexer, LexOperator,
+    LexTemplateSegment,
 };
 
 use handl_platform::{
@@ -81,6 +81,7 @@ use handl_plugin_runtime_array::ArrayPlugin;
 use handl_plugin_runtime_boolean::BooleanPlugin;
 use handl_plugin_runtime_object::ObjectPlugin;
 use handl_plugin_target_native::NativeTarget;
+use handl_plugin_vm_common::ModuleRuntime;
 
 pub use handl_plugin_diag_core::{Diagnostic, DiagnosticLevel, Diagnostics};
 
@@ -147,7 +148,7 @@ fn ast_to_kitnode_with_kit(ast: &AstNode, kit: &Kit) -> Result<KitNode, Platform
 }
 
 /// The set of grammar-rule plugin ids that the canonical kit knows how to
-/// wire into a `BasicParser<CanonicalKind>`.
+/// wire into a `BasicParser<LexKind>`.
 const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
     "plugin-grammar-primary-value",
     "plugin-grammar-primary-identifier",
@@ -170,8 +171,8 @@ const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
 
 /// Returns a freshly-constructed rule for the given grammar-rule plugin id, or
 /// `None` if the id is not a recognized grammar rule.
-fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<CanonicalKind>>> {
-    let rule: Box<dyn ParserBehavior<CanonicalKind>> = match id {
+fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<LexKind>>> {
+    let rule: Box<dyn ParserBehavior<LexKind>> = match id {
         "plugin-grammar-call" => Box::new(CallRule),
         "plugin-grammar-apply" => Box::new(ApplyRule),
         "plugin-grammar-index" => Box::new(IndexRule),
@@ -195,8 +196,8 @@ fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<CanonicalKind>>
 }
 
 /// Builds a parser populated with the grammar rules for the given plugin ids.
-fn parser_for_plugins(ids: &[String]) -> Result<BasicParser<CanonicalKind>, PlatformError> {
-    let mut parser = BasicParser::<CanonicalKind>::new();
+fn parser_for_plugins(ids: &[String]) -> Result<BasicParser<LexKind>, PlatformError> {
+    let mut parser = BasicParser::<LexKind>::new();
     for id in ids {
         if let Some(rule) = rule_for_plugin_id(id) {
             parser.accept(rule)?;
@@ -306,8 +307,8 @@ impl Kit {
     }
 
     /// Lexes `input` into the kit's token stream.
-    pub fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
-        CanonicalLexer.lex(input)
+    pub fn lex(&self, input: &str) -> Result<Vec<Token<LexKind>>, DefaultLexError> {
+        LexLexer.lex(input)
     }
 
     /// Parses `input` into a generic [`KitNode`].
@@ -336,17 +337,17 @@ impl Kit {
     /// Returns the lexical grammar metadata for this kit, derived from
     /// the factory and lexer configuration. Used to generate editor grammars.
     pub fn grammar_info(&self) -> GrammarInfo {
-        let config = CanonicalLexer::config();
+        let config = LexLexer::config();
         let factory = config.factory();
 
         // Partition keywords into categories based on their token kind.
         let mut booleans = Vec::new();
         let mut nulls = Vec::new();
         let mut keywords = Vec::new();
-        for (text, kind) in CanonicalFactory::all_keywords() {
+        for (text, kind) in LexFactory::all_keywords() {
             match kind {
-                CanonicalKind::Bool(_) => booleans.push(text.to_string()),
-                CanonicalKind::Null => nulls.push(text.to_string()),
+                LexKind::Bool(_) => booleans.push(text.to_string()),
+                LexKind::Null => nulls.push(text.to_string()),
                 _ => keywords.push(text.to_string()),
             }
         }
@@ -384,7 +385,7 @@ impl Kit {
             keywords,
             booleans,
             nulls,
-            operators: CanonicalFactory::all_operators(),
+            operators: LexFactory::all_operators(),
             delimiters,
             line_comment_start,
             block_comment,
@@ -458,11 +459,11 @@ impl Plugin for CanonicalKit {
 
         // Canonical language operation RuleAcceptors
         ctx.register_plugin(BasicLexer::new())?;
-        ctx.register_plugin(BasicParser::<CanonicalKind>::new())?;
+        ctx.register_plugin(BasicParser::<LexKind>::new())?;
         let grammar_rules = resolve_grammar_rules(&canonical_manifest().plugins)?;
         for id in &grammar_rules {
             if let Some(rule) = rule_for_plugin_id(id) {
-                ctx.contribute::<BasicParser<CanonicalKind>>(rule)?;
+                ctx.contribute::<BasicParser<LexKind>>(rule)?;
             }
         }
         ctx.register_plugin(BasicFormatter::new())?;
@@ -490,6 +491,11 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(ArrayPlugin::new())?;
         ctx.register_plugin(ObjectPlugin::new())?;
         ctx.register_plugin(ApplyPlugin::new())?;
+
+        // Module runtime — the RuleAcceptor for library modules.
+        // Downstream kits (kit-cli, kit-server, etc.) register plugin-lib-*
+        // plugins whose contribute() methods register ModuleRules here.
+        ctx.register_plugin(ModuleRuntime::new())?;
 
         // The canonical manifest lists token, AST-shape, and grammar-rule plugins
         // (plugin-token-*, plugin-ast-*, plugin-grammar-*). These crates provide
@@ -525,14 +531,14 @@ mod tests {
         let kit = Kit::new();
         let tokens = kit.lex("42").unwrap();
         assert_eq!(tokens.len(), 2); // number + eof
-        assert_eq!(tokens[0].kind, CanonicalKind::Number(42.0));
+        assert_eq!(tokens[0].kind, LexKind::Number(42.0));
     }
 
     #[test]
     fn lex_string() {
         let kit = Kit::new();
         let tokens = kit.lex("\"hi\"").unwrap();
-        assert_eq!(tokens[0].kind, CanonicalKind::String("hi".into()));
+        assert_eq!(tokens[0].kind, LexKind::String("hi".into()));
     }
 
     #[test]
@@ -933,7 +939,7 @@ mod tests {
         assert_eq!(tokens.len(), 2); // template + eof
         assert_eq!(
             tokens[0].kind,
-            CanonicalKind::Template(vec![TemplateSegment::Text("hello".into())])
+            LexKind::Template(vec![TemplateSegment::Text("hello".into())])
         );
     }
 
@@ -943,7 +949,7 @@ mod tests {
         let tokens = kit.lex("`hi ${name}!`").unwrap();
         assert_eq!(
             tokens[0].kind,
-            CanonicalKind::Template(vec![
+            LexKind::Template(vec![
                 TemplateSegment::Text("hi ".into()),
                 TemplateSegment::Expr("name".into()),
                 TemplateSegment::Text("!".into()),
@@ -955,7 +961,7 @@ mod tests {
     fn lex_template_empty() {
         let kit = Kit::new();
         let tokens = kit.lex("``").unwrap();
-        assert_eq!(tokens[0].kind, CanonicalKind::Template(vec![]));
+        assert_eq!(tokens[0].kind, LexKind::Template(vec![]));
     }
 
     #[test]
@@ -964,7 +970,7 @@ mod tests {
         let tokens = kit.lex("`${a} and ${b}`").unwrap();
         assert_eq!(
             tokens[0].kind,
-            CanonicalKind::Template(vec![
+            LexKind::Template(vec![
                 TemplateSegment::Expr("a".into()),
                 TemplateSegment::Text(" and ".into()),
                 TemplateSegment::Expr("b".into()),
@@ -1080,7 +1086,7 @@ mod tests {
 
     #[test]
     fn canonical_kind_template_display() {
-        let kind = CanonicalKind::Template(vec![
+        let kind = LexKind::Template(vec![
             TemplateSegment::Text("hello ".into()),
             TemplateSegment::Expr("name".into()),
         ]);
@@ -1093,27 +1099,27 @@ mod tests {
 
     #[test]
     fn canonical_kind_template_display_text_only() {
-        let kind = CanonicalKind::Template(vec![TemplateSegment::Text("hi".into())]);
+        let kind = LexKind::Template(vec![TemplateSegment::Text("hi".into())]);
         let s = format!("{kind}");
         assert_eq!(s, "template(\"hi\")");
     }
 
     #[test]
     fn canonical_kind_template_display_empty() {
-        let kind = CanonicalKind::Template(vec![]);
+        let kind = LexKind::Template(vec![]);
         let s = format!("{kind}");
         assert_eq!(s, "template()");
     }
 
     #[test]
     fn template_token_kind_constructs() {
-        let kind = CanonicalKind::template_kind(vec![TemplateSegment::Text("test".into())]);
-        assert!(matches!(kind, CanonicalKind::Template(_)));
+        let kind = LexKind::template_kind(vec![TemplateSegment::Text("test".into())]);
+        assert!(matches!(kind, LexKind::Template(_)));
     }
 
     #[test]
     fn template_token_returns_segments() {
-        let kind = CanonicalKind::Template(vec![
+        let kind = LexKind::Template(vec![
             TemplateSegment::Text("a".into()),
             TemplateSegment::Expr("b".into()),
         ]);
@@ -1125,9 +1131,9 @@ mod tests {
 
     #[test]
     fn template_token_returns_none_for_non_template() {
-        assert!(CanonicalKind::Number(1.0).as_template_segments().is_none());
-        assert!(CanonicalKind::String("x".into()).as_template_segments().is_none());
-        assert!(CanonicalKind::Eof.as_template_segments().is_none());
+        assert!(LexKind::Number(1.0).as_template_segments().is_none());
+        assert!(LexKind::String("x".into()).as_template_segments().is_none());
+        assert!(LexKind::Eof.as_template_segments().is_none());
     }
 
     #[test]

@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind};
 
 /// Token capability required by the apply grammar rule.
 pub trait ApplyToken: TokenKind {
@@ -65,5 +66,19 @@ impl<K: ApplyToken> ParserBehavior<K> for ApplyRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ApplyRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ApplyToken for LexKind {
+    fn is_paren_open(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::ParenOpen))
+    }
+
+    fn is_paren_close(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::ParenClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
     }
 }

@@ -9,3 +9,4 @@ handl-plugin-ext-parser.workspace = true
 handl-plugin-lexer.workspace = true
 handl-plugin-lexer-template = { path = "../plugin-lexer-template" }
 serde_json = "1"
+handl-plugin-token-kind = { path = "../plugin-token-kind" }

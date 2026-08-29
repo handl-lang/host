@@ -1,6 +1,6 @@
 # Runtime
 
-The handl runtime is not a single, hard-coded VM. It is the set of operation plugins that a `Host` loads and executes, plus the target plugin that evaluates expressions.
+The handl runtime is not a single, hard-coded VM. It is the set of operation plugins that a `Host` loads and executes, plus the target plugin that evaluates expressions. There is no separate "VM" subsystem — evaluation is the `Eval` operation, served by target plugins like any other operation.
 
 ## The execution model
 
@@ -10,13 +10,21 @@ The language pipeline is also a set of operation executions. A host that loads `
 
 ## Values
 
-All handl values are represented as `serde_json::Value` internally. This means the boundary between handl code and host code is just JSON. Functions that return rich data must explicitly serialize it to JSON.
+All handl values are represented as `serde_json::Value` internally. This means the boundary between handl code and host code is just JSON. Functions that return rich data must explicitly serialize it to JSON. There is no generic value-type parameter — the kernel commits to JSON values, and the `Eval` contract operates on `serde_json::Value`.
 
 ## Operations and targets
 
-Evaluation is the `Eval` operation. `handl-ext-eval` defines the `Eval` operation and `EvalBehavior`. `handl-target-rust-interpreter` is the default `RuleAcceptor` that runs the interpreter. Other targets, such as `handl-target-wasm` or `handl-target-llvm`, can register their own `Eval` behavior without changing the language core.
+Evaluation is the `Eval` operation. `handl-ext-eval` defines the `Eval` operation and `EvalBehavior`. `handl-target-rust-interpreter` is the default `RuleAcceptor` that runs the interpreter. Other targets, such as `handl-target-wasm` or `handl-target-llvm`, can register their own `Eval` behavior without changing the language core. Targets are plugins — they contribute `EvalBehavior` rules into `BasicEvaluator`, the same `RuleAcceptor` pattern used by every other operation. There is no `VirtualMachine` trait parallel to the platform's operation system.
 
 Modules such as `fs`, `env`, `http`, and `kv` are contributed by library or target plugins. The host does not hard-code a module list. It discovers them through the loaded plugins.
+
+## Garbage collection
+
+Garbage collection is provided by a target or library plugin and selected by the host. The kernel imposes no GC. A host may run with no GC, a reference-counting GC, a tracing GC, or a region-based collector — all are plugin choices. See design principle #15.
+
+## Sandboxing
+
+Whether a program runs sandboxed is determined by which stdlib plugins are exposed and which target plugin runs it, not by a kernel flag. A kit that exposes only pure modules and selects a non-IO target produces a sandbox; a kit that exposes `fs`, `env`, and `http` over a native target does not. The kernel has no sandbox concept. See design principle #16.
 
 ## Capabilities
 

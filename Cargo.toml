@@ -167,7 +167,7 @@ members = [
   "crates/plugin-token-number",
   "crates/plugin-token-operator",
   "crates/plugin-token-string",
-  "crates/plugin-token-handl",
+  "crates/plugin-token-kind",
   "crates/plugin-typecheck-core",
   "crates/plugin-runtime",
   "crates/plugin-source",
@@ -374,7 +374,7 @@ handl-plugin-token-null = { path = "crates/plugin-token-null" }
 handl-plugin-token-number = { path = "crates/plugin-token-number" }
 handl-plugin-token-operator = { path = "crates/plugin-token-operator" }
 handl-plugin-token-string = { path = "crates/plugin-token-string" }
-handl-plugin-token-handl = { path = "crates/plugin-token-handl" }
+handl-plugin-token-kind = { path = "crates/plugin-token-kind" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-runtime = { path = "crates/plugin-runtime" }
 handl-plugin-source = { path = "crates/plugin-source" }

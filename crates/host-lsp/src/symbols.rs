@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{CanonicalKind, CanonicalOp, Kit};
+use handl_kit_canonical::{LexKind, LexOperator, Kit};
 use handl_plugin_lexer::{CommentTokenKind, Span};
 
 use crate::diagnostics::offset_to_position;
@@ -8,7 +8,7 @@ use crate::diagnostics::offset_to_position;
 pub fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, Span)> {
     let tokens = Kit::new().lex(source).ok()?;
     for t in &tokens {
-        if let CanonicalKind::Identifier(ref name) = t.kind {
+        if let LexKind::Identifier(ref name) = t.kind {
             if t.span.start <= offset && offset < t.span.end {
                 return Some((name.clone(), t.span));
             }
@@ -21,7 +21,7 @@ pub fn find_definition(source: &str, name: &str) -> Option<Span> {
     let tokens = Kit::new().lex(source).ok()?;
     let mut i = 0;
     while i < tokens.len() {
-        if let CanonicalKind::Identifier(ref n) = tokens[i].kind {
+        if let LexKind::Identifier(ref n) = tokens[i].kind {
             if n == name {
                 // find next non-comment token
                 let mut j = i + 1;
@@ -29,7 +29,7 @@ pub fn find_definition(source: &str, name: &str) -> Option<Span> {
                     j += 1;
                 }
                 if j < tokens.len() {
-                    if let CanonicalKind::Operator(CanonicalOp::Equal) = tokens[j].kind {
+                    if let LexKind::Operator(LexOperator::Equal) = tokens[j].kind {
                         return Some(tokens[i].span);
                     }
                 }
@@ -48,7 +48,7 @@ pub fn find_references(source: &str, name: &str) -> Vec<Span> {
     tokens
         .iter()
         .filter_map(|t| {
-            if let CanonicalKind::Identifier(ref n) = t.kind {
+            if let LexKind::Identifier(ref n) = t.kind {
                 if n == name {
                     return Some(t.span);
                 }

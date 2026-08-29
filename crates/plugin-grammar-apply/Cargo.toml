@@ -7,3 +7,4 @@ edition.workspace = true
 handl-platform.workspace = true
 handl-plugin-ext-parser.workspace = true
 handl-plugin-lexer.workspace = true
+handl-plugin-token-kind = { path = "../plugin-token-kind" }

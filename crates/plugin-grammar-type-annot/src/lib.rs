@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind, LexOperator};
 use serde_json::json;
 
 /// Token capability required by the type-annotation grammar rule.
@@ -109,5 +110,22 @@ impl<K: TypeAnnotToken> ParserBehavior<K> for TypeAnnotRule {
                 "value": &value,
             }),
         })
+    }
+}
+
+impl TypeAnnotToken for LexKind {
+    fn is_colon(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Colon))
+    }
+
+    fn is_equal(&self) -> bool {
+        matches!(self, LexKind::Operator(LexOperator::Equal))
+    }
+
+    fn ident_text(&self) -> Option<&str> {
+        match self {
+            LexKind::Identifier(s) => Some(s.as_str()),
+            _ => None,
+        }
     }
 }

@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind};
 use serde_json::json;
 
 /// Token capability required by the array grammar rule.
@@ -89,5 +90,19 @@ impl<K: ArrayToken> ParserBehavior<K> for ArrayRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ArrayRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ArrayToken for LexKind {
+    fn is_bracket_open(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BracketOpen))
+    }
+
+    fn is_bracket_close(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BracketClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
     }
 }

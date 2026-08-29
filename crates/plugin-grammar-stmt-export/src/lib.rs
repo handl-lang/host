@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword};
 use serde_json::json;
 
 /// Token capability required by the export statement grammar rule.
@@ -75,6 +76,16 @@ impl<K: ExportStmtToken> ParserBehavior<K> for ExportStmtRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ExportStmtRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ExportStmtToken for LexKind {
+    fn is_export_stmt(&self) -> bool {
+        matches!(self, LexKind::Keyword(LexKeyword::Export))
+    }
+
+    fn is_export_stmt_semicolon(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
     }
 }
 

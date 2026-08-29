@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexKind, LexKeyword};
 use serde_json::json;
 
 /// Token capability required by the handle grammar rule.
@@ -63,5 +64,11 @@ impl<K: HandleToken> ParserBehavior<K> for HandleRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("HandleRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl HandleToken for LexKind {
+    fn is_handle(&self) -> bool {
+        matches!(self, LexKind::Keyword(LexKeyword::Handle))
     }
 }

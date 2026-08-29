@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind};
 use serde_json::json;
 
 /// Token capability required by the index grammar rule.
@@ -112,6 +113,27 @@ impl<K: IndexToken> ParserBehavior<K> for IndexRule {
                     "index": &index,
                 }),
             })
+        }
+    }
+}
+
+impl IndexToken for LexKind {
+    fn is_bracket_open(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BracketOpen))
+    }
+
+    fn is_bracket_close(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BracketClose))
+    }
+
+    fn is_dot(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Dot))
+    }
+
+    fn ident_text(&self) -> Option<&str> {
+        match self {
+            LexKind::Identifier(s) => Some(s.as_str()),
+            _ => None,
         }
     }
 }

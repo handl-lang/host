@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexKind, LexOperator};
 use serde_json::json;
 
 /// Token capability required by the assign grammar rule.
@@ -70,5 +71,11 @@ impl<K: AssignToken> ParserBehavior<K> for AssignRule {
                 "value": &value,
             }),
         })
+    }
+}
+
+impl AssignToken for LexKind {
+    fn is_equal(&self) -> bool {
+        matches!(self, LexKind::Operator(LexOperator::Equal))
     }
 }

@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexKind, LexOperator};
 use serde_json::json;
 
 /// Token capability required by the pipe grammar rule.
@@ -67,5 +68,11 @@ impl<K: PipeToken> ParserBehavior<K> for PipeRule {
                 "right": &right,
             }),
         })
+    }
+}
+
+impl PipeToken for LexKind {
+    fn is_pipe(&self) -> bool {
+        matches!(self, LexKind::Operator(LexOperator::Pipe))
     }
 }

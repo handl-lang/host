@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword, LexOperator};
 use serde_json::json;
 
 /// Token capability required by the module statement grammar rule.
@@ -108,6 +109,27 @@ impl<K: ModuleStmtToken> ParserBehavior<K> for ModuleStmtRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ModuleStmtRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ModuleStmtToken for LexKind {
+    fn is_module_stmt(&self) -> bool {
+        matches!(self, LexKind::Keyword(LexKeyword::Module))
+    }
+
+    fn as_module_stmt_name(&self) -> Option<&str> {
+        match self {
+            LexKind::Identifier(name) => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    fn is_module_stmt_equal(&self) -> bool {
+        matches!(self, LexKind::Operator(LexOperator::Equal))
+    }
+
+    fn is_module_stmt_semicolon(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
     }
 }
 

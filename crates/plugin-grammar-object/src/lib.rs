@@ -7,6 +7,7 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_kind::{LexDelimiter, LexKind};
 use serde_json::{Value, json};
 
 /// Token capability required by the object grammar rule.
@@ -112,5 +113,31 @@ impl<K: ObjectToken> ParserBehavior<K> for ObjectRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("ObjectRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl ObjectToken for LexKind {
+    fn is_brace_open(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BraceOpen))
+    }
+
+    fn is_brace_close(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::BraceClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
+    }
+
+    fn is_colon(&self) -> bool {
+        matches!(self, LexKind::Delimiter(LexDelimiter::Colon))
+    }
+
+    fn as_object_key(&self) -> Option<String> {
+        match self {
+            LexKind::Identifier(name) => Some(name.clone()),
+            LexKind::String(s) => Some(s.clone()),
+            _ => None,
+        }
     }
 }

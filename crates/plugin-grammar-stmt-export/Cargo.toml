@@ -8,6 +8,7 @@ handl-platform = { workspace = true }
 handl-plugin-ext-parser = { workspace = true }
 handl-plugin-lexer = { workspace = true }
 serde_json = { workspace = true }
+handl-plugin-token-kind = { path = "../plugin-token-kind" }
 
 [dev-dependencies]
 handl-plugin-grammar-primary-value = { workspace = true }
