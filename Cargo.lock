@@ -1667,7 +1667,7 @@ name = "handl-plugin-lexer-block-comment"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
- "handl-plugin-lexer-common",
+ "handl-plugin-lexer-line-comment",
 ]
 
 [[package]]
@@ -1698,7 +1698,7 @@ name = "handl-plugin-lexer-keyword"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
- "handl-plugin-lexer-common",
+ "handl-plugin-lexer-ident",
 ]
 
 [[package]]
@@ -2543,6 +2543,8 @@ name = "handl-plugin-token-doc-comment"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
+ "handl-plugin-lexer-block-comment",
+ "handl-plugin-lexer-line-comment",
 ]
 
 [[package]]

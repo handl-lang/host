@@ -1,12 +1,13 @@
-//! [`MockFactory`] — a configurable [`KindFactory`] for test token kinds.
+//! [`MockFactory`] — a configurable factory for test token kinds.
+//!
+//! Implements [`EofFactory`] and holds configurable closures for building
+//! token kinds. The per-concern token traits (`NumberToken`, `StringToken`,
+//! `IdentToken`, `OperatorToken`, `CommentToken`, `KeywordToken`) are
+//! implemented in each respective `plugin-lexer-*` crate's test module,
+//! keeping this crate free of dependencies on the plugin crates.
 
 use super::MockKind;
-use handl_plugin_lexer::primitives;
-use handl_plugin_lexer::{
-    CommentFactory, DefaultLexError, EofFactory, IdentFactory, KeywordFactory, KindFactory,
-    NumberFactory, OperatorFactory, Span, StringFactory,
-};
-use std::iter::Peekable;
+use handl_plugin_lexer::EofFactory;
 use std::sync::Arc;
 
 pub struct MockFactory {
@@ -95,6 +96,36 @@ impl MockFactory {
             ..self
         }
     }
+
+    /// Returns the string-kind constructor closure.
+    pub fn string_kind_fn(&self) -> &(dyn Fn(String) -> MockKind + Send + Sync) {
+        self.string_fn.as_ref()
+    }
+
+    /// Returns the number-kind constructor closure.
+    pub fn number_kind_fn(&self) -> &(dyn Fn(f64) -> MockKind + Send + Sync) {
+        self.number_fn.as_ref()
+    }
+
+    /// Returns the ident-kind constructor closure.
+    pub fn ident_kind_fn(&self) -> &(dyn Fn(String) -> MockKind + Send + Sync) {
+        self.ident_fn.as_ref()
+    }
+
+    /// Returns the comment-kind constructor closure.
+    pub fn comment_kind_fn(&self) -> &(dyn Fn(String) -> MockKind + Send + Sync) {
+        self.comment_fn.as_ref()
+    }
+
+    /// Returns the keyword-kind constructor closure.
+    pub fn keyword_kind_fn(&self) -> &(dyn Fn(String) -> Option<MockKind> + Send + Sync) {
+        self.keyword_fn.as_ref()
+    }
+
+    /// Returns the operator-kind constructor closure.
+    pub fn operator_kind_fn(&self) -> &(dyn Fn(String) -> Option<MockKind> + Send + Sync) {
+        self.operator_fn.as_ref()
+    }
 }
 
 impl Clone for MockFactory {
@@ -113,129 +144,5 @@ impl Clone for MockFactory {
 impl EofFactory<MockKind> for MockFactory {
     fn eof_kind(&self) -> MockKind {
         MockKind::Eof
-    }
-}
-
-impl KindFactory<MockKind> for MockFactory {
-    fn string_kind(&self, value: String) -> MockKind {
-        (self.string_fn)(value)
-    }
-    fn number_kind(&self, value: f64) -> MockKind {
-        (self.number_fn)(value)
-    }
-    fn ident_kind(&self, text: String) -> MockKind {
-        (self.ident_fn)(text)
-    }
-    fn keyword_kind(&self, text: &str) -> Option<MockKind> {
-        (self.keyword_fn)(text.into())
-    }
-    fn operator_kind(&self, text: &str) -> Option<MockKind> {
-        (self.operator_fn)(text.into())
-    }
-}
-
-impl StringFactory<MockKind> for MockFactory {
-    fn is_string_start(&self, ch: char) -> bool {
-        ch == '"' || ch == '\''
-    }
-
-    fn lex_string(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_string(chars)
-    }
-}
-
-impl NumberFactory<MockKind> for MockFactory {
-    fn is_number_start(&self, ch: char) -> bool {
-        ch.is_ascii_digit() || ch == '-'
-    }
-
-    fn lex_number(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(f64, Span), DefaultLexError> {
-        primitives::lex_number(chars)
-    }
-}
-
-impl IdentFactory<MockKind> for MockFactory {
-    fn is_ident_start(&self, ch: char) -> bool {
-        ch.is_alphabetic() || ch == '_' || ch == '.'
-    }
-
-    fn is_ident_continue(&self, ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_' || ch == '.'
-    }
-
-    fn lex_ident(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_ident(chars, |c| self.is_ident_continue(c))
-    }
-}
-
-impl KeywordFactory<MockKind> for MockFactory {}
-
-impl OperatorFactory<MockKind> for MockFactory {
-    fn lex_operator(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Option<(MockKind, Span)> {
-        let (text, span) = primitives::lex_operator(chars, "+-*/=<>&|%!^~?")?;
-        self.operator_kind(&text).map(|kind| (kind, span))
-    }
-}
-
-impl CommentFactory<MockKind> for MockFactory {
-    fn comment_kind(&self, text: String) -> MockKind {
-        (self.comment_fn)(text)
-    }
-
-    fn doc_comment_kind(&self, text: String) -> MockKind {
-        (self.comment_fn)(text)
-    }
-
-    fn is_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "//") && !primitives::starts_with(chars, "///")
-    }
-
-    fn lex_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span) {
-        primitives::lex_line_comment(chars, "//")
-    }
-
-    fn is_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "/*") && !primitives::starts_with(chars, "/**")
-    }
-
-    fn lex_block_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_block_comment(chars, "/*", "*/")
-    }
-
-    fn is_doc_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "///")
-    }
-
-    fn lex_doc_line_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> (String, Span) {
-        primitives::lex_line_comment(chars, "///")
-    }
-
-    fn is_doc_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "/**") && !primitives::starts_with(chars, "/**/")
-    }
-
-    fn lex_doc_block_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_block_comment(chars, "/**", "*/")
     }
 }

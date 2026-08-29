@@ -1,6 +1,17 @@
 use super::*;
-use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
+use handl_plugin_lexer::{DefaultLexError, LexRule, Span, TokenKind};
+use handl_plugin_lexer_common::{MockFactory, MockKind, empty_config as cfg};
+
+// Orphan-rule-allowed impl: NumberToken is local to this crate.
+impl NumberToken<MockKind> for MockFactory {
+    fn is_number_start(&self, ch: char) -> bool {
+        ch.is_ascii_digit() || ch == '-'
+    }
+
+    fn number_kind(&self, value: f64) -> MockKind {
+        (self.number_kind_fn())(value)
+    }
+}
 
 const RULE: NumberRule = NumberRule;
 

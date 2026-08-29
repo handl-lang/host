@@ -9,9 +9,12 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_plugin_lexer::{
-    CommentFactory, DefaultLexError, GrammarInfo, GrammarInfoProvider, IdentFactory,
-    KitGrammarMetadata, Lexer, NumberFactory, StringFactory, Token,
+    DefaultLexError, GrammarInfo, GrammarInfoProvider, KitGrammarMetadata, Lexer, Token,
 };
+use handl_plugin_lexer_ident::IdentToken;
+use handl_plugin_lexer_line_comment::CommentToken;
+use handl_plugin_lexer_number::NumberToken;
+use handl_plugin_lexer_string::StringToken;
 pub use handl_plugin_token_kind::{
     LexDelimiter, LexFactory, LexKeyword, LexKind, LexLexer, LexOperator,
     LexTemplateSegment,

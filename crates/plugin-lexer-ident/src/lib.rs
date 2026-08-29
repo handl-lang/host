@@ -1,8 +1,72 @@
 //! [`IdentRule`] — matches identifiers and keywords.
+//!
+//! This crate owns the identifier lexing logic (`lex_ident`) and the
+//! [`IdentToken`] trait that a host's token kind factory implements to
+//! produce identifier token kinds.
 
 use handl_plugin_lexer::{
-    DefaultLexError, IdentFactory, KindFactory, LexError, LexRule, LexerConfig, Token, TokenKind,
+    DefaultLexError, LexError, LexRule, LexerConfig, Span, Token, TokenKind,
 };
+use std::iter::Peekable;
+
+// ---------------------------------------------------------------------------
+// Primitive
+// ---------------------------------------------------------------------------
+
+/// Lexes an identifier. The first character is already known to be an
+/// identifier start; `is_continue` decides which characters are consumed.
+pub fn lex_ident(
+    chars: &mut Peekable<std::str::CharIndices<'_>>,
+    is_continue: impl Fn(char) -> bool,
+) -> Result<(String, Span), DefaultLexError> {
+    let (start, _) = chars.peek().copied().unwrap();
+    let mut text = String::new();
+    let mut end = start;
+
+    while let Some(&(pos, ch)) = chars.peek() {
+        if !is_continue(ch) {
+            break;
+        }
+        text.push(ch);
+        end = pos + ch.len_utf8();
+        chars.next();
+    }
+
+    Ok((text, Span::new(start, end)))
+}
+
+// ---------------------------------------------------------------------------
+// Token trait
+// ---------------------------------------------------------------------------
+
+/// Token-kind factory capability for identifiers.
+///
+/// A host's token kind factory implements this so that [`IdentRule`] can
+/// produce identifier tokens. The host decides which characters start and
+/// continue an identifier.
+pub trait IdentToken<K: TokenKind>: Clone + Send + Sync + 'static {
+    /// Returns `true` if `ch` can start an identifier.
+    fn is_ident_start(&self, ch: char) -> bool;
+
+    /// Returns `true` if `ch` may appear after the first char of an identifier.
+    fn is_ident_continue(&self, ch: char) -> bool;
+
+    /// Builds an identifier token kind from the raw text.
+    fn ident_kind(&self, text: String) -> K;
+
+    /// Returns a regex pattern that matches identifiers for this dialect,
+    /// e.g. `r"[a-zA-Z_][a-zA-Z0-9_]*"`.
+    ///
+    /// Override this to provide a dialect-specific identifier regex for grammar
+    /// generators. The default returns a basic ASCII identifier pattern.
+    fn identifier_regex(&self) -> &str {
+        r"[a-zA-Z_][a-zA-Z0-9_]*"
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Rule
+// ---------------------------------------------------------------------------
 
 /// Matches identifiers and keywords (identifiers in the keyword table
 /// are remapped to their token kind).
@@ -12,19 +76,17 @@ pub struct IdentRule;
 impl<K, E> LexRule<K, E> for IdentRule
 where
     K: TokenKind,
-    K::Factory: IdentFactory<K>,
+    K::Factory: IdentToken<K>,
     E: LexError + From<DefaultLexError>,
 {
     fn try_lex(
         &self,
-        chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+        chars: &mut Peekable<std::str::CharIndices<'_>>,
         config: &LexerConfig<K, E>,
     ) -> Option<Result<Token<K>, E>> {
         match chars.peek() {
             Some(&(_, ch)) if config.factory().is_ident_start(ch) => Some(
-                config
-                    .factory()
-                    .lex_ident(chars)
+                lex_ident(chars, |c| config.factory().is_ident_continue(c))
                     .map(|(text, span)| {
                         let kind = config
                             .lookup_keyword(&text)
@@ -50,8 +112,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_lexer::{DefaultLexError, LexRule, Span};
-    use handl_plugin_lexer_common::{MockKind, empty_config as cfg};
+    use handl_plugin_lexer::{DefaultLexError, LexRule, Span, TokenKind};
+    use handl_plugin_lexer_common::{MockFactory, MockKind, empty_config as cfg};
+
+    // Orphan-rule-allowed impl: IdentToken is local to this crate.
+    impl IdentToken<MockKind> for MockFactory {
+        fn is_ident_start(&self, ch: char) -> bool {
+            ch.is_alphabetic() || ch == '_' || ch == '.'
+        }
+
+        fn is_ident_continue(&self, ch: char) -> bool {
+            ch.is_alphanumeric() || ch == '_' || ch == '.'
+        }
+
+        fn ident_kind(&self, text: String) -> MockKind {
+            (self.ident_kind_fn())(text)
+        }
+    }
 
     const RULE: IdentRule = IdentRule;
 

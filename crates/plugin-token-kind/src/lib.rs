@@ -10,13 +10,10 @@
 //! the wiring local to the rule that needs it.
 
 use std::fmt;
-use std::iter::Peekable;
 
-use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
-    compose_token_kind, CommentFactory, CommentTokenKind, DefaultLexError, EofFactory,
-    IdentFactory, KindFactory, KeywordFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory,
-    Span, StringFactory, Token,
+    compose_token_kind, CommentTokenKind, DefaultLexError, EofFactory, Lexer, LexerConfig,
+    Token,
 };
 use handl_plugin_lexer_block_comment::BlockCommentRule;
 use handl_plugin_lexer_delimiter::DelimiterRule;
@@ -31,13 +28,18 @@ use handl_plugin_lexer_template::TemplateSegment;
 use handl_plugin_lexer_template::TemplateTokenKind;
 use handl_plugin_ext_parser::SemicolonToken;
 
+// Per-concern token traits
+use handl_plugin_lexer_ident::IdentToken;
+use handl_plugin_lexer_keyword::KeywordToken;
+use handl_plugin_lexer_line_comment::CommentToken;
+use handl_plugin_lexer_number::NumberToken;
+use handl_plugin_lexer_operator::OperatorToken;
+use handl_plugin_lexer_string::StringToken;
+
 use handl_plugin_token_bool::BoolKind;
 use handl_plugin_token_comment::CommentKind;
 use handl_plugin_token_delimiter::DelimiterKind;
-use handl_plugin_token_doc_comment::{
-    DocCommentKind, DocCommentRule, is_doc_block_comment_start, is_doc_line_comment_start,
-    lex_doc_block_comment, lex_doc_line_comment,
-};
+use handl_plugin_token_doc_comment::{DocCommentKind, DocCommentRule};
 use handl_plugin_token_identifier::IdentKind;
 use handl_plugin_token_keyword_as::AsKind;
 use handl_plugin_token_keyword_handle::HandleKind;
@@ -335,24 +337,60 @@ impl EofFactory<LexKind> for LexFactory {
     }
 }
 
-impl KindFactory<LexKind> for LexFactory {
+impl StringToken<LexKind> for LexFactory {
+    fn is_string_start(&self, ch: char) -> bool {
+        ch == '"' || ch == '\''
+    }
+
     fn string_kind(&self, value: String) -> LexKind {
         LexKind::String(value)
+    }
+}
+
+impl NumberToken<LexKind> for LexFactory {
+    fn is_number_start(&self, ch: char) -> bool {
+        ch.is_ascii_digit() || ch == '-'
     }
 
     fn number_kind(&self, value: f64) -> LexKind {
         LexKind::Number(value)
     }
 
+    fn number_regex(&self) -> &str {
+        r"-?\d+(\.\d+)?([eE][+-]?\d+)?"
+    }
+}
+
+impl IdentToken<LexKind> for LexFactory {
+    fn is_ident_start(&self, ch: char) -> bool {
+        ch.is_alphabetic() || ch == '_'
+    }
+
+    fn is_ident_continue(&self, ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_'
+    }
+
     fn ident_kind(&self, text: String) -> LexKind {
         LexKind::Identifier(text)
     }
 
+    fn identifier_regex(&self) -> &str {
+        r"[a-zA-Z_.][a-zA-Z0-9_.]*"
+    }
+}
+
+impl KeywordToken<LexKind> for LexFactory {
     fn keyword_kind(&self, text: &str) -> Option<LexKind> {
         Self::all_keywords()
             .iter()
             .find(|(kw, _)| *kw == text)
             .map(|(_, kind)| kind.clone())
+    }
+}
+
+impl OperatorToken<LexKind> for LexFactory {
+    fn operator_chars(&self) -> &str {
+        CANONICAL_OPERATOR_CHARS
     }
 
     fn operator_kind(&self, text: &str) -> Option<LexKind> {
@@ -372,70 +410,7 @@ impl KindFactory<LexKind> for LexFactory {
     }
 }
 
-impl StringFactory<LexKind> for LexFactory {
-    fn is_string_start(&self, ch: char) -> bool {
-        ch == '"' || ch == '\''
-    }
-
-    fn lex_string(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_string(chars)
-    }
-}
-
-impl NumberFactory<LexKind> for LexFactory {
-    fn is_number_start(&self, ch: char) -> bool {
-        ch.is_ascii_digit() || ch == '-'
-    }
-
-    fn lex_number(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(f64, Span), DefaultLexError> {
-        primitives::lex_number(chars)
-    }
-
-    fn number_regex(&self) -> &str {
-        r"-?\d+(\.\d+)?([eE][+-]?\d+)?"
-    }
-}
-
-impl IdentFactory<LexKind> for LexFactory {
-    fn is_ident_start(&self, ch: char) -> bool {
-        ch.is_alphabetic() || ch == '_'
-    }
-
-    fn is_ident_continue(&self, ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_'
-    }
-
-    fn lex_ident(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_ident(chars, |c| self.is_ident_continue(c))
-    }
-
-    fn identifier_regex(&self) -> &str {
-        r"[a-zA-Z_.][a-zA-Z0-9_.]*"
-    }
-}
-
-impl KeywordFactory<LexKind> for LexFactory {}
-
-impl OperatorFactory<LexKind> for LexFactory {
-    fn lex_operator(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Option<(LexKind, Span)> {
-        let (text, span) = primitives::lex_operator(chars, CANONICAL_OPERATOR_CHARS)?;
-        self.operator_kind(&text).map(|kind| (kind, span))
-    }
-}
-
-impl CommentFactory<LexKind> for LexFactory {
+impl CommentToken<LexKind> for LexFactory {
     fn comment_kind(&self, text: String) -> LexKind {
         LexKind::Comment(text)
     }
@@ -458,47 +433,6 @@ impl CommentFactory<LexKind> for LexFactory {
 
     fn doc_block_comment_delims(&self) -> Option<(&str, &str)> {
         Some(("/**", "*/"))
-    }
-
-    fn is_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "//") && !primitives::starts_with(chars, "///")
-    }
-
-    fn lex_line_comment(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> (String, Span) {
-        primitives::lex_line_comment(chars, "//")
-    }
-
-    fn is_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        primitives::starts_with(chars, "/*") && !primitives::starts_with(chars, "/**")
-    }
-
-    fn lex_block_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        primitives::lex_block_comment(chars, "/*", "*/")
-    }
-
-    fn is_doc_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        is_doc_line_comment_start(chars)
-    }
-
-    fn lex_doc_line_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> (String, Span) {
-        lex_doc_line_comment(chars)
-    }
-
-    fn is_doc_block_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
-        is_doc_block_comment_start(chars)
-    }
-
-    fn lex_doc_block_comment(
-        &self,
-        chars: &mut Peekable<std::str::CharIndices<'_>>,
-    ) -> Result<(String, Span), DefaultLexError> {
-        lex_doc_block_comment(chars)
     }
 }
 

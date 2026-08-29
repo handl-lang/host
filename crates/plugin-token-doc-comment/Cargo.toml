@@ -5,3 +5,5 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-lexer.workspace = true
+handl-plugin-lexer-line-comment.workspace = true
+handl-plugin-lexer-block-comment.workspace = true
