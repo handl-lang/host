@@ -39,6 +39,22 @@ fn percent_basic() -> Result<(), Error> {
     let s = nf.format(0.05)?;
     assert!(s.contains('%'), "percent sign missing: {s}");
     assert!(s.starts_with('5'), "unexpected percent start: {s}");
+
+    // ICU4X's PercentFormatter does not emit percentSign parts; the wrapper
+    // recovers them via crate-icu4x-extra.
+    let parts = nf.format_to_parts(0.05)?;
+    assert!(
+        parts
+            .iter()
+            .any(|p| p.part_type == NumberFormatPartType::PercentSign && p.value == "%"),
+        "expected percentSign part: {parts:?}"
+    );
+    assert!(
+        parts
+            .iter()
+            .any(|p| p.part_type == NumberFormatPartType::Integer && p.value == "5"),
+        "expected integer part: {parts:?}"
+    );
     Ok(())
 }
 
@@ -52,6 +68,16 @@ fn currency_symbol() -> Result<(), Error> {
     let s = nf.format(1234.5)?;
     assert!(s.starts_with('$'), "expected USD symbol: {s}");
     assert!(s.contains(','), "expected grouping: {s}");
+
+    // ICU4X's CurrencyFormatter emits the symbol as a literal; the wrapper
+    // relabels it as a currency part via crate-icu4x-extra.
+    let parts = nf.format_to_parts(1234.5)?;
+    assert!(
+        parts
+            .iter()
+            .any(|p| p.part_type == NumberFormatPartType::Currency && p.value == "$"),
+        "expected currency part: {parts:?}"
+    );
     Ok(())
 }
 

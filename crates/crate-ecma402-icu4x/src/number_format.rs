@@ -27,6 +27,7 @@ use icu::experimental::measure::measureunit::MeasureUnit;
 use icu::locale::Locale;
 use icu_provider::DataError;
 use icu_provider_blob::BlobDataProvider;
+use icu4x_extra::number_format::{relabel_currency_parts, split_percent_parts};
 use writeable::{Part, PartsWrite, Writeable};
 
 /// ICU4X-backed ECMA-402 `Intl.NumberFormat`.
@@ -493,10 +494,17 @@ impl<'a> NumberFormat<'a> {
         decimal.multiply_pow10(2);
         decimal.trim_start();
         apply_digit_options(&mut decimal, &self.options);
-        let formatted = formatter.format(&decimal);
-        formatted
-            .write_to_parts(sink)
-            .map_err(|e| Error::Formatting(e.to_string()))
+
+        // ICU4X's `PercentFormatter` does not emit `percentSign` part
+        // annotations, so recover spec-aligned parts by formatting the numeric
+        // portion with the decimal formatter and splitting the percent string.
+        let mut number_sink = PartsCollector::new();
+        self.format_prepared_decimal_to_parts(&decimal, &mut number_sink)?;
+        let number_parts = number_sink.into_parts();
+
+        let percent_str = formatter.format(&decimal).write_to_string().into_owned();
+        sink.extend_parts(split_percent_parts(&percent_str, &number_parts));
+        Ok(())
     }
 
     fn format_currency_to_parts(&self, n: f64, sink: &mut PartsCollector) -> Result<(), Error> {
@@ -571,9 +579,14 @@ impl<'a> NumberFormat<'a> {
         apply_fraction_digits(&mut decimal, &self.options);
         apply_sign_display(&mut decimal, &self.options);
         let formatted = formatter.format_fixed_decimal(&decimal);
+        // ICU4X's `CurrencyFormatter` emits the currency token as a `literal`
+        // part; relabel non-whitespace literals as `currency` parts.
+        let mut inner = PartsCollector::new();
         formatted
-            .write_to_parts(sink)
-            .map_err(|e| Error::Formatting(e.to_string()))
+            .write_to_parts(&mut inner)
+            .map_err(|e| Error::Formatting(e.to_string()))?;
+        sink.extend_parts(relabel_currency_parts(inner.into_parts()));
+        Ok(())
     }
 
     fn format_unit_to_parts(&self, n: f64, sink: &mut PartsCollector) -> Result<(), Error> {
@@ -835,6 +848,12 @@ impl PartsCollector {
     fn into_parts(mut self) -> Vec<NumberFormatPart> {
         self.flush();
         self.parts
+    }
+
+    /// Flushes any buffered text and appends pre-built parts directly.
+    fn extend_parts(&mut self, parts: Vec<NumberFormatPart>) {
+        self.flush();
+        self.parts.extend(parts);
     }
 }
 
