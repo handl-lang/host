@@ -59,3 +59,54 @@ fn number_rule_clone_box() {
     let cloned: Box<dyn LexRule<MockKind, DefaultLexError>> = RULE.clone_box();
     assert_eq!(cloned.name(), "number");
 }
+
+// Bridge test: prove `NumberRule` plugs into the object-safe `DynLexer` via
+// `StaticRuleAdapter`. Dependency direction stays plugin → framework.
+mod dyn_bridge {
+    use super::*;
+    use handl_plugin_ext_lexer::{DynLexError, DynLexRule, DynLexer, StaticRuleAdapter};
+    use handl_plugin_lexer::EofFactory;
+    use handl_plugin_lexer_common::MockFactory;
+
+    #[test]
+    fn lexes_through_static_adapter() {
+        let factory = MockFactory::new();
+        let rule: Box<dyn DynLexRule> = Box::new(StaticRuleAdapter::<
+            NumberRule,
+            MockKind,
+            DefaultLexError,
+        >::new(NumberRule, factory.clone()));
+        let lexer = DynLexer::new()
+            .with_rule(rule)
+            .with_eof_kind(Box::new(factory.eof_kind()));
+
+        let tokens = lexer.lex("42 -3").unwrap();
+        assert_eq!(tokens.len(), 3); // 42, -3, EOF
+
+        let n0 = tokens[0].kind.as_any().downcast_ref::<MockKind>();
+        assert!(matches!(n0, Some(MockKind::Num(42.0))));
+        assert_eq!(tokens[0].span, Span::new(0, 2));
+
+        let n1 = tokens[1].kind.as_any().downcast_ref::<MockKind>();
+        assert!(matches!(n1, Some(MockKind::Num(-3.0))));
+        assert_eq!(tokens[1].span, Span::new(3, 5));
+
+        assert!(tokens[2].kind.is_eof());
+    }
+
+    #[test]
+    fn rejects_dash_without_digit() {
+        let factory = MockFactory::new();
+        let rule: Box<dyn DynLexRule> = Box::new(StaticRuleAdapter::<
+            NumberRule,
+            MockKind,
+            DefaultLexError,
+        >::new(NumberRule, factory.clone()));
+        let lexer = DynLexer::new()
+            .with_rule(rule)
+            .with_eof_kind(Box::new(factory.eof_kind()));
+
+        let err = lexer.lex("- hello").unwrap_err();
+        assert!(matches!(err, DynLexError::UnexpectedChar { .. }));
+    }
+}

@@ -1,15 +1,18 @@
-//! A host assembled dynamically from plugin contributions.
+//! A runtime assembled from a kit's plugin contributions.
 //!
 //! [`DynamicRuntime`] combines the built-in functions provided by [`EvalHost`]
 //! with library modules contributed by `plugin-lib-*` plugins (collected in a
 //! [`ModuleRuntime`]). Resource limits (scope depth, call count) can be applied
-//! via [`DynamicRuntime::with_max_depth`] / [`DynamicRuntime::with_max_calls`] and
-//! are enforced on the [`CanonicalContext`] returned by
-//! [`DynamicRuntime::new_context`].
+//! via [`DynamicRuntime::with_max_depth`] / [`DynamicRuntime::with_max_calls`].
 //!
-//! This replaces the hardcoded `SandboxHost` / `ServerHost` / `CliHost`
-//! structs: a kit curates its plugins, their `contribute` methods register
-//! modules into the [`ModuleRuntime`], and [`DynamicRuntime`] wraps the result.
+//! ## How it's assembled
+//!
+//! A host binary (e.g. `host-cli`) loads a kit via `DefaultHost` + the
+//! applier. The kit's `contribute()` method registers a [`ModuleRuntime`]
+//! (the `RuleAcceptor` for library modules) and any `plugin-lib-*` plugins.
+//! Each `plugin-lib-*` plugin's `contribute()` registers `ModuleRule`s into
+//! the `ModuleRuntime`. After loading, the host extracts the `ModuleRuntime`
+//! from the registry and wraps it in a `DynamicRuntime` for VM evaluation.
 
 use handl_platform::{
     ContributionContext, KitRegistry, PlatformError, Plugin, PluginRegistry,
