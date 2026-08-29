@@ -46,7 +46,7 @@ pub struct PluginManifest {
 }
 
 /// Whether a plugin produces or consumes an AST kind.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AstKindRole {
     /// The plugin produces AST nodes of this kind.

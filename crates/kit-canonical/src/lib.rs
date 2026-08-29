@@ -10,13 +10,12 @@ use std::fmt;
 use std::iter::Peekable;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use serde::{Deserialize, Serialize};
-
 use handl_plugin_ast::{Expr as ExprTrait, Node, NodeMetadata, Stmt as StmtTrait};
 use handl_plugin_lexer::primitives;
 use handl_plugin_lexer::{
-    CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, IdentFactory, KeywordFactory,
-    KindFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory, Token,
+    CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, GrammarInfo,
+    GrammarInfoProvider, IdentFactory, KeywordFactory, KindFactory, Lexer, LexerConfig,
+    NumberFactory, OperatorFactory, Span, StringFactory, Token,
 };
 use handl_plugin_lexer_block_comment::BlockCommentRule;
 use handl_plugin_lexer_delimiter::DelimiterRule;
@@ -29,11 +28,13 @@ use handl_plugin_lexer_string::StringRule as LexStringRule;
 use handl_plugin_lexer_template::{
     TemplateRule as LexTemplateRule, TemplateSegment, TemplateTokenKind,
 };
+pub use handl_plugin_lexer_template::TemplateSegment as CanonicalTemplateSegment;
 
 use handl_platform::{
-    AstKindDeclaration, AstKindRole, AstNode, BasicEvaluator, BasicTypechecker, CapabilityId,
-    CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext, OptionsPlugin,
-    PlatformError, Plugin, PluginContext, PluginManifest, RuleAcceptor,
+    AstKindDeclaration, AstKindRole, AstNode, BasicEvaluator, BasicTypechecker, Behavior,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    Operation, OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest, RuleAcceptor,
+    Span as PlatformSpan,
 };
 use handl_plugin_diag_expression::ExpressionDiagnostics;
 use handl_plugin_ext_build::BasicBuilder;
@@ -41,7 +42,8 @@ use handl_plugin_ext_compile::BasicCompiler;
 use handl_plugin_ext_fmt::BasicFormatter;
 use handl_plugin_ext_lexer::BasicLexer;
 use handl_plugin_ext_lint::BasicLinter;
-use handl_plugin_ext_parser::{BasicParser, ParserBehavior};
+use handl_plugin_ext_parser::{BasicParser, Parser, ParserBehavior, ParserContext, SemicolonToken};
+use serde_json::json;
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
@@ -68,16 +70,13 @@ use handl_plugin_grammar_assign::{AssignRule, AssignToken};
 use handl_plugin_grammar_call::{CallRule, CallToken};
 use handl_plugin_grammar_handle::{HandleRule, HandleToken};
 use handl_plugin_grammar_index::{IndexRule, IndexToken};
-use handl_plugin_grammar_let::{LetRule, LetToken};
 use handl_plugin_grammar_match::{MatchRule, MatchToken};
 use handl_plugin_grammar_object::{ObjectRule, ObjectToken};
 use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
 use handl_plugin_grammar_primary_identifier::{IdentToken, IdentifierRule};
 use handl_plugin_grammar_primary_value::{ValueRule, ValueToken};
-use handl_plugin_grammar_stmt_const::{ConstStmtRule, ConstStmtToken};
 use handl_plugin_grammar_stmt_export::{ExportStmtRule, ExportStmtToken};
 use handl_plugin_grammar_stmt_import::{ImportStmtRule, ImportStmtToken};
-use handl_plugin_grammar_stmt_let::{LetStmtRule, LetStmtToken};
 use handl_plugin_grammar_stmt_module::{ModuleStmtRule, ModuleStmtToken};
 use handl_plugin_grammar_template::{TemplateRule, TemplateToken};
 use handl_plugin_runtime::RuntimeHost;
@@ -116,44 +115,9 @@ pub type KitMetadata = ();
 
 static UNIT: KitMetadata = ();
 
-/// A description of a kit's lexical grammar, extracted from its token plugins.
-///
-/// This is the bridge between the dynamic plugin system and static grammar
-/// consumers (TextMate grammars, tree-sitter configs, etc.). Any kit that
-/// wants to generate editor grammars produces this struct.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrammarInfo {
-    /// Unique scope name, e.g. `"source.handl"`.
-    pub scope_name: String,
-    /// File extensions, e.g. `["hnl"]`.
-    pub file_extensions: Vec<String>,
-    /// Keyword strings, e.g. `["let", "const", "match", ...]`.
-    pub keywords: Vec<String>,
-    /// Boolean literal strings, e.g. `["true", "false"]`.
-    pub booleans: Vec<String>,
-    /// Null literal strings, e.g. `["null"]`.
-    pub nulls: Vec<String>,
-    /// Operator strings, e.g. `["|>", "->", "=", "+", ...]`.
-    pub operators: Vec<String>,
-    /// Single-character delimiter strings, e.g. `["(", ")", "{", ...]`.
-    pub delimiters: Vec<String>,
-    /// Line comment prefix, e.g. `"//"`.
-    pub line_comment_start: Option<String>,
-    /// Block comment start/end, e.g. `("/*", "*/")`.
-    pub block_comment: Option<(String, String)>,
-    /// Doc line comment prefix, e.g. `"///"`.
-    pub doc_line_comment_start: Option<String>,
-    /// Doc block comment start/end, e.g. `("/**", "*/")`.
-    pub doc_block_comment: Option<(String, String)>,
-    /// String delimiter characters, e.g. `['"', '\'']`.
-    pub string_delimiters: Vec<char>,
-}
-
 /// Canonical keyword forms used by the kit token kind.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CanonicalKeyword {
-    Let,
-    Const,
     Match,
     Handle,
     As,
@@ -165,7 +129,7 @@ pub enum CanonicalKeyword {
 }
 
 /// Canonical delimiter forms.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CanonicalDelim {
     ParenOpen,
     ParenClose,
@@ -276,6 +240,30 @@ handl_plugin_lexer::compose_token_kind! {
     }
 }
 
+const KEYWORD_DISPLAY: &[(CanonicalKeyword, &str)] = &[
+    (CanonicalKeyword::Match, "match"),
+    (CanonicalKeyword::Handle, "handle"),
+    (CanonicalKeyword::As, "as"),
+    (CanonicalKeyword::TypeOf, "typeof"),
+    (CanonicalKeyword::Not, "not"),
+    (CanonicalKeyword::Import, "import"),
+    (CanonicalKeyword::Export, "export"),
+    (CanonicalKeyword::Module, "module"),
+];
+
+const DELIM_DISPLAY: &[(CanonicalDelim, &str)] = &[
+    (CanonicalDelim::ParenOpen, "("),
+    (CanonicalDelim::ParenClose, ")"),
+    (CanonicalDelim::BracketOpen, "["),
+    (CanonicalDelim::BracketClose, "]"),
+    (CanonicalDelim::BraceOpen, "{{"),
+    (CanonicalDelim::BraceClose, "}}"),
+    (CanonicalDelim::Comma, ","),
+    (CanonicalDelim::Colon, ":"),
+    (CanonicalDelim::Dot, "."),
+    (CanonicalDelim::Semicolon, ";"),
+];
+
 impl fmt::Display for CanonicalKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -296,18 +284,14 @@ impl fmt::Display for CanonicalKind {
             CanonicalKind::Null => write!(f, "null"),
             CanonicalKind::Comment(s) => write!(f, "comment({s:?})"),
             CanonicalKind::DocComment(s) => write!(f, "doc-comment({s:?})"),
-            CanonicalKind::Delimiter(d) => match d {
-                CanonicalDelim::ParenOpen => write!(f, "("),
-                CanonicalDelim::ParenClose => write!(f, ")"),
-                CanonicalDelim::BracketOpen => write!(f, "["),
-                CanonicalDelim::BracketClose => write!(f, "]"),
-                CanonicalDelim::BraceOpen => write!(f, "{{"),
-                CanonicalDelim::BraceClose => write!(f, "}}"),
-                CanonicalDelim::Comma => write!(f, ","),
-                CanonicalDelim::Colon => write!(f, ":"),
-                CanonicalDelim::Dot => write!(f, "."),
-                CanonicalDelim::Semicolon => write!(f, ";"),
-            },
+            CanonicalKind::Delimiter(d) => {
+                let text = DELIM_DISPLAY
+                    .iter()
+                    .find(|(delim, _)| *delim == *d)
+                    .map(|(_, t)| *t)
+                    .unwrap_or("");
+                write!(f, "{text}")
+            }
             CanonicalKind::Operator(o) => match o {
                 CanonicalOp::Pipe => write!(f, "|>"),
                 CanonicalOp::Arrow => write!(f, "->"),
@@ -320,18 +304,14 @@ impl fmt::Display for CanonicalKind {
                 CanonicalOp::GreaterThan => write!(f, ">"),
                 CanonicalOp::Other(s) => write!(f, "operator({s})"),
             },
-            CanonicalKind::Keyword(k) => match k {
-                CanonicalKeyword::Let => write!(f, "let"),
-                CanonicalKeyword::Const => write!(f, "const"),
-                CanonicalKeyword::Match => write!(f, "match"),
-                CanonicalKeyword::Handle => write!(f, "handle"),
-                CanonicalKeyword::As => write!(f, "as"),
-                CanonicalKeyword::TypeOf => write!(f, "typeof"),
-                CanonicalKeyword::Not => write!(f, "not"),
-                CanonicalKeyword::Import => write!(f, "import"),
-                CanonicalKeyword::Export => write!(f, "export"),
-                CanonicalKeyword::Module => write!(f, "module"),
-            },
+            CanonicalKind::Keyword(k) => {
+                let text = KEYWORD_DISPLAY
+                    .iter()
+                    .find(|(kw, _)| *kw == *k)
+                    .map(|(_, t)| *t)
+                    .unwrap_or("");
+                write!(f, "{text}")
+            }
             CanonicalKind::Eof => write!(f, "eof"),
         }
     }
@@ -340,6 +320,40 @@ impl fmt::Display for CanonicalKind {
 /// The factory that turns raw values into [`CanonicalKind`] tokens.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CanonicalFactory;
+
+impl CanonicalFactory {
+    /// Returns all keyword text and their kinds, as the single source of truth.
+    pub fn all_keywords() -> &'static [(&'static str, CanonicalKind)] {
+        &[
+            ("true", CanonicalKind::Bool(true)),
+            ("false", CanonicalKind::Bool(false)),
+            ("null", CanonicalKind::Null),
+            ("match", CanonicalKind::Keyword(CanonicalKeyword::Match)),
+            ("handle", CanonicalKind::Keyword(CanonicalKeyword::Handle)),
+            ("as", CanonicalKind::Keyword(CanonicalKeyword::As)),
+            ("typeof", CanonicalKind::Keyword(CanonicalKeyword::TypeOf)),
+            ("not", CanonicalKind::Keyword(CanonicalKeyword::Not)),
+            ("import", CanonicalKind::Keyword(CanonicalKeyword::Import)),
+            ("export", CanonicalKind::Keyword(CanonicalKeyword::Export)),
+            ("module", CanonicalKind::Keyword(CanonicalKeyword::Module)),
+        ]
+    }
+
+    /// Returns all operator strings recognized by this factory.
+    pub fn all_operators() -> Vec<String> {
+        vec![
+            "|>".to_string(),
+            "->".to_string(),
+            "=".to_string(),
+            "+".to_string(),
+            "-".to_string(),
+            "*".to_string(),
+            "/".to_string(),
+            "<".to_string(),
+            ">".to_string(),
+        ]
+    }
+}
 
 impl EofFactory<CanonicalKind> for CanonicalFactory {
     fn eof_kind(&self) -> CanonicalKind {
@@ -361,22 +375,10 @@ impl KindFactory<CanonicalKind> for CanonicalFactory {
     }
 
     fn keyword_kind(&self, text: &str) -> Option<CanonicalKind> {
-        match text {
-            "true" => Some(CanonicalKind::Bool(true)),
-            "false" => Some(CanonicalKind::Bool(false)),
-            "null" => Some(CanonicalKind::Null),
-            "let" => Some(CanonicalKind::Keyword(CanonicalKeyword::Let)),
-            "const" => Some(CanonicalKind::Keyword(CanonicalKeyword::Const)),
-            "match" => Some(CanonicalKind::Keyword(CanonicalKeyword::Match)),
-            "handle" => Some(CanonicalKind::Keyword(CanonicalKeyword::Handle)),
-            "as" => Some(CanonicalKind::Keyword(CanonicalKeyword::As)),
-            "typeof" => Some(CanonicalKind::Keyword(CanonicalKeyword::TypeOf)),
-            "not" => Some(CanonicalKind::Keyword(CanonicalKeyword::Not)),
-            "import" => Some(CanonicalKind::Keyword(CanonicalKeyword::Import)),
-            "export" => Some(CanonicalKind::Keyword(CanonicalKeyword::Export)),
-            "module" => Some(CanonicalKind::Keyword(CanonicalKeyword::Module)),
-            _ => None,
-        }
+        Self::all_keywords()
+            .iter()
+            .find(|(kw, _)| *kw == text)
+            .map(|(_, kind)| kind.clone())
     }
 
     fn operator_kind(&self, text: &str) -> Option<CanonicalKind> {
@@ -460,6 +462,22 @@ impl CommentFactory<CanonicalKind> for CanonicalFactory {
         CanonicalKind::DocComment(text)
     }
 
+    fn line_comment_prefix(&self) -> Option<&str> {
+        Some("//")
+    }
+
+    fn block_comment_delims(&self) -> Option<(&str, &str)> {
+        Some(("/*", "*/"))
+    }
+
+    fn doc_line_comment_prefix(&self) -> Option<&str> {
+        Some("///")
+    }
+
+    fn doc_block_comment_delims(&self) -> Option<(&str, &str)> {
+        Some(("/**", "*/"))
+    }
+
     fn is_line_comment_start(&self, chars: &mut Peekable<std::str::CharIndices<'_>>) -> bool {
         primitives::starts_with(chars, "//") && !primitives::starts_with(chars, "///")
     }
@@ -535,6 +553,12 @@ impl IdentToken for CanonicalKind {
 }
 
 // Token capability implementations for the grammar-rule plugins.
+impl SemicolonToken for CanonicalKind {
+    fn is_semicolon(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
+    }
+}
+
 impl CallToken for CanonicalKind {
     fn is_call_open(&self) -> bool {
         matches!(self, CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
@@ -562,69 +586,6 @@ impl IndexToken for CanonicalKind {
 impl PipeToken for CanonicalKind {
     fn is_pipe(&self) -> bool {
         matches!(self, CanonicalKind::Operator(CanonicalOp::Pipe))
-    }
-}
-
-impl LetToken for CanonicalKind {
-    fn is_let(&self) -> bool {
-        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Let))
-    }
-
-    fn as_let_name(&self) -> Option<&str> {
-        match self {
-            CanonicalKind::Identifier(name) => Some(name.as_str()),
-            _ => None,
-        }
-    }
-
-    fn is_let_equal(&self) -> bool {
-        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
-    }
-
-    fn is_let_semicolon(&self) -> bool {
-        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
-    }
-}
-
-impl LetStmtToken for CanonicalKind {
-    fn is_let_stmt(&self) -> bool {
-        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Let))
-    }
-
-    fn as_let_stmt_name(&self) -> Option<&str> {
-        match self {
-            CanonicalKind::Identifier(name) => Some(name.as_str()),
-            _ => None,
-        }
-    }
-
-    fn is_let_stmt_equal(&self) -> bool {
-        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
-    }
-
-    fn is_let_stmt_semicolon(&self) -> bool {
-        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
-    }
-}
-
-impl ConstStmtToken for CanonicalKind {
-    fn is_const_stmt(&self) -> bool {
-        matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Const))
-    }
-
-    fn as_const_stmt_name(&self) -> Option<&str> {
-        match self {
-            CanonicalKind::Identifier(name) => Some(name.as_str()),
-            _ => None,
-        }
-    }
-
-    fn is_const_stmt_equal(&self) -> bool {
-        matches!(self, CanonicalKind::Operator(CanonicalOp::Equal))
-    }
-
-    fn is_const_stmt_semicolon(&self) -> bool {
-        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Semicolon))
     }
 }
 
@@ -1115,9 +1076,14 @@ impl StmtTrait for KitNode {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CanonicalLexer;
 
-impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
-    fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
-        let tokens = LexerConfig::new(CanonicalFactory)
+impl CanonicalLexer {
+    /// Returns the lexer configuration used by this lexer.
+    ///
+    /// This exposes the config so tooling (grammar generators, semantic token
+    /// providers) can introspect keywords, delimiters, and rules without
+    /// duplicating them.
+    pub fn config() -> LexerConfig<CanonicalKind, DefaultLexError> {
+        LexerConfig::new(CanonicalFactory)
             .with_delimiter('(', CanonicalKind::Delimiter(CanonicalDelim::ParenOpen))
             .with_delimiter(')', CanonicalKind::Delimiter(CanonicalDelim::ParenClose))
             .with_delimiter('[', CanonicalKind::Delimiter(CanonicalDelim::BracketOpen))
@@ -1138,7 +1104,12 @@ impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
             .with_rule(IdentRule)
             .with_rule(OperatorRule)
             .with_rule(DelimiterRule)
-            .lex(input)?;
+    }
+}
+
+impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
+    fn lex(&self, input: &str) -> Result<Vec<Token<CanonicalKind>>, DefaultLexError> {
+        let tokens = Self::config().lex(input)?;
 
         Ok(tokens
             .into_iter()
@@ -1149,280 +1120,318 @@ impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
 
 /// Converts a generic `AstNode` produced by the parser into the kit's `KitNode`.
 fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
-    match ast.kind.as_str() {
-        "value" => {
-            let value = ast.payload.get("value").ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in AST payload".into())
-            })?;
+    AST_CONVERTERS
+        .iter()
+        .find(|(kind, _)| *kind == ast.kind)
+        .ok_or_else(|| {
+            PlatformError::Plugin(format!("unsupported AST node kind '{}'", ast.kind))
+        })
+        .and_then(|(_, f)| f(ast))
+}
 
-            let kit_value = if value.is_null() {
-                KitValue::Null
-            } else if let Some(n) = value.as_f64() {
-                KitValue::Number(n)
-            } else if let Some(s) = value.as_str() {
-                KitValue::String(s.to_string())
-            } else if let Some(b) = value.as_bool() {
-                KitValue::Bool(b)
-            } else {
-                return Err(PlatformError::Plugin(format!(
-                    "unsupported primary value: {value}"
-                )));
-            };
+type AstConverter = fn(&AstNode) -> Result<KitNode, PlatformError>;
 
-            Ok(KitNode::Literal(kit_value))
-        }
-        "var" => {
-            let name = ast
-                .payload
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'name' field in var AST payload".into())
-                })?;
+const AST_CONVERTERS: &[(&str, AstConverter)] = &[
+    ("value", convert_value),
+    ("var", convert_var),
+    ("call", convert_call),
+    ("index", convert_index),
+    ("pipe", convert_pipe),
+    ("let", convert_let),
+    ("assign", convert_assign),
+    ("array", convert_array),
+    ("object", convert_object),
+    ("match", convert_match),
+    ("handle", convert_handle),
+    ("stmt.let", convert_stmt_let),
+    ("stmt.const", convert_stmt_const),
+    ("stmt.import", convert_stmt_import),
+    ("stmt.export", convert_stmt_export),
+    ("stmt.module", convert_stmt_module),
+];
 
-            Ok(KitNode::Var(Var::new(name.into())))
-        }
-        "call" => {
-            let callee = ast.payload.get("callee").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'callee' field in call AST payload".into())
-            })?;
-            let callee_ast: AstNode = serde_json::from_value(callee)
-                .map_err(|e| PlatformError::Plugin(format!("invalid callee in call AST: {e}")))?;
-            let callee = ast_to_kitnode(&callee_ast)?;
+fn convert_value(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let value = ast.payload.get("value").ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in AST payload".into())
+    })?;
 
-            let args = ast
-                .payload
-                .get("args")
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'args' field in call AST payload".into())
-                })?;
-            let mut call_args = Vec::with_capacity(args.len());
-            for arg in args {
-                let arg_ast: AstNode = serde_json::from_value(arg.clone())
-                    .map_err(|e| PlatformError::Plugin(format!("invalid arg in call AST: {e}")))?;
-                call_args.push(ast_to_kitnode(&arg_ast)?);
-            }
+    let kit_value = if value.is_null() {
+        KitValue::Null
+    } else if let Some(n) = value.as_f64() {
+        KitValue::Number(n)
+    } else if let Some(s) = value.as_str() {
+        KitValue::String(s.to_string())
+    } else if let Some(b) = value.as_bool() {
+        KitValue::Bool(b)
+    } else {
+        return Err(PlatformError::Plugin(format!(
+            "unsupported primary value: {value}"
+        )));
+    };
 
-            match callee {
-                KitNode::Var(v) => Ok(KitNode::Call(Call::new(&v.name, call_args))),
-                _ => Ok(KitNode::Apply(Box::new(Apply::new(callee, call_args)))),
-            }
-        }
-        "index" => {
-            let target = ast.payload.get("target").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'target' field in index AST payload".into())
-            })?;
-            let target_ast: AstNode = serde_json::from_value(target)
-                .map_err(|e| PlatformError::Plugin(format!("invalid target in index AST: {e}")))?;
-            let target = ast_to_kitnode(&target_ast)?;
+    Ok(KitNode::Literal(kit_value))
+}
 
-            let index = ast.payload.get("index").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'index' field in index AST payload".into())
-            })?;
-            let index_ast: AstNode = serde_json::from_value(index)
-                .map_err(|e| PlatformError::Plugin(format!("invalid index in index AST: {e}")))?;
-            let index = ast_to_kitnode(&index_ast)?;
+fn convert_var(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let name = ast
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'name' field in var AST payload".into())
+        })?;
 
-            Ok(KitNode::Index(Box::new(Index::new(target, index))))
-        }
-        "pipe" => {
-            let left = ast.payload.get("left").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'left' field in pipe AST payload".into())
-            })?;
-            let left_ast: AstNode = serde_json::from_value(left)
-                .map_err(|e| PlatformError::Plugin(format!("invalid left in pipe AST: {e}")))?;
-            let left = ast_to_kitnode(&left_ast)?;
+    Ok(KitNode::Var(Var::new(name.into())))
+}
 
-            let right = ast.payload.get("right").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'right' field in pipe AST payload".into())
-            })?;
-            let right_ast: AstNode = serde_json::from_value(right)
-                .map_err(|e| PlatformError::Plugin(format!("invalid right in pipe AST: {e}")))?;
-            let right = ast_to_kitnode(&right_ast)?;
+fn convert_call(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let callee = ast.payload.get("callee").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'callee' field in call AST payload".into())
+    })?;
+    let callee_ast: AstNode = serde_json::from_value(callee)
+        .map_err(|e| PlatformError::Plugin(format!("invalid callee in call AST: {e}")))?;
+    let callee = ast_to_kitnode(&callee_ast)?;
 
-            Ok(KitNode::Pipe(Box::new(Pipe::new(left, right))))
-        }
-        "let" => {
-            let name = ast
-                .payload
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'name' field in let AST payload".into())
-                })?;
-
-            let value = ast.payload.get("value").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in let AST payload".into())
-            })?;
-            let value_ast: AstNode = serde_json::from_value(value)
-                .map_err(|e| PlatformError::Plugin(format!("invalid value in let AST: {e}")))?;
-            let value = ast_to_kitnode(&value_ast)?;
-
-            Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
-        }
-        "assign" => {
-            let target = ast.payload.get("target").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'target' field in assign AST payload".into())
-            })?;
-            let target_ast: AstNode = serde_json::from_value(target)
-                .map_err(|e| PlatformError::Plugin(format!("invalid target in assign AST: {e}")))?;
-            let target = ast_to_kitnode(&target_ast)?;
-
-            let value = ast.payload.get("value").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in assign AST payload".into())
-            })?;
-            let value_ast: AstNode = serde_json::from_value(value)
-                .map_err(|e| PlatformError::Plugin(format!("invalid value in assign AST: {e}")))?;
-            let value = ast_to_kitnode(&value_ast)?;
-
-            Ok(KitNode::Assign(Box::new(Assign::new(target, value))))
-        }
-        "array" => {
-            let elements = ast
-                .payload
-                .get("elements")
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'elements' field in array AST payload".into())
-                })?;
-            let mut elems = Vec::with_capacity(elements.len());
-            for elem in elements {
-                let elem_ast: AstNode = serde_json::from_value(elem.clone()).map_err(|e| {
-                    PlatformError::Plugin(format!("invalid element in array AST: {e}"))
-                })?;
-                elems.push(ast_to_kitnode(&elem_ast)?);
-            }
-            Ok(KitNode::Array(Array::new(elems)))
-        }
-        "object" => {
-            let entries = ast
-                .payload
-                .get("entries")
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'entries' field in object AST payload".into())
-                })?;
-            let mut pairs = Vec::with_capacity(entries.len());
-            for entry in entries {
-                let key = entry
-                    .get("key")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| PlatformError::Plugin("missing 'key' in object entry".into()))?;
-                let value_val = entry.get("value").cloned().ok_or_else(|| {
-                    PlatformError::Plugin("missing 'value' in object entry".into())
-                })?;
-                let value_ast: AstNode = serde_json::from_value(value_val).map_err(|e| {
-                    PlatformError::Plugin(format!("invalid value in object entry: {e}"))
-                })?;
-                pairs.push((key.to_string(), ast_to_kitnode(&value_ast)?));
-            }
-            Ok(KitNode::Object(Object::new(pairs)))
-        }
-        "match" => {
-            let subject = ast.payload.get("subject").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'subject' field in match AST payload".into())
-            })?;
-            let subject_ast: AstNode = serde_json::from_value(subject)
-                .map_err(|e| PlatformError::Plugin(format!("invalid subject in match AST: {e}")))?;
-            let subject = ast_to_kitnode(&subject_ast)?;
-            Ok(KitNode::Match(Box::new(Match::new(subject))))
-        }
-        "handle" => {
-            let expr = ast.payload.get("expr").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'expr' field in handle AST payload".into())
-            })?;
-            let expr_ast: AstNode = serde_json::from_value(expr)
-                .map_err(|e| PlatformError::Plugin(format!("invalid expr in handle AST: {e}")))?;
-            let expr = ast_to_kitnode(&expr_ast)?;
-            Ok(KitNode::Handle(Box::new(Handle::new(expr))))
-        }
-        "stmt.let" => {
-            let name = ast
-                .payload
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'name' field in stmt.let AST payload".into())
-                })?;
-
-            let value = ast.payload.get("value").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in stmt.let AST payload".into())
-            })?;
-            let value_ast: AstNode = serde_json::from_value(value)
-                .map_err(|e| PlatformError::Plugin(format!("invalid value in stmt.let AST: {e}")))?;
-            let value = ast_to_kitnode(&value_ast)?;
-
-            Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
-        }
-        "stmt.const" => {
-            let name = ast
-                .payload
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'name' field in stmt.const AST payload".into())
-                })?;
-
-            let value = ast.payload.get("value").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in stmt.const AST payload".into())
-            })?;
-            let value_ast: AstNode = serde_json::from_value(value).map_err(|e| {
-                PlatformError::Plugin(format!("invalid value in stmt.const AST: {e}"))
-            })?;
-            let value = ast_to_kitnode(&value_ast)?;
-
-            Ok(KitNode::Const(Box::new(Let::new(name.into(), value))))
-        }
-        "stmt.import" => {
-            let source = ast.payload.get("source").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'source' field in stmt.import AST payload".into())
-            })?;
-            let source_ast: AstNode = serde_json::from_value(source).map_err(|e| {
-                PlatformError::Plugin(format!("invalid source in stmt.import AST: {e}"))
-            })?;
-            let source = ast_to_kitnode(&source_ast)?;
-
-            Ok(KitNode::Import(Box::new(Import::new(source))))
-        }
-        "stmt.export" => {
-            let value = ast.payload.get("value").cloned().ok_or_else(|| {
-                PlatformError::Plugin("missing 'value' field in stmt.export AST payload".into())
-            })?;
-            let value_ast: AstNode = serde_json::from_value(value).map_err(|e| {
-                PlatformError::Plugin(format!("invalid value in stmt.export AST: {e}"))
-            })?;
-            let value = ast_to_kitnode(&value_ast)?;
-
-            Ok(KitNode::Export(Box::new(Export::new(value))))
-        }
-        "stmt.module" => {
-            let name = ast
-                .payload
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    PlatformError::Plugin("missing 'name' field in stmt.module AST payload".into())
-                })?;
-
-            let value = ast.payload.get("value").cloned();
-            let value = match value {
-                Some(v) => {
-                    let value_ast: AstNode = serde_json::from_value(v).map_err(|e| {
-                        PlatformError::Plugin(format!("invalid value in stmt.module AST: {e}"))
-                    })?;
-                    Some(ast_to_kitnode(&value_ast)?)
-                }
-                None => None,
-            };
-
-            Ok(KitNode::Module(Box::new(Module::new(name.into(), value))))
-        }
-        _ => Err(PlatformError::Plugin(format!(
-            "unsupported AST node kind '{}'",
-            ast.kind
-        ))),
+    let args = ast
+        .payload
+        .get("args")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'args' field in call AST payload".into())
+        })?;
+    let mut call_args = Vec::with_capacity(args.len());
+    for arg in args {
+        let arg_ast: AstNode = serde_json::from_value(arg.clone())
+            .map_err(|e| PlatformError::Plugin(format!("invalid arg in call AST: {e}")))?;
+        call_args.push(ast_to_kitnode(&arg_ast)?);
     }
+
+    match callee {
+        KitNode::Var(v) => Ok(KitNode::Call(Call::new(&v.name, call_args))),
+        _ => Ok(KitNode::Apply(Box::new(Apply::new(callee, call_args)))),
+    }
+}
+
+fn convert_index(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let target = ast.payload.get("target").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'target' field in index AST payload".into())
+    })?;
+    let target_ast: AstNode = serde_json::from_value(target)
+        .map_err(|e| PlatformError::Plugin(format!("invalid target in index AST: {e}")))?;
+    let target = ast_to_kitnode(&target_ast)?;
+
+    let index = ast.payload.get("index").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'index' field in index AST payload".into())
+    })?;
+    let index_ast: AstNode = serde_json::from_value(index)
+        .map_err(|e| PlatformError::Plugin(format!("invalid index in index AST: {e}")))?;
+    let index = ast_to_kitnode(&index_ast)?;
+
+    Ok(KitNode::Index(Box::new(Index::new(target, index))))
+}
+
+fn convert_pipe(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let left = ast.payload.get("left").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'left' field in pipe AST payload".into())
+    })?;
+    let left_ast: AstNode = serde_json::from_value(left)
+        .map_err(|e| PlatformError::Plugin(format!("invalid left in pipe AST: {e}")))?;
+    let left = ast_to_kitnode(&left_ast)?;
+
+    let right = ast.payload.get("right").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'right' field in pipe AST payload".into())
+    })?;
+    let right_ast: AstNode = serde_json::from_value(right)
+        .map_err(|e| PlatformError::Plugin(format!("invalid right in pipe AST: {e}")))?;
+    let right = ast_to_kitnode(&right_ast)?;
+
+    Ok(KitNode::Pipe(Box::new(Pipe::new(left, right))))
+}
+
+fn convert_let(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let name = ast
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'name' field in let AST payload".into())
+        })?;
+
+    let value = ast.payload.get("value").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in let AST payload".into())
+    })?;
+    let value_ast: AstNode = serde_json::from_value(value)
+        .map_err(|e| PlatformError::Plugin(format!("invalid value in let AST: {e}")))?;
+    let value = ast_to_kitnode(&value_ast)?;
+
+    Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
+}
+
+fn convert_assign(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let target = ast.payload.get("target").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'target' field in assign AST payload".into())
+    })?;
+    let target_ast: AstNode = serde_json::from_value(target)
+        .map_err(|e| PlatformError::Plugin(format!("invalid target in assign AST: {e}")))?;
+    let target = ast_to_kitnode(&target_ast)?;
+
+    let value = ast.payload.get("value").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in assign AST payload".into())
+    })?;
+    let value_ast: AstNode = serde_json::from_value(value)
+        .map_err(|e| PlatformError::Plugin(format!("invalid value in assign AST: {e}")))?;
+    let value = ast_to_kitnode(&value_ast)?;
+
+    Ok(KitNode::Assign(Box::new(Assign::new(target, value))))
+}
+
+fn convert_array(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let elements = ast
+        .payload
+        .get("elements")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'elements' field in array AST payload".into())
+        })?;
+    let mut elems = Vec::with_capacity(elements.len());
+    for elem in elements {
+        let elem_ast: AstNode = serde_json::from_value(elem.clone()).map_err(|e| {
+            PlatformError::Plugin(format!("invalid element in array AST: {e}"))
+        })?;
+        elems.push(ast_to_kitnode(&elem_ast)?);
+    }
+    Ok(KitNode::Array(Array::new(elems)))
+}
+
+fn convert_object(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let entries = ast
+        .payload
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'entries' field in object AST payload".into())
+        })?;
+    let mut pairs = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let key = entry
+            .get("key")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| PlatformError::Plugin("missing 'key' in object entry".into()))?;
+        let value_val = entry.get("value").cloned().ok_or_else(|| {
+            PlatformError::Plugin("missing 'value' in object entry".into())
+        })?;
+        let value_ast: AstNode = serde_json::from_value(value_val).map_err(|e| {
+            PlatformError::Plugin(format!("invalid value in object entry: {e}"))
+        })?;
+        pairs.push((key.to_string(), ast_to_kitnode(&value_ast)?));
+    }
+    Ok(KitNode::Object(Object::new(pairs)))
+}
+
+fn convert_match(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let subject = ast.payload.get("subject").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'subject' field in match AST payload".into())
+    })?;
+    let subject_ast: AstNode = serde_json::from_value(subject)
+        .map_err(|e| PlatformError::Plugin(format!("invalid subject in match AST: {e}")))?;
+    let subject = ast_to_kitnode(&subject_ast)?;
+    Ok(KitNode::Match(Box::new(Match::new(subject))))
+}
+
+fn convert_handle(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let expr = ast.payload.get("expr").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'expr' field in handle AST payload".into())
+    })?;
+    let expr_ast: AstNode = serde_json::from_value(expr)
+        .map_err(|e| PlatformError::Plugin(format!("invalid expr in handle AST: {e}")))?;
+    let expr = ast_to_kitnode(&expr_ast)?;
+    Ok(KitNode::Handle(Box::new(Handle::new(expr))))
+}
+
+fn convert_stmt_let(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let name = ast
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'name' field in stmt.let AST payload".into())
+        })?;
+
+    let value = ast.payload.get("value").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in stmt.let AST payload".into())
+    })?;
+    let value_ast: AstNode = serde_json::from_value(value)
+        .map_err(|e| PlatformError::Plugin(format!("invalid value in stmt.let AST: {e}")))?;
+    let value = ast_to_kitnode(&value_ast)?;
+
+    Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
+}
+
+fn convert_stmt_const(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let name = ast
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'name' field in stmt.const AST payload".into())
+        })?;
+
+    let value = ast.payload.get("value").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in stmt.const AST payload".into())
+    })?;
+    let value_ast: AstNode = serde_json::from_value(value).map_err(|e| {
+        PlatformError::Plugin(format!("invalid value in stmt.const AST: {e}"))
+    })?;
+    let value = ast_to_kitnode(&value_ast)?;
+
+    Ok(KitNode::Const(Box::new(Let::new(name.into(), value))))
+}
+
+fn convert_stmt_import(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let source = ast.payload.get("source").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'source' field in stmt.import AST payload".into())
+    })?;
+    let source_ast: AstNode = serde_json::from_value(source).map_err(|e| {
+        PlatformError::Plugin(format!("invalid source in stmt.import AST: {e}"))
+    })?;
+    let source = ast_to_kitnode(&source_ast)?;
+
+    Ok(KitNode::Import(Box::new(Import::new(source))))
+}
+
+fn convert_stmt_export(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let value = ast.payload.get("value").cloned().ok_or_else(|| {
+        PlatformError::Plugin("missing 'value' field in stmt.export AST payload".into())
+    })?;
+    let value_ast: AstNode = serde_json::from_value(value).map_err(|e| {
+        PlatformError::Plugin(format!("invalid value in stmt.export AST: {e}"))
+    })?;
+    let value = ast_to_kitnode(&value_ast)?;
+
+    Ok(KitNode::Export(Box::new(Export::new(value))))
+}
+
+fn convert_stmt_module(ast: &AstNode) -> Result<KitNode, PlatformError> {
+    let name = ast
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PlatformError::Plugin("missing 'name' field in stmt.module AST payload".into())
+        })?;
+
+    let value = ast.payload.get("value").cloned();
+    let value = match value {
+        Some(v) => {
+            let value_ast: AstNode = serde_json::from_value(v).map_err(|e| {
+                PlatformError::Plugin(format!("invalid value in stmt.module AST: {e}"))
+            })?;
+            Some(ast_to_kitnode(&value_ast)?)
+        }
+        None => None,
+    };
+
+    Ok(KitNode::Module(Box::new(Module::new(name.into(), value))))
 }
 
 /// Like [`ast_to_kitnode`] but with access to the [`Kit`] for recursive
@@ -1484,6 +1493,94 @@ fn ast_to_kitnode_with_kit(ast: &AstNode, kit: &Kit) -> Result<KitNode, Platform
     }
 }
 
+/// Grammar rule for typed assignments: `name: type = value`.
+///
+/// This is an infix rule triggered by the `:` delimiter. It parses the
+/// type name (an identifier), expects `=`, then parses the value
+/// expression. Produces a `stmt.let` AST node with an optional `type` field.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TypeAnnotRule;
+
+impl Behavior<Parser<CanonicalKind>> for TypeAnnotRule {
+    fn kind(&self) -> &str {
+        "type-annot"
+    }
+
+    fn apply(&self, _op: &mut <Parser<CanonicalKind> as Operation>::Request) -> Result<(), PlatformError> {
+        Ok(())
+    }
+}
+
+impl ParserBehavior<CanonicalKind> for TypeAnnotRule {
+    fn matches_prefix(&self, _kind: &CanonicalKind) -> bool {
+        false
+    }
+
+    fn prefix(
+        &self,
+        _token: Token<CanonicalKind>,
+        _ctx: &mut ParserContext<'_, CanonicalKind>,
+    ) -> Result<AstNode, PlatformError> {
+        unreachable!("TypeAnnotRule is an infix rule and cannot be used as a prefix operator")
+    }
+
+    fn infix_binding(&self, kind: &CanonicalKind) -> Option<(u32, u32)> {
+        if matches!(kind, CanonicalKind::Delimiter(CanonicalDelim::Colon)) {
+            Some((15, 16))
+        } else {
+            None
+        }
+    }
+
+    fn infix(
+        &self,
+        left: AstNode,
+        _token: Token<CanonicalKind>,
+        ctx: &mut ParserContext<'_, CanonicalKind>,
+        _rbp: u32,
+    ) -> Result<AstNode, PlatformError> {
+        let name = left
+            .payload
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                PlatformError::Plugin(format!("expected identifier before ':', got {:?}", left.kind))
+            })?;
+
+        let type_tok = ctx.advance()?;
+        let type_name = match &type_tok.kind {
+            CanonicalKind::Identifier(s) => s.clone(),
+            _ => return Err(PlatformError::Plugin(format!(
+                "expected type name after ':', got {}",
+                type_tok.kind
+            ))),
+        };
+
+        let eq = ctx.advance()?;
+        if !matches!(eq.kind, CanonicalKind::Operator(CanonicalOp::Equal)) {
+            return Err(PlatformError::Plugin(format!(
+                "expected '=' after type annotation, got {}",
+                eq.kind
+            )));
+        }
+
+        let value = ctx.expression(0)?;
+
+        let start = left.span.map_or(0, |s| s.start);
+        let end = value.span.map_or(start, |s| s.end);
+
+        Ok(AstNode {
+            kind: "stmt.let".into(),
+            span: Some(PlatformSpan { start, end }),
+            payload: json!({
+                "name": name,
+                "type": type_name,
+                "value": &value,
+            }),
+        })
+    }
+}
+
 /// The set of grammar-rule plugin ids that the canonical kit knows how to
 /// wire into a `BasicParser<CanonicalKind>`.
 const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
@@ -1493,15 +1590,13 @@ const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
     "plugin-grammar-index",
     "plugin-grammar-pipe",
     "plugin-grammar-template",
-    "plugin-grammar-let",
     "plugin-grammar-apply",
     "plugin-grammar-assign",
+    "plugin-grammar-type-annot",
     "plugin-grammar-array",
     "plugin-grammar-object",
     "plugin-grammar-match",
     "plugin-grammar-handle",
-    "plugin-grammar-stmt-let",
-    "plugin-grammar-stmt-const",
     "plugin-grammar-stmt-import",
     "plugin-grammar-stmt-export",
     "plugin-grammar-stmt-module",
@@ -1516,7 +1611,6 @@ fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<CanonicalKind>>
         "plugin-grammar-index" => Box::new(IndexRule),
         "plugin-grammar-pipe" => Box::new(PipeRule),
         "plugin-grammar-template" => Box::new(TemplateRule),
-        "plugin-grammar-let" => Box::new(LetRule),
         "plugin-grammar-assign" => Box::new(AssignRule),
         "plugin-grammar-array" => Box::new(ArrayRule),
         "plugin-grammar-object" => Box::new(ObjectRule),
@@ -1524,8 +1618,7 @@ fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<CanonicalKind>>
         "plugin-grammar-handle" => Box::new(HandleRule),
         "plugin-grammar-primary-identifier" => Box::new(IdentifierRule),
         "plugin-grammar-primary-value" => Box::new(ValueRule),
-        "plugin-grammar-stmt-let" => Box::new(LetStmtRule),
-        "plugin-grammar-stmt-const" => Box::new(ConstStmtRule),
+        "plugin-grammar-type-annot" => Box::new(TypeAnnotRule),
         "plugin-grammar-stmt-import" => Box::new(ImportStmtRule),
         "plugin-grammar-stmt-export" => Box::new(ExportStmtRule),
         "plugin-grammar-stmt-module" => Box::new(ModuleStmtRule),
@@ -1545,39 +1638,41 @@ fn parser_for_plugins(ids: &[String]) -> Result<BasicParser<CanonicalKind>, Plat
     Ok(parser)
 }
 
+const AST_KIND_TABLE: &[(&str, &str, AstKindRole)] = &[
+    ("plugin-grammar-primary-value", "value", AstKindRole::Produces),
+    ("plugin-grammar-primary-identifier", "var", AstKindRole::Produces),
+    ("plugin-grammar-call", "call", AstKindRole::Produces),
+    ("plugin-grammar-apply", "apply", AstKindRole::Produces),
+    ("plugin-grammar-index", "index", AstKindRole::Produces),
+    ("plugin-grammar-pipe", "pipe", AstKindRole::Produces),
+    ("plugin-grammar-assign", "assign", AstKindRole::Produces),
+    ("plugin-grammar-array", "array", AstKindRole::Produces),
+    ("plugin-grammar-object", "object", AstKindRole::Produces),
+    ("plugin-grammar-match", "match", AstKindRole::Produces),
+    ("plugin-grammar-handle", "handle", AstKindRole::Produces),
+    ("plugin-grammar-type-annot", "stmt.let", AstKindRole::Produces),
+    ("plugin-grammar-stmt-import", "stmt.import", AstKindRole::Produces),
+    ("plugin-grammar-stmt-export", "stmt.export", AstKindRole::Produces),
+    ("plugin-grammar-stmt-module", "stmt.module", AstKindRole::Produces),
+    ("plugin-eval-hello", "hello.greet", AstKindRole::Consumes),
+    ("plugin-eval-json", "json", AstKindRole::Consumes),
+    ("plugin-typecheck-core", "typecheck", AstKindRole::Consumes),
+    ("plugin-fmt-trivia", "fmt.trivia", AstKindRole::Consumes),
+    ("plugin-fmt-stmt", "fmt.statements", AstKindRole::Consumes),
+    ("plugin-diag-expression", "lint.expression", AstKindRole::Consumes),
+];
+
 /// Returns the AST kind declarations for a canonical plugin id: producers for
 /// grammar rules and consumers for behavior-level plugins.
 fn ast_kinds_for_plugin(id: &str) -> Vec<AstKindDeclaration> {
-    let (kind, role) = match id {
-        "plugin-grammar-primary-value" => ("value", AstKindRole::Produces),
-        "plugin-grammar-primary-identifier" => ("var", AstKindRole::Produces),
-        "plugin-grammar-call" => ("call", AstKindRole::Produces),
-        "plugin-grammar-apply" => ("apply", AstKindRole::Produces),
-        "plugin-grammar-index" => ("index", AstKindRole::Produces),
-        "plugin-grammar-pipe" => ("pipe", AstKindRole::Produces),
-        "plugin-grammar-let" => ("let", AstKindRole::Produces),
-        "plugin-grammar-assign" => ("assign", AstKindRole::Produces),
-        "plugin-grammar-array" => ("array", AstKindRole::Produces),
-        "plugin-grammar-object" => ("object", AstKindRole::Produces),
-        "plugin-grammar-match" => ("match", AstKindRole::Produces),
-        "plugin-grammar-handle" => ("handle", AstKindRole::Produces),
-        "plugin-grammar-stmt-let" => ("stmt.let", AstKindRole::Produces),
-        "plugin-grammar-stmt-const" => ("stmt.const", AstKindRole::Produces),
-        "plugin-grammar-stmt-import" => ("stmt.import", AstKindRole::Produces),
-        "plugin-grammar-stmt-export" => ("stmt.export", AstKindRole::Produces),
-        "plugin-grammar-stmt-module" => ("stmt.module", AstKindRole::Produces),
-        "plugin-eval-hello" => ("hello.greet", AstKindRole::Consumes),
-        "plugin-eval-json" => ("json", AstKindRole::Consumes),
-        "plugin-typecheck-core" => ("typecheck", AstKindRole::Consumes),
-        "plugin-fmt-trivia" => ("fmt.trivia", AstKindRole::Consumes),
-        "plugin-fmt-stmt" => ("fmt.statements", AstKindRole::Consumes),
-        "plugin-diag-expression" => ("lint.expression", AstKindRole::Consumes),
-        _ => return Vec::new(),
-    };
-    vec![AstKindDeclaration {
-        kind: kind.into(),
-        role,
-    }]
+    AST_KIND_TABLE
+        .iter()
+        .find(|(pid, _, _)| *pid == id)
+        .map(|(_, kind, role)| vec![AstKindDeclaration {
+            kind: (*kind).into(),
+            role: *role,
+        }])
+        .unwrap_or_default()
 }
 
 /// Synthesizes minimal `PluginManifest`s for the given plugin ids so the
@@ -1670,55 +1765,73 @@ impl Kit {
         asts.iter().map(|ast| ast_to_kitnode_with_kit(ast, self)).collect()
     }
 
-    /// Returns the lexical grammar metadata for this kit, extracted from
-    /// its token plugins. Used to generate editor grammars (TextMate, etc.).
+    /// Returns the lexical grammar metadata for this kit, derived from
+    /// the factory and lexer configuration. Used to generate editor grammars.
     pub fn grammar_info(&self) -> GrammarInfo {
+        let config = CanonicalLexer::config();
+        let factory = config.factory();
+
+        // Partition keywords into categories based on their token kind.
+        let mut booleans = Vec::new();
+        let mut nulls = Vec::new();
+        let mut keywords = Vec::new();
+        for (text, kind) in CanonicalFactory::all_keywords() {
+            match kind {
+                CanonicalKind::Bool(_) => booleans.push(text.to_string()),
+                CanonicalKind::Null => nulls.push(text.to_string()),
+                _ => keywords.push(text.to_string()),
+            }
+        }
+
+        // Derive delimiters from the lexer config.
+        let delimiters: Vec<String> = config
+            .delimiters()
+            .iter()
+            .map(|(ch, _)| ch.to_string())
+            .collect();
+
+        // Derive string delimiters from the factory.
+        let string_delimiters: Vec<char> = ['"', '\'']
+            .into_iter()
+            .filter(|ch| factory.is_string_start(*ch))
+            .collect();
+
+        // Derive comment styles from the factory.
+        let line_comment_start = factory
+            .line_comment_prefix()
+            .map(|s| s.to_string());
+        let block_comment = factory
+            .block_comment_delims()
+            .map(|(s, e)| (s.to_string(), e.to_string()));
+        let doc_line_comment_start = factory
+            .doc_line_comment_prefix()
+            .map(|s| s.to_string());
+        let doc_block_comment = factory
+            .doc_block_comment_delims()
+            .map(|(s, e)| (s.to_string(), e.to_string()));
+
         GrammarInfo {
             scope_name: "source.handl".to_string(),
             file_extensions: vec!["hnl".to_string()],
-            keywords: vec![
-                "let".to_string(),
-                "const".to_string(),
-                "match".to_string(),
-                "handle".to_string(),
-                "as".to_string(),
-                "typeof".to_string(),
-                "not".to_string(),
-                "import".to_string(),
-                "export".to_string(),
-                "module".to_string(),
-            ],
-            booleans: vec!["true".to_string(), "false".to_string()],
-            nulls: vec!["null".to_string()],
-            operators: vec![
-                "|>".to_string(),
-                "->".to_string(),
-                "=".to_string(),
-                "+".to_string(),
-                "-".to_string(),
-                "*".to_string(),
-                "/".to_string(),
-                "<".to_string(),
-                ">".to_string(),
-            ],
-            delimiters: vec![
-                "(".to_string(),
-                ")".to_string(),
-                "[".to_string(),
-                "]".to_string(),
-                "{".to_string(),
-                "}".to_string(),
-                ",".to_string(),
-                ":".to_string(),
-                ".".to_string(),
-                ";".to_string(),
-            ],
-            line_comment_start: Some("//".to_string()),
-            block_comment: Some(("/*".to_string(), "*/".to_string())),
-            doc_line_comment_start: Some("///".to_string()),
-            doc_block_comment: Some(("/**".to_string(), "*/".to_string())),
-            string_delimiters: vec!['"', '\''],
+            keywords,
+            booleans,
+            nulls,
+            operators: CanonicalFactory::all_operators(),
+            delimiters,
+            line_comment_start,
+            block_comment,
+            doc_line_comment_start,
+            doc_block_comment,
+            string_delimiters,
+            number_regex: r"-?\d+(\.\d+)?([eE][+-]?\d+)?".to_string(),
+            identifier_regex: r"[a-zA-Z_][a-zA-Z0-9_.]*".to_string(),
         }
+    }
+}
+
+impl GrammarInfoProvider for Kit {
+    fn grammar_info(&self) -> GrammarInfo {
+        Kit::grammar_info(self)
     }
 }
 
@@ -1744,11 +1857,11 @@ impl Default for CanonicalKit {
 
 impl Plugin for CanonicalKit {
     fn id(&self) -> &str {
-        "kit.canonical"
+        "kit-canonical"
     }
 
     fn name(&self) -> &str {
-        "kit-canonical"
+        "Canonical kit"
     }
 
     fn capabilities(&self) -> &[CapabilityId] {
@@ -1897,9 +2010,9 @@ mod tests {
     #[test]
     fn parse_let() {
         let kit = Kit::new();
-        let node = kit.parse("let a = 1;").unwrap();
-        let expected = KitNode::Let(Box::new(Let::new(
-            "a".into(),
+        let node = kit.parse("a = 1").unwrap();
+        let expected = KitNode::Assign(Box::new(Assign::new(
+            KitNode::Var(Var::new("a".into())),
             KitNode::Literal(KitValue::Number(1.0)),
         )));
         assert_eq!(node, expected);
@@ -1941,10 +2054,10 @@ mod tests {
     #[test]
     fn parse_module_single_let() {
         let kit = Kit::new();
-        let stmts = kit.parse_module("let a = 1;").unwrap();
+        let stmts = kit.parse_module("a = 1;").unwrap();
         assert_eq!(stmts.len(), 1);
-        let expected = KitNode::Let(Box::new(Let::new(
-            "a".into(),
+        let expected = KitNode::Assign(Box::new(Assign::new(
+            KitNode::Var(Var::new("a".into())),
             KitNode::Literal(KitValue::Number(1.0)),
         )));
         assert_eq!(stmts[0], expected);
@@ -1953,19 +2066,19 @@ mod tests {
     #[test]
     fn parse_module_multiple_let() {
         let kit = Kit::new();
-        let stmts = kit.parse_module("let a = 1; let b = 2;").unwrap();
+        let stmts = kit.parse_module("a = 1; b = 2;").unwrap();
         assert_eq!(stmts.len(), 2);
         assert_eq!(
             stmts[0],
-            KitNode::Let(Box::new(Let::new(
-                "a".into(),
+            KitNode::Assign(Box::new(Assign::new(
+                KitNode::Var(Var::new("a".into())),
                 KitNode::Literal(KitValue::Number(1.0)),
             )))
         );
         assert_eq!(
             stmts[1],
-            KitNode::Let(Box::new(Let::new(
-                "b".into(),
+            KitNode::Assign(Box::new(Assign::new(
+                KitNode::Var(Var::new("b".into())),
                 KitNode::Literal(KitValue::Number(2.0)),
             )))
         );
@@ -1974,9 +2087,9 @@ mod tests {
     #[test]
     fn parse_module_const() {
         let kit = Kit::new();
-        let stmts = kit.parse_module("const x = 42;").unwrap();
+        let stmts = kit.parse_module("x: number = 42;").unwrap();
         assert_eq!(stmts.len(), 1);
-        let expected = KitNode::Const(Box::new(Let::new(
+        let expected = KitNode::Let(Box::new(Let::new(
             "x".into(),
             KitNode::Literal(KitValue::Number(42.0)),
         )));
@@ -1994,12 +2107,12 @@ mod tests {
     #[test]
     fn parse_module_mixed() {
         let kit = Kit::new();
-        let stmts = kit.parse_module("let a = 1; 42").unwrap();
+        let stmts = kit.parse_module("a = 1; 42").unwrap();
         assert_eq!(stmts.len(), 2);
         assert_eq!(
             stmts[0],
-            KitNode::Let(Box::new(Let::new(
-                "a".into(),
+            KitNode::Assign(Box::new(Assign::new(
+                KitNode::Var(Var::new("a".into())),
                 KitNode::Literal(KitValue::Number(1.0)),
             )))
         );
@@ -2112,7 +2225,8 @@ mod tests {
             version: "0.1.0".to_string(),
             plugins: vec![
                 "plugin-grammar-primary-value".to_string(),
-                "plugin-grammar-primary-identifier".to_string(),
+                "plugin-grammar-type-annot".to_string(),
+                "plugin-grammar-stmt-import".to_string(),
             ],
         };
         let kit = Kit::from_manifest(&manifest).unwrap();
