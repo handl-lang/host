@@ -604,6 +604,22 @@ impl MatchToken for CanonicalKind {
     fn is_match(&self) -> bool {
         matches!(self, CanonicalKind::Keyword(CanonicalKeyword::Match))
     }
+
+    fn is_brace_open(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BraceOpen))
+    }
+
+    fn is_brace_close(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::BraceClose))
+    }
+
+    fn is_comma(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Comma))
+    }
+
+    fn is_colon(&self) -> bool {
+        matches!(self, CanonicalKind::Delimiter(CanonicalDelim::Colon))
+    }
 }
 
 impl HandleToken for CanonicalKind {

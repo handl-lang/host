@@ -43,7 +43,7 @@ use handl_plugin_ast_call::Call;
 use handl_plugin_ast_handle::Handle;
 use handl_plugin_ast_index::Index;
 use handl_plugin_ast_let::Let;
-use handl_plugin_ast_match::Match;
+use handl_plugin_ast_match::{Match, MatchArm};
 use handl_plugin_ast_object::Object;
 use handl_plugin_ast_pipe::Pipe;
 use handl_plugin_ast_var::Var;
@@ -791,6 +791,81 @@ mod tests {
     }
 
     #[test]
+    fn parse_match_with_literal_arms() {
+        let kit = Kit::new();
+        let node = kit.parse(r#"match 1 { 1: "one", _: "other" }"#).unwrap();
+        let expected = KitNode::Match(Box::new(Match::with_arms(
+            KitNode::Literal(KitValue::Number(1.0)),
+            vec![
+                MatchArm {
+                    pattern: KitNode::Literal(KitValue::Number(1.0)),
+                    guard: None,
+                    body: KitNode::Literal(KitValue::String("one".into())),
+                    metadata: (),
+                },
+                MatchArm {
+                    pattern: KitNode::Var(Var::new("_".into())),
+                    guard: None,
+                    body: KitNode::Literal(KitValue::String("other".into())),
+                    metadata: (),
+                },
+            ],
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_match_with_guard() {
+        let kit = Kit::new();
+        let node = kit
+            .parse(r#"match 5 { x: cmp.gt(x, 3) : "big", _: "small" }"#)
+            .unwrap();
+        let expected = KitNode::Match(Box::new(Match::with_arms(
+            KitNode::Literal(KitValue::Number(5.0)),
+            vec![
+                MatchArm {
+                    pattern: KitNode::Var(Var::new("x".into())),
+                    guard: Some(KitNode::Apply(Box::new(Apply::new(
+                        KitNode::Index(Box::new(Index::new(
+                            KitNode::Var(Var::new("cmp".into())),
+                            KitNode::Literal(KitValue::String("gt".into())),
+                        ))),
+                        vec![
+                            KitNode::Var(Var::new("x".into())),
+                            KitNode::Literal(KitValue::Number(3.0)),
+                        ],
+                    )))),
+                    body: KitNode::Literal(KitValue::String("big".into())),
+                    metadata: (),
+                },
+                MatchArm {
+                    pattern: KitNode::Var(Var::new("_".into())),
+                    guard: None,
+                    body: KitNode::Literal(KitValue::String("small".into())),
+                    metadata: (),
+                },
+            ],
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_match_trailing_comma() {
+        let kit = Kit::new();
+        let node = kit.parse(r#"match 1 { 1: "one", }"#).unwrap();
+        let expected = KitNode::Match(Box::new(Match::with_arms(
+            KitNode::Literal(KitValue::Number(1.0)),
+            vec![MatchArm {
+                pattern: KitNode::Literal(KitValue::Number(1.0)),
+                guard: None,
+                body: KitNode::Literal(KitValue::String("one".into())),
+                metadata: (),
+            }],
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
     fn parse_handle() {
         let kit = Kit::new();
         let node = kit.parse("handle x").unwrap();
@@ -1177,7 +1252,7 @@ mod tests {
 
     #[test]
     fn canonical_kit_registers_loaders() {
-        use handl_platform::{DefaultHost, Host};
+        use handl_platform::{DefaultHost, CallableLookup};
 
         let mut host = DefaultHost::new();
         host.register_plugin(CanonicalKit::new());
