@@ -1,5 +1,0 @@
-some: type.num = option.unwrap(option.some(42));
-or_default: type.num = option.unwrap_or(option.none(), 0);
-is_some: type.bool = option.is_some(option.some(1));
-is_none: type.bool = option.is_none(option.none());
-{ some: some, or_default: or_default, is_some: is_some, is_none: is_none }

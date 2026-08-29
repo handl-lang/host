@@ -1,20 +1,54 @@
-//! `handl` is the root facade for the Handl language platform.
+//! # handl-lib-crypto
 //!
-//! It re-exports the core platform contracts from `handl-platform` and
-//! the generic base crates that survive the canonical-kit retirement.
+//! Cryptographic hashing library for the handl runtime.
+//!
+//! Provides functions for computing SHA-256 and MD5 hashes.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! handl-plugin-vm-common          handl-lib-crypto
+//! ─────────────            ─────────────
+//! Module trait             CryptoModule (Copy, zero-alloc)
+//! ModuleHost               *Function structs
+//!                          CryptoError → VmError
+//! ```
+//!
+//! All function structs are `Copy` with no internal state.
+//!
+//! ## Functions
+//!
+//! - [`CryptoModule`] — `crypto.sha256`, `crypto.md5`
+//!
+//! ## Input conventions
+//!
+//! Hashing functions accept either:
+//! - A **string** — treated as UTF-8 bytes
+//! - An **array of integers** — each value must be in the range 0–255
+//!
+//! Hashing functions return a lowercase hex-encoded digest.
+//!
+//! ## Usage
+//!
+//! ```ignore
+//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_lib_crypto::CryptoModule;
+//!
+//! let host = ModuleHost::new()
+//!     .with(CryptoModule);
+//! ```
+//!
+//! Expressions can then call `crypto.sha256("hello")`,
+//! `crypto.md5("hello")`, etc.
 
-// Core platform contracts and types (always available).
-pub use handl_platform::*;
+mod common;
+mod error;
+mod hash;
+pub mod module;
 
-// Non-optional workspace crates that remain after the canonical retirement.
-pub use handl_plugin_ast;
-pub use handl_plugin_source;
+pub use error::CryptoError;
+pub use module::CryptoModule;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn root_reexports_platform_types() {
-        let _id = crate::capability::CapabilityId::from("test");
-        let _reg = crate::plugin::PluginRegistry::new();
-    }
-}
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

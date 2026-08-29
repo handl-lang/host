@@ -1,2 +1,0 @@
-greeting: type.str = "hello";
-greeting
