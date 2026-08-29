@@ -131,3 +131,6 @@ mod tests {
         assert!(Json.decode("not json").is_err());
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

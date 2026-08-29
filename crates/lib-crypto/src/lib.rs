@@ -49,3 +49,6 @@ pub mod module;
 pub use error::CryptoError;
 pub use module::CryptoModule;
 
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

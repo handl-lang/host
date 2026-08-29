@@ -55,3 +55,6 @@ pub use sig::StdSig;
 pub use socket::StdSocket;
 pub use time::StdTime;
 pub use tmp::StdTmp;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

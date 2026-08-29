@@ -119,3 +119,6 @@ pub use sig::sig_stub::StubSig;
 pub use socket::socket_stub::StubSocket;
 pub use time::time_stub::StubTime;
 pub use tmp::tmp_stub::StubTmp;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -20,3 +20,6 @@ pub mod module;
 pub use decode::{DecodeError, Utf8Iterator, decode_utf8};
 pub use ident::{is_identifier, is_identifier_continue, is_identifier_start};
 pub use module::UnicodeModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

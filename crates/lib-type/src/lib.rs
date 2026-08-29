@@ -48,3 +48,9 @@ pub fn typecheck_schema(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "plugin")]
+pub mod plugin;
+
+#[cfg(feature = "plugin")]
+pub use plugin::LibraryPlugin;

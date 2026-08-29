@@ -11,3 +11,6 @@ pub mod traits;
 
 pub use error::CompressError;
 pub use traits::{Codec, Compressor, Decompressor};
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

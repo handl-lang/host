@@ -1,6 +1,6 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    HostConfig, PlatformError, Plugin, PluginContext,
+    HostConfig, KitLoader, PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_ext_kit::BasicKitLoader;
 

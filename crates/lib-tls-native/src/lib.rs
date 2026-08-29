@@ -364,3 +364,6 @@ fn parse_key(pem: &str) -> Result<PrivateKeyDer<'static>, TlsError> {
 
 #[cfg(test)]
 mod tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

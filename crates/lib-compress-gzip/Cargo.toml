@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-platform = { workspace = true }
 handl-lib-compress = { path = "../lib-compress" }
 handl-plugin-vm.workspace = true
 handl-plugin-vm-common.workspace = true

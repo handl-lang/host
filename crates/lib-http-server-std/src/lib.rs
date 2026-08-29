@@ -11,3 +11,6 @@ pub use handl_lib_http_server::{
     HttpMethod, HttpServer, HttpServerError, HttpServerRequest, HttpServerResponse,
 };
 pub use http_server::{ServerConfig, StdHttpServer, StdHttpServerModule, std_http_server_module};
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

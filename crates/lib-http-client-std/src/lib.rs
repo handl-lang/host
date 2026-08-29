@@ -18,3 +18,6 @@
 mod http_client;
 
 pub use http_client::StdHttpClient;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

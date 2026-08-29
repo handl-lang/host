@@ -17,3 +17,6 @@ pub use id::{gen_span_id, gen_trace_id, now_ns};
 pub use otlp_module::OtlpModule;
 pub use state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
 pub use stub::{OtlpEvent, RecordedEvent, RecordedSpan, StubOtlpState};
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

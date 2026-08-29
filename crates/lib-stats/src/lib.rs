@@ -141,3 +141,6 @@ impl Module for StatsModule {
         }
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

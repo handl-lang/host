@@ -57,3 +57,6 @@ mod error;
 
 pub use datetime::DateTimeModule;
 pub use error::DatetimeError;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

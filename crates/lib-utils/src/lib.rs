@@ -95,3 +95,6 @@ pub use result::ResultModule;
 pub use serialize::SerializeModule;
 pub use r#str::StrModule;
 pub use r#type::TypeModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

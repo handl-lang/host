@@ -1407,6 +1407,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-applier"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-kit",
+]
+
+[[package]]
 name = "handl-plugin-ast"
 version = "0.1.0"
 
@@ -2324,7 +2332,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-runtime",
  "handl-plugin-vm-values-json",
- "handl-typecheck-core",
  "serde_json",
 ]
 
@@ -2399,13 +2406,6 @@ dependencies = [
  "serde_json",
 ]
 
-[[package]]
-name = "handl-typecheck-core"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-source",
- "serde_json",
-]
 
 [[package]]
 name = "hashbrown"

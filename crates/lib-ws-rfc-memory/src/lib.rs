@@ -14,3 +14,6 @@ pub use module::WsRfcModule;
 
 #[cfg(test)]
 mod tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

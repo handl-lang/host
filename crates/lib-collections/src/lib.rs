@@ -43,3 +43,6 @@ pub mod vec;
 
 pub use error::CollectionsError;
 pub use module::CollectionsModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -45,3 +45,6 @@ pub use reassembler::Reassembler;
 
 #[cfg(test)]
 mod tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

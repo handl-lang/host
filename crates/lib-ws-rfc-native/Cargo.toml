@@ -10,6 +10,7 @@ client = []
 server = []
 
 [dependencies]
+handl-platform = { workspace = true }
 handl-lib-ws-rfc.workspace = true
 handl-plugin-vm.workspace = true
 handl-plugin-vm-common.workspace = true

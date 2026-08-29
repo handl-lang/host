@@ -10,3 +10,6 @@ mod tar_tests;
 
 pub use tar_archive::TarArchive;
 pub use module::TarModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

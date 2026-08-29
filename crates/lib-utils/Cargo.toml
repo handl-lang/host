@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-platform = { workspace = true }
 handl-plugin-ast.workspace = true
 handl-lib-base64 = { path = "../lib-base64" }
 handl-lib-encoding = { path = "../lib-encoding" }

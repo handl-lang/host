@@ -52,3 +52,6 @@ impl EncodingRegistry {
         self.encodings.get(name).map(|e| e.as_ref())
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -34,3 +34,6 @@ pub use module::TlsModule;
 pub use service::TlsService;
 pub use stub::StubTls;
 
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

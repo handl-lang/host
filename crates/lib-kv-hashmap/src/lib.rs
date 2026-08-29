@@ -135,3 +135,6 @@ mod tests {
         assert_eq!(call(&module, "size", &[]).as_number(), Some(1.0));
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

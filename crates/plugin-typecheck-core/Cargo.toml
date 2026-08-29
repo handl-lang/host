@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-runtime = { workspace = true }
-handl-typecheck-core = { workspace = true }
 handl-platform = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-plugin-vm-values-json = { workspace = true }

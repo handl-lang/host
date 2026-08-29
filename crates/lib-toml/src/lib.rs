@@ -128,3 +128,6 @@ active = true
         assert!(Toml.decode("not toml").is_err());
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

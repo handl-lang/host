@@ -12,3 +12,6 @@ pub use handl_lib_otlp::{
     RecordedEvent, RecordedSpan, StartSpanOptions, StubOtlpState,
 };
 pub use http_state::{HttpOtlpState, std_otlp_module};
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

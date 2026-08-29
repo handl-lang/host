@@ -39,3 +39,6 @@ pub trait DynParser: Send + Sync {
     /// Parse `input` into a `Value`.
     fn parse(&self, input: &str) -> Result<Value, ParseError>;
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -76,3 +76,6 @@ impl Function<NonFunctionValue> for HexName {
         })))
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

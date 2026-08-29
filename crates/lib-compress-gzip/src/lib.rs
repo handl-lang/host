@@ -10,3 +10,6 @@ mod gzip_tests;
 
 pub use gzip::Gzip;
 pub use module::GzipModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -36,3 +36,6 @@ pub use test::TestModule;
 pub mod test_helpers;
 #[cfg(test)]
 mod tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

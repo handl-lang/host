@@ -76,3 +76,6 @@ mod sampling_tests;
 mod seeded_tests;
 #[cfg(test)]
 mod test_helpers;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

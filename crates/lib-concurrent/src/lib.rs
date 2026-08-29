@@ -1580,3 +1580,6 @@ mod tests {
 
 #[cfg(test)]
 mod error_tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

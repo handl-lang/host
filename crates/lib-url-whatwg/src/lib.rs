@@ -167,3 +167,6 @@ mod tests {
         assert!(obj.get("parse").is_none());
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

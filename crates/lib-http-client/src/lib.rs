@@ -45,3 +45,6 @@ pub use http_client::HttpResponse;
 
 // Re-export stub for convenience.
 pub use http_client::http_client_stub::StubHttpClient;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

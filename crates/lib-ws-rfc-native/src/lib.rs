@@ -8,3 +8,6 @@
 mod module;
 
 pub use module::WsRfcNativeModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

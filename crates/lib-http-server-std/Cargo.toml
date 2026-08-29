@@ -7,6 +7,7 @@ edition.workspace = true
 ureq = "2"
 
 [dependencies]
+handl-platform = { workspace = true }
 handl-lib-http-server.workspace = true
 handl-plugin-vm-backend-rust-interpreter.workspace = true
 handl-plugin-vm-host-eval.workspace = true

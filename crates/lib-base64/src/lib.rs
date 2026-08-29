@@ -77,3 +77,6 @@ impl Function<NonFunctionValue> for Base64Name {
         })))
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

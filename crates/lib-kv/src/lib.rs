@@ -30,3 +30,6 @@ mod key_value_store;
 
 pub use error::KvError;
 pub use key_value_store::{KeyValueStore, KeyValueStoreModule};
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

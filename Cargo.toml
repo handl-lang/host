@@ -11,6 +11,7 @@ members = [
     "crates/plugin-ext-compile",
     "crates/plugin-ext-eval",
     "crates/plugin-ext-fmt",
+    "crates/plugin-applier",
     "crates/plugin-ext-kit",
     "crates/plugin-ext-lexer",
     "crates/plugin-ext-lint",
@@ -161,7 +162,6 @@ members = [
     "crates/plugin-source",
     "crates/plugin-target-native",
     "crates/tooling",
-    "crates/typecheck-core",
     "crates/plugin-vm",
     "crates/plugin-vm-backend-rust-interpreter",
     "crates/plugin-vm-common",
@@ -202,6 +202,7 @@ handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
 handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
 handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
+handl-plugin-applier = { path = "crates/plugin-applier" }
 handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }
 handl-plugin-ext-lexer = { path = "crates/plugin-ext-lexer" }
 handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
@@ -352,7 +353,6 @@ handl-plugin-runtime = { path = "crates/plugin-runtime" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-plugin-target-native = { path = "crates/plugin-target-native" }
 handl-tooling = { path = "crates/tooling" }
-handl-typecheck-core = { path = "crates/typecheck-core" }
 handl-plugin-vm = { path = "crates/plugin-vm" }
 handl-plugin-vm-backend-rust-interpreter = { path = "crates/plugin-vm-backend-rust-interpreter" }
 handl-plugin-vm-common = { path = "crates/plugin-vm-common" }

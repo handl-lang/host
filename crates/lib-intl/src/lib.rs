@@ -75,3 +75,6 @@ mod locale_tests;
 mod provider_tests;
 #[cfg(test)]
 mod supported_locales_tests;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

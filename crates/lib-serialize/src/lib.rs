@@ -29,3 +29,6 @@ where
 {
     decoder.decode(input)
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

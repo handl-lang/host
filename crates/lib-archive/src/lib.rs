@@ -13,3 +13,6 @@ pub mod traits;
 pub use entry::ArchiveEntry;
 pub use error::ArchiveError;
 pub use traits::Archive;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

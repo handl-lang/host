@@ -31,3 +31,6 @@ pub use cidr::{Cidr, Cidr4, Cidr6};
 pub use error::IpError;
 pub use module::IpModule;
 pub use socket::SocketAddr;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

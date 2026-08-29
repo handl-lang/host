@@ -130,3 +130,6 @@ nested:
         assert!(Yaml.decode("  [").is_err());
     }
 }
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

@@ -7,3 +7,6 @@ pub mod stub;
 pub use wasm::WsWhatwgWasmModule;
 #[cfg(not(target_arch = "wasm32"))]
 pub use stub::WsWhatwgWasmModule;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;

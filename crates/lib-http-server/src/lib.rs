@@ -31,3 +31,6 @@ pub use http_method::HttpMethod;
 pub use http_server::{Handler, HttpServer, HttpServerModule, StubHttpServer};
 pub use request::HttpServerRequest;
 pub use response::HttpServerResponse;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;
