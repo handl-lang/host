@@ -3,7 +3,7 @@ use ecma402_traits::number_format::{
     NumberFormatOptions, NumberFormatPart, NumberFormatStyle, RoundingMode, SignDisplay,
     UnitDisplay, UseGrouping,
 };
-use rust_lib_ecma402_icu4x::number_format::NumberFormat;
+use crate_ecma402_icu4x::number_format::NumberFormat;
 use serde::Deserialize;
 use std::fs;
 

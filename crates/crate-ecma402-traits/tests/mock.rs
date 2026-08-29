@@ -5,20 +5,20 @@
 
 use std::cmp::Ordering;
 
-use rust_lib_ecma402_traits::collator::Collator;
-use rust_lib_ecma402_traits::date_time_format::{
+use crate_ecma402_traits::collator::Collator;
+use crate_ecma402_traits::date_time_format::{
     DateTimeFormat, DateTimeFormatPart, DateTimeFormatPartType,
 };
-use rust_lib_ecma402_traits::display_names::{DisplayNames, DisplayNamesOptions, Type};
-use rust_lib_ecma402_traits::list_format::{ListFormat, ListFormatPart, ListFormatPartType};
-use rust_lib_ecma402_traits::locale::{Locale, LocaleInfo, LocaleOverrides};
-use rust_lib_ecma402_traits::locale_match::{CanonicalLocales, SupportedLocalesOf};
-use rust_lib_ecma402_traits::number_format::{
+use crate_ecma402_traits::display_names::{DisplayNames, DisplayNamesOptions, Type};
+use crate_ecma402_traits::list_format::{ListFormat, ListFormatPart, ListFormatPartType};
+use crate_ecma402_traits::locale::{Locale, LocaleInfo, LocaleOverrides};
+use crate_ecma402_traits::locale_match::{CanonicalLocales, SupportedLocalesOf};
+use crate_ecma402_traits::number_format::{
     NumberFormat, NumberFormatPart, NumberFormatPartType,
 };
-use rust_lib_ecma402_traits::plural_rules::{PluralCategory, PluralRules};
-use rust_lib_ecma402_traits::relative_time::{RelativeTimeFormat, RelativeTimeFormatPart};
-use rust_lib_ecma402_traits::segmenter::{Segment, Segmenter};
+use crate_ecma402_traits::plural_rules::{PluralCategory, PluralRules};
+use crate_ecma402_traits::relative_time::{RelativeTimeFormat, RelativeTimeFormatPart};
+use crate_ecma402_traits::segmenter::{Segment, Segmenter};
 
 #[derive(Debug)]
 struct MockCollator;
