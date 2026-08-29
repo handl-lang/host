@@ -1,32 +1,57 @@
-use handl_plugin_ast::Expr;
-use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_parser::{GrammarRule, ParseError, ParserContext};
+//! Canonical `Handle` grammar-rule plugin.
+//!
+//! Provides the `HandleRule` and the `HandleToken` capability trait.
+//! `HandleRule` implements `ParserBehavior<K>` for the `handl-plugin-ext-parser`
+//! Pratt engine.
 
-/// Token capability required by the Handle grammar rule.
+use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
+use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
+use handl_plugin_lexer::{Token, TokenKind};
+use serde_json::json;
+
+/// Token capability required by the handle grammar rule.
 pub trait HandleToken: TokenKind {
+    /// Returns `true` for the `handle` keyword token.
     fn is_handle(&self) -> bool;
 }
 
-/// Handle grammar rule
+/// Grammar rule that parses `handle` expressions: `handle expr`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct HandleRule;
 
-impl<K, N> GrammarRule<K, N> for HandleRule
-where
-    K: HandleToken,
-    N: Expr,
-{
+impl<K: HandleToken> Behavior<Parser<K>> for HandleRule {
+    fn kind(&self) -> &str {
+        "handle"
+    }
+
+    fn apply(
+        &self,
+        _op: &mut <Parser<K> as Operation>::Request,
+    ) -> Result<(), PlatformError> {
+        Ok(())
+    }
+}
+
+impl<K: HandleToken> ParserBehavior<K> for HandleRule {
     fn matches_prefix(&self, kind: &K) -> bool {
         kind.is_handle()
     }
 
     fn prefix(
         &self,
-        _token: Token<K>,
-        ctx: &mut dyn ParserContext<K, N>,
-    ) -> Result<N, ParseError> {
+        token: Token<K>,
+        ctx: &mut ParserContext<'_, K>,
+    ) -> Result<AstNode, PlatformError> {
         let expr = ctx.expression(0)?;
-        Ok(N::handle(expr))
+
+        let start = token.span.start;
+        let end = expr.span.map_or(start, |s| s.end);
+
+        Ok(AstNode {
+            kind: "handle".into(),
+            span: Some(Span { start, end }),
+            payload: json!({ "expr": &expr }),
+        })
     }
 
     fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
@@ -35,14 +60,11 @@ where
 
     fn infix(
         &self,
-        _left: N,
+        _left: AstNode,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
+        _ctx: &mut ParserContext<'_, K>,
         _rbp: u32,
-    ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Handle is prefix-only".into(),
-        })
+    ) -> Result<AstNode, PlatformError> {
+        unreachable!("HandleRule is a prefix rule and cannot be used as an infix operator")
     }
 }

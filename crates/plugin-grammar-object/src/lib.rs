@@ -1,61 +1,76 @@
-use handl_plugin_ast::Expr;
-use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_parser::{GrammarRule, ParseError, ParserContext};
+//! Canonical `Object` grammar-rule plugin.
+//!
+//! Provides the `ObjectRule` and the `ObjectToken` capability trait.
+//! `ObjectRule` implements `ParserBehavior<K>` for the `handl-plugin-ext-parser`
+//! Pratt engine.
 
-/// Token capability required by the Object grammar rule.
+use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
+use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
+use handl_plugin_lexer::{Token, TokenKind};
+use serde_json::{json, Value};
+
+/// Token capability required by the object grammar rule.
 pub trait ObjectToken: TokenKind {
+    /// Returns `true` for the opening brace token, e.g. `{`.
     fn is_brace_open(&self) -> bool;
+    /// Returns `true` for the closing brace token, e.g. `}`.
     fn is_brace_close(&self) -> bool;
+    /// Returns `true` for the entry-separator token, e.g. `,`.
     fn is_comma(&self) -> bool;
+    /// Returns `true` for the key-value separator token, e.g. `:`.
     fn is_colon(&self) -> bool;
+    /// If this token can serve as an object key, returns its text.
     fn as_object_key(&self) -> Option<String>;
 }
 
-/// Object grammar rule
+/// Grammar rule that parses object literals: `{key: value, ...}`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ObjectRule;
 
-impl<K, N> GrammarRule<K, N> for ObjectRule
-where
-    K: ObjectToken,
-    N: Expr,
-{
+impl<K: ObjectToken> Behavior<Parser<K>> for ObjectRule {
+    fn kind(&self) -> &str {
+        "object"
+    }
+
+    fn apply(
+        &self,
+        _op: &mut <Parser<K> as Operation>::Request,
+    ) -> Result<(), PlatformError> {
+        Ok(())
+    }
+}
+
+impl<K: ObjectToken> ParserBehavior<K> for ObjectRule {
     fn matches_prefix(&self, kind: &K) -> bool {
         kind.is_brace_open()
     }
 
     fn prefix(
         &self,
-        _token: Token<K>,
-        ctx: &mut dyn ParserContext<K, N>,
-    ) -> Result<N, ParseError> {
-        let mut entries = Vec::new();
+        token: Token<K>,
+        ctx: &mut ParserContext<'_, K>,
+    ) -> Result<AstNode, PlatformError> {
+        let mut entries: Vec<(String, AstNode)> = Vec::new();
 
-        if !ctx.peek_kind().as_ref().map_or(true, |k| k.is_brace_close()) {
+        if !ctx.peek().map_or(true, |t| t.kind.is_brace_close()) {
             loop {
-                let key_tok = ctx.advance()?.clone();
+                let key_tok = ctx.advance()?;
                 let key = key_tok
                     .kind
                     .as_object_key()
-                    .ok_or_else(|| ParseError::UnexpectedToken {
-                        span: key_tok.span,
-                        expected: "object key".into(),
-                    })?;
+                    .ok_or_else(|| PlatformError::Plugin(format!("expected an object key, got {}", key_tok.kind)))?;
 
                 let colon = ctx.advance()?;
                 if !colon.kind.is_colon() {
-                    return Err(ParseError::UnexpectedToken {
-                        span: colon.span,
-                        expected: "`:`".into(),
-                    });
+                    return Err(PlatformError::Plugin(format!("expected `:`, got {}", colon.kind)));
                 }
 
                 let value = ctx.expression(0)?;
                 entries.push((key, value));
 
-                match ctx.peek_kind() {
-                    Some(ref k) if k.is_brace_close() => break,
-                    Some(ref k) if k.is_comma() => {
+                match ctx.peek() {
+                    Some(t) if t.kind.is_brace_close() => break,
+                    Some(t) if t.kind.is_comma() => {
                         ctx.advance()?;
                     }
                     Some(_) | None => break,
@@ -65,13 +80,22 @@ where
 
         let close = ctx.advance()?;
         if !close.kind.is_brace_close() {
-            return Err(ParseError::UnexpectedToken {
-                span: close.span,
-                expected: "`}`".into(),
-            });
+            return Err(PlatformError::Plugin(format!("expected `}}`, got {}", close.kind)));
         }
 
-        Ok(N::object(entries))
+        let start = token.span.start;
+        let end = close.span.end;
+
+        let entries_json: Vec<Value> = entries
+            .iter()
+            .map(|(k, v)| json!({"key": k, "value": v}))
+            .collect();
+
+        Ok(AstNode {
+            kind: "object".into(),
+            span: Some(Span { start, end }),
+            payload: json!({ "entries": entries_json }),
+        })
     }
 
     fn infix_binding(&self, _kind: &K) -> Option<(u32, u32)> {
@@ -80,14 +104,11 @@ where
 
     fn infix(
         &self,
-        _left: N,
+        _left: AstNode,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
+        _ctx: &mut ParserContext<'_, K>,
         _rbp: u32,
-    ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Object is prefix-only".into(),
-        })
+    ) -> Result<AstNode, PlatformError> {
+        unreachable!("ObjectRule is a prefix rule and cannot be used as an infix operator")
     }
 }

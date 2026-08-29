@@ -60,15 +60,15 @@ use handl_plugin_ast_match::Match;
 use handl_plugin_ast_object::Object;
 use handl_plugin_ast_pipe::Pipe;
 use handl_plugin_ast_var::Var;
-use handl_plugin_grammar_apply::ApplyToken;
-use handl_plugin_grammar_array::ArrayToken;
-use handl_plugin_grammar_assign::AssignToken;
+use handl_plugin_grammar_apply::{ApplyRule, ApplyToken};
+use handl_plugin_grammar_array::{ArrayRule, ArrayToken};
+use handl_plugin_grammar_assign::{AssignRule, AssignToken};
 use handl_plugin_grammar_call::{CallRule, CallToken};
-use handl_plugin_grammar_handle::HandleToken;
+use handl_plugin_grammar_handle::{HandleRule, HandleToken};
 use handl_plugin_grammar_index::{IndexRule, IndexToken};
 use handl_plugin_grammar_let::{LetRule, LetToken};
-use handl_plugin_grammar_match::MatchToken;
-use handl_plugin_grammar_object::ObjectToken;
+use handl_plugin_grammar_match::{MatchRule, MatchToken};
+use handl_plugin_grammar_object::{ObjectRule, ObjectToken};
 use handl_plugin_grammar_pipe::{PipeRule, PipeToken};
 use handl_plugin_grammar_primary_identifier::{IdentToken, IdentifierRule};
 use handl_plugin_grammar_primary_value::{ValueRule, ValueToken};
@@ -976,8 +976,87 @@ fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
 
             Ok(KitNode::Let(Box::new(Let::new(name.into(), value))))
         }
+        "assign" => {
+            let target = ast
+                .payload
+                .get("target")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'target' field in assign AST payload".into()))?;
+            let target_ast: AstNode = serde_json::from_value(target)
+                .map_err(|e| PlatformError::Plugin(format!("invalid target in assign AST: {e}")))?;
+            let target = ast_to_kitnode(&target_ast)?;
+
+            let value = ast
+                .payload
+                .get("value")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'value' field in assign AST payload".into()))?;
+            let value_ast: AstNode = serde_json::from_value(value)
+                .map_err(|e| PlatformError::Plugin(format!("invalid value in assign AST: {e}")))?;
+            let value = ast_to_kitnode(&value_ast)?;
+
+            Ok(KitNode::Assign(Box::new(Assign::new(target, value))))
+        }
+        "array" => {
+            let elements = ast
+                .payload
+                .get("elements")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| PlatformError::Plugin("missing 'elements' field in array AST payload".into()))?;
+            let mut elems = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let elem_ast: AstNode = serde_json::from_value(elem.clone())
+                    .map_err(|e| PlatformError::Plugin(format!("invalid element in array AST: {e}")))?;
+                elems.push(ast_to_kitnode(&elem_ast)?);
+            }
+            Ok(KitNode::Array(Array::new(elems)))
+        }
+        "object" => {
+            let entries = ast
+                .payload
+                .get("entries")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| PlatformError::Plugin("missing 'entries' field in object AST payload".into()))?;
+            let mut pairs = Vec::with_capacity(entries.len());
+            for entry in entries {
+                let key = entry
+                    .get("key")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| PlatformError::Plugin("missing 'key' in object entry".into()))?;
+                let value_val = entry
+                    .get("value")
+                    .cloned()
+                    .ok_or_else(|| PlatformError::Plugin("missing 'value' in object entry".into()))?;
+                let value_ast: AstNode = serde_json::from_value(value_val)
+                    .map_err(|e| PlatformError::Plugin(format!("invalid value in object entry: {e}")))?;
+                pairs.push((key.to_string(), ast_to_kitnode(&value_ast)?));
+            }
+            Ok(KitNode::Object(Object::new(pairs)))
+        }
+        "match" => {
+            let subject = ast
+                .payload
+                .get("subject")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'subject' field in match AST payload".into()))?;
+            let subject_ast: AstNode = serde_json::from_value(subject)
+                .map_err(|e| PlatformError::Plugin(format!("invalid subject in match AST: {e}")))?;
+            let subject = ast_to_kitnode(&subject_ast)?;
+            Ok(KitNode::Match(Box::new(Match::new(subject))))
+        }
+        "handle" => {
+            let expr = ast
+                .payload
+                .get("expr")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'expr' field in handle AST payload".into()))?;
+            let expr_ast: AstNode = serde_json::from_value(expr)
+                .map_err(|e| PlatformError::Plugin(format!("invalid expr in handle AST: {e}")))?;
+            let expr = ast_to_kitnode(&expr_ast)?;
+            Ok(KitNode::Handle(Box::new(Handle::new(expr))))
+        }
         _ => Err(PlatformError::Plugin(format!(
-            "expected a 'value', 'var', 'call', 'index', 'pipe', or 'let' AST node, got '{}'",
+            "unsupported AST node kind '{}'",
             ast.kind
         ))),
     }
@@ -1017,6 +1096,12 @@ impl Kit {
         parser.accept(Box::new(IndexRule))?;
         parser.accept(Box::new(PipeRule))?;
         parser.accept(Box::new(LetRule))?;
+        parser.accept(Box::new(ApplyRule))?;
+        parser.accept(Box::new(AssignRule))?;
+        parser.accept(Box::new(ArrayRule))?;
+        parser.accept(Box::new(ObjectRule))?;
+        parser.accept(Box::new(MatchRule))?;
+        parser.accept(Box::new(HandleRule))?;
         let ast = parser.parse(&tokens)?;
         ast_to_kitnode(&ast)
     }
@@ -1079,6 +1164,12 @@ impl Plugin for CanonicalKit {
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IndexRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(PipeRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(LetRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ApplyRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(AssignRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ArrayRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ObjectRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(MatchRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(HandleRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
@@ -1222,5 +1313,61 @@ mod tests {
     fn parse_module_unsupported() {
         let kit = Kit::new();
         assert!(matches!(kit.parse_module(""), Err(PlatformError::NotImplemented)));
+    }
+
+    #[test]
+    fn parse_apply() {
+        let kit = Kit::new();
+        let node = kit.parse("(1)").unwrap();
+        assert_eq!(node, KitNode::Literal(KitValue::Number(1.0)));
+    }
+
+    #[test]
+    fn parse_assign() {
+        let kit = Kit::new();
+        let node = kit.parse("a = 1").unwrap();
+        let expected = KitNode::Assign(Box::new(Assign::new(
+            KitNode::Var(Var::new("a".into())),
+            KitNode::Literal(KitValue::Number(1.0)),
+        )));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_array() {
+        let kit = Kit::new();
+        let node = kit.parse("[1, 2]").unwrap();
+        let expected = KitNode::Array(Array::new(vec![
+            KitNode::Literal(KitValue::Number(1.0)),
+            KitNode::Literal(KitValue::Number(2.0)),
+        ]));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_object() {
+        let kit = Kit::new();
+        let node = kit.parse("{a: 1}").unwrap();
+        let expected = KitNode::Object(Object::new(vec![(
+            "a".into(),
+            KitNode::Literal(KitValue::Number(1.0)),
+        )]));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_match() {
+        let kit = Kit::new();
+        let node = kit.parse("match x").unwrap();
+        let expected = KitNode::Match(Box::new(Match::new(KitNode::Var(Var::new("x".into())))));
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn parse_handle() {
+        let kit = Kit::new();
+        let node = kit.parse("handle x").unwrap();
+        let expected = KitNode::Handle(Box::new(Handle::new(KitNode::Var(Var::new("x".into())))));
+        assert_eq!(node, expected);
     }
 }

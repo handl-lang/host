@@ -720,6 +720,7 @@ name = "handl-host-lsp"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-applier",
  "handl-plugin-ext-lsp",
  "serde_json",
 ]
@@ -1155,27 +1156,29 @@ dependencies = [
 name = "handl-plugin-grammar-apply"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-array"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-assign"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]
@@ -1203,9 +1206,10 @@ dependencies = [
 name = "handl-plugin-grammar-handle"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]
@@ -1281,18 +1285,20 @@ dependencies = [
 name = "handl-plugin-grammar-match"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-object"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]

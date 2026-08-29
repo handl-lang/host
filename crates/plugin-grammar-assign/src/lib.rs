@@ -1,21 +1,38 @@
-use handl_plugin_ast::Expr;
-use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_parser::{GrammarRule, ParseError, ParserContext};
+//! Canonical `Assign` grammar-rule plugin.
+//!
+//! Provides the `AssignRule` and the `AssignToken` capability trait.
+//! `AssignRule` implements `ParserBehavior<K>` for the `handl-plugin-ext-parser`
+//! Pratt engine.
 
-/// Token capability required by the Assign grammar rule.
+use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
+use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
+use handl_plugin_lexer::{Token, TokenKind};
+use serde_json::json;
+
+/// Token capability required by the assign grammar rule.
 pub trait AssignToken: TokenKind {
+    /// Returns `true` for the assignment operator token, e.g. `=`.
     fn is_equal(&self) -> bool;
 }
 
-/// Assign grammar rule
+/// Grammar rule that parses infix assignment: `target = value`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AssignRule;
 
-impl<K, N> GrammarRule<K, N> for AssignRule
-where
-    K: AssignToken,
-    N: Expr,
-{
+impl<K: AssignToken> Behavior<Parser<K>> for AssignRule {
+    fn kind(&self) -> &str {
+        "assign"
+    }
+
+    fn apply(
+        &self,
+        _op: &mut <Parser<K> as Operation>::Request,
+    ) -> Result<(), PlatformError> {
+        Ok(())
+    }
+}
+
+impl<K: AssignToken> ParserBehavior<K> for AssignRule {
     fn matches_prefix(&self, _kind: &K) -> bool {
         false
     }
@@ -23,12 +40,9 @@ where
     fn prefix(
         &self,
         _token: Token<K>,
-        _ctx: &mut dyn ParserContext<K, N>,
-    ) -> Result<N, ParseError> {
-        Err(ParseError::UnexpectedToken {
-            span: _token.span,
-            expected: "Assign prefix not yet implemented".into(),
-        })
+        _ctx: &mut ParserContext<'_, K>,
+    ) -> Result<AstNode, PlatformError> {
+        unreachable!("AssignRule is an infix rule and cannot be used as a prefix operator")
     }
 
     fn infix_binding(&self, kind: &K) -> Option<(u32, u32)> {
@@ -41,12 +55,23 @@ where
 
     fn infix(
         &self,
-        left: N,
+        left: AstNode,
         _token: Token<K>,
-        ctx: &mut dyn ParserContext<K, N>,
+        ctx: &mut ParserContext<'_, K>,
         rbp: u32,
-    ) -> Result<N, ParseError> {
+    ) -> Result<AstNode, PlatformError> {
         let value = ctx.expression(rbp)?;
-        Ok(N::assign(left, value))
+
+        let start = left.span.map_or(0, |s| s.start);
+        let end = value.span.map_or(start, |s| s.end);
+
+        Ok(AstNode {
+            kind: "assign".into(),
+            span: Some(Span { start, end }),
+            payload: json!({
+                "target": &left,
+                "value": &value,
+            }),
+        })
     }
 }
