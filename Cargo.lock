@@ -2237,24 +2237,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-schema"
-version = "0.1.0"
-dependencies = [
- "handl-source",
- "handl-vm-values-json",
- "serde_json",
-]
-
-[[package]]
 name = "handl-source"
 version = "0.1.0"
 dependencies = [
  "serde_json",
 ]
-
-[[package]]
-name = "handl-syntax"
-version = "0.1.0"
 
 [[package]]
 name = "handl-target-native"

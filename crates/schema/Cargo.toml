@@ -1,9 +1,0 @@
-[package]
-name = "handl-schema"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-source.workspace = true
-handl-vm-values-json.workspace = true
-serde_json.workspace = true
