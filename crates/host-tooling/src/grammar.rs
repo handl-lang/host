@@ -169,6 +169,18 @@ pub fn generate_textmate(info: &GrammarInfo) -> Value {
         );
     }
 
+    // Function calls (identifier followed by open paren)
+    repository.insert(
+        "function_calls".into(),
+        json!({
+            "match": format!("({})\\s*(\\()", info.identifier_regex),
+            "captures": {
+                "1": { "name": "entity.name.function" },
+                "2": { "name": "punctuation" }
+            }
+        }),
+    );
+
     // Identifiers (must come after keywords so they don't shadow)
     repository.insert(
         "identifiers".into(),
@@ -210,6 +222,7 @@ pub fn generate_textmate(info: &GrammarInfo) -> Value {
     if !info.delimiters.is_empty() {
         patterns.push(json!({ "include": "#delimiters" }));
     }
+    patterns.push(json!({ "include": "#function_calls" }));
     patterns.push(json!({ "include": "#identifiers" }));
 
     json!({

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::protocol::{send_error, send_notification, send_response};
+use crate::protocol::{send_error, send_log_message, send_notification, send_response};
 
 fn extract_body(raw: &[u8]) -> String {
     let s = String::from_utf8_lossy(raw);
@@ -93,4 +93,19 @@ fn send_notification_has_no_id() {
     assert!(parsed.get("id").is_none() || parsed["id"].is_null());
     assert!(parsed.get("result").is_none());
     assert!(parsed.get("error").is_none());
+}
+
+#[test]
+fn send_log_message_writes_log_notification() {
+    let mut buf = Vec::new();
+    send_log_message(&mut buf, 3, "hello");
+
+    let body = extract_body(&buf);
+    let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(parsed["jsonrpc"], "2.0");
+    assert_eq!(parsed["method"], "window/logMessage");
+    assert_eq!(parsed["params"]["type"], 3);
+    assert_eq!(parsed["params"]["message"], "hello");
+    assert!(parsed.get("id").is_none() || parsed["id"].is_null());
 }

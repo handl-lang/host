@@ -3,6 +3,12 @@ const { LanguageClient, TransportKind } = require("vscode-languageclient");
 const path = require("path");
 const fs = require("fs");
 
+// Dev workflow: run `npm run dev` in editor-support/vscode to package and
+// install the extension, then reload the VS Code window
+// (Command Palette > Developer: Reload Window) to pick up changes.
+
+let client = null;
+
 function resolveServerPath() {
   const config = vscode.workspace.getConfiguration("handl-lsp");
   const configured = config.get("server.path");
@@ -28,7 +34,6 @@ function activate(context) {
 
   console.log("[handl-lsp] server path:", serverPath);
 
-  let client;
   try {
     const { LanguageClient, TransportKind } = require("vscode-languageclient");
     console.log("[handl-lsp] vscode-languageclient loaded");
@@ -70,6 +75,11 @@ function activate(context) {
   }
 }
 
-function deactivate() {}
+function deactivate() {
+  if (!client) {
+    return undefined;
+  }
+  return client.stop();
+}
 
 module.exports = { activate, deactivate };

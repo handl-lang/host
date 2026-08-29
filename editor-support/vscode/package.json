@@ -41,6 +41,11 @@
   "dependencies": {
     "vscode-languageclient": "^9.0.0"
   },
+  "scripts": {
+    "package": "vsce package",
+    "install-local": "code --install-extension handl-lsp-*.vsix --force",
+    "dev": "vsce package && code --install-extension handl-lsp-*.vsix --force"
+  },
   "devDependencies": {
     "@types/vscode": "^1.80.0"
   }

@@ -133,11 +133,27 @@ fn generate_textmate_patterns_in_correct_order() {
     let doc_comments_pos = includes.iter().position(|s| *s == "#doc_comments");
     let comments_pos = includes.iter().position(|s| *s == "#comments");
     let keywords_pos = includes.iter().position(|s| *s == "#keywords");
+    let function_calls_pos = includes.iter().position(|s| *s == "#function_calls");
     let identifiers_pos = includes.iter().position(|s| *s == "#identifiers");
 
     assert!(doc_comments_pos < comments_pos);
     assert!(comments_pos < keywords_pos);
     assert!(keywords_pos < identifiers_pos);
+    assert!(function_calls_pos < identifiers_pos);
+}
+
+#[test]
+fn generate_textmate_includes_function_calls() {
+    let info = sample_info();
+    let grammar = generate_textmate(&info);
+
+    let repo = &grammar["repository"];
+    assert!(repo.get("function_calls").is_some());
+    let match_str = repo["function_calls"]["match"].as_str().unwrap();
+    assert!(match_str.contains(info.identifier_regex.as_str()));
+    assert!(match_str.contains(r"\("));
+    let captures = &repo["function_calls"]["captures"];
+    assert_eq!(captures["1"]["name"], "entity.name.function");
 }
 
 #[test]

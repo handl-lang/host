@@ -41,6 +41,11 @@ pub fn send_notification(writer: &mut impl Write, method: &str, params: Value) {
     write_message(writer, &notification);
 }
 
+pub fn send_log_message(writer: &mut impl Write, level: u32, message: &str) {
+    let params = json!({ "type": level, "message": message });
+    send_notification(writer, "window/logMessage", params);
+}
+
 fn write_message(writer: &mut impl Write, body: &Value) {
     let serialized = serde_json::to_string(body).unwrap();
     let _ = write!(

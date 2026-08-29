@@ -9,3 +9,7 @@ test/**
 .eslintrc*
 README.md
 settings.json
+node_modules/@types/**
+node_modules/.bin/**
+*.vsix
+package-lock.json
