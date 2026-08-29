@@ -2216,6 +2216,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-syntax"
+version = "0.1.0"
+
+[[package]]
 name = "handl-target-native"
 version = "0.1.0"
 dependencies = [

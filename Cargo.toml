@@ -154,6 +154,7 @@ members = [
     "crates/plugin-typecheck-core",
     "crates/runtime",
     "crates/source",
+    "crates/syntax",
     "crates/target-native",
     "crates/tooling",
     "crates/typecheck-core",
@@ -340,6 +341,7 @@ handl-plugin-token-string = { path = "crates/plugin-token-string" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-runtime = { path = "crates/runtime" }
 handl-source = { path = "crates/source" }
+handl-syntax = { path = "crates/syntax" }
 handl-target-native = { path = "crates/target-native" }
 handl-tooling = { path = "crates/tooling" }
 handl-typecheck-core = { path = "crates/typecheck-core" }
