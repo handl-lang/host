@@ -70,7 +70,10 @@ export default defineConfig({
             { text: "Runtime", link: "/explanation/runtime" },
             { text: "Platform architecture", link: "/explanation/platform-architecture" },
             { text: "The composable host", link: "/explanation/composable-host" },
-            { text: "Plugins, rules, and operations", link: "/explanation/plugins-rules-operations" },
+            {
+              text: "Plugins, rules, and operations",
+              link: "/explanation/plugins-rules-operations",
+            },
             { text: "Kits and manifests", link: "/explanation/kits-and-manifests" },
             { text: "Options and configuration", link: "/explanation/options-and-configuration" },
             { text: "Security and trust", link: "/explanation/security-and-trust" },

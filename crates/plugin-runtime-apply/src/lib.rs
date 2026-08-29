@@ -48,7 +48,11 @@ impl RuntimeBehavior for ApplyFamily {
                         got: call_args.len(),
                     });
                 }
-                let mut vars = ctx.collect_vars();
+                let mut vars: Vec<(String, NonFunctionValue)> = fv
+                    .captured
+                    .iter()
+                    .map(|(n, v)| (n.clone(), NonFunctionValue::new(v.clone())))
+                    .collect();
                 let param_vars: Vec<(String, NonFunctionValue)> = fv
                     .params
                     .iter()
@@ -77,7 +81,11 @@ impl RuntimeBehavior for ApplyFamily {
                         got: fv.params.len(),
                     });
                 }
-                let mut vars = ctx.collect_vars();
+                let mut vars: Vec<(String, NonFunctionValue)> = fv
+                    .captured
+                    .iter()
+                    .map(|(n, v)| (n.clone(), NonFunctionValue::new(v.clone())))
+                    .collect();
                 let name = fv.params[0].0.clone();
                 if let Some(slot) = vars.iter_mut().find(|(n, _)| n == &name) {
                     slot.1 = left.clone();

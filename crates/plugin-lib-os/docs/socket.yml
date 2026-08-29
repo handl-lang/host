@@ -12,44 +12,44 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - socket.connect()
+      - socket.connect()
     see: []
   send:
     description: Call `socket.send`.
     details: Given socket.send.
-    signature: 'socket.send(arg0: any, arg1: String)'
+    signature: "socket.send(arg0: any, arg1: String)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    - name: arg1
-      type: String
-      description: the 1th String argument
-    return_value: 'null'
+      - name: arg0
+        type: any
+        description: the 0th any argument
+      - name: arg1
+        type: String
+        description: the 1th String argument
+    return_value: "null"
     examples:
-    - socket.send("x", "x")
+      - socket.send("x", "x")
     see: []
   recv:
     description: Call `socket.recv`.
     details: Given socket.recv.
-    signature: 'socket.recv(arg0: any, arg1: any)'
+    signature: "socket.recv(arg0: any, arg1: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    - name: arg1
-      type: any
-      description: the 1th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
+      - name: arg1
+        type: any
+        description: the 1th any argument
     return_value: type.any
     examples:
-    - socket.recv("x", "x")
+      - socket.recv("x", "x")
     see: []
   close:
     description: Call `socket.close`.
     details: Given socket.close.
     signature: socket.close()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - socket.close()
+      - socket.close()
     see: []

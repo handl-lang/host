@@ -8,48 +8,48 @@ functions:
   spawn:
     description: Call `process.spawn`.
     details: Given process.spawn.
-    signature: 'process.spawn(arg0: any)'
+    signature: "process.spawn(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - process.spawn("x")
+      - process.spawn("x")
     see: []
   kill:
     description: Call `process.kill`.
     details: Given process.kill.
-    signature: 'process.kill(arg0: any)'
+    signature: "process.kill(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    return_value: 'null'
+      - name: arg0
+        type: any
+        description: the 0th any argument
+    return_value: "null"
     examples:
-    - process.kill("x")
+      - process.kill("x")
     see: []
   wait:
     description: Call `process.wait`.
     details: Given process.wait.
-    signature: 'process.wait(arg0: any)'
+    signature: "process.wait(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - process.wait("x")
+      - process.wait("x")
     see: []
   status:
     description: Call `process.status`.
     details: Given process.status.
-    signature: 'process.status(arg0: any)'
+    signature: "process.status(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - process.status("x")
+      - process.status("x")
     see: []

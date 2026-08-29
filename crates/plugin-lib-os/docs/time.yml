@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - time.now()
+      - time.now()
     see: []
   epoch:
     description: Call `time.epoch`.
@@ -21,5 +21,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - time.epoch()
+      - time.epoch()
     see: []

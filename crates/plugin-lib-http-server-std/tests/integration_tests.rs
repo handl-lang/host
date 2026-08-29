@@ -265,6 +265,7 @@ fn function_value_handler_returns_string() {
         return_schema: None,
         body: "\"hello\"".to_string(),
         patterns: Vec::new(),
+            captured: Vec::new(),
     };
     let server = StdHttpServer::new();
     server
@@ -292,6 +293,7 @@ fn function_value_handler_uses_path_param() {
         return_schema: None,
         body: "name".to_string(),
         patterns: Vec::new(),
+            captured: Vec::new(),
     };
     let server = StdHttpServer::new();
     server

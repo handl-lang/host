@@ -64,19 +64,19 @@ hnl --config .handl-no-fmt.toml fmt 'hello.greet("world")'
 
 ### Available kits
 
-| Kit         | Description                                          |
-|-------------|------------------------------------------------------|
+| Kit         | Description                                           |
+| ----------- | ----------------------------------------------------- |
 | `canonical` | Core language: lexer, parser, formatter, linter, etc. |
-| `hello`     | Canonical + `hello.greet()` library                  |
+| `hello`     | Canonical + `hello.greet()` library                   |
 | `cli`       | Canonical + OS utils (`fs.*`, `env.*`, `str.*`, etc.) |
-| `config`    | Pure library plugins (no side effects)               |
-| `server`    | Server-related plugins                               |
+| `config`    | Pure library plugins (no side effects)                |
+| `server`    | Server-related plugins                                |
 
 ### `.handl.toml` fields
 
-| Field          | Type        | Description                                                              |
-|----------------|-------------|--------------------------------------------------------------------------|
-| `[[kit]]`      | table array | Kit to load. `include` = kit name, `exclude` = plugin ids to exclude    |
-| `[[plugin]]`   | table array | Plugin to register. `register` = plugin id, `manifest` = path to JSON   |
-| `exclude`      | string array| Global plugin ids to exclude from composition                           |
-| `[options]`    | key-value   | Option overrides keyed by option id                                      |
+| Field        | Type         | Description                                                           |
+| ------------ | ------------ | --------------------------------------------------------------------- |
+| `[[kit]]`    | table array  | Kit to load. `include` = kit name, `exclude` = plugin ids to exclude  |
+| `[[plugin]]` | table array  | Plugin to register. `register` = plugin id, `manifest` = path to JSON |
+| `exclude`    | string array | Global plugin ids to exclude from composition                         |
+| `[options]`  | key-value    | Option overrides keyed by option id                                   |

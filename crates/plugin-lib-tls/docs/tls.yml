@@ -16,7 +16,7 @@ functions:
       - `versions` (array<string>): supported TLS protocol versions (`"1.2"` and `"1.3"`).
 
       This is useful for feature sniffing and debugging TLS capabilities.
-    signature: 'tls.version() -> object'
+    signature: "tls.version() -> object"
     params: []
     return_value: object
     examples:
@@ -40,7 +40,7 @@ functions:
 
       - `tls.generate_self_signed("localhost")` — certificate for a single host.
       - `tls.generate_self_signed(["localhost", "example.com"])` — certificate for multiple hosts.
-    signature: 'tls.generate_self_signed(hosts: string | array<string>) -> object'
+    signature: "tls.generate_self_signed(hosts: string | array<string>) -> object"
     params:
       - name: hosts
         type: string | array<string>
@@ -62,7 +62,7 @@ functions:
 
       An empty string or input without certificate blocks returns `{ count: 0, valid: false }`.
       Malformed PEM raises an error.
-    signature: 'tls.parse_cert(pem: string) -> object'
+    signature: "tls.parse_cert(pem: string) -> object"
     params:
       - name: pem
         type: string
@@ -82,7 +82,7 @@ functions:
 
       Raises an error if the PEM contains no certificates or if the certificate data
       cannot be decoded.
-    signature: 'tls.fingerprint(pem: string) -> string'
+    signature: "tls.fingerprint(pem: string) -> string"
     params:
       - name: pem
         type: string
@@ -102,7 +102,7 @@ functions:
       - `key` (string | null): optional PEM-encoded client private key. Required when `cert` is provided.
 
       Returns a numeric `config_id` that can be passed to `tls.connect`.
-    signature: 'tls.client_config(roots: array<string>, cert?: string, key?: string) -> number'
+    signature: "tls.client_config(roots: array<string>, cert?: string, key?: string) -> number"
     params:
       - name: roots
         type: array<string>
@@ -128,7 +128,7 @@ functions:
       - `key` (string): PEM-encoded private key.
 
       Returns a numeric `config_id` that can be passed to `tls.accept`.
-    signature: 'tls.server_config(cert: string, key: string) -> number'
+    signature: "tls.server_config(cert: string, key: string) -> number"
     params:
       - name: cert
         type: string
@@ -151,7 +151,7 @@ functions:
       - `config_id` (number): a configuration id returned by `tls.client_config`.
 
       Returns a numeric `conn_id` that can be used with `tls.read`, `tls.write`, and `tls.close_conn`.
-    signature: 'tls.connect(host: string, port: number, config_id: number) -> number'
+    signature: "tls.connect(host: string, port: number, config_id: number) -> number"
     params:
       - name: host
         type: string
@@ -178,7 +178,7 @@ functions:
       - `config_id` (number): a server configuration id returned by `tls.server_config`.
 
       Returns a numeric `conn_id` that can be used with `tls.read`, `tls.write`, and `tls.close_conn`.
-    signature: 'tls.accept(addr: string, port: number, config_id: number) -> number'
+    signature: "tls.accept(addr: string, port: number, config_id: number) -> number"
     params:
       - name: addr
         type: string
@@ -203,7 +203,7 @@ functions:
       - `len` (number): the maximum number of bytes to read.
 
       Returns the read bytes as a string. The returned string may be shorter than `len`.
-    signature: 'tls.read(conn_id: number, len: number) -> string'
+    signature: "tls.read(conn_id: number, len: number) -> string"
     params:
       - name: conn_id
         type: number
@@ -222,7 +222,7 @@ functions:
 
       - `conn_id` (number): the connection to write to.
       - `data` (string): the data to write.
-    signature: 'tls.write(conn_id: number, data: string) -> null'
+    signature: "tls.write(conn_id: number, data: string) -> null"
     params:
       - name: conn_id
         type: number
@@ -230,7 +230,7 @@ functions:
       - name: data
         type: string
         description: the data to write
-    return_value: 'null'
+    return_value: "null"
     examples:
       - tls.write(conn_id, "hello")
     see: []
@@ -240,12 +240,12 @@ functions:
       `tls.close_conn(conn_id)` closes the connection identified by `conn_id`.
 
       - `conn_id` (number): the connection to close.
-    signature: 'tls.close_conn(conn_id: number) -> null'
+    signature: "tls.close_conn(conn_id: number) -> null"
     params:
       - name: conn_id
         type: number
         description: the connection to close
-    return_value: 'null'
+    return_value: "null"
     examples:
       - tls.close_conn(conn_id)
     see: []
@@ -256,12 +256,12 @@ functions:
       The exact behavior depends on the active TLS backend.
 
       - `listener_id` (number): the listener to close.
-    signature: 'tls.close_listener(listener_id: number) -> null'
+    signature: "tls.close_listener(listener_id: number) -> null"
     params:
       - name: listener_id
         type: number
         description: the listener to close
-    return_value: 'null'
+    return_value: "null"
     examples:
       - tls.close_listener(listener_id)
     see: []

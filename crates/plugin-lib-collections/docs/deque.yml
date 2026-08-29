@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.new()
+      - collections.deque.new()
     see: []
   from:
     description: Call `collections.deque.from`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.from()
+      - collections.deque.from()
     see: []
   to_array:
     description: Call `collections.deque.to_array`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.to_array()
+      - collections.deque.to_array()
     see: []
   len:
     description: Call `collections.deque.len`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.len()
+      - collections.deque.len()
     see: []
   is_empty:
     description: Call `collections.deque.is_empty`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.is_empty()
+      - collections.deque.is_empty()
     see: []
   push_back:
     description: Call `collections.deque.push_back`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.push_back()
+      - collections.deque.push_back()
     see: []
   push_front:
     description: Call `collections.deque.push_front`.
@@ -66,7 +66,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.push_front()
+      - collections.deque.push_front()
     see: []
   pop_back:
     description: Call `collections.deque.pop_back`.
@@ -75,7 +75,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.pop_back()
+      - collections.deque.pop_back()
     see: []
   pop_front:
     description: Call `collections.deque.pop_front`.
@@ -84,7 +84,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.pop_front()
+      - collections.deque.pop_front()
     see: []
   peek_back:
     description: Call `collections.deque.peek_back`.
@@ -93,7 +93,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.peek_back()
+      - collections.deque.peek_back()
     see: []
   peek_front:
     description: Call `collections.deque.peek_front`.
@@ -102,5 +102,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.deque.peek_front()
+      - collections.deque.peek_front()
     see: []

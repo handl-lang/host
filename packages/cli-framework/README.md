@@ -15,14 +15,14 @@ The `kit-cli` crate provides the runtime modules needed to evaluate these expres
 
 ## Files
 
-| File | Description |
-|------|-------------|
-| `types.hnl` | Type definitions for `Flag`, `Command`, `ParsedArgs`, `HelpText` |
-| `parser.hnl` | Argument parsing — flag extraction, positional args, token classification |
-| `help.hnl` | Help text generation — usage strings, flag/subcommand formatting |
-| `router.hnl` | Subcommand routing — command resolution and dispatch |
-| `cli.hnl` | Main entry point — composes parser, help, and router into `run_cli` |
-| `example.hnl` | Example CLI app (`hnl build`, `hnl init`, `hnl test`) |
+| File          | Description                                                               |
+| ------------- | ------------------------------------------------------------------------- |
+| `types.hnl`   | Type definitions for `Flag`, `Command`, `ParsedArgs`, `HelpText`          |
+| `parser.hnl`  | Argument parsing — flag extraction, positional args, token classification |
+| `help.hnl`    | Help text generation — usage strings, flag/subcommand formatting          |
+| `router.hnl`  | Subcommand routing — command resolution and dispatch                      |
+| `cli.hnl`     | Main entry point — composes parser, help, and router into `run_cli`       |
+| `example.hnl` | Example CLI app (`hnl build`, `hnl init`, `hnl test`)                     |
 
 ## Usage
 
@@ -30,7 +30,7 @@ The `kit-cli` crate provides the runtime modules needed to evaluate these expres
 
 ```bash
 # Use the cli kit
-hnl --kit cli run example.hnl 
+hnl --kit cli run example.hnl
 
 # Or set it as default
 export HANDL_KIT=cli

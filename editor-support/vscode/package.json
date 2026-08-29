@@ -1,23 +1,44 @@
 {
   "name": "handl-lsp",
   "displayName": "handl Language Support",
-  "description": "Syntax highlighting and LSP semantic tokens for .hnl files",
   "version": "0.2.0",
-  "publisher": "handl-lang",
-  "engines": {
-    "vscode": "^1.80.0"
-  },
-  "categories": ["Programming Languages"],
-  "activationEvents": [
-    "onStartupFinished"
+  "description": "Syntax highlighting and LSP semantic tokens for .hnl files",
+  "categories": [
+    "Programming Languages"
   ],
+  "publisher": "handl-lang",
   "main": "./dist/extension.js",
+  "scripts": {
+    "gen-grammar": "node scripts/gen-grammar.mjs",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "build": "npm run gen-grammar && vite build",
+    "watch": "vite build --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "package": "npm run build && vsce package",
+    "install-local": "code --install-extension handl-lsp-*.vsix --force",
+    "dev": "npm run package && code --install-extension handl-lsp-*.vsix --force"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
   "contributes": {
     "languages": [
       {
         "id": "handl",
-        "extensions": [".hnl"],
-        "aliases": ["handl"]
+        "extensions": [
+          ".hnl"
+        ],
+        "aliases": [
+          "handl"
+        ]
       }
     ],
     "grammars": [
@@ -38,25 +59,10 @@
       }
     }
   },
-  "dependencies": {
-    "vscode-languageclient": "^9.0.0"
-  },
-  "scripts": {
-    "gen-grammar": "node scripts/gen-grammar.mjs",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "build": "npm run gen-grammar && vite build",
-    "watch": "vite build --watch",
-    "test": "vitest run --config vitest.config.ts",
-    "test:watch": "vitest --config vitest.config.ts",
-    "package": "npm run build && vsce package",
-    "install-local": "code --install-extension handl-lsp-*.vsix --force",
-    "dev": "npm run package && code --install-extension handl-lsp-*.vsix --force"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.80.0",
-    "typescript": "^5.4.0",
-    "vite": "^5.4.0",
-    "vitest": "^1.6.0"
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
   }
 }

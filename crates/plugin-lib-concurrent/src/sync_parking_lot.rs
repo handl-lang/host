@@ -380,6 +380,7 @@ mod tests {
             return_schema: None,
             body: body.to_string(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         }
     }
 

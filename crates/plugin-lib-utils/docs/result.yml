@@ -7,49 +7,49 @@ module:
 functions:
   err:
     description: Return the result of the `err` function on `result`.
-    details: 'Calls `result.err(value: type.any)` with the given arguments and returns
-      a `Err` result.'
+    details: "Calls `result.err(value: type.any)` with the given arguments and returns
+      a `Err` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Err
     see: []
-    signature: 'result.err(value: type.any)'
+    signature: "result.err(value: type.any)"
   is_err:
     description: Return the result of the `is_err` function on `result`.
-    details: 'Calls `result.is_err(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `result.is_err(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'result.is_err(value: type.any)'
+    signature: "result.is_err(value: type.any)"
   is_ok:
     description: Return the result of the `is_ok` function on `result`.
-    details: 'Calls `result.is_ok(value: type.any)` with the given arguments and returns
-      a `Boolean` result.'
+    details: "Calls `result.is_ok(value: type.any)` with the given arguments and returns
+      a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'result.is_ok(value: type.any)'
+    signature: "result.is_ok(value: type.any)"
   ok:
     description: Return the result of the `ok` function on `result`.
-    details: 'Calls `result.ok(value: type.any)` with the given arguments and returns
-      a `Ok` result.'
+    details: "Calls `result.ok(value: type.any)` with the given arguments and returns
+      a `Ok` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Ok
     see: []
-    signature: 'result.ok(value: type.any)'
+    signature: "result.ok(value: type.any)"

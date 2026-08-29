@@ -8,63 +8,63 @@ functions:
   read:
     description: Call `fs.read`.
     details: Given fs.read.
-    signature: 'fs.read(arg0: String)'
+    signature: "fs.read(arg0: String)"
     params:
-    - name: arg0
-      type: String
-      description: the 0th String argument
+      - name: arg0
+        type: String
+        description: the 0th String argument
     return_value: type.any
     examples:
-    - fs.read("x")
+      - fs.read("x")
     see: []
   write:
     description: Call `fs.write`.
     details: Given fs.write.
-    signature: 'fs.write(arg0: String, arg1: String)'
+    signature: "fs.write(arg0: String, arg1: String)"
     params:
-    - name: arg0
-      type: String
-      description: the 0th String argument
-    - name: arg1
-      type: String
-      description: the 1th String argument
-    return_value: 'null'
+      - name: arg0
+        type: String
+        description: the 0th String argument
+      - name: arg1
+        type: String
+        description: the 1th String argument
+    return_value: "null"
     examples:
-    - fs.write("x", "x")
+      - fs.write("x", "x")
     see: []
   exists:
     description: Call `fs.exists`.
     details: Given fs.exists.
-    signature: 'fs.exists(arg0: String)'
+    signature: "fs.exists(arg0: String)"
     params:
-    - name: arg0
-      type: String
-      description: the 0th String argument
+      - name: arg0
+        type: String
+        description: the 0th String argument
     return_value: type.any
     examples:
-    - fs.exists("x")
+      - fs.exists("x")
     see: []
   remove:
     description: Call `fs.remove`.
     details: Given fs.remove.
-    signature: 'fs.remove(arg0: String)'
+    signature: "fs.remove(arg0: String)"
     params:
-    - name: arg0
-      type: String
-      description: the 0th String argument
-    return_value: 'null'
+      - name: arg0
+        type: String
+        description: the 0th String argument
+    return_value: "null"
     examples:
-    - fs.remove("x")
+      - fs.remove("x")
     see: []
   list:
     description: Call `fs.list`.
     details: Given fs.list.
-    signature: 'fs.list(arg0: String)'
+    signature: "fs.list(arg0: String)"
     params:
-    - name: arg0
-      type: String
-      description: the 0th String argument
+      - name: arg0
+        type: String
+        description: the 0th String argument
     return_value: type.any
     examples:
-    - fs.list("x")
+      - fs.list("x")
     see: []

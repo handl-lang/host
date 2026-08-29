@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: Object
     examples:
-    - ip.cidr.parse()
+      - ip.cidr.parse()
     see: []
   format:
     description: Call `ip.cidr.format`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.cidr.format()
+      - ip.cidr.format()
     see: []
   contains:
     description: Call `ip.cidr.contains`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.cidr.contains()
+      - ip.cidr.contains()
     see: []
   network:
     description: Call `ip.cidr.network`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.cidr.network()
+      - ip.cidr.network()
     see: []
   broadcast:
     description: Call `ip.cidr.broadcast`.
@@ -48,5 +48,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.cidr.broadcast()
+      - ip.cidr.broadcast()
     see: []

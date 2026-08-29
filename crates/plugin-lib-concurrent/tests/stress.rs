@@ -69,6 +69,7 @@ fn thunk(body: &str) -> NonFunctionValue {
         return_schema: None,
         body: body.to_string(),
         patterns: Vec::new(),
+            captured: Vec::new(),
     })
 }
 
@@ -86,6 +87,7 @@ fn thread_pool_spawn_await_many() {
             return_schema: None,
             body: i.to_string(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         let task = scheduler.spawn(work, &mut ctx).unwrap();
         tasks.push(task);
@@ -122,6 +124,7 @@ fn thread_pool_cancel_stress() {
             return_schema: None,
             body: i.to_string(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         let task = scheduler
             .spawn_cancelable(token.clone(), work, &mut ctx)

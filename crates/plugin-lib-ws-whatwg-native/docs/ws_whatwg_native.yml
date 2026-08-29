@@ -7,77 +7,77 @@ module:
 functions:
   ws_whatwg_native:
     description: Return the WHATWG WebSocket spec token.
-    details: '`ws_whatwg_native.ws_whatwg_native()` returns a parser-style token for
+    details: "`ws_whatwg_native.ws_whatwg_native()` returns a parser-style token for
       the WHATWG WebSocket API.
 
-      '
+      "
     signature: ws_whatwg_native.ws_whatwg_native() -> object
     params: []
     return_value: object
     examples:
-    - ws_whatwg_native.ws_whatwg_native()
+      - ws_whatwg_native.ws_whatwg_native()
     see: []
   connect:
     description: Open a WHATWG WebSocket connection to a URL.
-    details: '`ws_whatwg_native.connect(url)` returns a connection object with `connection_id`.
+    details: "`ws_whatwg_native.connect(url)` returns a connection object with `connection_id`.
 
       Uses `tokio-tungstenite` with TLS for `wss://`.
 
-      '
-    signature: 'ws_whatwg_native.connect(url: string) -> object'
+      "
+    signature: "ws_whatwg_native.connect(url: string) -> object"
     params:
-    - name: url
-      type: string
-      description: the WebSocket URL to connect to
+      - name: url
+        type: string
+        description: the WebSocket URL to connect to
     return_value: object
     examples:
-    - let conn = ws_whatwg_native.connect("wss://example.com/")
+      - let conn = ws_whatwg_native.connect("wss://example.com/")
     see: []
   send:
     description: Send a message over a WHATWG WebSocket connection.
-    details: '`ws_whatwg_native.send(conn, msg)` queues a message on the connection.
+    details: "`ws_whatwg_native.send(conn, msg)` queues a message on the connection.
 
       `msg` may be a string or an object with `text` or `binary` keys.
 
-      '
-    signature: 'ws_whatwg_native.send(conn: object, msg: any) -> null'
+      "
+    signature: "ws_whatwg_native.send(conn: object, msg: any) -> null"
     params:
-    - name: conn
-      type: object
-      description: the connection object
-    - name: msg
-      type: any
-      description: the message to send
+      - name: conn
+        type: object
+        description: the connection object
+      - name: msg
+        type: any
+        description: the message to send
     return_value: null
     examples:
-    - ws_whatwg_native.send(conn, "hello")
+      - ws_whatwg_native.send(conn, "hello")
     see: []
   recv:
     description: Receive a message from a WHATWG WebSocket connection.
-    details: '`ws_whatwg_native.recv(conn)` returns the next queued message, or `null`
+    details: "`ws_whatwg_native.recv(conn)` returns the next queued message, or `null`
       if none.
 
-      '
-    signature: 'ws_whatwg_native.recv(conn: object) -> any'
+      "
+    signature: "ws_whatwg_native.recv(conn: object) -> any"
     params:
-    - name: conn
-      type: object
-      description: the connection object
+      - name: conn
+        type: object
+        description: the connection object
     return_value: any
     examples:
-    - ws_whatwg_native.recv(conn)
+      - ws_whatwg_native.recv(conn)
     see: []
   close:
     description: Close a WHATWG WebSocket connection.
-    details: '`ws_whatwg_native.close(conn)` closes the connection.
+    details: "`ws_whatwg_native.close(conn)` closes the connection.
 
-      '
-    signature: 'ws_whatwg_native.close(conn: object) -> null'
+      "
+    signature: "ws_whatwg_native.close(conn: object) -> null"
     params:
-    - name: conn
-      type: object
-      description: the connection object
+      - name: conn
+        type: object
+        description: the connection object
     return_value: null
     examples:
-    - ws_whatwg_native.close(conn)
+      - ws_whatwg_native.close(conn)
     see: []

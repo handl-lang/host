@@ -15,19 +15,19 @@ functions:
       \ and `min` must be <= `max`.  Examples: - `rand.int(6)` \u2192 0\u20136 inclusive\
       \ - `rand.int(1, 6)` \u2192 a die roll (1\u20136) - `rand.int(0, 100)` \u2192\
       \ 0\u2013100 inclusive"
-    signature: 'rand.int(arg0: any, arg1: any)'
+    signature: "rand.int(arg0: any, arg1: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    - name: arg1
-      type: any
-      description: the 1th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
+      - name: arg1
+        type: any
+        description: the 1th any argument
     return_value: type.any
     examples:
-    - rand.int(6)
-    - rand.int(1, 6)
-    - rand.int(0, 100)
+      - rand.int(6)
+      - rand.int(1, 6)
+      - rand.int(0, 100)
     see: []
   float:
     description: "`rand.float() \u2192 number` / `rand.float(max: number) \u2192 number`\
@@ -42,9 +42,9 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.float()
-    - rand.float(10)
-    - rand.float(10, 20)
+      - rand.float()
+      - rand.float(10)
+      - rand.float(10, 20)
     see: []
   bool:
     description: "`rand.bool() \u2192 bool`  Returns a random boolean with equal probability\
@@ -55,7 +55,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.bool()
+      - rand.bool()
     see: []
   pick:
     description: "`rand.pick(array: array) \u2192 value`  Returns a single random\
@@ -67,7 +67,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.pick(["a", "b", "c"])
+      - rand.pick(["a", "b", "c"])
     see: []
   choice:
     description: "`rand.choice(array: array, count: number) \u2192 array`  Returns\
@@ -82,7 +82,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.choice([1, 2, 3], 5)
+      - rand.choice([1, 2, 3], 5)
     see: []
   sample:
     description: "`rand.sample(array: array, count: number) \u2192 array`  Returns\
@@ -97,7 +97,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.sample([1, 2, 3, 4, 5], 3)
+      - rand.sample([1, 2, 3, 4, 5], 3)
     see: []
   shuffle:
     description: "`rand.shuffle(array: array) \u2192 array`  Returns a new array with\
@@ -110,7 +110,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.shuffle([1, 2, 3, 4, 5])
+      - rand.shuffle([1, 2, 3, 4, 5])
     see: []
   weighted_pick:
     description: "`rand.weighted_pick(items: array, weights: array<number>) \u2192\
@@ -125,7 +125,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.weighted_pick(["a", "b", "c"], [1, 1, 2])
+      - rand.weighted_pick(["a", "b", "c"], [1, 1, 2])
     see: []
   string:
     description: "`rand.string(length: number, charset?: string) \u2192 string`  Returns\
@@ -143,9 +143,9 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.string(16)
-    - rand.string(8, "hex")
-    - rand.string(10, "numeric")
+      - rand.string(16)
+      - rand.string(8, "hex")
+      - rand.string(10, "numeric")
     see: []
   bytes:
     description: "`rand.bytes(length: number) \u2192 array<number>`  Returns an array\
@@ -158,7 +158,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.bytes(8)
+      - rand.bytes(8)
     see: []
   uuid:
     description: "`rand.uuid() \u2192 string`  Returns a version-4 UUID string in\
@@ -171,7 +171,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - rand.uuid()
+      - rand.uuid()
     see: []
   gauss:
     description: "`rand.gauss(mean: number, stddev: number) \u2192 number`  Returns\
@@ -186,8 +186,8 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.gauss(0, 1)
-    - rand.gauss(100, 15)
+      - rand.gauss(0, 1)
+      - rand.gauss(100, 15)
     see: []
   exponential:
     description: "`rand.exponential(lambda: number) \u2192 number`  Returns a random\
@@ -200,8 +200,8 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.exponential(1)
-    - rand.exponential(0.5)
+      - rand.exponential(1)
+      - rand.exponential(0.5)
     see: []
   poisson:
     description: "`rand.poisson(lambda: number) \u2192 number`  Returns a random non-negative\
@@ -214,8 +214,8 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.poisson(3)
-    - rand.poisson(0)
+      - rand.poisson(3)
+      - rand.poisson(0)
     see: []
   binomial:
     description: "`rand.binomial(n: number, p: number) \u2192 number`  Returns a random\
@@ -230,8 +230,8 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.binomial(10, 0.5)
-    - rand.binomial(100, 0.1)
+      - rand.binomial(10, 0.5)
+      - rand.binomial(100, 0.1)
     see: []
   perlin_1d:
     description: "`rand.perlin_1d(x: number) \u2192 number`  Returns 1D Perlin noise\
@@ -244,7 +244,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.perlin_1d(0.5)
+      - rand.perlin_1d(0.5)
     see: []
   perlin_2d:
     description: "`rand.perlin_2d(x: number, y: number) \u2192 number`  Returns 2D\
@@ -258,7 +258,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.perlin_2d(1.0, 2.0)
+      - rand.perlin_2d(1.0, 2.0)
     see: []
   perlin_3d:
     description: "`rand.perlin_3d(x: number, y: number, z: number) \u2192 number`\
@@ -272,7 +272,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.perlin_3d(0.1, 0.2, 0.3)
+      - rand.perlin_3d(0.1, 0.2, 0.3)
     see: []
   simplex_2d:
     description: "`rand.simplex_2d(x: number, y: number) \u2192 number`  Returns 2D\
@@ -286,7 +286,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.simplex_2d(1.0, 2.0)
+      - rand.simplex_2d(1.0, 2.0)
     see: []
   simplex_3d:
     description: "`rand.simplex_3d(x: number, y: number, z: number) \u2192 number`\
@@ -301,7 +301,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.simplex_3d(0.1, 0.2, 0.3)
+      - rand.simplex_3d(0.1, 0.2, 0.3)
     see: []
   seeded_int:
     description: "`rand.seeded_int(seed: number, min: number, max: number) \u2192\
@@ -315,8 +315,8 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.seeded_int(42, 1, 6)
-    - rand.seeded_int(123, 0, 100)
+      - rand.seeded_int(42, 1, 6)
+      - rand.seeded_int(123, 0, 100)
     see: []
   seeded_float:
     description: "`rand.seeded_float(seed: number, min: number, max: number) \u2192\
@@ -328,7 +328,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.seeded_float(42, 0, 1)
+      - rand.seeded_float(42, 0, 1)
     see: []
   seeded_bool:
     description: "`rand.seeded_bool(seed: number) \u2192 bool`  Returns a deterministic\
@@ -340,7 +340,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_bool(42)
+      - rand.seeded_bool(42)
     see: []
   seeded_pick:
     description: "`rand.seeded_pick(seed: number, array: array) \u2192 value`  Returns\
@@ -352,7 +352,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_pick(42, ["a", "b", "c"])
+      - rand.seeded_pick(42, ["a", "b", "c"])
     see: []
   seeded_choice:
     description: "`rand.seeded_choice(seed: number, array: array, count: number) \u2192\
@@ -366,7 +366,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_choice(42, [1, 2, 3], 5)
+      - rand.seeded_choice(42, [1, 2, 3], 5)
     see: []
   seeded_sample:
     description: "`rand.seeded_sample(seed: number, array: array, count: number) \u2192\
@@ -380,7 +380,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_sample(42, [1, 2, 3, 4, 5], 3)
+      - rand.seeded_sample(42, [1, 2, 3, 4, 5], 3)
     see: []
   seeded_shuffle:
     description: "`rand.seeded_shuffle(seed: number, array: array) \u2192 array` \
@@ -392,7 +392,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_shuffle(42, [1, 2, 3, 4, 5])
+      - rand.seeded_shuffle(42, [1, 2, 3, 4, 5])
     see: []
   seeded_string:
     description: "`rand.seeded_string(seed: number, length: number, charset?: string)\
@@ -406,7 +406,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - rand.seeded_string(42, 16)
+      - rand.seeded_string(42, 16)
     see: []
   seeded_gauss:
     description: "`rand.seeded_gauss(seed: number, mean: number, stddev: number) \u2192\
@@ -420,5 +420,5 @@ functions:
     params: []
     return_value: Number
     examples:
-    - rand.seeded_gauss(42, 0, 1)
+      - rand.seeded_gauss(42, 0, 1)
     see: []

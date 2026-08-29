@@ -1,207 +1,207 @@
 reference:
-- title: Archive
-  slug: lib-archive
-  description: Archive abstractions and entry types, including tar support.
-  include:
-  - crate: handl-lib-archive
-- title: Archive Tar
-  slug: lib-archive-tar
-  description: ''
-  include:
-  - crate: handl-lib-archive-tar
-- title: Base64
-  slug: lib-base64
-  description: ''
-  include:
-  - crate: handl-lib-base64
-- title: Collections
-  slug: lib-collections
-  description: Extended collection types for handl values.
-  include:
-  - crate: handl-lib-collections
-- title: Compress
-  slug: lib-compress
-  description: Compression traits and error types, including gzip support.
-  include:
-  - crate: handl-lib-compress
-- title: Compress Gzip
-  slug: lib-compress-gzip
-  description: ''
-  include:
-  - crate: handl-lib-compress-gzip
-- title: Concurrent
-  slug: lib-concurrent
-  description: Concurrency primitives for the handl runtime.
-  include:
-  - crate: handl-lib-concurrent
-- title: Crypto
-  slug: lib-crypto
-  description: Cryptographic hash functions.
-  include:
-  - crate: handl-lib-crypto
-- title: DateTime
-  slug: lib-datetime
-  description: Date and time operations.
-  include:
-  - crate: handl-lib-datetime
-- title: Encoding
-  slug: lib-encoding
-  description: Base64, hex, and text encoding utilities.
-  include:
-  - crate: handl-lib-encoding
-- title: Hex
-  slug: lib-hex
-  description: ''
-  include:
-  - crate: handl-lib-hex
-- title: HTTP Client
-  slug: lib-http-client
-  description: HTTP client types and stubs.
-  include:
-  - crate: handl-lib-http-client
-- title: Http Client Std
-  slug: lib-http-client-std
-  description: ''
-  include:
-  - crate: handl-lib-http-client-std
-- title: HTTP Server
-  slug: lib-http-server
-  description: HTTP server framework and types.
-  include:
-  - crate: handl-lib-http-server
-- title: Http Server Std
-  slug: lib-http-server-std
-  description: ''
-  include:
-  - crate: handl-lib-http-server-std
-- title: Intl
-  slug: lib-intl
-  description: Internationalization and locale support.
-  include:
-  - crate: handl-lib-intl
-- title: IP
-  slug: lib-ip
-  description: IP address, CIDR and socket types.
-  include:
-  - crate: handl-lib-ip
-- title: Json
-  slug: lib-json
-  description: ''
-  include:
-  - crate: handl-lib-json
-- title: KV
-  slug: lib-kv
-  description: Key/value store interface.
-  include:
-  - crate: handl-lib-kv
-- title: Kv Hashmap
-  slug: lib-kv-hashmap
-  description: ''
-  include:
-  - crate: handl-lib-kv-hashmap
-- title: OS
-  slug: lib-os
-  description: Operating-system interfaces for handl.
-  include:
-  - crate: handl-lib-os
-- title: Os Std
-  slug: lib-os-std
-  description: ''
-  include:
-  - crate: handl-lib-os-std
-- title: OTLP
-  slug: lib-otlp
-  description: OpenTelemetry protocol support.
-  include:
-  - crate: handl-lib-otlp
-- title: Otlp Std
-  slug: lib-otlp-std
-  description: ''
-  include:
-  - crate: handl-lib-otlp-std
-- title: Parse
-  slug: lib-parse
-  description: Generic parser framework and types.
-  include:
-  - crate: handl-lib-parse
-- title: Random
-  slug: lib-rand
-  description: Random value generation.
-  include:
-  - crate: handl-lib-rand
-- title: Serialize
-  slug: lib-serialize
-  description: Converting values to and from JSON, TOML, and YAML.
-  include:
-  - crate: handl-lib-serialize
-- title: Stats
-  slug: lib-stats
-  description: Statistical functions.
-  include:
-  - crate: handl-lib-stats
-- title: Test
-  slug: lib-test
-  description: Testing, assertion and benchmark helpers.
-  include:
-  - crate: handl-lib-test
-- title: TLS
-  slug: lib-tls
-  description: TLS certificate generation, root-store configuration, and encrypted
-    client/server streams.
-  include:
-  - crate: handl-lib-tls
-- title: Tls Native
-  slug: lib-tls-native
-  description: ''
-  include:
-  - crate: handl-lib-tls-native
-- title: Toml
-  slug: lib-toml
-  description: ''
-  include:
-  - crate: handl-lib-toml
-- title: Unicode
-  slug: lib-unicode
-  description: Unicode identifier and decode utilities.
-  include:
-  - crate: handl-lib-unicode
-- title: URL
-  slug: lib-url-rfc
-  description: URL parsing and serialization (RFC 3986 and WHATWG).
-  include:
-  - crate: handl-lib-url-rfc
-- title: Url Whatwg
-  slug: lib-url-whatwg
-  description: ''
-  include:
-  - crate: handl-lib-url-whatwg
-- title: Utils
-  slug: lib-utils
-  description: Standard utility modules for the handl runtime.
-  include:
-  - crate: handl-lib-utils
-- title: WebSocket (RFC 6455)
-  slug: lib-ws-rfc-memory
-  description: WebSocket frame, message, and in-process client/server handling.
-  include:
-  - crate: handl-lib-ws-rfc-memory
-- title: WebSocket (RFC 6455)
-  slug: lib-ws-rfc-native
-  description: Real WebSocket frame, message, and client/server handling using tokio-tungstenite.
-  include:
-  - crate: handl-lib-ws-rfc-native
-- title: Ws Whatwg Native
-  slug: lib-ws-whatwg-native
-  description: ''
-  include:
-  - crate: handl-lib-ws-whatwg-native
-- title: Ws Whatwg Wasm
-  slug: lib-ws-whatwg-wasm
-  description: ''
-  include:
-  - crate: handl-lib-ws-whatwg-wasm
-- title: Yaml
-  slug: lib-yaml
-  description: ''
-  include:
-  - crate: handl-lib-yaml
+  - title: Archive
+    slug: lib-archive
+    description: Archive abstractions and entry types, including tar support.
+    include:
+      - crate: handl-lib-archive
+  - title: Archive Tar
+    slug: lib-archive-tar
+    description: ""
+    include:
+      - crate: handl-lib-archive-tar
+  - title: Base64
+    slug: lib-base64
+    description: ""
+    include:
+      - crate: handl-lib-base64
+  - title: Collections
+    slug: lib-collections
+    description: Extended collection types for handl values.
+    include:
+      - crate: handl-lib-collections
+  - title: Compress
+    slug: lib-compress
+    description: Compression traits and error types, including gzip support.
+    include:
+      - crate: handl-lib-compress
+  - title: Compress Gzip
+    slug: lib-compress-gzip
+    description: ""
+    include:
+      - crate: handl-lib-compress-gzip
+  - title: Concurrent
+    slug: lib-concurrent
+    description: Concurrency primitives for the handl runtime.
+    include:
+      - crate: handl-lib-concurrent
+  - title: Crypto
+    slug: lib-crypto
+    description: Cryptographic hash functions.
+    include:
+      - crate: handl-lib-crypto
+  - title: DateTime
+    slug: lib-datetime
+    description: Date and time operations.
+    include:
+      - crate: handl-lib-datetime
+  - title: Encoding
+    slug: lib-encoding
+    description: Base64, hex, and text encoding utilities.
+    include:
+      - crate: handl-lib-encoding
+  - title: Hex
+    slug: lib-hex
+    description: ""
+    include:
+      - crate: handl-lib-hex
+  - title: HTTP Client
+    slug: lib-http-client
+    description: HTTP client types and stubs.
+    include:
+      - crate: handl-lib-http-client
+  - title: Http Client Std
+    slug: lib-http-client-std
+    description: ""
+    include:
+      - crate: handl-lib-http-client-std
+  - title: HTTP Server
+    slug: lib-http-server
+    description: HTTP server framework and types.
+    include:
+      - crate: handl-lib-http-server
+  - title: Http Server Std
+    slug: lib-http-server-std
+    description: ""
+    include:
+      - crate: handl-lib-http-server-std
+  - title: Intl
+    slug: lib-intl
+    description: Internationalization and locale support.
+    include:
+      - crate: handl-lib-intl
+  - title: IP
+    slug: lib-ip
+    description: IP address, CIDR and socket types.
+    include:
+      - crate: handl-lib-ip
+  - title: Json
+    slug: lib-json
+    description: ""
+    include:
+      - crate: handl-lib-json
+  - title: KV
+    slug: lib-kv
+    description: Key/value store interface.
+    include:
+      - crate: handl-lib-kv
+  - title: Kv Hashmap
+    slug: lib-kv-hashmap
+    description: ""
+    include:
+      - crate: handl-lib-kv-hashmap
+  - title: OS
+    slug: lib-os
+    description: Operating-system interfaces for handl.
+    include:
+      - crate: handl-lib-os
+  - title: Os Std
+    slug: lib-os-std
+    description: ""
+    include:
+      - crate: handl-lib-os-std
+  - title: OTLP
+    slug: lib-otlp
+    description: OpenTelemetry protocol support.
+    include:
+      - crate: handl-lib-otlp
+  - title: Otlp Std
+    slug: lib-otlp-std
+    description: ""
+    include:
+      - crate: handl-lib-otlp-std
+  - title: Parse
+    slug: lib-parse
+    description: Generic parser framework and types.
+    include:
+      - crate: handl-lib-parse
+  - title: Random
+    slug: lib-rand
+    description: Random value generation.
+    include:
+      - crate: handl-lib-rand
+  - title: Serialize
+    slug: lib-serialize
+    description: Converting values to and from JSON, TOML, and YAML.
+    include:
+      - crate: handl-lib-serialize
+  - title: Stats
+    slug: lib-stats
+    description: Statistical functions.
+    include:
+      - crate: handl-lib-stats
+  - title: Test
+    slug: lib-test
+    description: Testing, assertion and benchmark helpers.
+    include:
+      - crate: handl-lib-test
+  - title: TLS
+    slug: lib-tls
+    description: TLS certificate generation, root-store configuration, and encrypted
+      client/server streams.
+    include:
+      - crate: handl-lib-tls
+  - title: Tls Native
+    slug: lib-tls-native
+    description: ""
+    include:
+      - crate: handl-lib-tls-native
+  - title: Toml
+    slug: lib-toml
+    description: ""
+    include:
+      - crate: handl-lib-toml
+  - title: Unicode
+    slug: lib-unicode
+    description: Unicode identifier and decode utilities.
+    include:
+      - crate: handl-lib-unicode
+  - title: URL
+    slug: lib-url-rfc
+    description: URL parsing and serialization (RFC 3986 and WHATWG).
+    include:
+      - crate: handl-lib-url-rfc
+  - title: Url Whatwg
+    slug: lib-url-whatwg
+    description: ""
+    include:
+      - crate: handl-lib-url-whatwg
+  - title: Utils
+    slug: lib-utils
+    description: Standard utility modules for the handl runtime.
+    include:
+      - crate: handl-lib-utils
+  - title: WebSocket (RFC 6455)
+    slug: lib-ws-rfc-memory
+    description: WebSocket frame, message, and in-process client/server handling.
+    include:
+      - crate: handl-lib-ws-rfc-memory
+  - title: WebSocket (RFC 6455)
+    slug: lib-ws-rfc-native
+    description: Real WebSocket frame, message, and client/server handling using tokio-tungstenite.
+    include:
+      - crate: handl-lib-ws-rfc-native
+  - title: Ws Whatwg Native
+    slug: lib-ws-whatwg-native
+    description: ""
+    include:
+      - crate: handl-lib-ws-whatwg-native
+  - title: Ws Whatwg Wasm
+    slug: lib-ws-whatwg-wasm
+    description: ""
+    include:
+      - crate: handl-lib-ws-whatwg-wasm
+  - title: Yaml
+    slug: lib-yaml
+    description: ""
+    include:
+      - crate: handl-lib-yaml

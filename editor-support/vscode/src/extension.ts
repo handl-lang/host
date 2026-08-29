@@ -21,13 +21,12 @@ function depsFromContext(): ResolveDeps {
         "server.path": string;
       },
     getWorkspaceFolders: () =>
-      vscode.workspace.workspaceFolders
-        ? [...vscode.workspace.workspaceFolders]
-        : undefined,
-    exists: (p: string) => vscode.workspace.fs.stat(vscode.Uri.file(p)).then(
-      () => true,
-      () => false,
-    ) as unknown as boolean,
+      vscode.workspace.workspaceFolders ? [...vscode.workspace.workspaceFolders] : undefined,
+    exists: (p: string) =>
+      vscode.workspace.fs.stat(vscode.Uri.file(p)).then(
+        () => true,
+        () => false,
+      ) as unknown as boolean,
   };
 }
 
@@ -56,12 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
       outputChannel,
     };
 
-    client = new LanguageClient(
-      "handl-lsp",
-      "handl LSP",
-      serverOptions,
-      clientOptions,
-    );
+    client = new LanguageClient("handl-lsp", "handl LSP", serverOptions, clientOptions);
     console.log("[handl-lsp] client created, starting...");
 
     client.start().then(
@@ -77,9 +71,7 @@ export function activate(context: vscode.ExtensionContext): void {
   } catch (err) {
     console.error("[handl-lsp] activation error:", err);
     const msg = err instanceof Error ? err.message : String(err);
-    vscode.window.showErrorMessage(
-      "handl-lsp: failed to start LSP client: " + msg,
-    );
+    vscode.window.showErrorMessage("handl-lsp: failed to start LSP client: " + msg);
   }
 }
 

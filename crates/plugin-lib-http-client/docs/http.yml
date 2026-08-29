@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.get()
+      - http.get()
     see: []
   post:
     description: Call `http.post`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.post()
+      - http.post()
     see: []
   put:
     description: Call `http.put`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.put()
+      - http.put()
     see: []
   patch:
     description: Call `http.patch`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.patch()
+      - http.patch()
     see: []
   delete:
     description: Call `http.delete`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.delete()
+      - http.delete()
     see: []
   head:
     description: Call `http.head`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.head()
+      - http.head()
     see: []
   request:
     description: Call `http.request`.
@@ -66,5 +66,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - http.request()
+      - http.request()
     see: []

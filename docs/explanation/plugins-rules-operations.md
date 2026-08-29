@@ -78,14 +78,14 @@ impl<'a> ContributionContext<'a> {
 
 ## What each kind of plugin does
 
-| Kind | Implements | Typical `contribute` work |
-| --- | --- | --- |
-| Library | `Plugin` | Calls `register_plugin` to load more plugins. |
-| Target | `Plugin` | Registers target-specific operations and contributes `OptionSchema`s. |
-| Operation | `Plugin + RuleAcceptor` | Accepts rules and executes them when a capability is requested. |
-| Rule | `Plugin` | Calls `contribute::<P>(rule)` to add a rule to an operation. |
-| Options | `Plugin + RuleAcceptor<OptionSchema>` | Resolves option values from schemas. |
-| DataTypes | `Plugin + RuleAcceptor<DataType>` | Resolves data type definitions. |
+| Kind      | Implements                            | Typical `contribute` work                                             |
+| --------- | ------------------------------------- | --------------------------------------------------------------------- |
+| Library   | `Plugin`                              | Calls `register_plugin` to load more plugins.                         |
+| Target    | `Plugin`                              | Registers target-specific operations and contributes `OptionSchema`s. |
+| Operation | `Plugin + RuleAcceptor`               | Accepts rules and executes them when a capability is requested.       |
+| Rule      | `Plugin`                              | Calls `contribute::<P>(rule)` to add a rule to an operation.          |
+| Options   | `Plugin + RuleAcceptor<OptionSchema>` | Resolves option values from schemas.                                  |
+| DataTypes | `Plugin + RuleAcceptor<DataType>`     | Resolves data type definitions.                                       |
 
 ## Why not separate traits for each rule kind
 

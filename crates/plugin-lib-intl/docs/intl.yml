@@ -39,12 +39,12 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.format_number(1234567.89)
-    - intl.format_number(1234567.89, "pt-BR")
-    - 'intl.format_number(0.5, "en", {style: "percent"})'
-    - 'intl.format_number(1234.56, "en", {style: "currency", currency: "USD"})'
-    - intl.format_number(1000007, "bn")
-    - 'intl.format_number(1000000, "en", {notation: "compact"})'
+      - intl.format_number(1234567.89)
+      - intl.format_number(1234567.89, "pt-BR")
+      - 'intl.format_number(0.5, "en", {style: "percent"})'
+      - 'intl.format_number(1234.56, "en", {style: "currency", currency: "USD"})'
+      - intl.format_number(1000007, "bn")
+      - 'intl.format_number(1000000, "en", {notation: "compact"})'
     see: []
   format_number_to_parts:
     description: "`intl.format_number_to_parts(n: number, locale?: string, opts?:\
@@ -59,7 +59,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.format_number_to_parts()
+      - intl.format_number_to_parts()
     see: []
   select_plural:
     description: "`intl.select_plural(n: number, locale?: string, opts?: object) \u2192\
@@ -81,13 +81,13 @@ functions:
     params: []
     return_value: String
     examples:
-    - intl.select_plural(1)
-    - intl.select_plural(5)
-    - intl.select_plural(0, "ar")
-    - 'intl.select_plural(2, "en", {type: "ordinal"})'
-    - 'intl.select_plural(11, "en", {type: "ordinal"})'
-    - intl.select_plural(1.0, "en")
-    - 'intl.select_plural(1, "en", {minimumFractionDigits: 2})'
+      - intl.select_plural(1)
+      - intl.select_plural(5)
+      - intl.select_plural(0, "ar")
+      - 'intl.select_plural(2, "en", {type: "ordinal"})'
+      - 'intl.select_plural(11, "en", {type: "ordinal"})'
+      - intl.select_plural(1.0, "en")
+      - 'intl.select_plural(1, "en", {minimumFractionDigits: 2})'
     see: []
   format_list:
     description: "`intl.format_list(items: array, locale?: string, opts?: object)\
@@ -103,9 +103,9 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.format_list(["a", "b", "c"])
-    - 'intl.format_list(["a", "b", "c"], "en", {type: "disjunction"})'
-    - 'intl.format_list(["5", "7"], "en", {type: "unit"})'
+      - intl.format_list(["a", "b", "c"])
+      - 'intl.format_list(["a", "b", "c"], "en", {type: "disjunction"})'
+      - 'intl.format_list(["5", "7"], "en", {type: "unit"})'
     see: []
   format_relative_time:
     description: "`intl.format_relative_time(value: number, unit: string, locale?:\
@@ -124,10 +124,10 @@ functions:
     params: []
     return_value: String
     examples:
-    - intl.format_relative_time(5, "second")
-    - intl.format_relative_time(-10, "second")
-    - 'intl.format_relative_time(2, "day", "es", {numeric: "auto"})'
-    - intl.format_relative_time(3, "year", "bn")
+      - intl.format_relative_time(5, "second")
+      - intl.format_relative_time(-10, "second")
+      - 'intl.format_relative_time(2, "day", "es", {numeric: "auto"})'
+      - intl.format_relative_time(3, "year", "bn")
     see: []
   format_date:
     description: "`intl.format_date(date: string, locale?: string, opts?: object)\
@@ -162,10 +162,10 @@ functions:
     params: []
     return_value: String
     examples:
-    - intl.format_date("2024-05-08")
-    - intl.format_date("2024-05-08", "de")
-    - 'intl.format_date("2024-05-08T14:30:00", "en", {type: "datetime"})'
-    - 'intl.format_date("14:30:00", "en", {type: "time"})'
+      - intl.format_date("2024-05-08")
+      - intl.format_date("2024-05-08", "de")
+      - 'intl.format_date("2024-05-08T14:30:00", "en", {type: "datetime"})'
+      - 'intl.format_date("14:30:00", "en", {type: "time"})'
     see: []
   format_date_to_parts:
     description: "`intl.format_date_to_parts(date: string, locale?: string, opts?:\
@@ -180,7 +180,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.format_date_to_parts()
+      - intl.format_date_to_parts()
     see: []
   format_duration:
     description: "`intl.format_duration(duration: object, locale?: string, opts?:\
@@ -204,10 +204,10 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - 'intl.format_duration({hours: 1, minutes: 30})'
-    - 'intl.format_duration({seconds: 90}, "es")'
-    - 'intl.format_duration({hours: 2, minutes: 5}, "en", {style: "short"})'
-    - 'intl.format_duration({hours: 2}, "en", {hoursStyle: "long"})'
+      - "intl.format_duration({hours: 1, minutes: 30})"
+      - 'intl.format_duration({seconds: 90}, "es")'
+      - 'intl.format_duration({hours: 2, minutes: 5}, "en", {style: "short"})'
+      - 'intl.format_duration({hours: 2}, "en", {hoursStyle: "long"})'
     see: []
   compare_strings:
     description: "`intl.compare_strings(a: string, b: string, locale?: string, opts?:\
@@ -228,9 +228,9 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.compare_strings("a", "b")
-    - "intl.compare_strings(\"\xE9\", \"e\", \"en\", {sensitivity: \"base\"})"
-    - 'intl.compare_strings("file10", "file2", "en", {numeric: true})'
+      - intl.compare_strings("a", "b")
+      - "intl.compare_strings(\"\xE9\", \"e\", \"en\", {sensitivity: \"base\"})"
+      - 'intl.compare_strings("file10", "file2", "en", {numeric: true})'
     see: []
   display_name:
     description: "`intl.display_name(code: string, type: string, locale?: string,\
@@ -256,11 +256,11 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.display_name("en", "language", "pt")
-    - intl.display_name("US", "region", "en")
-    - 'intl.display_name("US", "region", "en", {style: "short"})'
-    - intl.display_name("Latn", "script", "en")
-    - intl.display_name("fonipa", "variant", "en")
+      - intl.display_name("en", "language", "pt")
+      - intl.display_name("US", "region", "en")
+      - 'intl.display_name("US", "region", "en", {style: "short"})'
+      - intl.display_name("Latn", "script", "en")
+      - intl.display_name("fonipa", "variant", "en")
     see: []
   segment:
     description: "`intl.segment(text: string, granularity: string, locale?: string,\
@@ -281,9 +281,9 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.segment("hello world", "word")
-    - "intl.segment(\"\u3053\u3093\u306B\u3061\u306F\", \"grapheme\", \"ja\")"
-    - 'intl.segment("Hello World", "line", "ja", {lineBreakStyle: "loose"})'
+      - intl.segment("hello world", "word")
+      - "intl.segment(\"\u3053\u3093\u306B\u3061\u306F\", \"grapheme\", \"ja\")"
+      - 'intl.segment("Hello World", "line", "ja", {lineBreakStyle: "loose"})'
     see: []
   supported_locales_of:
     description: "`intl.supported_locales_of(locales: string | string[]) \u2192 string[]`\
@@ -300,8 +300,8 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.supported_locales_of("en")
-    - intl.supported_locales_of(["de", "xxx"])
+      - intl.supported_locales_of("en")
+      - intl.supported_locales_of(["de", "xxx"])
     see: []
   get_canonical_locales:
     description: "`intl.get_canonical_locales(locales: string | string[]) \u2192 string[]`\
@@ -310,15 +310,15 @@ functions:
       \  Returns the canonicalized form of the given locale or list of locales.  Examples:\
       \ - `intl.get_canonical_locales(\"en-us\")` \u2192 `[\"en-US\"]` - `intl.get_canonical_locales([\"\
       de\", \"ja-jp\"])` \u2192 `[\"de\", \"ja-JP\"]`"
-    signature: 'intl.get_canonical_locales(arg0: Array)'
+    signature: "intl.get_canonical_locales(arg0: Array)"
     params:
-    - name: arg0
-      type: Array
-      description: the 0th Array argument
+      - name: arg0
+        type: Array
+        description: the 0th Array argument
     return_value: type.any
     examples:
-    - intl.get_canonical_locales("en-us")
-    - intl.get_canonical_locales(["de", "ja-jp"])
+      - intl.get_canonical_locales("en-us")
+      - intl.get_canonical_locales(["de", "ja-jp"])
     see: []
   locale:
     description: "`intl.locale(tag: string, opts?: object) \u2192 object`  Parses\
@@ -344,7 +344,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - intl.locale("en-US")
-    - intl.locale("zh-Hant-TW")
-    - 'intl.locale("en", {region: "GB"})'
+      - intl.locale("en-US")
+      - intl.locale("zh-Hant-TW")
+      - 'intl.locale("en", {region: "GB"})'
     see: []

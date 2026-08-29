@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - path.join()
+      - path.join()
     see: []
   resolve:
     description: Call `path.resolve`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - path.resolve()
+      - path.resolve()
     see: []
   basename:
     description: Call `path.basename`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - path.basename()
+      - path.basename()
     see: []
   dirname:
     description: Call `path.dirname`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - path.dirname()
+      - path.dirname()
     see: []
   extname:
     description: Call `path.extname`.
@@ -48,5 +48,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - path.extname()
+      - path.extname()
     see: []

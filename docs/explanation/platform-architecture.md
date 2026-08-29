@@ -17,14 +17,14 @@ handl-target-*                    # runtime targets
 handl-platform                    # Plugin, Host, and composition primitives
 ```
 
-| Layer | Responsibility |
-| --- | --- |
+| Layer            | Responsibility                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `handl-platform` | `Host`, `Plugin`, `RuleAcceptor`, `Operation`, `Behavior`, `ContributionContext`, `Options`, `AstNode`, and resolution. |
-| `handl-ext-*` | Concrete operations such as `Format`, `Lint`, `Parser`, `Lexer`, `Typecheck`, `Eval`, `Cli`, `Lsp`, and `Doc`. |
-| `handl-plugin-*` | Rule plugins that contribute `Behavior`s and `OptionSchema`s, and library plugins that register more plugins. |
-| `handl-kit-*` | Curated manifests of plugins and default option values. A kit is not executable. |
-| `handl-target-*` | Target plugins that register runtime backends. |
-| `handl-host-*` | Executable hosts that load kits and execute `Cli` or `Lsp` capabilities. |
+| `handl-ext-*`    | Concrete operations such as `Format`, `Lint`, `Parser`, `Lexer`, `Typecheck`, `Eval`, `Cli`, `Lsp`, and `Doc`.          |
+| `handl-plugin-*` | Rule plugins that contribute `Behavior`s and `OptionSchema`s, and library plugins that register more plugins.           |
+| `handl-kit-*`    | Curated manifests of plugins and default option values. A kit is not executable.                                        |
+| `handl-target-*` | Target plugins that register runtime backends.                                                                          |
+| `handl-host-*`   | Executable hosts that load kits and execute `Cli` or `Lsp` capabilities.                                                |
 
 ## Why this split
 

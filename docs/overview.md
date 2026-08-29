@@ -14,15 +14,15 @@ Host                       # empty composer
         └── Options        # resolves option values from schemas
 ```
 
-| Concept | What it is |
-| --- | --- |
-| `Plugin` | The universal, object-safe trait. Every loaded component implements it. |
-| `RuleAcceptor<Rule>` | A sub-trait for plugins that accept contributions. |
-| `Operation` | A marker type for a cross-cutting concern such as `Format`, `Lint`, `Eval`, `Cli`, or `Lsp`. |
-| `Behavior<Op>` | A rule that a plugin contributes to a specific `Operation` for a specific `AstNode` kind. |
-| `Kit` | A curated manifest of plugins and default option values. |
-| `HostConfig` | In-memory description of kits, direct plugins, excludes, and option overrides. |
-| `HostApplier` | Reads `.handl.toml`, CLI flags, and env and applies them to a `Host`. |
+| Concept              | What it is                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `Plugin`             | The universal, object-safe trait. Every loaded component implements it.                      |
+| `RuleAcceptor<Rule>` | A sub-trait for plugins that accept contributions.                                           |
+| `Operation`          | A marker type for a cross-cutting concern such as `Format`, `Lint`, `Eval`, `Cli`, or `Lsp`. |
+| `Behavior<Op>`       | A rule that a plugin contributes to a specific `Operation` for a specific `AstNode` kind.    |
+| `Kit`                | A curated manifest of plugins and default option values.                                     |
+| `HostConfig`         | In-memory description of kits, direct plugins, excludes, and option overrides.               |
+| `HostApplier`        | Reads `.handl.toml`, CLI flags, and env and applies them to a `Host`.                        |
 
 ## What a plugin can be
 

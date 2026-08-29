@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: Object
     examples:
-    - ip.socket.parse()
+      - ip.socket.parse()
     see: []
   format:
     description: Call `ip.socket.format`.
@@ -21,5 +21,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.socket.format()
+      - ip.socket.format()
     see: []

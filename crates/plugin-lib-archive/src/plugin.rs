@@ -27,7 +27,6 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        // TODO: register concrete library implementation
         Ok(())
     }
 

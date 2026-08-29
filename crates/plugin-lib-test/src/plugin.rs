@@ -4,6 +4,11 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+
+use crate::{
+    AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
+};
 
 /// A `Library` plugin that registers the `test` implementation.
 #[derive(Debug, Default)]
@@ -26,8 +31,13 @@ impl Plugin for LibraryPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        // TODO: register concrete library implementation
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.contribute::<ModuleHost>(ModuleRule::new(TestModule))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(AssertModule))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(PropertyModule))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(BenchmarkModule))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(FuzzModule))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(SnapshotModule))?;
         Ok(())
     }
 

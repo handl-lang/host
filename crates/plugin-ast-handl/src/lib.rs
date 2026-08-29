@@ -10,11 +10,11 @@ use handl_plugin_ast_array::Array;
 use handl_plugin_ast_assign::Assign;
 use handl_plugin_ast_call::Call;
 use handl_plugin_ast_function::Function;
-use handl_plugin_ast_handle::Handle;
+use handl_plugin_ast_handle::{Handle, HandlerArm};
 use handl_plugin_ast_handl_value::KitValue;
 use handl_plugin_ast_index::Index;
 use handl_plugin_ast_let::Let;
-use handl_plugin_ast_match::Match;
+use handl_plugin_ast_match::{Match, MatchArm};
 use handl_plugin_ast_object::Object;
 use handl_plugin_ast_pipe::Pipe;
 use handl_plugin_ast_stmt_export::Export;
@@ -406,7 +406,48 @@ fn convert_match(ast: &AstNode) -> Result<KitNode, PlatformError> {
     let subject_ast: AstNode = serde_json::from_value(subject)
         .map_err(|e| PlatformError::Plugin(format!("invalid subject in match AST: {e}")))?;
     let subject = ast_to_kitnode(&subject_ast)?;
-    Ok(KitNode::Match(Box::new(Match::new(subject))))
+
+    let mut arms = Vec::new();
+    if let Some(arms_arr) = ast.payload.get("arms").and_then(|v| v.as_array()) {
+        for arm in arms_arr {
+            let pattern_ast: AstNode = serde_json::from_value(
+                arm.get("pattern").cloned().unwrap_or(serde_json::Value::Null),
+            )
+            .map_err(|e| PlatformError::Plugin(format!("invalid pattern in match arm: {e}")))?;
+            let pattern = ast_to_kitnode(&pattern_ast)?;
+
+            let guard = if let Some(g) = arm.get("guard") {
+                if g.is_null() {
+                    None
+                } else {
+                    let guard_ast: AstNode = serde_json::from_value(g.clone())
+                        .map_err(|e| PlatformError::Plugin(format!("invalid guard in match arm: {e}")))?;
+                    Some(ast_to_kitnode(&guard_ast)?)
+                }
+            } else {
+                None
+            };
+
+            let body_ast: AstNode = serde_json::from_value(
+                arm.get("body").cloned().unwrap_or(serde_json::Value::Null),
+            )
+            .map_err(|e| PlatformError::Plugin(format!("invalid body in match arm: {e}")))?;
+            let body = ast_to_kitnode(&body_ast)?;
+
+            arms.push(MatchArm {
+                pattern,
+                guard,
+                body,
+                metadata: (),
+            });
+        }
+    }
+
+    if arms.is_empty() {
+        Ok(KitNode::Match(Box::new(Match::new(subject))))
+    } else {
+        Ok(KitNode::Match(Box::new(Match::with_arms(subject, arms))))
+    }
 }
 
 fn convert_handle(ast: &AstNode) -> Result<KitNode, PlatformError> {
@@ -416,7 +457,38 @@ fn convert_handle(ast: &AstNode) -> Result<KitNode, PlatformError> {
     let expr_ast: AstNode = serde_json::from_value(expr)
         .map_err(|e| PlatformError::Plugin(format!("invalid expr in handle AST: {e}")))?;
     let expr = ast_to_kitnode(&expr_ast)?;
-    Ok(KitNode::Handle(Box::new(Handle::new(expr))))
+
+    let mut handlers = Vec::new();
+    if let Some(handlers_arr) = ast.payload.get("handlers").and_then(|v| v.as_array()) {
+        for h in handlers_arr {
+            let op_name = h.get("op_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let params: Vec<String> = h.get("params")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .unwrap_or_default();
+            let continuation_name = h.get("continuation_name").and_then(|v| v.as_str()).unwrap_or("resume").to_string();
+
+            let body_ast: AstNode = serde_json::from_value(
+                h.get("body").cloned().unwrap_or(serde_json::Value::Null),
+            )
+            .map_err(|e| PlatformError::Plugin(format!("invalid body in handle clause: {e}")))?;
+            let body = ast_to_kitnode(&body_ast)?;
+
+            handlers.push(HandlerArm {
+                op_name,
+                params,
+                continuation_name,
+                body,
+                metadata: (),
+            });
+        }
+    }
+
+    if handlers.is_empty() {
+        Ok(KitNode::Handle(Box::new(Handle::new(expr))))
+    } else {
+        Ok(KitNode::Handle(Box::new(Handle::with_handlers(expr, handlers))))
+    }
 }
 
 fn convert_function(ast: &AstNode) -> Result<KitNode, PlatformError> {

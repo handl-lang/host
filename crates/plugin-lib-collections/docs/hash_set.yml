@@ -7,7 +7,7 @@ module:
 functions:
   new:
     description: "`collections.hash_set.new() \u2192 set`"
-    details: ''
+    details: ""
     signature: collections.hash_set.new()
     params: []
     return_value: set
@@ -15,184 +15,184 @@ functions:
     see: []
   from:
     description: "`collections.hash_set.from(array: array) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.from(array: Array)'
+    details: ""
+    signature: "collections.hash_set.from(array: Array)"
     params:
-    - name: array
-      type: Array
-      description: the array argument
+      - name: array
+        type: Array
+        description: the array argument
     return_value: set
     examples: []
     see: []
   to_array:
     description: "`collections.hash_set.to_array(set: set) \u2192 array`"
-    details: ''
-    signature: 'collections.hash_set.to_array(set: set)'
+    details: ""
+    signature: "collections.hash_set.to_array(set: set)"
     params:
-    - name: set
-      type: set
-      description: the set argument
+      - name: set
+        type: set
+        description: the set argument
     return_value: Array
     examples: []
     see: []
   len:
     description: "`collections.hash_set.len(set: set) \u2192 number`"
-    details: ''
-    signature: 'collections.hash_set.len(set: set)'
+    details: ""
+    signature: "collections.hash_set.len(set: set)"
     params:
-    - name: set
-      type: set
-      description: the set argument
+      - name: set
+        type: set
+        description: the set argument
     return_value: Number
     examples: []
     see: []
   is_empty:
     description: "`collections.hash_set.is_empty(set: set) \u2192 bool`"
-    details: ''
-    signature: 'collections.hash_set.is_empty(set: set)'
+    details: ""
+    signature: "collections.hash_set.is_empty(set: set)"
     params:
-    - name: set
-      type: set
-      description: the set argument
+      - name: set
+        type: set
+        description: the set argument
     return_value: Boolean
     examples: []
     see: []
   add:
     description: "`collections.hash_set.add(set: set, value: value) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.add(set: set, value: any)'
+    details: ""
+    signature: "collections.hash_set.add(set: set, value: any)"
     params:
-    - name: set
-      type: set
-      description: the set argument
-    - name: value
-      type: any
-      description: the value argument
+      - name: set
+        type: set
+        description: the set argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: set
     examples: []
     see: []
   remove:
     description: "`collections.hash_set.remove(set: set, value: value) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.remove(set: set, value: any)'
+    details: ""
+    signature: "collections.hash_set.remove(set: set, value: any)"
     params:
-    - name: set
-      type: set
-      description: the set argument
-    - name: value
-      type: any
-      description: the value argument
+      - name: set
+        type: set
+        description: the set argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: set
     examples: []
     see: []
   has:
     description: "`collections.hash_set.has(set: set, value: value) \u2192 bool`"
-    details: ''
-    signature: 'collections.hash_set.has(set: set, value: any)'
+    details: ""
+    signature: "collections.hash_set.has(set: set, value: any)"
     params:
-    - name: set
-      type: set
-      description: the set argument
-    - name: value
-      type: any
-      description: the value argument
+      - name: set
+        type: set
+        description: the set argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: Boolean
     examples: []
     see: []
   union:
     description: "`collections.hash_set.union(a: set, b: set) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.union(a: set, b: set)'
+    details: ""
+    signature: "collections.hash_set.union(a: set, b: set)"
     params:
-    - name: a
-      type: set
-      description: the a argument
-    - name: b
-      type: set
-      description: the b argument
+      - name: a
+        type: set
+        description: the a argument
+      - name: b
+        type: set
+        description: the b argument
     return_value: set
     examples: []
     see: []
   intersection:
     description: "`collections.hash_set.intersection(a: set, b: set) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.intersection(a: set, b: set)'
+    details: ""
+    signature: "collections.hash_set.intersection(a: set, b: set)"
     params:
-    - name: a
-      type: set
-      description: the a argument
-    - name: b
-      type: set
-      description: the b argument
+      - name: a
+        type: set
+        description: the a argument
+      - name: b
+        type: set
+        description: the b argument
     return_value: set
     examples: []
     see: []
   difference:
     description: "`collections.hash_set.difference(a: set, b: set) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.difference(a: set, b: set)'
+    details: ""
+    signature: "collections.hash_set.difference(a: set, b: set)"
     params:
-    - name: a
-      type: set
-      description: the a argument
-    - name: b
-      type: set
-      description: the b argument
+      - name: a
+        type: set
+        description: the a argument
+      - name: b
+        type: set
+        description: the b argument
     return_value: set
     examples: []
     see: []
   unique:
     description: "`collections.hash_set.unique(array: array) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.unique(array: Array)'
+    details: ""
+    signature: "collections.hash_set.unique(array: Array)"
     params:
-    - name: array
-      type: Array
-      description: the array argument
+      - name: array
+        type: Array
+        description: the array argument
     return_value: set
     examples: []
     see: []
   symmetric_difference:
     description: "`collections.hash_set.symmetric_difference(a: set, b: set) \u2192\
       \ set`"
-    details: ''
-    signature: 'collections.hash_set.symmetric_difference(a: set, b: set)'
+    details: ""
+    signature: "collections.hash_set.symmetric_difference(a: set, b: set)"
     params:
-    - name: a
-      type: set
-      description: the a argument
-    - name: b
-      type: set
-      description: the b argument
+      - name: a
+        type: set
+        description: the a argument
+      - name: b
+        type: set
+        description: the b argument
     return_value: set
     examples: []
     see: []
   without:
     description: "`collections.hash_set.without(array: array, ...values) \u2192 set`"
-    details: ''
-    signature: 'collections.hash_set.without(array: Array, ...values: any)'
+    details: ""
+    signature: "collections.hash_set.without(array: Array, ...values: any)"
     params:
-    - name: array
-      type: Array
-      description: the array argument
-    - name: '...values'
-      type: any
-      description: the ...values argument
+      - name: array
+        type: Array
+        description: the array argument
+      - name: "...values"
+        type: any
+        description: the ...values argument
     return_value: set
     examples: []
     see: []
   unique_by:
     description: "`collections.hash_set.unique_by(array: array, fn: function) \u2192\
       \ set`"
-    details: ''
-    signature: 'collections.hash_set.unique_by(array: Array, fn: function)'
+    details: ""
+    signature: "collections.hash_set.unique_by(array: Array, fn: function)"
     params:
-    - name: array
-      type: Array
-      description: the array argument
-    - name: fn
-      type: function
-      description: the fn argument
+      - name: array
+        type: Array
+        description: the array argument
+      - name: fn
+        type: function
+        description: the fn argument
     return_value: set
     examples: []
     see: []

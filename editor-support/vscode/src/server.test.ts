@@ -40,29 +40,18 @@ describe("resolveServerPath", () => {
   it("returns the workspace target/debug path when binary exists", () => {
     const deps = makeDeps({
       getWorkspaceFolders: () => [{ uri: { fsPath: "/my/project" } }],
-      exists: (p) =>
-        p === path.join("/my/project", "target", "debug", "handl-host-lsp"),
+      exists: (p) => p === path.join("/my/project", "target", "debug", "handl-host-lsp"),
     });
-    const expected = path.join(
-      "/my/project",
-      "target",
-      "debug",
-      "handl-host-lsp",
-    );
+    const expected = path.join("/my/project", "target", "debug", "handl-host-lsp");
     expect(resolveServerPath(deps)).toBe(expected);
   });
 
   it("uses the first workspace folder when multiple exist", () => {
     const deps = makeDeps({
-      getWorkspaceFolders: () => [
-        { uri: { fsPath: "/first" } },
-        { uri: { fsPath: "/second" } },
-      ],
+      getWorkspaceFolders: () => [{ uri: { fsPath: "/first" } }, { uri: { fsPath: "/second" } }],
       exists: (p) => p.startsWith("/first/"),
     });
-    expect(resolveServerPath(deps)).toBe(
-      path.join("/first", "target", "debug", "handl-host-lsp"),
-    );
+    expect(resolveServerPath(deps)).toBe(path.join("/first", "target", "debug", "handl-host-lsp"));
   });
 
   it("configured path takes priority over workspace auto-detection", () => {
@@ -85,9 +74,7 @@ describe("buildServerOptions", () => {
 
 describe("constants", () => {
   it("DOCUMENT_SELECTOR targets file scheme and handl language", () => {
-    expect(DOCUMENT_SELECTOR).toEqual([
-      { scheme: "file", language: "handl" },
-    ]);
+    expect(DOCUMENT_SELECTOR).toEqual([{ scheme: "file", language: "handl" }]);
   });
 
   it("OUTPUT_CHANNEL_NAME is handl LSP", () => {

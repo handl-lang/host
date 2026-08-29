@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - assert.equal()
+      - assert.equal()
     see: []
   not_equal:
     description: Call `assert.not_equal`.
@@ -21,25 +21,25 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - assert.not_equal()
+      - assert.not_equal()
     see: []
-  'true':
+  "true":
     description: Call `assert.true`.
     details: Given assert.true.
     signature: assert.true()
     params: []
     return_value: type.any
     examples:
-    - assert.true()
+      - assert.true()
     see: []
-  'false':
+  "false":
     description: Call `assert.false`.
     details: Given assert.false.
     signature: assert.false()
     params: []
     return_value: type.any
     examples:
-    - assert.false()
+      - assert.false()
     see: []
   contains:
     description: Call `assert.contains`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - assert.contains()
+      - assert.contains()
     see: []
   throws:
     description: Call `assert.throws`.
@@ -57,5 +57,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - assert.throws()
+      - assert.throws()
     see: []

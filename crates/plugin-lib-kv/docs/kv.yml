@@ -10,36 +10,36 @@ functions:
     details: Given kv.get.
     signature: kv.get()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - kv.get()
+      - kv.get()
     see: []
   set:
     description: Call `kv.set`.
     details: Given kv.set.
     signature: kv.set()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - kv.set()
+      - kv.set()
     see: []
   remove:
     description: Call `kv.remove`.
     details: Given kv.remove.
     signature: kv.remove()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - kv.remove()
+      - kv.remove()
     see: []
   clear:
     description: Call `kv.clear`.
     details: Given kv.clear.
     signature: kv.clear()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - kv.clear()
+      - kv.clear()
     see: []
   has:
     description: Call `kv.has`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - kv.has()
+      - kv.has()
     see: []
   size:
     description: Call `kv.size`.
@@ -57,5 +57,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - kv.size()
+      - kv.size()
     see: []

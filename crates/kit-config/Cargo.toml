@@ -5,11 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
-handl-plugin-vm-values-json.workspace = true
-handl-plugin-vm-host-eval.workspace = true
-handl-plugin-vm-common.workspace = true
-handl-plugin-vm.workspace = true
-handl-plugin-vm-backend-rust-interpreter.workspace = true
 handl-plugin-lib-utils.workspace = true
 handl-plugin-lib-crypto.workspace = true
 handl-plugin-lib-datetime.workspace = true

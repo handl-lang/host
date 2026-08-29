@@ -12,6 +12,7 @@ fn thunk(body: &str) -> NonFunctionValue {
             return_schema: None,
             body: body.to_string(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         }
         .to_json(),
     )
@@ -74,6 +75,7 @@ impl Eval<NonFunctionValue> for LockingEval {
             return_schema: None,
             body: expr.to_string(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         let mut ctx = CanonicalContext::new();
         ctx.set_eval(Box::new(PushToListEval {

@@ -7,351 +7,351 @@ module:
 functions:
   clone_deep:
     description: Return the result of the `clone_deep` function on `obj`.
-    details: 'Calls `obj.clone_deep(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.clone_deep(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.clone_deep(obj: Object, ...args: type.any[])'
+    signature: "obj.clone_deep(obj: Object, ...args: type.any[])"
   deep_get:
     description: Return the result of the `deep_get` function on `obj`.
-    details: 'Calls `obj.deep_get(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.deep_get(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.deep_get(obj: Object, ...args: type.any[])'
+    signature: "obj.deep_get(obj: Object, ...args: type.any[])"
   deep_merge:
     description: Return the result of the `deep_merge` function on `obj`.
-    details: 'Calls `obj.deep_merge(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.deep_merge(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.deep_merge(obj: Object, ...args: type.any[])'
+    signature: "obj.deep_merge(obj: Object, ...args: type.any[])"
   entries:
     description: Return the result of the `entries` function on `obj`.
-    details: 'Calls `obj.entries(obj: Object)` with the given arguments and returns
-      a `Array` result.'
+    details: "Calls `obj.entries(obj: Object)` with the given arguments and returns
+      a `Array` result."
     examples:
-    - 'obj.entries({a: 1, b: 2})'
+      - "obj.entries({a: 1, b: 2})"
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
     return_value: Array
     see: []
-    signature: 'obj.entries(obj: Object)'
+    signature: "obj.entries(obj: Object)"
   filter_keys:
     description: Return the result of the `filter_keys` function on `obj`.
-    details: 'Calls `obj.filter_keys(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.filter_keys(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.filter_keys(obj: Object, ...args: type.any[])'
+    signature: "obj.filter_keys(obj: Object, ...args: type.any[])"
   filter_values:
     description: Return the result of the `filter_values` function on `obj`.
-    details: 'Calls `obj.filter_values(obj: Object, ...args: type.any[])` with the
-      given arguments and returns a `type.any` result.'
+    details: "Calls `obj.filter_values(obj: Object, ...args: type.any[])` with the
+      given arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.filter_values(obj: Object, ...args: type.any[])'
+    signature: "obj.filter_values(obj: Object, ...args: type.any[])"
   from_entries:
     description: Return the result of the `from_entries` function on `obj`.
-    details: 'Calls `obj.from_entries(obj: Object, ...args: type.any[])` with the
-      given arguments and returns a `type.any` result.'
+    details: "Calls `obj.from_entries(obj: Object, ...args: type.any[])` with the
+      given arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.from_entries(obj: Object, ...args: type.any[])'
+    signature: "obj.from_entries(obj: Object, ...args: type.any[])"
   get:
     description: Return the value associated with `args` in `obj`.
     details: Look up `args` in `obj` and return the corresponding value.
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.get(obj: Object, ...args: type.any[])'
+    signature: "obj.get(obj: Object, ...args: type.any[])"
   get_or:
     description: Return the result of the `get_or` function on `obj`.
-    details: 'Calls `obj.get_or(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.get_or(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.get_or(obj: Object, ...args: type.any[])'
+    signature: "obj.get_or(obj: Object, ...args: type.any[])"
   has_key:
     description: Return the result of the `has_key` function on `obj`.
-    details: 'Calls `obj.has_key(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.has_key(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.has_key(obj: Object, ...args: type.any[])'
+    signature: "obj.has_key(obj: Object, ...args: type.any[])"
   invert:
     description: Return the result of the `invert` function on `obj`.
-    details: 'Calls `obj.invert(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.invert(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.invert(obj: Object, ...args: type.any[])'
+    signature: "obj.invert(obj: Object, ...args: type.any[])"
   keys:
     description: Return the keys of `obj` as an array.
     details: Return an array of all keys in `obj`.
     examples:
-    - 'obj.keys({a: 1, b: 2})'
+      - "obj.keys({a: 1, b: 2})"
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
     return_value: Array
     see: []
-    signature: 'obj.keys(obj: Object)'
+    signature: "obj.keys(obj: Object)"
   map_keys:
     description: Return the result of the `map_keys` function on `obj`.
-    details: 'Calls `obj.map_keys(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.map_keys(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.map_keys(obj: Object, ...args: type.any[])'
+    signature: "obj.map_keys(obj: Object, ...args: type.any[])"
   map_values:
     description: Return the result of the `map_values` function on `obj`.
-    details: 'Calls `obj.map_values(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.map_values(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.map_values(obj: Object, ...args: type.any[])'
+    signature: "obj.map_values(obj: Object, ...args: type.any[])"
   merge:
     description: Return the result of the `merge` function on `obj`.
-    details: 'Calls `obj.merge(obj: Object, ...args: type.any[])` with the given arguments
-      and returns a `type.any` result.'
+    details: "Calls `obj.merge(obj: Object, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.merge(obj: Object, ...args: type.any[])'
+    signature: "obj.merge(obj: Object, ...args: type.any[])"
   omit:
     description: Return the result of the `omit` function on `obj`.
-    details: 'Calls `obj.omit(obj: Object, ...args: type.any[])` with the given arguments
-      and returns a `type.any` result.'
+    details: "Calls `obj.omit(obj: Object, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.omit(obj: Object, ...args: type.any[])'
+    signature: "obj.omit(obj: Object, ...args: type.any[])"
   path_or:
     description: Return the result of the `path_or` function on `obj`.
-    details: 'Calls `obj.path_or(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.path_or(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.path_or(obj: Object, ...args: type.any[])'
+    signature: "obj.path_or(obj: Object, ...args: type.any[])"
   pick:
     description: Return the result of the `pick` function on `obj`.
-    details: 'Calls `obj.pick(obj: Object, ...args: type.any[])` with the given arguments
-      and returns a `type.any` result.'
+    details: "Calls `obj.pick(obj: Object, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.pick(obj: Object, ...args: type.any[])'
+    signature: "obj.pick(obj: Object, ...args: type.any[])"
   set:
     description: Set the value for `args` in `obj`.
     details: Associate `value` with key `args` in `obj` and return the updated `obj`.
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.set(obj: Object, ...args: type.any[])'
+    signature: "obj.set(obj: Object, ...args: type.any[])"
   set_path:
     description: Return the result of the `set_path` function on `obj`.
-    details: 'Calls `obj.set_path(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.set_path(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.set_path(obj: Object, ...args: type.any[])'
+    signature: "obj.set_path(obj: Object, ...args: type.any[])"
   size:
     description: Return the result of the `size` function on `obj`.
-    details: 'Calls `obj.size(obj: Object, ...args: type.any[])` with the given arguments
-      and returns a `type.any` result.'
+    details: "Calls `obj.size(obj: Object, ...args: type.any[])` with the given arguments
+      and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.size(obj: Object, ...args: type.any[])'
+    signature: "obj.size(obj: Object, ...args: type.any[])"
   update:
     description: Return the result of the `update` function on `obj`.
-    details: 'Calls `obj.update(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.update(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.update(obj: Object, ...args: type.any[])'
+    signature: "obj.update(obj: Object, ...args: type.any[])"
   update_path:
     description: Return the result of the `update_path` function on `obj`.
-    details: 'Calls `obj.update_path(obj: Object, ...args: type.any[])` with the given
-      arguments and returns a `type.any` result.'
+    details: "Calls `obj.update_path(obj: Object, ...args: type.any[])` with the given
+      arguments and returns a `type.any` result."
     examples: []
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
-    - name: args
-      type: type.any...
-      description: the `args` type.any... value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
+      - name: args
+        type: type.any...
+        description: the `args` type.any... value
     return_value: type.any
     see: []
-    signature: 'obj.update_path(obj: Object, ...args: type.any[])'
+    signature: "obj.update_path(obj: Object, ...args: type.any[])"
   values:
     description: Return the values of `obj` as an array.
     details: Return an array of all values in `obj`.
     examples:
-    - 'obj.values({a: 1, b: 2})'
+      - "obj.values({a: 1, b: 2})"
     params:
-    - name: obj
-      type: Object
-      description: the `obj` Object value
+      - name: obj
+        type: Object
+        description: the `obj` Object value
     return_value: Array
     see: []
-    signature: 'obj.values(obj: Object)'
+    signature: "obj.values(obj: Object)"

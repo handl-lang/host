@@ -12,5 +12,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - url_rfc.url_rfc()
+      - url_rfc.url_rfc()
     see: []

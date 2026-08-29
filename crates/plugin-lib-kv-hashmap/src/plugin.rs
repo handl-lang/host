@@ -4,6 +4,10 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_lib_kv::KeyValueStoreModule;
+use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+
+use crate::HashKeyValueStore;
 
 /// A `Library` plugin that registers the `kv-hashmap` implementation.
 #[derive(Debug, Default)]
@@ -26,8 +30,10 @@ impl Plugin for LibraryPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        // TODO: register concrete library implementation
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.contribute::<ModuleHost>(ModuleRule::new(KeyValueStoreModule::new(
+            HashKeyValueStore::default(),
+        )))?;
         Ok(())
     }
 

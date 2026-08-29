@@ -9,210 +9,210 @@ functions:
     description: Return the abs of `value`.
     details: Compute the mathematical abs of `value`.
     examples:
-    - math.abs(-5)
+      - math.abs(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.abs(value: num)'
+    signature: "math.abs(value: num)"
   acos:
     description: Return the result of the `acos` function on `math`.
-    details: 'Calls `math.acos(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.acos(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.acos(value: num)'
+    signature: "math.acos(value: num)"
   acosh:
     description: Return the result of the `acosh` function on `math`.
-    details: 'Calls `math.acosh(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.acosh(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.acosh(value: num)'
+    signature: "math.acosh(value: num)"
   add:
     description: Return the result of the `add` function on `math`.
-    details: 'Calls `math.add(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.add(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples:
-    - math.add(10, 3)
+      - math.add(10, 3)
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.add(a: num, b: num)'
+    signature: "math.add(a: num, b: num)"
   asin:
     description: Return the result of the `asin` function on `math`.
-    details: 'Calls `math.asin(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.asin(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.asin(value: num)'
+    signature: "math.asin(value: num)"
   asinh:
     description: Return the result of the `asinh` function on `math`.
-    details: 'Calls `math.asinh(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.asinh(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.asinh(value: num)'
+    signature: "math.asinh(value: num)"
   atan:
     description: Return the result of the `atan` function on `math`.
-    details: 'Calls `math.atan(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.atan(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.atan(value: num)'
+    signature: "math.atan(value: num)"
   atan2:
     description: Return the result of the `atan2` function on `math`.
-    details: 'Calls `math.atan2(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.atan2(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.atan2(value: num)'
+    signature: "math.atan2(value: num)"
   atanh:
     description: Return the result of the `atanh` function on `math`.
-    details: 'Calls `math.atanh(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.atanh(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.atanh(value: num)'
+    signature: "math.atanh(value: num)"
   cbrt:
     description: Return the result of the `cbrt` function on `math`.
-    details: 'Calls `math.cbrt(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.cbrt(value: num)` with the given arguments and returns a
+      `num` result."
     examples:
-    - math.cbrt(-5)
+      - math.cbrt(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.cbrt(value: num)'
+    signature: "math.cbrt(value: num)"
   ceil:
     description: Return the ceil of `value`.
     details: Compute the mathematical ceil of `value`.
     examples:
-    - math.ceil(-5)
+      - math.ceil(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.ceil(value: num)'
+    signature: "math.ceil(value: num)"
   clamp:
     description: Return the result of the `clamp` function on `math`.
-    details: 'Calls `math.clamp(value: num, min: num, max: num)` with the given arguments
-      and returns a `num` result.'
+    details: "Calls `math.clamp(value: num, min: num, max: num)` with the given arguments
+      and returns a `num` result."
     examples:
-    - math.clamp(10, 0, 5) // 5
+      - math.clamp(10, 0, 5) // 5
     params:
-    - name: value
-      type: num
-      description: the `value` num value
-    - name: min
-      type: num
-      description: the `min` num value
-    - name: max
-      type: num
-      description: the `max` num value
+      - name: value
+        type: num
+        description: the `value` num value
+      - name: min
+        type: num
+        description: the `min` num value
+      - name: max
+        type: num
+        description: the `max` num value
     return_value: num
     see: []
-    signature: 'math.clamp(value: num, min: num, max: num)'
+    signature: "math.clamp(value: num, min: num, max: num)"
   cos:
     description: Return the cos of `value`.
     details: Compute the mathematical cos of `value`.
     examples:
-    - math.cos(-5)
+      - math.cos(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.cos(value: num)'
+    signature: "math.cos(value: num)"
   cosh:
     description: Return the result of the `cosh` function on `math`.
-    details: 'Calls `math.cosh(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.cosh(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.cosh(value: num)'
+    signature: "math.cosh(value: num)"
   degrees:
     description: Return the result of the `degrees` function on `math`.
-    details: 'Calls `math.degrees(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.degrees(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.degrees(value: num)'
+    signature: "math.degrees(value: num)"
   div:
     description: Return the result of the `div` function on `math`.
-    details: 'Calls `math.div(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.div(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples:
-    - math.div(10, 3)
+      - math.div(10, 3)
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.div(a: num, b: num)'
+    signature: "math.div(a: num, b: num)"
   e:
     description: Return the result of the `e` function on `math`.
     details: Calls `math.e()` with the given arguments and returns a `num` result.
@@ -226,91 +226,91 @@ functions:
     details: Compute the mathematical exp of `value`.
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.exp(value: num)'
+    signature: "math.exp(value: num)"
   factorial:
     description: Return the result of the `factorial` function on `math`.
-    details: 'Calls `math.factorial(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.factorial(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.factorial(value: num)'
+    signature: "math.factorial(value: num)"
   floor:
     description: Return the floor of `value`.
     details: Compute the mathematical floor of `value`.
     examples:
-    - math.floor(-5)
+      - math.floor(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.floor(value: num)'
+    signature: "math.floor(value: num)"
   floor_div:
     description: Return the result of the `floor_div` function on `math`.
-    details: 'Calls `math.floor_div(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.floor_div(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.floor_div(value: num)'
+    signature: "math.floor_div(value: num)"
   fract:
     description: Return the result of the `fract` function on `math`.
-    details: 'Calls `math.fract(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.fract(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.fract(value: num)'
+    signature: "math.fract(value: num)"
   gcd:
     description: Return the result of the `gcd` function on `math`.
-    details: 'Calls `math.gcd(a: Integer, b: Integer)` with the given arguments and
-      returns a `Integer` result.'
+    details: "Calls `math.gcd(a: Integer, b: Integer)` with the given arguments and
+      returns a `Integer` result."
     examples:
-    - math.gcd(12, 8)
+      - math.gcd(12, 8)
     params:
-    - name: a
-      type: Integer
-      description: the `a` Integer value
-    - name: b
-      type: Integer
-      description: the `b` Integer value
+      - name: a
+        type: Integer
+        description: the `a` Integer value
+      - name: b
+        type: Integer
+        description: the `b` Integer value
     return_value: Integer
     see: []
-    signature: 'math.gcd(a: Integer, b: Integer)'
+    signature: "math.gcd(a: Integer, b: Integer)"
   hypot:
     description: Return the result of the `hypot` function on `math`.
-    details: 'Calls `math.hypot(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.hypot(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.hypot(a: num, b: num)'
+    signature: "math.hypot(a: num, b: num)"
   infinity:
     description: Return the result of the `infinity` function on `math`.
     details: Calls `math.infinity()` with the given arguments and returns a `num`
@@ -322,198 +322,198 @@ functions:
     signature: math.infinity()
   is_finite:
     description: Return the result of the `is_finite` function on `math`.
-    details: 'Calls `math.is_finite(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.is_finite(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.is_finite(value: num)'
+    signature: "math.is_finite(value: num)"
   is_infinite:
     description: Return the result of the `is_infinite` function on `math`.
-    details: 'Calls `math.is_infinite(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.is_infinite(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.is_infinite(value: num)'
+    signature: "math.is_infinite(value: num)"
   is_integer:
     description: Return the result of the `is_integer` function on `math`.
-    details: 'Calls `math.is_integer(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.is_integer(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.is_integer(value: num)'
+    signature: "math.is_integer(value: num)"
   is_nan:
     description: Return the result of the `is_nan` function on `math`.
-    details: 'Calls `math.is_nan(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.is_nan(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.is_nan(value: num)'
+    signature: "math.is_nan(value: num)"
   lcm:
     description: Return the result of the `lcm` function on `math`.
-    details: 'Calls `math.lcm(a: Integer, b: Integer)` with the given arguments and
-      returns a `Integer` result.'
+    details: "Calls `math.lcm(a: Integer, b: Integer)` with the given arguments and
+      returns a `Integer` result."
     examples:
-    - math.lcm(12, 8)
+      - math.lcm(12, 8)
     params:
-    - name: a
-      type: Integer
-      description: the `a` Integer value
-    - name: b
-      type: Integer
-      description: the `b` Integer value
+      - name: a
+        type: Integer
+        description: the `a` Integer value
+      - name: b
+        type: Integer
+        description: the `b` Integer value
     return_value: Integer
     see: []
-    signature: 'math.lcm(a: Integer, b: Integer)'
+    signature: "math.lcm(a: Integer, b: Integer)"
   lerp:
     description: Return the result of the `lerp` function on `math`.
-    details: 'Calls `math.lerp(a: num, b: num, t: num)` with the given arguments and
-      returns a `num` result.'
+    details: "Calls `math.lerp(a: num, b: num, t: num)` with the given arguments and
+      returns a `num` result."
     examples:
-    - math.lerp(0, 100, 0.5) // 50
+      - math.lerp(0, 100, 0.5) // 50
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
-    - name: t
-      type: num
-      description: the `t` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
+      - name: t
+        type: num
+        description: the `t` num value
     return_value: num
     see: []
-    signature: 'math.lerp(a: num, b: num, t: num)'
+    signature: "math.lerp(a: num, b: num, t: num)"
   log:
     description: Return the log of `a`.
     details: Compute the mathematical log of `a`.
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.log(a: num, b: num)'
+    signature: "math.log(a: num, b: num)"
   log10:
     description: Return the result of the `log10` function on `math`.
-    details: 'Calls `math.log10(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.log10(value: num)` with the given arguments and returns
+      a `num` result."
     examples:
-    - math.log10(-5)
+      - math.log10(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.log10(value: num)'
+    signature: "math.log10(value: num)"
   log2:
     description: Return the result of the `log2` function on `math`.
-    details: 'Calls `math.log2(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.log2(value: num)` with the given arguments and returns a
+      `num` result."
     examples:
-    - math.log2(-5)
+      - math.log2(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.log2(value: num)'
+    signature: "math.log2(value: num)"
   map_range:
     description: Return the result of the `map_range` function on `math`.
-    details: 'Calls `math.map_range(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.map_range(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.map_range(value: num)'
+    signature: "math.map_range(value: num)"
   max:
     description: Return the max of the values in `a`.
     details: Compute the max of the numeric values in `a`.
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.max(a: num, b: num)'
+    signature: "math.max(a: num, b: num)"
   min:
     description: Return the min of the values in `a`.
     details: Compute the min of the numeric values in `a`.
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.min(a: num, b: num)'
+    signature: "math.min(a: num, b: num)"
   mod:
     description: Return the result of the `mod` function on `math`.
-    details: 'Calls `math.mod(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.mod(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.mod(a: num, b: num)'
+    signature: "math.mod(a: num, b: num)"
   mul:
     description: Return the result of the `mul` function on `math`.
-    details: 'Calls `math.mul(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.mul(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples:
-    - math.mul(10, 3)
+      - math.mul(10, 3)
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.mul(a: num, b: num)'
+    signature: "math.mul(a: num, b: num)"
   nan:
     description: Return the result of the `nan` function on `math`.
     details: Calls `math.nan()` with the given arguments and returns a `num` result.
@@ -532,146 +532,146 @@ functions:
     signature: math.pi()
   pow:
     description: Return the result of the `pow` function on `math`.
-    details: 'Calls `math.pow(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.pow(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.pow(a: num, b: num)'
+    signature: "math.pow(a: num, b: num)"
   radians:
     description: Return the result of the `radians` function on `math`.
-    details: 'Calls `math.radians(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.radians(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.radians(value: num)'
+    signature: "math.radians(value: num)"
   round:
     description: Return the round of `value`.
     details: Compute the mathematical round of `value`.
     examples:
-    - math.round(-5)
+      - math.round(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.round(value: num)'
+    signature: "math.round(value: num)"
   round_to:
     description: Return the result of the `round_to` function on `math`.
-    details: 'Calls `math.round_to(value: num, decimals: num)` with the given arguments
-      and returns a `num` result.'
+    details: "Calls `math.round_to(value: num, decimals: num)` with the given arguments
+      and returns a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
-    - name: decimals
-      type: num
-      description: the `decimals` num value
+      - name: value
+        type: num
+        description: the `value` num value
+      - name: decimals
+        type: num
+        description: the `decimals` num value
     return_value: num
     see: []
-    signature: 'math.round_to(value: num, decimals: num)'
+    signature: "math.round_to(value: num, decimals: num)"
   sign:
     description: Return the result of the `sign` function on `math`.
-    details: 'Calls `math.sign(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.sign(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.sign(value: num)'
+    signature: "math.sign(value: num)"
   sin:
     description: Return the sin of `value`.
     details: Compute the mathematical sin of `value`.
     examples:
-    - math.sin(-5)
+      - math.sin(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.sin(value: num)'
+    signature: "math.sin(value: num)"
   sinh:
     description: Return the result of the `sinh` function on `math`.
-    details: 'Calls `math.sinh(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.sinh(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.sinh(value: num)'
+    signature: "math.sinh(value: num)"
   sqrt:
     description: Return the sqrt of `value`.
     details: Compute the mathematical sqrt of `value`.
     examples:
-    - math.sqrt(-5)
+      - math.sqrt(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.sqrt(value: num)'
+    signature: "math.sqrt(value: num)"
   sub:
     description: Return the result of the `sub` function on `math`.
-    details: 'Calls `math.sub(a: num, b: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.sub(a: num, b: num)` with the given arguments and returns
+      a `num` result."
     examples:
-    - math.sub(10, 3)
+      - math.sub(10, 3)
     params:
-    - name: a
-      type: num
-      description: the `a` num value
-    - name: b
-      type: num
-      description: the `b` num value
+      - name: a
+        type: num
+        description: the `a` num value
+      - name: b
+        type: num
+        description: the `b` num value
     return_value: num
     see: []
-    signature: 'math.sub(a: num, b: num)'
+    signature: "math.sub(a: num, b: num)"
   tan:
     description: Return the tan of `value`.
     details: Compute the mathematical tan of `value`.
     examples:
-    - math.tan(-5)
+      - math.tan(-5)
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.tan(value: num)'
+    signature: "math.tan(value: num)"
   tanh:
     description: Return the result of the `tanh` function on `math`.
-    details: 'Calls `math.tanh(value: num)` with the given arguments and returns a
-      `num` result.'
+    details: "Calls `math.tanh(value: num)` with the given arguments and returns a
+      `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.tanh(value: num)'
+    signature: "math.tanh(value: num)"
   tau:
     description: Return the result of the `tau` function on `math`.
     details: Calls `math.tau()` with the given arguments and returns a `num` result.
@@ -682,13 +682,13 @@ functions:
     signature: math.tau()
   trunc:
     description: Return the result of the `trunc` function on `math`.
-    details: 'Calls `math.trunc(value: num)` with the given arguments and returns
-      a `num` result.'
+    details: "Calls `math.trunc(value: num)` with the given arguments and returns
+      a `num` result."
     examples: []
     params:
-    - name: value
-      type: num
-      description: the `value` num value
+      - name: value
+        type: num
+        description: the `value` num value
     return_value: num
     see: []
-    signature: 'math.trunc(value: num)'
+    signature: "math.trunc(value: num)"

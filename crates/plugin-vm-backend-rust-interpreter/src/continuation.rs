@@ -1161,12 +1161,19 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                     None => None,
                 };
 
+                let captured: Vec<(String, serde_json::Value)> = ctx
+                    .collect_vars()
+                    .into_iter()
+                    .map(|(n, v)| (n, v.into_inner()))
+                    .collect();
+
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
                     body: serde_json::to_string(&expr_to_json(body))
                         .unwrap_or_default(),
                     patterns: pattern_json,
+                    captured,
                 };
 
                 StepResult::Done(NonFunctionValue::new(function_value.to_json()))
@@ -1487,12 +1494,19 @@ impl<H: Host<NonFunctionValue>> crate::CanonicalVm<H> {
                     None => None,
                 };
 
+                let captured: Vec<(String, serde_json::Value)> = ctx
+                    .collect_vars()
+                    .into_iter()
+                    .map(|(n, v)| (n, v.into_inner()))
+                    .collect();
+
                 let function_value = FunctionValue {
                     params: evaluated_params,
                     return_schema,
                     body: serde_json::to_string(&expr_to_json(body))
                         .unwrap_or_default(),
                     patterns: pattern_json,
+                    captured,
                 };
 
                 StepResult::Done(NonFunctionValue::new(function_value.to_json()))

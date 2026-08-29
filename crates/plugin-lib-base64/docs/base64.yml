@@ -12,5 +12,5 @@ functions:
     params: []
     return_value: Object
     examples:
-    - base64.base64()
+      - base64.base64()
     see: []

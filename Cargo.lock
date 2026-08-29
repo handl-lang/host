@@ -711,12 +711,18 @@ version = "0.1.0"
 dependencies = [
  "handl-host-tooling",
  "handl-kit-canonical",
- "handl-kit-cli",
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-cli",
+ "handl-plugin-lib-collections",
+ "handl-plugin-lib-json",
+ "handl-plugin-lib-os-std",
+ "handl-plugin-lib-toml",
+ "handl-plugin-lib-utils",
+ "handl-plugin-lib-yaml",
  "handl-plugin-vm",
  "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
  "handl-plugin-vm-values-json",
  "serde_json",
 ]
@@ -857,19 +863,8 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
  "handl-platform",
- "handl-plugin-lib-collections",
- "handl-plugin-lib-dedent",
- "handl-plugin-lib-json",
  "handl-plugin-lib-os",
- "handl-plugin-lib-os-std",
- "handl-plugin-lib-toml",
  "handl-plugin-lib-utils",
- "handl-plugin-lib-yaml",
- "handl-plugin-vm",
- "handl-plugin-vm-backend-rust-interpreter",
- "handl-plugin-vm-common",
- "handl-plugin-vm-host-eval",
- "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -892,11 +887,6 @@ dependencies = [
  "handl-plugin-lib-utils",
  "handl-plugin-lib-ws-rfc-memory",
  "handl-plugin-lib-ws-whatwg-native",
- "handl-plugin-vm",
- "handl-plugin-vm-backend-rust-interpreter",
- "handl-plugin-vm-common",
- "handl-plugin-vm-host-eval",
- "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -914,34 +904,16 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-config",
  "handl-platform",
- "handl-plugin-lib-archive-tar",
- "handl-plugin-lib-collections",
- "handl-plugin-lib-compress-gzip",
- "handl-plugin-lib-crypto",
- "handl-plugin-lib-datetime",
  "handl-plugin-lib-http-client",
  "handl-plugin-lib-http-client-std",
  "handl-plugin-lib-http-server",
  "handl-plugin-lib-http-server-std",
- "handl-plugin-lib-intl",
- "handl-plugin-lib-ip",
- "handl-plugin-lib-kv",
- "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-os",
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-rand",
- "handl-plugin-lib-stats",
  "handl-plugin-lib-test",
- "handl-plugin-lib-unicode",
- "handl-plugin-lib-utils",
  "handl-plugin-lib-ws-rfc-native",
- "handl-plugin-lib-ws-whatwg-native",
- "handl-plugin-vm",
- "handl-plugin-vm-backend-rust-interpreter",
- "handl-plugin-vm-common",
- "handl-plugin-vm-host-eval",
- "handl-plugin-vm-values-json",
 ]
 
 [[package]]

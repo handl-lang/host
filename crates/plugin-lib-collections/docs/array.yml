@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.length()
+      - collections.array.length()
     see: []
   len:
     description: Call `collections.array.len`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.len()
+      - collections.array.len()
     see: []
   reverse:
     description: Call `collections.array.reverse`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.reverse()
+      - collections.array.reverse()
     see: []
   concat:
     description: Call `collections.array.concat`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.concat()
+      - collections.array.concat()
     see: []
   contains:
     description: Call `collections.array.contains`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.contains()
+      - collections.array.contains()
     see: []
   index_of:
     description: Call `collections.array.index_of`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.index_of()
+      - collections.array.index_of()
     see: []
   slice:
     description: Call `collections.array.slice`.
@@ -66,7 +66,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.slice()
+      - collections.array.slice()
     see: []
   first:
     description: Call `collections.array.first`.
@@ -75,7 +75,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.first()
+      - collections.array.first()
     see: []
   last:
     description: Call `collections.array.last`.
@@ -84,7 +84,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.last()
+      - collections.array.last()
     see: []
   at:
     description: Call `collections.array.at`.
@@ -93,7 +93,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.at()
+      - collections.array.at()
     see: []
   push:
     description: Call `collections.array.push`.
@@ -102,7 +102,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.push()
+      - collections.array.push()
     see: []
   pop:
     description: Call `collections.array.pop`.
@@ -111,7 +111,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.pop()
+      - collections.array.pop()
     see: []
   shift:
     description: Call `collections.array.shift`.
@@ -120,7 +120,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.shift()
+      - collections.array.shift()
     see: []
   fill:
     description: Call `collections.array.fill`.
@@ -129,7 +129,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.fill()
+      - collections.array.fill()
     see: []
   flatten:
     description: Call `collections.array.flatten`.
@@ -138,7 +138,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.flatten()
+      - collections.array.flatten()
     see: []
   deep_flatten:
     description: Call `collections.array.deep_flatten`.
@@ -147,7 +147,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.deep_flatten()
+      - collections.array.deep_flatten()
     see: []
   take:
     description: Call `collections.array.take`.
@@ -156,7 +156,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.take()
+      - collections.array.take()
     see: []
   drop:
     description: Call `collections.array.drop`.
@@ -165,7 +165,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.drop()
+      - collections.array.drop()
     see: []
   enumerate:
     description: Call `collections.array.enumerate`.
@@ -174,7 +174,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.enumerate()
+      - collections.array.enumerate()
     see: []
   unzip:
     description: Call `collections.array.unzip`.
@@ -183,7 +183,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.unzip()
+      - collections.array.unzip()
     see: []
   intersperse:
     description: Call `collections.array.intersperse`.
@@ -192,7 +192,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.intersperse()
+      - collections.array.intersperse()
     see: []
   intercalate:
     description: Call `collections.array.intercalate`.
@@ -201,7 +201,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.intercalate()
+      - collections.array.intercalate()
     see: []
   dedupe:
     description: Call `collections.array.dedupe`.
@@ -210,7 +210,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.dedupe()
+      - collections.array.dedupe()
     see: []
   prepend:
     description: Call `collections.array.prepend`.
@@ -219,7 +219,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.prepend()
+      - collections.array.prepend()
     see: []
   take_while:
     description: Call `collections.array.take_while`.
@@ -228,7 +228,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.take_while()
+      - collections.array.take_while()
     see: []
   drop_while:
     description: Call `collections.array.drop_while`.
@@ -237,7 +237,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.drop_while()
+      - collections.array.drop_while()
     see: []
   scan:
     description: Call `collections.array.scan`.
@@ -246,7 +246,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.scan()
+      - collections.array.scan()
     see: []
   foldr:
     description: Call `collections.array.foldr`.
@@ -255,7 +255,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.foldr()
+      - collections.array.foldr()
     see: []
   find_index:
     description: Call `collections.array.find_index`.
@@ -264,7 +264,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.find_index()
+      - collections.array.find_index()
     see: []
   find_last:
     description: Call `collections.array.find_last`.
@@ -273,7 +273,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.find_last()
+      - collections.array.find_last()
     see: []
   find_last_index:
     description: Call `collections.array.find_last_index`.
@@ -282,7 +282,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.find_last_index()
+      - collections.array.find_last_index()
     see: []
   windows:
     description: Call `collections.array.windows`.
@@ -291,7 +291,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.windows()
+      - collections.array.windows()
     see: []
   transpose:
     description: Call `collections.array.transpose`.
@@ -300,7 +300,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.transpose()
+      - collections.array.transpose()
     see: []
   insert_at:
     description: Call `collections.array.insert_at`.
@@ -309,7 +309,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.insert_at()
+      - collections.array.insert_at()
     see: []
   remove_at:
     description: Call `collections.array.remove_at`.
@@ -318,7 +318,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.remove_at()
+      - collections.array.remove_at()
     see: []
   range:
     description: Call `collections.array.range`.
@@ -327,7 +327,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.range()
+      - collections.array.range()
     see: []
   zip:
     description: Call `collections.array.zip`.
@@ -336,7 +336,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.zip()
+      - collections.array.zip()
     see: []
   chunk:
     description: Call `collections.array.chunk`.
@@ -345,7 +345,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.chunk()
+      - collections.array.chunk()
     see: []
   compact:
     description: Call `collections.array.compact`.
@@ -354,7 +354,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.compact()
+      - collections.array.compact()
     see: []
   pluck:
     description: Call `collections.array.pluck`.
@@ -363,5 +363,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.array.pluck()
+      - collections.array.pluck()
     see: []

@@ -38,12 +38,7 @@ export function resolveServerPath(deps: ResolveDeps): string | null {
   const folders = deps.getWorkspaceFolders();
   if (!folders || folders.length === 0) return null;
 
-  const candidate = path.join(
-    folders[0].uri.fsPath,
-    "target",
-    "debug",
-    "handl-host-lsp",
-  );
+  const candidate = path.join(folders[0].uri.fsPath, "target", "debug", "handl-host-lsp");
   if (deps.exists(candidate)) return candidate;
 
   return null;

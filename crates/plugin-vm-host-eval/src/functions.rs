@@ -72,7 +72,11 @@ impl Function<NonFunctionValue> for Apply {
         })?;
 
         let fn_args = &args[1..];
-        let mut vars = ctx.collect_vars();
+        let mut vars: Vec<(String, NonFunctionValue)> = fn_val
+            .captured
+            .iter()
+            .map(|(n, v)| (n.clone(), NonFunctionValue::new(v.clone())))
+            .collect();
         let param_vars: Vec<(String, NonFunctionValue)> = fn_val
             .params
             .iter()

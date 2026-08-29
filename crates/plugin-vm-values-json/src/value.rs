@@ -1,12 +1,12 @@
 use handl_plugin_vm::FunctionRepr;
 use serde_json::Value as JsonValue;
 
-/// A serializable function value — pure, no closures.
+/// A serializable function value.
 ///
-/// A first-class function is just its parameter schemas, optional
-/// return schema, and a body expression string. Since the body is
-/// a pure expression (no captured state), the whole value is plain
-/// data that serializes as JSON.
+/// A first-class function is its parameter schemas, optional
+/// return schema, a body expression string, and captured variables
+/// from the enclosing scope. The whole value is plain data that
+/// serializes as JSON.
 ///
 /// A function value is detected by the presence of a `body` string
 /// field in a JSON object. No special tag is needed.
@@ -20,6 +20,8 @@ pub struct FunctionValue {
     pub body: String,
     /// Original pattern JSON for each parameter, in declaration order.
     pub patterns: Vec<JsonValue>,
+    /// Captured variables from the enclosing scope, as `(name, value)` pairs.
+    pub captured: Vec<(String, JsonValue)>,
 }
 
 impl From<FunctionValue> for JsonValue {
@@ -55,6 +57,13 @@ impl FunctionValue {
             obj.insert("return".to_string(), ret.clone());
         }
         obj.insert("body".to_string(), JsonValue::String(self.body.clone()));
+        if !self.captured.is_empty() {
+            obj.insert("captured".to_string(), JsonValue::Array(
+                self.captured.iter()
+                    .map(|(name, value)| serde_json::json!([name, value]))
+                    .collect(),
+            ));
+        }
         JsonValue::Object(obj)
     }
 
@@ -108,11 +117,27 @@ impl FunctionValue {
             })
             .unwrap_or_default();
 
+        let captured = obj
+            .get("captured")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|pair| {
+                        let pair_arr = pair.as_array()?;
+                        let name = pair_arr.first()?.as_str()?.to_string();
+                        let value = pair_arr.get(1)?.clone();
+                        Some((name, value))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
         Some(FunctionValue {
             params,
             return_schema,
             body,
             patterns,
+            captured,
         })
     }
 }

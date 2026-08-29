@@ -4,6 +4,13 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_lib_os::{
+    CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule,
+    TimeModule, TmpModule,
+};
+use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+
+use crate::{StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp};
 
 /// A `Library` plugin that registers the `os-std` implementation.
 #[derive(Debug, Default)]
@@ -26,8 +33,20 @@ impl Plugin for LibraryPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        // TODO: register concrete library implementation
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.contribute::<ModuleHost>(ModuleRule::new(FsModule::new(StdFs)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(EnvModule::new(StdEnv)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(PathModule::new(StdPath)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(TimeModule::new(StdTime)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(CmdModule::new(StdCmd)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(ProcessModule::new(
+            StdProcess::default(),
+        )))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(TmpModule::new(StdTmp)))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(SocketModule::new(
+            StdSocket::default(),
+        )))?;
+        ctx.contribute::<ModuleHost>(ModuleRule::new(SigModule::new(StdSig)))?;
         Ok(())
     }
 

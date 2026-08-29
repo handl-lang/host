@@ -7,7 +7,7 @@ module:
 functions:
   encode:
     description: Encode a WebSocket frame object into a base64 string.
-    details: '`ws_rfc_native.frame.encode(frame)` takes a frame object and returns
+    details: "`ws_rfc_native.frame.encode(frame)` takes a frame object and returns
       the wire bytes as a base64 string.
 
       The frame object must contain:
@@ -20,31 +20,31 @@ functions:
 
       - `mask` (string, base64 of 4 bytes, optional): the masking key
 
-      '
-    signature: 'ws_rfc_native.frame.encode(frame: object) -> string'
+      "
+    signature: "ws_rfc_native.frame.encode(frame: object) -> string"
     params:
-    - name: frame
-      type: object
-      description: the frame to encode
+      - name: frame
+        type: object
+        description: the frame to encode
     return_value: string
     examples:
-    - 'ws_rfc_native.frame.encode({ opcode: "text", payload: "" })'
+      - 'ws_rfc_native.frame.encode({ opcode: "text", payload: "" })'
     see: []
   decode:
     description: Decode a base64 WebSocket frame into a frame object.
-    details: '`ws_rfc_native.frame.decode(base64)` parses a base64-encoded WebSocket
+    details: "`ws_rfc_native.frame.decode(base64)` parses a base64-encoded WebSocket
       frame and returns an object with
 
       `opcode`, `payload` (base64), `fin`, `rsv1`, `rsv2`, `rsv3`, and optional `mask`
       (base64).
 
-      '
-    signature: 'ws_rfc_native.frame.decode(base64: string) -> object'
+      "
+    signature: "ws_rfc_native.frame.decode(base64: string) -> object"
     params:
-    - name: base64
-      type: string
-      description: base64-encoded frame bytes
+      - name: base64
+        type: string
+        description: base64-encoded frame bytes
     return_value: object
     examples:
-    - ws_rfc_native.frame.decode("...")
+      - ws_rfc_native.frame.decode("...")
     see: []

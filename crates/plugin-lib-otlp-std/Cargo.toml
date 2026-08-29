@@ -6,5 +6,6 @@ edition.workspace = true
 [dependencies]
 handl-platform = { workspace = true }
 handl-plugin-lib-otlp.workspace = true
+handl-plugin-vm-common.workspace = true
 ureq = "2"
 serde_json = "1"

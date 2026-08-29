@@ -8,14 +8,14 @@ functions:
   from_unix:
     description: Call `datetime.from_unix`.
     details: Given datetime.from_unix.
-    signature: 'datetime.from_unix(arg0: any)'
+    signature: "datetime.from_unix(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: String
     examples:
-    - datetime.from_unix("x")
+      - datetime.from_unix("x")
     see: []
   to_unix:
     description: Call `datetime.to_unix`.
@@ -24,7 +24,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.to_unix()
+      - datetime.to_unix()
     see: []
   format:
     description: Call `datetime.format`.
@@ -33,7 +33,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.format()
+      - datetime.format()
     see: []
   parse:
     description: Call `datetime.parse`.
@@ -42,7 +42,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.parse()
+      - datetime.parse()
     see: []
   year:
     description: Call `datetime.year`.
@@ -51,7 +51,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.year()
+      - datetime.year()
     see: []
   month:
     description: Call `datetime.month`.
@@ -60,7 +60,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.month()
+      - datetime.month()
     see: []
   day:
     description: Call `datetime.day`.
@@ -69,7 +69,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.day()
+      - datetime.day()
     see: []
   hour:
     description: Call `datetime.hour`.
@@ -78,7 +78,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.hour()
+      - datetime.hour()
     see: []
   minute:
     description: Call `datetime.minute`.
@@ -87,7 +87,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.minute()
+      - datetime.minute()
     see: []
   second:
     description: Call `datetime.second`.
@@ -96,7 +96,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.second()
+      - datetime.second()
     see: []
   weekday:
     description: Call `datetime.weekday`.
@@ -105,7 +105,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.weekday()
+      - datetime.weekday()
     see: []
   day_of_year:
     description: Call `datetime.day_of_year`.
@@ -114,7 +114,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.day_of_year()
+      - datetime.day_of_year()
     see: []
   week_of_year:
     description: Call `datetime.week_of_year`.
@@ -123,7 +123,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.week_of_year()
+      - datetime.week_of_year()
     see: []
   quarter:
     description: Call `datetime.quarter`.
@@ -132,7 +132,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.quarter()
+      - datetime.quarter()
     see: []
   is_leap_year:
     description: Call `datetime.is_leap_year`.
@@ -141,7 +141,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_leap_year()
+      - datetime.is_leap_year()
     see: []
   is_weekend:
     description: Call `datetime.is_weekend`.
@@ -150,7 +150,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_weekend()
+      - datetime.is_weekend()
     see: []
   add_seconds:
     description: Call `datetime.add_seconds`.
@@ -159,7 +159,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_seconds()
+      - datetime.add_seconds()
     see: []
   add_minutes:
     description: Call `datetime.add_minutes`.
@@ -168,7 +168,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_minutes()
+      - datetime.add_minutes()
     see: []
   add_hours:
     description: Call `datetime.add_hours`.
@@ -177,7 +177,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_hours()
+      - datetime.add_hours()
     see: []
   add_days:
     description: Call `datetime.add_days`.
@@ -186,7 +186,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_days()
+      - datetime.add_days()
     see: []
   add_weeks:
     description: Call `datetime.add_weeks`.
@@ -195,7 +195,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_weeks()
+      - datetime.add_weeks()
     see: []
   add_months:
     description: Call `datetime.add_months`.
@@ -204,7 +204,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_months()
+      - datetime.add_months()
     see: []
   add_years:
     description: Call `datetime.add_years`.
@@ -213,7 +213,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.add_years()
+      - datetime.add_years()
     see: []
   compare:
     description: Call `datetime.compare`.
@@ -222,7 +222,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.compare()
+      - datetime.compare()
     see: []
   is_before:
     description: Call `datetime.is_before`.
@@ -231,7 +231,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_before()
+      - datetime.is_before()
     see: []
   is_after:
     description: Call `datetime.is_after`.
@@ -240,7 +240,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_after()
+      - datetime.is_after()
     see: []
   is_equal:
     description: Call `datetime.is_equal`.
@@ -249,7 +249,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_equal()
+      - datetime.is_equal()
     see: []
   is_between:
     description: Call `datetime.is_between`.
@@ -258,7 +258,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_between()
+      - datetime.is_between()
     see: []
   is_between_inclusive:
     description: Call `datetime.is_between_inclusive`.
@@ -267,7 +267,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_between_inclusive()
+      - datetime.is_between_inclusive()
     see: []
   duration_between:
     description: Call `datetime.duration_between`.
@@ -276,7 +276,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.duration_between()
+      - datetime.duration_between()
     see: []
   duration_seconds:
     description: Call `datetime.duration_seconds`.
@@ -285,7 +285,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.duration_seconds()
+      - datetime.duration_seconds()
     see: []
   duration_minutes:
     description: Call `datetime.duration_minutes`.
@@ -294,7 +294,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.duration_minutes()
+      - datetime.duration_minutes()
     see: []
   duration_hours:
     description: Call `datetime.duration_hours`.
@@ -303,7 +303,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.duration_hours()
+      - datetime.duration_hours()
     see: []
   duration_days:
     description: Call `datetime.duration_days`.
@@ -312,7 +312,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.duration_days()
+      - datetime.duration_days()
     see: []
   start_of_day:
     description: Call `datetime.start_of_day`.
@@ -321,7 +321,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.start_of_day()
+      - datetime.start_of_day()
     see: []
   end_of_day:
     description: Call `datetime.end_of_day`.
@@ -330,7 +330,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.end_of_day()
+      - datetime.end_of_day()
     see: []
   start_of_hour:
     description: Call `datetime.start_of_hour`.
@@ -339,7 +339,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.start_of_hour()
+      - datetime.start_of_hour()
     see: []
   end_of_hour:
     description: Call `datetime.end_of_hour`.
@@ -348,7 +348,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.end_of_hour()
+      - datetime.end_of_hour()
     see: []
   start_of_month:
     description: Call `datetime.start_of_month`.
@@ -357,7 +357,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.start_of_month()
+      - datetime.start_of_month()
     see: []
   end_of_month:
     description: Call `datetime.end_of_month`.
@@ -366,7 +366,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.end_of_month()
+      - datetime.end_of_month()
     see: []
   start_of_year:
     description: Call `datetime.start_of_year`.
@@ -375,7 +375,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.start_of_year()
+      - datetime.start_of_year()
     see: []
   end_of_year:
     description: Call `datetime.end_of_year`.
@@ -384,7 +384,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.end_of_year()
+      - datetime.end_of_year()
     see: []
   to_timezone:
     description: Call `datetime.to_timezone`.
@@ -393,7 +393,7 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.to_timezone()
+      - datetime.to_timezone()
     see: []
   to_utc:
     description: Call `datetime.to_utc`.
@@ -402,25 +402,25 @@ functions:
     params: []
     return_value: String
     examples:
-    - datetime.to_utc()
+      - datetime.to_utc()
     see: []
   from_components:
     description: Call `datetime.from_components`.
     details: Given datetime.from_components.
-    signature: 'datetime.from_components(arg0: any, arg1: any, arg2: any)'
+    signature: "datetime.from_components(arg0: any, arg1: any, arg2: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    - name: arg1
-      type: any
-      description: the 1th any argument
-    - name: arg2
-      type: any
-      description: the 2th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
+      - name: arg1
+        type: any
+        description: the 1th any argument
+      - name: arg2
+        type: any
+        description: the 2th any argument
     return_value: String
     examples:
-    - datetime.from_components("x", "x", "x")
+      - datetime.from_components("x", "x", "x")
     see: []
   is_valid:
     description: Call `datetime.is_valid`.
@@ -429,5 +429,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - datetime.is_valid()
+      - datetime.is_valid()
     see: []

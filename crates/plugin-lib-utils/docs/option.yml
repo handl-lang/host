@@ -7,193 +7,193 @@ module:
 functions:
   and:
     description: Return the result of the `and` function on `option`.
-    details: 'Calls `option.and(value: type.any)` with the given arguments and returns
-      a `Boolean` result.'
+    details: "Calls `option.and(value: type.any)` with the given arguments and returns
+      a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.and(value: type.any)'
+    signature: "option.and(value: type.any)"
   and_then:
     description: Return the result of the `and_then` function on `option`.
-    details: 'Calls `option.and_then(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.and_then(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.and_then(value: type.any)'
+    signature: "option.and_then(value: type.any)"
   filter:
     description: Return the result of the `filter` function on `option`.
-    details: 'Calls `option.filter(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.filter(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.filter(value: type.any)'
+    signature: "option.filter(value: type.any)"
   flat_map:
     description: Return the result of the `flat_map` function on `option`.
-    details: 'Calls `option.flat_map(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.flat_map(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.flat_map(value: type.any)'
+    signature: "option.flat_map(value: type.any)"
   is_none:
     description: Return the result of the `is_none` function on `option`.
-    details: 'Calls `option.is_none(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.is_none(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.is_none(value: type.any)'
+    signature: "option.is_none(value: type.any)"
   is_some:
     description: Return the result of the `is_some` function on `option`.
-    details: 'Calls `option.is_some(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.is_some(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.is_some(value: type.any)'
+    signature: "option.is_some(value: type.any)"
   map:
     description: Return the result of the `map` function on `option`.
-    details: 'Calls `option.map(value: type.any)` with the given arguments and returns
-      a `Boolean` result.'
+    details: "Calls `option.map(value: type.any)` with the given arguments and returns
+      a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.map(value: type.any)'
+    signature: "option.map(value: type.any)"
   map_or:
     description: Return the result of the `map_or` function on `option`.
-    details: 'Calls `option.map_or(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.map_or(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.map_or(value: type.any)'
+    signature: "option.map_or(value: type.any)"
   none:
     description: Return the result of the `none` function on `option`.
-    details: 'Calls `option.none(value: type.any)` with the given arguments and returns
-      a `None` result.'
+    details: "Calls `option.none(value: type.any)` with the given arguments and returns
+      a `None` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: None
     see: []
-    signature: 'option.none(value: type.any)'
+    signature: "option.none(value: type.any)"
   or:
     description: Return the result of the `or` function on `option`.
-    details: 'Calls `option.or(value: type.any)` with the given arguments and returns
-      a `Boolean` result.'
+    details: "Calls `option.or(value: type.any)` with the given arguments and returns
+      a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.or(value: type.any)'
+    signature: "option.or(value: type.any)"
   or_else:
     description: Return the result of the `or_else` function on `option`.
-    details: 'Calls `option.or_else(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.or_else(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.or_else(value: type.any)'
+    signature: "option.or_else(value: type.any)"
   some:
     description: Return the result of the `some` function on `option`.
-    details: 'Calls `option.some(value: type.any)` with the given arguments and returns
-      a `Some` result.'
+    details: "Calls `option.some(value: type.any)` with the given arguments and returns
+      a `Some` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Some
     see: []
-    signature: 'option.some(value: type.any)'
+    signature: "option.some(value: type.any)"
   unwrap:
     description: Return the result of the `unwrap` function on `option`.
-    details: 'Calls `option.unwrap(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.unwrap(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.unwrap(value: type.any)'
+    signature: "option.unwrap(value: type.any)"
   unwrap_or:
     description: Return the result of the `unwrap_or` function on `option`.
-    details: 'Calls `option.unwrap_or(value: type.any)` with the given arguments and
-      returns a `Boolean` result.'
+    details: "Calls `option.unwrap_or(value: type.any)` with the given arguments and
+      returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.unwrap_or(value: type.any)'
+    signature: "option.unwrap_or(value: type.any)"
   unwrap_or_else:
     description: Return the result of the `unwrap_or_else` function on `option`.
-    details: 'Calls `option.unwrap_or_else(value: type.any)` with the given arguments
-      and returns a `Boolean` result.'
+    details: "Calls `option.unwrap_or_else(value: type.any)` with the given arguments
+      and returns a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.unwrap_or_else(value: type.any)'
+    signature: "option.unwrap_or_else(value: type.any)"
   xor:
     description: Return the result of the `xor` function on `option`.
-    details: 'Calls `option.xor(value: type.any)` with the given arguments and returns
-      a `Boolean` result.'
+    details: "Calls `option.xor(value: type.any)` with the given arguments and returns
+      a `Boolean` result."
     examples: []
     params:
-    - name: value
-      type: type.any
-      description: the `value` type.any value
+      - name: value
+        type: type.any
+        description: the `value` type.any value
     return_value: Boolean
     see: []
-    signature: 'option.xor(value: type.any)'
+    signature: "option.xor(value: type.any)"

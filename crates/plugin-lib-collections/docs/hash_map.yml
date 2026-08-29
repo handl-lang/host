@@ -7,7 +7,7 @@ module:
 functions:
   new:
     description: "`collections.hash_map.new() \u2192 object`"
-    details: ''
+    details: ""
     signature: collections.hash_map.new()
     params: []
     return_value: Object
@@ -15,419 +15,419 @@ functions:
     see: []
   from:
     description: "`collections.hash_map.from(object: object) \u2192 object`"
-    details: ''
-    signature: 'collections.hash_map.from(object: Object)'
+    details: ""
+    signature: "collections.hash_map.from(object: Object)"
     params:
-    - name: object
-      type: Object
-      description: the object argument
+      - name: object
+        type: Object
+        description: the object argument
     return_value: Object
     examples: []
     see: []
   to_object:
     description: "`collections.hash_map.to_object(map: hash_map) \u2192 object`"
-    details: ''
-    signature: 'collections.hash_map.to_object(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.to_object(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: Object
     examples: []
     see: []
   len:
     description: "`collections.hash_map.len(map: hash_map) \u2192 number`"
-    details: ''
-    signature: 'collections.hash_map.len(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.len(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: Number
     examples: []
     see: []
   is_empty:
     description: "`collections.hash_map.is_empty(map: hash_map) \u2192 bool`"
-    details: ''
-    signature: 'collections.hash_map.is_empty(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.is_empty(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: Boolean
     examples: []
     see: []
   get:
     description: "`collections.hash_map.get(map: hash_map, key: string, default?:\
       \ value) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.get(map: hash_map, key: String, default?: any)'
+    details: ""
+    signature: "collections.hash_map.get(map: hash_map, key: String, default?: any)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
-    - name: default
-      type: any?
-      description: the default argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
+      - name: default
+        type: any?
+        description: the default argument
     return_value: any
     examples: []
     see: []
   set:
     description: "`collections.hash_map.set(map: hash_map, key: string, value: value)\
       \ \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.set(map: hash_map, key: String, value: any)'
+    details: ""
+    signature: "collections.hash_map.set(map: hash_map, key: String, value: any)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
-    - name: value
-      type: any
-      description: the value argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: hash_map
     examples: []
     see: []
   remove:
     description: "`collections.hash_map.remove(map: hash_map, key: string) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.remove(map: hash_map, key: String)'
+    details: ""
+    signature: "collections.hash_map.remove(map: hash_map, key: String)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
     return_value: hash_map
     examples: []
     see: []
   has:
     description: "`collections.hash_map.has(map: hash_map, key: string) \u2192 bool`"
-    details: ''
-    signature: 'collections.hash_map.has(map: hash_map, key: String)'
+    details: ""
+    signature: "collections.hash_map.has(map: hash_map, key: String)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
     return_value: Boolean
     examples: []
     see: []
   keys:
     description: "`collections.hash_map.keys(map: hash_map) \u2192 array<string>`"
-    details: ''
-    signature: 'collections.hash_map.keys(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.keys(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: array<string>
     examples: []
     see: []
   values:
     description: "`collections.hash_map.values(map: hash_map) \u2192 array`"
-    details: ''
-    signature: 'collections.hash_map.values(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.values(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: Array
     examples: []
     see: []
   entries:
     description: "`collections.hash_map.entries(map: hash_map) \u2192 array<[string,\
       \ value]>`"
-    details: ''
-    signature: 'collections.hash_map.entries(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.entries(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: array<[string, value]>
     examples: []
     see: []
   size:
     description: "`collections.hash_map.size(map: hash_map) \u2192 number`"
-    details: ''
-    signature: 'collections.hash_map.size(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.size(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: Number
     examples: []
     see: []
   get_or:
     description: "`collections.hash_map.get_or(map: hash_map, key: string, default:\
       \ value) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.get_or(map: hash_map, key: String, default: any)'
+    details: ""
+    signature: "collections.hash_map.get_or(map: hash_map, key: String, default: any)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
-    - name: default
-      type: any
-      description: the default argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
+      - name: default
+        type: any
+        description: the default argument
     return_value: any
     examples: []
     see: []
   deep_get:
     description: "`collections.hash_map.deep_get(value: value, path: string) \u2192\
       \ value`"
-    details: ''
-    signature: 'collections.hash_map.deep_get(value: any, path: String)'
+    details: ""
+    signature: "collections.hash_map.deep_get(value: any, path: String)"
     params:
-    - name: value
-      type: any
-      description: the value argument
-    - name: path
-      type: String
-      description: the path argument
+      - name: value
+        type: any
+        description: the value argument
+      - name: path
+        type: String
+        description: the path argument
     return_value: any
     examples: []
     see: []
   path_or:
     description: "`collections.hash_map.path_or(value: value, path: string, default:\
       \ value) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.path_or(value: any, path: String, default: any)'
+    details: ""
+    signature: "collections.hash_map.path_or(value: any, path: String, default: any)"
     params:
-    - name: value
-      type: any
-      description: the value argument
-    - name: path
-      type: String
-      description: the path argument
-    - name: default
-      type: any
-      description: the default argument
+      - name: value
+        type: any
+        description: the value argument
+      - name: path
+        type: String
+        description: the path argument
+      - name: default
+        type: any
+        description: the default argument
     return_value: any
     examples: []
     see: []
   update:
     description: "`collections.hash_map.update(map: hash_map, key: string, fn: function)\
       \ \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.update(map: hash_map, key: String, fn: function)'
+    details: ""
+    signature: "collections.hash_map.update(map: hash_map, key: String, fn: function)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: key
-      type: String
-      description: the key argument
-    - name: fn
-      type: function
-      description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: key
+        type: String
+        description: the key argument
+      - name: fn
+        type: function
+        description: the fn argument
     return_value: hash_map
     examples: []
     see: []
   set_path:
     description: "`collections.hash_map.set_path(map: hash_map, path: string, value:\
       \ value) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.set_path(map: hash_map, path: String, value:
-      any)'
+    details: ""
+    signature: "collections.hash_map.set_path(map: hash_map, path: String, value:
+      any)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: path
-      type: String
-      description: the path argument
-    - name: value
-      type: any
-      description: the value argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: path
+        type: String
+        description: the path argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: any
     examples: []
     see: []
   update_path:
     description: "`collections.hash_map.update_path(map: hash_map, path: string, fn:\
       \ function) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.update_path(map: hash_map, path: String, fn:
-      function)'
+    details: ""
+    signature: "collections.hash_map.update_path(map: hash_map, path: String, fn:
+      function)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: path
-      type: String
-      description: the path argument
-    - name: fn
-      type: function
-      description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: path
+        type: String
+        description: the path argument
+      - name: fn
+        type: function
+        description: the fn argument
     return_value: any
     examples: []
     see: []
   map_values:
     description: "`collections.hash_map.map_values(fn: function, map: hash_map) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.map_values(fn: function, map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.map_values(fn: function, map: hash_map)"
     params:
-    - name: fn
-      type: function
-      description: the fn argument
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: fn
+        type: function
+        description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: hash_map
     examples: []
     see: []
   map_keys:
     description: "`collections.hash_map.map_keys(fn: function, map: hash_map) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.map_keys(fn: function, map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.map_keys(fn: function, map: hash_map)"
     params:
-    - name: fn
-      type: function
-      description: the fn argument
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: fn
+        type: function
+        description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: hash_map
     examples: []
     see: []
   filter_keys:
     description: "`collections.hash_map.filter_keys(fn: function, map: hash_map) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.filter_keys(fn: function, map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.filter_keys(fn: function, map: hash_map)"
     params:
-    - name: fn
-      type: function
-      description: the fn argument
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: fn
+        type: function
+        description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: hash_map
     examples: []
     see: []
   filter_values:
     description: "`collections.hash_map.filter_values(fn: function, map: hash_map)\
       \ \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.filter_values(fn: function, map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.filter_values(fn: function, map: hash_map)"
     params:
-    - name: fn
-      type: function
-      description: the fn argument
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: fn
+        type: function
+        description: the fn argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: hash_map
     examples: []
     see: []
   invert:
     description: "`collections.hash_map.invert(map: hash_map) \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.invert(map: hash_map)'
+    details: ""
+    signature: "collections.hash_map.invert(map: hash_map)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
+      - name: map
+        type: hash_map
+        description: the map argument
     return_value: hash_map
     examples: []
     see: []
   clone_deep:
     description: "`collections.hash_map.clone_deep(value: value) \u2192 value`"
-    details: ''
-    signature: 'collections.hash_map.clone_deep(value: any)'
+    details: ""
+    signature: "collections.hash_map.clone_deep(value: any)"
     params:
-    - name: value
-      type: any
-      description: the value argument
+      - name: value
+        type: any
+        description: the value argument
     return_value: any
     examples: []
     see: []
   pick:
     description: "`collections.hash_map.pick(map: hash_map, keys: array<string>) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.pick(map: hash_map, keys: array<string>)'
+    details: ""
+    signature: "collections.hash_map.pick(map: hash_map, keys: array<string>)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: keys
-      type: array<string>
-      description: the keys argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: keys
+        type: array<string>
+        description: the keys argument
     return_value: hash_map
     examples: []
     see: []
   omit:
     description: "`collections.hash_map.omit(map: hash_map, keys: array<string>) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.omit(map: hash_map, keys: array<string>)'
+    details: ""
+    signature: "collections.hash_map.omit(map: hash_map, keys: array<string>)"
     params:
-    - name: map
-      type: hash_map
-      description: the map argument
-    - name: keys
-      type: array<string>
-      description: the keys argument
+      - name: map
+        type: hash_map
+        description: the map argument
+      - name: keys
+        type: array<string>
+        description: the keys argument
     return_value: hash_map
     examples: []
     see: []
   merge:
     description: "`collections.hash_map.merge(a: hash_map, b: hash_map) \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.merge(a: hash_map, b: hash_map)'
+    details: ""
+    signature: "collections.hash_map.merge(a: hash_map, b: hash_map)"
     params:
-    - name: a
-      type: hash_map
-      description: the a argument
-    - name: b
-      type: hash_map
-      description: the b argument
+      - name: a
+        type: hash_map
+        description: the a argument
+      - name: b
+        type: hash_map
+        description: the b argument
     return_value: hash_map
     examples: []
     see: []
   deep_merge:
     description: "`collections.hash_map.deep_merge(a: hash_map, b: hash_map) \u2192\
       \ hash_map`"
-    details: ''
-    signature: 'collections.hash_map.deep_merge(a: hash_map, b: hash_map)'
+    details: ""
+    signature: "collections.hash_map.deep_merge(a: hash_map, b: hash_map)"
     params:
-    - name: a
-      type: hash_map
-      description: the a argument
-    - name: b
-      type: hash_map
-      description: the b argument
+      - name: a
+        type: hash_map
+        description: the a argument
+      - name: b
+        type: hash_map
+        description: the b argument
     return_value: hash_map
     examples: []
     see: []
   from_entries:
     description: "`collections.hash_map.from_entries(entries: array<[string, value]>)\
       \ \u2192 hash_map`"
-    details: ''
-    signature: 'collections.hash_map.from_entries(entries: array<[string, value]>:
-      any)'
+    details: ""
+    signature: "collections.hash_map.from_entries(entries: array<[string, value]>:
+      any)"
     params:
-    - name: entries
-      type: array<[string
-      description: the entries argument
-    - name: value]>
-      type: any
-      description: the value]> argument
+      - name: entries
+        type: array<[string
+        description: the entries argument
+      - name: value]>
+        type: any
+        description: the value]> argument
     return_value: hash_map
     examples: []
     see: []
@@ -438,5 +438,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.hash_map.has_key()
+      - collections.hash_map.has_key()
     see: []

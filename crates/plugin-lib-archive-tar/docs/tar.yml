@@ -8,24 +8,24 @@ functions:
   pack:
     description: Call `tar.pack`.
     details: Given tar.pack.
-    signature: 'tar.pack(arg0: any)'
+    signature: "tar.pack(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - tar.pack("x")
+      - tar.pack("x")
     see: []
   unpack:
     description: Call `tar.unpack`.
     details: Given tar.unpack.
-    signature: 'tar.unpack(arg0: any)'
+    signature: "tar.unpack(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - tar.unpack("x")
+      - tar.unpack("x")
     see: []

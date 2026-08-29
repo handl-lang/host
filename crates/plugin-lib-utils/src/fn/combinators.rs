@@ -99,6 +99,7 @@ fn inline_chain(fns: &[FunctionValue]) -> Result<FunctionValue, Error> {
         return_schema: None,
         body,
         patterns: Vec::new(),
+        captured: Vec::new(),
     })
 }
 
@@ -370,6 +371,7 @@ impl Function<NonFunctionValue> for Constantly {
             return_schema: None,
             body: serde_json::to_string(&captured).unwrap_or_else(|_| "null".to_string()),
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         Ok(NonFunctionValue::new(fn_val))
     }
@@ -402,6 +404,7 @@ impl Function<NonFunctionValue> for Flip {
             return_schema: None,
             body: fn_val.body.clone(),
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         Ok(NonFunctionValue::new(flipped))
     }
@@ -445,6 +448,7 @@ impl Function<NonFunctionValue> for Partial {
             return_schema: None,
             body,
             patterns: Vec::new(),
+            captured: Vec::new(),
         };
         Ok(NonFunctionValue::new(partial_fn))
     }

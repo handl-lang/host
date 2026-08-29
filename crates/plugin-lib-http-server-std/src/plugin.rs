@@ -4,6 +4,9 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+
+use crate::std_http_server_module;
 
 /// A `Library` plugin that registers the `http-server-std` implementation.
 #[derive(Debug, Default)]
@@ -26,8 +29,8 @@ impl Plugin for LibraryPlugin {
         None
     }
 
-    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        // TODO: register concrete library implementation
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        ctx.contribute::<ModuleHost>(ModuleRule::new(std_http_server_module()))?;
         Ok(())
     }
 

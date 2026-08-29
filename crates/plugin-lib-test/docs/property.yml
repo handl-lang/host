@@ -12,5 +12,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - property.for_all()
+      - property.for_all()
     see: []

@@ -41,6 +41,7 @@ fn fn_value(body: &str, params: &[&str]) -> NonFunctionValue {
         return_schema: None,
         body: body.to_string(),
         patterns: Vec::new(),
+            captured: Vec::new(),
     };
     NonFunctionValue::new(value.to_json())
 }

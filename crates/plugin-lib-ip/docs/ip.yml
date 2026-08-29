@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.parse()
+      - ip.parse()
     see: []
   format:
     description: Call `ip.format`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.format()
+      - ip.format()
     see: []
   is_loopback:
     description: Call `ip.is_loopback`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.is_loopback()
+      - ip.is_loopback()
     see: []
   is_multicast:
     description: Call `ip.is_multicast`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.is_multicast()
+      - ip.is_multicast()
     see: []
   is_private:
     description: Call `ip.is_private`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.is_private()
+      - ip.is_private()
     see: []
   is_link_local:
     description: Call `ip.is_link_local`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.is_link_local()
+      - ip.is_link_local()
     see: []
   is_unspecified:
     description: Call `ip.is_unspecified`.
@@ -66,5 +66,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - ip.is_unspecified()
+      - ip.is_unspecified()
     see: []

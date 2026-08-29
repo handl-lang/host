@@ -8,9 +8,7 @@ const workspaceRoot = resolve(__dirname, "../../..");
 const binary = resolve(workspaceRoot, "target/debug/hnl");
 
 if (!existsSync(binary)) {
-  console.error(
-    "hnl binary not found at " + binary + ". Run: cargo build -p handl-host-cli",
-  );
+  console.error("hnl binary not found at " + binary + ". Run: cargo build -p handl-host-cli");
   process.exit(1);
 }
 

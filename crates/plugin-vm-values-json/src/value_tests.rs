@@ -75,6 +75,7 @@ fn function_value_roundtrip() {
         ],
         return_schema: Some(serde_json::json!({"type": "number"})),
         patterns: vec![serde_json::Value::Null, serde_json::Value::Null],
+            captured: Vec::new(),
         body: "mul(x, y)".to_string(),
     };
     let json = fn_val.to_json();
@@ -88,6 +89,7 @@ fn function_value_without_return() {
         params: vec![("x".to_string(), serde_json::json!({"type": "string"}))],
         return_schema: None,
         patterns: vec![],
+            captured: Vec::new(),
         body: "x".to_string(),
     };
     let json = fn_val.to_json();
@@ -110,6 +112,7 @@ fn runtime_value_function_encoding() {
         params: vec![("x".to_string(), serde_json::json!({"type": "number"}))],
         return_schema: Some(serde_json::json!({"type": "number"})),
         patterns: vec![],
+            captured: Vec::new(),
         body: "mul(x, 2)".to_string(),
     };
     let rv = NonFunctionValue::new(fn_val.to_json());
@@ -185,6 +188,7 @@ fn function_value_roundtrip_with_return_schema() {
         ],
         return_schema: Some(serde_json::json!({"type": "object"})),
         patterns: vec![serde_json::Value::Null, serde_json::Value::Null],
+            captured: Vec::new(),
         body: "transform(x, y)".to_string(),
     };
     let json = fn_val.to_json();
@@ -198,6 +202,7 @@ fn function_value_roundtrip_no_params_no_return() {
         params: vec![],
         return_schema: None,
         patterns: vec![],
+            captured: Vec::new(),
         body: "answer".to_string(),
     };
     let json = fn_val.to_json();

@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
-const pkgDir = new URL('./pkg', import.meta.url).pathname;
+const pkgDir = new URL("./pkg", import.meta.url).pathname;
 
 const indexHtml = `<!DOCTYPE html>
 <html>
@@ -56,23 +56,21 @@ Bun.serve({
   port: 8787,
   fetch(req, server) {
     const url = new URL(req.url);
-    if (url.pathname === '/ws') {
+    if (url.pathname === "/ws") {
       if (server.upgrade(req)) return;
-      return new Response('WebSocket upgrade failed', { status: 400 });
+      return new Response("WebSocket upgrade failed", { status: 400 });
     }
-    if (url.pathname.startsWith('/pkg/')) {
-      const file = join(pkgDir, url.pathname.slice('/pkg/'.length));
+    if (url.pathname.startsWith("/pkg/")) {
+      const file = join(pkgDir, url.pathname.slice("/pkg/".length));
       if (!existsSync(file)) {
-        return new Response('not found', { status: 404 });
+        return new Response("not found", { status: 404 });
       }
       const data = readFileSync(file);
-      const contentType = file.endsWith('.wasm')
-        ? 'application/wasm'
-        : 'text/javascript';
-      return new Response(data, { headers: { 'Content-Type': contentType } });
+      const contentType = file.endsWith(".wasm") ? "application/wasm" : "text/javascript";
+      return new Response(data, { headers: { "Content-Type": contentType } });
     }
     return new Response(indexHtml, {
-      headers: { 'Content-Type': 'text/html' },
+      headers: { "Content-Type": "text/html" },
     });
   },
   websocket: {

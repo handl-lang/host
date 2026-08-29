@@ -50,11 +50,22 @@ export const handlDark = {
       settings: { foreground: "#0f0", fontStyle: "italic" },
     },
     {
-      scope: ["keyword.control.flow", "keyword.control.return", "keyword.control.import", "keyword.control.export"],
+      scope: [
+        "keyword.control.flow",
+        "keyword.control.return",
+        "keyword.control.import",
+        "keyword.control.export",
+      ],
       settings: { foreground: "#0f0", fontStyle: "italic" },
     },
     {
-      scope: ["storage.modifier.rust", "storage.modifier.mut.rust", "keyword.operator.borrow.rust", "keyword.operator.borrow.and.rust", "keyword.operator.dereference.rust"],
+      scope: [
+        "storage.modifier.rust",
+        "storage.modifier.mut.rust",
+        "keyword.operator.borrow.rust",
+        "keyword.operator.borrow.and.rust",
+        "keyword.operator.dereference.rust",
+      ],
       settings: { foreground: "#0ff" },
     },
     {
@@ -162,7 +173,12 @@ export const handlDark = {
       settings: { foreground: "#0f0" },
     },
     {
-      scope: ["punctuation", "punctuation.definition", "punctuation.separator", "punctuation.terminator"],
+      scope: [
+        "punctuation",
+        "punctuation.definition",
+        "punctuation.separator",
+        "punctuation.terminator",
+      ],
       settings: { foreground: "#888888" },
     },
     {

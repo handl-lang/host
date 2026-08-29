@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.new()
+      - collections.stack.new()
     see: []
   from:
     description: Call `collections.stack.from`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.from()
+      - collections.stack.from()
     see: []
   to_array:
     description: Call `collections.stack.to_array`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.to_array()
+      - collections.stack.to_array()
     see: []
   len:
     description: Call `collections.stack.len`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.len()
+      - collections.stack.len()
     see: []
   is_empty:
     description: Call `collections.stack.is_empty`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.is_empty()
+      - collections.stack.is_empty()
     see: []
   push:
     description: Call `collections.stack.push`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.push()
+      - collections.stack.push()
     see: []
   pop:
     description: Call `collections.stack.pop`.
@@ -66,7 +66,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.pop()
+      - collections.stack.pop()
     see: []
   peek:
     description: Call `collections.stack.peek`.
@@ -75,5 +75,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.stack.peek()
+      - collections.stack.peek()
     see: []

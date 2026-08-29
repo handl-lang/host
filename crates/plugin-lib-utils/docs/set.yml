@@ -7,106 +7,106 @@ module:
 functions:
   difference:
     description: Return the result of the `difference` function on `set`.
-    details: 'Calls `set.difference(a: Array, b: Array)` with the given arguments
-      and returns a `Array` result.'
+    details: "Calls `set.difference(a: Array, b: Array)` with the given arguments
+      and returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.difference(a: Array, b: Array)'
+    signature: "set.difference(a: Array, b: Array)"
   intersection:
     description: Return the result of the `intersection` function on `set`.
-    details: 'Calls `set.intersection(a: Array, b: Array)` with the given arguments
-      and returns a `Array` result.'
+    details: "Calls `set.intersection(a: Array, b: Array)` with the given arguments
+      and returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.intersection(a: Array, b: Array)'
+    signature: "set.intersection(a: Array, b: Array)"
   symmetric_difference:
     description: Return the result of the `symmetric_difference` function on `set`.
-    details: 'Calls `set.symmetric_difference(a: Array, b: Array)` with the given
-      arguments and returns a `Array` result.'
+    details: "Calls `set.symmetric_difference(a: Array, b: Array)` with the given
+      arguments and returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.symmetric_difference(a: Array, b: Array)'
+    signature: "set.symmetric_difference(a: Array, b: Array)"
   union:
     description: Return the result of the `union` function on `set`.
-    details: 'Calls `set.union(a: Array, b: Array)` with the given arguments and returns
-      a `Array` result.'
+    details: "Calls `set.union(a: Array, b: Array)` with the given arguments and returns
+      a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.union(a: Array, b: Array)'
+    signature: "set.union(a: Array, b: Array)"
   unique:
     description: Return the result of the `unique` function on `set`.
-    details: 'Calls `set.unique(a: Array, b: Array)` with the given arguments and
-      returns a `Array` result.'
+    details: "Calls `set.unique(a: Array, b: Array)` with the given arguments and
+      returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.unique(a: Array, b: Array)'
+    signature: "set.unique(a: Array, b: Array)"
   unique_by:
     description: Return the result of the `unique_by` function on `set`.
-    details: 'Calls `set.unique_by(a: Array, b: Array)` with the given arguments and
-      returns a `Array` result.'
+    details: "Calls `set.unique_by(a: Array, b: Array)` with the given arguments and
+      returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.unique_by(a: Array, b: Array)'
+    signature: "set.unique_by(a: Array, b: Array)"
   without:
     description: Return the result of the `without` function on `set`.
-    details: 'Calls `set.without(a: Array, b: Array)` with the given arguments and
-      returns a `Array` result.'
+    details: "Calls `set.without(a: Array, b: Array)` with the given arguments and
+      returns a `Array` result."
     examples: []
     params:
-    - name: a
-      type: Array
-      description: the `a` Array value
-    - name: b
-      type: Array
-      description: the `b` Array value
+      - name: a
+        type: Array
+        description: the `a` Array value
+      - name: b
+        type: Array
+        description: the `b` Array value
     return_value: Array
     see: []
-    signature: 'set.without(a: Array, b: Array)'
+    signature: "set.without(a: Array, b: Array)"

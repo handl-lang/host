@@ -6,4 +6,5 @@ edition.workspace = true
 [dependencies]
 handl-platform = { workspace = true }
 handl-plugin-lib-http-client.workspace = true
+handl-plugin-vm-common.workspace = true
 ureq = "2"

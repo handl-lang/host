@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - stats.sum()
+      - stats.sum()
     see: []
   avg:
     description: Call `stats.avg`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - stats.avg()
+      - stats.avg()
     see: []
   product:
     description: Call `stats.product`.
@@ -30,31 +30,31 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - stats.product()
+      - stats.product()
     see: []
   min:
     description: Call `stats.min`.
     details: Given stats.min.
-    signature: 'stats.min(arg0: Array)'
+    signature: "stats.min(arg0: Array)"
     params:
-    - name: arg0
-      type: Array
-      description: the 0th Array argument
+      - name: arg0
+        type: Array
+        description: the 0th Array argument
     return_value: Number
     examples:
-    - stats.min([1, 2, 3])
+      - stats.min([1, 2, 3])
     see: []
   max:
     description: Call `stats.max`.
     details: Given stats.max.
-    signature: 'stats.max(arg0: Array)'
+    signature: "stats.max(arg0: Array)"
     params:
-    - name: arg0
-      type: Array
-      description: the 0th Array argument
+      - name: arg0
+        type: Array
+        description: the 0th Array argument
     return_value: Number
     examples:
-    - stats.max([1, 2, 3])
+      - stats.max([1, 2, 3])
     see: []
   median:
     description: Call `stats.median`.
@@ -63,7 +63,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - stats.median()
+      - stats.median()
     see: []
   stddev:
     description: Call `stats.stddev`.
@@ -72,5 +72,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - stats.stddev()
+      - stats.stddev()
     see: []

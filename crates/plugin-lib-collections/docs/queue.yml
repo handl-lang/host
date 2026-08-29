@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.new()
+      - collections.queue.new()
     see: []
   from:
     description: Call `collections.queue.from`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.from()
+      - collections.queue.from()
     see: []
   to_array:
     description: Call `collections.queue.to_array`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.to_array()
+      - collections.queue.to_array()
     see: []
   len:
     description: Call `collections.queue.len`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.len()
+      - collections.queue.len()
     see: []
   is_empty:
     description: Call `collections.queue.is_empty`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.is_empty()
+      - collections.queue.is_empty()
     see: []
   enqueue:
     description: Call `collections.queue.enqueue`.
@@ -57,7 +57,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.enqueue()
+      - collections.queue.enqueue()
     see: []
   dequeue:
     description: Call `collections.queue.dequeue`.
@@ -66,7 +66,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.dequeue()
+      - collections.queue.dequeue()
     see: []
   peek:
     description: Call `collections.queue.peek`.
@@ -75,5 +75,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - collections.queue.peek()
+      - collections.queue.peek()
     see: []

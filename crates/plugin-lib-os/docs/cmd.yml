@@ -8,12 +8,12 @@ functions:
   run:
     description: Call `cmd.run`.
     details: Given cmd.run.
-    signature: 'cmd.run(arg0: any)'
+    signature: "cmd.run(arg0: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
+      - name: arg0
+        type: any
+        description: the 0th any argument
     return_value: type.any
     examples:
-    - cmd.run("x")
+      - cmd.run("x")
     see: []

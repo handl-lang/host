@@ -10,9 +10,9 @@ functions:
     details: Given otlp.configure.
     signature: otlp.configure()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.configure()
+      - otlp.configure()
     see: []
   start_span:
     description: Call `otlp.start_span`.
@@ -21,61 +21,61 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - otlp.start_span()
+      - otlp.start_span()
     see: []
   end_span:
     description: Call `otlp.end_span`.
     details: Given otlp.end_span.
     signature: otlp.end_span()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.end_span()
+      - otlp.end_span()
     see: []
   set_attribute:
     description: Call `otlp.set_attribute`.
     details: Given otlp.set_attribute.
-    signature: 'otlp.set_attribute(arg0: any, arg1: any, arg2: any)'
+    signature: "otlp.set_attribute(arg0: any, arg1: any, arg2: any)"
     params:
-    - name: arg0
-      type: any
-      description: the 0th any argument
-    - name: arg1
-      type: any
-      description: the 1th any argument
-    - name: arg2
-      type: any
-      description: the 2th any argument
-    return_value: 'null'
+      - name: arg0
+        type: any
+        description: the 0th any argument
+      - name: arg1
+        type: any
+        description: the 1th any argument
+      - name: arg2
+        type: any
+        description: the 2th any argument
+    return_value: "null"
     examples:
-    - otlp.set_attribute("x", "x", "x")
+      - otlp.set_attribute("x", "x", "x")
     see: []
   add_event:
     description: Call `otlp.add_event`.
     details: Given otlp.add_event.
     signature: otlp.add_event()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.add_event()
+      - otlp.add_event()
     see: []
   record_log:
     description: Call `otlp.record_log`.
     details: Given otlp.record_log.
     signature: otlp.record_log()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.record_log()
+      - otlp.record_log()
     see: []
   record_metric:
     description: Call `otlp.record_metric`.
     details: Given otlp.record_metric.
     signature: otlp.record_metric()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.record_metric()
+      - otlp.record_metric()
     see: []
   flush:
     description: "Module adapter for [`OtlpState`] \u2014 exposes `otlp.*` functions"
@@ -100,7 +100,7 @@ functions:
     details: Given otlp.shutdown.
     signature: otlp.shutdown()
     params: []
-    return_value: 'null'
+    return_value: "null"
     examples:
-    - otlp.shutdown()
+      - otlp.shutdown()
     see: []

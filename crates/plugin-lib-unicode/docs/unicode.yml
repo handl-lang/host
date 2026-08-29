@@ -12,7 +12,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - unicode.is_valid_identifier()
+      - unicode.is_valid_identifier()
     see: []
   is_xid_start:
     description: Call `unicode.is_xid_start`.
@@ -21,7 +21,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - unicode.is_xid_start()
+      - unicode.is_xid_start()
     see: []
   is_xid_continue:
     description: Call `unicode.is_xid_continue`.
@@ -30,7 +30,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - unicode.is_xid_continue()
+      - unicode.is_xid_continue()
     see: []
   code_points:
     description: Call `unicode.code_points`.
@@ -39,7 +39,7 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - unicode.code_points()
+      - unicode.code_points()
     see: []
   code_point_at:
     description: Call `unicode.code_point_at`.
@@ -48,7 +48,7 @@ functions:
     params: []
     return_value: Number
     examples:
-    - unicode.code_point_at()
+      - unicode.code_point_at()
     see: []
   decode:
     description: Call `unicode.decode`.
@@ -57,5 +57,5 @@ functions:
     params: []
     return_value: type.any
     examples:
-    - unicode.decode()
+      - unicode.decode()
     see: []

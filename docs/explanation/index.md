@@ -1,6 +1,6 @@
 # Explanations
 
-Explanations help you understand *why* handl works the way it does. They are background reading, not step-by-step instructions.
+Explanations help you understand _why_ handl works the way it does. They are background reading, not step-by-step instructions.
 
 ## The language
 

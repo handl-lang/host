@@ -12,5 +12,5 @@ functions:
     params: []
     return_value: Object
     examples:
-    - json.json()
+      - json.json()
     see: []

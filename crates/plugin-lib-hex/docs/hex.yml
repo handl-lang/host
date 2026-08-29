@@ -12,5 +12,5 @@ functions:
     params: []
     return_value: Object
     examples:
-    - hex.hex()
+      - hex.hex()
     see: []
