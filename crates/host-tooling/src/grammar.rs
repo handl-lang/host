@@ -169,6 +169,48 @@ pub fn generate_textmate(info: &GrammarInfo) -> Value {
         );
     }
 
+    // Type references: type.xxx (handl's type system)
+    repository.insert(
+        "type_references".into(),
+        json!({
+            "match": r"\btype\.([a-zA-Z_][a-zA-Z0-9_]*)",
+            "captures": {
+                "1": { "name": "entity.name.type" }
+            }
+        }),
+    );
+
+    // PascalCase identifiers as type names (Flag, Command, etc.)
+    repository.insert(
+        "type_names".into(),
+        json!({
+            "match": r"\b[A-Z][a-zA-Z0-9_]+\b",
+            "name": "entity.name.type"
+        }),
+    );
+
+    // Binding declarations: identifier at start of line followed by : or =
+    repository.insert(
+        "binding_declarations".into(),
+        json!({
+            "match": format!(r"^({})\s*[:=]", info.identifier_regex),
+            "captures": {
+                "1": { "name": "variable.other.binding" }
+            }
+        }),
+    );
+
+    // Property names: identifier followed by colon (object property keys)
+    repository.insert(
+        "property_names".into(),
+        json!({
+            "match": format!(r"({})\s*:", info.identifier_regex),
+            "captures": {
+                "1": { "name": "variable.other.property" }
+            }
+        }),
+    );
+
     // Function calls (identifier followed by open paren)
     repository.insert(
         "function_calls".into(),
@@ -222,6 +264,10 @@ pub fn generate_textmate(info: &GrammarInfo) -> Value {
     if !info.delimiters.is_empty() {
         patterns.push(json!({ "include": "#delimiters" }));
     }
+    patterns.push(json!({ "include": "#type_references" }));
+    patterns.push(json!({ "include": "#type_names" }));
+    patterns.push(json!({ "include": "#binding_declarations" }));
+    patterns.push(json!({ "include": "#property_names" }));
     patterns.push(json!({ "include": "#function_calls" }));
     patterns.push(json!({ "include": "#identifiers" }));
 

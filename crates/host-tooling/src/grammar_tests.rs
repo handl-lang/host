@@ -133,13 +133,72 @@ fn generate_textmate_patterns_in_correct_order() {
     let doc_comments_pos = includes.iter().position(|s| *s == "#doc_comments");
     let comments_pos = includes.iter().position(|s| *s == "#comments");
     let keywords_pos = includes.iter().position(|s| *s == "#keywords");
+    let type_references_pos = includes.iter().position(|s| *s == "#type_references");
+    let type_names_pos = includes.iter().position(|s| *s == "#type_names");
+    let binding_declarations_pos = includes.iter().position(|s| *s == "#binding_declarations");
+    let property_names_pos = includes.iter().position(|s| *s == "#property_names");
     let function_calls_pos = includes.iter().position(|s| *s == "#function_calls");
     let identifiers_pos = includes.iter().position(|s| *s == "#identifiers");
 
     assert!(doc_comments_pos < comments_pos);
     assert!(comments_pos < keywords_pos);
     assert!(keywords_pos < identifiers_pos);
+    assert!(type_references_pos < type_names_pos);
+    assert!(type_names_pos < binding_declarations_pos);
+    assert!(binding_declarations_pos < property_names_pos);
+    assert!(property_names_pos < function_calls_pos);
     assert!(function_calls_pos < identifiers_pos);
+}
+
+#[test]
+fn generate_textmate_includes_type_references() {
+    let info = sample_info();
+    let grammar = generate_textmate(&info);
+
+    let repo = &grammar["repository"];
+    assert!(repo.get("type_references").is_some());
+    let match_str = repo["type_references"]["match"].as_str().unwrap();
+    assert!(match_str.contains(r"type\."));
+    let captures = &repo["type_references"]["captures"];
+    assert_eq!(captures["1"]["name"], "entity.name.type");
+}
+
+#[test]
+fn generate_textmate_includes_type_names() {
+    let info = sample_info();
+    let grammar = generate_textmate(&info);
+
+    let repo = &grammar["repository"];
+    assert!(repo.get("type_names").is_some());
+    let match_str = repo["type_names"]["match"].as_str().unwrap();
+    assert!(match_str.contains("[A-Z]"));
+    assert_eq!(repo["type_names"]["name"], "entity.name.type");
+}
+
+#[test]
+fn generate_textmate_includes_binding_declarations() {
+    let info = sample_info();
+    let grammar = generate_textmate(&info);
+
+    let repo = &grammar["repository"];
+    assert!(repo.get("binding_declarations").is_some());
+    let match_str = repo["binding_declarations"]["match"].as_str().unwrap();
+    assert!(match_str.contains('^'));
+    let captures = &repo["binding_declarations"]["captures"];
+    assert_eq!(captures["1"]["name"], "variable.other.binding");
+}
+
+#[test]
+fn generate_textmate_includes_property_names() {
+    let info = sample_info();
+    let grammar = generate_textmate(&info);
+
+    let repo = &grammar["repository"];
+    assert!(repo.get("property_names").is_some());
+    let match_str = repo["property_names"]["match"].as_str().unwrap();
+    assert!(match_str.contains(':'));
+    let captures = &repo["property_names"]["captures"];
+    assert_eq!(captures["1"]["name"], "variable.other.property");
 }
 
 #[test]
