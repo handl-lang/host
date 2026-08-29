@@ -1,9 +1,0 @@
-[package]
-name = "handl-plugin-parser"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lexer.workspace = true
-handl-plugin-ast.workspace = true
-thiserror.workspace = true
