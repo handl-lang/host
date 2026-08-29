@@ -1,11 +1,10 @@
 //! Host implementations that coordinate plugins and kits.
 
-
 #[cfg(feature = "concurrent")]
 use handl_plugin_vm_common::ModuleHost;
 
 #[cfg(feature = "concurrent")]
-use handl_lib_concurrent::ConcurrencyModule;
+use handl_plugin_lib_concurrent::ConcurrencyModule;
 
 use crate::error::PlatformError;
 use crate::kit::{Kit, KitRegistry};
@@ -104,7 +103,7 @@ impl DefaultHost {
                     None => continue,
                 };
                 let result = {
-                    let mut ctx = ContributionContext::new(&mut self.plugins);
+                    let mut ctx = ContributionContext::new(&mut self.plugins, &mut self.kits);
                     plugin.contribute(&mut ctx)
                 };
                 self.plugins.replace_at(i, plugin);
@@ -152,8 +151,6 @@ impl Default for DefaultHost {
         Self::new()
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -217,7 +214,6 @@ mod tests {
             Err(PlatformError::UnknownCapability(_))
         ));
     }
-
 
     #[cfg(feature = "concurrent")]
     #[test]

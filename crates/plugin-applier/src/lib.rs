@@ -1,8 +1,8 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    HostConfig, KitLoader, PlatformError, Plugin, PluginContext,
+    HostConfig, PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_ext_kit::BasicKitLoader;
+use handl_plugin_ext_kit::BasicKitLoaderPlugin;
 
 pub struct DefaultApplierPlugin {
     config_source: String,
@@ -45,20 +45,27 @@ impl Plugin for DefaultApplierPlugin {
             .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
         let config = HostConfig::from_toml(&source)?;
 
+        if ctx.get_plugin_mut::<BasicKitLoaderPlugin>().is_none() {
+            ctx.register_plugin(BasicKitLoaderPlugin::new())?;
+        }
+
         for kit in &config.kits {
-            let plugin = BasicKitLoader::new().load(&kit.include)?;
-            ctx.register_plugin(plugin)?;
+            ctx.run(&CapabilityRequest {
+                capability: "kit/load".into(),
+                payload: serde_json::Value::String(kit.include.clone()),
+            })?;
         }
 
         if config.kits.is_empty() {
             if let Some(fallback) = &self.fallback_kit {
-                let plugin = BasicKitLoader::new().load(fallback)?;
-                ctx.register_plugin(plugin)?;
+                ctx.run(&CapabilityRequest {
+                    capability: "kit/load".into(),
+                    payload: serde_json::Value::String(fallback.clone()),
+                })?;
             }
         }
 
-        for _plugin in &config.plugins {
-        }
+        for _plugin in &config.plugins {}
 
         Ok(())
     }

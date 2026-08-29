@@ -4,8 +4,14 @@
 //! `handl-platform` composition model: `Contribution`, `RuleAcceptor`,
 //! `Operation`, `Behavior`, and `ContributionContext`.
 
+use std::sync::Arc;
+
 use crate::error::PlatformError;
-use crate::plugin::{Plugin, PluginRegistry};
+use crate::kit::KitRegistry;
+use crate::capability::CapabilityId;
+use crate::plugin::{
+    CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry,
+};
 
 /// A contribution that can be accepted by a [`RuleAcceptor`].
 pub trait Contribution: Send + Sync + 'static {
@@ -40,12 +46,33 @@ pub trait Behavior<Op: Operation>: Send + Sync + 'static {
 /// Context passed to a plugin during the contribution phase.
 pub struct ContributionContext<'a> {
     plugins: &'a mut PluginRegistry,
+    kits: &'a mut KitRegistry,
 }
 
 impl<'a> ContributionContext<'a> {
-    /// Create a new contribution context around the given plugin registry.
-    pub fn new(plugins: &'a mut PluginRegistry) -> Self {
-        Self { plugins }
+    /// Create a new contribution context around the given plugin and kit registries.
+    pub fn new(plugins: &'a mut PluginRegistry, kits: &'a mut KitRegistry) -> Self {
+        Self { plugins, kits }
+    }
+
+    /// Returns the plugin that provides the given capability, if any.
+    pub fn resolve(&self, capability: &CapabilityId) -> Option<Arc<dyn Plugin + 'static>> {
+        self.plugins.resolve(capability)
+    }
+
+    /// Runs the requested capability through the providing plugin.
+    pub fn run(
+        &mut self,
+        request: &CapabilityRequest,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        let plugin = self
+            .resolve(&request.capability)
+            .ok_or_else(|| PlatformError::UnknownCapability(request.capability.clone()))?;
+        let mut ctx = PluginContext {
+            plugins: self.plugins,
+            kits: self.kits,
+        };
+        plugin.run(request, &mut ctx)
     }
 
     /// Register a plugin with the host.
@@ -58,7 +85,9 @@ impl<'a> ContributionContext<'a> {
     pub fn contribute<P: RuleAcceptor>(&mut self, rule: P::Rule) -> Result<(), PlatformError> {
         match self.plugins.get_plugin_mut::<P>() {
             Some(acceptor) => acceptor.accept(rule),
-            None => Err(PlatformError::MissingRuleAcceptor(std::any::type_name::<P>().to_string())),
+            None => Err(PlatformError::MissingRuleAcceptor(
+                std::any::type_name::<P>().to_string(),
+            )),
         }
     }
 

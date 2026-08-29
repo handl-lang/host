@@ -1,9 +1,9 @@
+use handl_kit_canonical::CanonicalKit;
+use handl_kit_hello::HelloKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Kit, KitLoader, KitManifest, PlatformError, Plugin, PluginContext,
 };
-use handl_kit_canonical::CanonicalKit;
-use handl_kit_hello::HelloKit;
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -33,12 +33,12 @@ impl Plugin for KitManagerPlugin {
     }
 
     fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata> {
-        self.capabilities
-            .contains(capability)
-            .then(|| serde_json::json!({
+        self.capabilities.contains(capability).then(|| {
+            serde_json::json!({
                 "command": "kit",
                 "description": "Manage kits"
-            }))
+            })
+        })
     }
 
     fn run(
@@ -89,12 +89,16 @@ impl Plugin for KitManagerPlugin {
                             .collect::<Vec<_>>()
                     })
                     .or_else(|| {
-                        request.payload.get("args").and_then(|v| v.as_array()).map(|arr| {
-                            arr.iter()
-                                .skip(2)
-                                .filter_map(|v| v.as_str().map(String::from))
-                                .collect::<Vec<_>>()
-                        })
+                        request
+                            .payload
+                            .get("args")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .skip(2)
+                                    .filter_map(|v| v.as_str().map(String::from))
+                                    .collect::<Vec<_>>()
+                            })
                     })
                     .unwrap_or_default();
                 ctx.kits.register(Kit {
@@ -127,15 +131,20 @@ impl Plugin for KitManagerPlugin {
                 Ok(CapabilityResponse(serde_json::json!({"removed": name})))
             }
             "info" => {
-                let names: Vec<String> =
-                    ctx.kits.all().iter().map(|k| k.manifest.name.clone()).collect();
+                let names: Vec<String> = ctx
+                    .kits
+                    .all()
+                    .iter()
+                    .map(|k| k.manifest.name.clone())
+                    .collect();
                 Ok(CapabilityResponse(serde_json::json!({"kits": names})))
             }
-            _ => Err(PlatformError::InvalidMetadata(format!("unknown action: {action}"))),
+            _ => Err(PlatformError::InvalidMetadata(format!(
+                "unknown action: {action}"
+            ))),
         }
     }
 }
-
 
 /// A kit plugin backed by a loaded `KitManifest`.
 pub struct ManifestKit {
@@ -285,6 +294,63 @@ impl KitLoader for BasicKitLoader {
     }
 }
 
+/// A plugin that exposes the built-in kit loader as a `kit/load` capability.
+pub struct BasicKitLoaderPlugin {
+    capabilities: Vec<CapabilityId>,
+}
+
+impl BasicKitLoaderPlugin {
+    /// Creates a new `BasicKitLoaderPlugin`.
+    pub fn new() -> Self {
+        Self {
+            capabilities: vec![CapabilityId::from("kit/load")],
+        }
+    }
+}
+
+impl Default for BasicKitLoaderPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for BasicKitLoaderPlugin {
+    fn id(&self) -> &str {
+        "kit.loader.basic"
+    }
+
+    fn name(&self) -> &str {
+        "basic-kit-loader"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &self.capabilities
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        request: &CapabilityRequest,
+        ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        if request.capability.as_str() != "kit/load" {
+            return Err(PlatformError::UnknownCapability(request.capability.clone()));
+        }
+        let name = serde_json::from_value::<String>(request.payload.clone())
+            .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+        let kit = BasicKitLoader::new().load(&name)?;
+        ctx.plugins.register(kit);
+        Ok(CapabilityResponse(serde_json::Value::Null))
+    }
+}
+
 fn is_kit_path(s: &str) -> bool {
     let path = std::path::Path::new(s);
     path.exists() || s.ends_with(".toml") || s.ends_with(".json")
@@ -306,10 +372,7 @@ mod tests {
     #[test]
     fn add_registers_kit() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
@@ -334,10 +397,7 @@ mod tests {
     #[test]
     fn info_lists_registered_kits() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         kits.register(Kit {
             manifest: KitManifest {
                 id: "core".into(),
@@ -367,10 +427,7 @@ mod tests {
     #[test]
     fn add_registers_kit_from_args() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
@@ -386,16 +443,16 @@ mod tests {
             .unwrap();
         assert_eq!(resp.0, serde_json::json!({"added": "my-kit"}));
         let kit = ctx.kits.resolve("my-kit").unwrap();
-        assert_eq!(kit.manifest.plugins, vec!["fmt".to_string(), "lint".to_string()]);
+        assert_eq!(
+            kit.manifest.plugins,
+            vec!["fmt".to_string(), "lint".to_string()]
+        );
     }
 
     #[test]
     fn info_lists_kits_from_args() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         kits.register(Kit {
             manifest: KitManifest {
                 id: "core".into(),
@@ -425,10 +482,7 @@ mod tests {
     #[test]
     fn invalid_action_rejected() {
         let plugin = KitManagerPlugin::new();
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = PluginContext {
             plugins: &mut plugins,
             kits: &mut kits,
