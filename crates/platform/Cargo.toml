@@ -9,7 +9,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 handl-plugin-vm = { workspace = true }
 handl-plugin-vm-values-json = { workspace = true }
-handl-plugin-vm-type = { workspace = true }
+handl-kit-type = { workspace = true }
 handl-lib-type = { workspace = true }
 semver = "1"
 toml = "0.8"

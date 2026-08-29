@@ -1,4 +1,4 @@
-//! # handl-plugin-vm-config
+//! # handl-kit-config
 //!
 //! A [`Host`] for running untrusted handl expressions in a sandbox.
 //!
@@ -31,7 +31,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_config::{SandboxHost, SandboxLimits};
+//! use handl_kit_config::{SandboxHost, SandboxLimits};
 //! use handl_plugin_vm_backend_rust_interpreter::Vm;
 //!
 //! let host = SandboxHost::new(SandboxLimits::default());
@@ -42,7 +42,7 @@
 //! With custom limits:
 //!
 //! ```ignore
-//! use handl_plugin_vm_config::{SandboxHost, SandboxLimits};
+//! use handl_kit_config::{SandboxHost, SandboxLimits};
 //!
 //! let limits = SandboxLimits {
 //!     max_depth: Some(50),

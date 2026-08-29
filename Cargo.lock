@@ -750,6 +750,7 @@ dependencies = [
  "handl-plugin-runtime-array",
  "handl-plugin-runtime-boolean",
  "handl-plugin-runtime-object",
+ "handl-plugin-target-native",
  "handl-plugin-token-bool",
  "handl-plugin-token-comment",
  "handl-plugin-token-delimiter",
@@ -762,10 +763,35 @@ dependencies = [
  "handl-plugin-token-operator",
  "handl-plugin-token-string",
  "handl-plugin-vm",
- "handl-target-native",
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "handl-kit-config"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-archive-tar",
+ "handl-lib-collections",
+ "handl-lib-compress-gzip",
+ "handl-lib-concurrent",
+ "handl-lib-crypto",
+ "handl-lib-datetime",
+ "handl-lib-intl",
+ "handl-lib-ip",
+ "handl-lib-kv",
+ "handl-lib-kv-hashmap",
+ "handl-lib-stats",
+ "handl-lib-unicode",
+ "handl-lib-utils",
+ "handl-lib-ws-rfc-memory",
+ "handl-lib-ws-whatwg-native",
+ "handl-plugin-vm",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -775,6 +801,47 @@ dependencies = [
  "handl-kit-canonical",
  "handl-lib-hello",
  "handl-platform",
+]
+
+[[package]]
+name = "handl-kit-server"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-archive-tar",
+ "handl-lib-collections",
+ "handl-lib-compress-gzip",
+ "handl-lib-crypto",
+ "handl-lib-datetime",
+ "handl-lib-http-client",
+ "handl-lib-http-client-std",
+ "handl-lib-http-server",
+ "handl-lib-http-server-std",
+ "handl-lib-intl",
+ "handl-lib-ip",
+ "handl-lib-kv",
+ "handl-lib-kv-hashmap",
+ "handl-lib-os",
+ "handl-lib-os-std",
+ "handl-lib-otlp-std",
+ "handl-lib-rand",
+ "handl-lib-stats",
+ "handl-lib-test",
+ "handl-lib-unicode",
+ "handl-lib-utils",
+ "handl-lib-ws-rfc-native",
+ "handl-lib-ws-whatwg-native",
+ "handl-plugin-vm",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
+]
+
+[[package]]
+name = "handl-kit-type"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1165,7 +1232,7 @@ dependencies = [
 name = "handl-lib-type"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-vm-type",
+ "handl-kit-type",
  "handl-plugin-vm-type-schema-json",
  "serde_json",
 ]
@@ -1360,9 +1427,9 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-type",
  "handl-lib-type",
  "handl-plugin-vm",
- "handl-plugin-vm-type",
  "handl-plugin-vm-values-json",
  "semver",
  "serde",
@@ -2129,6 +2196,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-target-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-target-native-example"
 version = "0.1.0"
 dependencies = [
@@ -2275,32 +2350,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-vm-config"
-version = "0.1.0"
-dependencies = [
- "handl-lib-archive-tar",
- "handl-lib-collections",
- "handl-lib-compress-gzip",
- "handl-lib-concurrent",
- "handl-lib-crypto",
- "handl-lib-datetime",
- "handl-lib-intl",
- "handl-lib-ip",
- "handl-lib-kv",
- "handl-lib-kv-hashmap",
- "handl-lib-stats",
- "handl-lib-unicode",
- "handl-lib-utils",
- "handl-lib-ws-rfc-memory",
- "handl-lib-ws-whatwg-native",
- "handl-plugin-vm",
- "handl-plugin-vm-backend-rust-interpreter",
- "handl-plugin-vm-common",
- "handl-plugin-vm-host-eval",
- "handl-plugin-vm-values-json",
-]
-
-[[package]]
 name = "handl-plugin-vm-host-eval"
 version = "0.1.0"
 dependencies = [
@@ -2311,51 +2360,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-vm-server"
-version = "0.1.0"
-dependencies = [
- "handl-lib-archive-tar",
- "handl-lib-collections",
- "handl-lib-compress-gzip",
- "handl-lib-crypto",
- "handl-lib-datetime",
- "handl-lib-http-client",
- "handl-lib-http-client-std",
- "handl-lib-http-server",
- "handl-lib-http-server-std",
- "handl-lib-intl",
- "handl-lib-ip",
- "handl-lib-kv",
- "handl-lib-kv-hashmap",
- "handl-lib-os",
- "handl-lib-os-std",
- "handl-lib-otlp-std",
- "handl-lib-rand",
- "handl-lib-stats",
- "handl-lib-test",
- "handl-lib-unicode",
- "handl-lib-utils",
- "handl-lib-ws-rfc-native",
- "handl-lib-ws-whatwg-native",
- "handl-plugin-vm",
- "handl-plugin-vm-backend-rust-interpreter",
- "handl-plugin-vm-common",
- "handl-plugin-vm-host-eval",
- "handl-plugin-vm-values-json",
-]
-
-[[package]]
-name = "handl-plugin-vm-type"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-plugin-vm-type-schema-json"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-vm-type",
+ "handl-kit-type",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -2367,14 +2375,6 @@ dependencies = [
  "handl-plugin-source",
  "handl-plugin-vm",
  "indexmap",
- "serde_json",
-]
-
-[[package]]
-name = "handl-target-native"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
  "serde_json",
 ]
 

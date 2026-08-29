@@ -1,4 +1,4 @@
-//! # handl-target-native
+//! # handl-plugin-target-native
 //!
 //! `Target` plugin that registers the native compilation target.
 

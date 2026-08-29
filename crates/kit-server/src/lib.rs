@@ -1,8 +1,8 @@
-//! # handl-plugin-vm-server
+//! # handl-kit-server
 //!
 //! A [`Host`] for running handl expressions with effects enabled.
 //!
-//! Includes everything from [`handl-plugin-vm-config`] plus:
+//! Includes everything from [`handl-kit-config`] plus:
 //!
 //! - **OS stdlib** (`fs.*`, `env.*`, `path.*`, `time.*`, `cmd.*`, `process.*`, `tmp.*`, `socket.*`, `sig.*`)
 //!   from [`handl-lib-os-std`].
@@ -56,7 +56,7 @@ use handl_plugin_vm_values_json::{
 
 /// Resource limits for server-side evaluation.
 ///
-/// Mirrors [`handl_plugin_vm_config::SandboxLimits`] so the same depth/call
+/// Mirrors [`handl_kit_config::SandboxLimits`] so the same depth/call
 /// guards can be enforced even when effects are enabled.
 #[derive(Clone, Debug)]
 pub struct ServerLimits {

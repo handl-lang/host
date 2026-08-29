@@ -1,5 +1,5 @@
 use crate::*;
-use handl_plugin_vm_type::*;
+use handl_kit_type::*;
 use serde_json::json;
 
 fn prim_ctx() -> TCtx {

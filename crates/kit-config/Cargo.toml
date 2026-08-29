@@ -1,5 +1,5 @@
 [package]
-name = "handl-plugin-vm-config"
+name = "handl-kit-config"
 version.workspace = true
 edition.workspace = true
 

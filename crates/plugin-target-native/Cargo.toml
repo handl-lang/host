@@ -1,5 +1,5 @@
 [package]
-name = "handl-target-native"
+name = "handl-plugin-target-native"
 version.workspace = true
 edition.workspace = true
 

@@ -1,4 +1,4 @@
-//! JSON Schema to `handl-plugin-vm-type` bridge.
+//! JSON Schema to `handl-kit-type` bridge.
 
 pub mod alias_table;
 pub mod error;
