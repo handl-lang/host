@@ -5,7 +5,7 @@ use handl_platform::{
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_lib_kv::KeyValueStoreModule;
-use handl_plugin_vm_common::{ModuleHost, ModuleRule};
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 
 use crate::HashKeyValueStore;
 
@@ -31,7 +31,7 @@ impl Plugin for LibraryPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<ModuleHost>(ModuleRule::new(KeyValueStoreModule::new(
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(KeyValueStoreModule::new(
             HashKeyValueStore::default(),
         )))?;
         Ok(())

@@ -8,11 +8,11 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleRuntime;
 //! use handl_plugin_lib_kv::{KeyValueStoreModule};
 //! use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
 //!
-//! let host = ModuleHost::new()
+//! let host = ModuleRuntime::new()
 //!     .with(KeyValueStoreModule::new(HashKeyValueStore::default()));
 //! ```
 
