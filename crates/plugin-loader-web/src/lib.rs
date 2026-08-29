@@ -1,8 +1,8 @@
-use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 use handl_platform::{
-    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError, Plugin,
-    PluginContext, PluginManifest,
+    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError,
+    Plugin, PluginContext, PluginManifest,
 };
+use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 
 #[derive(Clone, Default)]
 pub struct WebLoader;
@@ -141,10 +141,13 @@ mod tests {
             })))
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(serde_json::to_string(&serde_json::json!({
-                "echoed": "echo",
-                "payload": {"hello": "world"},
-            })).unwrap())
+            .with_body(
+                serde_json::to_string(&serde_json::json!({
+                    "echoed": "echo",
+                    "payload": {"hello": "world"},
+                }))
+                .unwrap(),
+            )
             .create();
 
         let manifest = PluginManifest {
@@ -159,6 +162,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::default(),
+            ast_kinds: vec![],
         };
 
         let loader = WebLoader::new();

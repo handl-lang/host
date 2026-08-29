@@ -66,7 +66,11 @@ pub struct ParserContext<'a, K: TokenKind> {
 
 impl<'a, K: TokenKind> ParserContext<'a, K> {
     /// Create a new `ParserContext` for `parser` over `tokens`.
-    pub fn new(parser: &'a BasicParser<K>, tokens: &'a [Token<K>], options: ResolvedOptions) -> Self {
+    pub fn new(
+        parser: &'a BasicParser<K>,
+        tokens: &'a [Token<K>],
+        options: ResolvedOptions,
+    ) -> Self {
         Self {
             parser,
             tokens,
@@ -182,6 +186,22 @@ impl<K: TokenKind> BasicParser<K> {
         ctx.expression(0)
     }
 
+    /// Parse a token stream into a sequence of top-level [`AstNode`]s (a
+    /// module). Each statement is parsed by calling `expression(0)`; the
+    /// Pratt loop stops at EOF or when no infix rule matches the next token.
+    pub fn parse_module(&self, tokens: &[Token<K>]) -> Result<Vec<AstNode>, PlatformError> {
+        let mut ctx = ParserContext::new(self, tokens, ResolvedOptions::new());
+        let mut stmts = Vec::new();
+        while let Some(t) = ctx.peek() {
+            if t.kind.is_eof() {
+                break;
+            }
+            let stmt = ctx.expression(0)?;
+            stmts.push(stmt);
+        }
+        Ok(stmts)
+    }
+
     fn rule_for_prefix(&self, kind: &K) -> Option<&dyn ParserBehavior<K>> {
         self.rules
             .iter()
@@ -196,7 +216,11 @@ impl<K: TokenKind> BasicParser<K> {
             .map(|r| r.as_ref())
     }
 
-    fn expression(&self, ctx: &mut ParserContext<'_, K>, rbp: u32) -> Result<AstNode, PlatformError> {
+    fn expression(
+        &self,
+        ctx: &mut ParserContext<'_, K>,
+        rbp: u32,
+    ) -> Result<AstNode, PlatformError> {
         let token = ctx.advance()?;
         let rule = self
             .rule_for_prefix(&token.kind)

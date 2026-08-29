@@ -14,6 +14,7 @@ handl-plugin-lexer-line-comment = { workspace = true }
 handl-plugin-lexer-number = { workspace = true }
 handl-plugin-lexer-operator = { workspace = true }
 handl-plugin-lexer-string = { workspace = true }
+handl-plugin-lexer-template = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-runtime = { workspace = true }
 handl-plugin-vm = { workspace = true }
@@ -62,6 +63,13 @@ handl-plugin-grammar-primary-value = { workspace = true }
 handl-plugin-grammar-match = { path = "../plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "../plugin-grammar-object" }
 handl-plugin-grammar-pipe = { path = "../plugin-grammar-pipe" }
+handl-plugin-grammar-template = { path = "../plugin-grammar-template" }
+
+handl-plugin-grammar-stmt-let = { path = "../plugin-grammar-stmt-let" }
+handl-plugin-grammar-stmt-const = { path = "../plugin-grammar-stmt-const" }
+handl-plugin-grammar-stmt-import = { path = "../plugin-grammar-stmt-import" }
+handl-plugin-grammar-stmt-export = { path = "../plugin-grammar-stmt-export" }
+handl-plugin-grammar-stmt-module = { path = "../plugin-grammar-stmt-module" }
 
 handl-plugin-token-bool = { path = "../plugin-token-bool" }
 handl-plugin-token-comment = { path = "../plugin-token-comment" }
@@ -79,3 +87,7 @@ handl-plugin-token-string = { path = "../plugin-token-string" }
 handl-plugin-fmt-trivia = { path = "../plugin-fmt-trivia" }
 handl-plugin-fmt-stmt = { path = "../plugin-fmt-stmt" }
 handl-plugin-diag-expression = { path = "../plugin-diag-expression" }
+
+handl-plugin-load = { path = "../plugin-load" }
+handl-plugin-loader-native = { path = "../plugin-loader-native" }
+handl-plugin-loader-wasm = { path = "../plugin-loader-wasm" }

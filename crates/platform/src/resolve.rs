@@ -9,7 +9,8 @@ use thiserror::Error;
 
 use crate::capability::CapabilityId;
 use crate::manifest::{
-    CapabilityDependency, Dependency, PluginDependency, PluginManifest, TargetSupportLevel,
+    AstKindRole, CapabilityDependency, Dependency, PluginDependency, PluginManifest,
+    TargetSupportLevel,
 };
 
 /// Selects a specific plugin to satisfy a capability.
@@ -112,6 +113,14 @@ pub enum ResolutionError {
         capability: CapabilityId,
         /// The chosen provider.
         provider: String,
+    },
+    /// A consumed AST kind has no producer among selected plugins.
+    #[error("no producer for consumed AST kind '{kind}' (consumed by {consumed_by})")]
+    MissingProducer {
+        /// The consumed AST kind with no producer.
+        kind: String,
+        /// The plugin that consumes it.
+        consumed_by: String,
     },
 }
 
@@ -270,6 +279,8 @@ pub fn resolve(
     let mut selected_plugins: Vec<String> = selected.iter().cloned().collect();
     selected_plugins.sort();
 
+    validate_ast_kinds(manifests, &selected)?;
+
     Ok(ResolvedComposition {
         selected_plugins,
         provider_map,
@@ -397,6 +408,50 @@ fn check_conflicts(
                 return Err(ResolutionError::Conflict {
                     plugin_a: m.id.clone(),
                     plugin_b: provider_id.clone(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validates that every consumed AST kind that is producible by some available
+/// plugin has at least one producer among the selected plugins. Kinds that no
+/// plugin declares as `Produces` are skipped (behavior-level dispatch keys).
+pub fn validate_ast_kinds(
+    manifests: &[PluginManifest],
+    selected: &HashSet<String>,
+) -> Result<(), ResolutionError> {
+    let producible: HashSet<String> = manifests
+        .iter()
+        .flat_map(|m| {
+            m.ast_kinds
+                .iter()
+                .filter(|d| d.role == AstKindRole::Produces)
+                .map(|d| d.kind.clone())
+        })
+        .collect();
+
+    let produced: HashSet<String> = manifests
+        .iter()
+        .filter(|m| selected.contains(&m.id))
+        .flat_map(|m| {
+            m.ast_kinds
+                .iter()
+                .filter(|d| d.role == AstKindRole::Produces)
+                .map(|d| d.kind.clone())
+        })
+        .collect();
+
+    for m in manifests.iter().filter(|m| selected.contains(&m.id)) {
+        for decl in &m.ast_kinds {
+            if decl.role == AstKindRole::Consumes
+                && producible.contains(&decl.kind)
+                && !produced.contains(&decl.kind)
+            {
+                return Err(ResolutionError::MissingProducer {
+                    kind: decl.kind.clone(),
+                    consumed_by: m.id.clone(),
                 });
             }
         }
@@ -598,7 +653,7 @@ fn version_tuple(v: &str) -> Vec<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::ExtendsDeclaration;
+    use crate::manifest::{AstKindDeclaration, ExtendsDeclaration};
     use crate::{ConflictDeclaration, TargetCompatibility, TargetSupportLevel};
 
     fn manifest(id: &str, version: &str, provides: &[&str]) -> PluginManifest {
@@ -614,6 +669,7 @@ mod tests {
             targets: Vec::new(),
             exclusive: Vec::new(),
             metadata: serde_json::Value::default(),
+            ast_kinds: Vec::new(),
         }
     }
 
@@ -632,6 +688,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
             PluginManifest {
                 id: "compile".into(),
@@ -645,6 +702,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
         ];
         let resolved = resolve(&manifests, &[], None).unwrap();
@@ -670,6 +728,7 @@ mod tests {
             targets: Vec::new(),
             exclusive: Vec::new(),
             metadata: serde_json::Value::default(),
+            ast_kinds: Vec::new(),
         }];
         let err = resolve(&manifests, &[], None).unwrap_err();
         assert!(matches!(
@@ -710,6 +769,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: vec!["x".into()],
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
             PluginManifest {
                 id: "b".into(),
@@ -723,6 +783,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
         ];
         let err = resolve(&manifests, &[], None).unwrap_err();
@@ -751,6 +812,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
             PluginManifest {
                 id: "b".into(),
@@ -768,6 +830,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
         ];
         let err = resolve(&manifests, &[], None).unwrap_err();
@@ -788,6 +851,7 @@ mod tests {
             targets: Vec::new(),
             exclusive: Vec::new(),
             metadata: serde_json::Value::default(),
+            ast_kinds: Vec::new(),
         }];
         let resolved = resolve(&manifests, &[], None).unwrap();
         assert_eq!(resolved.missing_optional.len(), 1);
@@ -824,6 +888,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
             manifest("foo-0", "0.9.0", &["foo"]),
             manifest("foo-1", "1.1.0", &["foo"]),
@@ -850,6 +915,7 @@ mod tests {
                 targets: Vec::new(),
                 exclusive: Vec::new(),
                 metadata: serde_json::Value::default(),
+                ast_kinds: Vec::new(),
             },
             manifest("foo-0", "0.9.0", &["foo"]),
         ];
@@ -902,6 +968,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         }
     }
 
@@ -961,6 +1028,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let b = manifest("b", "1.0.0", &["y"]);
         let err = resolve(&[a, b], &[], None).unwrap_err();
@@ -982,6 +1050,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let err = resolve(&[a], &[], None).unwrap_err();
         assert!(matches!(err, ResolutionError::MissingPlugin { .. }));
@@ -1004,6 +1073,7 @@ mod tests {
             }],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let b = manifest("b", "1.0.0", &[]);
 
@@ -1075,6 +1145,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let b = manifest("b", "1.0.0", &[]);
         let err = resolve(&[a, b], &[], None).unwrap_err();
@@ -1095,6 +1166,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let b = PluginManifest {
             id: "b".into(),
@@ -1108,6 +1180,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::Value::Null,
+            ast_kinds: Vec::new(),
         };
         let err = resolve(&[a, b], &[], None).unwrap_err();
         assert!(matches!(err, ResolutionError::CyclicGraph { .. }));
@@ -1117,5 +1190,110 @@ mod tests {
     fn version_satisfies_fallback_exact() {
         assert!(version_satisfies("1.x", "1.x"));
         assert!(!version_satisfies("1.x", "1.y"));
+    }
+
+    fn ast_kind_manifest(id: &str, ast_kinds: Vec<AstKindDeclaration>) -> PluginManifest {
+        PluginManifest {
+            id: id.into(),
+            version: "0.1.0".into(),
+            provides: vec![id.into()],
+            requires: Vec::new(),
+            optional: Vec::new(),
+            extends: Vec::new(),
+            conflicts: Vec::new(),
+            replaces: Vec::new(),
+            targets: Vec::new(),
+            exclusive: Vec::new(),
+            metadata: serde_json::Value::Null,
+            ast_kinds,
+        }
+    }
+
+    #[test]
+    fn ast_kinds_valid_when_producer_selected() {
+        let manifests = vec![
+            ast_kind_manifest(
+                "grammar-call",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Produces,
+                }],
+            ),
+            ast_kind_manifest(
+                "consumer",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Consumes,
+                }],
+            ),
+        ];
+        let selected: HashSet<String> = ["grammar-call", "consumer"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert!(validate_ast_kinds(&manifests, &selected).is_ok());
+    }
+
+    #[test]
+    fn ast_kinds_missing_producer_detected() {
+        let manifests = vec![
+            ast_kind_manifest(
+                "grammar-call",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Produces,
+                }],
+            ),
+            ast_kind_manifest(
+                "consumer",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Consumes,
+                }],
+            ),
+        ];
+        let selected: HashSet<String> = ["consumer"].iter().map(|s| s.to_string()).collect();
+        let err = validate_ast_kinds(&manifests, &selected).unwrap_err();
+        assert!(matches!(
+            err,
+            ResolutionError::MissingProducer { ref kind, ref consumed_by, .. }
+            if kind == "call" && consumed_by == "consumer"
+        ));
+    }
+
+    #[test]
+    fn ast_kinds_behavior_level_kinds_skipped() {
+        let manifests = vec![ast_kind_manifest(
+            "consumer",
+            vec![AstKindDeclaration {
+                kind: "fmt.trivia".into(),
+                role: AstKindRole::Consumes,
+            }],
+        )];
+        let selected: HashSet<String> = ["consumer"].iter().map(|s| s.to_string()).collect();
+        assert!(validate_ast_kinds(&manifests, &selected).is_ok());
+    }
+
+    #[test]
+    fn ast_kinds_resolve_succeeds_with_matching_producer() {
+        let manifests = vec![
+            ast_kind_manifest(
+                "grammar-call",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Produces,
+                }],
+            ),
+            ast_kind_manifest(
+                "consumer",
+                vec![AstKindDeclaration {
+                    kind: "call".into(),
+                    role: AstKindRole::Consumes,
+                }],
+            ),
+        ];
+        let resolved = resolve(&manifests, &[], None).unwrap();
+        assert!(resolved.selected_plugins.contains(&"consumer".into()));
+        assert!(resolved.selected_plugins.contains(&"grammar-call".into()));
     }
 }

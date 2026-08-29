@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::PathBuf;
 
-use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 use handl_platform::{
-    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError, Plugin,
-    PluginContext, PluginManifest,
+    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError,
+    Plugin, PluginContext, PluginManifest,
 };
+use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 
 #[derive(Clone, Default)]
 pub struct WasmLoader;
@@ -126,9 +126,9 @@ impl Plugin for SharedWasmPlugin {
             .start(&mut store)
             .map_err(|e| PlatformError::Plugin(format!("failed to start wasm: {e}")))?;
 
-        let memory = instance
-            .get_memory(&store, "memory")
-            .ok_or_else(|| PlatformError::Plugin("wasm module does not export memory".to_string()))?;
+        let memory = instance.get_memory(&store, "memory").ok_or_else(|| {
+            PlatformError::Plugin("wasm module does not export memory".to_string())
+        })?;
 
         let run = instance
             .get_typed_func::<(i32, i32), i32>(&store, "handl_plugin_run")
@@ -138,15 +138,20 @@ impl Plugin for SharedWasmPlugin {
         let input_len = request_json.len();
         memory
             .write(&mut store, INPUT_PTR as usize, request_json.as_bytes())
-            .map_err(|e| PlatformError::Plugin(format!("failed to write request to wasm memory: {e}")))?;
+            .map_err(|e| {
+                PlatformError::Plugin(format!("failed to write request to wasm memory: {e}"))
+            })?;
 
         let out_ptr = run
             .call(&mut store, (INPUT_PTR as i32, input_len as i32))
-            .map_err(|e| PlatformError::Plugin(format!("wasm handl_plugin_run failed: {e}")))? as usize;
+            .map_err(|e| PlatformError::Plugin(format!("wasm handl_plugin_run failed: {e}")))?
+            as usize;
 
         let mem_size = memory.current_pages(&store).to_bytes().unwrap_or(0);
         if out_ptr >= mem_size {
-            return Err(PlatformError::Plugin("wasm returned invalid output pointer".to_string()));
+            return Err(PlatformError::Plugin(
+                "wasm returned invalid output pointer".to_string(),
+            ));
         }
 
         let mut buf = vec![0u8; mem_size - out_ptr];
@@ -191,6 +196,7 @@ mod tests {
             metadata: serde_json::json!({
                 "path": wasm_path.to_string_lossy().as_ref()
             }),
+            ast_kinds: vec![],
         };
 
         let loader = WasmLoader::new();

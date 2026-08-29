@@ -14,15 +14,18 @@
 //! (LSP, formatters, linters) can depend on tokens without pulling in
 //! the full parser and AST.
 
+mod compose;
+#[cfg(test)]
+mod compose_test;
 mod config;
 #[cfg(test)]
 mod config_test;
 mod error;
 mod factory;
 mod lexer;
-pub mod primitives;
 #[cfg(test)]
 mod lexer_test;
+pub mod primitives;
 mod rule;
 mod span;
 mod token;

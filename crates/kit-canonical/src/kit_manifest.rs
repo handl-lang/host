@@ -28,8 +28,7 @@ impl KitManifest {
             serde_json::from_str(&content)
                 .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))
         } else {
-            toml::from_str(&content)
-                .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))
+            toml::from_str(&content).map_err(|e| PlatformError::InvalidMetadata(e.to_string()))
         }
     }
 }
@@ -68,6 +67,8 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-ast-match".to_string(),
             "plugin-ast-handle".to_string(),
             // Grammar rule plugins
+            "plugin-grammar-primary-value".to_string(),
+            "plugin-grammar-primary-identifier".to_string(),
             "plugin-grammar-call".to_string(),
             "plugin-grammar-apply".to_string(),
             // Eval behavior plugins
@@ -81,6 +82,7 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-runtime-apply".to_string(),
             "plugin-grammar-index".to_string(),
             "plugin-grammar-pipe".to_string(),
+            "plugin-grammar-template".to_string(),
             "plugin-grammar-let".to_string(),
             "plugin-grammar-assign".to_string(),
             "plugin-grammar-match".to_string(),

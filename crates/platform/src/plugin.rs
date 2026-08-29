@@ -164,7 +164,8 @@ impl PluginRegistry {
     /// Removes a plugin by name.
     pub fn remove(&mut self, name: &str) -> Result<(), PlatformError> {
         let len_before = self.plugins.len();
-        self.plugins.retain(|p| p.as_ref().map_or(true, |p| p.name() != name));
+        self.plugins
+            .retain(|p| p.as_ref().map_or(true, |p| p.name() != name));
         if self.plugins.len() == len_before {
             return Err(PlatformError::InvalidMetadata(format!(
                 "plugin not found: {name}"
@@ -177,7 +178,8 @@ impl PluginRegistry {
     /// Removes the plugin with the given id, returning `true` if removed.
     pub fn remove_by_id(&mut self, id: &str) -> bool {
         let len_before = self.plugins.len();
-        self.plugins.retain(|p| p.as_ref().map_or(true, |p| p.id() != id));
+        self.plugins
+            .retain(|p| p.as_ref().map_or(true, |p| p.id() != id));
         let removed = self.plugins.len() < len_before;
         if removed {
             self.reindex();
@@ -225,6 +227,7 @@ impl PluginRegistry {
                         targets: Vec::new(),
                         exclusive: Vec::new(),
                         metadata: serde_json::Value::Null,
+                        ast_kinds: Vec::new(),
                     }
                 }
             })
@@ -263,10 +266,7 @@ impl PluginRegistry {
 
     /// Returns `true` if a plugin with the given id is registered.
     pub fn has_id(&self, id: &str) -> bool {
-        self.plugins
-            .iter()
-            .flatten()
-            .any(|p| p.id() == id)
+        self.plugins.iter().flatten().any(|p| p.id() == id)
     }
 
     /// Returns a mutable reference to a registered plugin of concrete type `P`, if any.
@@ -360,18 +360,50 @@ where
     }
 }
 
-/// A placeholder plugin that represents an out-of-process capability provider.
+type RunFn = Box<
+    dyn Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
+        + Send
+        + Sync,
+>;
+
+/// A plugin that represents an out-of-process capability provider.
+///
+/// Without a run function it returns `NotImplemented` for every capability,
+/// preserving backward compatibility with callers that only need to reserve a
+/// capability id. Provide a run function via [`ProcessPlugin::with_run_fn`] to
+/// make it functional.
 pub struct ProcessPlugin {
     name: String,
     capabilities: Vec<CapabilityId>,
+    run_fn: Option<RunFn>,
 }
 
 impl ProcessPlugin {
-    /// Creates a new process plugin placeholder.
+    /// Creates a new process plugin placeholder that returns `NotImplemented`.
     pub fn new(name: impl Into<String>, capabilities: &[CapabilityId]) -> Self {
         Self {
             name: name.into(),
             capabilities: capabilities.to_vec(),
+            run_fn: None,
+        }
+    }
+
+    /// Creates a process plugin with a custom run function.
+    pub fn with_run_fn<F>(
+        name: impl Into<String>,
+        capabilities: &[CapabilityId],
+        run_fn: F,
+    ) -> Self
+    where
+        F: Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        Self {
+            name: name.into(),
+            capabilities: capabilities.to_vec(),
+            run_fn: Some(Box::new(run_fn)),
         }
     }
 }
@@ -391,10 +423,13 @@ impl Plugin for ProcessPlugin {
 
     fn run(
         &self,
-        _request: &CapabilityRequest,
-        _ctx: &mut PluginContext,
+        request: &CapabilityRequest,
+        ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
-        Err(PlatformError::NotImplemented)
+        match &self.run_fn {
+            Some(f) => f(request, ctx),
+            None => Err(PlatformError::NotImplemented),
+        }
     }
 }
 
@@ -431,10 +466,7 @@ mod tests {
         assert_eq!(p.name(), "echo");
         assert_eq!(p.capabilities(), &[CapabilityId::from("echo")]);
         assert!(p.metadata(&"echo".into()).is_some());
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = test_ctx(&mut plugins, &mut kits);
         let resp = p.run(
             &CapabilityRequest {
@@ -451,10 +483,7 @@ mod tests {
         let p = ProcessPlugin::new("proc", &["remote".into()]);
         assert_eq!(p.name(), "proc");
         assert!(p.metadata(&"remote".into()).is_none());
-        let (mut plugins, mut kits) = (
-            PluginRegistry::new(),
-            KitRegistry::new(),
-        );
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut ctx = test_ctx(&mut plugins, &mut kits);
         let res = p.run(
             &CapabilityRequest {
@@ -464,6 +493,32 @@ mod tests {
             &mut ctx,
         );
         assert!(matches!(res, Err(PlatformError::NotImplemented)));
+    }
+
+    #[test]
+    fn process_plugin_with_run_fn_executes() {
+        let p = ProcessPlugin::with_run_fn(
+            "proc",
+            &["remote".into()],
+            |req: &CapabilityRequest, _ctx: &mut PluginContext| {
+                Ok(CapabilityResponse(serde_json::json!({
+                    "echoed": req.capability.as_str(),
+                })))
+            },
+        );
+        assert_eq!(p.name(), "proc");
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut ctx = test_ctx(&mut plugins, &mut kits);
+        let resp = p
+            .run(
+                &CapabilityRequest {
+                    capability: "remote".into(),
+                    payload: serde_json::Value::Null,
+                },
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(resp.0["echoed"], "remote");
     }
 
     #[test]

@@ -709,9 +709,15 @@ dependencies = [
 name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
+ "handl-host-tooling",
+ "handl-kit-canonical",
+ "handl-kit-cli",
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-cli",
+ "handl-plugin-vm",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -719,10 +725,14 @@ dependencies = [
 name = "handl-host-lsp"
 version = "0.1.0"
 dependencies = [
+ "handl-host-tooling",
+ "handl-kit-canonical",
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-lsp",
+ "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -735,6 +745,7 @@ dependencies = [
  "handl-plugin-fmt-expression",
  "handl-plugin-fmt-stmt",
  "handl-plugin-fmt-trivia",
+ "handl-plugin-lexer",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
@@ -786,6 +797,12 @@ dependencies = [
  "handl-plugin-grammar-pipe",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
+ "handl-plugin-grammar-stmt-const",
+ "handl-plugin-grammar-stmt-export",
+ "handl-plugin-grammar-stmt-import",
+ "handl-plugin-grammar-stmt-let",
+ "handl-plugin-grammar-stmt-module",
+ "handl-plugin-grammar-template",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-delimiter",
@@ -795,6 +812,10 @@ dependencies = [
  "handl-plugin-lexer-number",
  "handl-plugin-lexer-operator",
  "handl-plugin-lexer-string",
+ "handl-plugin-lexer-template",
+ "handl-plugin-load",
+ "handl-plugin-loader-native",
+ "handl-plugin-loader-wasm",
  "handl-plugin-runtime",
  "handl-plugin-runtime-apply",
  "handl-plugin-runtime-arithmetic",
@@ -817,6 +838,27 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "handl-kit-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-platform",
+ "handl-plugin-lib-collections",
+ "handl-plugin-lib-dedent",
+ "handl-plugin-lib-json",
+ "handl-plugin-lib-os",
+ "handl-plugin-lib-os-std",
+ "handl-plugin-lib-toml",
+ "handl-plugin-lib-utils",
+ "handl-plugin-lib-yaml",
+ "handl-plugin-vm",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1092,6 +1134,7 @@ name = "handl-plugin-ext-kit"
 version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
+ "handl-kit-cli",
  "handl-kit-hello",
  "handl-platform",
  "serde_json",
@@ -1135,6 +1178,7 @@ name = "handl-plugin-ext-plugin"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-load",
  "serde_json",
 ]
 
@@ -1470,9 +1514,11 @@ name = "handl-plugin-grammar-stmt-const"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-vm-values-json",
+ "handl-plugin-lexer",
+ "serde_json",
 ]
 
 [[package]]
@@ -1480,9 +1526,11 @@ name = "handl-plugin-grammar-stmt-export"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-vm-values-json",
+ "handl-plugin-lexer",
+ "serde_json",
 ]
 
 [[package]]
@@ -1490,9 +1538,11 @@ name = "handl-plugin-grammar-stmt-import"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-vm-values-json",
+ "handl-plugin-lexer",
+ "serde_json",
 ]
 
 [[package]]
@@ -1500,9 +1550,11 @@ name = "handl-plugin-grammar-stmt-let"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-vm-values-json",
+ "handl-plugin-lexer",
+ "serde_json",
 ]
 
 [[package]]
@@ -1510,9 +1562,22 @@ name = "handl-plugin-grammar-stmt-module"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-plugin-vm-values-json",
+ "handl-plugin-lexer",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-grammar-template"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-template",
+ "serde_json",
 ]
 
 [[package]]
@@ -1587,6 +1652,14 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-lexer-string"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
+]
+
+[[package]]
+name = "handl-plugin-lexer-template"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
@@ -1714,6 +1787,17 @@ dependencies = [
  "handl-plugin-vm-host-eval",
  "handl-plugin-vm-values-json",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-dedent"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-vm",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]

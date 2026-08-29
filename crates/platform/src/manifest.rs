@@ -40,6 +40,29 @@ pub struct PluginManifest {
     /// Opaque loader-specific metadata, e.g. a native library `path`.
     #[serde(default)]
     pub metadata: JsonValue,
+    /// AST kinds this plugin produces or consumes.
+    #[serde(default)]
+    pub ast_kinds: Vec<AstKindDeclaration>,
+}
+
+/// Whether a plugin produces or consumes an AST kind.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AstKindRole {
+    /// The plugin produces AST nodes of this kind.
+    Produces,
+    /// The plugin consumes AST nodes of this kind.
+    Consumes,
+}
+
+/// A declaration that a plugin produces or consumes a specific AST kind.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AstKindDeclaration {
+    /// The AST node kind string (matches `AstNode.kind` or `Behavior::kind()`).
+    pub kind: String,
+    /// Whether this plugin produces or consumes the kind.
+    pub role: AstKindRole,
 }
 
 /// A dependency on another capability or plugin.
@@ -203,6 +226,7 @@ mod tests {
             ],
             exclusive: vec![],
             metadata: JsonValue::default(),
+            ast_kinds: Vec::new(),
         }
     }
 

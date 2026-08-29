@@ -1,11 +1,11 @@
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::path::PathBuf;
 
-use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 use handl_platform::{
-    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError, Plugin,
-    PluginContext, PluginManifest,
+    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError,
+    Plugin, PluginContext, PluginManifest,
 };
+use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 
 #[derive(Clone, Default)]
 pub struct NativeLoader;
@@ -131,7 +131,9 @@ impl Plugin for SharedPlugin {
         let result = unsafe { (self.run)(c_request.as_ptr()) };
 
         if result.is_null() {
-            return Err(PlatformError::Plugin("native plugin returned null".to_string()));
+            return Err(PlatformError::Plugin(
+                "native plugin returned null".to_string(),
+            ));
         }
 
         let response = unsafe { CStr::from_ptr(result) };
@@ -163,6 +165,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::json!({"path": "/no/such/library.so"}),
+            ast_kinds: vec![],
         };
 
         let loader = NativeLoader::new();
@@ -224,6 +227,7 @@ mod tests {
             targets: vec![],
             exclusive: vec![],
             metadata: serde_json::json!({"path": cdylib.to_string_lossy().as_ref()}),
+            ast_kinds: vec![],
         };
 
         let loader = NativeLoader::new();

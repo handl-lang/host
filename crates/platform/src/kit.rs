@@ -211,6 +211,7 @@ plugins = ["fmt"]
                 targets: vec![],
                 exclusive: vec![],
                 metadata: serde_json::Value::Null,
+                ast_kinds: Vec::new(),
             }],
         };
         let resolved = kit.resolve().unwrap();

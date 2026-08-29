@@ -42,7 +42,9 @@ fn find_example_cdylib() -> Option<PathBuf> {
 #[ignore = "loader/cli wiring not yet implemented"]
 fn tooling_host_loads_native_plugin_and_dispatches_command() -> Result<(), PlatformError> {
     let Some(cdylib) = find_example_cdylib() else {
-        eprintln!("handl-plugin-target-native-example cdylib not found; skipping loader wiring test");
+        eprintln!(
+            "handl-plugin-target-native-example cdylib not found; skipping loader wiring test"
+        );
         return Ok(());
     };
 
@@ -62,6 +64,7 @@ fn tooling_host_loads_native_plugin_and_dispatches_command() -> Result<(), Platf
             "command": "echo",
             "description": "Echo plugin"
         }),
+        ast_kinds: vec![],
     };
 
     let mut host = DefaultHost::new();

@@ -9,3 +9,4 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+handl-plugin-load = { path = "../plugin-load" }
