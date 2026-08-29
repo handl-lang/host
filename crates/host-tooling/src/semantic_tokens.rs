@@ -192,8 +192,10 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
             _ => unreachable!(),
         };
 
-        // Type reference: identifiers prefixed with `type.` (e.g. type.string).
-        if ident.starts_with("type.") {
+        // Type reference: the identifier `type` followed by a dot (e.g.
+        // `type.str`, `type.string`). The lexer splits `type.str` into
+        // separate tokens, so we check the lookahead pattern.
+        if ident == "type" && matches!(tokens.get(index + 1).map(|t| &t.kind), Some(LexKind::Delimiter(LexDelimiter::Dot))) {
             let ty = legend.token_type_index("type")?;
             return Some((ty, 0));
         }
@@ -221,6 +223,23 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
 
         // Function call: the next token is an opening parenthesis.
         if matches!(next, Some(LexKind::Delimiter(LexDelimiter::ParenOpen))) {
+            let ty = legend.token_type_index("function")?;
+            return Some((ty, 0));
+        }
+
+        // Dotted function call: `ident . ident (` — the first identifier
+        // is a module name in a qualified call like `crypto.sha256(...)`.
+        // Classify it as `function`.
+        if matches!(next, Some(LexKind::Delimiter(LexDelimiter::Dot)))
+            && matches!(
+                tokens.get(index + 2).map(|t| &t.kind),
+                Some(LexKind::Identifier(_))
+            )
+            && matches!(
+                tokens.get(index + 3).map(|t| &t.kind),
+                Some(LexKind::Delimiter(LexDelimiter::ParenOpen))
+            )
+        {
             let ty = legend.token_type_index("function")?;
             return Some((ty, 0));
         }

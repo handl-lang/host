@@ -1890,6 +1890,9 @@ name = "handl-plugin-lib-hello"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-vm",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 

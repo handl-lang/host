@@ -91,6 +91,24 @@ pub struct PluginRegistry {
     plugins: Vec<Option<Arc<dyn Plugin + 'static>>>,
     by_capability: HashMap<CapabilityId, usize>,
     pending_excludes: Vec<String>,
+    pending_rules: Vec<PendingRule>,
+}
+
+/// Outcome of retrying a deferred rule contribution.
+pub(crate) enum PendingStatus {
+    /// The rule was accepted by its `RuleAcceptor`.
+    Applied,
+    /// The acceptor is still not registered; retry later.
+    StillMissing,
+    /// The acceptor was found but rejected the rule.
+    Failed(PlatformError),
+}
+
+/// A rule contribution deferred because its `RuleAcceptor` was not yet
+/// registered when `contribute` was called. Retried as loading progresses.
+pub(crate) struct PendingRule {
+    pub(crate) type_name: String,
+    pub(crate) try_apply: Box<dyn FnMut(&mut PluginRegistry) -> PendingStatus + Send + Sync>,
 }
 
 impl PluginRegistry {
@@ -201,6 +219,43 @@ impl PluginRegistry {
         for id in &excludes {
             self.remove_by_id(id);
         }
+    }
+
+    /// Queues a deferred rule contribution for later retry.
+    pub(crate) fn push_pending_rule(&mut self, rule: PendingRule) {
+        self.pending_rules.push(rule);
+    }
+
+    /// Retries all deferred rule contributions. Rules whose acceptor has
+    /// appeared are applied; the rest remain queued. Returns the first
+    /// acceptor-rejection error encountered.
+    pub(crate) fn flush_pending_rules(&mut self) -> Result<(), PlatformError> {
+        if self.pending_rules.is_empty() {
+            return Ok(());
+        }
+        let pending = std::mem::take(&mut self.pending_rules);
+        let mut still_pending = Vec::new();
+        for mut rule in pending {
+            match (rule.try_apply)(self) {
+                PendingStatus::Applied => {}
+                PendingStatus::StillMissing => still_pending.push(rule),
+                PendingStatus::Failed(e) => {
+                    self.pending_rules = still_pending;
+                    return Err(e);
+                }
+            }
+        }
+        self.pending_rules = still_pending;
+        Ok(())
+    }
+
+    /// Returns the type names of acceptors that still have unresolved
+    /// deferred rules.
+    pub(crate) fn pending_rule_acceptors(&self) -> Vec<String> {
+        self.pending_rules
+            .iter()
+            .map(|r| r.type_name.clone())
+            .collect()
     }
 
     /// Returns manifests for all registered plugins.

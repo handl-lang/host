@@ -23,6 +23,8 @@ use handl_platform::{
     PluginContext,
 };
 
+pub mod module;
+pub use module::HelloModule;
 pub mod plugin;
 pub use plugin::HelloLibraryPlugin;
 

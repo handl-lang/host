@@ -4,9 +4,10 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::HelloPlugin;
+use super::{HelloModule, HelloPlugin};
 
 /// A `Library` plugin that registers the `hello` implementation.
 pub struct HelloLibraryPlugin {
@@ -48,6 +49,10 @@ impl Plugin for HelloLibraryPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
+            // Register the `hello` VM module so `hello.greet(...)` resolves
+            // during VM evaluation, and the capability plugin for the
+            // platform capability dispatch path.
+            ctx.contribute::<ModuleRuntime>(ModuleRule::new(HelloModule))?;
             ctx.register_plugin(HelloPlugin::default())
         } else {
             Ok(())

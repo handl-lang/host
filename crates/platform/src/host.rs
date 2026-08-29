@@ -109,9 +109,21 @@ impl DefaultHost {
             };
             self.plugins.replace_at(next, plugin);
             result?;
+            // Retry deferred rule contributions whose acceptor may have just
+            // been registered by this plugin's contribute.
+            self.plugins.flush_pending_rules()?;
             next += 1;
         }
         self.plugins.apply_pending_excludes();
+        // Final retry for any deferred rules whose acceptor appeared late.
+        self.plugins.flush_pending_rules()?;
+        let unresolved = self.plugins.pending_rule_acceptors();
+        if !unresolved.is_empty() {
+            return Err(PlatformError::MissingRuleAcceptor(format!(
+                "unresolved rule acceptors: {}",
+                unresolved.join(", ")
+            )));
+        }
         Ok(())
     }
 

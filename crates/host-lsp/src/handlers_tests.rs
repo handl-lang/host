@@ -152,12 +152,13 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
     let data = parsed["result"]["data"].as_array().unwrap();
     assert!(!data.is_empty(), "should produce tokens for non-empty source");
 
-    // First token should be "x" (identifier/variable, type 6, length 1)
+    // First token should be "x" (identifier/variable, type 6, length 1,
+    // declaration modifier bit set because `x = 42` is a binding).
     assert_eq!(data[0], 0); // delta_line
     assert_eq!(data[1], 0); // delta_start
     assert_eq!(data[2], 1); // length
     assert_eq!(data[3], 6); // token_type = variable
-    assert_eq!(data[4], 0); // token_modifiers = none
+    assert_eq!(data[4], 1); // token_modifiers = declaration
 }
 
 #[test]

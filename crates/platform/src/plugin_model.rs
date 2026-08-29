@@ -80,12 +80,32 @@ impl<'a> ContributionContext<'a> {
     }
 
     /// Contribute a rule to a registered [`RuleAcceptor`] of type `P`.
+    ///
+    /// If the acceptor is not registered yet (a common case when a kit
+    /// registers a library plugin before the acceptor's owning sub-kit has
+    /// been contributed), the rule is deferred and retried as loading
+    /// progresses. It is applied as soon as the acceptor appears.
     pub fn contribute<P: RuleAcceptor>(&mut self, rule: P::Rule) -> Result<(), PlatformError> {
         match self.plugins.get_plugin_mut::<P>() {
             Some(acceptor) => acceptor.accept(rule),
-            None => Err(PlatformError::MissingRuleAcceptor(
-                std::any::type_name::<P>().to_string(),
-            )),
+            None => {
+                let mut slot = Some(rule);
+                self.plugins.push_pending_rule(crate::plugin::PendingRule {
+                    type_name: std::any::type_name::<P>().to_string(),
+                    try_apply: Box::new(move |reg| match (slot.take(), reg.get_plugin_mut::<P>()) {
+                        (Some(rule), Some(acceptor)) => match acceptor.accept(rule) {
+                            Ok(()) => crate::plugin::PendingStatus::Applied,
+                            Err(e) => crate::plugin::PendingStatus::Failed(e),
+                        },
+                        (Some(rule), None) => {
+                            slot = Some(rule);
+                            crate::plugin::PendingStatus::StillMissing
+                        }
+                        (None, _) => crate::plugin::PendingStatus::Applied,
+                    }),
+                });
+                Ok(())
+            }
         }
     }
 
