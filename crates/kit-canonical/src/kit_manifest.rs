@@ -99,6 +99,9 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-fmt-trivia".to_string(),
             "plugin-fmt-stmt".to_string(),
             "plugin-diag-expression".to_string(),
+            // Build and compile behavior plugins (ADR-0034 P1.4, placeholders)
+            // "plugin-build-core".to_string(),
+            // "plugin-compile-core".to_string(),
         ],
     }
 }

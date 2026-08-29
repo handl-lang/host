@@ -16,6 +16,8 @@ toml = "0.8"
 
 handl-ext-lexer = { path = "../ext-lexer" }
 handl-ext-parser = { path = "../ext-parser" }
+handl-ext-build = { path = "../ext-build" }
+handl-ext-compile = { path = "../ext-compile" }
 handl-ext-fmt = { path = "../ext-fmt" }
 handl-ext-lint = { path = "../ext-lint" }
 handl-target-native = { path = "../target-native" }

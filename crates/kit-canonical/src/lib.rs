@@ -28,6 +28,8 @@ use handl_platform::{
 };
 use handl_ext_lexer::BasicLexer;
 use handl_ext_parser::BasicParser;
+use handl_ext_build::BasicBuilder;
+use handl_ext_compile::BasicCompiler;
 use handl_ext_fmt::BasicFormatter;
 use handl_ext_lint::BasicLinter;
 use handl_plugin_diag_expression::ExpressionDiagnostics;
@@ -1261,6 +1263,8 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
         ctx.register_plugin(BasicEvaluator::new())?;
+        ctx.register_plugin(BasicBuilder::new())?;
+        ctx.register_plugin(BasicCompiler::new())?;
 
         // Format and lint behavior contributors (ADR-0034 P1.3)
         ctx.register_plugin(TriviaFormatter::new())?;

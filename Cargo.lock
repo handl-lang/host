@@ -832,6 +832,8 @@ name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
+ "handl-ext-build",
+ "handl-ext-compile",
  "handl-ext-fmt",
  "handl-ext-lexer",
  "handl-ext-lint",

@@ -5,8 +5,12 @@
 
 /// Types for describing runtime isolation boundaries.
 pub mod boundary;
+/// Generic build operation and rule acceptor.
+pub mod build;
 /// Capability identifiers and metadata.
 pub mod capability;
+/// Generic compile operation and rule acceptor.
+pub mod compile;
 /// Host configuration and appliers.
 pub mod config;
 /// Platform error types.
@@ -43,7 +47,9 @@ pub mod value;
 pub mod vm;
 
 pub use boundary::*;
+pub use build::*;
 pub use capability::*;
+pub use compile::*;
 pub use config::*;
 pub use error::*;
 pub use eval::*;
