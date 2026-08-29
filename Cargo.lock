@@ -689,110 +689,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-ext-build"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-cli"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-compile"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-eval"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-fmt"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-kit"
-version = "0.1.0"
-dependencies = [
- "handl-kit-canonical",
- "handl-kit-hello",
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-lexer"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-lint"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-lsp"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-parser"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-plugin"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-ext-typecheck"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
 name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
- "handl-ext-cli",
- "handl-ext-kit",
  "handl-platform",
+ "handl-plugin-ext-cli",
+ "handl-plugin-ext-kit",
  "serde_json",
 ]
 
@@ -800,8 +702,8 @@ dependencies = [
 name = "handl-host-lsp"
 version = "0.1.0"
 dependencies = [
- "handl-ext-lsp",
  "handl-platform",
+ "handl-plugin-ext-lsp",
  "serde_json",
 ]
 
@@ -810,12 +712,6 @@ name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-ext-build",
- "handl-ext-compile",
- "handl-ext-fmt",
- "handl-ext-lexer",
- "handl-ext-lint",
- "handl-ext-parser",
  "handl-lexer",
  "handl-lexer-common",
  "handl-parser",
@@ -834,6 +730,12 @@ dependencies = [
  "handl-plugin-diag-expression",
  "handl-plugin-eval-hello",
  "handl-plugin-eval-json",
+ "handl-plugin-ext-build",
+ "handl-plugin-ext-compile",
+ "handl-plugin-ext-fmt",
+ "handl-plugin-ext-lexer",
+ "handl-plugin-ext-lint",
+ "handl-plugin-ext-parser",
  "handl-plugin-fmt-stmt",
  "handl-plugin-fmt-trivia",
  "handl-plugin-grammar-apply",
@@ -1604,6 +1506,104 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-eval-json"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-build"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-compile"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-eval"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-kit"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-kit-hello",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-lexer"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-lint"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-lsp"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-parser"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-plugin"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-typecheck"
 version = "0.1.0"
 dependencies = [
  "handl-platform",

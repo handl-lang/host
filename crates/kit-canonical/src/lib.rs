@@ -26,12 +26,12 @@ use handl_platform::{
     BasicEvaluator, BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest,
     CapabilityResponse, ContributionContext, OptionsPlugin, PlatformError, Plugin, PluginContext,
 };
-use handl_ext_lexer::BasicLexer;
-use handl_ext_parser::BasicParser;
-use handl_ext_build::BasicBuilder;
-use handl_ext_compile::BasicCompiler;
-use handl_ext_fmt::BasicFormatter;
-use handl_ext_lint::BasicLinter;
+use handl_plugin_ext_lexer::BasicLexer;
+use handl_plugin_ext_parser::BasicParser;
+use handl_plugin_ext_build::BasicBuilder;
+use handl_plugin_ext_compile::BasicCompiler;
+use handl_plugin_ext_fmt::BasicFormatter;
+use handl_plugin_ext_lint::BasicLinter;
 use handl_plugin_diag_expression::ExpressionDiagnostics;
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;

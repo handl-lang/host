@@ -8,18 +8,18 @@ members = [
     "crates/ast",
     "crates/ast-common",
     "crates/schema",
-    "crates/ext-build",
-    "crates/ext-cli",
-    "crates/ext-compile",
-    "crates/ext-eval",
-    "crates/ext-fmt",
-    "crates/ext-kit",
-    "crates/ext-lexer",
-    "crates/ext-lint",
-    "crates/ext-lsp",
-    "crates/ext-parser",
-    "crates/ext-plugin",
-    "crates/ext-typecheck",
+    "crates/plugin-ext-build",
+    "crates/plugin-ext-cli",
+    "crates/plugin-ext-compile",
+    "crates/plugin-ext-eval",
+    "crates/plugin-ext-fmt",
+    "crates/plugin-ext-kit",
+    "crates/plugin-ext-lexer",
+    "crates/plugin-ext-lint",
+    "crates/plugin-ext-lsp",
+    "crates/plugin-ext-parser",
+    "crates/plugin-ext-plugin",
+    "crates/plugin-ext-typecheck",
     "crates/host-cli",
     "crates/host-lsp",
     "crates/kit-canonical",
@@ -194,18 +194,18 @@ chrono = { version = "0.4", features = ["serde"] }
 handl-ast = { path = "crates/ast" }
 handl-ast-common = { path = "crates/ast-common" }
 handl-schema = { path = "crates/schema" }
-handl-ext-build = { path = "crates/ext-build" }
-handl-ext-cli = { path = "crates/ext-cli" }
-handl-ext-compile = { path = "crates/ext-compile" }
-handl-ext-eval = { path = "crates/ext-eval" }
-handl-ext-fmt = { path = "crates/ext-fmt" }
-handl-ext-kit = { path = "crates/ext-kit" }
-handl-ext-lexer = { path = "crates/ext-lexer" }
-handl-ext-lint = { path = "crates/ext-lint" }
-handl-ext-lsp = { path = "crates/ext-lsp" }
-handl-ext-parser = { path = "crates/ext-parser" }
-handl-ext-plugin = { path = "crates/ext-plugin" }
-handl-ext-typecheck = { path = "crates/ext-typecheck" }
+handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
+handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
+handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
+handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
+handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
+handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }
+handl-plugin-ext-lexer = { path = "crates/plugin-ext-lexer" }
+handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
+handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
+handl-plugin-ext-parser = { path = "crates/plugin-ext-parser" }
+handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
+handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
 handl-kit-canonical = { path = "crates/kit-canonical" }

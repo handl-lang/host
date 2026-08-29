@@ -14,12 +14,12 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"
 
-handl-ext-lexer = { path = "../ext-lexer" }
-handl-ext-parser = { path = "../ext-parser" }
-handl-ext-build = { path = "../ext-build" }
-handl-ext-compile = { path = "../ext-compile" }
-handl-ext-fmt = { path = "../ext-fmt" }
-handl-ext-lint = { path = "../ext-lint" }
+handl-plugin-ext-lexer = { path = "../plugin-ext-lexer" }
+handl-plugin-ext-parser = { path = "../plugin-ext-parser" }
+handl-plugin-ext-build = { path = "../plugin-ext-build" }
+handl-plugin-ext-compile = { path = "../plugin-ext-compile" }
+handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
+handl-plugin-ext-lint = { path = "../plugin-ext-lint" }
 handl-target-native = { path = "../target-native" }
 
 handl-plugin-eval-hello = { path = "../plugin-eval-hello" }
