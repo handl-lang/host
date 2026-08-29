@@ -2,10 +2,10 @@
 //! Canonical number-token plugin.
 //!
 //! Provides the `NumberKind` token kind and implements
-//! `handl_lexer::TokenKind`, the base capability trait from the generic
+//! `handl_plugin_lexer::TokenKind`, the base capability trait from the generic
 //! lexer crate.
 
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical number literals.
@@ -79,7 +79,7 @@ mod tests {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<NumberKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<NumberKind> for TokenFactory {
     fn eof_kind(&self) -> NumberKind {
         NumberKind::Eof
     }

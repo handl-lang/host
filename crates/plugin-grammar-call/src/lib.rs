@@ -5,7 +5,7 @@
 //! trait from the generic parser crate.
 
 use handl_ast::Expr;
-use handl_lexer::{Token, TokenKind};
+use handl_plugin_lexer::{Token, TokenKind};
 use handl_parser::{GrammarRule, ParseError, ParserContext};
 
 /// Token capability required by the call grammar rule.
@@ -97,7 +97,7 @@ where
 mod tests {
     use super::*;
     use handl_ast::Node;
-    use handl_lexer::{EofFactory, Span, Token};
+    use handl_plugin_lexer::{EofFactory, Span, Token};
     use std::fmt;
 
     #[derive(Debug, Clone, PartialEq)]

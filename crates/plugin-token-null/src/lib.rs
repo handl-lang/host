@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical null tokens.
@@ -39,7 +39,7 @@ pub fn Null_token(span: Span) -> Token<NullKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<NullKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<NullKind> for TokenFactory {
     fn eof_kind(&self) -> NullKind {
         NullKind::Eof
     }

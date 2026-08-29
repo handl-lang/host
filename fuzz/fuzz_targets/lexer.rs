@@ -1,6 +1,6 @@
 #![no_main]
 
-use handl_lexer::Lexer;
+use handl_plugin_lexer::Lexer;
 use handl_lexer_canonical::CanonicalLexer;
 use libfuzzer_sys::fuzz_target;
 

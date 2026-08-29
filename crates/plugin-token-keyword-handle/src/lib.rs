@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical handle keyword tokens.
@@ -39,7 +39,7 @@ pub fn Handle_token(span: Span) -> Token<HandleKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<HandleKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<HandleKind> for TokenFactory {
     fn eof_kind(&self) -> HandleKind {
         HandleKind::Eof
     }

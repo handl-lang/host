@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
-use handl_lexer::primitives;
-use handl_lexer::{
+use handl_plugin_lexer::primitives;
+use handl_plugin_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, LexError, LexerConfig, LexRule, Span, Token,
     TokenKind,
 };
@@ -43,7 +43,7 @@ pub fn DocComment_token(value: String, span: Span) -> Token<DocCommentKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<DocCommentKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<DocCommentKind> for TokenFactory {
     fn eof_kind(&self) -> DocCommentKind {
         DocCommentKind::Eof
     }

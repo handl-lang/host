@@ -4,6 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-lexer.workspace = true
+handl-plugin-lexer.workspace = true
 handl-ast.workspace = true
 thiserror.workspace = true

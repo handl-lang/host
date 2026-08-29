@@ -1,5 +1,5 @@
 use handl_ast::Expr;
-use handl_lexer::{Token, TokenKind};
+use handl_plugin_lexer::{Token, TokenKind};
 use handl_parser::{GrammarRule, ParseError, ParserContext};
 
 /// Token capability required by the Handle grammar rule.

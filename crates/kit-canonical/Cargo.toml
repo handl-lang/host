@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 handl-ast = { workspace = true }
-handl-lexer = { workspace = true }
-handl-lexer-common = { workspace = true }
+handl-plugin-lexer = { workspace = true }
+handl-plugin-lexer-common = { workspace = true }
 handl-parser = { workspace = true }
 handl-platform = { workspace = true }
 handl-vm = { workspace = true }

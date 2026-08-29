@@ -1,6 +1,6 @@
 //! Compatibility diagnostic types for the canonical kit.
 
-use handl_lexer::Span;
+use handl_plugin_lexer::Span;
 
 /// Severity of a diagnostic produced by a diagnostics plugin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

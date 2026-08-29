@@ -11,13 +11,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use handl_ast::{Expr as ExprTrait, Node, Stmt as StmtTrait};
-use handl_lexer::primitives;
-use handl_lexer::{
+use handl_plugin_lexer::primitives;
+use handl_plugin_lexer::{
     CommentFactory, CommentTokenKind, DefaultLexError, EofFactory, IdentFactory, KeywordFactory,
     KindFactory, Lexer, LexerConfig, NumberFactory, OperatorFactory, Span, StringFactory, Token,
     TokenKind,
 };
-use handl_lexer_common::{
+use handl_plugin_lexer_common::{
     BlockCommentRule, DelimiterRule, IdentRule, KeywordRule, LineCommentRule,
     NumberRule as LexNumberRule, OperatorRule, StringRule as LexStringRule,
 };

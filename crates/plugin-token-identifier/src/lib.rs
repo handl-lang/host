@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical identifier tokens.
@@ -39,7 +39,7 @@ pub fn Ident_token(value: String, span: Span) -> Token<IdentKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<IdentKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<IdentKind> for TokenFactory {
     fn eof_kind(&self) -> IdentKind {
         IdentKind::Eof
     }

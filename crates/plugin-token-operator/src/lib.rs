@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Canonical single-character operator set for the canonical language.
@@ -72,7 +72,7 @@ pub fn eof_token(span: Span) -> Token<OperatorKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<OperatorKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<OperatorKind> for TokenFactory {
     fn eof_kind(&self) -> OperatorKind {
         OperatorKind::Eof
     }

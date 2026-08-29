@@ -1,4 +1,4 @@
-use handl_lexer::Span;
+use handl_plugin_lexer::Span;
 use thiserror::Error;
 
 /// A parsing error — the AST could not be constructed.

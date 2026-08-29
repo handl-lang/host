@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use handl_lexer::{Span, Token, TokenKind};
+use handl_plugin_lexer::{Span, Token, TokenKind};
 use std::fmt;
 
 /// Token kind for canonical comment tokens.
@@ -31,7 +31,7 @@ impl TokenKind for CommentKind {
 
     type Factory = TokenFactory;
 }
-impl handl_lexer::CommentTokenKind for CommentKind {
+impl handl_plugin_lexer::CommentTokenKind for CommentKind {
     fn is_comment(&self) -> bool {
         matches!(self, CommentKind::Comment(_))
     }
@@ -44,7 +44,7 @@ pub fn Comment_token(value: String, span: Span) -> Token<CommentKind> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokenFactory;
 
-impl handl_lexer::EofFactory<CommentKind> for TokenFactory {
+impl handl_plugin_lexer::EofFactory<CommentKind> for TokenFactory {
     fn eof_kind(&self) -> CommentKind {
         CommentKind::Eof
     }

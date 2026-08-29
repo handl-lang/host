@@ -7,7 +7,7 @@
 //! remains a thin compatibility re-export crate.
 
 use crate::CanonicalKind;
-use handl_lexer::Token;
+use handl_plugin_lexer::Token;
 use handl_platform::PlatformError;
 use handl_vm::{Expr, Pattern};
 

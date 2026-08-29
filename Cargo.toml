@@ -24,8 +24,8 @@ members = [
     "crates/host-lsp",
     "crates/kit-canonical",
     "crates/kit-hello",
-    "crates/lexer",
-    "crates/lexer-common",
+    "crates/plugin-lexer",
+    "crates/plugin-lexer-common",
     "crates/lib-archive",
     "crates/lib-archive-tar",
     "crates/lib-base64",
@@ -210,8 +210,8 @@ handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
 handl-kit-canonical = { path = "crates/kit-canonical" }
 handl-kit-hello = { path = "crates/kit-hello" }
-handl-lexer = { path = "crates/lexer" }
-handl-lexer-common = { path = "crates/lexer-common" }
+handl-plugin-lexer = { path = "crates/plugin-lexer" }
+handl-plugin-lexer-common = { path = "crates/plugin-lexer-common" }
 handl-lib-archive = { path = "crates/lib-archive" }
 handl-lib-archive-tar = { path = "crates/lib-archive-tar" }
 handl-lib-base64 = { path = "crates/lib-base64" }

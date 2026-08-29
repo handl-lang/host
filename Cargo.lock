@@ -712,8 +712,6 @@ name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
- "handl-lexer-common",
  "handl-parser",
  "handl-platform",
  "handl-plugin-ast-apply",
@@ -748,6 +746,8 @@ dependencies = [
  "handl-plugin-grammar-match",
  "handl-plugin-grammar-object",
  "handl-plugin-grammar-pipe",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-common",
  "handl-plugin-runtime-apply",
  "handl-plugin-runtime-arithmetic",
  "handl-plugin-runtime-array",
@@ -778,20 +778,6 @@ dependencies = [
  "handl-kit-canonical",
  "handl-lib-hello",
  "handl-platform",
-]
-
-[[package]]
-name = "handl-lexer"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "handl-lexer-common"
-version = "0.1.0"
-dependencies = [
- "handl-lexer",
 ]
 
 [[package]]
@@ -1378,7 +1364,7 @@ name = "handl-parser"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
+ "handl-plugin-lexer",
  "thiserror 2.0.20",
 ]
 
@@ -1641,8 +1627,8 @@ name = "handl-plugin-grammar-apply"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1650,8 +1636,8 @@ name = "handl-plugin-grammar-array"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1659,8 +1645,8 @@ name = "handl-plugin-grammar-assign"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1668,8 +1654,8 @@ name = "handl-plugin-grammar-call"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1688,8 +1674,8 @@ name = "handl-plugin-grammar-handle"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1697,8 +1683,8 @@ name = "handl-plugin-grammar-index"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1755,8 +1741,8 @@ name = "handl-plugin-grammar-let"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1764,8 +1750,8 @@ name = "handl-plugin-grammar-match"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1773,8 +1759,8 @@ name = "handl-plugin-grammar-object"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1782,8 +1768,8 @@ name = "handl-plugin-grammar-pipe"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -1969,6 +1955,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lexer"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "handl-plugin-lexer-common"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-lexer",
+]
+
+[[package]]
 name = "handl-plugin-lsp-completion"
 version = "0.1.0"
 dependencies = [
@@ -2066,77 +2066,77 @@ dependencies = [
 name = "handl-plugin-token-bool"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-comment"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-delimiter"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-doc-comment"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-identifier"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-keyword-as"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-keyword-handle"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-null"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-number"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-operator"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
 name = "handl-plugin-token-string"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
+ "handl-plugin-lexer",
 ]
 
 [[package]]
@@ -2227,8 +2227,8 @@ dependencies = [
 name = "handl-vm-backend-rust-interpreter"
 version = "0.1.0"
 dependencies = [
- "handl-lexer",
  "handl-parser",
+ "handl-plugin-lexer",
  "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",
