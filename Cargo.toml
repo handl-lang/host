@@ -8,6 +8,7 @@ members = [
     "crates/ast",
     "crates/ast-common",
     "crates/dialect",
+    "crates/schema",
     "crates/expr",
     "crates/ext-build",
     "crates/ext-cli",
@@ -196,6 +197,7 @@ handl-ast = { path = "crates/ast" }
 handl-ast-common = { path = "crates/ast-common" }
 handl-dialect = { path = "crates/dialect" }
 handl-expr = { path = "crates/expr" }
+handl-schema = { path = "crates/schema" }
 handl-ext-build = { path = "crates/ext-build" }
 handl-ext-cli = { path = "crates/ext-cli" }
 handl-ext-compile = { path = "crates/ext-compile" }

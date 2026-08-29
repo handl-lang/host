@@ -1,4 +1,4 @@
-use super::validation_error::ValidationError;
+use crate::validation_error::ValidationError;
 
 /// Validates values of type `V`.
 ///

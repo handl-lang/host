@@ -1,11 +1,11 @@
-use super::schema::Schema;
-use super::validation_error::ValidationError;
+use crate::schema::Schema;
+use crate::validation_error::ValidationError;
 
 /// A schema vocabulary — compiles raw schema documents into validators.
 ///
 /// This trait abstracts which schema language a dialect uses. The
 /// canonical implementation is JSON Schema draft 2020-12, provided by
-/// `handl-dialect-canonical` as `JsonSchemaVocabulary`.
+/// `handl-schema` as `JsonSchemaVocabulary`.
 ///
 /// Generic over `V` so the abstraction works with any value type,
 /// not just `NonFunctionValue`.
