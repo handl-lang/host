@@ -1,11 +1,7 @@
 use std::path::PathBuf;
 
-use handl_kit_canonical::CanonicalKit;
-use handl_loader::LoaderRegistry;
-use handl_loader_native::NativeLoader;
-use handl_platform::PluginManifest;
-use handl_plugin_fmt_expression::ExpressionFormatter;
-use handl_tooling::ToolingHost;
+use handl_platform::{CapabilityRequest, DefaultHost, PlatformError, PluginManifest};
+use handl_plugin_loader_native::NativeLoader;
 
 fn target_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -44,10 +40,10 @@ fn find_example_cdylib() -> Option<PathBuf> {
 
 #[test]
 #[ignore = "loader/cli wiring not yet implemented"]
-fn tooling_host_loads_native_plugin_and_dispatches_command() {
+fn tooling_host_loads_native_plugin_and_dispatches_command() -> Result<(), PlatformError> {
     let Some(cdylib) = find_example_cdylib() else {
         eprintln!("handl-plugin-target-native-example cdylib not found; skipping loader wiring test");
-        return;
+        return Ok(());
     };
 
     let manifest = PluginManifest {
@@ -68,18 +64,21 @@ fn tooling_host_loads_native_plugin_and_dispatches_command() {
         }),
     };
 
-    let mut loaders = LoaderRegistry::new();
-    loaders.register(NativeLoader::new());
+    let mut host = DefaultHost::new();
+    host.register_plugin(NativeLoader::new());
+    host.load()?;
 
-    let mut host = ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
-        .with_loader_registry(loaders);
+    let payload = serde_json::to_value(&manifest).expect("serialize manifest");
+    host.run(&CapabilityRequest {
+        capability: "load".into(),
+        payload,
+    })?;
 
-    host.load_plugin(&manifest).expect("load native plugin");
+    let response = host.run(&CapabilityRequest {
+        capability: "echo".into(),
+        payload: serde_json::json!("hello"),
+    })?;
+    assert!(response.0.to_string().contains("hello"));
 
-    let commands = host.cli_commands();
-    assert!(commands.iter().any(|s| s.name == "echo"));
-
-    let output = host.run_cli("echo", &["hello".to_string()]).expect("run echo");
-    let json = output.to_string();
-    assert!(json.contains("hello"));
+    Ok(())
 }

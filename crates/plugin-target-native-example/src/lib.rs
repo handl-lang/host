@@ -9,7 +9,7 @@ struct Request {
     payload: serde_json::Value,
 }
 
-/// Exposes the C ABI expected by `handl-loader-native`.
+/// Exposes the C ABI expected by `handl-plugin-loader-native`.
 #[unsafe(no_mangle)]
 pub extern "C" fn handl_plugin_run(request_json: *const c_char) -> *const c_char {
     if request_json.is_null() {

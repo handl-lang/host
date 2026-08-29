@@ -1,9 +1,8 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
 use handl_kit_canonical::Diagnostic;
-use handl_loader::LoaderRegistry;
 use handl_platform::Formatter;
-use handl_platform::{PlatformError, Plugin, PluginManifest};
+use handl_platform::{PlatformError, Plugin};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
@@ -27,7 +26,6 @@ pub struct ToolingHost<K: Plugin> {
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
     incremental_sync: Option<Box<dyn IncrementalSyncPlugin>>,
-    loaders: LoaderRegistry,
 }
 
 impl<K: Plugin> ToolingHost<K> {
@@ -42,7 +40,6 @@ impl<K: Plugin> ToolingHost<K> {
             goto_def: None,
             document_symbols: None,
             incremental_sync: Some(Box::new(BasicIncrementalSync::new())),
-            loaders: LoaderRegistry::new(),
         }
     }
 
@@ -70,21 +67,9 @@ impl<K: Plugin> ToolingHost<K> {
         self
     }
 
-    /// Sets the loader registry used to load external plugins.
-    pub fn with_loader_registry(mut self, registry: LoaderRegistry) -> Self {
-        self.loaders = registry;
-        self
-    }
-
     /// Returns a reference to the configured kit.
     pub fn kit(&self) -> &K {
         &self.kit
-    }
-
-    /// Loads an external plugin using the loader registry.
-    pub fn load_plugin(&mut self, manifest: &PluginManifest) -> Result<(), PlatformError> {
-        self.loaders.load(manifest)?;
-        Ok(())
     }
 
     /// Returns the CLI commands registered by loaded plugins.

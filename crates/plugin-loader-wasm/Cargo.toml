@@ -1,13 +1,11 @@
 [package]
-name = "handl-loader-web"
+name = "handl-plugin-loader-wasm"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-loader.workspace = true
+handl-plugin-load.workspace = true
 handl-platform.workspace = true
 serde_json.workspace = true
-ureq = { version = "2", features = ["json"] }
-
-[dev-dependencies]
-mockito = "1"
+wasmi = "0.31"
+wat = "1"

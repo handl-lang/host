@@ -80,10 +80,6 @@ members = [
     "crates/lib-ws-whatwg-native",
     "crates/lib-ws-whatwg-wasm",
     "crates/lib-yaml",
-    "crates/loader",
-    "crates/loader-native",
-    "crates/loader-wasm",
-    "crates/loader-web",
     "crates/plugin-parser",
     "crates/platform",
     "crates/plugin-ast-apply",
@@ -275,10 +271,6 @@ handl-lib-ws-rfc-native = { path = "crates/lib-ws-rfc-native" }
 handl-lib-ws-whatwg-native = { path = "crates/lib-ws-whatwg-native" }
 handl-lib-ws-whatwg-wasm = { path = "crates/lib-ws-whatwg-wasm" }
 handl-lib-yaml = { path = "crates/lib-yaml" }
-handl-loader = { path = "crates/loader" }
-handl-loader-native = { path = "crates/loader-native" }
-handl-loader-wasm = { path = "crates/loader-wasm" }
-handl-loader-web = { path = "crates/loader-web" }
 handl-plugin-parser = { path = "crates/plugin-parser" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-ast-apply = { path = "crates/plugin-ast-apply" }

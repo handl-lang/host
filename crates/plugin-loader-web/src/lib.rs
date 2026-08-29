@@ -1,9 +1,10 @@
-use handl_loader::PluginLoader;
+use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 use handl_platform::{
-    CapabilityId, CapabilityRequest, CapabilityResponse, PlatformError, Plugin, PluginContext,
-    PluginManifest,
+    CapabilityId, CapabilityRequest, CapabilityResponse, ContributionContext, PlatformError, Plugin,
+    PluginContext, PluginManifest,
 };
 
+#[derive(Clone, Default)]
 pub struct WebLoader;
 
 impl WebLoader {
@@ -33,7 +34,7 @@ impl PluginLoader for WebLoader {
         self.resolve_url(manifest).is_some()
     }
 
-    fn load(&self, manifest: &PluginManifest) -> Result<Box<dyn Plugin>, PlatformError> {
+    fn load(&self, manifest: &PluginManifest) -> Result<Box<dyn Plugin + 'static>, PlatformError> {
         let url = self
             .resolve_url(manifest)
             .ok_or_else(|| PlatformError::Plugin("manifest has no web url".to_string()))?;
@@ -42,6 +43,42 @@ impl PluginLoader for WebLoader {
             manifest: manifest.clone(),
             url,
         }))
+    }
+}
+
+impl Plugin for WebLoader {
+    fn name(&self) -> &str {
+        "loader-web"
+    }
+
+    fn id(&self) -> &str {
+        "loader.web"
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<serde_json::Value> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        if ctx.get_plugin_mut::<LoaderHostPlugin>().is_none() {
+            ctx.register_plugin(LoaderHostPlugin::default())?;
+        }
+        ctx.contribute::<LoaderHostPlugin>(LoaderRule {
+            id: self.name().to_string(),
+            loader: Box::new(self.clone()),
+        })
+    }
+
+    fn run(
+        &self,
+        request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::UnknownCapability(request.capability.clone()))
     }
 }
 

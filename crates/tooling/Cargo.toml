@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-loader.workspace = true
+handl-plugin-load.workspace = true
 handl-plugin-fmt-expression.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-plugin-fmt-stmt.workspace = true
@@ -18,7 +18,7 @@ serde_json = "1"
 
 [dev-dependencies]
 handl-kit-canonical.workspace = true
-handl-loader-native.workspace = true
+handl-plugin-loader-native.workspace = true
 handl-plugin-lsp-completion.workspace = true
 handl-plugin-lsp-goto.workspace = true
 handl-plugin-lsp-symbol.workspace = true
