@@ -1,7 +1,9 @@
 use handl_platform::{
-    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
-    Kit, KitManifest, PlatformError, Plugin, PluginContext,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    Kit, KitLoader, KitManifest, PlatformError, Plugin, PluginContext,
 };
+use handl_kit_canonical::CanonicalKit;
+use handl_kit_hello::HelloKit;
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -134,6 +136,159 @@ impl Plugin for KitManagerPlugin {
     }
 }
 
+
+/// A kit plugin backed by a loaded `KitManifest`.
+pub struct ManifestKit {
+    manifest: KitManifest,
+}
+
+impl ManifestKit {
+    /// Create a new `ManifestKit` from a manifest.
+    pub fn new(manifest: KitManifest) -> Self {
+        Self { manifest }
+    }
+}
+
+impl Default for ManifestKit {
+    fn default() -> Self {
+        Self {
+            manifest: KitManifest::default(),
+        }
+    }
+}
+
+impl Plugin for ManifestKit {
+    fn id(&self) -> &str {
+        "kit.manifest"
+    }
+
+    fn name(&self) -> &str {
+        &self.manifest.name
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+/// A concrete kit plugin that wraps the built-in canonical and hello kits.
+pub enum BasicKit {
+    /// The canonical kit.
+    Canonical(CanonicalKit),
+    /// The hello kit.
+    Hello(HelloKit),
+    /// A kit loaded from a manifest path.
+    Manifest(ManifestKit),
+}
+
+impl Default for BasicKit {
+    fn default() -> Self {
+        Self::Canonical(CanonicalKit::new())
+    }
+}
+
+impl Plugin for BasicKit {
+    fn id(&self) -> &str {
+        match self {
+            Self::Canonical(k) => k.id(),
+            Self::Hello(k) => k.id(),
+            Self::Manifest(k) => k.id(),
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            Self::Canonical(k) => k.name(),
+            Self::Hello(k) => k.name(),
+            Self::Manifest(k) => k.name(),
+        }
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        match self {
+            Self::Canonical(k) => k.contribute(ctx),
+            Self::Hello(k) => k.contribute(ctx),
+            Self::Manifest(k) => k.contribute(ctx),
+        }
+    }
+
+    fn run(
+        &self,
+        request: &CapabilityRequest,
+        ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        match self {
+            Self::Canonical(k) => k.run(request, ctx),
+            Self::Hello(k) => k.run(request, ctx),
+            Self::Manifest(k) => k.run(request, ctx),
+        }
+    }
+}
+
+/// A static kit loader that maps built-in kit names to their plugins and
+/// supports loading a `KitManifest` from a file path.
+pub struct BasicKitLoader;
+
+impl Default for BasicKitLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BasicKitLoader {
+    /// Create a new `BasicKitLoader`.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl KitLoader for BasicKitLoader {
+    type Kit = BasicKit;
+
+    fn load(&self, name_or_path: &str) -> Result<BasicKit, PlatformError> {
+        if is_kit_path(name_or_path) {
+            let manifest = KitManifest::load(name_or_path)?;
+            return Ok(BasicKit::Manifest(ManifestKit::new(manifest)));
+        }
+
+        match name_or_path {
+            "canonical" => Ok(BasicKit::Canonical(CanonicalKit::new())),
+            "hello" => Ok(BasicKit::Hello(HelloKit::new())),
+            _ => Err(PlatformError::InvalidMetadata(format!(
+                "unknown kit: {name_or_path}"
+            ))),
+        }
+    }
+}
+
+fn is_kit_path(s: &str) -> bool {
+    let path = std::path::Path::new(s);
+    path.exists() || s.ends_with(".toml") || s.ends_with(".json")
+}
 
 #[cfg(test)]
 mod tests {

@@ -745,6 +745,8 @@ dependencies = [
 name = "handl-ext-kit"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-canonical",
+ "handl-kit-hello",
  "handl-platform",
  "serde_json",
 ]
@@ -802,8 +804,7 @@ name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
  "handl-ext-cli",
- "handl-kit-canonical",
- "handl-kit-hello",
+ "handl-ext-kit",
  "handl-platform",
  "serde_json",
 ]

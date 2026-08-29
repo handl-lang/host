@@ -110,9 +110,18 @@ impl Plugin for BasicCli {
                     .plugins
                     .resolve(&command_id)
                     .ok_or_else(|| PlatformError::UnknownCapability(command_id.clone()))?;
+                let mut payload = json!({ "args": args });
+                if command == "eval" {
+                    let kind = args
+                        .first()
+                        .and_then(|a| a.split('(').next())
+                        .map(|s| s.trim())
+                        .unwrap_or("eval");
+                    payload["kind"] = json!(kind);
+                }
                 let request = CapabilityRequest {
                     capability: command_id,
-                    payload: json!({ "args": args }),
+                    payload,
                 };
                 plugin.run(&request, ctx)
             }

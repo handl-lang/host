@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
+handl-kit-canonical = { workspace = true }
+handl-kit-hello = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

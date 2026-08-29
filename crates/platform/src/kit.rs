@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::PlatformError;
 use crate::manifest::PluginManifest;
+use crate::plugin::Plugin;
 use crate::resolve::{CapabilitySelector, ResolutionError, ResolvedComposition};
 
 /// A manifest describing a kit: a named composition of language plugins.
@@ -121,6 +122,18 @@ impl KitRegistry {
             Ok(())
         }
     }
+}
+
+/// A loader that resolves a kit name or manifest path to a kit plugin.
+///
+/// This is the minimal extension point that lets a host discover kits without
+/// hard-coding concrete kit crates.
+pub trait KitLoader: Send + Sync + 'static {
+    /// The concrete kit plugin type produced by this loader.
+    type Kit: Plugin + 'static;
+
+    /// Resolve a kit from a name or a `KitManifest` file path.
+    fn load(&self, name_or_path: &str) -> Result<Self::Kit, PlatformError>;
 }
 
 #[cfg(test)]
