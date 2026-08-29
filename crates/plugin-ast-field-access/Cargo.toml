@@ -1,7 +1,0 @@
-[package]
-name = "handl-plugin-ast-field-access"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-ast.workspace = true
