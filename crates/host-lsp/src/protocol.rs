@@ -17,9 +17,7 @@ pub fn send_response(writer: &mut impl Write, id: Value, result: Value) {
         "id": id,
         "result": result,
     });
-    let serialized = serde_json::to_string(&response).unwrap();
-    let _ = writeln!(writer, "{serialized}");
-    let _ = writer.flush();
+    write_message(writer, &response);
 }
 
 pub fn send_error(writer: &mut impl Write, id: Value, code: i32, message: &str) {
@@ -31,7 +29,16 @@ pub fn send_error(writer: &mut impl Write, id: Value, code: i32, message: &str) 
             "message": message,
         }
     });
-    let serialized = serde_json::to_string(&response).unwrap();
-    let _ = writeln!(writer, "{serialized}");
+    write_message(writer, &response);
+}
+
+fn write_message(writer: &mut impl Write, body: &Value) {
+    let serialized = serde_json::to_string(body).unwrap();
+    let _ = write!(
+        writer,
+        "Content-Length: {}\r\n\r\n{}",
+        serialized.len(),
+        serialized
+    );
     let _ = writer.flush();
 }

@@ -1,4 +1,17 @@
 {
+  "name": "handl-lsp",
+  "displayName": "handl Language Support",
+  "description": "Syntax highlighting and LSP semantic tokens for .hnl files",
+  "version": "0.1.0",
+  "publisher": "handl-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:handl"
+  ],
+  "main": "./extension.js",
   "contributes": {
     "languages": [
       {
@@ -13,6 +26,22 @@
         "scopeName": "source.handl",
         "path": "./hnl.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "handl LSP",
+      "properties": {
+        "handl-lsp.server.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the handl-host-lsp binary. If empty, looks for it in the workspace target/debug directory."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0"
   }
 }

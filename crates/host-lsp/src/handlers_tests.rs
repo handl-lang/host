@@ -8,6 +8,12 @@ use crate::handlers::{
 };
 use crate::protocol::Message;
 
+fn extract_body(raw: &[u8]) -> String {
+    let s = String::from_utf8_lossy(raw);
+    let header_end = s.find("\r\n\r\n").unwrap() + 4;
+    s[header_end..].to_string()
+}
+
 #[test]
 fn initialize_result_has_semantic_tokens_provider() {
     let legend = SemanticTokenLegend::default();
@@ -37,7 +43,7 @@ fn handle_initialize_writes_response() {
     handle_initialize(&mut buf, json!(1), &legend);
 
     let parsed: serde_json::Value =
-        serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 1);
     assert_eq!(parsed["result"]["serverInfo"]["name"], "handl-lsp");
@@ -49,7 +55,7 @@ fn handle_shutdown_writes_null_result() {
     handle_shutdown(&mut buf, json!(5));
 
     let parsed: serde_json::Value =
-        serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 5);
     assert_eq!(parsed["result"], serde_json::Value::Null);
@@ -61,7 +67,7 @@ fn handle_unknown_writes_method_not_found() {
     handle_unknown(&mut buf, json!(3));
 
     let parsed: serde_json::Value =
-        serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 3);
     assert_eq!(parsed["error"]["code"], -32601);
@@ -84,7 +90,7 @@ fn semantic_tokens_full_returns_delta_encoded_data() {
     handle_semantic_tokens_full(&mut buf, json!(1), &msg, &provider);
 
     let parsed: serde_json::Value =
-        serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 1);
     assert!(parsed["result"]["data"].is_array());
@@ -108,7 +114,7 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
     handle_semantic_tokens_full(&mut buf, json!(2), &msg, &provider);
 
     let parsed: serde_json::Value =
-        serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 2);
     let data = parsed["result"]["data"].as_array().unwrap();
