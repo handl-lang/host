@@ -1,4 +1,5 @@
 const vscode = require("vscode");
+const { LanguageClient, TransportKind } = require("vscode-languageclient");
 const path = require("path");
 const fs = require("fs");
 
@@ -28,14 +29,14 @@ function activate(context) {
   const serverOptions = {
     command: serverPath,
     args: [],
-    transport: vscode.LanguageClient.TransportKind.stdio,
+    transport: TransportKind.stdio,
   };
 
   const clientOptions = {
     documentSelector: [{ scheme: "file", language: "handl" }],
   };
 
-  const client = new vscode.LanguageClient(
+  const client = new LanguageClient(
     "handl-lsp",
     "handl LSP",
     serverOptions,
