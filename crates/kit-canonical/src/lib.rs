@@ -25,7 +25,7 @@ use handl_plugin_lexer_line_comment::LineCommentRule;
 use handl_plugin_lexer_number::NumberRule as LexNumberRule;
 use handl_plugin_lexer_operator::OperatorRule;
 use handl_plugin_lexer_string::StringRule as LexStringRule;
-use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
+use handl_plugin_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
     BasicEvaluator, BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest,
     CapabilityResponse, ContributionContext, OptionsPlugin, PlatformError, Plugin, PluginContext,
@@ -1125,7 +1125,7 @@ impl ParserContext<CanonicalKind, KitNode> for KitParserContext {
     }
 }
 
-/// The kit's parser, built on `handl_parser::CompositeGrammar`.
+/// The kit's parser, built on `handl_plugin_parser::CompositeGrammar`.
 pub struct KitParser {
     grammar: Arc<dyn Grammar<CanonicalKind, KitNode>>,
 }

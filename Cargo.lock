@@ -699,7 +699,6 @@ dependencies = [
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-platform",
  "handl-plugin-ast",
  "handl-plugin-ast-apply",
@@ -743,6 +742,7 @@ dependencies = [
  "handl-plugin-lexer-number",
  "handl-plugin-lexer-operator",
  "handl-plugin-lexer-string",
+ "handl-plugin-parser",
  "handl-plugin-runtime-apply",
  "handl-plugin-runtime-arithmetic",
  "handl-plugin-runtime-array",
@@ -848,7 +848,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "crossbeam-deque",
- "handl-parser",
+ "handl-plugin-parser",
  "handl-vm-backend-rust-interpreter",
  "handl-vm-common",
  "handl-vm-host-eval",
@@ -1355,15 +1355,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-parser"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-ast",
- "handl-plugin-lexer",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
@@ -1625,36 +1616,36 @@ dependencies = [
 name = "handl-plugin-grammar-apply"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-array"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-assign"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-call"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
@@ -1672,18 +1663,18 @@ dependencies = [
 name = "handl-plugin-grammar-handle"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-index"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
@@ -1739,36 +1730,36 @@ dependencies = [
 name = "handl-plugin-grammar-let"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-match"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-object"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
 name = "handl-plugin-grammar-pipe"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-ast",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
 ]
 
 [[package]]
@@ -2059,6 +2050,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-parser"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-ast",
+ "handl-plugin-lexer",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "handl-plugin-runtime-apply"
 version = "0.1.0"
 dependencies = [
@@ -2299,8 +2299,8 @@ dependencies = [
 name = "handl-vm-backend-rust-interpreter"
 version = "0.1.0"
 dependencies = [
- "handl-parser",
  "handl-plugin-lexer",
+ "handl-plugin-parser",
  "handl-vm",
  "handl-vm-common",
  "handl-vm-values-json",

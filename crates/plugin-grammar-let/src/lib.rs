@@ -1,6 +1,6 @@
 use handl_plugin_ast::{Expr, Stmt};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_parser::{GrammarRule, ParseError, ParserContext};
+use handl_plugin_parser::{GrammarRule, ParseError, ParserContext};
 
 /// Token capability required for the Let grammar rule.
 pub trait LetToken: TokenKind {

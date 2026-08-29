@@ -1,5 +1,5 @@
 [package]
-name = "handl-parser"
+name = "handl-plugin-parser"
 version.workspace = true
 edition.workspace = true
 

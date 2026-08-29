@@ -1,12 +1,12 @@
 //! Canonical `Call` grammar-rule plugin.
 //!
 //! Provides the `CallRule` and the `CallToken` capability trait.
-//! `CallRule` implements `handl_parser::GrammarRule`, the base capability
+//! `CallRule` implements `handl_plugin_parser::GrammarRule`, the base capability
 //! trait from the generic parser crate.
 
 use handl_plugin_ast::Expr;
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_parser::{GrammarRule, ParseError, ParserContext};
+use handl_plugin_parser::{GrammarRule, ParseError, ParserContext};
 
 /// Token capability required by the call grammar rule.
 pub trait CallToken: TokenKind {

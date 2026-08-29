@@ -14,7 +14,7 @@ handl-plugin-lexer-line-comment = { workspace = true }
 handl-plugin-lexer-number = { workspace = true }
 handl-plugin-lexer-operator = { workspace = true }
 handl-plugin-lexer-string = { workspace = true }
-handl-parser = { workspace = true }
+handl-plugin-parser = { workspace = true }
 handl-platform = { workspace = true }
 handl-vm = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

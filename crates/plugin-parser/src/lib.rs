@@ -1,4 +1,4 @@
-//! # handl-parser
+//! # handl-plugin-parser
 //!
 //! Parsing abstraction for handl expressions and modules.
 //!

@@ -81,7 +81,7 @@ members = [
     "crates/loader-native",
     "crates/loader-wasm",
     "crates/loader-web",
-    "crates/parser",
+    "crates/plugin-parser",
     "crates/platform",
     "crates/plugin-ast-apply",
     "crates/plugin-ast-array",
@@ -274,7 +274,7 @@ handl-loader = { path = "crates/loader" }
 handl-loader-native = { path = "crates/loader-native" }
 handl-loader-wasm = { path = "crates/loader-wasm" }
 handl-loader-web = { path = "crates/loader-web" }
-handl-parser = { path = "crates/parser" }
+handl-plugin-parser = { path = "crates/plugin-parser" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-ast-apply = { path = "crates/plugin-ast-apply" }
 handl-plugin-ast-array = { path = "crates/plugin-ast-array" }

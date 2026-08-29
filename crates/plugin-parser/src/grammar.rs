@@ -1,7 +1,7 @@
 //! Grammar and grammar-rule abstractions for handl parsers.
 //!
 //! A [`Grammar`] is a collection of [`GrammarRule`] plugins.  A concrete
-//! parser engine (for example the one in `handl-parser`) uses the
+//! parser engine (for example the one in `handl-plugin-parser`) uses the
 //! [`ParserContext`] interface to ask the current rule for a `nud` (null
 //! denotation) or `led` (left denotation) action.
 
