@@ -1,0 +1,4 @@
+# Load canonical kit but exclude the formatter plugin
+[[kit]]
+include = "canonical"
+exclude = ["fmt.basic"]

@@ -1,0 +1,7 @@
+# Load the "hello" kit (canonical + hello.greet library)
+[[kit]]
+include = "hello"
+
+# Override the compilation target option (default is "native")
+[options]
+"target" = "wasm"
