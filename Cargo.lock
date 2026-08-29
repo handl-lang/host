@@ -2059,6 +2059,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-runtime"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+]
+
+[[package]]
 name = "handl-plugin-runtime-apply"
 version = "0.1.0"
 dependencies = [
@@ -2121,7 +2128,7 @@ name = "handl-plugin-target-rust"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-runtime",
+ "handl-plugin-runtime",
  "serde_json",
 ]
 
@@ -2218,17 +2225,10 @@ dependencies = [
  "handl-kit-canonical",
  "handl-lib-type",
  "handl-platform",
- "handl-runtime",
+ "handl-plugin-runtime",
  "handl-typecheck-core",
  "handl-vm-values-json",
  "serde_json",
-]
-
-[[package]]
-name = "handl-runtime"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ use handl_platform::{
     ResolvedOptions, RuntimeBehavior, RuntimeHost,
 };
 use handl_platform::value::{Literal, Name, Value as RuntimeValue};
-use handl_runtime::{EvalOutput, RuntimePlugin};
+use handl_plugin_runtime::{EvalOutput, RuntimePlugin};
 use serde_json::Value as JsonValue;
 
 /// A `RuntimePlugin` adapter around the Rust VM.

@@ -158,7 +158,7 @@ members = [
     "crates/plugin-token-operator",
     "crates/plugin-token-string",
     "crates/plugin-typecheck-core",
-    "crates/runtime",
+    "crates/plugin-runtime",
     "crates/source",
     "crates/syntax",
     "crates/target-native",
@@ -351,7 +351,7 @@ handl-plugin-token-number = { path = "crates/plugin-token-number" }
 handl-plugin-token-operator = { path = "crates/plugin-token-operator" }
 handl-plugin-token-string = { path = "crates/plugin-token-string" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
-handl-runtime = { path = "crates/runtime" }
+handl-plugin-runtime = { path = "crates/plugin-runtime" }
 handl-source = { path = "crates/source" }
 handl-syntax = { path = "crates/syntax" }
 handl-target-native = { path = "crates/target-native" }

@@ -9,7 +9,7 @@
 - `handl-plugin-lexer` / `handl-lexer-canonical` — token and token-kind abstractions and the canonical token set.
 - `handl-plugin-ast` / `handl-ast-canonical` — shared AST shapes and the canonical expression tree.
 - `crates/plugin-*` — individual syntax and tooling plugins: literals, identifiers, delimiters, operators, primary/postfix/infix fragments, statements, comments, formatting, diagnostics, and LSP features.
-- `handl-runtime` / `handl-typecheck-*` — runtime and typecheck extension points and concrete implementations.
+- `handl-plugin-runtime` / `handl-typecheck-*` — runtime and typecheck extension points and concrete implementations.
 - `handl-tooling` — `ToolingHost`: decouples parsing (`CanonicalKit`), formatting, diagnostics, and LSP services (completion, goto-definition, document symbols, incremental sync).
 - `handl-host-lsp` — LSP adapter that dispatches to `ToolingHost` and converts results to `lsp-types`.
 - `handl-vm*` / `handl-compiler*` / `handl-frontend*` — virtual machine, multi-pass compiler, and data frontends.
@@ -46,7 +46,7 @@ The workspace can also be checked with `cargo check --workspace` and tested with
 - `crates/parser*` — parser framework and canonical parser.
 - `crates/platform` — core platform contract.
 - `crates/plugin-*` — language and tooling plugins.
-- `crates/runtime` — runtime trait.
+- `crates/plugin-runtime` — runtime trait.
 - `crates/tooling` — `ToolingHost`.
 - `crates/typecheck*` / `crates/typegen*` — typecheck and schema generation.
 - `crates/vm*` — virtual machine and backends.

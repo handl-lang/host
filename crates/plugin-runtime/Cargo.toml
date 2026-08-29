@@ -1,5 +1,5 @@
 [package]
-name = "handl-runtime"
+name = "handl-plugin-runtime"
 version.workspace = true
 edition.workspace = true
 
