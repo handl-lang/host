@@ -41,18 +41,21 @@ impl Plugin for DefaultApplierPlugin {
     }
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        let source = std::fs::read_to_string(&self.config_source)
-            .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
-        let config = HostConfig::from_toml(&source)?;
+        let config = match std::fs::read_to_string(&self.config_source) {
+            Ok(source) => HostConfig::from_toml(&source)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => HostConfig::new(),
+            Err(e) => return Err(PlatformError::InvalidMetadata(e.to_string())),
+        };
 
         if ctx.get_plugin_mut::<BasicKitLoaderPlugin>().is_none() {
             ctx.register_plugin(BasicKitLoaderPlugin::new())?;
         }
 
         for kit in &config.kits {
+            let name = kit.path.as_ref().unwrap_or(&kit.include);
             ctx.run(&CapabilityRequest {
                 capability: "kit/load".into(),
-                payload: serde_json::Value::String(kit.include.clone()),
+                payload: serde_json::Value::String(name.clone()),
             })?;
         }
 
@@ -64,8 +67,6 @@ impl Plugin for DefaultApplierPlugin {
                 })?;
             }
         }
-
-        for _plugin in &config.plugins {}
 
         Ok(())
     }
