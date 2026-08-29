@@ -774,7 +774,6 @@ dependencies = [
  "handl-plugin-lexer-number",
  "handl-plugin-lexer-operator",
  "handl-plugin-lexer-string",
- "handl-plugin-parser",
  "handl-plugin-runtime",
  "handl-plugin-runtime-apply",
  "handl-plugin-runtime-arithmetic",
@@ -1653,7 +1652,6 @@ dependencies = [
  "criterion",
  "crossbeam-deque",
  "handl-platform",
- "handl-plugin-parser",
  "handl-plugin-vm-backend-rust-interpreter",
  "handl-plugin-vm-common",
  "handl-plugin-vm-host-eval",
@@ -2441,7 +2439,6 @@ name = "handl-plugin-vm-backend-rust-interpreter"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
- "handl-plugin-parser",
  "handl-plugin-vm",
  "handl-plugin-vm-common",
  "handl-plugin-vm-values-json",

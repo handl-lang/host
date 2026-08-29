@@ -2,11 +2,9 @@
 //!
 //! Parsing abstraction for handl expressions and modules.
 //!
-//! Defines the generic [`Parser`] trait and the [`ParseError`] type, plus
-//! the [`Grammar`] and [`GrammarRule`] plugin interfaces that concrete
-//! parsers compose. The base crate is intentionally agnostic about node
-//! shapes and grammar rules: each canonical grammar rule lives in a
-//! `plugin-grammar-*` crate that implements [`GrammarRule`].
+//! Defines the generic [`Parser`] trait and the [`ParseError`] type.
+//! Concrete parser engines live in `plugin-ext-parser` and the
+//! `plugin-grammar-*` crates implement `ParserBehavior` rules.
 //!
 //! ## Architectural rule
 //!
@@ -22,10 +20,8 @@ use handl_plugin_ast::Node;
 use handl_plugin_lexer::{LexError, Lexer, Token, TokenKind};
 
 mod error;
-pub mod grammar;
 
 pub use error::ParseError;
-pub use grammar::{CompositeGrammar, Grammar, GrammarRule, ParserContext};
 
 /// A parser that converts a token stream into an AST node.
 ///
