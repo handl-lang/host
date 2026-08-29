@@ -1,5 +1,5 @@
 [package]
-name = "handl-plugin-vm-type-schema-json"
+name = "handl-kit-type-schema-json"
 version.workspace = true
 edition.workspace = true
 

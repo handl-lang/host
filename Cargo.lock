@@ -845,6 +845,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-kit-type-schema-json"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-type",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "handl-lib-archive"
 version = "0.1.0"
 dependencies = [
@@ -1233,7 +1242,7 @@ name = "handl-lib-type"
 version = "0.1.0"
 dependencies = [
  "handl-kit-type",
- "handl-plugin-vm-type-schema-json",
+ "handl-kit-type-schema-json",
  "serde_json",
 ]
 
@@ -2096,6 +2105,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-load"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-loader-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-load",
+ "libloading",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-loader-wasm"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-load",
+ "serde_json",
+ "wasmi",
+ "wat",
+]
+
+[[package]]
+name = "handl-plugin-loader-web"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-load",
+ "mockito",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "handl-plugin-lsp-completion"
 version = "0.1.0"
 dependencies = [
@@ -2357,15 +2407,6 @@ dependencies = [
  "handl-plugin-vm",
  "handl-plugin-vm-values-json",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-vm-type-schema-json"
-version = "0.1.0"
-dependencies = [
- "handl-kit-type",
- "serde_json",
- "thiserror 2.0.20",
 ]
 
 [[package]]

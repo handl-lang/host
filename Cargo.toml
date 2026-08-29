@@ -32,6 +32,10 @@ members = [
     "crates/plugin-lexer-keyword",
     "crates/plugin-lexer-line-comment",
     "crates/plugin-lexer-block-comment",
+    "crates/plugin-load",
+    "crates/plugin-loader-native",
+    "crates/plugin-loader-wasm",
+    "crates/plugin-loader-web",
     "crates/lib-archive",
     "crates/lib-archive-tar",
     "crates/lib-base64",
@@ -169,7 +173,7 @@ members = [
     "crates/plugin-vm-host-eval",
     "crates/kit-server",
     "crates/kit-type",
-    "crates/plugin-vm-type-schema-json",
+    "crates/kit-type-schema-json",
     "crates/plugin-vm-values-json",
 ]
 resolver = "3"
@@ -223,6 +227,10 @@ handl-plugin-lexer-delimiter = { path = "crates/plugin-lexer-delimiter" }
 handl-plugin-lexer-keyword = { path = "crates/plugin-lexer-keyword" }
 handl-plugin-lexer-line-comment = { path = "crates/plugin-lexer-line-comment" }
 handl-plugin-lexer-block-comment = { path = "crates/plugin-lexer-block-comment" }
+handl-plugin-load = { path = "crates/plugin-load" }
+handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
+handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
+handl-plugin-loader-web = { path = "crates/plugin-loader-web" }
 handl-lib-archive = { path = "crates/lib-archive" }
 handl-lib-archive-tar = { path = "crates/lib-archive-tar" }
 handl-lib-base64 = { path = "crates/lib-base64" }
@@ -360,7 +368,7 @@ handl-kit-config = { path = "crates/kit-config" }
 handl-plugin-vm-host-eval = { path = "crates/plugin-vm-host-eval" }
 handl-kit-server = { path = "crates/kit-server" }
 handl-kit-type = { path = "crates/kit-type" }
-handl-plugin-vm-type-schema-json = { path = "crates/plugin-vm-type-schema-json" }
+handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
 handl-plugin-vm-values-json = { path = "crates/plugin-vm-values-json" }
 
 [features]

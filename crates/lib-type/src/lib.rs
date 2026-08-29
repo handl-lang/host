@@ -1,13 +1,13 @@
 //! Public `lib-type` façade for the Handl pure type system.
 //!
-//! Re-exports the public APIs of `handl-kit-type` and `handl-plugin-vm-type-schema-json`,
+//! Re-exports the public APIs of `handl-kit-type` and `handl-kit-type-schema-json`,
 //! plus a convenience `typecheck_schema` entry point.
 
 pub use handl_kit_type;
-pub use handl_plugin_vm_type_schema_json;
+pub use handl_kit_type_schema_json;
 
 pub use handl_kit_type::*;
-pub use handl_plugin_vm_type_schema_json::{
+pub use handl_kit_type_schema_json::{
     AliasEntry, AliasTable, SchemaError, SchemaInterpreter, default_tctx, interpret,
 };
 
@@ -35,13 +35,13 @@ pub fn typecheck_with_prelude(term: &Term) -> Result<Value, TypeError> {
 pub fn typecheck_schema(
     schema: &serde_json::Value,
 ) -> Result<handl_kit_type::Value, handl_kit_type::TypeError> {
-    let term = handl_plugin_vm_type_schema_json::interpret(schema, schema)
+    let term = handl_kit_type_schema_json::interpret(schema, schema)
         .map_err(|e| handl_kit_type::TypeError::CannotSynthesize(e.to_string()))?;
     let mut ctx = handl_kit_type::MetaContext::new();
     handl_kit_type::synth_type(
         &mut ctx,
         &handl_kit_type::Env::new(),
-        &handl_plugin_vm_type_schema_json::default_tctx(),
+        &handl_kit_type_schema_json::default_tctx(),
         &term,
     )
 }
