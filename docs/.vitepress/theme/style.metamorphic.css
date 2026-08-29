@@ -1,0 +1,350 @@
+/* handl docs theme: metamorphic kit */
+
+:root {
+  --h-abyss: #f6f4ef;
+  --h-cocoon: #ffffff;
+  --h-soft: #f1eeea;
+  --h-rule: #e4e1da;
+  --h-chalk: #18151d;
+  --h-ash: #6c6876;
+  --h-morph-a: #0f766e;
+  --h-morph-b: #6d28d9;
+  --h-morph-c: #b45309;
+  --h-morph-soft: rgba(109, 40, 217, 0.12);
+  --h-ink-on-accent: #ffffff;
+
+  --h-gradient: linear-gradient(100deg, var(--h-morph-a) 0%, var(--h-morph-b) 55%, var(--h-morph-c) 100%);
+  --h-gradient-border: linear-gradient(to bottom, var(--h-morph-a), var(--h-morph-b) 60%, var(--h-morph-c));
+
+  --vp-c-brand-1: var(--h-morph-b);
+  --vp-c-brand-2: var(--h-morph-a);
+  --vp-c-brand-3: var(--h-morph-c);
+  --vp-c-brand-soft: var(--h-morph-soft);
+
+  --vp-c-tip-1: var(--h-morph-b);
+  --vp-c-tip-2: var(--h-morph-a);
+  --vp-c-tip-3: var(--h-morph-c);
+  --vp-c-tip-soft: var(--h-morph-soft);
+
+  --vp-c-bg: var(--h-abyss);
+  --vp-c-bg-alt: var(--h-cocoon);
+  --vp-c-bg-elv: var(--h-cocoon);
+  --vp-c-bg-soft: var(--h-soft);
+
+  --vp-c-text-1: var(--h-chalk);
+  --vp-c-text-2: #44404d;
+  --vp-c-text-3: var(--h-ash);
+
+  --vp-c-border: var(--h-rule);
+  --vp-c-divider: var(--h-rule);
+  --vp-c-gutter: var(--h-rule);
+
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --vp-font-family-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+}
+
+.dark {
+  --h-abyss: #0b0a0f;
+  --h-cocoon: #15141b;
+  --h-soft: #1e1d26;
+  --h-rule: #2a2837;
+  --h-chalk: #f0eef5;
+  --h-ash: #9d9baa;
+  --h-morph-a: #5eead4;
+  --h-morph-b: #c084fc;
+  --h-morph-c: #fbbf24;
+  --h-morph-soft: rgba(192, 132, 252, 0.14);
+  --h-ink-on-accent: #0b0a0f;
+}
+
+body {
+  font-feature-settings: "liga" 0, "calt" 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--vp-font-family-mono);
+}
+
+code, pre, kbd, samp {
+  font-family: var(--vp-font-family-mono);
+}
+
+@keyframes morphSpin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.VPNavBarTitle .title {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+}
+
+.VPNavBarTitle .title::before {
+  content: ">>>";
+  color: var(--h-morph-b);
+  margin-right: 0.5rem;
+  letter-spacing: -0.06em;
+}
+
+.VPHero {
+  position: relative;
+  background: var(--h-abyss);
+  overflow: hidden;
+}
+
+.VPHero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--h-rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--h-rule) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.VPHero::after {
+  content: "";
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  min-width: 420px;
+  min-height: 420px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0);
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--h-morph-a), var(--h-morph-b), var(--h-morph-c), var(--h-morph-a));
+  filter: blur(90px);
+  opacity: 0.09;
+  pointer-events: none;
+  z-index: 0;
+  animation: morphSpin 18s linear infinite;
+}
+
+.dark .VPHero::after {
+  opacity: 0.16;
+}
+
+.VPHero .container {
+  position: relative;
+  z-index: 1;
+}
+
+.VPHero .name {
+  position: relative;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.VPHero .name .clip {
+  background: var(--h-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent;
+}
+
+.VPHero .name::before,
+.VPHero .name::after {
+  color: var(--h-morph-b);
+}
+
+.VPHero .name::before {
+  content: ">>>";
+  margin-right: 0.5rem;
+  letter-spacing: -0.06em;
+}
+
+.VPHero .name::after {
+  content: "_";
+  margin-left: 0.1rem;
+  font-weight: 400;
+  animation: blink 1.1s step-end infinite;
+}
+
+.VPHero .text,
+.VPHero .tagline {
+  color: var(--h-ash);
+  font-weight: 500;
+}
+
+.VPButton {
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.VPButton.brand {
+  background-image: var(--h-gradient);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  color: var(--h-ink-on-accent);
+  border: none;
+}
+
+.VPButton.brand:hover {
+  background-position: 100% 50%;
+  transform: translateY(-1px);
+}
+
+.VPButton.alt {
+  background: transparent;
+  border: 1px solid var(--h-rule);
+  color: var(--h-ash);
+}
+
+.VPButton.alt:hover {
+  border-color: var(--h-morph-b);
+  color: var(--h-morph-b);
+}
+
+.VPFeatures .container .items {
+  gap: 1rem;
+}
+
+.VPFeatures .VPFeature {
+  position: relative;
+  border: 1px solid var(--h-rule);
+  border-radius: 4px;
+  background: var(--h-cocoon);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.VPFeatures .VPFeature::before {
+  content: "";
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--h-rule);
+  transition: all 0.2s ease;
+}
+
+.VPFeatures .VPFeature:hover {
+  border-color: var(--h-morph-b);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.dark .VPFeatures .VPFeature:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.VPFeatures .VPFeature:hover::before {
+  border-radius: 2px;
+  background: var(--h-morph-b);
+  box-shadow: 0 0 12px var(--h-morph-b);
+}
+
+.VPFeatures .VPFeature .title {
+  color: var(--h-chalk);
+  font-weight: 700;
+}
+
+.VPFeatures .VPFeature .details {
+  color: var(--h-ash);
+}
+
+.VPFeatures .VPFeature .link-text {
+  color: var(--h-morph-b);
+  font-weight: 600;
+}
+
+.VPSidebarItem .item {
+  border-left: 3px solid transparent;
+  border-radius: 0;
+}
+
+.VPSidebarItem.is-active > .item,
+.VPSidebarItem.is-active .VPSidebarItem .item {
+  border-left: 3px solid;
+  border-image: var(--h-gradient-border) 1;
+  color: var(--h-morph-b);
+  background: var(--h-morph-soft);
+}
+
+.VPSidebarItem .text {
+  font-weight: 500;
+}
+
+.VPSidebarItem:not(.is-active) .item:hover .text {
+  color: var(--h-chalk);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-weight: 700;
+  color: var(--h-chalk);
+}
+
+.vp-doc h2 {
+  margin-top: 2.5rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--h-morph-b);
+}
+
+.vp-doc a {
+  color: var(--h-morph-b);
+  text-decoration: none;
+}
+
+.vp-doc a:hover {
+  text-decoration: underline;
+}
+
+.vp-doc table {
+  border-radius: 4px;
+  border: 1px solid var(--h-rule);
+  background: var(--h-cocoon);
+  overflow: hidden;
+}
+
+.vp-doc th {
+  background: var(--h-soft);
+  color: var(--h-chalk);
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: var(--h-soft);
+}
+
+div[class*='language-'] {
+  border-radius: 4px;
+  background: var(--h-cocoon);
+  border: 1px solid var(--h-rule);
+  border-left: 3px solid var(--h-morph-b);
+}
+
+div[class*='language-'] pre {
+  font-family: var(--vp-font-family-mono);
+}
+
+.vp-doc :not(pre) > code {
+  border-radius: 4px;
+  background: var(--h-soft);
+  border: 1px solid var(--h-rule);
+  color: var(--h-morph-b);
+  padding: 0.15rem 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .VPHero::after {
+    animation: none;
+  }
+}

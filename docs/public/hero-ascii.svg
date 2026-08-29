@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="none" width="100%" height="100%">
+  <defs>
+    <pattern id="ascii" x="0" y="0" width="450" height="45" patternUnits="userSpaceOnUse">
+      <text x="0" y="14" font-family="monospace" font-size="12" fill="#000">fJk9#Lm2$Qw4@R8pT6&Ub3*Zc5!vBn7_Mk8?lP0oIuYtR4&Gw</text>
+      <text x="0" y="32" font-family="monospace" font-size="12" fill="#000">2#Ef1$hS7(Ap9)DqL&gt;jM&lt;xK9zC4!vN0bA6^sD8&amp;nF2*mH5#@</text>
+      <text x="0" y="50" font-family="monospace" font-size="12" fill="#000">QwE3$rT7*yU1(iO9)pL0;kJ7:hG3!dF5=gB4+vC2-xZ1@nM6</text>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#ascii)"/>
+</svg>
