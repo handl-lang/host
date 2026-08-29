@@ -9,12 +9,9 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_plugin_lexer::{
-    DefaultLexError, GrammarInfo, GrammarInfoProvider, KitGrammarMetadata, Lexer, Token,
+    DefaultLexError, Lexer, Token,
 };
-use handl_plugin_lexer_ident::IdentToken;
-use handl_plugin_lexer_line_comment::CommentToken;
-use handl_plugin_lexer_number::NumberToken;
-use handl_plugin_lexer_string::StringToken;
+use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 pub use handl_plugin_token_kind::{
     LexDelimiter, LexFactory, LexKeyword, LexKind, LexLexer, LexOperator,
     LexTemplateSegment,
@@ -337,83 +334,20 @@ impl Kit {
         asts.iter().map(|ast| ast_to_kitnode_with_kit(ast, self)).collect()
     }
 
-    /// Returns the lexical grammar metadata for this kit, derived from
-    /// the factory and lexer configuration. Used to generate editor grammars.
-    pub fn grammar_info(&self) -> GrammarInfo {
-        let config = LexLexer::config();
-        let factory = config.factory();
-
-        // Partition keywords into categories based on their token kind.
-        let mut booleans = Vec::new();
-        let mut nulls = Vec::new();
-        let mut keywords = Vec::new();
-        for (text, kind) in LexFactory::all_keywords() {
-            match kind {
-                LexKind::Bool(_) => booleans.push(text.to_string()),
-                LexKind::Null => nulls.push(text.to_string()),
-                _ => keywords.push(text.to_string()),
-            }
-        }
-
-        // Derive delimiters from the lexer config.
-        let delimiters: Vec<String> = config
-            .delimiters()
-            .iter()
-            .map(|(ch, _)| ch.to_string())
-            .collect();
-
-        // Derive string delimiters from the factory.
-        let string_delimiters: Vec<char> = ['"', '\'']
-            .into_iter()
-            .filter(|ch| factory.is_string_start(*ch))
-            .collect();
-
-        // Derive comment styles from the factory.
-        let line_comment_start = factory
-            .line_comment_prefix()
-            .map(|s| s.to_string());
-        let block_comment = factory
-            .block_comment_delims()
-            .map(|(s, e)| (s.to_string(), e.to_string()));
-        let doc_line_comment_start = factory
-            .doc_line_comment_prefix()
-            .map(|s| s.to_string());
-        let doc_block_comment = factory
-            .doc_block_comment_delims()
-            .map(|(s, e)| (s.to_string(), e.to_string()));
-
-        GrammarInfo {
-            scope_name: self.scope_name().to_string(),
-            file_extensions: self.file_extensions(),
-            keywords,
-            booleans,
-            nulls,
-            operators: LexFactory::all_operators(),
-            delimiters,
-            line_comment_start,
-            block_comment,
-            doc_line_comment_start,
-            doc_block_comment,
-            string_delimiters,
-            number_regex: factory.number_regex().to_string(),
-            identifier_regex: factory.identifier_regex().to_string(),
-        }
+    /// Returns the TextMate grammar rules for this kit, collected from
+    /// the token factory's [`GrammarContributor`] implementation.
+    pub fn grammar_rules(&self) -> Vec<GrammarRule> {
+        LexFactory.grammar_rules()
     }
-}
 
-impl KitGrammarMetadata for Kit {
-    fn scope_name(&self) -> &str {
+    /// Returns the scope name for this kit's grammar.
+    pub fn scope_name(&self) -> &str {
         "source.handl"
     }
 
-    fn file_extensions(&self) -> Vec<String> {
+    /// Returns the file extensions for this kit's grammar.
+    pub fn file_extensions(&self) -> Vec<String> {
         vec!["hnl".to_string()]
-    }
-}
-
-impl GrammarInfoProvider for Kit {
-    fn grammar_info(&self) -> GrammarInfo {
-        Kit::grammar_info(self)
     }
 }
 

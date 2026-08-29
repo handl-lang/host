@@ -48,6 +48,8 @@ use handl_plugin_token_number::NumberKind;
 use handl_plugin_token_operator::{CANONICAL_OPERATOR_CHARS, OperatorKind};
 use handl_plugin_token_string::StringKind;
 
+use handl_plugin_grammar_textmate::{GrammarCapture, GrammarContributor, GrammarRule};
+
 pub use handl_plugin_lexer_template::TemplateSegment as LexTemplateSegment;
 
 // ---------------------------------------------------------------------------
@@ -483,4 +485,247 @@ impl Lexer<LexKind, DefaultLexError> for LexLexer {
             .filter(|t| !t.kind.is_comment())
             .collect())
     }
+}
+
+// ---------------------------------------------------------------------------
+// GrammarContributor
+// ---------------------------------------------------------------------------
+
+impl GrammarContributor for LexFactory {
+    fn grammar_rules(&self) -> Vec<GrammarRule> {
+        let mut rules = Vec::new();
+
+        // Doc comments (priority 10)
+        if let Some(prefix) = self.doc_line_comment_prefix() {
+            let escaped = regex_escape(prefix);
+            rules.push(GrammarRule::match_rule(
+                "doc_comments",
+                "comment.documentation",
+                &format!("{escaped}.*"),
+                10,
+            ));
+        }
+        if let Some((start, end)) = self.doc_block_comment_delims() {
+            rules.push(GrammarRule::begin_end_rule(
+                "doc_block_comment",
+                "comment.documentation.block",
+                &regex_escape(start),
+                &regex_escape(end),
+                11,
+            ));
+        }
+
+        // Comments (priority 20)
+        if let Some(prefix) = self.line_comment_prefix() {
+            let escaped = regex_escape(prefix);
+            rules.push(GrammarRule::match_rule(
+                "comments",
+                "comment.line",
+                &format!("{escaped}.*"),
+                20,
+            ));
+        }
+        if let Some((start, end)) = self.block_comment_delims() {
+            rules.push(GrammarRule::begin_end_rule(
+                "block_comment",
+                "comment.block",
+                &regex_escape(start),
+                &regex_escape(end),
+                21,
+            ));
+        }
+
+        // Strings (priority 25)
+        let string_delims: Vec<char> = ['"', '\'']
+            .into_iter()
+            .filter(|ch| self.is_string_start(*ch))
+            .collect();
+        if !string_delims.is_empty() {
+            let string_patterns: Vec<GrammarRule> = string_delims
+                .iter()
+                .map(|&delim| {
+                    let d = regex_escape(&delim.to_string());
+                    GrammarRule::begin_end_rule(
+                        &format!("string_{}", delim),
+                        "string.quoted",
+                        &d,
+                        &d,
+                        25,
+                    )
+                })
+                .collect();
+            // Wrap in a "strings" container rule
+            rules.push(GrammarRule {
+                name: "strings".to_string(),
+                scope: None,
+                r#match: None,
+                begin: None,
+                end: None,
+                captures: Vec::new(),
+                patterns: string_patterns,
+                priority: 25,
+            });
+        }
+
+        // Numbers (priority 30)
+        rules.push(GrammarRule::match_rule(
+            "numbers",
+            "constant.numeric",
+            self.number_regex(),
+            30,
+        ));
+
+        // Booleans and nulls (priority 40-41)
+        let mut booleans = Vec::new();
+        let mut nulls = Vec::new();
+        let mut keywords = Vec::new();
+        for (text, kind) in LexFactory::all_keywords() {
+            match kind {
+                LexKind::Bool(_) => booleans.push(text.to_string()),
+                LexKind::Null => nulls.push(text.to_string()),
+                _ => keywords.push(text.to_string()),
+            }
+        }
+        if !booleans.is_empty() {
+            let alt = booleans
+                .iter()
+                .map(|s| regex_escape(s))
+                .collect::<Vec<_>>()
+                .join("|");
+            rules.push(GrammarRule::match_rule(
+                "booleans",
+                "constant.language.boolean",
+                &format!(r"\b({alt})\b"),
+                40,
+            ));
+        }
+        if !nulls.is_empty() {
+            let alt = nulls
+                .iter()
+                .map(|s| regex_escape(s))
+                .collect::<Vec<_>>()
+                .join("|");
+            rules.push(GrammarRule::match_rule(
+                "nulls",
+                "constant.language.null",
+                &format!(r"\b({alt})\b"),
+                41,
+            ));
+        }
+
+        // Keywords (priority 50)
+        if !keywords.is_empty() {
+            let alt = keywords
+                .iter()
+                .map(|s| regex_escape(s))
+                .collect::<Vec<_>>()
+                .join("|");
+            rules.push(GrammarRule::match_rule(
+                "keywords",
+                "keyword",
+                &format!(r"\b({alt})\b"),
+                50,
+            ));
+        }
+
+        // Operators (priority 55)
+        let operators = LexFactory::all_operators();
+        if !operators.is_empty() {
+            let alt = operators
+                .iter()
+                .map(|s| regex_escape(s))
+                .collect::<Vec<_>>()
+                .join("|");
+            rules.push(GrammarRule::match_rule(
+                "operators",
+                "keyword.operator",
+                &format!("({alt})"),
+                55,
+            ));
+        }
+
+        // Delimiters (priority 58)
+        let config = LexLexer::config();
+        let delimiters: Vec<String> =
+            config.delimiters().iter().map(|(ch, _)| ch.to_string()).collect();
+        if !delimiters.is_empty() {
+            let alt = delimiters
+                .iter()
+                .map(|s| regex_escape(s))
+                .collect::<Vec<_>>()
+                .join("|");
+            rules.push(GrammarRule::match_rule(
+                "delimiters",
+                "punctuation",
+                &format!("[{alt}]"),
+                58,
+            ));
+        }
+
+        // Type references: type.xxx (priority 60)
+        rules.push(GrammarRule::match_with_captures(
+            "type_references",
+            r"\btype\.([a-zA-Z_][a-zA-Z0-9_]*)",
+            vec![GrammarCapture::new(1, "entity.name.type")],
+            60,
+        ));
+
+        // PascalCase type names (priority 61)
+        rules.push(GrammarRule::match_rule(
+            "type_names",
+            "entity.name.type",
+            r"\b[A-Z][a-zA-Z0-9_]+\b",
+            61,
+        ));
+
+        // Binding declarations: identifier at start of line followed by : or = (priority 65)
+        let ident_re = self.identifier_regex();
+        rules.push(GrammarRule::match_with_captures(
+            "binding_declarations",
+            &format!(r"^({ident_re})\s*[:=]"),
+            vec![GrammarCapture::new(1, "variable.other.binding")],
+            65,
+        ));
+
+        // Property names: identifier followed by colon (priority 66)
+        rules.push(GrammarRule::match_with_captures(
+            "property_names",
+            &format!(r"({ident_re})\s*:"),
+            vec![GrammarCapture::new(1, "variable.other.property")],
+            66,
+        ));
+
+        // Function calls: identifier followed by open paren (priority 70)
+        rules.push(GrammarRule::match_with_captures(
+            "function_calls",
+            &format!(r"({ident_re})\s*(\()"),
+            vec![
+                GrammarCapture::new(1, "entity.name.function"),
+                GrammarCapture::new(2, "punctuation"),
+            ],
+            70,
+        ));
+
+        // Identifiers — catch-all (priority 100)
+        rules.push(GrammarRule::match_rule(
+            "identifiers",
+            "variable",
+            ident_re,
+            100,
+        ));
+
+        rules
+    }
+}
+
+fn regex_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
+            | '/' => {
+                format!("\\{c}")
+            }
+            _ => c.to_string(),
+        })
+        .collect()
 }

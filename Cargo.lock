@@ -747,6 +747,7 @@ dependencies = [
  "handl-plugin-fmt-expression",
  "handl-plugin-fmt-stmt",
  "handl-plugin-fmt-trivia",
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-load",
  "handl-plugin-loader-native",
@@ -812,6 +813,7 @@ dependencies = [
  "handl-plugin-grammar-stmt-let",
  "handl-plugin-grammar-stmt-module",
  "handl-plugin-grammar-template",
+ "handl-plugin-grammar-textmate",
  "handl-plugin-grammar-type-annot",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
@@ -1643,6 +1645,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-grammar-textmate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-grammar-type-annot"
 version = "0.1.0"
 dependencies = [
@@ -1657,7 +1667,6 @@ dependencies = [
 name = "handl-plugin-lexer"
 version = "0.1.0"
 dependencies = [
- "serde",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -2579,6 +2588,7 @@ name = "handl-plugin-token-kind"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-ext-parser",
+ "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-block-comment",
  "handl-plugin-lexer-delimiter",

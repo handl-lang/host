@@ -15,6 +15,7 @@ handl-plugin-lexer-operator.workspace = true
 handl-plugin-lexer-string.workspace = true
 handl-plugin-lexer-template.workspace = true
 handl-plugin-ext-parser.workspace = true
+handl-plugin-grammar-textmate = { workspace = true }
 handl-plugin-token-bool = { path = "../plugin-token-bool" }
 handl-plugin-token-comment = { path = "../plugin-token-comment" }
 handl-plugin-token-delimiter = { path = "../plugin-token-delimiter" }

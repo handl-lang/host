@@ -125,6 +125,7 @@ members = [
   "crates/plugin-grammar-object",
   "crates/plugin-grammar-pipe",
   "crates/plugin-grammar-template",
+  "crates/plugin-grammar-textmate",
   "crates/plugin-grammar-postfix-call",
   "crates/plugin-grammar-postfix-field",
   "crates/plugin-grammar-postfix-index",
@@ -332,6 +333,7 @@ handl-plugin-grammar-match = { path = "crates/plugin-grammar-match" }
 handl-plugin-grammar-object = { path = "crates/plugin-grammar-object" }
 handl-plugin-grammar-pipe = { path = "crates/plugin-grammar-pipe" }
 handl-plugin-grammar-template = { path = "crates/plugin-grammar-template" }
+handl-plugin-grammar-textmate = { path = "crates/plugin-grammar-textmate" }
 handl-plugin-grammar-postfix-call = { path = "crates/plugin-grammar-postfix-call" }
 handl-plugin-grammar-postfix-field = { path = "crates/plugin-grammar-postfix-field" }
 handl-plugin-grammar-postfix-index = { path = "crates/plugin-grammar-postfix-index" }

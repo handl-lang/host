@@ -1,243 +1,89 @@
-use crate::{GrammarInfo, generate_textmate};
+use crate::{generate_textmate, GrammarRule, GrammarCapture};
 
-fn sample_info() -> GrammarInfo {
-    GrammarInfo {
-        scope_name: "source.test".to_string(),
-        file_extensions: vec!["test".to_string()],
-        keywords: vec!["let".to_string(), "const".to_string()],
-        booleans: vec!["true".to_string(), "false".to_string()],
-        nulls: vec!["null".to_string()],
-        operators: vec!["+".to_string(), "->".to_string()],
-        delimiters: vec!["(".to_string(), ")".to_string()],
-        line_comment_start: Some("//".to_string()),
-        block_comment: Some(("/*".to_string(), "*/".to_string())),
-        doc_line_comment_start: Some("///".to_string()),
-        doc_block_comment: Some(("/**".to_string(), "*/".to_string())),
-        string_delimiters: vec!['"', '\''],
-        number_regex: r"-?\d+(\.\d+)?".to_string(),
-        identifier_regex: r"[a-zA-Z_][a-zA-Z0-9_]*".to_string(),
-    }
+fn sample_rules() -> Vec<GrammarRule> {
+    vec![
+        GrammarRule::match_rule("comments", "comment.line", r"//.*", 20),
+        GrammarRule::begin_end_rule("block_comment", "comment.block", r"/\*", r"\*/", 21),
+        GrammarRule::match_rule("numbers", "constant.numeric", r"-?\d+(\.\d+)?", 30),
+        GrammarRule::match_rule("keywords", "keyword", r"\b(let|const)\b", 50),
+        GrammarRule::match_rule("booleans", "constant.language.boolean", r"\b(true|false)\b", 40),
+        GrammarRule::match_rule("nulls", "constant.language.null", r"\b(null)\b", 41),
+        GrammarRule::match_rule("operators", "keyword.operator", r"(\+|->)", 55),
+        GrammarRule::match_rule("delimiters", "punctuation", r"[\(\)]", 58),
+        GrammarRule::match_with_captures(
+            "function_calls",
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(\()",
+            vec![
+                GrammarCapture::new(1, "entity.name.function"),
+                GrammarCapture::new(2, "punctuation"),
+            ],
+            70,
+        ),
+        GrammarRule::match_rule("identifiers", "variable", r"[a-zA-Z_][a-zA-Z0-9_]*", 100),
+    ]
 }
 
 #[test]
 fn generate_textmate_produces_valid_json() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
+    let rules = sample_rules();
+    let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
     assert_eq!(grammar["scopeName"], "source.test");
     assert!(grammar["patterns"].is_array());
     assert!(grammar["repository"].is_object());
 }
 
 #[test]
-fn generate_textmate_includes_keywords() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo["keywords"]["match"].as_str().unwrap().contains("let"));
-    assert!(repo["keywords"]["match"].as_str().unwrap().contains("const"));
-}
-
-#[test]
-fn generate_textmate_includes_booleans() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo["booleans"]["match"].as_str().unwrap().contains("true"));
-    assert!(repo["booleans"]["match"].as_str().unwrap().contains("false"));
-}
-
-#[test]
-fn generate_textmate_includes_nulls() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo["nulls"]["match"].as_str().unwrap().contains("null"));
-}
-
-#[test]
-fn generate_textmate_includes_operators() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    let op_match = repo["operators"]["match"].as_str().unwrap();
-    assert!(op_match.contains("+"));
-    assert!(op_match.contains("->"));
-}
-
-#[test]
-fn generate_textmate_includes_delimiters() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    let delim_match = repo["delimiters"]["match"].as_str().unwrap();
-    assert!(delim_match.contains("("));
-    assert!(delim_match.contains(")"));
-}
-
-#[test]
-fn generate_textmate_includes_comments() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
+fn generate_textmate_includes_all_rules() {
+    let rules = sample_rules();
+    let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
     let repo = &grammar["repository"];
     assert!(repo.get("comments").is_some());
-    assert!(repo.get("block_comment").is_some());
-    assert!(repo.get("doc_comments").is_some());
-    assert!(repo.get("doc_block_comment").is_some());
-}
-
-#[test]
-fn generate_textmate_includes_strings() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("strings").is_some());
-    let patterns = repo["strings"]["patterns"].as_array().unwrap();
-    assert_eq!(patterns.len(), 2);
-}
-
-#[test]
-fn generate_textmate_includes_numbers_and_identifiers() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert_eq!(
-        repo["numbers"]["match"],
-        info.number_regex
-    );
-    assert_eq!(
-        repo["identifiers"]["match"],
-        info.identifier_regex
-    );
-}
-
-#[test]
-fn generate_textmate_patterns_in_correct_order() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let patterns = grammar["patterns"].as_array().unwrap();
-    let includes: Vec<&str> = patterns
-        .iter()
-        .filter_map(|p| p["include"].as_str())
-        .collect();
-
-    let doc_comments_pos = includes.iter().position(|s| *s == "#doc_comments");
-    let comments_pos = includes.iter().position(|s| *s == "#comments");
-    let keywords_pos = includes.iter().position(|s| *s == "#keywords");
-    let type_references_pos = includes.iter().position(|s| *s == "#type_references");
-    let type_names_pos = includes.iter().position(|s| *s == "#type_names");
-    let binding_declarations_pos = includes.iter().position(|s| *s == "#binding_declarations");
-    let property_names_pos = includes.iter().position(|s| *s == "#property_names");
-    let function_calls_pos = includes.iter().position(|s| *s == "#function_calls");
-    let identifiers_pos = includes.iter().position(|s| *s == "#identifiers");
-
-    assert!(doc_comments_pos < comments_pos);
-    assert!(comments_pos < keywords_pos);
-    assert!(keywords_pos < identifiers_pos);
-    assert!(type_references_pos < type_names_pos);
-    assert!(type_names_pos < binding_declarations_pos);
-    assert!(binding_declarations_pos < property_names_pos);
-    assert!(property_names_pos < function_calls_pos);
-    assert!(function_calls_pos < identifiers_pos);
-}
-
-#[test]
-fn generate_textmate_includes_type_references() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("type_references").is_some());
-    let match_str = repo["type_references"]["match"].as_str().unwrap();
-    assert!(match_str.contains(r"type\."));
-    let captures = &repo["type_references"]["captures"];
-    assert_eq!(captures["1"]["name"], "entity.name.type");
-}
-
-#[test]
-fn generate_textmate_includes_type_names() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("type_names").is_some());
-    let match_str = repo["type_names"]["match"].as_str().unwrap();
-    assert!(match_str.contains("[A-Z]"));
-    assert_eq!(repo["type_names"]["name"], "entity.name.type");
-}
-
-#[test]
-fn generate_textmate_includes_binding_declarations() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("binding_declarations").is_some());
-    let match_str = repo["binding_declarations"]["match"].as_str().unwrap();
-    assert!(match_str.contains('^'));
-    let captures = &repo["binding_declarations"]["captures"];
-    assert_eq!(captures["1"]["name"], "variable.other.binding");
-}
-
-#[test]
-fn generate_textmate_includes_property_names() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("property_names").is_some());
-    let match_str = repo["property_names"]["match"].as_str().unwrap();
-    assert!(match_str.contains(':'));
-    let captures = &repo["property_names"]["captures"];
-    assert_eq!(captures["1"]["name"], "variable.other.property");
-}
-
-#[test]
-fn generate_textmate_includes_function_calls() {
-    let info = sample_info();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
+    assert!(repo.get("numbers").is_some());
+    assert!(repo.get("keywords").is_some());
     assert!(repo.get("function_calls").is_some());
-    let match_str = repo["function_calls"]["match"].as_str().unwrap();
-    assert!(match_str.contains(info.identifier_regex.as_str()));
-    assert!(match_str.contains(r"\("));
-    let captures = &repo["function_calls"]["captures"];
+    assert!(repo.get("identifiers").is_some());
+}
+
+#[test]
+fn generate_textmate_patterns_in_priority_order() {
+    let rules = sample_rules();
+    let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
+    let patterns = grammar["patterns"].as_array().unwrap();
+    let includes: Vec<&str> = patterns.iter().filter_map(|p| p["include"].as_str()).collect();
+    // comments (priority 20) should come before keywords (priority 50)
+    let comments_pos = includes.iter().position(|s| *s == "#comments").unwrap();
+    let keywords_pos = includes.iter().position(|s| *s == "#keywords").unwrap();
+    assert!(comments_pos < keywords_pos);
+    // function_calls (priority 70) should come before identifiers (priority 100)
+    let fc_pos = includes.iter().position(|s| *s == "#function_calls").unwrap();
+    let id_pos = includes.iter().position(|s| *s == "#identifiers").unwrap();
+    assert!(fc_pos < id_pos);
+}
+
+#[test]
+fn generate_textmate_function_calls_has_captures() {
+    let rules = sample_rules();
+    let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
+    let fc = &grammar["repository"]["function_calls"];
+    assert!(fc["match"].as_str().unwrap().contains(r"\("));
+    let captures = &fc["captures"];
     assert_eq!(captures["1"]["name"], "entity.name.function");
+    assert_eq!(captures["2"]["name"], "punctuation");
 }
 
 #[test]
-fn generate_textmate_omits_empty_sections() {
-    let mut info = sample_info();
-    info.keywords = Vec::new();
-    info.booleans = Vec::new();
-    info.nulls = Vec::new();
-    let grammar = generate_textmate(&info);
-
-    let repo = &grammar["repository"];
-    assert!(repo.get("keywords").is_none());
-    assert!(repo.get("booleans").is_none());
-    assert!(repo.get("nulls").is_none());
+fn generate_textmate_begin_end_rule() {
+    let rules = sample_rules();
+    let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
+    let bc = &grammar["repository"]["block_comment"];
+    assert_eq!(bc["begin"], r"/\*");
+    assert_eq!(bc["end"], r"\*/");
+    assert_eq!(bc["name"], "comment.block");
 }
 
 #[test]
-fn generate_textmate_escapes_regex_metacharacters() {
-    let mut info = sample_info();
-    info.operators = vec![".".to_string(), "*".to_string()];
-    let grammar = generate_textmate(&info);
-
-    let op_match = grammar["repository"]["operators"]["match"]
-        .as_str()
-        .unwrap();
-    assert!(op_match.contains(r"\."));
-    assert!(op_match.contains(r"\*"));
+fn generate_textmate_empty_rules() {
+    let grammar = generate_textmate(&[], "source.empty", &["empty".to_string()]);
+    assert_eq!(grammar["scopeName"], "source.empty");
+    assert_eq!(grammar["patterns"].as_array().unwrap().len(), 0);
 }

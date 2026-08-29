@@ -64,8 +64,7 @@
     "block_comment": {
       "begin": "\\/\\*",
       "end": "\\*\\/",
-      "name": "comment.block",
-      "patterns": []
+      "name": "comment.block"
     },
     "booleans": {
       "match": "\\b(true|false)\\b",
@@ -82,8 +81,7 @@
     "doc_block_comment": {
       "begin": "\\/\\*\\*",
       "end": "\\*\\/",
-      "name": "comment.documentation.block",
-      "patterns": []
+      "name": "comment.documentation.block"
     },
     "doc_comments": {
       "match": "\\/\\/\\/.*",
@@ -133,14 +131,12 @@
         {
           "begin": "\"",
           "end": "\"",
-          "name": "string.quoted",
-          "patterns": []
+          "name": "string.quoted"
         },
         {
           "begin": "'",
           "end": "'",
-          "name": "string.quoted",
-          "patterns": []
+          "name": "string.quoted"
         }
       ]
     },
