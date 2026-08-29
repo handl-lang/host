@@ -40,7 +40,7 @@ use handl_plugin_diag_expression::ExpressionDiagnostics;
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
-use handl_target_native::NativeTarget;
+use handl_plugin_target_native::NativeTarget;
 use handl_platform::RuntimeHost;
 use handl_plugin_eval_hello::HelloEvalPlugin;
 use handl_plugin_eval_json::JsonEvalPlugin;

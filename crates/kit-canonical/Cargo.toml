@@ -27,7 +27,7 @@ handl-plugin-ext-build = { path = "../plugin-ext-build" }
 handl-plugin-ext-compile = { path = "../plugin-ext-compile" }
 handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
 handl-plugin-ext-lint = { path = "../plugin-ext-lint" }
-handl-target-native = { path = "../target-native" }
+handl-plugin-target-native = { path = "../plugin-target-native" }
 
 handl-plugin-eval-hello = { path = "../plugin-eval-hello" }
 handl-plugin-eval-json = { path = "../plugin-eval-json" }

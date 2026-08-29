@@ -1392,47 +1392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-loader"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-loader-native"
-version = "0.1.0"
-dependencies = [
- "handl-loader",
- "handl-platform",
- "libloading",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "handl-loader-wasm"
-version = "0.1.0"
-dependencies = [
- "handl-loader",
- "handl-platform",
- "serde_json",
- "wasmi",
- "wat",
-]
-
-[[package]]
-name = "handl-loader-web"
-version = "0.1.0"
-dependencies = [
- "handl-loader",
- "handl-platform",
- "mockito",
- "serde_json",
- "ureq",
-]
-
-[[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
@@ -2424,13 +2383,13 @@ name = "handl-tooling"
 version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
- "handl-loader",
- "handl-loader-native",
  "handl-platform",
  "handl-plugin-diag-expression",
  "handl-plugin-fmt-expression",
  "handl-plugin-fmt-stmt",
  "handl-plugin-fmt-trivia",
+ "handl-plugin-load",
+ "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
  "handl-plugin-lsp-goto",
  "handl-plugin-lsp-symbol",

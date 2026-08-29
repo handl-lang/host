@@ -23,7 +23,7 @@ cargo test --workspace
 ## Architecture notes
 
 - `handl-platform` is the only shared contract crate. Key types: `CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin` trait, `PluginRegistry`, `Kit`/`KitRegistry`, `Host`/`DefaultHost`, `LanguageHost`, `PlatformError`, `Boundary`.
-- `handl-expr` defines the pluggable parser. Entry points: `ExpressionPipeline`, `ModulePipeline`. `Stmt { kind: StmtKind, leading, trailing }` wraps a statement; `StmtKind` covers `Expr`, `Let`, `Const`, `Import`, `Export`, `Module`. `Expr<T>` lives in `handl-ast-canonical`; `Expr<NonFunctionValue>` (from `handl-vm-values-json`) is the canonical expression type.
+- `handl-expr` defines the pluggable parser. Entry points: `ExpressionPipeline`, `ModulePipeline`. `Stmt { kind: StmtKind, leading, trailing }` wraps a statement; `StmtKind` covers `Expr`, `Let`, `Const`, `Import`, `Export`, `Module`. `Expr<T>` lives in `handl-ast-canonical`; `Expr<NonFunctionValue>` (from `handl-plugin-vm-values-json`) is the canonical expression type.
 - `handl-tooling` provides `ToolingHost`, which owns a `CanonicalKit`, a `Formatter`, and a `Diagnostics` implementation and exposes slots for LSP plugins: `CompletionPlugin`, `GotoDefPlugin`, `DocumentSymbolsPlugin`, `IncrementalSyncPlugin`.
 - `handl-host-lsp` is the LSP adapter: it maps LSP requests to `ToolingHost` calls and converts results to `lsp-types`.
 - Plugins live in `crates/plugin-*` and are registered into `PluginRegistry` / kit manifests.

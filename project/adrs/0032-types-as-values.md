@@ -6,8 +6,8 @@ The handl language is converging on a design where the type language and the exp
 
 Current state:
 
-- `handl-vm-type` already has a pure `Value` type with `VFun`, `VNeutral`, `VType`, `VLit`, etc.
-- The `.hnl` runtime (`handl-vm-values-json`) only has JSON values: `null`, `bool`, `number`, `string`, `array`, `object`. It has no first-class function values and no propositional equality.
+- `handl-plugin-vm-type` already has a pure `Value` type with `VFun`, `VNeutral`, `VType`, `VLit`, etc.
+- The `.hnl` runtime (`handl-plugin-vm-values-json`) only has JSON values: `null`, `bool`, `number`, `string`, `array`, `object`. It has no first-class function values and no propositional equality.
 - Because of that split, a type like `type.number` cannot be a runtime value, even though it is natural in the typechecker.
 - The typed examples and docs now assume a unified model, but it cannot run yet.
 
@@ -32,7 +32,7 @@ Current state:
 - `f is NumberToNumber` means `NumberToNumber(f)` is inhabited. Function values must carry declared parameter/return type metadata, or the type must be given as a proof.
 - `type.any` and `type.unknown` are not in the `type` module. `Any = (x) -> x === x` is ordinary Handl code. `Unknown` is an internal typecheck-host concept, not a runtime predicate.
 - `type.type_of` is reflection and out of scope for the core design. It can be added later without changing the model.
-- `handl-vm-values-json` will be replaced or become a thin serialization view of `handl-vm-type::Value`.
+- `handl-plugin-vm-values-json` will be replaced or become a thin serialization view of `handl-plugin-vm-type::Value`.
 - The `mood` module becomes redundant. Its runtime behavior can move into the `type` module or become ordinary handl functions.
 - The parser/AST needs to support `:` typed bindings, `is` as membership, and `===` as a type.
 
@@ -54,7 +54,7 @@ accepted
 
 Implemented in the active workspace:
 
-- `crates/vm-type` now has the unified `Value`/`Term` space with `Collection`, `Membership`, `Is`, `Eq`, `Refl`, `TypedLet`, `Empty`, primitive base collections (`type.number`, `type.string`, `type.bool`, `type.null`, `type.array`, `type.object`, `type.eq`), and `Null`/`Array`/`Object` runtime values.
+- `crates/plugin-vm-type` now has the unified `Value`/`Term` space with `Collection`, `Membership`, `Is`, `Eq`, `Refl`, `TypedLet`, `Empty`, primitive base collections (`type.number`, `type.string`, `type.bool`, `type.null`, `type.array`, `type.object`, `type.eq`), and `Null`/`Array`/`Object` runtime values.
 - `handl-lib-type` re-exports the primitives and provides `typecheck` and `typecheck_with_prelude`.
 - `handl-platform` composes the VM via the new `value` and `vm` modules, re-exporting the unified value and proof system.
 - `handl-target-native` re-exports `Value` from the platform.
