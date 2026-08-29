@@ -30,6 +30,8 @@ pub struct KitReference {
 pub struct PluginReference {
     /// Plugin identifier to register.
     pub register: String,
+    /// Optional path to an external plugin manifest to load.
+    pub manifest: Option<String>,
 }
 
 /// The in-memory description of which plugins to load, what to exclude, and
@@ -71,7 +73,10 @@ impl HostConfig {
             plugins: raw
                 .plugin
                 .into_iter()
-                .map(|p| PluginReference { register: p.register })
+                .map(|p| PluginReference {
+                    register: p.register,
+                    manifest: p.manifest,
+                })
                 .collect(),
             excludes: raw.exclude,
             options: raw
@@ -134,6 +139,8 @@ struct RawKit {
 #[derive(Debug, Clone, Deserialize)]
 struct RawPlugin {
     register: String,
+    #[serde(default)]
+    manifest: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

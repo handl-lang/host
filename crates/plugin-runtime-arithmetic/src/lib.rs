@@ -4,9 +4,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use handl_platform::{
-    as_number, expect_n, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
-    ContributionContext, PlatformError, Plugin, PluginContext, RuntimeBehavior, RuntimeHost,
-    RuntimeRule,
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
+use handl_plugin_runtime::{
+    as_number, expect_n, RuntimeBehavior, RuntimeHost, RuntimeRule,
 };
 use handl_plugin_vm::{Context, Error};
 use handl_plugin_vm_values_json::NonFunctionValue;

@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
+handl-plugin-lib-type = { workspace = true }

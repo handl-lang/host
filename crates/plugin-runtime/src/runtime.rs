@@ -1,6 +1,7 @@
 //! Runtime / evaluation plugin trait.
 
-use handl_platform::{AstNode, PlatformError, Value};
+use handl_platform::{AstNode, PlatformError};
+use handl_plugin_lib_type::Value;
 
 /// Output of an evaluation pass.
 #[derive(Debug, Clone, PartialEq)]

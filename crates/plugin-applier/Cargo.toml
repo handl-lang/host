@@ -6,4 +6,5 @@ edition.workspace = true
 [dependencies]
 handl-platform = { workspace = true }
 handl-plugin-ext-kit = { workspace = true }
+handl-plugin-load = { workspace = true }
 serde_json = { workspace = true }

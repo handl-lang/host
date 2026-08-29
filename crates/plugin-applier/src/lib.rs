@@ -1,8 +1,9 @@
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
-    HostConfig, PlatformError, Plugin, PluginContext,
+    HostConfig, PlatformError, Plugin, PluginContext, PluginManifest,
 };
 use handl_plugin_ext_kit::BasicKitLoaderPlugin;
+use handl_plugin_load::LoaderHostPlugin;
 
 pub struct DefaultApplierPlugin {
     config_source: String,
@@ -51,6 +52,10 @@ impl Plugin for DefaultApplierPlugin {
             ctx.register_plugin(BasicKitLoaderPlugin::new())?;
         }
 
+        if ctx.get_plugin_mut::<LoaderHostPlugin>().is_none() {
+            ctx.register_plugin(LoaderHostPlugin::default())?;
+        }
+
         for kit in &config.kits {
             let name = kit.path.as_ref().unwrap_or(&kit.include);
             ctx.run(&CapabilityRequest {
@@ -68,6 +73,22 @@ impl Plugin for DefaultApplierPlugin {
             }
         }
 
+        for plugin in &config.plugins {
+            if plugin.register.is_empty() {
+                if let Some(path) = &plugin.manifest {
+                    let source = std::fs::read_to_string(path)
+                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+                    let manifest: PluginManifest = serde_json::from_str(&source)
+                        .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+                    ctx.run(&CapabilityRequest {
+                        capability: "load".into(),
+                        payload: serde_json::to_value(&manifest)
+                            .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?,
+                    })?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -77,5 +98,33 @@ impl Plugin for DefaultApplierPlugin {
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
         Err(PlatformError::UnknownCapability(request.capability.clone()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::{DefaultHost, Host};
+    use handl_plugin_load::LoaderHostPlugin;
+    use std::fs;
+
+    #[test]
+    fn applier_loads_kit_from_config() {
+        let mut path = std::env::temp_dir();
+        path.push("applier_test.handl.toml");
+        fs::write(&path, "[[kit]]\ninclude = \"hello\"\n").unwrap();
+
+        let mut host = DefaultHost::new();
+        host.register_plugin(BasicKitLoaderPlugin::new());
+        host.register_plugin(LoaderHostPlugin::default());
+        host.register_plugin(
+            DefaultApplierPlugin::new(path.as_path().to_str().unwrap()).with_fallback_kit("canonical"),
+        );
+        host.load().unwrap();
+
+        let names = host.plugins().names();
+        assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
+
+        let _ = fs::remove_file(&path);
     }
 }

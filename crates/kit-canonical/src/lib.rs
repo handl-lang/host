@@ -41,7 +41,7 @@ use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
 
 use handl_plugin_target_native::NativeTarget;
-use handl_platform::RuntimeHost;
+use handl_plugin_runtime::RuntimeHost;
 use handl_plugin_eval_hello::HelloEvalPlugin;
 use handl_plugin_eval_json::JsonEvalPlugin;
 use handl_plugin_runtime_arithmetic::ArithmeticPlugin;
