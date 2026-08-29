@@ -23,17 +23,18 @@ use handl_lexer_common::{
 };
 use handl_parser::{CompositeGrammar, Grammar, GrammarRule, ParseError, ParserContext};
 use handl_platform::{
-    BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
-    ContributionContext, OptionsPlugin, PlatformError, Plugin, PluginContext,
+    BasicEvaluator, BasicTypechecker, CapabilityId, CapabilityMetadata, CapabilityRequest,
+    CapabilityResponse, ContributionContext, OptionsPlugin, PlatformError, Plugin, PluginContext,
 };
 use handl_ext_lexer::BasicLexer;
 use handl_ext_parser::BasicParser;
 use handl_ext_fmt::BasicFormatter;
 use handl_ext_lint::BasicLinter;
-use handl_ext_eval::EvalPlugin;
 
 use handl_target_native::NativeTarget;
 use handl_platform::RuntimeHost;
+use handl_plugin_eval_hello::HelloEvalPlugin;
+use handl_plugin_eval_json::JsonEvalPlugin;
 use handl_plugin_runtime_arithmetic::ArithmeticPlugin;
 use handl_plugin_runtime_array::ArrayPlugin;
 use handl_plugin_runtime_apply::ApplyPlugin;
@@ -1256,7 +1257,9 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
-        ctx.register_plugin(EvalPlugin::new())?;
+        ctx.register_plugin(BasicEvaluator::new())?;
+        ctx.register_plugin(HelloEvalPlugin::new())?;
+        ctx.register_plugin(JsonEvalPlugin::new())?;
         ctx.register_plugin(OptionsPlugin::new())?;
 
         // Target and library plugins

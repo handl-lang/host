@@ -139,6 +139,8 @@ members = [
     "crates/plugin-runtime-apply",
     "crates/plugin-runtime-boolean",
     "crates/plugin-runtime-object",
+    "crates/plugin-eval-hello",
+    "crates/plugin-eval-json",
     "crates/plugin-token-bool",
     "crates/plugin-token-comment",
     "crates/plugin-token-doc-comment",
@@ -324,6 +326,8 @@ handl-plugin-runtime-array = { path = "crates/plugin-runtime-array" }
 handl-plugin-runtime-apply = { path = "crates/plugin-runtime-apply" }
 handl-plugin-runtime-boolean = { path = "crates/plugin-runtime-boolean" }
 handl-plugin-runtime-object = { path = "crates/plugin-runtime-object" }
+handl-plugin-eval-hello = { path = "crates/plugin-eval-hello" }
+handl-plugin-eval-json = { path = "crates/plugin-eval-json" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
 handl-plugin-token-doc-comment = { path = "crates/plugin-token-doc-comment" }

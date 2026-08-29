@@ -21,6 +21,8 @@ pub mod manifest;
 pub mod ast_node;
 /// Plugin-provided option schemas and resolved values.
 pub mod options;
+/// Generic evaluation operation and rule acceptor.
+pub mod eval;
 /// Generic typecheck operation and rule acceptor.
 pub mod typecheck;
 /// Foundational composable plugin types for ADR-0002.
@@ -46,6 +48,7 @@ pub use manifest::*;
 pub use ast_node::*;
 pub use options::*;
 pub use typecheck::*;
+pub use eval::*;
 pub use plugin_model::*;
 pub use plugin::*;
 pub use resolve::*;

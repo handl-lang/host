@@ -70,6 +70,9 @@ pub fn canonical_manifest() -> KitManifest {
             // Grammar rule plugins
             "plugin-grammar-call".to_string(),
             "plugin-grammar-apply".to_string(),
+            // Eval behavior plugins
+            "plugin-eval-hello".to_string(),
+            "plugin-eval-json".to_string(),
             // Runtime built-in plugins
             "plugin-runtime-arithmetic".to_string(),
             "plugin-runtime-boolean".to_string(),

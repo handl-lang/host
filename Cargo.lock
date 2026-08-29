@@ -832,7 +832,6 @@ name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
  "handl-ast",
- "handl-ext-eval",
  "handl-ext-fmt",
  "handl-ext-lexer",
  "handl-ext-lint",
@@ -852,6 +851,8 @@ dependencies = [
  "handl-plugin-ast-object",
  "handl-plugin-ast-pipe",
  "handl-plugin-ast-var",
+ "handl-plugin-eval-hello",
+ "handl-plugin-eval-json",
  "handl-plugin-grammar-apply",
  "handl-plugin-grammar-array",
  "handl-plugin-grammar-assign",
@@ -1619,6 +1620,23 @@ dependencies = [
  "handl-expr",
  "handl-platform",
  "handl-vm-values-json",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-hello"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-hello",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-json"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
  "serde_json",
 ]
 
