@@ -1,5 +1,0 @@
-server: type.any = http_server.new();
-route: type.null = http_server.route(server, "GET", "/uuid", rand.uuid());
-start: type.null = http_server.start(server, "127.0.0.1:8083");
-join: type.null = http_server.join(server);
-[route, start, join]

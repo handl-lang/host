@@ -1,7 +1,0 @@
-[package]
-name = "handl-plugin-vm"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-indexmap.workspace = true

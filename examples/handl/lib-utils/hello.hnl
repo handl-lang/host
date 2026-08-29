@@ -1,2 +1,0 @@
-greeting: type.string = concat("hello", " ", "world");
-greeting

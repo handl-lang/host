@@ -1,20 +1,34 @@
-//! `handl` is the root facade for the Handl language platform.
+//! # handl-lib-serialize
 //!
-//! It re-exports the core platform contracts from `handl-platform` and
-//! the generic base crates that survive the canonical-kit retirement.
+//! Format-agnostic serialization framework.
+//!
+//! Provides `Encoder`, `Decoder`, `serialize`, and `deserialize` abstractions
+//! shared by the `handl-lib-*` format crates.
 
-// Core platform contracts and types (always available).
-pub use handl_platform::*;
+pub mod error;
+pub mod serializer;
+pub mod traits;
 
-// Non-optional workspace crates that remain after the canonical retirement.
-pub use handl_plugin_ast;
-pub use handl_plugin_source;
+pub use error::SerializeError;
+pub use serializer::{Serializer, SerializerRegistry};
+pub use traits::{Decoder, Encoder};
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn root_reexports_platform_types() {
-        let _id = crate::capability::CapabilityId::from("test");
-        let _reg = crate::plugin::PluginRegistry::new();
-    }
+/// Serialize a value using the provided encoder.
+pub fn serialize<T, E>(value: &T, encoder: &E) -> Result<E::Output, SerializeError>
+where
+    E: Encoder<T>,
+{
+    encoder.encode(value)
 }
+
+/// Deserialize input using the provided decoder.
+pub fn deserialize<I, T, D>(input: &I, decoder: &D) -> Result<T, SerializeError>
+where
+    I: ?Sized,
+    D: Decoder<I, T>,
+{
+    decoder.decode(input)
+}
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;
