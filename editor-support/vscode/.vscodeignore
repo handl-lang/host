@@ -1,6 +1,7 @@
 **/*.ts
 **/*.map
 src/**
+scripts/**
 test/**
 .github/**
 .vscode/**
@@ -8,8 +9,9 @@ test/**
 .eslintignore
 .eslintrc*
 README.md
-settings.json
-node_modules/@types/**
-node_modules/.bin/**
+tsconfig*.json
+vite.config.ts
+vitest.config.ts
+node_modules/**
 *.vsix
 package-lock.json
