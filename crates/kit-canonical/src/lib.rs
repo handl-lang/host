@@ -63,7 +63,7 @@ use handl_plugin_ast_var::Var;
 use handl_plugin_grammar_apply::ApplyToken;
 use handl_plugin_grammar_array::ArrayToken;
 use handl_plugin_grammar_assign::AssignToken;
-use handl_plugin_grammar_call::CallToken;
+use handl_plugin_grammar_call::{CallRule, CallToken};
 use handl_plugin_grammar_handle::HandleToken;
 use handl_plugin_grammar_index::IndexToken;
 use handl_plugin_grammar_let::LetToken;
@@ -857,8 +857,8 @@ impl Lexer<CanonicalKind, DefaultLexError> for CanonicalLexer {
     }
 }
 
-/// Converts a primary `AstNode` produced by the generic parser into the kit's `KitNode`.
-fn value_ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
+/// Converts a generic `AstNode` produced by the parser into the kit's `KitNode`.
+fn ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
     match ast.kind.as_str() {
         "value" => {
             let value = ast
@@ -889,8 +889,35 @@ fn value_ast_to_kitnode(ast: &AstNode) -> Result<KitNode, PlatformError> {
 
             Ok(KitNode::Var(Var::new(name.into())))
         }
+        "call" => {
+            let callee = ast
+                .payload
+                .get("callee")
+                .cloned()
+                .ok_or_else(|| PlatformError::Plugin("missing 'callee' field in call AST payload".into()))?;
+            let callee_ast: AstNode = serde_json::from_value(callee)
+                .map_err(|e| PlatformError::Plugin(format!("invalid callee in call AST: {e}")))?;
+            let callee = ast_to_kitnode(&callee_ast)?;
+
+            let args = ast
+                .payload
+                .get("args")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| PlatformError::Plugin("missing 'args' field in call AST payload".into()))?;
+            let mut call_args = Vec::with_capacity(args.len());
+            for arg in args {
+                let arg_ast: AstNode = serde_json::from_value(arg.clone())
+                    .map_err(|e| PlatformError::Plugin(format!("invalid arg in call AST: {e}")))?;
+                call_args.push(ast_to_kitnode(&arg_ast)?);
+            }
+
+            match callee {
+                KitNode::Var(v) => Ok(KitNode::Call(Call::new(&v.name, call_args))),
+                _ => Ok(KitNode::Apply(Box::new(Apply::new(callee, call_args)))),
+            }
+        }
         _ => Err(PlatformError::Plugin(format!(
-            "expected a 'value' or 'var' AST node, got '{}'",
+            "expected a 'value', 'var', or 'call' AST node, got '{}'",
             ast.kind
         ))),
     }
@@ -926,8 +953,9 @@ impl Kit {
         let mut parser = BasicParser::<CanonicalKind>::new();
         parser.accept(Box::new(ValueRule))?;
         parser.accept(Box::new(IdentifierRule))?;
+        parser.accept(Box::new(CallRule))?;
         let ast = parser.parse(&tokens)?;
-        value_ast_to_kitnode(&ast)
+        ast_to_kitnode(&ast)
     }
 
     /// Parses a module. Not yet supported by the minimal canonical plugin set.
@@ -984,6 +1012,7 @@ impl Plugin for CanonicalKit {
         ctx.register_plugin(BasicParser::<CanonicalKind>::new())?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(ValueRule))?;
         ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(IdentifierRule))?;
+        ctx.contribute::<BasicParser<CanonicalKind>>(Box::new(CallRule))?;
         ctx.register_plugin(BasicFormatter::new())?;
         ctx.register_plugin(BasicLinter::new())?;
         ctx.register_plugin(BasicTypechecker::new())?;
@@ -1053,7 +1082,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting for grammar rule migration"]
     fn parse_call() {
         let kit = Kit::new();
         let node = kit.parse("add(1, 2)").unwrap();

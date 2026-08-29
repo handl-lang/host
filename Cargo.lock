@@ -1646,9 +1646,10 @@ dependencies = [
 name = "handl-plugin-grammar-call"
 version = "0.1.0"
 dependencies = [
- "handl-plugin-ast",
+ "handl-platform",
+ "handl-plugin-ext-parser",
  "handl-plugin-lexer",
- "handl-plugin-parser",
+ "serde_json",
 ]
 
 [[package]]
