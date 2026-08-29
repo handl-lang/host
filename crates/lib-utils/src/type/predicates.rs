@@ -1,5 +1,5 @@
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
 use crate::shared::{
     as_kind, complement, err_result, matches, ok_result, project, require_arg_count,

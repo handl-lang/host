@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use handl_plugin_vm::{Context, Error};
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use serde_json::Value as JsonValue;
 
 use crate::capability::{CapabilityId, CapabilityMetadata};

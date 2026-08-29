@@ -24,7 +24,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_concurrency::ConcurrencyModule;
 //!
 //! let host = ModuleHost::new().with(ConcurrencyModule::new());
@@ -54,8 +54,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_vm_common::Module;
-use handl_vm_values_json::{
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{
     Context, Error, Function, FunctionValue, NonFunctionValue,
 };
 
@@ -724,7 +724,7 @@ impl Module for ConcurrencyModule {
         }
     }
 
-    fn operation(&self, _name: &str) -> Option<&dyn handl_vm_values_json::Operation<NonFunctionValue>> {
+    fn operation(&self, _name: &str) -> Option<&dyn handl_plugin_vm_values_json::Operation<NonFunctionValue>> {
         None
     }
 }
@@ -762,8 +762,8 @@ const IO_FUNCTIONS: &[&str] = &["tcp_connect", "tcp_send", "tcp_recv", "tcp_clos
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::Eval;
-    use handl_vm_values_json::CanonicalContext;
+    use handl_plugin_vm_values_json::Eval;
+    use handl_plugin_vm_values_json::CanonicalContext;
     use serde_json::json;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};

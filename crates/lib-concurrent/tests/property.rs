@@ -1,6 +1,6 @@
 use handl_lib_concurrent::ConcurrencyModule;
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, Eval, FunctionValue, NonFunctionValue};
 use proptest::prelude::*;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
@@ -22,10 +22,10 @@ impl Eval<NonFunctionValue> for NumberEval {
         &self,
         expr: &str,
         _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, handl_vm_values_json::Error> {
+    ) -> Result<NonFunctionValue, handl_plugin_vm_values_json::Error> {
         let n: u64 = expr
             .parse()
-            .map_err(|_| handl_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
+            .map_err(|_| handl_plugin_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
         Ok(NonFunctionValue::new(json!(n)))
     }
 }
@@ -40,10 +40,10 @@ impl Eval<NonFunctionValue> for PushToListEval {
         &self,
         expr: &str,
         _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, handl_vm_values_json::Error> {
+    ) -> Result<NonFunctionValue, handl_plugin_vm_values_json::Error> {
         let n: u64 = expr
             .parse()
-            .map_err(|_| handl_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
+            .map_err(|_| handl_plugin_vm_values_json::Error::PrimitiveError(format!("expected a u64, got {expr:?}")))?;
         self.list.lock().unwrap().push(n);
         Ok(NonFunctionValue::new(json!(n)))
     }
@@ -61,7 +61,7 @@ impl Eval<NonFunctionValue> for LockingEval {
         &self,
         expr: &str,
         _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, handl_vm_values_json::Error> {
+    ) -> Result<NonFunctionValue, handl_plugin_vm_values_json::Error> {
         let inner = FunctionValue {
             params: Vec::new(),
             return_schema: None,

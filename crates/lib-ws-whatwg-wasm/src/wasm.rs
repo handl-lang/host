@@ -2,8 +2,8 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
 use js_sys::{ArrayBuffer, Uint8Array};
 use serde_json::Value as JsonValue;
 use std::cell::{Cell, RefCell};

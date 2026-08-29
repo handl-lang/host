@@ -1,8 +1,8 @@
 //! Stub implementation of `ws_whatwg_wasm` for non-wasm targets.
 
 use handl_plugin_vm::Function;
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 #[derive(Clone, Copy)]
 pub struct WsWhatwgWasmModule;

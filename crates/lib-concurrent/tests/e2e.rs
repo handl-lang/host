@@ -4,13 +4,13 @@ use handl_lexer_canonical::CanonicalLexer;
 use handl_lib_concurrent::ConcurrencyModule;
 use handl_plugin_parser::Parser as _;
 use handl_parser_canonical::CanonicalParser;
-use handl_vm_backend_rust_interpreter::{CanonicalEval, CanonicalVm};
-use handl_vm_common::{Machine, ModuleHost};
-use handl_vm_common::prelude::{
+use handl_plugin_vm_backend_rust_interpreter::{CanonicalEval, CanonicalVm};
+use handl_plugin_vm_common::{Machine, ModuleHost};
+use handl_plugin_vm_common::prelude::{
     AsyncFunction, Expr, Function, GenericFunction, Host, LazyFunction, Operation,
 };
-use handl_vm_host_eval::EvalHost;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_host_eval::EvalHost;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use serde_json::json;
 
 #[derive(Clone)]

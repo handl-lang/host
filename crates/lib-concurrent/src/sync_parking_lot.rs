@@ -9,7 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use handl_vm_values_json::{Context, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Context, FunctionValue, NonFunctionValue};
 use parking_lot::{Condvar, FairMutex, Mutex, RwLock};
 use serde_json::json;
 
@@ -353,7 +353,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::{CanonicalContext, Error, Eval};
+    use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval};
     use std::sync::{Arc, Mutex};
 
     use serde_json::json;

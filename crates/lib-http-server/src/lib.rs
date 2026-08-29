@@ -9,7 +9,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-http-server            handl-lib-http-server-std
+//! handl-plugin-vm-common          handl-lib-http-server            handl-lib-http-server-std
 //! ─────────────            ─────────────────────         ───────────────────────────
 //! Module trait             HttpServer trait              StdHttpServer
 //! ModuleHost               HttpServerRequest/Response

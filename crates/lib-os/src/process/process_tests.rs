@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::process::ProcessModule;
 use super::process_stub::StubProcess;
@@ -15,7 +15,7 @@ fn call_err(
     module: &dyn Module,
     name: &str,
     args: &[NonFunctionValue],
-) -> handl_vm_values_json::Error {
+) -> handl_plugin_vm_values_json::Error {
     let func = module.function(name).expect("function exists");
     let mut ctx = CanonicalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -92,21 +92,21 @@ fn status_finished() {
 fn kill_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "kill", &[n(1)]);
-    assert!(matches!(err, handl_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
 }
 
 #[test]
 fn wait_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "wait", &[n(1)]);
-    assert!(matches!(err, handl_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
 }
 
 #[test]
 fn status_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "status", &[n(1)]);
-    assert!(matches!(err, handl_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn spawn_missing_program() {
     let err = call_err(&module, "spawn", &[]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0,
         }
@@ -134,7 +134,7 @@ fn spawn_non_string_arg() {
     let err = call_err(&module, "spawn", &[n(1)]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::TypeMismatch {
+        handl_plugin_vm_values_json::Error::TypeMismatch {
             expected: "string",
             got: "non-string",
         }
@@ -147,7 +147,7 @@ fn kill_non_number() {
     let err = call_err(&module, "kill", &[s("one")]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::TypeMismatch {
+        handl_plugin_vm_values_json::Error::TypeMismatch {
             expected: "number",
             got: "non-number",
         }
@@ -160,7 +160,7 @@ fn wait_missing_pid() {
     let err = call_err(&module, "wait", &[]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0,
         }
@@ -173,7 +173,7 @@ fn status_missing_pid() {
     let err = call_err(&module, "status", &[]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0,
         }

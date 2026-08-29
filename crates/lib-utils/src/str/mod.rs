@@ -1,4 +1,4 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 mod basic;
 mod case;
 mod common;
@@ -17,7 +17,7 @@ pub use transform::{
 };
 
 use handl_plugin_vm::Function;
-use handl_vm_common::Module;
+use handl_plugin_vm_common::Module;
 
 /// The `str` module — string utility functions.
 ///

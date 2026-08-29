@@ -9,7 +9,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-intl
+//! handl-plugin-vm-common          handl-lib-intl
 //! ─────────────            ────────────
 //! Module trait             IntlModule
 //! ModuleHost               ICU4X compiled_data (600+ locales)
@@ -34,7 +34,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_intl::IntlModule;
 //!
 //! let host = ModuleHost::new()

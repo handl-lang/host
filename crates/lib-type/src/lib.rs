@@ -1,18 +1,18 @@
 //! Public `lib-type` façade for the Handl pure type system.
 //!
-//! Re-exports the public APIs of `handl-vm-type` and `handl-vm-type-schema-json`,
+//! Re-exports the public APIs of `handl-plugin-vm-type` and `handl-plugin-vm-type-schema-json`,
 //! plus a convenience `typecheck_schema` entry point.
 
-pub use handl_vm_type;
-pub use handl_vm_type_schema_json;
+pub use handl_plugin_vm_type;
+pub use handl_plugin_vm_type_schema_json;
 
-pub use handl_vm_type::*;
-pub use handl_vm_type_schema_json::{
+pub use handl_plugin_vm_type::*;
+pub use handl_plugin_vm_type_schema_json::{
     AliasEntry, AliasTable, SchemaError, SchemaInterpreter, default_tctx, interpret,
 };
 
 /// Re-export the prelude environment and typing context constructors.
-pub use handl_vm_type::primitives::{prelude_env, prelude_tctx};
+pub use handl_plugin_vm_type::primitives::{prelude_env, prelude_tctx};
 
 /// Convenience `typecheck` using a fresh `MetaContext`, the empty `Env`,
 /// and the supplied `TCtx`.
@@ -26,7 +26,7 @@ pub fn typecheck_with_prelude(term: &Term) -> Result<Value, TypeError> {
     typecheck(term, &prelude_tctx())
 }
 
-/// Typecheck a JSON Schema by interpreting it into a `handl-vm-type` `Term`
+/// Typecheck a JSON Schema by interpreting it into a `handl-plugin-vm-type` `Term`
 /// and synthesising its type using the schema bridge's default primitive
 /// typing context.
 ///
@@ -34,14 +34,14 @@ pub fn typecheck_with_prelude(term: &Term) -> Result<Value, TypeError> {
 /// local `$defs` are resolved from it.
 pub fn typecheck_schema(
     schema: &serde_json::Value,
-) -> Result<handl_vm_type::Value, handl_vm_type::TypeError> {
-    let term = handl_vm_type_schema_json::interpret(schema, schema)
-        .map_err(|e| handl_vm_type::TypeError::CannotSynthesize(e.to_string()))?;
-    let mut ctx = handl_vm_type::MetaContext::new();
-    handl_vm_type::synth_type(
+) -> Result<handl_plugin_vm_type::Value, handl_plugin_vm_type::TypeError> {
+    let term = handl_plugin_vm_type_schema_json::interpret(schema, schema)
+        .map_err(|e| handl_plugin_vm_type::TypeError::CannotSynthesize(e.to_string()))?;
+    let mut ctx = handl_plugin_vm_type::MetaContext::new();
+    handl_plugin_vm_type::synth_type(
         &mut ctx,
-        &handl_vm_type::Env::new(),
-        &handl_vm_type_schema_json::default_tctx(),
+        &handl_plugin_vm_type::Env::new(),
+        &handl_plugin_vm_type_schema_json::default_tctx(),
         &term,
     )
 }

@@ -5,8 +5,8 @@ use handl_lib_parse::DynParser;
 use handl_lib_url_rfc::Rfc;
 use handl_lib_url_whatwg::Whatwg;
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// The `parse` runtime module.
 ///

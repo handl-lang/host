@@ -1,6 +1,6 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{Context, Function};
 use icu::list::{
     ListFormatter,
     options::{ListFormatterOptions, ListLength},

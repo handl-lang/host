@@ -4,18 +4,18 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-vm-values-json.workspace = true
-handl-vm-common.workspace = true
+handl-plugin-vm-values-json.workspace = true
+handl-plugin-vm-common.workspace = true
 serde_json.workspace = true
 parking_lot = "0.12"
 crossbeam-deque = "0.8"
 mio = { version = "1", features = ["net", "os-poll"] }
-handl-vm-backend-rust-interpreter = { workspace = true, optional = true }
-handl-vm-host-eval = { workspace = true, optional = true }
+handl-plugin-vm-backend-rust-interpreter = { workspace = true, optional = true }
+handl-plugin-vm-host-eval = { workspace = true, optional = true }
 handl-plugin-parser = { workspace = true, optional = true }
 
 [features]
-e2e = ["dep:handl-vm-backend-rust-interpreter", "dep:handl-vm-host-eval", "dep:handl-plugin-parser"]
+e2e = ["dep:handl-plugin-vm-backend-rust-interpreter", "dep:handl-plugin-vm-host-eval", "dep:handl-plugin-parser"]
 
 [dev-dependencies]
 criterion = "0.5.1"

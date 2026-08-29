@@ -11,7 +11,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use handl_vm_values_json::{Context, Error, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Context, Error, FunctionValue, NonFunctionValue};
 use serde_json::json;
 
 /// A replaceable backend for the synchronization primitives:
@@ -527,7 +527,7 @@ impl SyncRuntime for DefaultSyncRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::{CanonicalContext, Eval};
+    use handl_plugin_vm_values_json::{CanonicalContext, Eval};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 

@@ -4,8 +4,8 @@ use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
 use crate::scheduler::{DefaultScheduler, Scheduler};
 use crate::sync::{DefaultSyncRuntime, SyncRuntime};
 use crate::ConcurrencyModule;
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 

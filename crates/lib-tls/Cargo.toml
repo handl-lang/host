@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-vm-common.workspace = true
+handl-plugin-vm-common.workspace = true
 handl-plugin-vm.workspace = true
-handl-vm-values-json.workspace = true
+handl-plugin-vm-values-json.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-handl-vm-backend-rust-interpreter.workspace = true
+handl-plugin-vm-backend-rust-interpreter.workspace = true

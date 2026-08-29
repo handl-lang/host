@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use handl_lib_http_server::{HttpMethod, HttpServer, HttpServerRequest, HttpServerResponse};
 use handl_lib_http_server_std::{ServerConfig, StdHttpServer};
-use handl_vm_values_json::FunctionValue;
+use handl_plugin_vm_values_json::FunctionValue;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Empty};
 use hyper::Request;

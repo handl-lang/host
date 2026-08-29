@@ -21,7 +21,7 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};

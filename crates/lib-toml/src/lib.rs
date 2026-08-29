@@ -45,8 +45,8 @@ impl Serializer for Toml {
 }
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// The `toml` module.
 ///

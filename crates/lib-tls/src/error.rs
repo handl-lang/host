@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_vm_values_json::Error as VmError;
+use handl_plugin_vm_values_json::Error as VmError;
 
 /// Errors that can occur in TLS operations.
 #[derive(Debug, Clone)]

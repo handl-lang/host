@@ -1,12 +1,12 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::{Error, FunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{Error, FunctionValue};
 
 use crate::error::HttpServerError;
 use crate::http_method::HttpMethod;

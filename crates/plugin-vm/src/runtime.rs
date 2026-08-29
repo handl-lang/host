@@ -88,7 +88,7 @@ pub trait Context<V: Value> {
 ///
 /// Implementors transform an [`Expr`] tree into a runtime value inside a
 /// [`Context`]. The canonical tree-walking implementation is
-/// `handl_vm_backend_rust_interpreter::CanonicalVm`.
+/// `handl_plugin_vm_backend_rust_interpreter::CanonicalVm`.
 pub trait VirtualMachine<V: Value> {
     /// Evaluates an expression synchronously.
     fn eval(&self, expr: &Expr<V>, ctx: &mut dyn Context<V>) -> Result<V, Error<V>>;

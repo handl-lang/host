@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
 use handl_plugin_vm::{Context, Function, GenericFunction};
-use handl_vm_common::Module;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
 use crate::shared::{

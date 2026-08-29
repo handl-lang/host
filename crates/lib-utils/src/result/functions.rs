@@ -1,5 +1,5 @@
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use serde_json::{Value as JsonValue, json};
 
 fn as_result_tag(value: &JsonValue) -> Option<&str> {

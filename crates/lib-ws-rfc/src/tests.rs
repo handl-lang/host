@@ -473,7 +473,7 @@ mod module_helpers {
         MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
     };
     use handl_plugin_vm::Function;
-    use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+    use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
 
     fn ctx() -> CanonicalContext {
         CanonicalContext::new()

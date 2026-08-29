@@ -1,10 +1,10 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_vm_values_json::Error;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::{Context, Function};
 use icu::decimal::options::{DecimalFormatterOptions, GroupingStrategy};
 use icu::decimal::{CompactDecimalFormatter, DecimalFormatter};
 use icu::experimental::dimension::currency::CurrencyType;

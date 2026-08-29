@@ -791,8 +791,8 @@ dependencies = [
  "base64",
  "handl-lib-archive",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
  "tar",
  "thiserror 2.0.20",
@@ -805,8 +805,8 @@ dependencies = [
  "base64",
  "handl-lib-encoding",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -816,10 +816,10 @@ version = "0.1.0"
 dependencies = [
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -838,8 +838,8 @@ dependencies = [
  "flate2",
  "handl-lib-compress",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -851,10 +851,10 @@ dependencies = [
  "criterion",
  "crossbeam-deque",
  "handl-plugin-parser",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "loom",
  "mio",
  "parking_lot",
@@ -868,10 +868,10 @@ version = "0.1.0"
 dependencies = [
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "hex",
  "md-5",
  "serde_json",
@@ -885,10 +885,10 @@ dependencies = [
  "chrono",
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -914,8 +914,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-encoding",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "hex",
  "serde_json",
 ]
@@ -925,8 +925,8 @@ name = "handl-lib-http-client"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -943,8 +943,8 @@ name = "handl-lib-http-server"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -954,9 +954,9 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "handl-lib-http-server",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -974,10 +974,10 @@ dependencies = [
  "fixed_decimal",
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "icu",
  "icu_provider",
  "icu_provider_blob",
@@ -990,8 +990,8 @@ name = "handl-lib-ip"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1001,8 +1001,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde",
  "serde_json",
 ]
@@ -1012,8 +1012,8 @@ name = "handl-lib-kv"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1023,8 +1023,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-kv",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1032,8 +1032,8 @@ name = "handl-lib-os"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1043,9 +1043,9 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-os",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "mio",
  "nix",
 ]
@@ -1055,8 +1055,8 @@ name = "handl-lib-otlp"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "hex",
  "rand 0.9.5",
  "serde_json",
@@ -1086,10 +1086,10 @@ version = "0.1.0"
 dependencies = [
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "rand 0.9.5",
  "serde_json",
 ]
@@ -1107,8 +1107,8 @@ name = "handl-lib-stats"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1117,8 +1117,8 @@ name = "handl-lib-test"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "rand 0.9.5",
  "serde_json",
 ]
@@ -1128,9 +1128,9 @@ name = "handl-lib-tls"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1155,8 +1155,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
  "toml",
 ]
@@ -1165,8 +1165,8 @@ dependencies = [
 name = "handl-lib-type"
 version = "0.1.0"
 dependencies = [
- "handl-vm-type",
- "handl-vm-type-schema-json",
+ "handl-plugin-vm-type",
+ "handl-plugin-vm-type-schema-json",
  "serde_json",
 ]
 
@@ -1175,8 +1175,8 @@ name = "handl-lib-unicode"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
  "unicode-ident",
 ]
@@ -1187,8 +1187,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-parse",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "iri-string",
  "serde",
  "serde_json",
@@ -1200,8 +1200,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-parse",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde",
  "serde_json",
  "url",
@@ -1223,10 +1223,10 @@ dependencies = [
  "handl-lib-yaml",
  "handl-plugin-ast",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1236,7 +1236,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1247,8 +1247,8 @@ dependencies = [
  "base64",
  "handl-lib-ws-rfc",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1260,10 +1260,10 @@ dependencies = [
  "futures-util",
  "handl-lib-ws-rfc",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "rcgen",
  "rustls-pemfile",
  "serde_json",
@@ -1280,8 +1280,8 @@ dependencies = [
  "base64",
  "futures-util",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde",
  "serde_json",
  "tokio",
@@ -1294,8 +1294,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "js-sys",
  "serde",
  "serde_json",
@@ -1309,8 +1309,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
  "serde_yaml",
 ]
@@ -1362,8 +1362,8 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-type",
  "handl-plugin-vm",
- "handl-vm-type",
- "handl-vm-values-json",
+ "handl-plugin-vm-type",
+ "handl-plugin-vm-values-json",
  "semver",
  "serde",
  "serde_json",
@@ -1595,7 +1595,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1659,7 +1659,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1688,7 +1688,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1697,7 +1697,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1707,7 +1707,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1717,7 +1717,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1727,7 +1727,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1774,7 +1774,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-paren",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1785,7 +1785,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1796,7 +1796,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1807,7 +1807,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1817,7 +1817,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1829,7 +1829,7 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-paren",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1849,7 +1849,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -1859,7 +1859,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1869,7 +1869,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1878,7 +1878,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1887,7 +1887,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1907,7 +1907,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1917,7 +1917,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1927,7 +1927,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1937,7 +1937,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -1947,7 +1947,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
@@ -2077,7 +2077,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -2087,7 +2087,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -2097,7 +2097,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -2107,7 +2107,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -2117,7 +2117,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
@@ -2239,8 +2239,8 @@ dependencies = [
  "handl-lib-type",
  "handl-platform",
  "handl-plugin-runtime",
+ "handl-plugin-vm-values-json",
  "handl-typecheck-core",
- "handl-vm-values-json",
  "serde_json",
 ]
 
@@ -2252,67 +2252,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-target-native"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-tooling"
-version = "0.1.0"
-dependencies = [
- "handl-kit-canonical",
- "handl-loader",
- "handl-loader-native",
- "handl-platform",
- "handl-plugin-diag-expression",
- "handl-plugin-fmt-expression",
- "handl-plugin-fmt-stmt",
- "handl-plugin-fmt-trivia",
- "handl-plugin-lsp-completion",
- "handl-plugin-lsp-goto",
- "handl-plugin-lsp-symbol",
- "handl-vm-common",
- "handl-vm-values-json",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "handl-typecheck-core"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-source",
- "serde_json",
-]
-
-[[package]]
-name = "handl-vm-backend-rust-interpreter"
+name = "handl-plugin-vm-backend-rust-interpreter"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-lexer",
  "handl-plugin-parser",
  "handl-plugin-vm",
- "handl-vm-common",
- "handl-vm-values-json",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
 [[package]]
-name = "handl-vm-common"
+name = "handl-plugin-vm-common"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
 [[package]]
-name = "handl-vm-config"
+name = "handl-plugin-vm-config"
 version = "0.1.0"
 dependencies = [
  "handl-lib-archive-tar",
@@ -2331,24 +2294,24 @@ dependencies = [
  "handl-lib-ws-rfc-memory",
  "handl-lib-ws-whatwg-native",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
-name = "handl-vm-host-eval"
+name = "handl-plugin-vm-host-eval"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-vm",
- "handl-vm-values-json",
+ "handl-plugin-vm-values-json",
  "serde_json",
 ]
 
 [[package]]
-name = "handl-vm-server"
+name = "handl-plugin-vm-server"
 version = "0.1.0"
 dependencies = [
  "handl-lib-archive-tar",
@@ -2375,35 +2338,72 @@ dependencies = [
  "handl-lib-ws-rfc-native",
  "handl-lib-ws-whatwg-native",
  "handl-plugin-vm",
- "handl-vm-backend-rust-interpreter",
- "handl-vm-common",
- "handl-vm-host-eval",
- "handl-vm-values-json",
+ "handl-plugin-vm-backend-rust-interpreter",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-host-eval",
+ "handl-plugin-vm-values-json",
 ]
 
 [[package]]
-name = "handl-vm-type"
+name = "handl-plugin-vm-type"
 version = "0.1.0"
 dependencies = [
  "thiserror 2.0.20",
 ]
 
 [[package]]
-name = "handl-vm-type-schema-json"
+name = "handl-plugin-vm-type-schema-json"
 version = "0.1.0"
 dependencies = [
- "handl-vm-type",
+ "handl-plugin-vm-type",
  "serde_json",
  "thiserror 2.0.20",
 ]
 
 [[package]]
-name = "handl-vm-values-json"
+name = "handl-plugin-vm-values-json"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-source",
  "handl-plugin-vm",
  "indexmap",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-target-native"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-tooling"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-loader",
+ "handl-loader-native",
+ "handl-platform",
+ "handl-plugin-diag-expression",
+ "handl-plugin-fmt-expression",
+ "handl-plugin-fmt-stmt",
+ "handl-plugin-fmt-trivia",
+ "handl-plugin-lsp-completion",
+ "handl-plugin-lsp-goto",
+ "handl-plugin-lsp-symbol",
+ "handl-plugin-vm-common",
+ "handl-plugin-vm-values-json",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-typecheck-core"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-source",
  "serde_json",
 ]
 

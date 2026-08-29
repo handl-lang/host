@@ -7,7 +7,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-crypto
+//! handl-plugin-vm-common          handl-lib-crypto
 //! ─────────────            ─────────────
 //! Module trait             CryptoModule (Copy, zero-alloc)
 //! ModuleHost               *Function structs
@@ -31,7 +31,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_crypto::CryptoModule;
 //!
 //! let host = ModuleHost::new()

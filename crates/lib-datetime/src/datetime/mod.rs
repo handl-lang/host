@@ -1,4 +1,4 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 mod arithmetic;
 mod bounds;
 mod common;
@@ -29,8 +29,8 @@ pub use format_parse::{Format, Parse};
 pub use timezone::{ToTimezone, ToUtc};
 pub use validate::IsValid;
 
-use handl_vm_common::Module;
-use handl_vm_values_json::Function;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::Function;
 
 /// The `datetime` module — date and time utility functions.
 ///

@@ -1,9 +1,0 @@
-[package]
-name = "handl-vm-type"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-thiserror.workspace = true
-
-[dev-dependencies]

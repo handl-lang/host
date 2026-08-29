@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::Function;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::Function;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::compare_strings::CompareStrings;
 use super::display_name::DisplayName;

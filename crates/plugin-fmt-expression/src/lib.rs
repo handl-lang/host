@@ -4,8 +4,8 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Formatter, PlatformError,
     Plugin, PluginContext,
 };
-use handl_vm::Expr;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm::Expr;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use serde_json::json;
 
 /// Formatter plugin for individual expressions.

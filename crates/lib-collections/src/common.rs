@@ -1,4 +1,4 @@
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
 /// Require an argument at `idx` to be an array.
 pub(super) fn require_array(

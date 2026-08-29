@@ -19,9 +19,9 @@ use tokio::sync::oneshot;
 use handl_lib_http_server::{
     Handler, HttpMethod, HttpServer, HttpServerError, HttpServerRequest, HttpServerResponse,
 };
-use handl_vm_backend_rust_interpreter::CanonicalEval;
-use handl_vm_host_eval::EvalHost;
-use handl_vm_values_json::{Error as VmError, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
+use handl_plugin_vm_host_eval::EvalHost;
+use handl_plugin_vm_values_json::{Error as VmError, Eval, FunctionValue, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
 /// Runtime configuration for [`StdHttpServer`].

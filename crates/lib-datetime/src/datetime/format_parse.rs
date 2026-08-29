@@ -1,6 +1,6 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{
     format_iso, parse_iso, parse_with_format_and_offset, require_one_string, require_string, s,

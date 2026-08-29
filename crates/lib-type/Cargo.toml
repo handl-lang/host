@@ -4,6 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-vm-type = { workspace = true }
-handl-vm-type-schema-json = { workspace = true }
+handl-plugin-vm-type = { workspace = true }
+handl-plugin-vm-type-schema-json = { workspace = true }
 serde_json = { workspace = true }

@@ -1,5 +1,5 @@
 use handl_plugin_vm::Context;
-use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 
 use crate::error::TestError;
 

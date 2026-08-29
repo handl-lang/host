@@ -9,7 +9,7 @@ use handl_platform::{
     RuntimeHost, RuntimeRule,
 };
 use handl_plugin_vm::{Context, Error};
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// Boolean built-in family.
 pub struct BooleanFamily;

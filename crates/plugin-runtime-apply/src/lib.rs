@@ -9,7 +9,7 @@ use handl_platform::{
     RuntimeRule,
 };
 use handl_plugin_vm::{Context, Error};
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 
 /// Apply / pipe built-in family.
 pub struct ApplyFamily;

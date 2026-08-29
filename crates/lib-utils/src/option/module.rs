@@ -1,6 +1,6 @@
 use handl_plugin_vm::Function;
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::option::functions::{
     And, Filter, FlatMap, IsNone, IsSome, Map, MapOr, NoneFn, Or, OrElse, SomeFn, Unwrap, UnwrapOr,

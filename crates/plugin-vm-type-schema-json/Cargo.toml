@@ -1,0 +1,11 @@
+[package]
+name = "handl-plugin-vm-type-schema-json"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-vm-type = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]

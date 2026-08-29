@@ -1,5 +1,5 @@
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 
 use crate::common::{arr, b, num, require_one_array, require_two_arrays};
 

@@ -8,7 +8,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-http-client            handl-lib-http-client-std
+//! handl-plugin-vm-common          handl-lib-http-client            handl-lib-http-client-std
 //! ─────────────            ─────────────────────         ───────────────────────────
 //! Module trait             HttpClient trait              StdHttpClient (ureq)
 //! ModuleHost               HttpMethod/HttpRequest/HttpResponse
@@ -23,7 +23,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_http_client::{HttpClientModule, http_client_stub::StubHttpClient};
 //!
 //! let host = ModuleHost::new()

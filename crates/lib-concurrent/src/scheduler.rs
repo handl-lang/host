@@ -21,7 +21,7 @@ use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
 use crate::cancel::{CancelRuntime, CancelableEval, DefaultCancelRuntime};
 use crate::timer::{ThreadTimerRuntime, TimerRuntime};
-use handl_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
 
 /// A replaceable backend for the `concurrent.spawn`, `concurrent.await`,
@@ -1679,7 +1679,7 @@ impl Scheduler for WorkStealingScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::{CanonicalContext, Eval};
+    use handl_plugin_vm_values_json::{CanonicalContext, Eval};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 

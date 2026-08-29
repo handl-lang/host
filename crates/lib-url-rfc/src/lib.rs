@@ -4,8 +4,8 @@
 
 use handl_lib_parse::{DynParser, ParseError, Parser};
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use iri_string::types::UriString;
 use serde_json::{Value, json};
 
@@ -121,7 +121,7 @@ impl Function<NonFunctionValue> for UrlRfcName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::CanonicalContext;
+    use handl_plugin_vm_values_json::CanonicalContext;
 
     #[test]
     fn parses_http_uri() {

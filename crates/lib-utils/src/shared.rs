@@ -1,8 +1,8 @@
 use handl_plugin_vm::Context;
-use handl_vm_values_json::Error;
+use handl_plugin_vm_values_json::Error;
 use serde_json::{Map, Value as JsonValue};
 
-use handl_vm_values_json::{FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{FunctionValue, NonFunctionValue};
 
 // ════════════════════════════════════════════════════════════════════
 // Tier 0: Shared helpers (replaces duplicated copies across modules)

@@ -8,7 +8,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_kv::{KeyValueStoreModule};
 //! use handl_lib_kv_hashmap::HashKeyValueStore;
 //!
@@ -76,8 +76,8 @@ impl KeyValueStore for HashKeyValueStore {
 #[cfg(test)]
 mod tests {
     use handl_lib_kv::KeyValueStoreModule;
-    use handl_vm_common::Module;
-    use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+    use handl_plugin_vm_common::Module;
+    use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
 
     use super::HashKeyValueStore;
 

@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::fs::FsModule;
 use super::fs_stub::StubFs;
@@ -15,7 +15,7 @@ fn call_err(
     module: &dyn Module,
     name: &str,
     args: &[NonFunctionValue],
-) -> handl_vm_values_json::Error {
+) -> handl_plugin_vm_values_json::Error {
     let func = module.function(name).expect("function exists");
     let mut ctx = CanonicalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -46,7 +46,7 @@ fn read_file_not_found() {
     let module = FsModule::new(StubFs::default());
     let err = call_err(&module, "read", &[s("missing.txt")]);
     match err {
-        handl_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }
@@ -112,7 +112,7 @@ fn argument_count() {
     let err = call_err(&module, "read", &[]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0
         }

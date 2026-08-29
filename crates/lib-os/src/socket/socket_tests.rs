@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::socket::SocketModule;
 use super::socket_stub::StubSocket;
@@ -15,7 +15,7 @@ fn call_err(
     module: &dyn Module,
     name: &str,
     args: &[NonFunctionValue],
-) -> handl_vm_values_json::Error {
+) -> handl_plugin_vm_values_json::Error {
     let func = module.function(name).expect("function exists");
     let mut ctx = CanonicalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -59,7 +59,7 @@ fn send_and_close() {
     assert_eq!(sent, 4);
     call(&module, "close", &[n(handle)]);
     let err = call_err(&module, "recv", &[n(handle), n(1024)]);
-    assert!(matches!(err, handl_vm_values_json::Error::PrimitiveError(_)));
+    assert!(matches!(err, handl_plugin_vm_values_json::Error::PrimitiveError(_)));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn argument_count() {
     let err = call_err(&module, "connect", &[]);
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0
         }

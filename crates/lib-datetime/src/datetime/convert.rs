@@ -1,6 +1,6 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{format_iso, n, parse_iso, require_number, require_one_string, s};
 use crate::DatetimeError;

@@ -1,6 +1,6 @@
 use handl_plugin_vm::{Function, LazyFunction};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::r#fn::combinators::{
     Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, IfLazy, Map, Match,

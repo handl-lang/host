@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use handl_lib_encoding::EncodingRegistry;
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 fn codec_name(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
     let obj = value.as_object().ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {

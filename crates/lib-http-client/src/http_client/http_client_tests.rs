@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::http_client::{HttpClientModule, HttpResponse};
 use super::http_client_stub::StubHttpClient;
@@ -190,7 +190,7 @@ fn request_unknown_method() {
         )
         .unwrap_err();
     match err {
-        handl_vm_values_json::Error::PrimitiveError(msg) => {
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
             assert!(msg.contains("unknown HTTP method"))
         }
         other => panic!("expected PrimitiveError, got {other:?}"),
@@ -244,7 +244,7 @@ fn get_not_found() {
     let mut ctx = CanonicalContext::new();
     let err = func.call(&[s("https://nope.com")], &mut ctx).unwrap_err();
     match err {
-        handl_vm_values_json::Error::PrimitiveError(msg) => {
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
             assert!(msg.contains("no canned response"))
         }
         other => panic!("expected PrimitiveError, got {other:?}"),

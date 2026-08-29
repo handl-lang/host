@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{CanonicalContext, Error};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{CanonicalContext, Error};
 
 use super::module::RandModule;
 

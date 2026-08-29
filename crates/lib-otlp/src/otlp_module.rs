@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::{Error as VmError, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{Error as VmError, NonFunctionValue};
 use serde_json::Value;
 
 use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};

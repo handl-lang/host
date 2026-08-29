@@ -1,5 +1,5 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// Require a number argument at `idx`.
 pub(super) fn require_number(args: &[NonFunctionValue], idx: usize) -> Result<f64, Error> {

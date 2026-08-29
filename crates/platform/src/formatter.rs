@@ -1,7 +1,7 @@
 //! Generic expression formatter trait for the platform.
 
 use handl_plugin_vm::Expr;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use crate::PlatformError;
 

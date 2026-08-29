@@ -1,7 +1,7 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::Error;
+use handl_plugin_vm_values_json::Error;
 
 fn require_one_arg(args: &[NonFunctionValue]) -> Result<&NonFunctionValue, Error> {
     args.first().ok_or(Error::ArgumentCount {

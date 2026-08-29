@@ -1,6 +1,6 @@
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;

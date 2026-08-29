@@ -1,8 +1,8 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::Rng;
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::Error;
+use handl_plugin_vm_values_json::Error;
 
 use super::common::{num, require_number};
 use crate::error::RandError;

@@ -4,8 +4,8 @@
 
 use handl_lib_parse::{DynParser, ParseError, Parser};
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use serde_json::{Value, json};
 
 /// Parser for the WHATWG URL Standard.
@@ -124,7 +124,7 @@ impl Function<NonFunctionValue> for UrlWhatwgName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::CanonicalContext;
+    use handl_plugin_vm_values_json::CanonicalContext;
 
     #[test]
     fn parses_http_url() {

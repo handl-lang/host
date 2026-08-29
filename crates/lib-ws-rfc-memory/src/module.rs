@@ -21,8 +21,8 @@ use handl_lib_ws_rfc::{
     MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
 };
 use handl_plugin_vm::Function;
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 /// The `ws_rfc` runtime module — WebSocket frame, message and in-process
 /// client/server primitives.

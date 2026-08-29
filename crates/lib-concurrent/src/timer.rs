@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use handl_vm_values_json::Error;
+use handl_plugin_vm_values_json::Error;
 
 /// A replaceable backend for timer operations used by the schedulers.
 pub trait TimerRuntime: Send + Sync {
@@ -164,7 +164,7 @@ impl TimerRuntime for NoopTimerRuntime {
 mod tests {
     use super::*;
     use crate::scheduler::Scheduler;
-    use handl_vm_values_json::{CanonicalContext, Error as _Error, Eval, FunctionValue, NonFunctionValue};
+    use handl_plugin_vm_values_json::{CanonicalContext, Error as _Error, Eval, FunctionValue, NonFunctionValue};
     use serde_json::json;
     use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
     use std::thread;

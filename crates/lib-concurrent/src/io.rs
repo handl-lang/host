@@ -6,7 +6,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
 use std::thread;
 
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 use mio::{Events, Interest, Poll, Token, Waker};
 use mio::net::TcpStream as MioTcpStream;
 use parking_lot::Mutex;

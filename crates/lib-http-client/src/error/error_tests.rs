@@ -21,9 +21,9 @@ fn converts_to_vm_error() {
     let err = HttpError::Network {
         message: "timeout".into(),
     };
-    let vm_err: handl_vm_values_json::Error = err.into();
+    let vm_err: handl_plugin_vm_values_json::Error = err.into();
     match vm_err {
-        handl_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("network error")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("network error")),
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }

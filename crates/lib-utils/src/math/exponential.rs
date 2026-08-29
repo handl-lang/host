@@ -1,5 +1,5 @@
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
 use super::helpers::{num, require_number, require_two_numbers, unary_fn};
 

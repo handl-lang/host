@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use handl_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
 
 /// A replaceable backend for the cancellation primitives:
@@ -190,7 +190,7 @@ impl CancelableEval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_vm_values_json::{CanonicalContext, Eval};
+    use handl_plugin_vm_values_json::{CanonicalContext, Eval};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 

@@ -163,14 +163,14 @@ members = [
     "crates/tooling",
     "crates/typecheck-core",
     "crates/plugin-vm",
-    "crates/vm-backend-rust-interpreter",
-    "crates/vm-common",
-    "crates/vm-config",
-    "crates/vm-host-eval",
-    "crates/vm-server",
-    "crates/vm-type",
-    "crates/vm-type-schema-json",
-    "crates/vm-values-json",
+    "crates/plugin-vm-backend-rust-interpreter",
+    "crates/plugin-vm-common",
+    "crates/plugin-vm-config",
+    "crates/plugin-vm-host-eval",
+    "crates/plugin-vm-server",
+    "crates/plugin-vm-type",
+    "crates/plugin-vm-type-schema-json",
+    "crates/plugin-vm-values-json",
 ]
 resolver = "3"
 
@@ -354,14 +354,14 @@ handl-target-native = { path = "crates/target-native" }
 handl-tooling = { path = "crates/tooling" }
 handl-typecheck-core = { path = "crates/typecheck-core" }
 handl-plugin-vm = { path = "crates/plugin-vm" }
-handl-vm-backend-rust-interpreter = { path = "crates/vm-backend-rust-interpreter" }
-handl-vm-common = { path = "crates/vm-common" }
-handl-vm-config = { path = "crates/vm-config" }
-handl-vm-host-eval = { path = "crates/vm-host-eval" }
-handl-vm-server = { path = "crates/vm-server" }
-handl-vm-type = { path = "crates/vm-type" }
-handl-vm-type-schema-json = { path = "crates/vm-type-schema-json" }
-handl-vm-values-json = { path = "crates/vm-values-json" }
+handl-plugin-vm-backend-rust-interpreter = { path = "crates/plugin-vm-backend-rust-interpreter" }
+handl-plugin-vm-common = { path = "crates/plugin-vm-common" }
+handl-plugin-vm-config = { path = "crates/plugin-vm-config" }
+handl-plugin-vm-host-eval = { path = "crates/plugin-vm-host-eval" }
+handl-plugin-vm-server = { path = "crates/plugin-vm-server" }
+handl-plugin-vm-type = { path = "crates/plugin-vm-type" }
+handl-plugin-vm-type-schema-json = { path = "crates/plugin-vm-type-schema-json" }
+handl-plugin-vm-values-json = { path = "crates/plugin-vm-values-json" }
 
 [features]
 default = []

@@ -15,7 +15,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_kv::KeyValueStoreModule;
 //! use handl_lib_kv_hashmap::HashKeyValueStore;
 //!

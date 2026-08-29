@@ -1,6 +1,6 @@
 use super::WsRfcModule;
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
 
 fn ctx() -> CanonicalContext {
     CanonicalContext::new()

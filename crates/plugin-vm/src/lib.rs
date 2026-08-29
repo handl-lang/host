@@ -7,8 +7,8 @@
 //! It does not contain a concrete implementation; it is generic over
 //! the value type `V` via the [`Value`] trait.
 //!
-//! The canonical tree-walking VM lives in `handl-vm-backend-rust-interpreter`.
-//! Reusable helpers, mocks, and host combinators live in `handl-vm-common`.
+//! The canonical tree-walking VM lives in `handl-plugin-vm-backend-rust-interpreter`.
+//! Reusable helpers, mocks, and host combinators live in `handl-plugin-vm-common`.
 
 pub mod error;
 pub mod eval;

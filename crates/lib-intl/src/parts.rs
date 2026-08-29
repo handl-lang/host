@@ -1,4 +1,4 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use std::fmt;
 
 use writeable::{Part, PartsWrite};

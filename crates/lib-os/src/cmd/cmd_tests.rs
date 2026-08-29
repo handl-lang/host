@@ -1,6 +1,6 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::cmd::{CmdModule, CmdOutput};
 use super::cmd_stub::StubCmd;
@@ -79,7 +79,7 @@ fn run_not_found() {
     let mut ctx = CanonicalContext::new();
     let err = func.call(&[s("nope")], &mut ctx).unwrap_err();
     match err {
-        handl_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
+        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => assert!(msg.contains("not found")),
         other => panic!("expected PrimitiveError, got {other:?}"),
     }
 }
@@ -98,7 +98,7 @@ fn missing_program_arg() {
     let err = func.call(&[], &mut ctx).unwrap_err();
     assert_eq!(
         err,
-        handl_vm_values_json::Error::ArgumentCount {
+        handl_plugin_vm_values_json::Error::ArgumentCount {
             expected: 1,
             got: 0
         }

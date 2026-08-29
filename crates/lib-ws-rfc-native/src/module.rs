@@ -10,13 +10,13 @@ use handl_plugin_vm::{Context, Function};
 #[cfg(feature = "server")]
 use handl_plugin_vm::Eval;
 #[cfg(feature = "server")]
-use handl_vm_backend_rust_interpreter::CanonicalEval;
-use handl_vm_common::Module;
+use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
+use handl_plugin_vm_common::Module;
 #[cfg(feature = "server")]
-use handl_vm_host_eval::EvalHost;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_host_eval::EvalHost;
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 #[cfg(feature = "server")]
-use handl_vm_values_json::FunctionValue;
+use handl_plugin_vm_values_json::FunctionValue;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 #[cfg(feature = "server")]
@@ -898,7 +898,7 @@ mod tests {
     #[test]
     #[ignore = "network/tls integration"]
     fn client_server_echo_roundtrip() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -987,7 +987,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_unconnected_client_returns_null() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1010,7 +1010,7 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_to_invalid_addr_fails() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1041,7 +1041,7 @@ mod tests {
     #[test]
     #[ignore = "network/tls integration"]
     fn client_server_binary_echo_roundtrip() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1096,7 +1096,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn connect_to_refused_port_fails() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1119,7 +1119,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_non_blocking_returns_null_when_empty() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1144,7 +1144,7 @@ mod tests {
     #[test]
     #[ignore = "network/tls integration"]
     fn wss_server_echo_roundtrip() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
         use tokio::runtime::Runtime;
         use tokio_rustls::rustls::{ClientConfig, RootCertStore};
         use tokio_rustls::rustls::pki_types::ServerName;
@@ -1220,7 +1220,7 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_accepts_max_connections_config() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1255,7 +1255,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn connect_to_invalid_url_fails() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1278,7 +1278,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn send_to_unknown_client_fails() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1300,7 +1300,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_from_unknown_client_fails() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1331,7 +1331,7 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_wss_requires_cert_config() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1357,7 +1357,7 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn client_with_arguments_errors() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1372,7 +1372,7 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn server_with_arguments_errors() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;
@@ -1387,7 +1387,7 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_rejects_non_object_config() {
-        use handl_vm_values_json::CanonicalContext;
+        use handl_plugin_vm_values_json::CanonicalContext;
 
         let mut ctx = CanonicalContext::new();
         let m = WsRfcNativeModule;

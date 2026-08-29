@@ -10,7 +10,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-os                     handl-lib-os-std
+//! handl-plugin-vm-common          handl-lib-os                     handl-lib-os-std
 //! ─────────────            ──────────────────            ─────────────────────
 //! Module trait             Fs trait                      StdFs (std::fs)
 //! ModuleHost               Env trait                     StdEnv (std::env)
@@ -32,7 +32,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_utils::{MathModule, StrModule};
 //! use handl_lib_os::{
 //!     FsModule, EnvModule, PathModule, TimeModule,

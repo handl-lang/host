@@ -1,6 +1,6 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{Context, Function};
 use md5::Md5 as Md5Hasher;
 use sha2::{Digest, Sha256 as Sha256Hasher};
 

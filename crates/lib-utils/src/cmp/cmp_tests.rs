@@ -1,5 +1,5 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
 
 use super::CmpModule;
 

@@ -3,7 +3,7 @@
 //! Currently implemented as a wrapper around `serde_json::Value::Object`.
 
 use handl_plugin_vm::{Context, Function};
-use handl_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 

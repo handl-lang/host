@@ -2,7 +2,7 @@
 
 
 #[cfg(feature = "concurrent")]
-use handl_vm_common::ModuleHost;
+use handl_plugin_vm_common::ModuleHost;
 
 #[cfg(feature = "concurrent")]
 use handl_lib_concurrent::ConcurrencyModule;

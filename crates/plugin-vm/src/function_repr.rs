@@ -11,7 +11,7 @@ use crate::Value;
 ///
 /// Implementations live next to the concrete value type. For the
 /// default JSON-backed `NonFunctionValue`/`FunctionValue` types, see
-/// `handl-vm-values-json`.
+/// `handl-plugin-vm-values-json`.
 pub trait FunctionRepr<V: Value>: Debug + Send + Sync + 'static {
     /// The declared parameters as `(name, schema)` pairs.
     fn params(&self) -> Vec<(String, V)>;

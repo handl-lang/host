@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use handl_lib_serialize::SerializerRegistry;
 use handl_plugin_vm::{Context, Function};
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 fn format_name(value: &NonFunctionValue) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
     if let Some(s) = value.as_str() {

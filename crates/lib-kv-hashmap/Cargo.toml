@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-lib-kv.workspace = true
-handl-vm-values-json.workspace = true
+handl-plugin-vm-values-json.workspace = true
 
 [dev-dependencies]
-handl-vm-common.workspace = true
+handl-plugin-vm-common.workspace = true
 handl-plugin-vm.workspace = true

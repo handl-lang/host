@@ -10,7 +10,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-datetime
+//! handl-plugin-vm-common          handl-lib-datetime
 //! ─────────────            ────────────────
 //! Module trait             DateTimeModule (Copy, zero-alloc)
 //! ModuleHost               *Function structs
@@ -45,7 +45,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_datetime::DateTimeModule;
 //!
 //! let host = ModuleHost::new()

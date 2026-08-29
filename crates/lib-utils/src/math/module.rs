@@ -1,6 +1,6 @@
 use handl_plugin_vm::Function;
-use handl_vm_common::Module;
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::NonFunctionValue;
 
 use super::arithmetic::{
     Add, Clamp, Div, Factorial, FloorDiv, Gcd, Lcm, Lerp, MapRange, Max, Min, Mod, Mul, Sub,

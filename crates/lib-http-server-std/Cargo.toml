@@ -8,9 +8,9 @@ ureq = "2"
 
 [dependencies]
 handl-lib-http-server.workspace = true
-handl-vm-backend-rust-interpreter.workspace = true
-handl-vm-host-eval.workspace = true
-handl-vm-values-json.workspace = true
+handl-plugin-vm-backend-rust-interpreter.workspace = true
+handl-plugin-vm-host-eval.workspace = true
+handl-plugin-vm-values-json.workspace = true
 tokio = { version = "1", features = ["rt", "net", "sync", "macros", "time", "fs"] }
 hyper = { version = "1", features = ["server", "client", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio", "server", "http1", "http2"] }

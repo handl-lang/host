@@ -1,8 +1,8 @@
-use handl_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_vm_common::Module;
-use handl_vm_values_json::CanonicalContext;
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::CanonicalContext;
 
 use crate::http_method::HttpMethod;
 use crate::http_server::{HttpServer, HttpServerModule, StubHttpServer};

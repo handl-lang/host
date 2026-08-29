@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
 use serde_json::Value;
 
 use crate::otlp_module::OtlpModule;

@@ -7,7 +7,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_http_client::HttpClientModule;
 //! use handl_lib_http_client_std::StdHttpClient;
 //!

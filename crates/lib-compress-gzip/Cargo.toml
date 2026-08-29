@@ -6,8 +6,8 @@ edition.workspace = true
 [dependencies]
 handl-lib-compress = { path = "../lib-compress" }
 handl-plugin-vm.workspace = true
-handl-vm-common.workspace = true
-handl-vm-values-json.workspace = true
+handl-plugin-vm-common.workspace = true
+handl-plugin-vm-values-json.workspace = true
 serde_json.workspace = true
 base64 = "0.22"
 flate2.workspace = true

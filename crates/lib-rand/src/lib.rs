@@ -9,7 +9,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! handl-vm-common          handl-lib-rand
+//! handl-plugin-vm-common          handl-lib-rand
 //! ─────────────            ────────────
 //! Module trait             RandModule (Copy, zero-alloc)
 //! ModuleHost               *Function structs
@@ -35,7 +35,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_rand::RandModule;
 //!
 //! let host = ModuleHost::new()

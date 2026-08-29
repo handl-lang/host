@@ -1,6 +1,6 @@
 //! Unified value/proof space for the handl VM.
 //!
-//! This module re-exports the `handl-vm-type` primitives that make up the
+//! This module re-exports the `handl-plugin-vm-type` primitives that make up the
 //! single `Value`/`Term` space used by the platform VM.
 
 pub use handl_lib_type::Term::{

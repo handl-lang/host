@@ -1,6 +1,6 @@
-use handl_vm_values_json::Error;
-use handl_vm_values_json::NonFunctionValue;
-use handl_vm_values_json::{Context, Function};
+use handl_plugin_vm_values_json::Error;
+use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_plugin_vm_values_json::{Context, Function};
 use icu::locale::Locale;
 use icu::locale::extensions::unicode::{Key, Value};
 use icu::locale::subtags::{Language, Region, Script};

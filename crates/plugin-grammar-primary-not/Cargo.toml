@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-platform.workspace = true
-handl-vm-values-json.workspace = true
+handl-plugin-vm-values-json.workspace = true
 
 [dev-dependencies]
 handl-plugin-grammar-primary-value.workspace = true

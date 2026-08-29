@@ -17,7 +17,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_collections::CollectionsModule;
 //!
 //! let host = ModuleHost::new()

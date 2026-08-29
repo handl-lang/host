@@ -1,5 +1,5 @@
 use handl_plugin_vm::Eval;
-use handl_vm_values_json::{Error, NonFunctionValue};
+use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
 /// An [`Eval`] that always returns `true`.
 pub struct TrueEval;

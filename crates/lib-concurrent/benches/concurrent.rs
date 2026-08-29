@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use handl_lib_concurrent::scheduler::{DefaultScheduler, Scheduler, ThreadPoolScheduler, WorkStealingScheduler};
-use handl_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;

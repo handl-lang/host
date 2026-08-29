@@ -2,7 +2,7 @@
 //!
 //! Standard library modules for the handl runtime.
 //!
-//! Provides concrete [`Module`](handl_vm_common::Module) implementations with useful functions for
+//! Provides concrete [`Module`](handl_plugin_vm_common::Module) implementations with useful functions for
 //! expressions and interpolation:
 //!
 //! - [`MathModule`] — `math.abs`, `math.floor`, `math.ceil`, `math.round`,
@@ -45,7 +45,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_vm_common::ModuleHost;
+//! use handl_plugin_vm_common::ModuleHost;
 //! use handl_lib_utils::{MathModule, StrModule, BoolModule, CmpModule,
 //!     FnModule, TypeModule, OptionModule};
 //!

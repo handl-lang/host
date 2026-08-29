@@ -1,5 +1,5 @@
 use handl_plugin_vm::Function;
-use handl_vm_values_json::{CanonicalContext, NonFunctionValue};
+use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
 use serde_json::Value as JsonValue;
 
 use crate::mood::{MoodCnd, MoodInd, MoodInt, MoodNeg, MoodNorm, MoodPot};

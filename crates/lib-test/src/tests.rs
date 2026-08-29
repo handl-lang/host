@@ -1,5 +1,5 @@
-use handl_vm_common::Module;
-use handl_vm_values_json::{CanonicalContext, Error, FunctionValue, NonFunctionValue};
+use handl_plugin_vm_common::Module;
+use handl_plugin_vm_values_json::{CanonicalContext, Error, FunctionValue, NonFunctionValue};
 use serde_json::json;
 
 use crate::test_helpers::{ErrorEval, TrueEval};
@@ -46,7 +46,7 @@ fn fn_value(body: &str, params: &[&str]) -> NonFunctionValue {
 }
 
 fn call(
-    module: &dyn handl_vm_common::Module,
+    module: &dyn handl_plugin_vm_common::Module,
     name: &str,
     args: &[NonFunctionValue],
 ) -> NonFunctionValue {
@@ -58,7 +58,7 @@ fn call(
 }
 
 fn call_err(
-    module: &dyn handl_vm_common::Module,
+    module: &dyn handl_plugin_vm_common::Module,
     name: &str,
     args: &[NonFunctionValue],
     context: &mut CanonicalContext,
