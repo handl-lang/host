@@ -3,6 +3,9 @@ name = "handl-plugin-engine-eval-cranelift"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 handl-language = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }

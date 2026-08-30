@@ -96,6 +96,7 @@
 #![warn(missing_docs)]
 
 mod compile;
+mod standalone;
 
 pub use compile::{
     compile_all_nodes, compile_all_nodes_jit, compile_all_nodes_object, CompileMode,
@@ -156,6 +157,39 @@ impl<'h> CraneliftEngine<'h> {
         output_path: &Path,
     ) -> Result<ObjectResult, LangError> {
         compile_all_nodes_object(lang, ast, output_path)
+    }
+
+    /// Compile the language + AST to a **standalone executable**.
+    ///
+    /// This is the full ADR-0044 Phase 8 `compile(handlLanguage, native)`
+    /// step: compiles the AST to a relocatable `.o` file, then links it
+    /// with a generated C `main` driver and this crate's static library
+    /// (which exports the `helper_*` runtime stub and the
+    /// `handl_standalone_*` entry points) to produce a standalone
+    /// executable.
+    ///
+    /// The resulting executable, when run, evaluates the AST and prints the
+    /// result (as JSON) to stdout — producing the same output as the
+    /// host-built handl.
+    ///
+    /// # Foreign functions
+    ///
+    /// The standalone executable does **not** support `Scheme::Foreign`
+    /// dispatch (there is no host functions registry at runtime). Corpus
+    /// cases that use foreign functions will fail at evaluation time; this
+    /// is a documented limitation of the Phase 8 proof-of-concept.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on compilation, serialization, driver
+    /// generation, staticlib discovery, or linking failure.
+    pub fn compile_to_executable(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        output_path: &Path,
+    ) -> Result<(), LangError> {
+        standalone::compile_to_executable(lang, ast, output_path)
     }
 
     /// Run a pre-compiled [`CompiledResult`] against `lang` and `ast`.
@@ -347,6 +381,48 @@ impl EvalCtx<'_> {
     fn set_error(&mut self, err: LangError) -> *mut Value {
         self.error = Some(err);
         std::ptr::null_mut()
+    }
+
+    /// Construct an [`EvalCtx`] for standalone execution.
+    ///
+    /// This is the entry point used by the standalone bootstrap driver
+    /// (ADR-0044 Phase 8): an external driver links the cranelift-emitted
+    /// `.o` file (which exports `node_N` symbols) against this crate's
+    /// static library (which exports the `helper_*` symbols), builds the
+    /// per-node function-pointer map from the `node_N` addresses, and
+    /// constructs the evaluation context via this constructor.
+    ///
+    /// The `ast` must outlive the returned [`EvalCtx`] — a raw pointer to
+    /// it is stored and dereferenced by the helpers during evaluation.
+    /// `lang` is not needed (the helpers resolve schemes from `ast` at
+    /// runtime via `current_node`), so a null pointer is stored. The
+    /// `compiled` map carries the `node_N` function pointers keyed by
+    /// arena index; `literals` and `names` are the constant pools emitted
+    /// alongside the object file (see [`ObjectResult`]).
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `ast` outlives the [`EvalCtx`] and that the
+    /// function pointers in `compiled` point to valid native code
+    /// (e.g. linked from the emitted `.o` file) that remains alive for
+    /// the duration of evaluation.
+    pub fn for_standalone(
+        ast: &Ast,
+        compiled: HashMap<usize, CompiledFn>,
+        literals: Vec<Value>,
+        names: Vec<String>,
+    ) -> Self {
+        Self {
+            lang: std::ptr::null(),
+            ast: ast as *const Ast,
+            env: ScopeStack::new(),
+            current_ref: if ast.is_empty() { 0 } else { ast.len() - 1 },
+            host: None,
+            compiled,
+            literals,
+            names,
+            error: None,
+        }
     }
 }
 
@@ -555,7 +631,8 @@ unsafe fn take_value(ptr: *mut Value) -> Value { unsafe {
 // ---------------------------------------------------------------------------
 
 /// Push a literal value (from the constant pool) as a boxed clone.
-pub(crate) unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx<'_>, lit_idx: usize) -> *mut Value { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx<'_>, lit_idx: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     if lit_idx >= ctx.literals.len() {
         return ctx.set_error(LangError::Engine(format!(
@@ -567,7 +644,8 @@ pub(crate) unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx<'_>, lit_i
 }}
 
 /// Load a variable by name index from the scope stack.
-pub(crate) unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx<'_>, name_idx: usize) -> *mut Value { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx<'_>, name_idx: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     if name_idx >= ctx.names.len() {
         return ctx.set_error(LangError::Engine(format!(
@@ -586,7 +664,8 @@ pub(crate) unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx<'_>, name_idx:
 
 /// Load the payload variable: reads `node.payload` as a string (the variable
 /// name) and looks it up in the scope.
-pub(crate) unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     match ctx.current_node() {
         Ok(node) => match node.payload.as_str() {
@@ -605,7 +684,8 @@ pub(crate) unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx<'_>) -
 }}
 
 /// Load the current node's payload directly (no-scheme fallback).
-pub(crate) unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     match ctx.current_node() {
         Ok(node) => box_value(node.payload.clone()),
@@ -617,7 +697,8 @@ pub(crate) unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx<'_>) -> *m
 ///
 /// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
 /// calls the child's pre-compiled native function.
-pub(crate) unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n: usize) -> *mut Value { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     let node = match ctx.current_node() {
         Ok(n) => n,
@@ -663,7 +744,8 @@ pub(crate) unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n
 ///
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
-pub(crate) unsafe extern "C" fn helper_store(ctx: *mut EvalCtx<'_>, name_idx: usize, val: *mut Value) { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx<'_>, name_idx: usize, val: *mut Value) { unsafe {
     let ctx = &mut *ctx;
     if name_idx >= ctx.names.len() {
         ctx.set_error(LangError::Engine(format!(
@@ -689,7 +771,8 @@ pub(crate) unsafe extern "C" fn helper_store(ctx: *mut EvalCtx<'_>, name_idx: us
 ///
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
-pub(crate) unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val: *mut Value) { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val: *mut Value) { unsafe {
     let ctx = &mut *ctx;
     let node = match ctx.current_node() {
         Ok(n) => n,
@@ -722,13 +805,15 @@ pub(crate) unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val:
 }}
 
 /// Pop the innermost scope.
-pub(crate) unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx<'_>) { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx<'_>) { unsafe {
     let ctx = &mut *ctx;
     ctx.env.pop_scope();
 }}
 
 /// Push a new empty scope for the `vau` parameter bindings (ADR-0041 §6).
-pub(crate) unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe {
     let ctx = &mut *ctx;
     ctx.env.push_scope();
 }}
@@ -740,7 +825,8 @@ pub(crate) unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe
 /// extracts the child's subtree into a standalone `Ast`, wraps it as a
 /// tagged `__ast__` value, and binds it to the name in the current
 /// (innermost) scope. The child is **not** evaluated.
-pub(crate) unsafe extern "C" fn helper_vau_bind(
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_vau_bind(
     ctx: *mut EvalCtx<'_>,
     name_idx: usize,
     child_n: usize,
@@ -801,7 +887,8 @@ pub(crate) unsafe extern "C" fn helper_vau_bind(
 ///
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`), or null.
-pub(crate) unsafe extern "C" fn helper_drop_value(val: *mut Value) { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_drop_value(val: *mut Value) { unsafe {
     if !val.is_null() {
         let _ = take_value(val);
     }
@@ -811,7 +898,8 @@ pub(crate) unsafe extern "C" fn helper_drop_value(val: *mut Value) { unsafe {
 ///
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
 /// Returns 1 for truthy, 0 for falsy.
-pub(crate) unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 { unsafe {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 { unsafe {
     if val.is_null() {
         return 0;
     }
@@ -826,7 +914,8 @@ pub(crate) unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 { unsa
 /// Apply a closure value to argument values.
 ///
 /// The callee and all argument value pointers are consumed (reclaimed).
-pub(crate) unsafe extern "C" fn helper_apply_closure(
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_apply_closure(
     ctx: *mut EvalCtx<'_>,
     callee: *mut Value,
     args: *const *mut Value,
@@ -956,7 +1045,8 @@ pub(crate) unsafe extern "C" fn helper_apply_closure(
 /// Apply a primitive operation (by name index).
 ///
 /// All argument value pointers are consumed (reclaimed).
-pub(crate) unsafe extern "C" fn helper_apply_prim(
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_apply_prim(
     ctx: *mut EvalCtx<'_>,
     op_idx: usize,
     args: *const *mut Value,
@@ -1000,7 +1090,8 @@ pub(crate) unsafe extern "C" fn helper_apply_prim(
 /// Call a foreign (host) function (by name index).
 ///
 /// All argument value pointers are consumed (reclaimed).
-pub(crate) unsafe extern "C" fn helper_call_foreign(
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_call_foreign(
     ctx: *mut EvalCtx<'_>,
     name_idx: usize,
     args: *const *mut Value,

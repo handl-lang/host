@@ -296,7 +296,7 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     // version check happens inside `compile_core`. `finalize_definitions` is
     // JIT-specific (it allocates/executes the compiled code) and is called
     // here, after the shared compilation.
-    let (func_ids, pools) = compile_core(&mut module, lang, ast)?;
+    let (func_ids, pools) = compile_core(&mut module, lang, ast, Linkage::Local)?;
 
     // Finalize all definitions (compiles + links the functions in memory).
     module
@@ -357,7 +357,7 @@ pub fn compile_all_nodes_object(
     // `declare_helper_imports` is used — it declares `Linkage::Import`
     // functions, which the JIT resolves via registered symbols and the
     // object backend leaves for the linker.
-    let (func_ids, pools) = compile_core(&mut module, lang, ast)?;
+    let (func_ids, pools) = compile_core(&mut module, lang, ast, Linkage::Export)?;
 
     // Build the per-node function-name map for linking (node_N).
     let function_names: HashMap<usize, String> = func_ids
@@ -419,6 +419,7 @@ fn compile_core<M: Module>(
     module: &mut M,
     lang: &Language,
     ast: &Ast,
+    node_linkage: Linkage,
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
     // Scheme version check.
     if !SchemeVersion::v1().supports(&lang.scheme_version) {
@@ -443,7 +444,7 @@ fn compile_core<M: Module>(
         sig.params.push(AbiParam::new(ptr_type));
         sig.returns.push(AbiParam::new(ptr_type));
         let func_id = module
-            .declare_function(&name, Linkage::Local, &sig)
+            .declare_function(&name, node_linkage, &sig)
             .map_err(|e| LangError::Engine(format!("declare error: {}", e)))?;
         func_ids.insert(i, func_id);
     }
