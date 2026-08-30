@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use handl_platform::{
     AstNode, BasicEvaluator, CapabilityId, CapabilityRequest, CapabilityResponse,
-    ContributionContext, EvalBehavior, EvalRequest, PlatformError, Plugin, PluginContext,
-    ResolvedOptions,
+    ContributionContext, EvalBehavior, EvalContext, EvalRequest, PlatformError, Plugin,
+    PluginContext, ResolvedOptions,
 };
 use handl_plugin_lib_type::{Literal, Name, Value as RuntimeValue};
 use handl_plugin_runtime::{EvalOutput, RuntimeBehavior, RuntimeHost, RuntimePlugin};
@@ -48,6 +48,7 @@ impl RuntimePlugin for RustVm {
         for stmt in stmts {
             let mut req = EvalRequest {
                 ast: stmt.clone(),
+                ctx: EvalContext::new(),
                 options: ResolvedOptions::new(),
                 result: None,
             };
