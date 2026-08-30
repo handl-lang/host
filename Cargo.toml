@@ -208,6 +208,7 @@ members = [
   "crates/crate-ecma402-icu4x",
   "crates/crate-ecma402-traits",
   "crates/crate-icu4x-extra",
+  "crates/handl-test-utils",
 ]
 resolver = "3"
 
@@ -434,6 +435,7 @@ handl-kit-type = { path = "crates/kit-type" }
 handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
 handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
 handl-plugin-vm-values-json = { path = "crates/plugin-vm-values-json" }
+handl-test-utils = { path = "crates/handl-test-utils" }
 
 [features]
 default = []
