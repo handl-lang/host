@@ -1,0 +1,12 @@
+[package]
+name = "handl-plugin-module"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-platform = { workspace = true }
+serde_json = { workspace = true }

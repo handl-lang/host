@@ -840,6 +840,7 @@ dependencies = [
  "handl-plugin-token-delimiter",
  "handl-plugin-token-doc-comment",
  "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-keyword-as",
  "handl-plugin-token-keyword-handle",
  "handl-plugin-token-kind",
@@ -1360,6 +1361,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
  "handl-plugin-token-kind",
 ]
 
@@ -1370,6 +1372,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1382,6 +1385,7 @@ dependencies = [
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
  "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1392,6 +1396,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1406,6 +1411,7 @@ dependencies = [
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
  "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1416,6 +1422,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-keyword-handle",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1427,6 +1434,8 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-identifier",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1497,6 +1506,8 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1508,7 +1519,10 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-identifier",
  "handl-plugin-token-kind",
+ "handl-plugin-token-string",
  "serde_json",
 ]
 
@@ -1520,6 +1534,7 @@ dependencies = [
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
  "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1596,6 +1611,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-identifier",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1655,7 +1671,11 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-bool",
  "handl-plugin-token-kind",
+ "handl-plugin-token-null",
+ "handl-plugin-token-number",
+ "handl-plugin-token-string",
  "serde_json",
 ]
 
@@ -1680,6 +1700,8 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1693,6 +1715,8 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-kind",
  "serde_json",
 ]
@@ -1718,7 +1742,11 @@ dependencies = [
  "handl-plugin-grammar-primary-identifier",
  "handl-plugin-grammar-primary-value",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1749,7 +1777,10 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-parser",
  "handl-plugin-lexer",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-identifier",
  "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -2511,6 +2542,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-module"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-parser"
 version = "0.1.0"
 dependencies = [
@@ -2709,6 +2748,7 @@ dependencies = [
  "handl-plugin-token-delimiter",
  "handl-plugin-token-doc-comment",
  "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword",
  "handl-plugin-token-keyword-as",
  "handl-plugin-token-keyword-handle",
  "handl-plugin-token-null",

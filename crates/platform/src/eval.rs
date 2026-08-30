@@ -204,6 +204,65 @@ impl BasicExecControl {
 }
 
 // ---------------------------------------------------------------------------
+// Function / Module / ModuleLookup traits
+// ---------------------------------------------------------------------------
+
+/// A callable host function, non-generic per ADR 0040.
+///
+/// Functions live in modules and are looked up by qualified name
+/// (e.g. `math.add`) via [`ModuleLookup`]. The `call` method receives the
+/// already-evaluated JSON arguments and a mutable [`EvalContext`] so the
+/// function can itself recurse (`ctx.eval`, `ctx.call_function`) or inspect
+/// variable bindings. There is no `V` genericity — values are
+/// `serde_json::Value`.
+pub trait Function: Send + Sync {
+    /// Invoke the function.
+    ///
+    /// `args` are the already-evaluated argument values. `ctx` is the
+    /// evaluation context the call is happening within.
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError>;
+}
+
+/// A named group of functions — the runtime-side analogue of a namespace.
+///
+/// A module provides a namespace for host functions. The module name becomes
+/// the first segment of a qualified function name — e.g. a module named
+/// `"math"` providing a function `"add"` is callable as `math.add(1, 2)`.
+/// Which modules exist is a runtime host decision, not a language-level
+/// feature.
+pub trait Module: Send + Sync {
+    /// The module name — the namespace prefix for qualified calls.
+    fn name(&self) -> &str;
+
+    /// Resolve a function name (without the module prefix) to a callable.
+    ///
+    /// Returns `None` if the name is not recognized in this module.
+    fn function(&self, name: &str) -> Option<&dyn Function>;
+
+    /// Enumerate all `(name, function)` pairs in this module.
+    ///
+    /// The default implementation is empty; modules override it to expose
+    /// their full function table (used for introspection and testing).
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        Vec::new()
+    }
+}
+
+/// Lookup handle for qualified function names, held by [`EvalContext`].
+///
+/// `EvalContext` cannot depend on `plugin-module` (where the concrete
+/// [`ModuleRegistry`](../handl_plugin_module/struct.ModuleRegistry.html)
+/// lives), so it holds an `Option<Rc<dyn ModuleLookup>>`. The concrete
+/// `ModuleRegistry` in `plugin-module` implements this trait. When no
+/// registry is wired up, `call_function` returns
+/// [`EvalError::UnknownFunction`].
+pub trait ModuleLookup: 'static {
+    /// Resolve a qualified name (e.g. `math.add`) or flat name (e.g. `add`)
+    /// to a callable [`Function`].
+    fn lookup(&self, qualified_name: &str) -> Option<&dyn Function>;
+}
+
+// ---------------------------------------------------------------------------
 // EvalContext
 // ---------------------------------------------------------------------------
 
@@ -226,6 +285,9 @@ pub struct EvalContext {
     call_count: usize,
     /// Recursion handle — set by `BasicEvaluator::run`.
     evaluator: Option<Rc<dyn EvaluatorCallback>>,
+    /// Module/function lookup handle — set by the host before evaluation
+    /// so eval rules can call `ctx.call_function("math.add", &[1, 2])`.
+    modules: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl EvalContext {
@@ -237,6 +299,7 @@ impl EvalContext {
             limits: EvalLimits::default(),
             call_count: 0,
             evaluator: None,
+            modules: None,
         }
     }
 
@@ -252,6 +315,20 @@ impl EvalContext {
     /// Set the evaluator handle (for recursion).
     pub fn set_evaluator(&mut self, evaluator: Rc<dyn EvaluatorCallback>) {
         self.evaluator = Some(evaluator);
+    }
+
+    /// Set the module/function lookup handle (for `call_function`).
+    ///
+    /// The host wires a [`ModuleLookup`] (typically a `ModuleRegistry` from
+    /// `plugin-module`) into the context before evaluation so eval rules can
+    /// call registered host functions by qualified name.
+    pub fn set_modules(&mut self, modules: Rc<dyn ModuleLookup>) {
+        self.modules = Some(modules);
+    }
+
+    /// Returns `true` if a module lookup handle is set.
+    pub fn has_modules(&self) -> bool {
+        self.modules.is_some()
     }
 
     /// Set resource limits.
@@ -344,10 +421,7 @@ impl EvalContext {
         self.call_count += 1;
         if let Some(max) = self.limits.max_calls {
             if self.call_count > max {
-                return Err(EvalError::ResourceLimit(format!(
-                    "call limit exceeded: {max}"
-                ))
-                .into());
+                return Err(EvalError::ResourceLimit(format!("call limit exceeded: {max}")).into());
             }
         }
         Ok(())
@@ -357,10 +431,9 @@ impl EvalContext {
     pub fn check_depth(&self) -> Result<(), PlatformError> {
         if let Some(max) = self.limits.max_depth {
             if self.scopes.len() >= max {
-                return Err(EvalError::ResourceLimit(format!(
-                    "depth limit exceeded: {max}"
-                ))
-                .into());
+                return Err(
+                    EvalError::ResourceLimit(format!("depth limit exceeded: {max}")).into(),
+                );
             }
         }
         Ok(())
@@ -402,6 +475,29 @@ impl EvalContext {
         dispatch_result?;
         req.result.ok_or(PlatformError::NotImplemented)
     }
+
+    /// Call a registered host function by qualified name.
+    ///
+    /// Looks up `name` (e.g. `math.add` or a flat `add`) through the
+    /// [`ModuleLookup`] handle wired via [`set_modules`]. The arguments are
+    /// passed as already-evaluated JSON values. Returns
+    /// [`EvalError::UnknownFunction`] if no module registry is set or the
+    /// name is not found.
+    ///
+    /// This is the bridge between the eval tree-walker and the
+    /// `Module`/`Function` registration mechanism (see ADR 0040).
+    pub fn call_function(&mut self, name: &str, args: &[Value]) -> Result<Value, EvalError> {
+        // Clone the Rc so we can borrow the lookup without borrowing `self`,
+        // then call the function with `&mut self` as the context.
+        let modules = self
+            .modules
+            .clone()
+            .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
+        let func = modules
+            .lookup(name)
+            .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
+        func.call(args, self)
+    }
 }
 
 impl Default for EvalContext {
@@ -417,6 +513,7 @@ impl std::fmt::Debug for EvalContext {
             .field("limits", &self.limits)
             .field("call_count", &self.call_count)
             .field("has_evaluator", &self.evaluator.is_some())
+            .field("has_modules", &self.modules.is_some())
             .finish()
     }
 }
@@ -428,6 +525,7 @@ impl Clone for EvalContext {
             limits: self.limits.clone(),
             call_count: self.call_count,
             evaluator: self.evaluator.clone(),
+            modules: self.modules.clone(),
         }
     }
 }
@@ -809,8 +907,12 @@ mod tests {
         impl EvalBehavior for ValueRule {}
 
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Double) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueRule) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Double) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueRule) as Arc<dyn EvalBehavior>)
+            .unwrap();
 
         let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
         let mut pctx = PluginContext {
@@ -843,7 +945,11 @@ mod tests {
         }
 
         impl ExecControl for CountingControl {
-            fn before_eval(&self, _ast: &AstNode, _ctx: &mut EvalContext) -> Result<(), PlatformError> {
+            fn before_eval(
+                &self,
+                _ast: &AstNode,
+                _ctx: &mut EvalContext,
+            ) -> Result<(), PlatformError> {
                 self.before.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
@@ -874,7 +980,9 @@ mod tests {
         let after = Arc::new(AtomicUsize::new(0));
 
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Echo) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Echo) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(CountingControl {
             before: before.clone(),
             after: after.clone(),
@@ -903,7 +1011,11 @@ mod tests {
     fn exec_control_before_eval_can_abort() {
         struct DenyAll;
         impl ExecControl for DenyAll {
-            fn before_eval(&self, _ast: &AstNode, _ctx: &mut EvalContext) -> Result<(), PlatformError> {
+            fn before_eval(
+                &self,
+                _ast: &AstNode,
+                _ctx: &mut EvalContext,
+            ) -> Result<(), PlatformError> {
                 Err(EvalError::ResourceLimit("denied".into()).into())
             }
         }
@@ -921,7 +1033,9 @@ mod tests {
         impl EvalBehavior for Echo {}
 
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Echo) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Echo) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(DenyAll));
 
         let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());

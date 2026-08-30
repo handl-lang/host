@@ -167,6 +167,7 @@ members = [
   "crates/plugin-eval-function",
   "crates/plugin-eval-call",
   "crates/plugin-eval-handle",
+  "crates/plugin-module",
   "crates/plugin-token-bool",
   "crates/plugin-token-comment",
   "crates/plugin-token-doc-comment",
@@ -386,6 +387,7 @@ handl-plugin-eval-assign = { path = "crates/plugin-eval-assign" }
 handl-plugin-eval-function = { path = "crates/plugin-eval-function" }
 handl-plugin-eval-call = { path = "crates/plugin-eval-call" }
 handl-plugin-eval-handle = { path = "crates/plugin-eval-handle" }
+handl-plugin-module = { path = "crates/plugin-module" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
 handl-plugin-token-doc-comment = { path = "crates/plugin-token-doc-comment" }
