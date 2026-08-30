@@ -1,8 +1,7 @@
 //! # handl-plugin-eval-assign
 //!
-//! `EvalBehavior` rule for assignment expressions (kind `"assign"`).
+//! `EvalBehavior` rule for assignment / binding expressions (kind `"assign"`).
 //!
-//! Ported from `AssignHandler` in `plugin-vm-backend-rust-interpreter`.
 //! The AST payload is `{"target": <ast>, "value": <ast>}`; the rule
 //! evaluates the value expression, binds it to the target pattern in the
 //! current scope, and returns the evaluated value.
@@ -11,6 +10,17 @@
 //! extracted from the target's payload and defined in the current scope.
 //! For destructuring patterns (array/object), the value is decomposed
 //! recursively.
+//!
+//! ## Letrec self-reference
+//!
+//! When the target is a simple identifier and the evaluated value is a
+//! function value (JSON object with `params`/`body`/`captured`, per ADR
+//! 0040), the rule injects `name → value` into the function's `captured`
+//! map *before* binding it in the scope. This gives the function body
+//! access to its own name, enabling recursive definitions
+//! (`fact = (n) -> match n { 0 : 1, _ : n * fact(n - 1) }`) without a
+//! separate `let rec` form. This is standard Scheme `letrec` semantics
+//! implemented via self-injection.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,15 +30,18 @@ use handl_platform::{
     CapabilityResponse, ContributionContext, Eval, EvalBehavior, EvalError, EvalRequest,
     PlatformError, Plugin, PluginContext,
 };
-use serde_json::Value;
+use serde_json::{Map, Value};
 
-/// Evaluation rule for assignment expressions.
+/// Evaluation rule for assignment / binding expressions.
 ///
 /// `AstNode.payload` is expected to contain
 /// `{"target": <ast>, "value": <ast>}`.
 /// The value is evaluated via `req.ctx.eval()`, then bound to the target
 /// pattern in the current scope. The evaluated value is returned as the
 /// result.
+///
+/// When the target is a simple `var` and the value is a function value,
+/// letrec self-injection is applied (see crate docs).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AssignRule;
 
@@ -46,9 +59,21 @@ impl Behavior<Eval> for AssignRule {
         })?;
 
         let value_ast = ast_from_value(value_ast)?;
-        let evaluated = req.ctx.eval(&value_ast)?;
+        let mut evaluated = req.ctx.eval(&value_ast)?;
 
         let target_ast = ast_from_value(target_value)?;
+
+        // Letrec self-injection: if the target is a simple identifier and
+        // the value is a function value, inject `name → value` into the
+        // function's `captured` map so the body can reference its own name.
+        if target_ast.kind == "var" {
+            if let Some(name) = target_ast.payload.get("name").and_then(Value::as_str) {
+                if is_function_value(&evaluated) {
+                    inject_self_capture(&mut evaluated, name);
+                }
+            }
+        }
+
         bind_pattern(&target_ast, &evaluated, &mut req.ctx)?;
 
         req.result = Some(evaluated);
@@ -57,6 +82,29 @@ impl Behavior<Eval> for AssignRule {
 }
 
 impl EvalBehavior for AssignRule {}
+
+/// Check if a value looks like a function value (ADR 0040 schema).
+fn is_function_value(v: &Value) -> bool {
+    match v {
+        Value::Object(obj) => obj.contains_key("params") && obj.contains_key("body"),
+        _ => false,
+    }
+}
+
+/// Inject `name → value` into a function value's `captured` map, enabling
+/// letrec self-reference. A clone of the value (without the self-injection
+/// itself, to avoid infinite nesting) is inserted into the captured map.
+fn inject_self_capture(value: &mut Value, name: &str) {
+    let self_clone = value.clone();
+    if let Some(obj) = value.as_object_mut() {
+        let captured = obj
+            .entry("captured".to_string())
+            .or_insert_with(|| Value::Object(Map::new()));
+        if let Some(captured_map) = captured.as_object_mut() {
+            captured_map.insert(name.to_string(), self_clone);
+        }
+    }
+}
 
 /// Bind a value to a pattern AST node in the current scope.
 ///

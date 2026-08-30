@@ -43,6 +43,7 @@ handl-plugin-eval-field-access = { path = "../plugin-eval-field-access" }
 handl-plugin-eval-handle = { path = "../plugin-eval-handle" }
 handl-plugin-eval-assign = { path = "../plugin-eval-assign" }
 handl-plugin-eval-function = { path = "../plugin-eval-function" }
+handl-plugin-eval-match = { path = "../plugin-eval-match" }
 handl-plugin-exec-max-depth = { path = "../plugin-exec-max-depth" }
 handl-plugin-exec-max-calls = { path = "../plugin-exec-max-calls" }
 handl-plugin-module = { path = "../plugin-module" }

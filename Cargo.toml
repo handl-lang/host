@@ -44,6 +44,7 @@ members = [
   "crates/plugin-lib-collections",
   "crates/plugin-lib-compress",
   "crates/plugin-lib-compress-gzip",
+  "crates/plugin-lib-concurrent",
   "crates/plugin-lib-crypto",
   "crates/plugin-lib-datetime",
   "crates/plugin-lib-encoding",
@@ -51,6 +52,8 @@ members = [
   "crates/plugin-lib-hex",
   "crates/plugin-lib-http-client",
   "crates/plugin-lib-http-client-std",
+  "crates/plugin-lib-http-server",
+  "crates/plugin-lib-http-server-std",
   "crates/plugin-lib-intl",
   "crates/plugin-lib-ip",
   "crates/plugin-lib-json",
@@ -64,6 +67,7 @@ members = [
   "crates/plugin-lib-rand",
   "crates/plugin-lib-serialize",
   "crates/plugin-lib-stats",
+  "crates/plugin-lib-test",
   "crates/plugin-lib-tls",
   "crates/plugin-lib-tls-native",
   "crates/plugin-lib-toml",
@@ -75,6 +79,7 @@ members = [
   "crates/plugin-lib-utils",
   "crates/plugin-lib-ws-rfc",
   "crates/plugin-lib-ws-rfc-memory",
+  "crates/plugin-lib-ws-rfc-native",
   "crates/plugin-lib-ws-whatwg-native",
   "crates/plugin-lib-ws-whatwg-wasm",
   "crates/plugin-lib-yaml",
@@ -151,6 +156,7 @@ members = [
   "crates/plugin-eval-value",
   "crates/plugin-eval-array",
   "crates/plugin-eval-object",
+  "crates/plugin-eval-match",
   "crates/plugin-eval-index",
   "crates/plugin-eval-field-access",
   "crates/plugin-eval-assign",
@@ -258,6 +264,7 @@ handl-plugin-lib-base64 = { path = "crates/plugin-lib-base64" }
 handl-plugin-lib-collections = { path = "crates/plugin-lib-collections" }
 handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
 handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
+handl-plugin-lib-concurrent = { path = "crates/plugin-lib-concurrent" }
 handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
 handl-plugin-lib-datetime = { path = "crates/plugin-lib-datetime" }
 handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
@@ -265,6 +272,8 @@ handl-plugin-lib-hello = { path = "crates/plugin-lib-hello" }
 handl-plugin-lib-hex = { path = "crates/plugin-lib-hex" }
 handl-plugin-lib-http-client = { path = "crates/plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" }
+handl-plugin-lib-http-server = { path = "crates/plugin-lib-http-server" }
+handl-plugin-lib-http-server-std = { path = "crates/plugin-lib-http-server-std" }
 handl-plugin-lib-intl = { path = "crates/plugin-lib-intl" }
 handl-plugin-lib-ip = { path = "crates/plugin-lib-ip" }
 handl-plugin-lib-json = { path = "crates/plugin-lib-json" }
@@ -278,6 +287,7 @@ handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
 handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
 handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }
 handl-plugin-lib-stats = { path = "crates/plugin-lib-stats" }
+handl-plugin-lib-test = { path = "crates/plugin-lib-test" }
 handl-plugin-lib-tls = { path = "crates/plugin-lib-tls" }
 handl-plugin-lib-tls-native = { path = "crates/plugin-lib-tls-native" }
 handl-plugin-lib-toml = { path = "crates/plugin-lib-toml" }
@@ -289,6 +299,7 @@ handl-plugin-lib-dedent = { path = "crates/plugin-lib-dedent" }
 handl-plugin-lib-utils = { path = "crates/plugin-lib-utils" }
 handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }
 handl-plugin-lib-ws-rfc-memory = { path = "crates/plugin-lib-ws-rfc-memory" }
+handl-plugin-lib-ws-rfc-native = { path = "crates/plugin-lib-ws-rfc-native" }
 handl-plugin-lib-ws-whatwg-native = { path = "crates/plugin-lib-ws-whatwg-native" }
 handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
@@ -364,6 +375,7 @@ handl-plugin-eval-core = { path = "crates/plugin-eval-core" }
 handl-plugin-eval-value = { path = "crates/plugin-eval-value" }
 handl-plugin-eval-array = { path = "crates/plugin-eval-array" }
 handl-plugin-eval-object = { path = "crates/plugin-eval-object" }
+handl-plugin-eval-match = { path = "crates/plugin-eval-match" }
 handl-plugin-eval-index = { path = "crates/plugin-eval-index" }
 handl-plugin-eval-field-access = { path = "crates/plugin-eval-field-access" }
 handl-plugin-eval-assign = { path = "crates/plugin-eval-assign" }

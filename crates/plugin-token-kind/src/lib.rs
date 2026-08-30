@@ -286,6 +286,11 @@ impl OperatorToken<DynKind> for DynFactory {
             "/" => OperatorKind::Slash,
             "<" => OperatorKind::LessThan,
             ">" => OperatorKind::GreaterThan,
+            "==" => OperatorKind::EqualEqual,
+            "!=" => OperatorKind::NotEqual,
+            "<=" => OperatorKind::LessEqual,
+            ">=" => OperatorKind::GreaterEqual,
+            "<=>" => OperatorKind::Spaceship,
             _ => return None,
         };
         Some(DynKind(Box::new(op)))

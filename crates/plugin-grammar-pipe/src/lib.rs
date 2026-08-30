@@ -3,6 +3,12 @@
 //! Provides the `PipeRule` and the `PipeToken` capability trait.
 //! `PipeRule` implements `ParserBehavior<K>` for the `handl-plugin-ext-parser`
 //! Pratt engine.
+//!
+//! `|>` is desugared to a function call at parse time: `left |> right`
+//! produces a `"call"` AST node `{callee: right, args: [left]}` rather than
+//! a `"pipe"` node. This means `a |> f` and `a |> (x) => x + 1` work directly
+//! through the existing `call` evaluator, and `a |> f |> g` left-associates
+//! into `call(g, [call(f, [a])])`. No dedicated `pipe` evaluator is needed.
 
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
@@ -17,7 +23,8 @@ pub trait PipeToken: TokenKind {
     fn is_pipe(&self) -> bool;
 }
 
-/// Grammar rule that parses infix pipe syntax: `left |> right`.
+/// Grammar rule that parses infix pipe syntax: `left |> right`, desugared
+/// to a `call` node (`right` applied to `left`).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PipeRule;
 
@@ -61,12 +68,13 @@ impl<K: PipeToken> ParserBehavior<K> for PipeRule {
         let start = left.span.map_or(0, |s| s.start);
         let end = right.span.map_or(start, |s| s.end);
 
+        // Desugar `left |> right` into `call(right, [left])`.
         Ok(AstNode {
-            kind: "pipe".into(),
+            kind: "call".into(),
             span: Some(Span { start, end }),
             payload: json!({
-                "left": &left,
-                "right": &right,
+                "callee": &right,
+                "args": [&left],
             }),
         })
     }

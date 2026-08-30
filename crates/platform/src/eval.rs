@@ -998,6 +998,20 @@ impl BasicEvaluator {
         self.exec_controls.push(rule);
     }
 
+    /// Create a recursion callback that can be wired into an [`EvalContext`]
+    /// via [`EvalContext::set_evaluator`].
+    ///
+    /// This enables callers (e.g. the CLI's module evaluator) to create a
+    /// persistent `EvalContext` that retains bindings across multiple
+    /// `ctx.eval(&ast)` calls, rather than getting a fresh context per
+    /// dispatch as [`BasicEvaluator::run`] provides.
+    pub fn make_callback(&self) -> Rc<dyn EvaluatorCallback> {
+        Rc::new(BasicEvaluatorCallback {
+            rules: self.rules.clone(),
+            exec_controls: self.exec_controls.clone(),
+        })
+    }
+
     /// Resume evaluation from a yielded context.
     ///
     /// Re-attaches the evaluator (and, if not already present, the module

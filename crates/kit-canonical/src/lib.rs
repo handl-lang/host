@@ -83,6 +83,7 @@ use handl_plugin_eval_field_access::EvalFieldAccessPlugin;
 use handl_plugin_eval_function::EvalFunctionPlugin;
 use handl_plugin_eval_handle::EvalHandlePlugin;
 use handl_plugin_eval_index::EvalIndexPlugin;
+use handl_plugin_eval_match::EvalMatchPlugin;
 use handl_plugin_eval_object::EvalObjectPlugin;
 use handl_plugin_eval_value::EvalValuePlugin;
 use handl_plugin_exec_max_calls::ExecMaxCallsPlugin;
@@ -218,7 +219,9 @@ const AST_KIND_TABLE: &[(&str, &str, AstKindRole)] = &[
     ("plugin-grammar-call", "call", AstKindRole::Produces),
     ("plugin-grammar-apply", "apply", AstKindRole::Produces),
     ("plugin-grammar-index", "index", AstKindRole::Produces),
-    ("plugin-grammar-pipe", "pipe", AstKindRole::Produces),
+    // `|>` desugars to `call` at parse time, so plugin-grammar-pipe produces
+    // `call` nodes (same kind as plugin-grammar-call).
+    ("plugin-grammar-pipe", "call", AstKindRole::Produces),
     ("plugin-grammar-function-literal", "function", AstKindRole::Produces),
     ("plugin-grammar-assign", "assign", AstKindRole::Produces),
     ("plugin-grammar-array", "array", AstKindRole::Produces),
@@ -226,11 +229,13 @@ const AST_KIND_TABLE: &[(&str, &str, AstKindRole)] = &[
     ("plugin-grammar-match", "match", AstKindRole::Produces),
     ("plugin-grammar-handle", "handle", AstKindRole::Produces),
     ("plugin-grammar-type-annot", "stmt.let", AstKindRole::Produces),
+    ("plugin-grammar-stmt-let", "stmt.let", AstKindRole::Produces),
     ("plugin-grammar-stmt-import", "stmt.import", AstKindRole::Produces),
     ("plugin-grammar-stmt-export", "stmt.export", AstKindRole::Produces),
     ("plugin-grammar-stmt-module", "stmt.module", AstKindRole::Produces),
     ("plugin-eval-hello", "hello.greet", AstKindRole::Consumes),
     ("plugin-eval-json", "json", AstKindRole::Consumes),
+    ("plugin-eval-match", "match", AstKindRole::Consumes),
     ("plugin-typecheck-core", "typecheck", AstKindRole::Consumes),
     ("plugin-fmt-trivia", "fmt.trivia", AstKindRole::Consumes),
     ("plugin-fmt-stmt", "fmt.statements", AstKindRole::Consumes),
@@ -647,6 +652,7 @@ impl Plugin for KitEval {
         ctx.register_plugin(EvalHandlePlugin::new())?;
         ctx.register_plugin(EvalAssignPlugin::new())?;
         ctx.register_plugin(EvalFunctionPlugin::new())?;
+        ctx.register_plugin(EvalMatchPlugin::new())?;
 
         // Basic exec-control plugins for safety. A sandbox kit would add more
         // (deny, allow, etc.).
@@ -793,18 +799,21 @@ mod tests {
 
     #[test]
     fn parse_pipe() {
+        // `|>` desugars to a call: `1 |> add(2, 3)` becomes `call(add(2, 3), [1])`.
+        // Since the callee (`add(2, 3)`) is itself a call (not a simple var),
+        // the converter produces an `Apply` node.
         let kit = Kit::new();
         let node = kit.parse("1 |> add(2, 3)").unwrap();
-        let right = KitNode::Call(Call::new(
+        let callee = KitNode::Call(Call::new(
             "add",
             vec![
                 KitNode::Literal(KitValue::Number(2.0)),
                 KitNode::Literal(KitValue::Number(3.0)),
             ],
         ));
-        let expected = KitNode::Pipe(Box::new(Pipe::new(
-            KitNode::Literal(KitValue::Number(1.0)),
-            right,
+        let expected = KitNode::Apply(Box::new(Apply::new(
+            callee,
+            vec![KitNode::Literal(KitValue::Number(1.0))],
         )));
         assert_eq!(node, expected);
     }

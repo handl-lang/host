@@ -7,6 +7,11 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_keyword::KeywordKind;
+use handl_plugin_token_operator::OperatorKind;
 use serde_json::json;
 
 /// Token capability required by the let grammar rule.
@@ -98,5 +103,33 @@ impl<K: LetToken> ParserBehavior<K> for LetRule {
         _rbp: u32,
     ) -> Result<AstNode, PlatformError> {
         unreachable!("LetRule is a prefix rule and cannot be used as an infix operator")
+    }
+}
+
+impl LetToken for DynKind {
+    fn is_let(&self) -> bool {
+        self.downcast_ref::<KeywordKind>()
+            .map(|k| k.name() == "let")
+            .unwrap_or(false)
+    }
+
+    fn as_let_name(&self) -> Option<&str> {
+        if let Some(IdentKind::Ident(name)) = self.downcast_ref::<IdentKind>() {
+            Some(name.as_str())
+        } else {
+            None
+        }
+    }
+
+    fn is_let_equal(&self) -> bool {
+        self.downcast_ref::<OperatorKind>()
+            .map(|k| *k == OperatorKind::Equal)
+            .unwrap_or(false)
+    }
+
+    fn is_let_semicolon(&self) -> bool {
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Semicolon)
+            .unwrap_or(false)
     }
 }

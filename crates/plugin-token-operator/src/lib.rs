@@ -27,6 +27,16 @@ pub enum OperatorKind {
     LessThan,
     /// `>`
     GreaterThan,
+    /// `==`
+    EqualEqual,
+    /// `!=`
+    NotEqual,
+    /// `<=`
+    LessEqual,
+    /// `>=`
+    GreaterEqual,
+    /// `<=>`
+    Spaceship,
     /// End-of-input sentinel.
     Eof,
 }
@@ -43,6 +53,11 @@ impl fmt::Display for OperatorKind {
             OperatorKind::Slash => write!(f, "/"),
             OperatorKind::LessThan => write!(f, "<"),
             OperatorKind::GreaterThan => write!(f, ">"),
+            OperatorKind::EqualEqual => write!(f, "=="),
+            OperatorKind::NotEqual => write!(f, "!="),
+            OperatorKind::LessEqual => write!(f, "<="),
+            OperatorKind::GreaterEqual => write!(f, ">="),
+            OperatorKind::Spaceship => write!(f, "<=>"),
             OperatorKind::Eof => write!(f, "eof"),
         }
     }
@@ -91,7 +106,9 @@ fn regex_escape(s: &str) -> String {
 
 /// All operator strings recognized by this plugin, in priority order
 /// (longest first so that multi-char operators match before single-char).
-pub const OPERATOR_STRINGS: &[&str] = &["|>", "->", "=", "+", "-", "*", "/", "<", ">"];
+pub const OPERATOR_STRINGS: &[&str] = &[
+    "|>", "->", "<=>", "==", "!=", "<=", ">=", "=", "+", "-", "*", "/", "<", ">",
+];
 
 impl GrammarContributor for TokenFactory {
     fn grammar_rules(&self) -> Vec<GrammarRule> {

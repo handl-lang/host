@@ -84,6 +84,7 @@ pub fn canonical_manifest() -> KitManifest {
             "plugin-eval-handle".to_string(),
             "plugin-eval-assign".to_string(),
             "plugin-eval-function".to_string(),
+            "plugin-eval-match".to_string(),
             // Module and exec-control plugins
             "plugin-module".to_string(),
             "plugin-exec-max-depth".to_string(),

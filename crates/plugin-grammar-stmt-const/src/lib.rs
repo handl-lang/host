@@ -1,5 +1,11 @@
 //! Canonical `const` statement grammar-rule plugin.
 //!
+//! **Deprecated:** `const` is redundant in handl's pure fragment — all
+//! bindings are immutable by default (see `plugin-eval-let`). Use `let`
+//! instead. This crate is kept for parser backward-compatibility but the
+//! `stmt.const` AST kind has no eval rule; evaluating a `const` binding
+//! will produce a "not implemented" error.
+//!
 //! Provides the `ConstStmtRule` and the `ConstStmtToken` capability trait.
 //! `ConstStmtRule` implements `ParserBehavior<K>` for the
 //! `handl-plugin-ext-parser` Pratt engine and produces `"stmt.const"` AST nodes.
