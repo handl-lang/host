@@ -13,8 +13,7 @@ use handl_plugin_lexer::{
 };
 use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 pub use handl_plugin_token_kind::{
-    LexDelimiter, LexFactory, LexKeyword, LexKind, LexLexer, LexOperator,
-    LexTemplateSegment,
+    DynFactory, DynKind, DynLexer, DynTemplateSegment,
 };
 
 use handl_platform::{
@@ -74,14 +73,28 @@ use handl_plugin_grammar_stmt_import::ImportStmtRule;
 use handl_plugin_grammar_stmt_module::ModuleStmtRule;
 use handl_plugin_grammar_template::TemplateRule;
 use handl_plugin_grammar_type_annot::TypeAnnotRule;
-use handl_plugin_runtime::RuntimeHost;
-use handl_plugin_runtime_apply::ApplyPlugin;
-use handl_plugin_runtime_arithmetic::ArithmeticPlugin;
-use handl_plugin_runtime_array::ArrayPlugin;
-use handl_plugin_runtime_boolean::BooleanPlugin;
-use handl_plugin_runtime_object::ObjectPlugin;
 use handl_plugin_target_native::NativeTarget;
-use handl_plugin_vm_common::ModuleRuntime;
+// The old `ModuleRuntime` from `plugin-vm-common` is still registered because
+// the lib crates (`plugin-lib-utils`, `plugin-lib-collections`) still implement
+// the old generic `Module<V>` trait and contribute `ModuleRule`s into it. In
+// step 11 those crates migrate to the new non-generic `Module` trait and will
+// be re-wired to the new `plugin-module` `ModuleRuntime` below.
+use handl_plugin_vm_common::ModuleRuntime as LegacyModuleRuntime;
+
+// New eval/exec/module plugins (ADR 0040 steps 3-8).
+use handl_plugin_eval_array::EvalArrayPlugin;
+use handl_plugin_eval_assign::EvalAssignPlugin;
+use handl_plugin_eval_call::EvalCallPlugin;
+use handl_plugin_eval_core::EvalCorePlugin;
+use handl_plugin_eval_field_access::EvalFieldAccessPlugin;
+use handl_plugin_eval_function::EvalFunctionPlugin;
+use handl_plugin_eval_handle::EvalHandlePlugin;
+use handl_plugin_eval_index::EvalIndexPlugin;
+use handl_plugin_eval_object::EvalObjectPlugin;
+use handl_plugin_eval_value::EvalValuePlugin;
+use handl_plugin_exec_max_calls::ExecMaxCallsPlugin;
+use handl_plugin_exec_max_depth::ExecMaxDepthPlugin;
+use handl_plugin_module::ModuleRuntime;
 
 pub use handl_plugin_diag_core::{Diagnostic, DiagnosticLevel, Diagnostics};
 
@@ -148,7 +161,7 @@ fn ast_to_kitnode_with_kit(ast: &AstNode, kit: &Kit) -> Result<KitNode, Platform
 }
 
 /// The set of grammar-rule plugin ids that the canonical kit knows how to
-/// wire into a `BasicParser<LexKind>`.
+/// wire into a `BasicParser<DynKind>`.
 const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
     "plugin-grammar-primary-value",
     "plugin-grammar-primary-identifier",
@@ -171,8 +184,8 @@ const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
 
 /// Returns a freshly-constructed rule for the given grammar-rule plugin id, or
 /// `None` if the id is not a recognized grammar rule.
-fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<LexKind>>> {
-    let rule: Box<dyn ParserBehavior<LexKind>> = match id {
+fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<DynKind>>> {
+    let rule: Box<dyn ParserBehavior<DynKind>> = match id {
         "plugin-grammar-call" => Box::new(CallRule),
         "plugin-grammar-apply" => Box::new(ApplyRule),
         "plugin-grammar-index" => Box::new(IndexRule),
@@ -196,8 +209,8 @@ fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<LexKind>>> {
 }
 
 /// Builds a parser populated with the grammar rules for the given plugin ids.
-fn parser_for_plugins(ids: &[String]) -> Result<BasicParser<LexKind>, PlatformError> {
-    let mut parser = BasicParser::<LexKind>::new();
+fn parser_for_plugins(ids: &[String]) -> Result<BasicParser<DynKind>, PlatformError> {
+    let mut parser = BasicParser::<DynKind>::new();
     for id in ids {
         if let Some(rule) = rule_for_plugin_id(id) {
             parser.accept(rule)?;
@@ -307,8 +320,8 @@ impl Kit {
     }
 
     /// Lexes `input` into the kit's token stream.
-    pub fn lex(&self, input: &str) -> Result<Vec<Token<LexKind>>, DefaultLexError> {
-        LexLexer.lex(input)
+    pub fn lex(&self, input: &str) -> Result<Vec<Token<DynKind>>, DefaultLexError> {
+        DynLexer.lex(input)
     }
 
     /// Parses `input` into a generic [`KitNode`].
@@ -337,7 +350,7 @@ impl Kit {
     /// Returns the TextMate grammar rules for this kit, collected from
     /// the token factory's [`GrammarContributor`] implementation.
     pub fn grammar_rules(&self) -> Vec<GrammarRule> {
-        LexFactory.grammar_rules()
+        DynFactory.grammar_rules()
     }
 
     /// Returns the scope name for this kit's grammar.
@@ -399,11 +412,11 @@ impl Plugin for KitLang {
 
         // Canonical language operation RuleAcceptors
         ctx.register_plugin(BasicLexer::new())?;
-        ctx.register_plugin(BasicParser::<LexKind>::new())?;
+        ctx.register_plugin(BasicParser::<DynKind>::new())?;
         let grammar_rules = resolve_grammar_rules(&canonical_manifest().plugins)?;
         for id in &grammar_rules {
             if let Some(rule) = rule_for_plugin_id(id) {
-                ctx.contribute::<BasicParser<LexKind>>(rule)?;
+                ctx.contribute::<BasicParser<DynKind>>(rule)?;
             }
         }
         ctx.register_plugin(BasicFormatter::new())?;
@@ -478,18 +491,17 @@ impl Plugin for KitRuntime {
         // Target and library plugins
         ctx.register_plugin(NativeTarget::new())?;
 
-        // Runtime built-in host and families for the Rust VM target
-        ctx.register_plugin(RuntimeHost::new())?;
-        ctx.register_plugin(ArithmeticPlugin::new())?;
-        ctx.register_plugin(BooleanPlugin::new())?;
-        ctx.register_plugin(ArrayPlugin::new())?;
-        ctx.register_plugin(ObjectPlugin::new())?;
-        ctx.register_plugin(ApplyPlugin::new())?;
-
-        // Module runtime — the RuleAcceptor for library modules.
-        // Downstream kits (kit-cli, kit-server, etc.) register plugin-lib-*
-        // plugins whose contribute() methods register ModuleRules here.
+        // Function-registration mechanisms.
+        //
+        // The new `plugin-module` `ModuleRuntime` is the single function-
+        // registration mechanism going forward (ADR 0040). It is registered
+        // alongside the legacy `plugin-vm-common` `ModuleRuntime`, which the
+        // lib crates (`plugin-lib-utils`, `plugin-lib-collections`) still
+        // contribute into via the old generic `Module<V>` trait. Once those
+        // crates migrate to the new non-generic `Module` trait (step 11), the
+        // legacy runtime will be removed.
         ctx.register_plugin(ModuleRuntime::new())?;
+        ctx.register_plugin(LegacyModuleRuntime::new())?;
         Ok(())
     }
 
@@ -607,8 +619,30 @@ impl Plugin for KitEval {
         }
         self.registered.store(true, Ordering::SeqCst);
 
+        // Existing reference eval plugins (pre-ADR-0040).
         ctx.register_plugin(HelloEvalPlugin::new())?;
         ctx.register_plugin(JsonEvalPlugin::new())?;
+
+        // New granular eval plugins (ADR 0040). These are `EvalBehavior` rules
+        // contributed into `BasicEvaluator`, mirroring the `plugin-grammar-*`
+        // pattern. They coexist with the legacy VM-based eval (which is
+        // dispatched through a separate mechanism) until the VM layer is
+        // deleted in step 12.
+        ctx.register_plugin(EvalCorePlugin::new())?;
+        ctx.register_plugin(EvalValuePlugin::new())?;
+        ctx.register_plugin(EvalCallPlugin::new())?;
+        ctx.register_plugin(EvalArrayPlugin::new())?;
+        ctx.register_plugin(EvalObjectPlugin::new())?;
+        ctx.register_plugin(EvalIndexPlugin::new())?;
+        ctx.register_plugin(EvalFieldAccessPlugin::new())?;
+        ctx.register_plugin(EvalHandlePlugin::new())?;
+        ctx.register_plugin(EvalAssignPlugin::new())?;
+        ctx.register_plugin(EvalFunctionPlugin::new())?;
+
+        // Basic exec-control plugins for safety. A sandbox kit would add more
+        // (deny, allow, etc.).
+        ctx.register_plugin(ExecMaxDepthPlugin::new(1000))?;
+        ctx.register_plugin(ExecMaxCallsPlugin::new(10000))?;
         Ok(())
     }
 
@@ -695,20 +729,23 @@ mod tests {
     use super::*;
     use handl_plugin_lexer_template::{TemplateSegment, TemplateTokenKind};
     use handl_plugin_grammar_template::TemplateToken;
+    use handl_plugin_token_kind::TemplateKind;
+    use handl_plugin_token_number::NumberKind;
+    use handl_plugin_token_string::StringKind;
 
     #[test]
     fn lex_number() {
         let kit = Kit::new();
         let tokens = kit.lex("42").unwrap();
         assert_eq!(tokens.len(), 2); // number + eof
-        assert_eq!(tokens[0].kind, LexKind::Number(42.0));
+        assert_eq!(tokens[0].kind, DynKind(Box::new(NumberKind::Number(42.0))));
     }
 
     #[test]
     fn lex_string() {
         let kit = Kit::new();
         let tokens = kit.lex("\"hi\"").unwrap();
-        assert_eq!(tokens[0].kind, LexKind::String("hi".into()));
+        assert_eq!(tokens[0].kind, DynKind(Box::new(StringKind::String("hi".into()))));
     }
 
     #[test]
@@ -1109,7 +1146,7 @@ mod tests {
         assert_eq!(tokens.len(), 2); // template + eof
         assert_eq!(
             tokens[0].kind,
-            LexKind::Template(vec![TemplateSegment::Text("hello".into())])
+            DynKind(Box::new(TemplateKind(vec![TemplateSegment::Text("hello".into())])))
         );
     }
 
@@ -1119,11 +1156,11 @@ mod tests {
         let tokens = kit.lex("`hi ${name}!`").unwrap();
         assert_eq!(
             tokens[0].kind,
-            LexKind::Template(vec![
+            DynKind(Box::new(TemplateKind(vec![
                 TemplateSegment::Text("hi ".into()),
                 TemplateSegment::Expr("name".into()),
                 TemplateSegment::Text("!".into()),
-            ])
+            ])))
         );
     }
 
@@ -1131,7 +1168,7 @@ mod tests {
     fn lex_template_empty() {
         let kit = Kit::new();
         let tokens = kit.lex("``").unwrap();
-        assert_eq!(tokens[0].kind, LexKind::Template(vec![]));
+        assert_eq!(tokens[0].kind, DynKind(Box::new(TemplateKind(vec![]))));
     }
 
     #[test]
@@ -1140,11 +1177,11 @@ mod tests {
         let tokens = kit.lex("`${a} and ${b}`").unwrap();
         assert_eq!(
             tokens[0].kind,
-            LexKind::Template(vec![
+            DynKind(Box::new(TemplateKind(vec![
                 TemplateSegment::Expr("a".into()),
                 TemplateSegment::Text(" and ".into()),
                 TemplateSegment::Expr("b".into()),
-            ])
+            ])))
         );
     }
 
@@ -1256,10 +1293,10 @@ mod tests {
 
     #[test]
     fn canonical_kind_template_display() {
-        let kind = LexKind::Template(vec![
+        let kind = DynKind(Box::new(TemplateKind(vec![
             TemplateSegment::Text("hello ".into()),
             TemplateSegment::Expr("name".into()),
-        ]);
+        ])));
         let s = format!("{kind}");
         assert!(s.starts_with("template("));
         assert!(s.contains("\"hello \""));
@@ -1269,30 +1306,30 @@ mod tests {
 
     #[test]
     fn canonical_kind_template_display_text_only() {
-        let kind = LexKind::Template(vec![TemplateSegment::Text("hi".into())]);
+        let kind = DynKind(Box::new(TemplateKind(vec![TemplateSegment::Text("hi".into())])));
         let s = format!("{kind}");
         assert_eq!(s, "template(\"hi\")");
     }
 
     #[test]
     fn canonical_kind_template_display_empty() {
-        let kind = LexKind::Template(vec![]);
+        let kind = DynKind(Box::new(TemplateKind(vec![])));
         let s = format!("{kind}");
         assert_eq!(s, "template()");
     }
 
     #[test]
     fn template_token_kind_constructs() {
-        let kind = LexKind::template_kind(vec![TemplateSegment::Text("test".into())]);
-        assert!(matches!(kind, LexKind::Template(_)));
+        let kind = DynKind::template_kind(vec![TemplateSegment::Text("test".into())]);
+        assert!(kind.downcast_ref::<TemplateKind>().is_some());
     }
 
     #[test]
     fn template_token_returns_segments() {
-        let kind = LexKind::Template(vec![
+        let kind = DynKind(Box::new(TemplateKind(vec![
             TemplateSegment::Text("a".into()),
             TemplateSegment::Expr("b".into()),
-        ]);
+        ])));
         let segs = kind.as_template_segments().unwrap();
         assert_eq!(segs.len(), 2);
         assert_eq!(segs[0], TemplateSegment::Text("a".into()));
@@ -1301,9 +1338,10 @@ mod tests {
 
     #[test]
     fn template_token_returns_none_for_non_template() {
-        assert!(LexKind::Number(1.0).as_template_segments().is_none());
-        assert!(LexKind::String("x".into()).as_template_segments().is_none());
-        assert!(LexKind::Eof.as_template_segments().is_none());
+        assert!(DynKind(Box::new(NumberKind::Number(1.0))).as_template_segments().is_none());
+        assert!(DynKind(Box::new(StringKind::String("x".into()))).as_template_segments().is_none());
+        use handl_plugin_lexer::EofKind;
+        assert!(DynKind(Box::new(EofKind)).as_template_segments().is_none());
     }
 
     #[test]
