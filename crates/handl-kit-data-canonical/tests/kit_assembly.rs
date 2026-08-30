@@ -11,24 +11,29 @@ fn assemble_canonical_has_expected_fragment_counts() {
 
     // Token kinds: 47 from the `tokens` foundation + 6 declared only by
     // grammar/eval emitters (token.let, token.if, token.bang, token.question,
-    // token.template, token.mood). All other re-declarations are union
-    // (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 53);
+    // token.template, token.mood) + 3 operator tokens (token.and, token.or,
+    // token.percent). All other re-declarations are union (idempotent)
+    // duplicates.
+    assert_eq!(lang.tokens.len(), 56);
 
-    // Grammar rows: 43 — one per construct (after excluding the duplicate
+    // Grammar rows: 47 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
-    // value literal rules (string, bool, null) and 1 pow rule.
-    assert_eq!(lang.grammar.len(), 43);
+    // value literal rules (string, bool, null), 1 pow rule, and 4 new operator
+    // rules (and.infix, or.infix, mod.infix, neg.prefix).
+    assert_eq!(lang.grammar.len(), 47);
 
-    // Eval schemes: 43 — one per node kind (after excluding the duplicate
+    // Eval schemes: 48 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
-    // primitive), plus the `binary.pow` eval scheme.
-    assert_eq!(lang.eval.len(), 43);
+    // primitive), plus the `binary.pow` eval scheme, the `vau` eval scheme,
+    // and 4 new operator eval schemes (binary.and, binary.or, binary.mod,
+    // unary.neg).
+    assert_eq!(lang.eval.len(), 48);
 
-    // AST shapes: 39 — 36 from the `tokens` foundation + 3 unique shapes from
-    // other emitters (ast.resolve, ast.hello.greet, ast.json). Duplicates are
-    // union (idempotent).
-    assert_eq!(lang.ast.len(), 39);
+    // AST shapes: 44 — 36 from the `tokens` foundation + 3 unique shapes from
+    // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
+    // shape + 4 new operator shapes (binary.and, binary.or, binary.mod,
+    // unary.neg). Duplicates are union (idempotent).
+    assert_eq!(lang.ast.len(), 44);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -49,8 +54,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let kit = handl_kit_data_canonical::assemble().unwrap();
     let rt = kit.into_runtime(None).expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 53);
-    assert_eq!(rt.lang().grammar.len(), 43);
+    assert_eq!(rt.lang().tokens.len(), 56);
+    assert_eq!(rt.lang().grammar.len(), 47);
 }
 
 #[test]

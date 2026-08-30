@@ -1,0 +1,194 @@
+//! # bootstrap_host_fn.rs — end-to-end bootstrap via handl-level host fns
+//!
+//! ADR-0041 §5: "The bootstrap is a compilation step, not interpretation."
+//! `compile(handl, "native")` should produce the self-hosting compiler.
+//!
+//! Unlike `bootstrap.rs` (which calls `CraneliftEngine::eval` directly via
+//! the Rust engine API), this test drives the bootstrap through the
+//! **handl-level** `compile` / `run_compiled` host functions
+//! ([`handl_runtime::meta::CompileHostFn`] / [`RunCompiledHostFn`]). It:
+//!
+//! 1. Loads the self-describing `Language` value ([`language`]).
+//! 2. Serializes a corpus case's [`Ast`] to a JSON value (the `ast` argument).
+//! 3. Builds a handl AST that calls `compile(lang_value, ast_value, "native")`
+//!    via a `foreign.compile` node, and evaluates it under a `Runtime` with
+//!    [`MetaHostFunctions`] attached — obtaining a compiled-program handle.
+//! 4. Builds a handl AST that calls `run_compiled(handle)` via a
+//!    `foreign.run_compiled` node, and evaluates it — obtaining the result.
+//! 5. Asserts the result matches `eval(lang, ast)` (the tree-walk reference).
+//!
+//! This proves the bootstrap works through the handl-level API, not just the
+//! Rust engine API. The test runs for both `"native"` and `"bytecode"`
+//! targets. Tree-walk-only corpus cases (e.g. `binary.pow`) are skipped —
+//! their `Prim` op is not yet implemented in the compiled engines.
+
+use handl_defining_handl::{corpus, language};
+use handl_language::{language_value, Ast, AstNode, Language, Value};
+use handl_runtime::meta::MetaHostFunctions;
+use handl_runtime::{Runtime, RuntimeConfig};
+use serde_json::json;
+use std::collections::HashMap;
+
+/// Build a `Runtime` for the self-describing `Language` with
+/// [`MetaHostFunctions`] attached and `self` injected as a global.
+fn make_runtime(lang: Language) -> Runtime<'static> {
+    let config = RuntimeConfig::new()
+        .with_lex("data")
+        .with_parse("pratt")
+        .with_eval("tree-walk");
+    let self_val = language_value(&lang);
+    let meta = MetaHostFunctions::new(lang.clone(), config.clone(), None);
+    let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(meta));
+    let mut globals = HashMap::new();
+    globals.insert("self".to_string(), self_val);
+    Runtime::from_config_with_globals(lang, &config, Some(meta_static), Some(&globals))
+        .expect("runtime must build")
+}
+
+/// `compile(lang, ast, target)` via the `foreign.compile` host fn.
+fn compile_via_host_fn(
+    runtime: &Runtime<'_>,
+    lang_val: &Value,
+    ast_val: &Value,
+    target: &str,
+) -> Value {
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(lang_val.clone()));
+    ast.push(AstNode::new("value").with_payload(ast_val.clone()));
+    ast.push(AstNode::new("value").with_payload(json!(target)));
+    ast.push(
+        AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})),
+    );
+    runtime.eval(&ast).expect("compile must succeed")
+}
+
+/// `run_compiled(handle)` via the `foreign.run_compiled` host fn.
+fn run_compiled_via_host_fn(runtime: &Runtime<'_>, handle: &Value) -> Value {
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(handle.clone()));
+    ast.push(
+        AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})),
+    );
+    runtime.eval(&ast).expect("run_compiled must succeed")
+}
+
+/// `eval(lang, ast)` via the `foreign.eval` host fn (tree-walk reference).
+fn eval_via_host_fn(runtime: &Runtime<'_>, lang_val: &Value, ast_val: &Value) -> Value {
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(lang_val.clone()));
+    ast.push(AstNode::new("value").with_payload(ast_val.clone()));
+    ast.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
+    runtime.eval(&ast).expect("eval must succeed")
+}
+
+/// The end-to-end bootstrap via handl-level `compile` / `run_compiled` host
+/// functions, targeting **native** (cranelift). For each non-tree-walk-only
+/// corpus case: compile the case's AST under the self-describing language,
+/// run the compiled program, and assert the result matches `eval(lang, ast)`.
+#[test]
+fn bootstrap_host_fn_native_matches_eval() {
+    let lang = language();
+    let lang_val = language_value(&lang);
+    let runtime = make_runtime(lang.clone());
+
+    for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
+        let ast_val = serde_json::to_value(&case.ast).expect("serialize ast");
+
+        let handle = compile_via_host_fn(&runtime, &lang_val, &ast_val, "native");
+        assert!(
+            !handle.is_string(),
+            "compile should return a handle, not a stub string, got: {}",
+            handle
+        );
+        let compiled_result = run_compiled_via_host_fn(&runtime, &handle);
+        let eval_result = eval_via_host_fn(&runtime, &lang_val, &ast_val);
+
+        assert_eq!(
+            compiled_result, eval_result,
+            "bootstrap host-fn (native): case '{}' ({}) — run_compiled diverged from eval",
+            case.name,
+            case.source
+        );
+        assert_eq!(
+            compiled_result, case.expected,
+            "bootstrap host-fn (native): case '{}' ({}) — result does not match expected",
+            case.name,
+            case.source
+        );
+    }
+}
+
+/// The end-to-end bootstrap via handl-level `compile` / `run_compiled` host
+/// functions, targeting **bytecode**. Same assertions as the native test.
+#[test]
+fn bootstrap_host_fn_bytecode_matches_eval() {
+    let lang = language();
+    let lang_val = language_value(&lang);
+    let runtime = make_runtime(lang.clone());
+
+    for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
+        let ast_val = serde_json::to_value(&case.ast).expect("serialize ast");
+
+        let handle = compile_via_host_fn(&runtime, &lang_val, &ast_val, "bytecode");
+        assert!(
+            !handle.is_string(),
+            "compile should return a handle, not a stub string, got: {}",
+            handle
+        );
+        let compiled_result = run_compiled_via_host_fn(&runtime, &handle);
+        let eval_result = eval_via_host_fn(&runtime, &lang_val, &ast_val);
+
+        assert_eq!(
+            compiled_result, eval_result,
+            "bootstrap host-fn (bytecode): case '{}' ({}) — run_compiled diverged from eval",
+            case.name,
+            case.source
+        );
+        assert_eq!(
+            compiled_result, case.expected,
+            "bootstrap host-fn (bytecode): case '{}' ({}) — result does not match expected",
+            case.name,
+            case.source
+        );
+    }
+}
+
+/// The bootstrap host-fn path works with the data-file-loaded language too:
+/// `compile` / `run_compiled` via host fns under the `data/handl.json`
+/// language produce results matching `eval`.
+#[test]
+fn bootstrap_host_fn_native_data_file_language() {
+    let lang = handl_defining_handl::language_from_data_file().expect("data file must load");
+    let lang_val = language_value(&lang);
+    let runtime = make_runtime(lang.clone());
+
+    for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
+        let ast_val = serde_json::to_value(&case.ast).expect("serialize ast");
+
+        let handle = compile_via_host_fn(&runtime, &lang_val, &ast_val, "native");
+        let compiled_result = run_compiled_via_host_fn(&runtime, &handle);
+        let eval_result = eval_via_host_fn(&runtime, &lang_val, &ast_val);
+
+        assert_eq!(
+            compiled_result, eval_result,
+            "bootstrap host-fn (native, data-file): case '{}' ({}) — diverged",
+            case.name,
+            case.source
+        );
+        assert_eq!(
+            compiled_result, case.expected,
+            "bootstrap host-fn (native, data-file): case '{}' ({}) — wrong result",
+            case.name,
+            case.source
+        );
+    }
+}

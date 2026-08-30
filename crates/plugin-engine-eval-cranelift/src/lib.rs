@@ -66,8 +66,8 @@
 //! - Closure representation: `Value::Object` with
 //!   `{"__closure__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
 //!   created by the `"closure"` primitive.
-//! - Primitives: `add, sub, mul, div, eq, lt, gt, not, and, or, closure` —
-//!   identical semantics to the tree-walk.
+//! - Primitives: `add, sub, mul, div, mod, eq, lt, gt, not, and, or, neg,
+//!   closure` — identical semantics to the tree-walk.
 //! - Scope: `Vec<HashMap<String, Value>>` scope stack; `Bind` pushes a child
 //!   scope; lookup searches innermost-first. Closure calls swap in the
 //!   captured env, bind params, eval body, restore.
@@ -157,6 +157,46 @@ impl<'h> CraneliftEngine<'h> {
     ) -> Result<ObjectResult, LangError> {
         compile_all_nodes_object(lang, ast, output_path)
     }
+
+    /// Run a pre-compiled [`CompiledResult`] against `lang` and `ast`.
+    ///
+    /// This is the execution half of `compile` + `run`: a [`CompiledResult`]
+    /// produced by [`compile_all_nodes_jit`] is executed without
+    /// recompiling. The `lang` and `ast` must be the same values used to
+    /// produce `result` (the compiled function pointers reference constant
+    /// pools and per-node functions keyed by arena index). The
+    /// [`CompiledResult`] must outlive this call — its backend keeps the
+    /// JIT-allocated native code in memory, so the function pointers in
+    /// `result.compiled` remain valid as long as `result` is alive.
+    ///
+    /// The engine's host functions registry (set via [`with_host`]) is used
+    /// for [`Scheme::Foreign`] dispatch, matching [`eval`].
+    ///
+    /// [`with_host`]: CraneliftEngine::with_host
+    /// [`eval`]: EvalEngine::eval
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on evaluation failure (deferred native error,
+    /// null return, missing root function).
+    pub fn run_compiled(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        result: &CompiledResult,
+    ) -> Result<Value, LangError> {
+        if ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        run_native(
+            lang,
+            ast,
+            &result.compiled,
+            &result.literals,
+            &result.names,
+            self.host,
+        )
+    }
 }
 
 impl<'h> Default for CraneliftEngine<'h> {
@@ -184,46 +224,76 @@ impl<'h> EvalEngine for CraneliftEngine<'h> {
         // time — it is erased from the compiled code (ADR §7).
         let compile_result = compile_all_nodes_jit(lang, ast)?;
 
-        // Build the evaluation context.
-        let mut ctx = EvalCtx {
-            lang: lang as *const Language,
-            ast: ast as *const Ast,
-            env: ScopeStack::new(),
-            current_ref: ast.len() - 1,
-            host: self.host.map(|h| h as *const dyn HostFunctions),
-            compiled: compile_result.compiled,
-            literals: compile_result.literals,
-            names: compile_result.names,
-            error: None,
-        };
-
-        // Call the root node's compiled native function.
-        // The root is the last node in the arena (Pratt convention).
-        let root_idx = ast.len() - 1;
-        let root_fn = ctx
-            .compiled
-            .get(&root_idx)
-            .copied()
-            .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
-
-        let result_ptr: *mut Value =
-            unsafe { root_fn(&mut ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value };
-
-        // Check for deferred error.
-        if let Some(err) = ctx.error.take() {
-            return Err(err);
-        }
-
-        // Reclaim the result value.
-        if result_ptr.is_null() {
-            return Err(LangError::Engine(
-                "native evaluation returned null without error".to_string(),
-            ));
-        }
-        // SAFETY: the helper boxed this Value with Box::into_raw. We reclaim it.
-        let value = unsafe { take_value(result_ptr) };
-        Ok(value)
+        run_native(
+            lang,
+            ast,
+            &compile_result.compiled,
+            &compile_result.literals,
+            &compile_result.names,
+            self.host,
+        )
     }
+}
+
+/// Execute pre-compiled native functions against `lang` and `ast`.
+///
+/// Builds an [`EvalCtx`] from the compiled function-pointer map and constant
+/// pools, then calls the root node's native function. Shared by
+/// [`CraneliftEngine::eval`] (after compilation) and
+/// [`CraneliftEngine::run_compiled`] (with a pre-compiled result).
+///
+/// # Safety
+///
+/// The function pointers in `compiled` must point to valid native code that
+/// remains alive for the duration of this call (e.g. held by a
+/// [`CompiledResult`]'s backend). `lang` and `ast` must outlive the call.
+fn run_native(
+    lang: &Language,
+    ast: &Ast,
+    compiled: &HashMap<usize, CompiledFn>,
+    literals: &[Value],
+    names: &[String],
+    host: Option<&dyn HostFunctions>,
+) -> Result<Value, LangError> {
+    // Build the evaluation context.
+    let mut ctx = EvalCtx {
+        lang: lang as *const Language,
+        ast: ast as *const Ast,
+        env: ScopeStack::new(),
+        current_ref: ast.len() - 1,
+        host: host.map(|h| h as *const dyn HostFunctions),
+        compiled: compiled.clone(),
+        literals: literals.to_vec(),
+        names: names.to_vec(),
+        error: None,
+    };
+
+    // Call the root node's compiled native function.
+    // The root is the last node in the arena (Pratt convention).
+    let root_idx = ast.len() - 1;
+    let root_fn = ctx
+        .compiled
+        .get(&root_idx)
+        .copied()
+        .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
+
+    let result_ptr: *mut Value =
+        unsafe { root_fn(&mut ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value };
+
+    // Check for deferred error.
+    if let Some(err) = ctx.error.take() {
+        return Err(err);
+    }
+
+    // Reclaim the result value.
+    if result_ptr.is_null() {
+        return Err(LangError::Engine(
+            "native evaluation returned null without error".to_string(),
+        ));
+    }
+    // SAFETY: the helper boxed this Value with Box::into_raw. We reclaim it.
+    let value = unsafe { take_value(result_ptr) };
+    Ok(value)
 }
 
 // ---------------------------------------------------------------------------
@@ -397,6 +467,16 @@ impl std::ops::Div for Num {
                 }
             }
             _ => Num::Float(self.to_f64() / other.to_f64()),
+        }
+    }
+}
+
+impl std::ops::Rem for Num {
+    type Output = Num;
+    fn rem(self, other: Num) -> Num {
+        match (self, other) {
+            (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
+            _ => Num::Float(self.to_f64() % other.to_f64()),
         }
     }
 }
@@ -645,6 +725,71 @@ pub(crate) unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val:
 pub(crate) unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx<'_>) { unsafe {
     let ctx = &mut *ctx;
     ctx.env.pop_scope();
+}}
+
+/// Push a new empty scope for the `vau` parameter bindings (ADR-0041 §6).
+pub(crate) unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe {
+    let ctx = &mut *ctx;
+    ctx.env.push_scope();
+}}
+
+/// Bind the `n`-th child of the current node — unevaluated — to the name
+/// (by index) in the current scope (the `vau` escape, ADR-0041 §6).
+///
+/// Reads `node.payload["children"][child_n]` to get the child's `AstRef`,
+/// extracts the child's subtree into a standalone `Ast`, wraps it as a
+/// tagged `__ast__` value, and binds it to the name in the current
+/// (innermost) scope. The child is **not** evaluated.
+pub(crate) unsafe extern "C" fn helper_vau_bind(
+    ctx: *mut EvalCtx<'_>,
+    name_idx: usize,
+    child_n: usize,
+) { unsafe {
+    let ctx = &mut *ctx;
+    if name_idx >= ctx.names.len() {
+        ctx.set_error(LangError::Engine(format!(
+            "name index {} out of bounds",
+            name_idx
+        )));
+        return;
+    }
+    let name = ctx.names[name_idx].clone();
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => {
+            ctx.set_error(e);
+            return;
+        }
+    };
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(arr) => arr,
+        None => {
+            ctx.set_error(LangError::Engine(
+                "expected children array in payload".to_string(),
+            ));
+            return;
+        }
+    };
+    let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
+        Some(idx) => idx as usize,
+        None => {
+            ctx.set_error(LangError::Engine(format!(
+                "vau: child {} not found",
+                child_n
+            )));
+            return;
+        }
+    };
+    let ast_ref = &*ctx.ast;
+    let sub = match ast_ref.subtree(AstRef::new(arena_idx)) {
+        Ok(s) => s,
+        Err(e) => {
+            ctx.set_error(e);
+            return;
+        }
+    };
+    let val = handl_language::ast_value(&sub);
+    ctx.env.define(&name, val);
 }}
 
 /// Reclaim a boxed [`Value`] pointer, freeing the allocation.
@@ -969,6 +1114,23 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 Err(e) => Err(e),
             }
         }
+        "mod" => {
+            if args.len() < 2 {
+                return ctx.set_error(LangError::Engine("mod: expected 2 args".to_string()));
+            }
+            let b_num = as_num(&args[1]);
+            if let Ok(bn) = &b_num {
+                if bn.to_f64() == 0.0 {
+                    return ctx.set_error(LangError::Engine(
+                        "modulo by zero".to_string(),
+                    ));
+                }
+            }
+            match as_num(&args[0]).and_then(|a| b_num.map(|b| a % b)) {
+                Ok(n) => Ok(num_value(n)),
+                Err(e) => Err(e),
+            }
+        }
         "eq" => Ok(Value::Bool(args[0] == args[1])),
         "lt" => {
             if args.len() < 2 {
@@ -991,6 +1153,18 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
         "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
         "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
         "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "neg" => {
+            if args.is_empty() {
+                return ctx.set_error(LangError::Engine("neg: expected 1 arg".to_string()));
+            }
+            match as_num(&args[0]).map(|a| match a {
+                Num::Int(i) => num_value(Num::Int(-i)),
+                Num::Float(f) => num_value(Num::Float(-f)),
+            }) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
         "closure" => {
             // Create a closure from the current node's payload.
             let node = match ctx.current_node() {
@@ -1982,5 +2156,40 @@ mod tests {
                 assert!(msg.contains("unsupported scheme version"));
             }
         }
+    }
+
+    // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
+
+    #[test]
+    fn engine_vau_does_not_force_child() {
+        // A vau node binds its child (unevaluated) but the body returns a
+        // constant. The child is a div-by-zero node that would error if
+        // evaluated, proving the child is never forced.
+        let engine = CraneliftEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.div",
+                "binary.div",
+                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.vau",
+                "vau",
+                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
+            ))
+            .unwrap();
+        // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
+        // 3: vau {children:[2]} — binds x to the unevaluated div, returns 42
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(0)),
+            AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("vau").with_payload(json!({"children": [2]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
     }
 }

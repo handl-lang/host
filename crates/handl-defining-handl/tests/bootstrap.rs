@@ -38,12 +38,18 @@ use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 /// `compile(handlLanguage, native)` (cranelift) produces results matching the
 /// host-built handl (tree-walk) for the full corpus, using the
 /// emitter-assembled language.
+///
+/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — their `Prim` op is
+/// not yet implemented in the cranelift engine.
 #[test]
 fn bootstrap_cranelift_matches_tree_walk_emitter_language() {
     let lang = language();
     let tree_walk = TreeWalkEngine::new();
     let cranelift = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let tw_result = tree_walk.eval(&lang, &req);
         let cl_result = cranelift.eval(&lang, &req);
@@ -67,12 +73,18 @@ fn bootstrap_cranelift_matches_tree_walk_emitter_language() {
 
 /// The bootstrap path works with the data-file-loaded language too: the
 /// authored `data/handl.json`, compiled to native, matches the reference.
+///
+/// Tree-walk-only cases are skipped (see
+/// [`bootstrap_cranelift_matches_tree_walk_emitter_language`]).
 #[test]
 fn bootstrap_cranelift_matches_tree_walk_data_file_language() {
     let lang = language_from_data_file().expect("data file must load");
     let tree_walk = TreeWalkEngine::new();
     let cranelift = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let tw_result = tree_walk.eval(&lang, &req);
         let cl_result = cranelift.eval(&lang, &req);
@@ -95,6 +107,9 @@ fn bootstrap_cranelift_matches_tree_walk_data_file_language() {
 /// The bootstrap path works via the `Runtime` abstraction (eval engine
 /// selected by `RuntimeConfig { eval: "tree-walk" }` as the reference),
 /// confirming the self-describing language binds correctly to a runtime.
+///
+/// Tree-walk-only cases are skipped — the cranelift engine cannot compile
+/// them.
 #[test]
 fn bootstrap_self_describing_language_binds_to_runtime() {
     use handl_runtime::{Runtime, RuntimeConfig};
@@ -106,6 +121,9 @@ fn bootstrap_self_describing_language_binds_to_runtime() {
     // Re-create lang for cranelift (Runtime consumed it).
     let lang2 = language();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let rt_result = rt.eval(&case.ast);
         let req = EvalRequest::new(case.ast.clone());
         let cl_result = cranelift.eval(&lang2, &req);

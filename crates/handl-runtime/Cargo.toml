@@ -12,6 +12,7 @@ handl-plugin-engine-eval = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-plugin-engine-eval-cranelift = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

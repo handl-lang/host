@@ -1,3 +1,12 @@
+- id: grammar.and.infix
+  token: token.and
+  position: Infix
+  binding_power:
+  - 35
+  - 36
+  child_shape:
+    node_kind: binary.and
+    arity: 2
 - id: grammar.arrow.infix
   token: token.arrow
   position: Infix
@@ -101,7 +110,7 @@
     node_kind: var
     arity: 0
 - id: grammar.if.prefix
-  token: token.if
+  token: token.keyword.if
   position: Prefix
   binding_power:
   - 0
@@ -262,6 +271,15 @@
   child_shape:
     node_kind: binary.sub
     arity: 2
+- id: grammar.neg.prefix
+  token: token.minus
+  position: Prefix
+  binding_power:
+  - 70
+  - 0
+  child_shape:
+    node_kind: unary.neg
+    arity: 1
 - id: grammar.mood.postfix
   token: token.mood
   position: Infix
@@ -292,6 +310,24 @@
   child_shape:
     node_kind: value
     arity: 0
+- id: grammar.or.infix
+  token: token.or
+  position: Infix
+  binding_power:
+  - 25
+  - 26
+  child_shape:
+    node_kind: binary.or
+    arity: 2
+- id: grammar.mod.infix
+  token: token.percent
+  position: Infix
+  binding_power:
+  - 60
+  - 61
+  child_shape:
+    node_kind: binary.mod
+    arity: 2
 - id: grammar.pipe.infix
   token: token.pipe
   position: Infix

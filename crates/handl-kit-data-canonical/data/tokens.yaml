@@ -1,3 +1,5 @@
+- id: token.and
+  label: '&&'
 - id: token.arrow
   label: ->
 - id: token.bang
@@ -78,6 +80,10 @@
   label: 'null'
 - id: token.number
   label: number
+- id: token.or
+  label: '||'
+- id: token.percent
+  label: '%'
 - id: token.pipe
   label: '|>'
 - id: token.plus

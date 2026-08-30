@@ -78,17 +78,23 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone();
-        let (_registry, meta) = canonical_meta_host_functions(lang.clone());
+        let meta = canonical_meta_host_functions(lang.clone(), config.clone());
         // Leak the MetaHostFunctions to obtain a &'static reference. It lives
         // for the process lifetime — acceptable for a Kit that is typically
-        // created once at startup. This avoids self-referential borrow issues.
+        // created once at startup. This avoids self-referential borrow issues:
+        // the `Runtime<'static>` borrows the meta registry, and the `Kit`
+        // owns the runtime, so the meta cannot also be owned by the `Kit`
+        // without a self-referential struct.
         let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(
             Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone()),
         ));
-        // Inject `self` as a global variable bound to "handl" (ADR-0041
-        // Phase 3: `self` is an ambient variable, not a function call).
+        // Inject `self` as a global variable bound to the canonical
+        // `Language` value (ADR-0041 Phase 3: `self` is an ambient variable,
+        // not a function call). A `Language` is now a first-class value
+        // carrying the actual `handl_language::Language` data.
+        let self_val = handl_language::language_value(&lang);
         let mut globals = std::collections::HashMap::new();
-        globals.insert("self".to_string(), serde_json::json!("handl"));
+        globals.insert("self".to_string(), self_val);
         let runtime = Runtime::from_config_with_globals(
             lang,
             &config,

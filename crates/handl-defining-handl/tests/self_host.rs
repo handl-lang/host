@@ -12,11 +12,24 @@
 //!
 //! ## Scope
 //!
-//! The corpus uses only the migrated subset (identifier, value, arithmetic,
-//! let, call, branch, function). Full handl self-hosting is deferred until
-//! the remaining ~43 constructs are migrated to the data-driven model. This
-//! test proves the **mechanism**: a `Language` value can describe a language
-//! and be evaluated under itself.
+//! The corpus covers the data-driven constructs that all three engines can
+//! evaluate: value, var, the binary arithmetic / comparison ops (add, sub,
+//! mul, div, eq, lt, gt), unary not, let / stmt.let / stmt.const, if,
+//! ternary, function, call, pipe, paren, apply, mood, type-annot. A small
+//! number of cases are **tree-walk-only** (flagged via
+//! [`CorpusCase::tree_walk_only`]): they use a `Prim` op implemented in the
+//! tree-walk engine but not yet in the bytecode or cranelift engines
+//! (currently `binary.pow`). Those cases are run under tree-walk only and
+//! skipped by the compiled-engine tests.
+//!
+//! Constructs that dispatch to `Foreign` host functions (match, handle, flow,
+//! fanout, field-access, import, export, module, template, resolve, json,
+//! hello.greet) and `Prim` ops not yet implemented in any engine (array,
+//! object, index, typeof, assign, compare, gte, lte, neq) are **not** in the
+//! corpus — they remain blocked until the engines gain support. This test
+//! proves the **mechanism** with honest coverage: a `Language` value can
+//! describe a language and be evaluated under itself across all three
+//! engines.
 
 use handl_defining_handl::{corpus, language, language_from_data_file};
 use handl_language::LangError;
@@ -39,6 +52,8 @@ fn eval_with_runtime(
 
 /// The emitter-assembled self-describing language evaluates the corpus
 /// correctly under the tree-walk engine (the reference interpreter).
+///
+/// This runs **all** corpus cases, including the tree-walk-only ones.
 #[test]
 fn self_host_tree_walk_emitter_language() {
     let lang = language();
@@ -60,7 +75,8 @@ fn self_host_tree_walk_emitter_language() {
 ///
 /// This is the ADR §6 end state: the language is loaded from the authored
 /// `data/handl.json` file — no Rust emitters needed at load time — and
-/// evaluates its own constructs.
+/// evaluates its own constructs. Runs **all** corpus cases, including the
+/// tree-walk-only ones.
 #[test]
 fn self_host_tree_walk_data_file_language() {
     let lang = language_from_data_file().expect("data file must load");
@@ -79,11 +95,17 @@ fn self_host_tree_walk_data_file_language() {
 
 /// The self-describing language evaluates the corpus correctly under the
 /// bytecode engine.
+///
+/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — the `pow` prim is
+/// not yet implemented in the bytecode engine.
 #[test]
 fn self_host_bytecode_emitter_language() {
     let lang = language();
     let engine = BytecodeEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let result = engine.eval(&lang, &req);
         assert_eq!(
@@ -98,11 +120,17 @@ fn self_host_bytecode_emitter_language() {
 
 /// The self-describing language evaluates the corpus correctly under the
 /// cranelift (native) engine.
+///
+/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — the `pow` prim is
+/// not yet implemented in the cranelift engine.
 #[test]
 fn self_host_cranelift_emitter_language() {
     let lang = language();
     let engine = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let result = engine.eval(&lang, &req);
         assert_eq!(
@@ -117,11 +145,16 @@ fn self_host_cranelift_emitter_language() {
 
 /// The data-file-loaded language evaluates the corpus correctly under the
 /// cranelift engine — the data-file path compiled to native.
+///
+/// Tree-walk-only cases are skipped (see [`self_host_cranelift_emitter_language`]).
 #[test]
 fn self_host_cranelift_data_file_language() {
     let lang = language_from_data_file().expect("data file must load");
     let engine = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let result = engine.eval(&lang, &req);
         assert_eq!(
@@ -138,7 +171,7 @@ fn self_host_cranelift_data_file_language() {
 ///
 /// This is the cross-engine conformance gate scoped to the self-hosting
 /// corpus: tree-walk, bytecode, and cranelift must produce identical results
-/// for every subset program.
+/// for every non-tree-walk-only case.
 #[test]
 fn all_three_engines_agree_emitter_language() {
     let lang = language();
@@ -146,6 +179,9 @@ fn all_three_engines_agree_emitter_language() {
     let bc = BytecodeEngine::new();
     let cl = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let tw_res = tw.eval(&lang, &req);
         let bc_res = bc.eval(&lang, &req);
@@ -178,6 +214,9 @@ fn all_three_engines_agree_data_file_language() {
     let bc = BytecodeEngine::new();
     let cl = CraneliftEngine::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let tw_res = tw.eval(&lang, &req);
         let bc_res = bc.eval(&lang, &req);
@@ -199,4 +238,31 @@ fn all_three_engines_agree_data_file_language() {
             case.name
         );
     }
+}
+
+/// The tree-walk-only corpus cases produce correct results under the
+/// tree-walk engine. These cases use `Prim` ops not yet implemented in the
+/// bytecode or cranelift engines (e.g. `binary.pow`); they are excluded from
+/// the compiled-engine conformance gates above.
+#[test]
+fn self_host_tree_walk_only_cases() {
+    let lang = language();
+    let tw = TreeWalkEngine::new();
+    let mut ran = 0;
+    for case in corpus() {
+        if !case.tree_walk_only {
+            continue;
+        }
+        let req = EvalRequest::new(case.ast.clone());
+        let result = tw.eval(&lang, &req);
+        assert_eq!(
+            result.unwrap(),
+            case.expected,
+            "tree-walk-only: case '{}' ({}) failed",
+            case.name,
+            case.source
+        );
+        ran += 1;
+    }
+    assert!(ran > 0, "expected at least one tree-walk-only case");
 }

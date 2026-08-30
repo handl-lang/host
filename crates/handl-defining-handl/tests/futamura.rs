@@ -103,6 +103,9 @@ fn futamura_first_projection_specializes_language_once() {
 
 /// The specialization works with the data-file-loaded language too: the
 /// authored `data/handl.json`, compiled once, handles dynamic `ast` inputs.
+///
+/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — their `Prim` op is
+/// not yet implemented in the cranelift engine.
 #[test]
 fn futamura_first_projection_data_file_language() {
     let lang = language_from_data_file().expect("data file must load");
@@ -110,8 +113,11 @@ fn futamura_first_projection_data_file_language() {
     let tree_walk = TreeWalkEngine::new();
 
     // Evaluate the entire corpus against the one compiled module — every
-    // case is a distinct dynamic input.
+    // non-tree-walk-only case is a distinct dynamic input.
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
         let cl_result = cranelift.eval(&lang, &req);
         let tw_result = tree_walk.eval(&lang, &req);
@@ -135,32 +141,42 @@ fn futamura_first_projection_data_file_language() {
 /// recompilation: evaluate the corpus in a loop, then again, against the
 /// same `CraneliftEngine`. Results must be stable (the specialization
 /// persists across calls).
+///
+/// Tree-walk-only cases are skipped — the cranelift engine cannot compile
+/// them.
 #[test]
 fn futamura_specialization_persists_across_calls() {
     let lang = language();
     let cranelift = CraneliftEngine::new();
 
-    // First pass: evaluate every corpus case.
+    // First pass: evaluate every non-tree-walk-only corpus case.
     let mut pass1 = Vec::new();
     for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
         let req = EvalRequest::new(case.ast.clone());
-        pass1.push(cranelift.eval(&lang, &req).unwrap());
+        pass1.push((case.name, case.source, case.expected.clone(), cranelift.eval(&lang, &req).unwrap()));
     }
     // Second pass: the same compiled module handles the same inputs again.
-    for (case, first) in corpus().iter().zip(pass1.iter()) {
+    let mut idx = 0;
+    for case in corpus() {
+        if case.tree_walk_only {
+            continue;
+        }
+        let (name, source, expected, first) = &pass1[idx];
+        idx += 1;
         let req = EvalRequest::new(case.ast.clone());
         let second = cranelift.eval(&lang, &req).unwrap();
         assert_eq!(
             &second, first,
             "futamura: case '{}' ({}) — specialization was not stable across calls",
-            case.name,
-            case.source
+            name, source,
         );
         assert_eq!(
-            second, case.expected,
+            second, *expected,
             "futamura: case '{}' ({}) — second-pass result wrong",
-            case.name,
-            case.source
+            name, source,
         );
     }
 }

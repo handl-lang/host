@@ -1,8 +1,18 @@
+- id: lex.and
+  token_kind: token.and
+  pattern: !Literal
+    text: '&&'
+  priority: 10
 - id: lex.arrow
   token_kind: token.arrow
   pattern: !Literal
     text: ->
   priority: 10
+- id: lex.bang
+  token_kind: token.bang
+  pattern: !Literal
+    text: '!'
+  priority: 20
 - id: lex.bool.false
   token_kind: token.bool
   pattern: !Literal
@@ -154,6 +164,11 @@
   pattern: !Literal
     text: '['
   priority: 30
+- id: lex.let
+  token_kind: token.let
+  pattern: !Literal
+    text: let
+  priority: 15
 - id: lex.lparen
   token_kind: token.lparen
   pattern: !Literal
@@ -174,6 +189,11 @@
   pattern: !Literal
     text: '-'
   priority: 20
+- id: lex.mood
+  token_kind: token.mood
+  pattern: !Literal
+    text: '!'
+  priority: 20
 - id: lex.neq
   token_kind: token.neq
   pattern: !Literal
@@ -188,6 +208,16 @@
   token_kind: token.number
   pattern: Number
   priority: 40
+- id: lex.or
+  token_kind: token.or
+  pattern: !Literal
+    text: '||'
+  priority: 10
+- id: lex.percent
+  token_kind: token.percent
+  pattern: !Literal
+    text: '%'
+  priority: 20
 - id: lex.pipe
   token_kind: token.pipe
   pattern: !Literal
@@ -203,6 +233,11 @@
   pattern: !Literal
     text: '**'
   priority: 10
+- id: lex.question
+  token_kind: token.question
+  pattern: !Literal
+    text: '?'
+  priority: 20
 - id: lex.rbrace
   token_kind: token.rbrace
   pattern: !Literal

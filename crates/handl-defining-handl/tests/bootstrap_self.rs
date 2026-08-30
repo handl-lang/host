@@ -1,8 +1,9 @@
 //! # bootstrap_self.rs — ADR-0041 Phase 3 self-hosting bootstrap test
 //!
 //! Tests that a handl **source program** can use `self` (an ambient global
-//! variable) as the language handle and call `run(self, text)` / `eval(self,
-//! ast)` / `lex(self, text)` / `parse(self, tokens)` as ordinary functions.
+//! variable holding the current `Language` value) and call `run(self, text)`
+//! / `eval(self, ast)` / `lex(self, text)` / `parse(self, tokens)` as
+//! ordinary functions.
 
 use handl_kit_canonical::Kit;
 
@@ -35,12 +36,17 @@ fn nested_run_self() {
     assert_eq!(result, serde_json::json!(2));
 }
 
-/// `self` alone evaluates to the handle string `"handl"`.
+/// `self` alone evaluates to the current `Language` value (a first-class
+/// value carrying the actual `handl_language::Language` data).
 #[test]
-fn self_global_returns_handle() {
+fn self_global_returns_language_value() {
     let kit = Kit::new().expect("kit must assemble");
     let result = kit.run("self").expect("self must succeed");
-    assert_eq!(result, serde_json::json!("handl"));
+    assert!(
+        handl_language::is_language_value(&result),
+        "self should return a Language value, got: {}",
+        result
+    );
 }
 
 /// Full pipeline from source: `eval(self, parse(self, lex(self, "1 + 2")))` → `3`.

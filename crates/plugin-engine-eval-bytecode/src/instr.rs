@@ -122,6 +122,27 @@ pub enum Instr {
     /// registry.
     Foreign(String, usize),
 
+    /// Push a new empty scope for the `vau` parameter bindings (the vau
+    /// escape, ADR-0041 §6). Emitted once before the [`VauBind`]s of a
+    /// [`Scheme::Vau`](handl_language::Scheme::Vau). Always paired with a
+    /// later [`PopScope`] after the vau body completes.
+    VauEnter,
+
+    /// Bind the `n`-th child of the current node — **unevaluated** — to the
+    /// given name in the current scope (the `vau` escape, ADR-0041 §6).
+    ///
+    /// Reads `node.payload["children"][child_n]` to get the child's
+    /// absolute [`handl_language::AstRef`], extracts the child's subtree
+    /// into a standalone [`handl_language::Ast`], wraps it as a tagged
+    /// `__ast__` value, and binds `name` to that value in the current
+    /// (innermost) scope. The child is **not** evaluated. Preceded by a
+    /// [`VauEnter`] (which pushed the scope) and followed by a [`PopScope`]
+    /// after the vau body.
+    ///
+    /// Emitted by [`Scheme::Vau`](handl_language::Scheme::Vau) once per
+    /// parameter.
+    VauBind(String, usize),
+
     /// Pop the top of the operand stack and return it as the program result.
     ///
     /// Every compiled program ends with `Return`.

@@ -45,8 +45,8 @@
 //!
 //! ## Primitives
 //!
-//! The built-in primitive set: `add`, `sub`, `mul`, `div`, `eq`, `lt`, `gt`,
-//! `not`, `and`, `or`, and `closure`. Unknown ops return
+//! The built-in primitive set: `add`, `sub`, `mul`, `div`, `mod`, `eq`, `lt`,
+//! `gt`, `not`, `and`, `or`, `neg`, and `closure`. Unknown ops return
 //! [`LangError::Engine`].
 //!
 //! ## Scope management
@@ -60,7 +60,7 @@
 
 use std::collections::HashMap;
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
+use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 
 /// The tree-walk eval engine.
@@ -70,7 +70,7 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 pub struct TreeWalkEngine<'h> {
     /// The host functions registry for `Foreign` dispatch (may be `None`).
     host: Option<&'h dyn HostFunctions>,
-    /// Global variables injected by the host (e.g. `self` → language handle).
+    /// Global variables injected by the host (e.g. `self` → language value).
     /// Pre-populated into the root scope on every eval call.
     globals: HashMap<String, Value>,
 }
@@ -91,7 +91,7 @@ impl<'h> TreeWalkEngine<'h> {
     }
 
     /// Inject a global variable visible to all eval calls (builder style).
-    /// Used by the host to inject `self` (the current language handle) and
+    /// Used by the host to inject `self` (the current language value) and
     /// other ambient values (ADR-0041 Phase 3).
     pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
         self.globals.insert(name.into(), value);
@@ -177,7 +177,7 @@ impl<'h> EvalEngine for TreeWalkEngine<'h> {
             return Ok(Value::Null);
         }
         let mut env = ScopeStack::new();
-        // Inject host-provided globals (e.g. `self` → language handle) into
+        // Inject host-provided globals (e.g. `self` → language value) into
         // the root scope. ADR-0041 Phase 3: `self` is an ambient variable,
         // not a function call.
         for (name, val) in &self.globals {
@@ -394,6 +394,36 @@ impl<'h> TreeWalkEngine<'h> {
                 })?;
                 host_fn.call(&arg_vals)
             }
+
+            Scheme::Vau { params, body } => {
+                // The vau escape (ADR-0041 §6, ADR-0045): do NOT evaluate
+                // the children. Instead, bind each param to the
+                // unevaluated child subtree (a tagged `__ast__` value) and
+                // evaluate the body in the extended scope. The body can
+                // call `eval(self, ast)` to evaluate a child on demand.
+                let children = ctx
+                    .current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array());
+                ctx.env.push_scope();
+                for (i, param) in params.iter().enumerate() {
+                    let arena_idx = children
+                        .and_then(|arr| arr.get(i))
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine(format!(
+                                "vau: child {} not found",
+                                i
+                            ))
+                        })?;
+                    let sub = ctx.ast.subtree(AstRef::new(arena_idx as usize))?;
+                    ctx.env.define(param, ast_value(&sub));
+                }
+                let result = self.eval_scheme(body, ctx);
+                ctx.env.pop_scope();
+                result
+            }
         }
     }
 
@@ -405,7 +435,7 @@ impl<'h> TreeWalkEngine<'h> {
         ctx: &mut EvalCtx<'_, 'h>,
     ) -> Result<Value, LangError> {
         // ADR-0041 Phase 2: if the callee is a string that names a registered
-        // host function, dispatch to it. This makes `eval("handl", "1 + 2")`
+        // host function, dispatch to it. This makes `eval(self, "1 + 2")`
         // parse as `call(var("eval"), ...)` and dispatch to the `eval` host
         // function — no special syntax needed.
         if let Some(name) = closure.as_str() {
@@ -509,6 +539,17 @@ impl<'h> TreeWalkEngine<'h> {
                 }
                 Ok(num_value(a / b))
             }
+            "mod" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("modulo by zero".to_string()));
+                }
+                match (a, b) {
+                    (Num::Int(a), Num::Int(b)) => Ok(num_value(Num::Int(a % b))),
+                    (a, b) => Ok(num_value(Num::Float(a.to_f64() % b.to_f64()))),
+                }
+            }
             "pow" => {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
@@ -529,6 +570,13 @@ impl<'h> TreeWalkEngine<'h> {
             "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
             "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
             "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+            "neg" => {
+                let a = as_num(&args[0])?;
+                match a {
+                    Num::Int(i) => Ok(num_value(Num::Int(-i))),
+                    Num::Float(f) => Ok(num_value(Num::Float(-f))),
+                }
+            }
             "closure" => {
                 // Create a closure from the current node's payload.
                 let payload = &ctx.current_node.payload;
@@ -2106,5 +2154,131 @@ mod tests {
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
         assert!(matches!(err, LangError::Engine(_)));
+    }
+
+    // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
+
+    #[test]
+    fn vau_does_not_force_child() {
+        // A vau node binds its child (unevaluated) but the body returns a
+        // constant. The child is a node that would error if evaluated
+        // (division by zero), proving the child is never forced.
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.div",
+                "binary.div",
+                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.vau",
+                "vau",
+                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
+            ))
+            .unwrap();
+        // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
+        // 3: vau {children:[2]} — binds x to the unevaluated div, returns 42
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(0)),
+            AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("vau").with_payload(json!({"children": [2]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn vau_eval_escape_evaluates_child_on_demand() {
+        // A vau node binds its child (unevaluated) and the body calls
+        // `eval(self, x)` to evaluate it — the ArrowApply escape. Requires
+        // a host `eval` fn and a `self` global. We register a custom eval
+        // host fn that re-enters the tree-walk engine.
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::var("$payload"),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        // The vau body: eval(self, x) where x is the unevaluated child.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.vau",
+                "vau",
+                Scheme::vau(
+                    vec!["x".into()],
+                    Scheme::App {
+                        callee: Box::new(Scheme::var("eval")),
+                        args: vec![Scheme::var("self"), Scheme::var("x")],
+                    },
+                ),
+            ))
+            .unwrap();
+
+        // The child to receive unevaluated: 1 + 2 → 3
+        // 0: lit(1), 1: lit(2), 2: binary.add {children:[0,1]}
+        // 3: vau {children:[2]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("vau").with_payload(json!({"children": [2]})),
+        ]);
+
+        // A host eval fn that re-enters the engine. It needs the language
+        // and host; we capture them via a registry that re-enters with a
+        // fresh engine (no nested host needed for this self-contained
+        // child).
+        struct EvalHost {
+            lang: Language,
+        }
+        impl HostFn for EvalHost {
+            fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+                // eval(self, x): args[0] is the language value (unused —
+                // we use the captured lang), args[1] is the __ast__ value.
+                let ast_val = args
+                    .get(1)
+                    .ok_or_else(|| LangError::Engine("eval: expected (self, ast)".into()))?;
+                let ast = handl_language::as_ast(ast_val).ok_or_else(|| {
+                    LangError::Engine("eval: expected an __ast__ value".into())
+                })?;
+                let engine = TreeWalkEngine::new();
+                let req = EvalRequest::new(ast);
+                engine.eval(&self.lang, &req)
+            }
+        }
+        struct Host {
+            eval: EvalHost,
+        }
+        impl HostFunctions for Host {
+            fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+                if name == "eval" {
+                    Some(&self.eval)
+                } else {
+                    None
+                }
+            }
+        }
+        let host = Host {
+            eval: EvalHost { lang: lang.clone() },
+        };
+        let engine = engine
+            .with_host(&host)
+            .with_global("self", handl_language::language_value(&lang));
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
     }
 }

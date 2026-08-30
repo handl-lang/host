@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
+use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Value};
 use handl_plugin_engine_eval::HostFunctions;
 
 use crate::compile;
@@ -350,6 +350,27 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let result = host_fn.call(&args)?;
                     stack.push(result);
                 }
+                Instr::VauEnter => {
+                    // Push a new scope for the vau parameter bindings.
+                    self.scopes.push_scope();
+                }
+                Instr::VauBind(name, child_n) => {
+                    // Bind the unevaluated child subtree to `name` in the
+                    // current scope (the vau escape, ADR-0041 §6). The child
+                    // is NOT evaluated.
+                    let children = node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array());
+                    let arena_idx = children
+                        .and_then(|arr| arr.get(*child_n))
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine(format!("vau: child {} not found", child_n))
+                        })?;
+                    let sub = self.ast.subtree(AstRef::new(arena_idx as usize))?;
+                    self.scopes.define(name, ast_value(&sub));
+                }
                 Instr::Return => {
                     return stack
                         .pop()
@@ -436,7 +457,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// Apply a primitive operation.
     ///
     /// Replicates the tree-walk's primitive semantics exactly: `add`, `sub`,
-    /// `mul`, `div`, `eq`, `lt`, `gt`, `not`, `and`, `or`, `closure`.
+    /// `mul`, `div`, `mod`, `eq`, `lt`, `gt`, `not`, `and`, `or`, `neg`,
+    /// `closure`.
     fn apply_prim(
         &mut self,
         op: &str,
@@ -479,6 +501,17 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     (a, b) => Ok(Value::from(a.to_f64() / b.to_f64())),
                 }
             }
+            "mod" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("modulo by zero".to_string()));
+                }
+                match (a, b) {
+                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a % b)),
+                    (a, b) => Ok(Value::from(a.to_f64() % b.to_f64())),
+                }
+            }
             "eq" => Ok(Value::Bool(args[0] == args[1])),
             "lt" => {
                 let a = as_num(&args[0])?;
@@ -493,6 +526,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
             "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
             "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+            "neg" => {
+                let a = as_num(&args[0])?;
+                match a {
+                    Num::Int(i) => Ok(Value::from(-i)),
+                    Num::Float(f) => Ok(Value::from(-f)),
+                }
+            }
             "closure" => {
                 let payload = &node.payload;
                 let params = payload

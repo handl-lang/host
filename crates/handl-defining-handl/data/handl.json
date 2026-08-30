@@ -1,6 +1,10 @@
 {
   "tokens": {
     "by_key": {
+      "token.and": {
+        "id": "token.and",
+        "label": "&&"
+      },
       "token.arrow": {
         "id": "token.arrow",
         "label": "->"
@@ -161,6 +165,14 @@
         "id": "token.number",
         "label": "number"
       },
+      "token.or": {
+        "id": "token.or",
+        "label": "||"
+      },
+      "token.percent": {
+        "id": "token.percent",
+        "label": "%"
+      },
       "token.pipe": {
         "id": "token.pipe",
         "label": "|>"
@@ -215,6 +227,7 @@
       }
     },
     "id_index": {
+      "token.and": "token.and",
       "token.arrow": "token.arrow",
       "token.bang": "token.bang",
       "token.bool": "token.bool",
@@ -255,6 +268,8 @@
       "token.neq": "token.neq",
       "token.null": "token.null",
       "token.number": "token.number",
+      "token.or": "token.or",
+      "token.percent": "token.percent",
       "token.pipe": "token.pipe",
       "token.plus": "token.plus",
       "token.pow": "token.pow",
@@ -273,6 +288,19 @@
   },
   "grammar": {
     "by_key": {
+      "token.and@infix": {
+        "id": "grammar.and.infix",
+        "token": "token.and",
+        "position": "Infix",
+        "binding_power": [
+          35,
+          36
+        ],
+        "child_shape": {
+          "node_kind": "binary.and",
+          "arity": 2
+        }
+      },
       "token.arrow@infix": {
         "id": "grammar.arrow.infix",
         "token": "token.arrow",
@@ -421,19 +449,6 @@
           "arity": 0
         }
       },
-      "token.if@prefix": {
-        "id": "grammar.if.prefix",
-        "token": "token.if",
-        "position": "Prefix",
-        "binding_power": [
-          0,
-          0
-        ],
-        "child_shape": {
-          "node_kind": "if",
-          "arity": 3
-        }
-      },
       "token.keyword.const@prefix": {
         "id": "grammar.stmt-const.prefix",
         "token": "token.keyword.const",
@@ -471,6 +486,19 @@
         "child_shape": {
           "node_kind": "handle",
           "arity": 2
+        }
+      },
+      "token.keyword.if@prefix": {
+        "id": "grammar.if.prefix",
+        "token": "token.keyword.if",
+        "position": "Prefix",
+        "binding_power": [
+          0,
+          0
+        ],
+        "child_shape": {
+          "node_kind": "if",
+          "arity": 3
         }
       },
       "token.keyword.import@prefix": {
@@ -655,6 +683,19 @@
           "arity": 2
         }
       },
+      "token.minus@prefix": {
+        "id": "grammar.neg.prefix",
+        "token": "token.minus",
+        "position": "Prefix",
+        "binding_power": [
+          70,
+          0
+        ],
+        "child_shape": {
+          "node_kind": "unary.neg",
+          "arity": 1
+        }
+      },
       "token.mood@infix": {
         "id": "grammar.mood.postfix",
         "token": "token.mood",
@@ -697,6 +738,32 @@
         "child_shape": {
           "node_kind": "value",
           "arity": 0
+        }
+      },
+      "token.or@infix": {
+        "id": "grammar.or.infix",
+        "token": "token.or",
+        "position": "Infix",
+        "binding_power": [
+          25,
+          26
+        ],
+        "child_shape": {
+          "node_kind": "binary.or",
+          "arity": 2
+        }
+      },
+      "token.percent@infix": {
+        "id": "grammar.mod.infix",
+        "token": "token.percent",
+        "position": "Infix",
+        "binding_power": [
+          60,
+          61
+        ],
+        "child_shape": {
+          "node_kind": "binary.mod",
+          "arity": 2
         }
       },
       "token.pipe@infix": {
@@ -811,6 +878,7 @@
     },
     "id_index": {
       "grammar.add.infix": "token.plus@infix",
+      "grammar.and.infix": "token.and@infix",
       "grammar.array.prefix": "token.lbracket@prefix",
       "grammar.arrow.infix": "token.arrow@infix",
       "grammar.assign.infix": "token.equal@infix",
@@ -825,17 +893,20 @@
       "grammar.gte.infix": "token.gte@infix",
       "grammar.handle.prefix": "token.keyword.handle@prefix",
       "grammar.identifier.prefix": "token.identifier@prefix",
-      "grammar.if.prefix": "token.if@prefix",
+      "grammar.if.prefix": "token.keyword.if@prefix",
       "grammar.index.postfix": "token.lbracket@infix",
       "grammar.let.prefix": "token.let@prefix",
       "grammar.lt.infix": "token.lt@infix",
       "grammar.lte.infix": "token.lte@infix",
       "grammar.match.prefix": "token.keyword.match@prefix",
+      "grammar.mod.infix": "token.percent@infix",
       "grammar.mood.postfix": "token.mood@infix",
       "grammar.mul.infix": "token.star@infix",
+      "grammar.neg.prefix": "token.minus@prefix",
       "grammar.neq.infix": "token.neq@infix",
       "grammar.not.prefix": "token.bang@prefix",
       "grammar.object.prefix": "token.lbrace@prefix",
+      "grammar.or.infix": "token.or@infix",
       "grammar.paren.prefix": "token.lparen@prefix",
       "grammar.pipe.infix": "token.pipe@infix",
       "grammar.pow.infix": "token.pow@infix",
@@ -902,6 +973,23 @@
         "scheme": {
           "Prim": {
             "op": "add",
+            "args": [
+              {
+                "Child": 0
+              },
+              {
+                "Child": 1
+              }
+            ]
+          }
+        }
+      },
+      "binary.and": {
+        "id": "eval.binary.and",
+        "node_kind": "binary.and",
+        "scheme": {
+          "Prim": {
+            "op": "and",
             "args": [
               {
                 "Child": 0
@@ -1032,6 +1120,23 @@
           }
         }
       },
+      "binary.mod": {
+        "id": "eval.binary.mod",
+        "node_kind": "binary.mod",
+        "scheme": {
+          "Prim": {
+            "op": "mod",
+            "args": [
+              {
+                "Child": 0
+              },
+              {
+                "Child": 1
+              }
+            ]
+          }
+        }
+      },
       "binary.mul": {
         "id": "eval.binary.mul",
         "node_kind": "binary.mul",
@@ -1055,6 +1160,23 @@
         "scheme": {
           "Prim": {
             "op": "neq",
+            "args": [
+              {
+                "Child": 0
+              },
+              {
+                "Child": 1
+              }
+            ]
+          }
+        }
+      },
+      "binary.or": {
+        "id": "eval.binary.or",
+        "node_kind": "binary.or",
+        "scheme": {
+          "Prim": {
+            "op": "or",
             "args": [
               {
                 "Child": 0
@@ -1465,6 +1587,20 @@
           }
         }
       },
+      "unary.neg": {
+        "id": "eval.unary.neg",
+        "node_kind": "unary.neg",
+        "scheme": {
+          "Prim": {
+            "op": "neg",
+            "args": [
+              {
+                "Child": 0
+              }
+            ]
+          }
+        }
+      },
       "unary.not": {
         "id": "eval.unary.not",
         "node_kind": "unary.not",
@@ -1485,6 +1621,20 @@
         "scheme": {
           "Var": "$payload"
         }
+      },
+      "vau": {
+        "id": "eval.vau",
+        "node_kind": "vau",
+        "scheme": {
+          "Vau": {
+            "params": [
+              "expr"
+            ],
+            "body": {
+              "Var": "expr"
+            }
+          }
+        }
       }
     },
     "id_index": {
@@ -1492,6 +1642,7 @@
       "eval.array": "array",
       "eval.assign": "assign",
       "eval.binary.add": "binary.add",
+      "eval.binary.and": "binary.and",
       "eval.binary.compare": "binary.compare",
       "eval.binary.div": "binary.div",
       "eval.binary.eq": "binary.eq",
@@ -1499,8 +1650,10 @@
       "eval.binary.gte": "binary.gte",
       "eval.binary.lt": "binary.lt",
       "eval.binary.lte": "binary.lte",
+      "eval.binary.mod": "binary.mod",
       "eval.binary.mul": "binary.mul",
       "eval.binary.neq": "binary.neq",
+      "eval.binary.or": "binary.or",
       "eval.binary.pow": "binary.pow",
       "eval.binary.sub": "binary.sub",
       "eval.call": "call",
@@ -1529,8 +1682,10 @@
       "eval.ternary": "ternary",
       "eval.type-annot": "type-annot",
       "eval.typeof": "typeof",
+      "eval.unary.neg": "unary.neg",
       "eval.unary.not": "unary.not",
-      "eval.var": "var"
+      "eval.var": "var",
+      "eval.vau": "vau"
     },
     "override_chain": []
   },
@@ -1598,6 +1753,26 @@
       "binary.add": {
         "id": "ast.binary.add",
         "node_kind": "binary.add",
+        "payload_schema": {
+          "properties": {
+            "children": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "children"
+          ],
+          "type": "object"
+        }
+      },
+      "binary.and": {
+        "id": "ast.binary.and",
+        "node_kind": "binary.and",
         "payload_schema": {
           "properties": {
             "children": {
@@ -1755,6 +1930,26 @@
           "type": "object"
         }
       },
+      "binary.mod": {
+        "id": "ast.binary.mod",
+        "node_kind": "binary.mod",
+        "payload_schema": {
+          "properties": {
+            "children": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "children"
+          ],
+          "type": "object"
+        }
+      },
       "binary.mul": {
         "id": "ast.binary.mul",
         "node_kind": "binary.mul",
@@ -1778,6 +1973,26 @@
       "binary.neq": {
         "id": "ast.binary.neq",
         "node_kind": "binary.neq",
+        "payload_schema": {
+          "properties": {
+            "children": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "children"
+          ],
+          "type": "object"
+        }
+      },
+      "binary.or": {
+        "id": "ast.binary.or",
+        "node_kind": "binary.or",
         "payload_schema": {
           "properties": {
             "children": {
@@ -2253,6 +2468,26 @@
           "type": "object"
         }
       },
+      "unary.neg": {
+        "id": "ast.unary.neg",
+        "node_kind": "unary.neg",
+        "payload_schema": {
+          "properties": {
+            "children": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "children"
+          ],
+          "type": "object"
+        }
+      },
       "unary.not": {
         "id": "ast.unary.not",
         "node_kind": "unary.not",
@@ -2300,6 +2535,25 @@
           ],
           "type": "object"
         }
+      },
+      "vau": {
+        "id": "ast.vau",
+        "node_kind": "vau",
+        "payload_schema": {
+          "properties": {
+            "children": {
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "children"
+          ],
+          "type": "object"
+        }
       }
     },
     "id_index": {
@@ -2307,6 +2561,7 @@
       "ast.array": "array",
       "ast.assign": "assign",
       "ast.binary.add": "binary.add",
+      "ast.binary.and": "binary.and",
       "ast.binary.compare": "binary.compare",
       "ast.binary.div": "binary.div",
       "ast.binary.eq": "binary.eq",
@@ -2314,8 +2569,10 @@
       "ast.binary.gte": "binary.gte",
       "ast.binary.lt": "binary.lt",
       "ast.binary.lte": "binary.lte",
+      "ast.binary.mod": "binary.mod",
       "ast.binary.mul": "binary.mul",
       "ast.binary.neq": "binary.neq",
+      "ast.binary.or": "binary.or",
       "ast.binary.pow": "binary.pow",
       "ast.binary.sub": "binary.sub",
       "ast.call": "call",
@@ -2339,9 +2596,11 @@
       "ast.template": "template",
       "ast.type-annot": "type-annot",
       "ast.typeof": "typeof",
+      "ast.unary.neg": "unary.neg",
       "ast.unary.not": "unary.not",
       "ast.value": "value",
-      "ast.var": "var"
+      "ast.var": "var",
+      "ast.vau": "vau"
     },
     "override_chain": []
   },
@@ -2374,6 +2633,16 @@
   },
   "lexer_rules": {
     "by_key": {
+      "lex.and": {
+        "id": "lex.and",
+        "token_kind": "token.and",
+        "pattern": {
+          "Literal": {
+            "text": "&&"
+          }
+        },
+        "priority": 10
+      },
       "lex.arrow": {
         "id": "lex.arrow",
         "token_kind": "token.arrow",
@@ -2383,6 +2652,16 @@
           }
         },
         "priority": 10
+      },
+      "lex.bang": {
+        "id": "lex.bang",
+        "token_kind": "token.bang",
+        "pattern": {
+          "Literal": {
+            "text": "!"
+          }
+        },
+        "priority": 20
       },
       "lex.bool.false": {
         "id": "lex.bool.false",
@@ -2673,6 +2952,16 @@
         },
         "priority": 30
       },
+      "lex.let": {
+        "id": "lex.let",
+        "token_kind": "token.let",
+        "pattern": {
+          "Literal": {
+            "text": "let"
+          }
+        },
+        "priority": 15
+      },
       "lex.lparen": {
         "id": "lex.lparen",
         "token_kind": "token.lparen",
@@ -2713,6 +3002,16 @@
         },
         "priority": 20
       },
+      "lex.mood": {
+        "id": "lex.mood",
+        "token_kind": "token.mood",
+        "pattern": {
+          "Literal": {
+            "text": "!"
+          }
+        },
+        "priority": 20
+      },
       "lex.neq": {
         "id": "lex.neq",
         "token_kind": "token.neq",
@@ -2738,6 +3037,26 @@
         "token_kind": "token.number",
         "pattern": "Number",
         "priority": 40
+      },
+      "lex.or": {
+        "id": "lex.or",
+        "token_kind": "token.or",
+        "pattern": {
+          "Literal": {
+            "text": "||"
+          }
+        },
+        "priority": 10
+      },
+      "lex.percent": {
+        "id": "lex.percent",
+        "token_kind": "token.percent",
+        "pattern": {
+          "Literal": {
+            "text": "%"
+          }
+        },
+        "priority": 20
       },
       "lex.pipe": {
         "id": "lex.pipe",
@@ -2768,6 +3087,16 @@
           }
         },
         "priority": 10
+      },
+      "lex.question": {
+        "id": "lex.question",
+        "token_kind": "token.question",
+        "pattern": {
+          "Literal": {
+            "text": "?"
+          }
+        },
+        "priority": 20
       },
       "lex.rbrace": {
         "id": "lex.rbrace",
@@ -2869,7 +3198,9 @@
       }
     },
     "id_index": {
+      "lex.and": "lex.and",
       "lex.arrow": "lex.arrow",
+      "lex.bang": "lex.bang",
       "lex.bool.false": "lex.bool.false",
       "lex.bool.true": "lex.bool.true",
       "lex.colon": "lex.colon",
@@ -2898,16 +3229,21 @@
       "lex.keyword.typeof": "lex.keyword.typeof",
       "lex.lbrace": "lex.lbrace",
       "lex.lbracket": "lex.lbracket",
+      "lex.let": "lex.let",
       "lex.lparen": "lex.lparen",
       "lex.lt": "lex.lt",
       "lex.lte": "lex.lte",
       "lex.minus": "lex.minus",
+      "lex.mood": "lex.mood",
       "lex.neq": "lex.neq",
       "lex.null": "lex.null",
       "lex.number": "lex.number",
+      "lex.or": "lex.or",
+      "lex.percent": "lex.percent",
       "lex.pipe": "lex.pipe",
       "lex.plus": "lex.plus",
       "lex.pow": "lex.pow",
+      "lex.question": "lex.question",
       "lex.rbrace": "lex.rbrace",
       "lex.rbracket": "lex.rbracket",
       "lex.rparen": "lex.rparen",

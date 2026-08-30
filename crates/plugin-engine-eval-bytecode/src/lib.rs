@@ -41,6 +41,7 @@
 //! | `Branch{cond, then, else}` | `compile(cond)`, `JumpIfFalse(else)`, `compile(then)`, `Jump(end)`, `compile(else)` |
 //! | `Prim{op, args}` | `compile(args)…`, `Prim(op, n)` |
 //! | `Foreign{name, args}` | `compile(args)…`, `Foreign(name, n)` |
+//! | `Vau{params, body}` | `VauEnter`, `VauBind(p_i, i)…`, `compile(body)`, `PopScope` |
 //!
 //! ## Conventions (matched to the tree-walk)
 //!
@@ -628,5 +629,40 @@ mod tests {
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
+    }
+
+    // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
+
+    #[test]
+    fn engine_vau_does_not_force_child() {
+        // A vau node binds its child (unevaluated) but the body returns a
+        // constant. The child is a div-by-zero node that would error if
+        // evaluated, proving the child is never forced.
+        let engine = BytecodeEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.div",
+                "binary.div",
+                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.vau",
+                "vau",
+                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
+            ))
+            .unwrap();
+        // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
+        // 3: vau {children:[2]} — binds x to the unevaluated div, returns 42
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(0)),
+            AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("vau").with_payload(json!({"children": [2]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
     }
 }

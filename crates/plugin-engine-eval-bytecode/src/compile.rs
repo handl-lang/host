@@ -15,6 +15,8 @@
 //!   `compile(then)`, `Jump(end)`, `compile(else)`
 //! - [`Scheme::Prim`] → `compile(args)…`, `Prim(op, n)`
 //! - [`Scheme::Foreign`] → `compile(args)…`, `Foreign(name, n)`
+//! - [`Scheme::Vau`] → `VauEnter`, `VauBind(p_i, i)…`, `compile(body)`,
+//!   `PopScope`
 //!
 //! Every compiled program ends with [`Instr::Return`]. Sub-schemes are
 //! inlined (their instructions are appended without a trailing `Return`) so
@@ -110,6 +112,14 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<(), LangError> 
                 compile_into(arg, out)?;
             }
             out.push(Instr::Foreign(name.clone(), args.len()));
+        }
+        Scheme::Vau { params, body } => {
+            out.push(Instr::VauEnter);
+            for (i, param) in params.iter().enumerate() {
+                out.push(Instr::VauBind(param.clone(), i));
+            }
+            compile_into(body, out)?;
+            out.push(Instr::PopScope);
         }
     }
     Ok(())
@@ -352,5 +362,25 @@ mod tests {
         let scheme = Scheme::Child(AstRef::new(7));
         let instrs = compile(&scheme, &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::EvalChild(7), Instr::Return]);
+    }
+
+    #[test]
+    fn compile_vau() {
+        let scheme = Scheme::vau(
+            vec!["a".into(), "b".into()],
+            Scheme::lit(json!(42)),
+        );
+        let instrs = compile(&scheme, &dummy_node()).unwrap();
+        assert_eq!(
+            instrs,
+            vec![
+                Instr::VauEnter,
+                Instr::VauBind("a".into(), 0),
+                Instr::VauBind("b".into(), 1),
+                Instr::Push(json!(42)),
+                Instr::PopScope,
+                Instr::Return,
+            ]
+        );
     }
 }

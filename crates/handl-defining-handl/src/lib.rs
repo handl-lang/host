@@ -8,18 +8,26 @@
 //! becomes `compile(handlLanguage, native)` via the cranelift engine."
 //!
 //! This crate produces a [`Language`] value that describes the **subset** of
-//! handl the data-driven engines can evaluate — the ~7 constructs migrated to
-//! the data-driven model in Phases 4–5 (identifier, value, arithmetic, let,
-//! call, branch, function). It is the "handl defining handl": the language
-//! spec as data.
+//! handl the data-driven engines can evaluate — the constructs migrated to
+//! the data-driven model in Phases 4–5 (value, var, the binary arithmetic /
+//! comparison ops, unary not, let / stmt.let / stmt.const, if, ternary,
+//! function, call, pipe, paren, apply, mood). It is the "handl defining
+//! handl": the language spec as data.
 //!
 //! ## Scope (honest deliverable)
 //!
-//! Phases 4–5 migrated only a **representative subset** of handl's ~50
-//! constructs to the data-driven model. **Full self-hosting of the entire
-//! handl language is not achievable yet** — the data-driven engines can only
-//! evaluate programs using the migrated subset. This crate does **not**
-//! attempt to describe the full handl language as data. Instead it:
+//! Phases 4–5 migrated a **representative subset** of handl's ~50 constructs
+//! to the data-driven model. **Full self-hosting of the entire handl language
+//! is not achievable yet** — constructs whose eval schemes dispatch to
+//! `Foreign` host functions (match, handle, flow, fanout, field-access,
+//! import, export, module, template, resolve, json, hello.greet) are not
+//! compilable by the bytecode/cranelift engines, and several `Prim` ops
+//! (array, object, index, typeof, assign, compare, gte, lte, neq) are not yet
+//! implemented in any engine. The `type-annot` construct uses a `Bind` with
+//! `$payload` (reads `payload["name"]`) but a type annotation has no natural
+//! bind name, so it is blocked until the payload convention is clarified.
+//! This crate does **not** attempt to describe the full handl language as
+//! data. Instead it:
 //!
 //! 1. Builds the **self-hosting infrastructure**: a [`Language`] value
 //!    describing the subset, loadable both from the canonical YAML data files
@@ -38,7 +46,8 @@
 //! — the Futamura projection sanity check.
 //!
 //! What is **deferred**: full handl self-hosting (pending migration of the
-//! remaining ~43 constructs), and a standalone-binary bootstrap (writing an
+//! remaining constructs — primarily `Foreign`-dispatched constructs and the
+//! unimplemented `Prim` ops), and a standalone-binary bootstrap (writing an
 //! executable to disk). Phase 8 proves the *mechanism*, not the
 //! standalone-binary artifact.
 //!
@@ -138,33 +147,64 @@ pub struct CorpusCase {
     pub ast: Ast,
     /// The expected result value.
     pub expected: Value,
+    /// Whether this case is supported only under the tree-walk engine (not
+    /// bytecode/cranelift). When `true`, the compiled-engine tests skip it;
+    /// the tree-walk tests still run it. This flags constructs whose `Prim`
+    /// op is implemented in the tree-walk engine but not yet in the bytecode
+    /// or cranelift engines (an honest engine-coverage gap).
+    pub tree_walk_only: bool,
 }
 
-/// Build the self-hosting corpus: a set of programs using only the migrated
-/// subset constructs (literals, arithmetic, let, var, if, function, call).
+/// Build the self-hosting corpus: a set of programs using the data-driven
+/// subset constructs that all three eval engines (tree-walk, bytecode,
+/// cranelift) can evaluate, plus a small set of tree-walk-only cases.
 ///
 /// Each case's [`Ast`] is constructed manually using the canonical data-driven
-/// node kinds (`value`, `var`, `binary.add`, `let`, `if`, `call`,
-/// `function`) and the payload conventions documented by the Phase 4
+/// node kinds and the payload conventions documented by the Phase 4
 /// emitters. The Pratt grammar for delimited forms (let/call/if/function) is
 /// a placeholder per Phase 4 deviations, so ASTs are hand-built rather than
 /// parsed from source.
 ///
-/// The corpus covers:
+/// The corpus covers the following constructs. Cases marked **(tw-only)** use
+/// a `Prim` op implemented in the tree-walk engine but not yet in the
+/// bytecode or cranelift engines — they set [`CorpusCase::tree_walk_only`]
+/// and are skipped by the compiled-engine tests.
 ///
-/// | Case            | Source model                          | Constructs used          |
-/// |-----------------|---------------------------------------|--------------------------|
-/// | `literal`       | `42`                                  | value                    |
-/// | `arith_add`     | `1 + 2`                               | value, binary.add        |
-/// | `let_var`       | `let x = 5; x`                        | value, let, var          |
-/// | `if_true`       | `if (true) 1 else 2`                  | value, if                |
-/// | `if_false`      | `if (false) 1 else 2`                 | value, if                |
-/// | `function_call` | `let f = (x, y) -> x + y; f(3, 4)`    | function, call, let, var, binary.add |
-/// | `nested_let`    | `let x = 3; let y = 4; x + y`         | let, var, binary.add     |
+/// | Case                 | Source model                          | Constructs used                     |
+/// |----------------------|---------------------------------------|-------------------------------------|
+/// | `literal`            | `42`                                  | value                               |
+/// | `arith_add`          | `1 + 2`                               | value, binary.add                   |
+/// | `arith_sub`          | `10 - 4`                              | value, binary.sub                   |
+/// | `arith_mul`          | `3 * 4`                               | value, binary.mul                   |
+/// | `arith_div`          | `20 / 4`                              | value, binary.div                   |
+/// | `arith_pow` (tw-only)| `2 ^ 3`                               | value, binary.pow                   |
+/// | `eq_true`            | `3 == 3`                              | value, binary.eq                    |
+/// | `eq_false`           | `3 == 4`                              | value, binary.eq                    |
+/// | `lt_true`            | `1 < 2`                               | value, binary.lt                    |
+/// | `gt_true`            | `2 > 1`                               | value, binary.gt                    |
+/// | `not_true`           | `!false`                              | value, unary.not                    |
+/// | `not_false`          | `!true`                               | value, unary.not                    |
+/// | `let_var`            | `let x = 5; x`                        | value, let, var                     |
+/// | `stmt_let`           | `let x = 6; x`                        | value, stmt.let, var                |
+/// | `stmt_const`         | `const x = 7; x`                      | value, stmt.const, var              |
+/// | `if_true`            | `if (true) 1 else 2`                  | value, if                           |
+/// | `if_false`           | `if (false) 1 else 2`                 | value, if                           |
+/// | `ternary_true`       | `true ? 1 : 2`                        | value, ternary                      |
+/// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
+/// | `paren`              | `(42)`                                | value, paren                        |
+/// | `apply`              | `apply 42`                            | value, apply                        |
+/// | `mood`               | `42!`                                 | value, mood                         |
+/// | `function_call`      | `let f = (x, y) -> x + y; f(3, 4)`    | function, call, let, var, binary.add|
+/// | `pipe_call`          | `let f = (x) -> x + 1; 5 | f`         | function, pipe, let, var, binary.add|
+/// | `nested_let`         | `let x = 3; let y = 4; x + y`         | let, var, binary.add                |
+/// | `if_with_let`        | `if (true) (let x = 1; x) else 0`     | if, let, var, value                 |
 ///
 /// Note: the `call` construct targets **2-argument calls** (the canonical
 /// emitter's fixed arity), so the function-call case uses a 2-arg function
-/// `f(x, y) -> x + y` applied as `f(3, 4)`.
+/// `f(x, y) -> x + y` applied as `f(3, 4)`. The `pipe` construct's scheme is
+/// `App { callee: Child 1, args: [Child 0] }` — it applies the right child
+/// (a function) to the left child (a value) — so the pipe case uses a 1-arg
+/// function.
 pub fn corpus() -> Vec<CorpusCase> {
     vec![
         // 1. Literal: 42
@@ -177,6 +217,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(42),
+            tree_walk_only: false,
         },
         // 2. Arithmetic: 1 + 2
         CorpusCase {
@@ -193,8 +234,177 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(3),
+            tree_walk_only: false,
         },
-        // 3. Let + var: let x = 5; x
+        // 3. Subtraction: 10 - 4
+        CorpusCase {
+            name: "arith_sub",
+            source: "10 - 4",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(10)));
+                a.push(AstNode::new("value").with_payload(json!(4)));
+                a.push(
+                    AstNode::new("binary.sub")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(6),
+            tree_walk_only: false,
+        },
+        // 4. Multiplication: 3 * 4
+        CorpusCase {
+            name: "arith_mul",
+            source: "3 * 4",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(4)));
+                a.push(
+                    AstNode::new("binary.mul")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(12),
+            tree_walk_only: false,
+        },
+        // 5. Division: 20 / 4
+        CorpusCase {
+            name: "arith_div",
+            source: "20 / 4",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(20)));
+                a.push(AstNode::new("value").with_payload(json!(4)));
+                a.push(
+                    AstNode::new("binary.div")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(5),
+            tree_walk_only: false,
+        },
+        // 6. Power: 2 ^ 3 (tree-walk only — `pow` prim not in bytecode/cranelift)
+        CorpusCase {
+            name: "arith_pow",
+            source: "2 ^ 3",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(
+                    AstNode::new("binary.pow")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(8.0),
+            tree_walk_only: true,
+        },
+        // 7. Equality true: 3 == 3
+        CorpusCase {
+            name: "eq_true",
+            source: "3 == 3",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(
+                    AstNode::new("binary.eq")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 8. Equality false: 3 == 4
+        CorpusCase {
+            name: "eq_false",
+            source: "3 == 4",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(4)));
+                a.push(
+                    AstNode::new("binary.eq")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(false),
+            tree_walk_only: false,
+        },
+        // 9. Less-than true: 1 < 2
+        CorpusCase {
+            name: "lt_true",
+            source: "1 < 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.lt")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 10. Greater-than true: 2 > 1
+        CorpusCase {
+            name: "gt_true",
+            source: "2 > 1",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(
+                    AstNode::new("binary.gt")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 11. Unary not true: !false
+        CorpusCase {
+            name: "not_true",
+            source: "!false",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(false)));
+                a.push(
+                    AstNode::new("unary.not")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 12. Unary not false: !true
+        CorpusCase {
+            name: "not_false",
+            source: "!true",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(true)));
+                a.push(
+                    AstNode::new("unary.not")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!(false),
+            tree_walk_only: false,
+        },
+        // 13. Let + var: let x = 5; x
         CorpusCase {
             name: "let_var",
             source: "let x = 5; x",
@@ -209,8 +419,43 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(5),
+            tree_walk_only: false,
         },
-        // 4. If true: if (true) 1 else 2
+        // 14. stmt.let + var: let x = 6; x  (stmt.let uses the same Bind scheme as let)
+        CorpusCase {
+            name: "stmt_let",
+            source: "let x = 6; x",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(6)));
+                a.push(AstNode::new("var").with_payload(json!("x")));
+                a.push(
+                    AstNode::new("stmt.let")
+                        .with_payload(json!({"name": "x", "children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(6),
+            tree_walk_only: false,
+        },
+        // 15. stmt.const + var: const x = 7; x  (stmt.const uses the same Bind scheme)
+        CorpusCase {
+            name: "stmt_const",
+            source: "const x = 7; x",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(7)));
+                a.push(AstNode::new("var").with_payload(json!("x")));
+                a.push(
+                    AstNode::new("stmt.const")
+                        .with_payload(json!({"name": "x", "children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(7),
+            tree_walk_only: false,
+        },
+        // 16. If true: if (true) 1 else 2
         CorpusCase {
             name: "if_true",
             source: "if (true) 1 else 2",
@@ -226,8 +471,9 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(1),
+            tree_walk_only: false,
         },
-        // 5. If false: if (false) 1 else 2
+        // 17. If false: if (false) 1 else 2
         CorpusCase {
             name: "if_false",
             source: "if (false) 1 else 2",
@@ -243,10 +489,95 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(2),
+            tree_walk_only: false,
         },
-        // 6. Function + call: let f = (x, y) -> x + y; f(3, 4)
-        //    The canonical call emitter targets 2-arg calls, so the function
-        //    takes two params.
+        // 18. Ternary true: true ? 1 : 2  (ternary uses the same Branch scheme as if)
+        CorpusCase {
+            name: "ternary_true",
+            source: "true ? 1 : 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(true)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("ternary")
+                        .with_payload(json!({"children": [0, 1, 2]})),
+                );
+                a
+            },
+            expected: json!(1),
+            tree_walk_only: false,
+        },
+        // 19. Ternary false: false ? 1 : 2
+        CorpusCase {
+            name: "ternary_false",
+            source: "false ? 1 : 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(false)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("ternary")
+                        .with_payload(json!({"children": [0, 1, 2]})),
+                );
+                a
+            },
+            expected: json!(2),
+            tree_walk_only: false,
+        },
+        // 20. Paren: (42)  (paren is a Child 0 passthrough)
+        CorpusCase {
+            name: "paren",
+            source: "(42)",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(42)));
+                a.push(
+                    AstNode::new("paren")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!(42),
+            tree_walk_only: false,
+        },
+        // 21. Apply: apply 42  (apply is a Child 0 passthrough)
+        CorpusCase {
+            name: "apply",
+            source: "apply 42",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(42)));
+                a.push(
+                    AstNode::new("apply")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!(42),
+            tree_walk_only: false,
+        },
+        // 22. Mood: 42!  (mood is a Child 0 passthrough — a postfix marker)
+        CorpusCase {
+            name: "mood",
+            source: "42!",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(42)));
+                a.push(
+                    AstNode::new("mood")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!(42),
+            tree_walk_only: false,
+        },
+        // 23. Function + call: let f = (x, y) -> x + y; f(3, 4)
+        //     The canonical call emitter targets 2-arg calls, so the function
+        //     takes two params.
         CorpusCase {
             name: "function_call",
             source: "let f = (x, y) -> x + y; f(3, 4)",
@@ -276,8 +607,42 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
+            tree_walk_only: false,
         },
-        // 7. Nested let + add: let x = 3; let y = 4; x + y
+        // 24. Pipe: let f = (x) -> x + 1; 5 | f
+        //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
+        //     applies the right child (function) to the left child (value).
+        CorpusCase {
+            name: "pipe_call",
+            source: "let f = (x) -> x + 1; 5 | f",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("var").with_payload(json!("x"))); // 0
+                a.push(AstNode::new("value").with_payload(json!(1))); // 1
+                a.push(
+                    AstNode::new("binary.add") // 2: body x + 1
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a.push(
+                    AstNode::new("function") // 3: (x) -> x + 1
+                        .with_payload(json!({"params": ["x"], "body": 2})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(5))); // 4: left of pipe
+                a.push(AstNode::new("var").with_payload(json!("f"))); // 5: right of pipe
+                a.push(
+                    AstNode::new("pipe") // 6: 5 | f  → App(f, [5])
+                        .with_payload(json!({"children": [4, 5]})),
+                );
+                a.push(
+                    AstNode::new("let") // 7: let f = function in pipe
+                        .with_payload(json!({"name": "f", "children": [3, 6]})),
+                );
+                a
+            },
+            expected: json!(6),
+            tree_walk_only: false,
+        },
+        // 25. Nested let + add: let x = 3; let y = 4; x + y
         CorpusCase {
             name: "nested_let",
             source: "let x = 3; let y = 4; x + y",
@@ -302,6 +667,30 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(7),
+            tree_walk_only: false,
+        },
+        // 26. If with let in branch: if (true) (let x = 1; x) else 0
+        CorpusCase {
+            name: "if_with_let",
+            source: "if (true) (let x = 1; x) else 0",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(true))); // 0: cond
+                a.push(AstNode::new("value").with_payload(json!(1))); // 1
+                a.push(AstNode::new("var").with_payload(json!("x"))); // 2
+                a.push(
+                    AstNode::new("let") // 3: let x = 1 in x
+                        .with_payload(json!({"name": "x", "children": [1, 2]})),
+                );
+                a.push(AstNode::new("value").with_payload(json!(0))); // 4: else
+                a.push(
+                    AstNode::new("if") // 5
+                        .with_payload(json!({"children": [0, 3, 4]})),
+                );
+                a
+            },
+            expected: json!(1),
+            tree_walk_only: false,
         },
     ]
 }
@@ -355,7 +744,7 @@ mod tests {
     #[test]
     fn corpus_is_nonempty() {
         let c = corpus();
-        assert!(c.len() >= 7, "corpus should have at least 7 cases");
+        assert!(c.len() >= 26, "corpus should have at least 26 cases");
         for case in &c {
             assert!(!case.ast.is_empty(), "case '{}' has empty ast", case.name);
         }

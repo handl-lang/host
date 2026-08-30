@@ -340,10 +340,12 @@ pub enum Term {
     Literal(Literal),
     /// Base collection (e.g. `type.number`).
     Collection(Name),
-    /// A first-class `Language` value (ADR-0041 Phase 2): an opaque handle
-    /// naming a `Language` registered with the runtime. The handle is a leaf
-    /// value; the runtime resolves it to the structured
-    /// `handl_language::Language` data when `eval`/`self`/`compile` is called.
+    /// A first-class `Language` value (ADR-0041 Phase 2). In the runtime, a
+    /// `Language` is a genuine value carrying the actual
+    /// `handl_language::Language` data (no string-handle indirection). The
+    /// typechecker represents it by a `Name` for unification purposes; this
+    /// agrees with the runtime that a `Language` is a value, without
+    /// embedding the full (non-`Eq`) `Language` data into the type theory.
     Language(Name),
     /// Membership type `T(x)`.
     Membership {
@@ -453,8 +455,9 @@ pub enum Value {
     Literal(Literal),
     /// Base collection value (e.g. `type.number`).
     Collection(Name),
-    /// A first-class `Language` value (ADR-0041 Phase 2): an opaque handle
-    /// naming a `Language` registered with the runtime.
+    /// A first-class `Language` value (ADR-0041 Phase 2). The runtime carries
+    /// the actual `handl_language::Language` data; the typechecker uses a
+    /// `Name` for unification.
     Language(Name),
     /// Membership type `T(x)`.
     Membership {

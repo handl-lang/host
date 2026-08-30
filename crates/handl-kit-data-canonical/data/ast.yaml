@@ -48,6 +48,19 @@
     required:
     - children
     type: object
+- id: ast.binary.and
+  node_kind: binary.and
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.binary.compare
   node_kind: binary.compare
   payload_schema:
@@ -139,6 +152,19 @@
     required:
     - children
     type: object
+- id: ast.binary.mod
+  node_kind: binary.mod
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.binary.mul
   node_kind: binary.mul
   payload_schema:
@@ -154,6 +180,19 @@
     type: object
 - id: ast.binary.neq
   node_kind: binary.neq
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.or
+  node_kind: binary.or
   payload_schema:
     properties:
       children:
@@ -454,6 +493,19 @@
     required:
     - children
     type: object
+- id: ast.unary.neg
+  node_kind: unary.neg
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.unary.not
   node_kind: unary.not
   payload_schema:
@@ -462,6 +514,18 @@
         items:
           type: integer
         maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.vau
+  node_kind: vau
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
         minItems: 1
         type: array
     required:

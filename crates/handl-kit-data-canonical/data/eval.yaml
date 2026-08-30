@@ -21,6 +21,13 @@
     args:
     - !Child 0
     - !Child 1
+- id: eval.binary.and
+  node_kind: binary.and
+  scheme: !Prim
+    op: and
+    args:
+    - !Child 0
+    - !Child 1
 - id: eval.binary.compare
   node_kind: binary.compare
   scheme: !Prim
@@ -70,6 +77,13 @@
     args:
     - !Child 0
     - !Child 1
+- id: eval.binary.mod
+  node_kind: binary.mod
+  scheme: !Prim
+    op: mod
+    args:
+    - !Child 0
+    - !Child 1
 - id: eval.binary.mul
   node_kind: binary.mul
   scheme: !Prim
@@ -81,6 +95,13 @@
   node_kind: binary.neq
   scheme: !Prim
     op: neq
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.or
+  node_kind: binary.or
+  scheme: !Prim
+    op: or
     args:
     - !Child 0
     - !Child 1
@@ -250,12 +271,24 @@
     op: typeof
     args:
     - !Child 0
+- id: eval.unary.neg
+  node_kind: unary.neg
+  scheme: !Prim
+    op: neg
+    args:
+    - !Child 0
 - id: eval.unary.not
   node_kind: unary.not
   scheme: !Prim
     op: not
     args:
     - !Child 0
+- id: eval.vau
+  node_kind: vau
+  scheme: !Vau
+    params:
+    - expr
+    body: !Var expr
 - id: eval.var
   node_kind: var
   scheme: !Var $payload

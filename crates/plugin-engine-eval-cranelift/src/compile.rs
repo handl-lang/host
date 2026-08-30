@@ -192,6 +192,8 @@ struct HelperIds {
     apply_closure: FuncId,
     apply_prim: FuncId,
     call_foreign: FuncId,
+    vau_enter: FuncId,
+    vau_bind: FuncId,
 }
 
 /// `FuncRef`s for the helpers, declared in a specific function.
@@ -209,6 +211,8 @@ struct HelperRefs {
     apply_closure: FuncRef,
     apply_prim: FuncRef,
     call_foreign: FuncRef,
+    vau_enter: FuncRef,
+    vau_bind: FuncRef,
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +287,8 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     builder.symbol("helper_apply_closure", crate::helper_apply_closure as *const u8);
     builder.symbol("helper_apply_prim", crate::helper_apply_prim as *const u8);
     builder.symbol("helper_call_foreign", crate::helper_call_foreign as *const u8);
+    builder.symbol("helper_vau_enter", crate::helper_vau_enter as *const u8);
+    builder.symbol("helper_vau_bind", crate::helper_vau_bind as *const u8);
 
     let mut module = JITModule::new(builder);
 
@@ -517,6 +523,14 @@ fn declare_helper_imports<M: Module>(
     sig_apply_prim.params.push(AbiParam::new(types::I64));
     sig_apply_prim.returns.push(AbiParam::new(ptr_type));
 
+    // helper_vau_enter: (ctx) -> void
+    // helper_pop_scope signature (sig_1arg_void) is reused.
+    // helper_vau_bind: (ctx, name_idx, child_n) -> void
+    let mut sig_vau_bind = module.make_signature();
+    sig_vau_bind.params.push(AbiParam::new(ptr_type));
+    sig_vau_bind.params.push(AbiParam::new(types::I64));
+    sig_vau_bind.params.push(AbiParam::new(types::I64));
+
     let declare = |m: &mut M, name: &str, sig: &Signature| -> Result<FuncId, LangError> {
         m.declare_function(name, Linkage::Import, sig)
             .map_err(|e| LangError::Engine(format!("declare import error: {}", e)))
@@ -536,6 +550,8 @@ fn declare_helper_imports<M: Module>(
         apply_closure: declare(module, "helper_apply_closure", &sig_apply_closure)?,
         apply_prim: declare(module, "helper_apply_prim", &sig_apply_prim)?,
         call_foreign: declare(module, "helper_call_foreign", &sig_apply_prim)?,
+        vau_enter: declare(module, "helper_vau_enter", &sig_1arg_void)?,
+        vau_bind: declare(module, "helper_vau_bind", &sig_vau_bind)?,
     })
 }
 
@@ -584,6 +600,8 @@ fn compile_node<M: Module>(
             apply_closure: module.declare_func_in_func(helper_ids.apply_closure, &mut builder.func),
             apply_prim: module.declare_func_in_func(helper_ids.apply_prim, &mut builder.func),
             call_foreign: module.declare_func_in_func(helper_ids.call_foreign, &mut builder.func),
+            vau_enter: module.declare_func_in_func(helper_ids.vau_enter, &mut builder.func),
+            vau_bind: module.declare_func_in_func(helper_ids.vau_bind, &mut builder.func),
         };
 
         // Create the entry block.
@@ -808,6 +826,31 @@ fn compile_scheme(
                 &[ctx_param, name_idx_val, arg_ptrs, n_val],
             );
             builder.inst_results(call)[0]
+        }
+
+        Scheme::Vau { params, body } => {
+            // Push a new scope for the vau parameter bindings.
+            builder.ins().call(helpers.vau_enter, &[ctx_param]);
+
+            // Bind each param to the unevaluated child subtree.
+            for (i, param) in params.iter().enumerate() {
+                let name_idx = pools.add_name(param);
+                let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
+                let child_n_val = builder.ins().iconst(types::I64, i as i64);
+                builder
+                    .ins()
+                    .call(helpers.vau_bind, &[ctx_param, name_idx_val, child_n_val]);
+            }
+
+            // Compile the body scheme.
+            let body_ptr = compile_scheme(
+                builder, body, ctx_param, helpers, pools, ptr_type,
+            );
+
+            // Pop the scope (always, even if body failed — matches tree-walk).
+            builder.ins().call(helpers.pop_scope, &[ctx_param]);
+
+            body_ptr
         }
     }
 }
@@ -1056,6 +1099,24 @@ mod tests {
         ]);
         let result = compile_all_nodes_jit(&lang, &ast);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn compile_vau_succeeds() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.vau",
+                "vau",
+                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("vau").with_payload(json!({"children": [0]})),
+        ]);
+        let result = compile_all_nodes_jit(&lang, &ast);
+        assert!(result.is_ok(), "vau compilation failed: {:?}", result.err());
     }
 
     #[test]
