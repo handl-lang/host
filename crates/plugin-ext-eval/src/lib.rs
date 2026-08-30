@@ -8,6 +8,6 @@
 //! `plugin-eval-*` crates that are registered by the kit.
 
 pub use handl_platform::{
-    BasicExecControl, BasicEvaluator, BasicEvaluatorCallback, Eval, EvalBehavior, EvalContext,
-    EvalError, EvalLimits, EvalRequest, EvaluatorCallback, ExecControl, Scope,
+    BasicExecControl, BasicEvaluator, BasicEvaluatorCallback, ControlFlow, Eval, EvalBehavior,
+    EvalContext, EvalError, EvalLimits, EvalRequest, EvaluatorCallback, ExecControl, Scope,
 };

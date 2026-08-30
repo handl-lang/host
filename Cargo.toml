@@ -167,6 +167,15 @@ members = [
   "crates/plugin-eval-function",
   "crates/plugin-eval-call",
   "crates/plugin-eval-handle",
+  "crates/plugin-exec-cache",
+  "crates/plugin-exec-trace",
+  "crates/plugin-exec-counter",
+  "crates/plugin-exec-map",
+  "crates/plugin-exec-logging",
+  "crates/plugin-exec-allow",
+  "crates/plugin-exec-deny",
+  "crates/plugin-exec-max-depth",
+  "crates/plugin-exec-max-calls",
   "crates/plugin-module",
   "crates/plugin-token-bool",
   "crates/plugin-token-comment",
@@ -387,6 +396,15 @@ handl-plugin-eval-assign = { path = "crates/plugin-eval-assign" }
 handl-plugin-eval-function = { path = "crates/plugin-eval-function" }
 handl-plugin-eval-call = { path = "crates/plugin-eval-call" }
 handl-plugin-eval-handle = { path = "crates/plugin-eval-handle" }
+handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
+handl-plugin-exec-trace = { path = "crates/plugin-exec-trace" }
+handl-plugin-exec-counter = { path = "crates/plugin-exec-counter" }
+handl-plugin-exec-map = { path = "crates/plugin-exec-map" }
+handl-plugin-exec-logging = { path = "crates/plugin-exec-logging" }
+handl-plugin-exec-allow = { path = "crates/plugin-exec-allow" }
+handl-plugin-exec-deny = { path = "crates/plugin-exec-deny" }
+handl-plugin-exec-max-depth = { path = "crates/plugin-exec-max-depth" }
+handl-plugin-exec-max-calls = { path = "crates/plugin-exec-max-calls" }
 handl-plugin-module = { path = "crates/plugin-module" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }

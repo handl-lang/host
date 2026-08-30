@@ -8,8 +8,12 @@ use std::sync::Arc;
 
 use crate::capability::CapabilityId;
 use crate::error::PlatformError;
+use crate::eval::{BasicEvaluator, ExecControl};
 use crate::kit::KitRegistry;
-use crate::plugin::{CapabilityRequest, CapabilityResponse, Plugin, PluginContext, PluginRegistry};
+use crate::plugin::{
+    CapabilityRequest, CapabilityResponse, PendingRule, PendingStatus, Plugin, PluginContext,
+    PluginRegistry,
+};
 
 /// A contribution that can be accepted by a [`RuleAcceptor`].
 pub trait Contribution: Send + Sync + 'static {
@@ -92,16 +96,58 @@ impl<'a> ContributionContext<'a> {
                 let mut slot = Some(rule);
                 self.plugins.push_pending_rule(crate::plugin::PendingRule {
                     type_name: std::any::type_name::<P>().to_string(),
-                    try_apply: Box::new(move |reg| match (slot.take(), reg.get_plugin_mut::<P>()) {
-                        (Some(rule), Some(acceptor)) => match acceptor.accept(rule) {
-                            Ok(()) => crate::plugin::PendingStatus::Applied,
-                            Err(e) => crate::plugin::PendingStatus::Failed(e),
-                        },
-                        (Some(rule), None) => {
-                            slot = Some(rule);
-                            crate::plugin::PendingStatus::StillMissing
+                    try_apply: Box::new(move |reg| {
+                        match (slot.take(), reg.get_plugin_mut::<P>()) {
+                            (Some(rule), Some(acceptor)) => match acceptor.accept(rule) {
+                                Ok(()) => crate::plugin::PendingStatus::Applied,
+                                Err(e) => crate::plugin::PendingStatus::Failed(e),
+                            },
+                            (Some(rule), None) => {
+                                slot = Some(rule);
+                                crate::plugin::PendingStatus::StillMissing
+                            }
+                            (None, _) => crate::plugin::PendingStatus::Applied,
                         }
-                        (None, _) => crate::plugin::PendingStatus::Applied,
+                    }),
+                });
+                Ok(())
+            }
+        }
+    }
+
+    /// Contribute an [`ExecControl`] rule to the [`BasicEvaluator`].
+    ///
+    /// `BasicEvaluator` already implements `RuleAcceptor` for
+    /// `Arc<dyn EvalBehavior>`, so exec-control rules (which use a separate
+    /// `add_exec_control` entry point) get their own contribution path. Like
+    /// [`contribute`](Self::contribute), this defers the rule if the
+    /// `BasicEvaluator` is not yet registered and retries as loading
+    /// progresses.
+    pub fn contribute_exec_control(
+        &mut self,
+        rule: Arc<dyn ExecControl>,
+    ) -> Result<(), PlatformError> {
+        match self.plugins.get_plugin_mut::<BasicEvaluator>() {
+            Some(evaluator) => {
+                evaluator.add_exec_control(rule);
+                Ok(())
+            }
+            None => {
+                let mut slot = Some(rule);
+                self.plugins.push_pending_rule(PendingRule {
+                    type_name: std::any::type_name::<BasicEvaluator>().to_string(),
+                    try_apply: Box::new(move |reg| {
+                        match (slot.take(), reg.get_plugin_mut::<BasicEvaluator>()) {
+                            (Some(rule), Some(evaluator)) => {
+                                evaluator.add_exec_control(rule);
+                                PendingStatus::Applied
+                            }
+                            (Some(rule), None) => {
+                                slot = Some(rule);
+                                PendingStatus::StillMissing
+                            }
+                            (None, _) => PendingStatus::Applied,
+                        }
                     }),
                 });
                 Ok(())

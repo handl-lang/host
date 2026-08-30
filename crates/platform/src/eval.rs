@@ -120,17 +120,35 @@ pub struct BasicEvaluatorCallback {
 impl EvaluatorCallback for BasicEvaluatorCallback {
     fn dispatch(&self, req: &mut EvalRequest) -> Result<(), PlatformError> {
         // --- before hooks ---
+        // A `ControlFlow::Skip(value)` from any hook short-circuits dispatch:
+        // the value becomes the result and no `Behavior<Eval>` rule runs.
+        // After-hooks still fire so observability rules (trace, counter) see
+        // the call, and the cache rule can (re)record the result.
+        let mut skipped = false;
         for ec in &self.exec_controls {
-            ec.before_eval(&req.ast, &mut req.ctx)?;
+            match ec.before_eval(&mut req.ast, &mut req.ctx)? {
+                ControlFlow::Continue => {}
+                ControlFlow::Skip(value) => {
+                    req.result = Some(value);
+                    skipped = true;
+                    break;
+                }
+            }
         }
 
-        // --- dispatch to matching rule(s) ---
-        let kind = req.ast.kind.clone();
-        let mut found = false;
-        for rule in &self.rules {
-            if rule.kind() == kind {
-                rule.apply(req)?;
-                found = true;
+        if !skipped {
+            // --- dispatch to matching rule(s) ---
+            let kind = req.ast.kind.clone();
+            let mut found = false;
+            for rule in &self.rules {
+                if rule.kind() == kind {
+                    rule.apply(req)?;
+                    found = true;
+                }
+            }
+
+            if !found && req.result.is_none() {
+                return Err(PlatformError::NotImplemented);
             }
         }
 
@@ -141,9 +159,6 @@ impl EvaluatorCallback for BasicEvaluatorCallback {
             }
         }
 
-        if !found && req.result.is_none() {
-            return Err(PlatformError::NotImplemented);
-        }
         Ok(())
     }
 }
@@ -151,6 +166,27 @@ impl EvaluatorCallback for BasicEvaluatorCallback {
 // ---------------------------------------------------------------------------
 // ExecControl
 // ---------------------------------------------------------------------------
+
+/// Control flow outcome from an [`ExecControl::before_eval`] hook.
+///
+/// `Continue` lets dispatch proceed to the matching `Behavior<Eval>` rule.
+/// `Skip(value)` short-circuits dispatch: `value` becomes the result and no
+/// behavior rule runs (after-hooks still fire). This is how the cache plugin
+/// returns a cached result without re-executing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ControlFlow {
+    /// Proceed with normal dispatch.
+    Continue,
+    /// Skip dispatch and use `value` as the result.
+    Skip(Value),
+}
+
+impl ControlFlow {
+    /// Convenience constructor for the `Continue` variant.
+    pub fn continue_() -> Self {
+        ControlFlow::Continue
+    }
+}
 
 /// Lightweight execution-control hook invoked before and after each dispatch.
 ///
@@ -162,13 +198,25 @@ impl EvaluatorCallback for BasicEvaluatorCallback {
 /// `BasicEvaluator` calls all registered `ExecControl` rules before and after
 /// each dispatch. When none are loaded the overhead is a zero-length slice
 /// iteration.
+///
+/// `before_eval` receives a `&mut AstNode` so that rewriting rules (e.g. the
+/// map plugin) can mutate the node in place before dispatch. Returning
+/// [`ControlFlow::Skip`] short-circuits dispatch with a precomputed result
+/// (used by the cache plugin).
 pub trait ExecControl: Send + Sync + 'static {
     /// Called before dispatching to the matching `Behavior<Eval>` rule.
     ///
-    /// Return `Err` to abort the dispatch.
-    fn before_eval(&self, ast: &AstNode, ctx: &mut EvalContext) -> Result<(), PlatformError>;
+    /// Return `Err` to abort the dispatch, [`ControlFlow::Skip`] to
+    /// short-circuit with a cached result, or [`ControlFlow::Continue`] to
+    /// proceed.
+    fn before_eval(
+        &self,
+        ast: &mut AstNode,
+        ctx: &mut EvalContext,
+    ) -> Result<ControlFlow, PlatformError>;
 
-    /// Called after a successful dispatch, with the produced result.
+    /// Called after a successful dispatch (or a short-circuited skip), with
+    /// the produced result.
     ///
     /// Default implementation is a no-op.
     fn after_eval(
@@ -416,6 +464,17 @@ impl EvalContext {
         self.call_count
     }
 
+    /// Increment the call counter and return the new count.
+    ///
+    /// Unlike [`increment_call_count`](Self::increment_call_count), this does
+    /// **not** check `limits.max_calls` — the enforcing rule (e.g.
+    /// `plugin-exec-max-calls`) checks the returned count against its own
+    /// configured maximum.
+    pub fn bump_call_count(&mut self) -> usize {
+        self.call_count += 1;
+        self.call_count
+    }
+
     /// Increment the call counter. Returns an error if `max_calls` is exceeded.
     pub fn increment_call_count(&mut self) -> Result<(), PlatformError> {
         self.call_count += 1;
@@ -587,6 +646,15 @@ pub trait EvalBehavior: Behavior<Eval> {}
 impl Contribution for Arc<dyn EvalBehavior> {
     fn id(&self) -> &str {
         self.kind()
+    }
+}
+
+/// `Contribution` impl for exec-control rules so they can be deferred through
+/// the pending-rule mechanism. The id is a stable placeholder; exec-control
+/// rules are not keyed by kind (they apply to every dispatch).
+impl Contribution for Arc<dyn ExecControl> {
+    fn id(&self) -> &str {
+        "exec-control"
     }
 }
 
@@ -947,11 +1015,11 @@ mod tests {
         impl ExecControl for CountingControl {
             fn before_eval(
                 &self,
-                _ast: &AstNode,
+                _ast: &mut AstNode,
                 _ctx: &mut EvalContext,
-            ) -> Result<(), PlatformError> {
+            ) -> Result<ControlFlow, PlatformError> {
                 self.before.fetch_add(1, Ordering::SeqCst);
-                Ok(())
+                Ok(ControlFlow::Continue)
             }
             fn after_eval(
                 &self,
@@ -1013,9 +1081,9 @@ mod tests {
         impl ExecControl for DenyAll {
             fn before_eval(
                 &self,
-                _ast: &AstNode,
+                _ast: &mut AstNode,
                 _ctx: &mut EvalContext,
-            ) -> Result<(), PlatformError> {
+            ) -> Result<ControlFlow, PlatformError> {
                 Err(EvalError::ResourceLimit("denied".into()).into())
             }
         }

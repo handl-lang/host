@@ -731,6 +731,19 @@ dependencies = [
  "handl-plugin-applier",
  "handl-plugin-ext-lsp",
  "handl-plugin-lexer",
+ "handl-plugin-token-bool",
+ "handl-plugin-token-comment",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-doc-comment",
+ "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword",
+ "handl-plugin-token-keyword-as",
+ "handl-plugin-token-keyword-handle",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-null",
+ "handl-plugin-token-number",
+ "handl-plugin-token-operator",
+ "handl-plugin-token-string",
  "serde",
  "serde_json",
  "tempfile",
@@ -749,11 +762,25 @@ dependencies = [
  "handl-plugin-fmt-trivia",
  "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
+ "handl-plugin-lexer-template",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
  "handl-plugin-lsp-goto",
  "handl-plugin-lsp-symbol",
+ "handl-plugin-token-bool",
+ "handl-plugin-token-comment",
+ "handl-plugin-token-delimiter",
+ "handl-plugin-token-doc-comment",
+ "handl-plugin-token-identifier",
+ "handl-plugin-token-keyword",
+ "handl-plugin-token-keyword-as",
+ "handl-plugin-token-keyword-handle",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-null",
+ "handl-plugin-token-number",
+ "handl-plugin-token-operator",
+ "handl-plugin-token-string",
  "handl-plugin-vm-common",
  "handl-plugin-vm-values-json",
  "serde",
@@ -1216,6 +1243,89 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-eval-value"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-allow"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-exec-logging",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-cache"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-counter"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-deny"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-exec-logging",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-logging"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-map"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-max-calls"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-max-depth"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-exec-trace"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
