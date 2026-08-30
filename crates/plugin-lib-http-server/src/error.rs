@@ -1,4 +1,4 @@
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError;
 use std::fmt;
 
 /// Errors produced by HTTP server implementations.
@@ -33,14 +33,14 @@ impl fmt::Display for HttpServerError {
 
 impl std::error::Error for HttpServerError {}
 
-impl From<HttpServerError> for VmError {
+impl From<HttpServerError> for EvalError {
     fn from(err: HttpServerError) -> Self {
-        VmError::Other(err.to_string())
+        EvalError::Other(err.to_string())
     }
 }
 
 impl HttpServerError {
-    pub fn into_vm_error(self) -> VmError {
+    pub fn into_vm_error(self) -> EvalError {
         self.into()
     }
 }

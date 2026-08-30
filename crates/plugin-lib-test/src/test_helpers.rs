@@ -1,44 +1,44 @@
-use handl_plugin_vm::Eval;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalError, ExprEvaluator};
+use serde_json::Value;
 
-/// An [`Eval`] that always returns `true`.
+/// An [`ExprEvaluator`] that always returns `true`.
 pub struct TrueEval;
 
-impl Eval<NonFunctionValue> for TrueEval {
+impl ExprEvaluator for TrueEval {
     fn eval_expr(
         &self,
         _expr: &str,
-        _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, Error> {
-        Ok(NonFunctionValue::new(true))
+        _vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
+        Ok(Value::Bool(true))
     }
 }
 
-/// An [`Eval`] that always fails.
+/// An [`ExprEvaluator`] that always fails.
 pub struct ErrorEval;
 
-impl Eval<NonFunctionValue> for ErrorEval {
+impl ExprEvaluator for ErrorEval {
     fn eval_expr(
         &self,
         _expr: &str,
-        _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, Error> {
-        Err(Error::PrimitiveError("eval error".to_string()))
+        _vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
+        Err(EvalError::Other("eval error".to_string()))
     }
 }
 
-/// An [`Eval`] that returns the value bound to the first variable.
+/// An [`ExprEvaluator`] that returns the value bound to the first variable.
 pub struct VarEval;
 
-impl Eval<NonFunctionValue> for VarEval {
+impl ExprEvaluator for VarEval {
     fn eval_expr(
         &self,
         _expr: &str,
-        vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, Error> {
+        vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
         Ok(vars
             .first()
             .map(|(_, v)| v.clone())
-            .unwrap_or_else(|| NonFunctionValue::new(serde_json::Value::Null)))
+            .unwrap_or_else(|| Value::Null))
     }
 }

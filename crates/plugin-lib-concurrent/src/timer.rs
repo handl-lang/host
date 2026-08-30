@@ -10,10 +10,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use handl_plugin_vm_values_json::Error;
+use handl_platform::EvalError;
+use serde_json::Value;
 
 /// A replaceable backend for timer operations used by the schedulers.
-pub trait TimerRuntime: Send + Sync {
+pub trait TimerRuntime {
     /// Schedule `callback` to run after `delay_ms` milliseconds.
     fn schedule<F>(&self, delay_ms: u64, callback: F)
     where
@@ -27,7 +28,7 @@ pub trait TimerRuntime: Send + Sync {
     fn schedule_boxed(&self, delay_ms: u64, callback: Box<dyn FnOnce() + Send + 'static>);
 
     /// Block the calling thread until `delay_ms` milliseconds have elapsed.
-    fn sleep(&self, delay_ms: u64) -> Result<(), Error>;
+    fn sleep(&self, delay_ms: u64) -> Result<Value, EvalError>;
 }
 
 enum Command {
@@ -80,16 +81,17 @@ impl ThreadTimerRuntime {
         }
     }
 
-    fn send(&self, cmd: Command) -> Result<(), Error> {
+    fn send(&self, cmd: Command) -> Result<Value, EvalError> {
         let guard = self
             .tx
             .lock()
-            .map_err(|_| Error::PrimitiveError("timer runtime lock poisoned".to_string()))?;
+            .map_err(|_| EvalError::Other("timer runtime lock poisoned".to_string()))?;
         if let Some(tx) = guard.as_ref() {
             tx.send(cmd)
-                .map_err(|_| Error::PrimitiveError("timer runtime shut down".to_string()))
+                .map(|_| Value::Null)
+                .map_err(|_| EvalError::Other("timer runtime shut down".to_string()))
         } else {
-            Err(Error::PrimitiveError("timer runtime shut down".to_string()))
+            Err(EvalError::Other("timer runtime shut down".to_string()))
         }
     }
 }
@@ -120,11 +122,12 @@ impl TimerRuntime for ThreadTimerRuntime {
         let _ = self.send(Command::Schedule { delay_ms, callback });
     }
 
-    fn sleep(&self, delay_ms: u64) -> Result<(), Error> {
+    fn sleep(&self, delay_ms: u64) -> Result<Value, EvalError> {
         let (tx, rx) = mpsc::channel::<()>();
         self.send(Command::Sleep { delay_ms, tx })?;
         rx.recv()
-            .map_err(|_| Error::PrimitiveError("timer runtime shut down".to_string()))
+            .map(|_| Value::Null)
+            .map_err(|_| EvalError::Other("timer runtime shut down".to_string()))
     }
 }
 
@@ -150,20 +153,22 @@ impl TimerRuntime for NoopTimerRuntime {
         callback();
     }
 
-    fn sleep(&self, delay_ms: u64) -> Result<(), Error> {
+    fn sleep(&self, delay_ms: u64) -> Result<Value, EvalError> {
         thread::sleep(Duration::from_millis(delay_ms));
-        Ok(())
+        Ok(Value::Null)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::function_value::FunctionValue;
     use crate::scheduler::Scheduler;
-    use handl_plugin_vm_values_json::{
-        CanonicalContext, Error as _Error, Eval, FunctionValue, NonFunctionValue,
+    use handl_platform::{
+        EvalContext, EvalError, ExprEvaluator,
     };
     use serde_json::json;
+    use std::rc::Rc;
     use std::sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -184,13 +189,13 @@ mod tests {
     #[derive(Clone)]
     struct FastEval;
 
-    impl Eval<NonFunctionValue> for FastEval {
+    impl ExprEvaluator for FastEval {
         fn eval_expr(
             &self,
             _expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, _Error> {
-            Ok(NonFunctionValue::new(json!("done")))
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
+            Ok(serde_json::json!(json!("done")))
         }
     }
 
@@ -199,19 +204,19 @@ mod tests {
         flag: Arc<AtomicBool>,
     }
 
-    impl Eval<NonFunctionValue> for SlowEval {
+    impl ExprEvaluator for SlowEval {
         fn eval_expr(
             &self,
             _expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, _Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             for _ in 0..200 {
                 if self.flag.load(Ordering::SeqCst) {
-                    return Err(_Error::PrimitiveError("cancelled".to_string()));
+                    return Err(EvalError::Other("cancelled".to_string()));
                 }
                 thread::sleep(Duration::from_millis(5));
             }
-            Ok(NonFunctionValue::new(json!("done")))
+            Ok(serde_json::json!(json!("done")))
         }
     }
 
@@ -262,15 +267,15 @@ mod tests {
         let token = s.cancel_runtime().cancel_token();
         let flag = s.cancel_runtime().cancel_flag(&token).unwrap();
 
-        let mut ctx = CanonicalContext::new();
-        ctx.set_sync_eval(Arc::new(SlowEval { flag }));
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(SlowEval { flag }));
 
         let task = s
             .spawn_cancelable(token.clone(), work("slow"), &mut ctx)
             .unwrap();
         let err = s.timeout(task, 50, &mut ctx);
 
-        assert!(matches!(err, Err(_Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
     }
 
     #[test]
@@ -279,12 +284,12 @@ mod tests {
         let cancel = Arc::new(crate::cancel::DefaultCancelRuntime::new());
         let s = crate::scheduler::DefaultScheduler::with_timer(cancel, timer);
 
-        let mut ctx = CanonicalContext::new();
-        ctx.set_sync_eval(Arc::new(FastEval));
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(FastEval));
 
         let task = s.spawn(work("fast"), &mut ctx).unwrap();
         let result = s.timeout(task, 1000, &mut ctx).unwrap();
 
-        assert_eq!(result, NonFunctionValue::new(json!("done")));
+        assert_eq!(result, serde_json::json!(json!("done")));
     }
 }

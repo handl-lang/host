@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError;
 
 #[derive(Debug, Clone)]
 pub enum TestError {
@@ -65,8 +65,8 @@ impl fmt::Display for TestError {
 
 impl std::error::Error for TestError {}
 
-impl From<TestError> for VmError {
+impl From<TestError> for EvalError {
     fn from(err: TestError) -> Self {
-        VmError::Other(err.to_string())
+        EvalError::Other(err.to_string())
     }
 }

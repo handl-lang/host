@@ -1,21 +1,20 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
+use serde_json::{json, Value};
 use std::sync::Arc;
 
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
+use handl_platform::{EvalContext, Module};
 
 use crate::http_method::HttpMethod;
 use crate::http_server::{HttpServer, HttpServerModule, StubHttpServer};
 use crate::request::HttpServerRequest;
 use crate::response::HttpServerResponse;
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> Value {
+    json!(v)
 }
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[Value]) -> Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
@@ -31,7 +30,7 @@ fn new_returns_id() {
     let module: HttpServerModule<fn() -> Arc<dyn HttpServer>> =
         HttpServerModule::new(|| Arc::new(StubHttpServer::new()));
     let result = call(&module, "new", &[]);
-    assert!(result.as_number().is_some());
+    assert!(result.as_f64().is_some());
 }
 
 #[test]

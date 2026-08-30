@@ -5,6 +5,7 @@
 //! other native hosts; sandboxed `vm-config` hosts should continue to use the
 //! in-memory `handl-lib-ws-rfc` module.
 
+mod function_value;
 mod module;
 
 pub use module::WsRfcNativeModule;

@@ -9,7 +9,9 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use handl_plugin_vm_values_json::{Context, FunctionValue, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError};
+use serde_json::Value;
+use crate::function_value::FunctionValue;
 use parking_lot::{Condvar, FairMutex, Mutex, RwLock};
 use serde_json::json;
 
@@ -17,7 +19,7 @@ use crate::sync::{SyncError, SyncRuntime, as_u64, resource_id, resource_value};
 
 struct ChannelState {
     capacity: Option<usize>,
-    queue: VecDeque<NonFunctionValue>,
+    queue: VecDeque<Value>,
 }
 
 struct ChannelInner {
@@ -59,12 +61,12 @@ impl Default for ParkingLotSyncRuntime {
 }
 
 impl SyncRuntime for ParkingLotSyncRuntime {
-    fn channel(&self, capacity: Option<NonFunctionValue>) -> NonFunctionValue {
+    fn channel(&self, capacity: Option<Value>) -> Value {
         let cap = capacity.and_then(|v| {
             if v.is_null() {
                 None
             } else {
-                v.inner().as_u64().map(|c| c as usize)
+                v.as_u64().map(|c| c as usize)
             }
         });
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
@@ -84,9 +86,9 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn send(
         &self,
-        channel: NonFunctionValue,
-        value: NonFunctionValue,
-    ) -> Result<NonFunctionValue, SyncError> {
+        channel: Value,
+        value: Value,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -103,14 +105,14 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         }
         state.queue.push_back(value);
         chan.cond.notify_one();
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 
     fn try_send(
         &self,
-        channel: NonFunctionValue,
-        value: NonFunctionValue,
-    ) -> Result<NonFunctionValue, SyncError> {
+        channel: Value,
+        value: Value,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -122,15 +124,15 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         let mut state = chan.state.lock();
         if let Some(cap) = state.capacity {
             if state.queue.len() >= cap {
-                return Err(SyncError::WouldBlock);
+                return Err(EvalError::from(SyncError::WouldBlock));
             }
         }
         state.queue.push_back(value);
         chan.cond.notify_one();
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 
-    fn recv(&self, channel: NonFunctionValue) -> Result<NonFunctionValue, SyncError> {
+    fn recv(&self, channel: Value) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -148,7 +150,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         Ok(value)
     }
 
-    fn try_recv(&self, channel: &NonFunctionValue) -> Result<NonFunctionValue, SyncError> {
+    fn try_recv(&self, channel: &Value) -> Result<Value, EvalError> {
         let id = resource_id(channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -159,23 +161,23 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
         let mut state = chan.state.lock();
         if state.queue.is_empty() {
-            return Err(SyncError::WouldBlock);
+            return Err(EvalError::from(SyncError::WouldBlock));
         }
         let value = state.queue.pop_front().unwrap();
         chan.cond.notify_one();
         Ok(value)
     }
 
-    fn select(&self, channels: &[NonFunctionValue]) -> Result<NonFunctionValue, SyncError> {
+    fn select(&self, channels: &[Value]) -> Result<Value, EvalError> {
         for (i, channel) in channels.iter().enumerate() {
             if let Ok(value) = self.try_recv(channel) {
-                return Ok(NonFunctionValue::new(json!([i, value.inner().clone()])));
+                return Ok(serde_json::json!(json!([i, value.clone()])));
             }
         }
-        Err(SyncError::WouldBlock)
+        Err(EvalError::from(SyncError::WouldBlock))
     }
 
-    fn mutex(&self) -> NonFunctionValue {
+    fn mutex(&self) -> Value {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let mut mutexes = self.mutexes.lock();
         mutexes.insert(id, Arc::new(FairMutex::new(())));
@@ -184,10 +186,10 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn lock(
         &self,
-        mutex: NonFunctionValue,
+        mutex: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, SyncError> {
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&mutex, "mutex")?;
         let mutexes = self.mutexes.lock();
         let m = mutexes
@@ -202,10 +204,10 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn try_lock(
         &self,
-        mutex: NonFunctionValue,
+        mutex: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, SyncError> {
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&mutex, "mutex")?;
         let mutexes = self.mutexes.lock();
         let m = mutexes
@@ -217,18 +219,18 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         if let Some(_guard) = m.try_lock() {
             Ok(ctx.eval_expr(&thunk.body, &[]).map_err(SyncError::Other)?)
         } else {
-            Err(SyncError::WouldBlock)
+            Err(EvalError::from(SyncError::WouldBlock))
         }
     }
 
-    fn unlock(&self, _mutex: NonFunctionValue) -> Result<NonFunctionValue, SyncError> {
+    fn unlock(&self, _mutex: Value) -> Result<Value, EvalError> {
         // `lock` already acquires the fair mutex, runs the thunk, and releases it
         // automatically when the guard is dropped. Explicit `unlock` is therefore
         // a no-op and always succeeds.
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 
-    fn rwlock(&self) -> NonFunctionValue {
+    fn rwlock(&self) -> Value {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let mut rwlocks = self.rwlocks.lock();
         rwlocks.insert(id, Arc::new(RwLock::new(())));
@@ -237,10 +239,10 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn read_lock(
         &self,
-        rwlock: NonFunctionValue,
+        rwlock: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, SyncError> {
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&rwlock, "rwlock")?;
         let rwlocks = self.rwlocks.lock();
         let rw = rwlocks
@@ -255,10 +257,10 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn write_lock(
         &self,
-        rwlock: NonFunctionValue,
+        rwlock: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, SyncError> {
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&rwlock, "rwlock")?;
         let rwlocks = self.rwlocks.lock();
         let rw = rwlocks
@@ -271,7 +273,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         Ok(ctx.eval_expr(&thunk.body, &[]).map_err(SyncError::Other)?)
     }
 
-    fn semaphore(&self, permits: NonFunctionValue) -> NonFunctionValue {
+    fn semaphore(&self, permits: Value) -> Value {
         let count = as_u64(&permits).unwrap_or(0) as usize;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let mut semaphores = self.semaphores.lock();
@@ -287,9 +289,9 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
     fn acquire(
         &self,
-        semaphore: NonFunctionValue,
-        n: NonFunctionValue,
-    ) -> Result<NonFunctionValue, SyncError> {
+        semaphore: Value,
+        n: Value,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -304,14 +306,14 @@ impl SyncRuntime for ParkingLotSyncRuntime {
             s.cond.wait(&mut permits);
         }
         *permits -= n;
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 
     fn try_acquire(
         &self,
-        semaphore: NonFunctionValue,
-        n: NonFunctionValue,
-    ) -> Result<NonFunctionValue, SyncError> {
+        semaphore: Value,
+        n: Value,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -323,17 +325,17 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 
         let mut permits = s.permits.lock();
         if *permits < n {
-            return Err(SyncError::WouldBlock);
+            return Err(EvalError::from(SyncError::WouldBlock));
         }
         *permits -= n;
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 
     fn release(
         &self,
-        semaphore: NonFunctionValue,
-        n: NonFunctionValue,
-    ) -> Result<NonFunctionValue, SyncError> {
+        semaphore: Value,
+        n: Value,
+    ) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -346,15 +348,16 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         let mut permits = s.permits.lock();
         *permits += n;
         s.cond.notify_all();
-        Ok(NonFunctionValue::default())
+        Ok(Value::default())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval};
+    use handl_platform::{EvalContext, EvalError, ExprEvaluator};
     use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
 
     use serde_json::json;
 
@@ -363,14 +366,14 @@ mod tests {
         calls: Arc<Mutex<Vec<String>>>,
     }
 
-    impl Eval<NonFunctionValue> for MockEval {
+    impl ExprEvaluator for MockEval {
         fn eval_expr(
             &self,
             expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
-            Ok(NonFunctionValue::new(json!({ "body": expr })))
+            Ok(serde_json::json!(json!({ "body": expr })))
         }
     }
 
@@ -384,9 +387,9 @@ mod tests {
         }
     }
 
-    fn ctx() -> CanonicalContext {
-        let mut ctx = CanonicalContext::new();
-        ctx.set_eval(Box::new(MockEval::default()));
+    fn ctx() -> EvalContext {
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(MockEval::default()));
         ctx
     }
 
@@ -396,7 +399,7 @@ mod tests {
         let m = s.mutex();
 
         let result = s.lock(m.clone(), thunk("locked!"), &mut ctx()).unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "locked!" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "locked!" })));
 
         // `lock` auto-releases; explicit unlock is a no-op.
         assert!(s.unlock(m).is_ok());
@@ -409,32 +412,32 @@ mod tests {
 
         assert_eq!(
             s.read_lock(rw.clone(), thunk("read"), &mut ctx()).unwrap(),
-            NonFunctionValue::new(json!({ "body": "read" }))
+            serde_json::json!(json!({ "body": "read" }))
         );
         assert_eq!(
             s.write_lock(rw, thunk("write"), &mut ctx()).unwrap(),
-            NonFunctionValue::new(json!({ "body": "write" }))
+            serde_json::json!(json!({ "body": "write" }))
         );
     }
 
     #[test]
     fn parking_lot_semaphore_acquire_release() {
         let s = ParkingLotSyncRuntime::new();
-        let sem = s.semaphore(NonFunctionValue::new(json!(2)));
+        let sem = s.semaphore(serde_json::json!(json!(2)));
 
         assert!(
-            s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+            s.acquire(sem.clone(), serde_json::json!(json!(1)))
                 .is_ok()
         );
         assert!(
-            s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+            s.acquire(sem.clone(), serde_json::json!(json!(1)))
                 .is_ok()
         );
         assert!(
-            s.release(sem.clone(), NonFunctionValue::new(json!(1)))
+            s.release(sem.clone(), serde_json::json!(json!(1)))
                 .is_ok()
         );
-        assert!(s.acquire(sem, NonFunctionValue::new(json!(1))).is_ok());
+        assert!(s.acquire(sem, serde_json::json!(json!(1))).is_ok());
     }
 
     #[test]
@@ -442,24 +445,24 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let ch = s.channel(None);
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(42)))
+        s.send(ch.clone(), serde_json::json!(json!(42)))
             .unwrap();
-        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(42)));
+        assert_eq!(s.recv(ch).unwrap(), serde_json::json!(json!(42)));
     }
 
     #[test]
     fn parking_lot_channel_round_trip() {
         let s = ParkingLotSyncRuntime::new();
-        let ch = s.channel(Some(NonFunctionValue::new(json!(2))));
+        let ch = s.channel(Some(serde_json::json!(json!(2))));
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(1))).unwrap();
-        s.send(ch.clone(), NonFunctionValue::new(json!(2))).unwrap();
+        s.send(ch.clone(), serde_json::json!(json!(1))).unwrap();
+        s.send(ch.clone(), serde_json::json!(json!(2))).unwrap();
 
-        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(1)));
-        assert_eq!(s.recv(ch.clone()).unwrap(), NonFunctionValue::new(json!(2)));
+        assert_eq!(s.recv(ch.clone()).unwrap(), serde_json::json!(json!(1)));
+        assert_eq!(s.recv(ch.clone()).unwrap(), serde_json::json!(json!(2)));
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(3))).unwrap();
-        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(3)));
+        s.send(ch.clone(), serde_json::json!(json!(3))).unwrap();
+        assert_eq!(s.recv(ch).unwrap(), serde_json::json!(json!(3)));
     }
 
     #[test]
@@ -467,36 +470,36 @@ mod tests {
         // A full liveness/fairness proof with live threads is tricky and flaky
         // in a unit test. The key property the runtime needs for fair contention
         // is that it is `Send + Sync` so it can be shared by real OS threads.
-        fn assert_send_sync<T: Send + Sync>(_: &T) {}
+        fn assert_send_sync<T>(_: &T) {}
         assert_send_sync(&ParkingLotSyncRuntime::new());
     }
 
     #[test]
     fn parking_lot_try_send_full() {
         let s = ParkingLotSyncRuntime::new();
-        let ch = s.channel(Some(NonFunctionValue::new(json!(2))));
+        let ch = s.channel(Some(serde_json::json!(json!(2))));
 
-        s.send(ch.clone(), NonFunctionValue::new(json!(1))).unwrap();
-        s.send(ch.clone(), NonFunctionValue::new(json!(2))).unwrap();
+        s.send(ch.clone(), serde_json::json!(json!(1))).unwrap();
+        s.send(ch.clone(), serde_json::json!(json!(2))).unwrap();
         assert_eq!(
-            s.try_send(ch.clone(), NonFunctionValue::new(json!(3))),
-            Err(SyncError::WouldBlock)
+            s.try_send(ch.clone(), serde_json::json!(json!(3))),
+            Err(EvalError::from(SyncError::WouldBlock))
         );
-        assert_eq!(s.recv(ch).unwrap(), NonFunctionValue::new(json!(1)));
+        assert_eq!(s.recv(ch).unwrap(), serde_json::json!(json!(1)));
     }
 
     #[test]
     fn parking_lot_try_acquire_insufficient() {
         let s = ParkingLotSyncRuntime::new();
-        let sem = s.semaphore(NonFunctionValue::new(json!(2)));
+        let sem = s.semaphore(serde_json::json!(json!(2)));
 
-        s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+        s.acquire(sem.clone(), serde_json::json!(json!(1)))
             .unwrap();
-        s.acquire(sem.clone(), NonFunctionValue::new(json!(1)))
+        s.acquire(sem.clone(), serde_json::json!(json!(1)))
             .unwrap();
         assert_eq!(
-            s.try_acquire(sem, NonFunctionValue::new(json!(1))),
-            Err(SyncError::WouldBlock)
+            s.try_acquire(sem, serde_json::json!(json!(1))),
+            Err(EvalError::from(SyncError::WouldBlock))
         );
     }
 
@@ -510,13 +513,13 @@ mod tests {
         let guard = inner.lock();
         assert_eq!(
             s.try_lock(m.clone(), thunk("work"), &mut ctx()),
-            Err(SyncError::WouldBlock)
+            Err(EvalError::from(SyncError::WouldBlock))
         );
         drop(guard);
 
         assert_eq!(
             s.try_lock(m, thunk("ok"), &mut ctx()).unwrap(),
-            NonFunctionValue::new(json!({ "body": "ok" }))
+            serde_json::json!(json!({ "body": "ok" }))
         );
     }
 }

@@ -6,24 +6,15 @@
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_plugin_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
-#[cfg(feature = "server")]
-use handl_plugin_vm::Eval;
-use handl_plugin_vm::{Context, Function};
-#[cfg(feature = "server")]
-use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
-use handl_plugin_vm_common::Module;
-#[cfg(feature = "server")]
-use handl_plugin_vm_host_eval::EvalHost;
-#[cfg(feature = "server")]
-use handl_plugin_vm_values_json::FunctionValue;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use crate::function_value::FunctionValue;
+use serde_json::Value;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 #[cfg(feature = "server")]
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
-#[cfg(feature = "server")]
 use tokio::io::{AsyncRead, AsyncWrite};
 #[cfg(feature = "server")]
 use tokio::net::TcpListener;
@@ -65,7 +56,7 @@ fn inner() -> Arc<Mutex<Inner>> {
 struct Client {
     url: String,
     tx: tokio_mpsc::UnboundedSender<TungsteniteMessage>,
-    rx: Arc<Mutex<mpsc::Receiver<NonFunctionValue>>>,
+    rx: Arc<Mutex<mpsc::Receiver<Value>>>,
 }
 
 #[cfg(feature = "server")]
@@ -74,7 +65,7 @@ struct Server {
     handler: Option<FunctionValue>,
     tls: Option<Arc<tokio_rustls::rustls::ServerConfig>>,
     max_connections: usize,
-    _incoming: Mutex<mpsc::Receiver<NonFunctionValue>>,
+    _incoming: Mutex<mpsc::Receiver<Value>>,
     _shutdown: Mutex<Option<oneshot::Sender<()>>>,
     _handle: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
@@ -85,8 +76,6 @@ struct Inner {
     clients: Mutex<HashMap<usize, Client>>,
     #[cfg(feature = "server")]
     servers: Mutex<HashMap<usize, Server>>,
-    #[cfg(feature = "server")]
-    eval: Arc<CanonicalEval<EvalHost>>,
 }
 
 impl Inner {
@@ -97,8 +86,6 @@ impl Inner {
             clients: Mutex::new(HashMap::new()),
             #[cfg(feature = "server")]
             servers: Mutex::new(HashMap::new()),
-            #[cfg(feature = "server")]
-            eval: Arc::new(CanonicalEval::new(EvalHost::default(), None, None)),
         }
     }
 
@@ -117,9 +104,9 @@ impl Module for WsRfcNativeModule {
         "ws_rfc_native"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         #[cfg(feature = "client")]
-        let client: Option<&dyn Function<NonFunctionValue>> = match name {
+        let client: Option<&dyn Function> = match name {
             "client" => Some(&ClientNew),
             "connect" => Some(&ClientConnect),
             "send" => Some(&ClientSend),
@@ -128,7 +115,7 @@ impl Module for WsRfcNativeModule {
             _ => None,
         };
         #[cfg(feature = "server")]
-        let server: Option<&dyn Function<NonFunctionValue>> = match name {
+        let server: Option<&dyn Function> = match name {
             "server" => Some(&ServerNew),
             "listen" => Some(&ServerListen),
             "stop" => Some(&ServerStop),
@@ -154,39 +141,24 @@ impl Module for WsRfcNativeModule {
     }
 }
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_string_at(args: &[Value], idx: usize) -> Result<&str, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::Other(format!("expected idx + 1 arguments, got {}", args.len())))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected string, got non-string")))
 }
 
-fn require_value_at(args: &[NonFunctionValue], idx: usize) -> Result<&NonFunctionValue, Error> {
-    args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })
+fn require_value_at(args: &[Value], idx: usize) -> Result<&Value, EvalError> {
+    args.get(idx).ok_or(EvalError::Other(format!("expected idx + 1 arguments, got {}", args.len())))
 }
 
-fn parse_id(value: &NonFunctionValue, key: &str) -> Result<usize, Error> {
-    if let Some(n) = value.as_number() {
+fn parse_id(value: &Value, key: &str) -> Result<usize, EvalError> {
+    if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(Error::TypeMismatch {
-        expected: "number or object",
-        got: "non-number non-object",
-    })?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected number or object, got non-number non-object")))?;
     let id = obj
         .get(key)
-        .ok_or_else(|| Error::PrimitiveError(format!("missing {key}")))?;
-    let n = id.as_f64().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })?;
+        .ok_or_else(|| EvalError::Other(format!("missing {key}")))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected number, got non-number")))?;
     Ok(n as usize)
 }
 
@@ -217,54 +189,42 @@ fn tungstenite_to_json(msg: TungsteniteMessage) -> JsonValue {
     }
 }
 
-fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
+fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalError> {
     if let Some(text) = value.as_str() {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
-    let obj = value.as_object().ok_or(Error::TypeMismatch {
-        expected: "string or object",
-        got: "non-string non-object",
-    })?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected string or object, got non-string non-object")))?;
     if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
     if let Some(b64) = obj.get("binary").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Binary(bytes));
     }
     if let Some(b64) = obj.get("ping").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Ping(bytes));
     }
     if let Some(b64) = obj.get("pong").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Pong(bytes));
     }
     if let Some(close) = obj.get("close") {
         if close.is_null() {
             return Ok(TungsteniteMessage::Close(None));
         }
-        let close_obj = close.as_object().ok_or(Error::TypeMismatch {
-            expected: "object",
-            got: "non-object",
-        })?;
+        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!("expected object, got non-object")))?;
         let code = close_obj
             .get("code")
             .and_then(|v| v.as_u64())
-            .ok_or(Error::TypeMismatch {
-                expected: "u16",
-                got: "non-number",
-            })?;
-        let code = u16::try_from(code).map_err(|_| Error::TypeMismatch {
-            expected: "u16",
-            got: "out of range",
-        })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected u16, got non-number")))?;
+        let code = u16::try_from(code).map_err(|_| EvalError::TypeMismatch(format!("expected u16, got out of range")))?;
         let reason = close_obj
             .get("reason")
             .and_then(|v| v.as_str())
@@ -275,21 +235,21 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
             reason: reason.into(),
         })));
     }
-    Err(Error::PrimitiveError(
+    Err(EvalError::Other(
         "websocket message must be {text}, {binary}, {ping}, {pong}, or {close}".to_string(),
     ))
 }
 
 #[cfg(feature = "server")]
-fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
+fn socket_addr(addr: &str) -> Result<SocketAddr, EvalError> {
     if let Ok(sa) = addr.parse::<SocketAddr>() {
         return Ok(sa);
     }
     let url =
-        url::Url::parse(addr).map_err(|e| Error::PrimitiveError(format!("url parse: {e}")))?;
+        url::Url::parse(addr).map_err(|e| EvalError::Other(format!("url parse: {e}")))?;
     let host = url
         .host_str()
-        .ok_or(Error::PrimitiveError("missing host".to_string()))?;
+        .ok_or(EvalError::Other("missing host".to_string()))?;
     let port = url
         .port()
         .or_else(|| match url.scheme() {
@@ -297,12 +257,12 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
             "wss" => Some(443),
             _ => None,
         })
-        .ok_or(Error::PrimitiveError("missing port".to_string()))?;
+        .ok_or(EvalError::Other("missing port".to_string()))?;
     let ip = (host, port)
         .to_socket_addrs()
-        .map_err(|e| Error::PrimitiveError(format!("dns lookup: {e}")))?
+        .map_err(|e| EvalError::Other(format!("dns lookup: {e}")))?
         .next()
-        .ok_or(Error::PrimitiveError(
+        .ok_or(EvalError::Other(
             "could not resolve address".to_string(),
         ))?;
     Ok(ip)
@@ -312,23 +272,23 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, Error> {
 fn build_tls_config(
     cert_pem: &str,
     key_pem: &str,
-) -> Result<Arc<tokio_rustls::rustls::ServerConfig>, Error> {
+) -> Result<Arc<tokio_rustls::rustls::ServerConfig>, EvalError> {
     use tokio_rustls::rustls::pki_types::CertificateDer;
 
     let mut cert_reader = cert_pem.as_bytes();
     let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut cert_reader)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Error::PrimitiveError(format!("tls cert parse: {e}")))?;
+        .map_err(|e| EvalError::Other(format!("tls cert parse: {e}")))?;
 
     let mut key_reader = key_pem.as_bytes();
     let key = rustls_pemfile::private_key(&mut key_reader)
-        .map_err(|e| Error::PrimitiveError(format!("tls key parse: {e}")))?
-        .ok_or_else(|| Error::PrimitiveError("no private key found".to_string()))?;
+        .map_err(|e| EvalError::Other(format!("tls key parse: {e}")))?
+        .ok_or_else(|| EvalError::Other("no private key found".to_string()))?;
 
     let config = tokio_rustls::rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, key)
-        .map_err(|e| Error::PrimitiveError(format!("tls config build: {e}")))?;
+        .map_err(|e| EvalError::Other(format!("tls config build: {e}")))?;
 
     Ok(Arc::new(config))
 }
@@ -338,17 +298,14 @@ fn build_tls_config(
 struct ClientNew;
 
 #[cfg(feature = "client")]
-impl Function<NonFunctionValue> for ClientNew {
+impl Function for ClientNew {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
         }
 
         let inner = inner();
@@ -366,10 +323,10 @@ impl Function<NonFunctionValue> for ClientNew {
             id
         };
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::json!({
             "type": "websocket_client",
             "client_id": id,
-        })))
+        }))
     }
 }
 
@@ -378,29 +335,26 @@ impl Function<NonFunctionValue> for ClientNew {
 struct ClientConnect;
 
 #[cfg(feature = "client")]
-impl Function<NonFunctionValue> for ClientConnect {
+impl Function for ClientConnect {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
         }
 
         let id = parse_id(&args[0], "client_id")?;
         let url = require_string_at(args, 1)?;
 
-        let (std_tx, std_rx) = mpsc::channel::<NonFunctionValue>();
+        let (std_tx, std_rx) = mpsc::channel::<Value>();
         let (cmd_tx, mut cmd_rx) = tokio_mpsc::unbounded_channel::<TungsteniteMessage>();
 
         let url_string = url.to_string();
         let connect_result = runtime().block_on(tokio_tungstenite::connect_async(&url_string));
         let (ws_stream, _) =
-            connect_result.map_err(|e| Error::PrimitiveError(format!("connect failed: {e}")))?;
+            connect_result.map_err(|e| EvalError::Other(format!("connect failed: {e}")))?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -414,7 +368,7 @@ impl Function<NonFunctionValue> for ClientConnect {
                     }
                     next = read.next() => match next {
                         Some(Ok(msg)) => {
-                            let value = NonFunctionValue::new(tungstenite_to_json(msg));
+                            let value = serde_json::json!(tungstenite_to_json(msg));
                             if std_tx.send(value).is_err() {
                                 break;
                             }
@@ -428,14 +382,14 @@ impl Function<NonFunctionValue> for ClientConnect {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
             "unknown websocket client: {id}"
         )))?;
         client.url = url_string;
         client.tx = cmd_tx;
         client.rx = Arc::new(Mutex::new(std_rx));
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(Value::Null)
     }
 }
 
@@ -444,34 +398,31 @@ impl Function<NonFunctionValue> for ClientConnect {
 struct ClientSend;
 
 #[cfg(feature = "client")]
-impl Function<NonFunctionValue> for ClientSend {
+impl Function for ClientSend {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
         }
 
         let id = parse_id(&args[0], "client_id")?;
-        let msg = json_to_tungstenite(args[1].inner())?;
+        let msg = json_to_tungstenite(&args[1])?;
 
         let inner = inner();
         let guard = inner.lock().unwrap();
         let clients = guard.clients.lock().unwrap();
-        let client = clients.get(&id).ok_or(Error::PrimitiveError(format!(
+        let client = clients.get(&id).ok_or(EvalError::Other(format!(
             "unknown websocket client: {id}"
         )))?;
         client
             .tx
             .send(msg)
-            .map_err(|_| Error::PrimitiveError("websocket client is closed".to_string()))?;
+            .map_err(|_| EvalError::Other("websocket client is closed".to_string()))?;
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(Value::Null)
     }
 }
 
@@ -480,20 +431,20 @@ impl Function<NonFunctionValue> for ClientSend {
 struct ClientRecv;
 
 #[cfg(feature = "client")]
-impl Function<NonFunctionValue> for ClientRecv {
+impl Function for ClientRecv {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
-        let timeout = args.get(1).and_then(|v| v.as_number());
+        let timeout = args.get(1).and_then(|v| v.as_f64());
 
         let rx = {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let clients = guard.clients.lock().unwrap();
-            let client = clients.get(&id).ok_or(Error::PrimitiveError(format!(
+            let client = clients.get(&id).ok_or(EvalError::Other(format!(
                 "unknown websocket client: {id}"
             )))?;
             client.rx.clone()
@@ -504,13 +455,13 @@ impl Function<NonFunctionValue> for ClientRecv {
             None => rx
                 .recv()
                 .ok()
-                .unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)),
+                .unwrap_or_else(|| Value::Null),
             Some(t) if t <= 0.0 => rx
                 .try_recv()
-                .unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null)),
+                .unwrap_or_else(|_| Value::Null),
             Some(t) => match rx.recv_timeout(std::time::Duration::from_secs_f64(t)) {
                 Ok(v) => v,
-                Err(_) => NonFunctionValue::new(JsonValue::Null),
+                Err(_) => Value::Null,
             },
         };
         Ok(value)
@@ -522,12 +473,12 @@ impl Function<NonFunctionValue> for ClientRecv {
 struct ClientClose;
 
 #[cfg(feature = "client")]
-impl Function<NonFunctionValue> for ClientClose {
+impl Function for ClientClose {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
 
         let inner = inner();
@@ -537,7 +488,7 @@ impl Function<NonFunctionValue> for ClientClose {
             let _ = client.tx.send(TungsteniteMessage::Close(None));
         }
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(Value::Null)
     }
 }
 
@@ -546,17 +497,14 @@ impl Function<NonFunctionValue> for ClientClose {
 struct ServerNew;
 
 #[cfg(feature = "server")]
-impl Function<NonFunctionValue> for ServerNew {
+impl Function for ServerNew {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
         }
 
         let inner = inner();
@@ -578,10 +526,10 @@ impl Function<NonFunctionValue> for ServerNew {
             id
         };
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::json!({
             "type": "websocket_server",
             "server_id": id,
-        })))
+        }))
     }
 }
 
@@ -590,44 +538,35 @@ impl Function<NonFunctionValue> for ServerNew {
 struct ServerListen;
 
 #[cfg(feature = "server")]
-impl Function<NonFunctionValue> for ServerListen {
+impl Function for ServerListen {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 3 arguments, got {}", args.len())));
         }
 
         let id = parse_id(&args[0], "server_id")?;
         let addr = require_string_at(args, 1)?;
-        let handler = FunctionValue::from_json(args[2].inner()).ok_or(Error::TypeMismatch {
-            expected: "function",
-            got: "non-function",
-        })?;
+        let handler = FunctionValue::from_json(&args[2]).ok_or(EvalError::TypeMismatch(format!("expected function, got non-function")))?;
         let is_wss = addr.starts_with("wss://");
         let bind_addr = socket_addr(addr)?;
 
         let (tls, max_connections) = if let Some(arg) = args.get(3) {
-            let obj = arg.inner().as_object().ok_or(Error::TypeMismatch {
-                expected: "object",
-                got: "non-object",
-            })?;
+            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected object, got non-object")))?;
             let cert = obj.get("cert").and_then(|v| v.as_str());
             let key = obj.get("key").and_then(|v| v.as_str());
             let tls = match (cert, key, is_wss) {
                 (Some(c), Some(k), true) => Some(build_tls_config(c, k)?),
                 (Some(_), _, false) | (_, Some(_), false) => {
-                    return Err(Error::PrimitiveError(
+                    return Err(EvalError::Other(
                         "tls cert/key require wss:// address".to_string(),
                     ));
                 }
                 _ if is_wss => {
-                    return Err(Error::PrimitiveError(
+                    return Err(EvalError::Other(
                         "wss:// requires cert and key in config".to_string(),
                     ));
                 }
@@ -640,22 +579,22 @@ impl Function<NonFunctionValue> for ServerListen {
                 .unwrap_or(1024);
             (tls, max)
         } else if is_wss {
-            return Err(Error::PrimitiveError(
+            return Err(EvalError::Other(
                 "wss:// requires a config object with cert and key".to_string(),
             ));
         } else {
             (None, 1024)
         };
 
-        let (std_tx, std_rx) = mpsc::channel::<NonFunctionValue>();
+        let (std_tx, std_rx) = mpsc::channel::<Value>();
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
         let (local_addr_tx, local_addr_rx) = mpsc::channel::<SocketAddr>();
 
-        let (eval, next_conn_id) = {
+        let next_conn_id = {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let mut servers = guard.servers.lock().unwrap();
-            let server = servers.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+            let server = servers.get_mut(&id).ok_or(EvalError::Other(format!(
                 "unknown websocket server: {id}"
             )))?;
             server.handler = Some(handler);
@@ -663,7 +602,7 @@ impl Function<NonFunctionValue> for ServerListen {
             server.max_connections = max_connections;
             *server._incoming.get_mut().unwrap() = std_rx;
             let next_conn_id = Arc::new(AtomicUsize::new(1));
-            (guard.eval.clone(), next_conn_id)
+            (next_conn_id)
         };
 
         let (handler, tls, max_connections) = {
@@ -689,7 +628,6 @@ impl Function<NonFunctionValue> for ServerListen {
                 shutdown_rx,
                 local_addr_tx,
                 handler,
-                eval,
                 next_conn_id,
                 tls,
                 max_connections,
@@ -698,7 +636,7 @@ impl Function<NonFunctionValue> for ServerListen {
 
         let local_addr = local_addr_rx
             .recv()
-            .map_err(|_| Error::PrimitiveError("websocket server failed to bind".to_string()))?;
+            .map_err(|_| EvalError::Other("websocket server failed to bind".to_string()))?;
 
         {
             let inner = inner();
@@ -712,7 +650,7 @@ impl Function<NonFunctionValue> for ServerListen {
         }
 
         let scheme = if is_wss { "wss" } else { "ws" };
-        Ok(NonFunctionValue::new(JsonValue::String(format!(
+        Ok(serde_json::json!(JsonValue::String(format!(
             "{}://{}",
             scheme, local_addr
         ))))
@@ -724,38 +662,37 @@ impl Function<NonFunctionValue> for ServerListen {
 struct ServerStop;
 
 #[cfg(feature = "server")]
-impl Function<NonFunctionValue> for ServerStop {
+impl Function for ServerStop {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "server_id")?;
 
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut servers = guard.servers.lock().unwrap();
         if let Some(server) = servers.remove(&id) {
-            if let Some(tx) = server._shutdown.into_inner().unwrap() {
+            if let Some(tx) = server._shutdown.lock().unwrap().take() {
                 let _ = tx.send(());
             }
-            if let Some(handle) = server._handle.into_inner().unwrap() {
+            if let Some(handle) = server._handle.lock().unwrap().take() {
                 let _ = handle.join();
             }
         }
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(Value::Null)
     }
 }
 
 #[cfg(feature = "server")]
 async fn run_server(
     bind_addr: SocketAddr,
-    std_tx: mpsc::Sender<NonFunctionValue>,
+    std_tx: mpsc::Sender<Value>,
     mut shutdown_rx: oneshot::Receiver<()>,
     local_addr_tx: mpsc::Sender<SocketAddr>,
     handler: Option<FunctionValue>,
-    eval: Arc<CanonicalEval<EvalHost>>,
     next_conn_id: Arc<AtomicUsize>,
     tls: Option<Arc<tokio_rustls::rustls::ServerConfig>>,
     max_connections: usize,
@@ -786,14 +723,14 @@ async fn run_server(
                     };
                     let std_tx = std_tx.clone();
                     let handler = handler.clone();
-                    let eval = eval.clone();
+                    
                     let next_conn_id = next_conn_id.clone();
                     if let Some(acceptor) = acceptor.clone() {
                         match acceptor.accept(stream).await {
                             Ok(tls_stream) => {
                                 join_set.spawn(async move {
                                     let _permit = permit;
-                                    handle_connection(tls_stream, std_tx, handler, eval, next_conn_id).await;
+                                    handle_connection(tls_stream, std_tx, handler, next_conn_id).await;
                                 });
                             }
                             Err(_) => {
@@ -804,7 +741,7 @@ async fn run_server(
                     } else {
                         join_set.spawn(async move {
                             let _permit = permit;
-                            handle_connection(stream, std_tx, handler, eval, next_conn_id).await;
+                            handle_connection(stream, std_tx, handler, next_conn_id).await;
                         });
                     }
                 }
@@ -821,9 +758,8 @@ async fn run_server(
 #[cfg(feature = "server")]
 async fn handle_connection<S>(
     stream: S,
-    std_tx: mpsc::Sender<NonFunctionValue>,
+    std_tx: mpsc::Sender<Value>,
     handler: Option<FunctionValue>,
-    eval: Arc<CanonicalEval<EvalHost>>,
     next_conn_id: Arc<AtomicUsize>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -834,40 +770,19 @@ async fn handle_connection<S>(
     let (mut write, mut read) = ws.split();
 
     while let Some(Ok(msg)) = read.next().await {
-        let value = NonFunctionValue::new(tungstenite_to_json(msg));
+        let value = serde_json::json!(tungstenite_to_json(msg));
         if std_tx.send(value.clone()).is_err() {
             break;
         }
 
-        if let Some(fv) = &handler {
-            let conn_id = next_conn_id.fetch_add(1, Ordering::Relaxed);
-            let conn_value = NonFunctionValue::new(serde_json::json!({
-                "connection_id": conn_id,
-            }));
-
-            let mut vars: Vec<(String, NonFunctionValue)> = fv
-                .params
-                .iter()
-                .map(|(name, _)| (name.clone(), NonFunctionValue::new(JsonValue::Null)))
-                .collect();
-            if !vars.is_empty() {
-                vars[0].1 = conn_value;
-            }
-            if vars.len() > 1 {
-                vars[1].1 = value;
-            }
-
-            match eval.eval_expr(&fv.body, &vars) {
-                Ok(result) => match json_to_tungstenite(result.inner()) {
-                    Ok(reply) => {
-                        if write.send(reply).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => continue,
-                },
-                Err(_) => continue,
-            }
+        if let Some(_fv) = &handler {
+            // TODO(ADR 0040 migration): The old system used CanonicalEval<EvalHost>
+            // to evaluate function value handlers. The new ExprEvaluator trait is
+            // not Send + Sync, so it cannot be used inside tokio::spawn. For now,
+            // function value handlers are not supported in the native server.
+            // A proper migration would use a channel-based approach to send
+            // evaluation requests back to a single-threaded eval loop.
+            continue;
         }
     }
 }
@@ -917,20 +832,20 @@ mod tests {
     #[test]
     #[ignore = "network/tls integration"]
     fn client_server_echo_roundtrip() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
 
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [
                 {"name": "conn", "schema": null},
                 {"name": "msg", "schema": null},
             ],
             "body": "msg",
-        }));
+        });
 
         let url = m
             .function("listen")
@@ -938,7 +853,7 @@ mod tests {
             .call(
                 &[
                     server_id.clone(),
-                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    serde_json::json!("127.0.0.1:0"),
                     handler,
                 ],
                 &mut ctx,
@@ -957,7 +872,7 @@ mod tests {
             .call(
                 &[
                     client.clone(),
-                    NonFunctionValue::new(serde_json::json!("hello")),
+                    serde_json::json!("hello"),
                 ],
                 &mut ctx,
             )
@@ -969,7 +884,7 @@ mod tests {
             .call(&[client.clone()], &mut ctx)
             .unwrap();
 
-        assert_eq!(msg.inner().get("text"), Some(&serde_json::json!("hello")));
+        assert_eq!(msg.get("text"), Some(&serde_json::json!("hello")));
 
         m.function("close")
             .unwrap()
@@ -1001,9 +916,9 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_unconnected_client_returns_null() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
@@ -1014,28 +929,28 @@ mod tests {
             .call(&[client], &mut ctx)
             .unwrap();
 
-        assert!(msg.inner().is_null());
+        assert!(msg.is_null());
     }
 
     #[cfg(feature = "server")]
     #[test]
     fn listen_to_invalid_addr_fails() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
 
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let result = m.function("listen").unwrap().call(
             &[
                 server_id,
-                NonFunctionValue::new(serde_json::json!("not-an-address")),
+                serde_json::json!("not-an-address"),
                 handler,
             ],
             &mut ctx,
@@ -1048,16 +963,16 @@ mod tests {
     #[test]
     #[ignore = "network/tls integration"]
     fn client_server_binary_echo_roundtrip() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let url = m
             .function("listen")
@@ -1065,7 +980,7 @@ mod tests {
             .call(
                 &[
                     server_id.clone(),
-                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    serde_json::json!("127.0.0.1:0"),
                     handler,
                 ],
                 &mut ctx,
@@ -1084,7 +999,7 @@ mod tests {
             .call(
                 &[
                     client.clone(),
-                    NonFunctionValue::new(serde_json::json!({"binary": payload})),
+                    serde_json::json!({"binary": payload}),
                 ],
                 &mut ctx,
             )
@@ -1095,7 +1010,7 @@ mod tests {
             .unwrap()
             .call(&[client.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(msg.inner().get("binary"), Some(&serde_json::json!(payload)));
+        assert_eq!(msg.get("binary"), Some(&serde_json::json!(payload)));
 
         m.function("close")
             .unwrap()
@@ -1110,16 +1025,16 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn connect_to_refused_port_fails() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
         let result = m.function("connect").unwrap().call(
             &[
                 client,
-                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:1")),
+                serde_json::json!("ws://127.0.0.1:1"),
             ],
             &mut ctx,
         );
@@ -1130,9 +1045,9 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_non_blocking_returns_null_when_empty() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
@@ -1140,19 +1055,19 @@ mod tests {
             .function("recv")
             .unwrap()
             .call(
-                &[client, NonFunctionValue::new(serde_json::json!(0))],
+                &[client, serde_json::json!(0)],
                 &mut ctx,
             )
             .unwrap();
 
-        assert!(msg.inner().is_null());
+        assert!(msg.is_null());
     }
 
     #[cfg(all(feature = "client", feature = "server"))]
     #[test]
     #[ignore = "network/tls integration"]
     fn wss_server_echo_roundtrip() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
         use tokio::runtime::Runtime;
         use tokio_rustls::rustls::pki_types::ServerName;
         use tokio_rustls::rustls::{ClientConfig, RootCertStore};
@@ -1165,14 +1080,14 @@ mod tests {
         let cert_pem = cert.cert.pem();
         let key_pem = cert.key_pair.serialize_pem();
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let url = m
             .function("listen")
@@ -1180,17 +1095,17 @@ mod tests {
             .call(
                 &[
                     server_id.clone(),
-                    NonFunctionValue::new(serde_json::json!("wss://127.0.0.1:0")),
+                    serde_json::json!("wss://127.0.0.1:0"),
                     handler,
-                    NonFunctionValue::new(serde_json::json!({
+                    serde_json::json!({
                         "cert": cert_pem,
                         "key": key_pem,
-                    })),
+                    }),
                 ],
                 &mut ctx,
             )
             .unwrap()
-            .inner()
+            
             .as_str()
             .unwrap()
             .to_string();
@@ -1244,16 +1159,16 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_accepts_max_connections_config() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let url = m
             .function("listen")
@@ -1261,17 +1176,17 @@ mod tests {
             .call(
                 &[
                     server_id.clone(),
-                    NonFunctionValue::new(serde_json::json!("127.0.0.1:0")),
+                    serde_json::json!("127.0.0.1:0"),
                     handler,
-                    NonFunctionValue::new(serde_json::json!({
+                    serde_json::json!({
                         "max_connections": 2,
-                    })),
+                    }),
                 ],
                 &mut ctx,
             )
             .unwrap();
 
-        assert!(url.inner().as_str().unwrap().starts_with("ws://"));
+        assert!(url.as_str().unwrap().starts_with("ws://"));
 
         m.function("stop")
             .unwrap()
@@ -1282,16 +1197,16 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn connect_to_invalid_url_fails() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
         let result = m.function("connect").unwrap().call(
             &[
                 client,
-                NonFunctionValue::new(serde_json::json!("not-a-url")),
+                serde_json::json!("not-a-url"),
             ],
             &mut ctx,
         );
@@ -1302,15 +1217,15 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn send_to_unknown_client_fails() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let result = m.function("send").unwrap().call(
             &[
-                NonFunctionValue::new(serde_json::json!({"client_id": 99999})),
-                NonFunctionValue::new(serde_json::json!("hello")),
+                serde_json::json!({"client_id": 99999}),
+                serde_json::json!("hello"),
             ],
             &mut ctx,
         );
@@ -1321,15 +1236,13 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn recv_from_unknown_client_fails() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let result = m.function("recv").unwrap().call(
-            &[NonFunctionValue::new(
-                serde_json::json!({"client_id": 99999}),
-            )],
+            &[serde_json::json!({"client_id": 99999})],
             &mut ctx,
         );
 
@@ -1351,21 +1264,21 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn listen_wss_requires_cert_config() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let result = m.function("listen").unwrap().call(
             &[
                 server_id,
-                NonFunctionValue::new(serde_json::json!("wss://127.0.0.1:0")),
+                serde_json::json!("wss://127.0.0.1:0"),
                 handler,
             ],
             &mut ctx,
@@ -1377,53 +1290,53 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn client_with_arguments_errors() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let result = m
             .function("client")
             .unwrap()
-            .call(&[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+            .call(&[serde_json::json!(null)], &mut ctx);
         assert!(result.is_err());
     }
 
     #[cfg(feature = "server")]
     #[test]
     fn server_with_arguments_errors() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let result = m
             .function("server")
             .unwrap()
-            .call(&[NonFunctionValue::new(serde_json::json!(null))], &mut ctx);
+            .call(&[serde_json::json!(null)], &mut ctx);
         assert!(result.is_err());
     }
 
     #[cfg(feature = "server")]
     #[test]
     fn listen_rejects_non_object_config() {
-        use handl_plugin_vm_values_json::CanonicalContext;
+        use handl_platform::EvalContext;
 
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
         let server_id = m.function("server").unwrap().call(&[], &mut ctx).unwrap();
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
-        }));
+        });
 
         let result = m.function("listen").unwrap().call(
             &[
                 server_id,
-                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                serde_json::json!("ws://127.0.0.1:0"),
                 handler,
-                NonFunctionValue::new(serde_json::json!("not-an-object")),
+                serde_json::json!("not-an-object"),
             ],
             &mut ctx,
         );

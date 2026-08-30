@@ -54,16 +54,18 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Context, Error, Function, FunctionValue, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
 
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
 use crate::cancel::{CancelRuntime, DefaultCancelRuntime};
+use crate::function_value::FunctionValue;
 use crate::scheduler::{DefaultScheduler, Scheduler};
-use crate::sync::{DefaultSyncRuntime, SyncError, SyncRuntime};
+use crate::sync::{DefaultSyncRuntime, SyncRuntime};
 
 pub mod atomic;
 pub mod cancel;
+pub mod function_value;
 pub mod io;
 pub mod scheduler;
 pub mod sync;
@@ -77,12 +79,9 @@ pub use scheduler::WorkStealingScheduler;
 pub use sync_parking_lot::ParkingLotSyncRuntime;
 pub use timer::{ThreadTimerRuntime, TimerRuntime};
 
-fn expect_args(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
+fn expect_args(args: &[Value], expected: usize) -> Result<(), EvalError> {
     if args.len() != expected {
-        Err(Error::ArgumentCount {
-            expected,
-            got: args.len(),
-        })
+        Err(EvalError::Other(format!("expected {} arguments, got {}", expected, args.len())))
     } else {
         Ok(())
     }
@@ -93,20 +92,17 @@ pub struct SpawnFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
 
-impl Function<NonFunctionValue> for SpawnFn {
+impl Function for SpawnFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
         }
-        let work = FunctionValue::from_json(args[0].inner())
-            .ok_or_else(|| Error::PrimitiveError("spawn expected a function value".to_string()))?;
+        let work = FunctionValue::from_json(&args[0])
+            .ok_or_else(|| EvalError::Other("spawn expected a function value".to_string()))?;
         self.scheduler.spawn(work, ctx)
     }
 }
@@ -116,17 +112,14 @@ pub struct AwaitFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
 
-impl Function<NonFunctionValue> for AwaitFn {
+impl Function for AwaitFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
         }
         self.scheduler.await_task(args[0].clone(), ctx)
     }
@@ -137,17 +130,14 @@ pub struct YieldFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
 
-impl Function<NonFunctionValue> for YieldFn {
+impl Function for YieldFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
         }
         self.scheduler.yield_now(ctx)
     }
@@ -158,26 +148,23 @@ pub struct SleepFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
 
-impl Function<NonFunctionValue> for SleepFn {
+impl Function for SleepFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
         }
         let ms = if args[0].is_null() {
             0
         } else {
             args[0]
-                .as_number()
+                .as_f64()
                 .and_then(|n| if n >= 0.0 { Some(n as u64) } else { None })
                 .ok_or_else(|| {
-                    Error::PrimitiveError("sleep expected a non-negative number".to_string())
+                    EvalError::Other("sleep expected a non-negative number".to_string())
                 })?
         };
         self.scheduler.sleep(ms, ctx)
@@ -189,26 +176,23 @@ pub struct TimeoutFn {
     scheduler: Arc<dyn Scheduler + Send + Sync>,
 }
 
-impl Function<NonFunctionValue> for TimeoutFn {
+impl Function for TimeoutFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() != 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
         }
         let ms = if args[1].is_null() {
             0
         } else {
             args[1]
-                .as_number()
+                .as_f64()
                 .and_then(|n| if n >= 0.0 { Some(n as u64) } else { None })
                 .ok_or_else(|| {
-                    Error::PrimitiveError("timeout expected a non-negative number".to_string())
+                    EvalError::Other("timeout expected a non-negative number".to_string())
                 })?
         };
         self.scheduler.timeout(args[0].clone(), ms, ctx)
@@ -222,12 +206,12 @@ pub struct MayFn {
     spawn: SpawnFn,
 }
 
-impl Function<NonFunctionValue> for MayFn {
+impl Function for MayFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         self.spawn.call(args, ctx)
     }
 }
@@ -239,12 +223,12 @@ pub struct MustFn {
     timeout: TimeoutFn,
 }
 
-impl Function<NonFunctionValue> for MustFn {
+impl Function for MustFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         self.timeout.call(args, ctx)
     }
 }
@@ -256,12 +240,12 @@ pub struct WhenFn {
     select: SyncFn,
 }
 
-impl Function<NonFunctionValue> for WhenFn {
+impl Function for WhenFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         self.select.call(args, ctx)
     }
 }
@@ -275,40 +259,22 @@ pub struct SyncFn {
 impl SyncFn {
     fn translate(
         &self,
-        args: &[NonFunctionValue],
-        result: Result<NonFunctionValue, SyncError>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        result: Result<Value, EvalError>,
+    ) -> Result<Value, EvalError> {
         match result {
             Ok(v) => Ok(v),
-            Err(SyncError::WouldBlock)
-                if matches!(
-                    self.name.as_str(),
-                    "send"
-                        | "recv"
-                        | "acquire"
-                        | "select"
-                        | "try_send"
-                        | "try_recv"
-                        | "try_acquire"
-                        | "try_lock"
-                ) =>
-            {
-                Err(Error::Operation {
-                    name: self.name.clone(),
-                    args: args.to_vec(),
-                })
-            }
-            Err(e) => Err(Error::PrimitiveError(e.to_string())),
+            Err(e) => Err(e),
         }
     }
 }
 
-impl Function<NonFunctionValue> for SyncFn {
+impl Function for SyncFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "channel" => {
                 expect_args(args, 1)?;
@@ -334,11 +300,11 @@ impl Function<NonFunctionValue> for SyncFn {
             "select" => {
                 expect_args(args, 1)?;
                 let arr = args[0].as_array().ok_or_else(|| {
-                    Error::PrimitiveError("select expected an array of channels".to_string())
+                    EvalError::Other("select expected an array of channels".to_string())
                 })?;
-                let channels: Vec<NonFunctionValue> = arr
+                let channels: Vec<Value> = arr
                     .iter()
-                    .map(|v| NonFunctionValue::new(v.clone()))
+                    .map(|v| serde_json::json!(v.clone()))
                     .collect();
                 self.translate(args, self.sync.select(&channels))
             }
@@ -348,15 +314,15 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
-                    Error::PrimitiveError("lock expected a function value".to_string())
+                let thunk = FunctionValue::from_json(&args[1]).ok_or_else(|| {
+                    EvalError::Other("lock expected a function value".to_string())
                 })?;
                 self.translate(args, self.sync.lock(args[0].clone(), thunk, ctx))
             }
             "try_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
-                    Error::PrimitiveError("try_lock expected a function value".to_string())
+                let thunk = FunctionValue::from_json(&args[1]).ok_or_else(|| {
+                    EvalError::Other("try_lock expected a function value".to_string())
                 })?;
                 self.translate(args, self.sync.try_lock(args[0].clone(), thunk, ctx))
             }
@@ -370,15 +336,15 @@ impl Function<NonFunctionValue> for SyncFn {
             }
             "read_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
-                    Error::PrimitiveError("read_lock expected a function value".to_string())
+                let thunk = FunctionValue::from_json(&args[1]).ok_or_else(|| {
+                    EvalError::Other("read_lock expected a function value".to_string())
                 })?;
                 self.translate(args, self.sync.read_lock(args[0].clone(), thunk, ctx))
             }
             "write_lock" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
-                    Error::PrimitiveError("write_lock expected a function value".to_string())
+                let thunk = FunctionValue::from_json(&args[1]).ok_or_else(|| {
+                    EvalError::Other("write_lock expected a function value".to_string())
                 })?;
                 self.translate(args, self.sync.write_lock(args[0].clone(), thunk, ctx))
             }
@@ -401,7 +367,7 @@ impl Function<NonFunctionValue> for SyncFn {
                 expect_args(args, 2)?;
                 self.translate(args, self.sync.release(args[0].clone(), args[1].clone()))
             }
-            _ => Err(Error::UnknownFunction(self.name.clone())),
+            _ => Err(EvalError::UnknownFunction(self.name.clone()))
         }
     }
 }
@@ -412,12 +378,12 @@ pub struct AtomicFn {
     name: String,
 }
 
-impl Function<NonFunctionValue> for AtomicFn {
+impl Function for AtomicFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "atomic" => {
                 expect_args(args, 1)?;
@@ -436,7 +402,7 @@ impl Function<NonFunctionValue> for AtomicFn {
                 self.atomic
                     .atomic_cas(args[0].clone(), args[1].clone(), args[2].clone())
             }
-            _ => Err(Error::UnknownFunction(self.name.clone())),
+            _ => Err(EvalError::UnknownFunction(self.name.clone()))
         }
     }
 }
@@ -448,12 +414,12 @@ pub struct CancelFn {
     name: String,
 }
 
-impl Function<NonFunctionValue> for CancelFn {
+impl Function for CancelFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "cancel_token" => {
                 expect_args(args, 0)?;
@@ -467,17 +433,17 @@ impl Function<NonFunctionValue> for CancelFn {
             }
             "cancelable" => {
                 expect_args(args, 2)?;
-                let thunk = FunctionValue::from_json(args[1].inner()).ok_or_else(|| {
-                    Error::PrimitiveError("cancelable expected a function value".to_string())
+                let thunk = FunctionValue::from_json(&args[1]).ok_or_else(|| {
+                    EvalError::Other("cancelable expected a function value".to_string())
                 })?;
                 // Obtain the shared cancel flag so the scheduler and runtime are
                 // observing the same token.
                 let _ = self.cancel.cancel_flag(&args[0]).ok_or_else(|| {
-                    Error::PrimitiveError("cancelable expected a valid cancel token".to_string())
+                    EvalError::Other("cancelable expected a valid cancel token".to_string())
                 })?;
                 self.scheduler.spawn_cancelable(args[0].clone(), thunk, ctx)
             }
-            _ => Err(Error::UnknownFunction(self.name.clone())),
+            _ => Err(EvalError::UnknownFunction(self.name.clone()))
         }
     }
 }
@@ -488,12 +454,12 @@ pub struct IoFn {
     name: String,
 }
 
-impl Function<NonFunctionValue> for IoFn {
+impl Function for IoFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "tcp_connect" => {
                 expect_args(args, 1)?;
@@ -511,7 +477,7 @@ impl Function<NonFunctionValue> for IoFn {
                 expect_args(args, 1)?;
                 self.io.tcp_close(args[0].clone())
             }
-            _ => Err(Error::UnknownFunction(self.name.clone())),
+            _ => Err(EvalError::UnknownFunction(self.name.clone()))
         }
     }
 }
@@ -705,7 +671,7 @@ impl Module for ConcurrencyModule {
         "concurrent"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "spawn" => Some(&self.spawn_fn),
             "await" => Some(&self.await_fn),
@@ -718,30 +684,23 @@ impl Module for ConcurrencyModule {
             _ => self
                 .sync_fns
                 .get(name)
-                .map(|f| f as &dyn Function<NonFunctionValue>)
+                .map(|f| f as &dyn Function)
                 .or_else(|| {
                     self.atomic_fns
                         .get(name)
-                        .map(|f| f as &dyn Function<NonFunctionValue>)
+                        .map(|f| f as &dyn Function)
                 })
                 .or_else(|| {
                     self.cancel_fns
                         .get(name)
-                        .map(|f| f as &dyn Function<NonFunctionValue>)
+                        .map(|f| f as &dyn Function)
                 })
                 .or_else(|| {
                     self.io_fns
                         .get(name)
-                        .map(|f| f as &dyn Function<NonFunctionValue>)
+                        .map(|f| f as &dyn Function)
                 }),
         }
-    }
-
-    fn operation(
-        &self,
-        _name: &str,
-    ) -> Option<&dyn handl_plugin_vm_values_json::Operation<NonFunctionValue>> {
-        None
     }
 }
 
@@ -773,11 +732,12 @@ const IO_FUNCTIONS: &[&str] = &["tcp_connect", "tcp_send", "tcp_recv", "tcp_clos
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::CanonicalContext;
-    use handl_plugin_vm_values_json::Eval;
+    use handl_platform::EvalContext;
+    use handl_platform::ExprEvaluator;
     use serde_json::json;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
     use std::thread;
     use std::time::Duration;
 
@@ -786,30 +746,31 @@ mod tests {
         calls: Arc<Mutex<Vec<String>>>,
     }
 
-    impl Eval<NonFunctionValue> for MockEval {
+    impl ExprEvaluator for MockEval {
         fn eval_expr(
             &self,
             expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
-            Ok(NonFunctionValue::new(json!({ "body": expr })))
+            Ok(serde_json::json!(json!({ "body": expr })))
         }
     }
 
-    fn thunk(body: &str) -> NonFunctionValue {
-        NonFunctionValue::new(FunctionValue {
+    fn thunk(body: &str) -> Value {
+        FunctionValue {
             params: Vec::new(),
             return_schema: None,
             body: body.to_string(),
             patterns: Vec::new(),
             captured: Vec::new(),
-        })
+        }
+        .to_json()
     }
 
-    fn ctx() -> CanonicalContext {
-        let mut ctx = CanonicalContext::new();
-        ctx.set_eval(Box::new(MockEval::default()));
+    fn ctx() -> EvalContext {
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(MockEval::default()));
         ctx
     }
 
@@ -881,10 +842,9 @@ mod tests {
         assert!(module.function("must").is_some());
         assert!(module.function("when").is_some());
 
-        let scheduler = Arc::new(ThreadPoolScheduler::new(2));
-        let module = ConcurrencyModule::with_scheduler(scheduler);
-        let mut fast_ctx = CanonicalContext::new();
-        fast_ctx.set_sync_eval(Arc::new(FastEval));
+        let module = ConcurrencyModule::new();
+        let mut fast_ctx = EvalContext::new();
+        fast_ctx.set_expr_evaluator(Rc::new(FastEval));
 
         let task = module
             .function("may")
@@ -896,38 +856,36 @@ mod tests {
         let result = module
             .function("must")
             .unwrap()
-            .call(&[task, NonFunctionValue::new(json!(1000))], &mut fast_ctx)
+            .call(&[task, serde_json::json!(json!(1000))], &mut fast_ctx)
             .unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!(42)));
+        assert_eq!(result, serde_json::json!(json!(42)));
 
         let mut sync_ctx = ctx();
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut sync_ctx)
+            .call(&[serde_json::json!(json!(null))], &mut sync_ctx)
             .unwrap();
         module
             .function("send")
             .unwrap()
             .call(
-                &[ch.clone(), NonFunctionValue::new(json!(42))],
+                &[ch.clone(), serde_json::json!(json!(42))],
                 &mut sync_ctx,
             )
             .unwrap();
-        let arg = NonFunctionValue::new(json!([ch.inner().clone()]));
+        let arg = serde_json::json!(json!([ch.clone()]));
         let got = module
             .function("when")
             .unwrap()
             .call(&[arg], &mut sync_ctx)
             .unwrap();
-        assert_eq!(got, NonFunctionValue::new(json!([0, 42])));
+        assert_eq!(got, serde_json::json!(json!([0, 42])));
     }
 
     #[test]
     fn no_operations_are_exposed() {
         let module = ConcurrencyModule::new();
-        assert!(module.operation("atomic").is_none());
-        assert!(module.operation("cancel_token").is_none());
         assert_eq!(module.operation_names().count(), 0);
     }
 
@@ -939,10 +897,10 @@ mod tests {
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
 
-        let value = NonFunctionValue::new(json!(42));
+        let value = serde_json::json!(json!(42));
         let _ = module
             .function("send")
             .unwrap()
@@ -954,7 +912,7 @@ mod tests {
             .unwrap()
             .call(&[ch.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(got, NonFunctionValue::new(json!(42)));
+        assert_eq!(got, serde_json::json!(json!(42)));
 
         let arg = ch.clone();
         let empty = module
@@ -963,10 +921,7 @@ mod tests {
             .call(&[arg.clone()], &mut ctx);
         assert_eq!(
             empty,
-            Err(Error::Operation {
-                name: "recv".to_string(),
-                args: vec![arg],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -978,12 +933,12 @@ mod tests {
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(2))], &mut ctx)
+            .call(&[serde_json::json!(json!(2))], &mut ctx)
             .unwrap();
 
-        let one = NonFunctionValue::new(json!(1));
-        let two = NonFunctionValue::new(json!(2));
-        let three = NonFunctionValue::new(json!(3));
+        let one = serde_json::json!(json!(1));
+        let two = serde_json::json!(json!(2));
+        let three = serde_json::json!(json!(3));
 
         assert!(
             module
@@ -1006,10 +961,7 @@ mod tests {
             .call(&[ch.clone(), three.clone()], &mut ctx);
         assert_eq!(
             err,
-            Err(Error::Operation {
-                name: "send".to_string(),
-                args: vec![ch.clone(), three],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -1021,7 +973,7 @@ mod tests {
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
 
         let arg = ch.clone();
@@ -1031,10 +983,7 @@ mod tests {
             .call(&[arg.clone()], &mut ctx);
         assert_eq!(
             err,
-            Err(Error::Operation {
-                name: "recv".to_string(),
-                args: vec![arg],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -1046,27 +995,27 @@ mod tests {
         let ch1 = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
         let ch2 = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
 
         module
             .function("send")
             .unwrap()
-            .call(&[ch2.clone(), NonFunctionValue::new(json!(42))], &mut ctx)
+            .call(&[ch2.clone(), serde_json::json!(json!(42))], &mut ctx)
             .unwrap();
 
-        let arg = NonFunctionValue::new(json!([ch1.inner().clone(), ch2.inner().clone()]));
+        let arg = serde_json::json!(json!([ch1.clone(), ch2.clone()]));
         let got = module
             .function("select")
             .unwrap()
             .call(&[arg], &mut ctx)
             .unwrap();
-        assert_eq!(got, NonFunctionValue::new(json!([1, 42])));
+        assert_eq!(got, serde_json::json!(json!([1, 42])));
     }
 
     #[test]
@@ -1077,25 +1026,22 @@ mod tests {
         let ch1 = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
         let ch2 = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(null))], &mut ctx)
+            .call(&[serde_json::json!(json!(null))], &mut ctx)
             .unwrap();
 
-        let arg = NonFunctionValue::new(json!([ch1.inner().clone(), ch2.inner().clone()]));
+        let arg = serde_json::json!(json!([ch1.clone(), ch2.clone()]));
         let err = module
             .function("select")
             .unwrap()
             .call(&[arg.clone()], &mut ctx);
         assert_eq!(
             err,
-            Err(Error::Operation {
-                name: "select".to_string(),
-                args: vec![arg],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -1107,34 +1053,31 @@ mod tests {
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(2))], &mut ctx)
+            .call(&[serde_json::json!(json!(2))], &mut ctx)
             .unwrap();
 
         assert!(
             module
                 .function("send")
                 .unwrap()
-                .call(&[ch.clone(), NonFunctionValue::new(json!(1))], &mut ctx)
+                .call(&[ch.clone(), serde_json::json!(json!(1))], &mut ctx)
                 .is_ok()
         );
         assert!(
             module
                 .function("send")
                 .unwrap()
-                .call(&[ch.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .call(&[ch.clone(), serde_json::json!(json!(2))], &mut ctx)
                 .is_ok()
         );
 
-        let three = NonFunctionValue::new(json!(3));
+        let three = serde_json::json!(json!(3));
         assert_eq!(
             module
                 .function("send")
                 .unwrap()
                 .call(&[ch.clone(), three.clone()], &mut ctx),
-            Err(Error::Operation {
-                name: "send".to_string(),
-                args: vec![ch.clone(), three],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
 
         let got = module
@@ -1142,13 +1085,13 @@ mod tests {
             .unwrap()
             .call(&[ch.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(got, NonFunctionValue::new(json!(1)));
+        assert_eq!(got, serde_json::json!(json!(1)));
 
         assert!(
             module
                 .function("send")
                 .unwrap()
-                .call(&[ch.clone(), NonFunctionValue::new(json!(3))], &mut ctx)
+                .call(&[ch.clone(), serde_json::json!(json!(3))], &mut ctx)
                 .is_ok()
         );
 
@@ -1158,7 +1101,7 @@ mod tests {
                 .unwrap()
                 .call(&[ch.clone()], &mut ctx)
                 .unwrap(),
-            NonFunctionValue::new(json!(2))
+            serde_json::json!(json!(2))
         );
         assert_eq!(
             module
@@ -1166,7 +1109,7 @@ mod tests {
                 .unwrap()
                 .call(&[ch.clone()], &mut ctx)
                 .unwrap(),
-            NonFunctionValue::new(json!(3))
+            serde_json::json!(json!(3))
         );
 
         let arg = ch.clone();
@@ -1175,10 +1118,7 @@ mod tests {
                 .function("recv")
                 .unwrap()
                 .call(&[arg.clone()], &mut ctx),
-            Err(Error::Operation {
-                name: "recv".to_string(),
-                args: vec![arg],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -1198,11 +1138,11 @@ mod tests {
             .unwrap()
             .call(&[m.clone(), thunk("locked!")], &mut ctx)
             .unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "locked!" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "locked!" })));
 
         let err = module.function("unlock").unwrap().call(&[m], &mut ctx);
         assert!(
-            matches!(err, Err(Error::PrimitiveError(_))),
+            matches!(err, Err(EvalError::Other(_))),
             "unlock on unlocked mutex should error"
         );
     }
@@ -1215,35 +1155,35 @@ mod tests {
         let sem = module
             .function("semaphore")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(3))], &mut ctx)
+            .call(&[serde_json::json!(json!(3))], &mut ctx)
             .unwrap();
 
         assert!(
             module
                 .function("acquire")
                 .unwrap()
-                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .call(&[sem.clone(), serde_json::json!(json!(2))], &mut ctx)
                 .is_ok()
         );
         assert!(
             module
                 .function("acquire")
                 .unwrap()
-                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .call(&[sem.clone(), serde_json::json!(json!(2))], &mut ctx)
                 .is_err()
         );
         assert!(
             module
                 .function("release")
                 .unwrap()
-                .call(&[sem.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+                .call(&[sem.clone(), serde_json::json!(json!(2))], &mut ctx)
                 .is_ok()
         );
         assert!(
             module
                 .function("acquire")
                 .unwrap()
-                .call(&[sem, NonFunctionValue::new(json!(2))], &mut ctx)
+                .call(&[sem, serde_json::json!(json!(2))], &mut ctx)
                 .is_ok()
         );
     }
@@ -1283,7 +1223,7 @@ mod tests {
         let r = module
             .function("atomic")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(0))], &mut ctx)
+            .call(&[serde_json::json!(json!(0))], &mut ctx)
             .unwrap();
         assert_eq!(r.get("type"), Some(&json!("atomic")));
 
@@ -1292,21 +1232,21 @@ mod tests {
             .unwrap()
             .call(&[r.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(read, NonFunctionValue::new(json!(0)));
+        assert_eq!(read, serde_json::json!(json!(0)));
 
         let old = module
             .function("atomic_write")
             .unwrap()
-            .call(&[r.clone(), NonFunctionValue::new(json!(42))], &mut ctx)
+            .call(&[r.clone(), serde_json::json!(json!(42))], &mut ctx)
             .unwrap();
-        assert_eq!(old, NonFunctionValue::new(json!(0)));
+        assert_eq!(old, serde_json::json!(json!(0)));
 
         let read = module
             .function("atomic_read")
             .unwrap()
             .call(&[r.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(read, NonFunctionValue::new(json!(42)));
+        assert_eq!(read, serde_json::json!(json!(42)));
 
         let swapped = module
             .function("atomic_cas")
@@ -1314,20 +1254,20 @@ mod tests {
             .call(
                 &[
                     r.clone(),
-                    NonFunctionValue::new(json!(42)),
-                    NonFunctionValue::new(json!(7)),
+                    serde_json::json!(json!(42)),
+                    serde_json::json!(json!(7)),
                 ],
                 &mut ctx,
             )
             .unwrap();
-        assert_eq!(swapped, NonFunctionValue::new(json!(true)));
+        assert_eq!(swapped, serde_json::json!(json!(true)));
 
         let read = module
             .function("atomic_read")
             .unwrap()
             .call(&[r.clone()], &mut ctx)
             .unwrap();
-        assert_eq!(read, NonFunctionValue::new(json!(7)));
+        assert_eq!(read, serde_json::json!(json!(7)));
 
         let failed = module
             .function("atomic_cas")
@@ -1335,13 +1275,13 @@ mod tests {
             .call(
                 &[
                     r,
-                    NonFunctionValue::new(json!(42)),
-                    NonFunctionValue::new(json!(9)),
+                    serde_json::json!(json!(42)),
+                    serde_json::json!(json!(9)),
                 ],
                 &mut ctx,
             )
             .unwrap();
-        assert_eq!(failed, NonFunctionValue::new(json!(false)));
+        assert_eq!(failed, serde_json::json!(json!(false)));
     }
 
     #[test]
@@ -1368,7 +1308,7 @@ mod tests {
             .function("cancelable")
             .unwrap()
             .call(&[cancelled, thunk("work")], &mut ctx);
-        assert!(matches!(err, Err(Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
 
         let fresh = module
             .function("cancel_token")
@@ -1385,15 +1325,15 @@ mod tests {
             .unwrap()
             .call(&[task], &mut ctx)
             .unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "ok" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "ok" })));
     }
 
     #[test]
     fn cancel_pending_task() {
         let module = ConcurrencyModule::new();
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let eval = MockEval::default();
-        ctx.set_eval(Box::new(eval.clone()));
+        ctx.set_expr_evaluator(Rc::new(eval.clone()));
 
         let token = module
             .function("cancel_token")
@@ -1413,16 +1353,16 @@ mod tests {
             .unwrap();
 
         let err = module.function("await").unwrap().call(&[task], &mut ctx);
-        assert!(matches!(err, Err(Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
         assert!(eval.calls.lock().unwrap().is_empty());
     }
 
     #[test]
     fn cancelable_does_not_run_when_already_cancelled() {
         let module = ConcurrencyModule::new();
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let eval = MockEval::default();
-        ctx.set_eval(Box::new(eval.clone()));
+        ctx.set_expr_evaluator(Rc::new(eval.clone()));
 
         let token = module
             .function("cancel_token")
@@ -1439,16 +1379,16 @@ mod tests {
             .function("cancelable")
             .unwrap()
             .call(&[token, thunk("work")], &mut ctx);
-        assert!(matches!(err, Err(Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
         assert!(eval.calls.lock().unwrap().is_empty());
     }
 
     #[test]
     fn cancelable_runs_then_result_returned() {
         let module = ConcurrencyModule::new();
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         let eval = MockEval::default();
-        ctx.set_eval(Box::new(eval.clone()));
+        ctx.set_expr_evaluator(Rc::new(eval.clone()));
 
         let token = module
             .function("cancel_token")
@@ -1465,7 +1405,7 @@ mod tests {
             .unwrap()
             .call(&[task], &mut ctx)
             .unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "ok" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "ok" })));
         assert_eq!(eval.calls.lock().unwrap().as_slice(), &["ok"]);
     }
 
@@ -1488,31 +1428,28 @@ mod tests {
         let ch = module
             .function("channel")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(2))], &mut ctx)
+            .call(&[serde_json::json!(json!(2))], &mut ctx)
             .unwrap();
 
         module
             .function("send")
             .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(1))], &mut ctx)
+            .call(&[ch.clone(), serde_json::json!(json!(1))], &mut ctx)
             .unwrap();
         module
             .function("send")
             .unwrap()
-            .call(&[ch.clone(), NonFunctionValue::new(json!(2))], &mut ctx)
+            .call(&[ch.clone(), serde_json::json!(json!(2))], &mut ctx)
             .unwrap();
 
-        let three = NonFunctionValue::new(json!(3));
+        let three = serde_json::json!(json!(3));
         let err = module
             .function("try_send")
             .unwrap()
             .call(&[ch.clone(), three.clone()], &mut ctx);
         assert_eq!(
             err,
-            Err(Error::Operation {
-                name: "try_send".to_string(),
-                args: vec![ch, three],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
@@ -1524,36 +1461,33 @@ mod tests {
         let sem = module
             .function("semaphore")
             .unwrap()
-            .call(&[NonFunctionValue::new(json!(2))], &mut ctx)
+            .call(&[serde_json::json!(json!(2))], &mut ctx)
             .unwrap();
 
-        let three = NonFunctionValue::new(json!(3));
+        let three = serde_json::json!(json!(3));
         let err = module
             .function("try_acquire")
             .unwrap()
             .call(&[sem.clone(), three.clone()], &mut ctx);
         assert_eq!(
             err,
-            Err(Error::Operation {
-                name: "try_acquire".to_string(),
-                args: vec![sem, three],
-            })
+            Err(EvalError::Other("would block".to_string()))
         );
     }
 
     #[derive(Clone)]
     struct FastEval;
 
-    impl Eval<NonFunctionValue> for FastEval {
+    impl ExprEvaluator for FastEval {
         fn eval_expr(
             &self,
             expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             if expr == "fast" {
-                Ok(NonFunctionValue::new(json!(42)))
+                Ok(serde_json::json!(json!(42)))
             } else {
-                Ok(NonFunctionValue::new(json!({ "body": expr })))
+                Ok(serde_json::json!(json!({ "body": expr })))
             }
         }
     }
@@ -1563,19 +1497,19 @@ mod tests {
         flag: Arc<AtomicBool>,
     }
 
-    impl Eval<NonFunctionValue> for SlowEval {
+    impl ExprEvaluator for SlowEval {
         fn eval_expr(
             &self,
             _expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             for _ in 0..200 {
                 if self.flag.load(Ordering::SeqCst) {
-                    return Err(Error::PrimitiveError("cancelled".to_string()));
+                    return Err(EvalError::Other("cancelled".to_string()));
                 }
                 thread::sleep(Duration::from_millis(5));
             }
-            Ok(NonFunctionValue::new(json!("done")))
+            Ok(serde_json::json!(json!("done")))
         }
     }
 
@@ -1587,10 +1521,9 @@ mod tests {
 
     #[test]
     fn timeout_returns_result_before_deadline() {
-        let scheduler = Arc::new(ThreadPoolScheduler::new(2));
-        let module = ConcurrencyModule::with_scheduler(scheduler);
-        let mut ctx = CanonicalContext::new();
-        ctx.set_sync_eval(Arc::new(FastEval));
+        let module = ConcurrencyModule::new();
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(FastEval));
 
         let task = module
             .function("spawn")
@@ -1600,16 +1533,16 @@ mod tests {
         let result = module
             .function("timeout")
             .unwrap()
-            .call(&[task, NonFunctionValue::new(json!(100))], &mut ctx)
+            .call(&[task, serde_json::json!(json!(100))], &mut ctx)
             .unwrap();
 
-        assert_eq!(result, NonFunctionValue::new(json!(42)));
+        assert_eq!(result, serde_json::json!(json!(42)));
     }
 
     #[test]
     fn timeout_cancels_slow_task() {
         let cancel = Arc::new(DefaultCancelRuntime::new());
-        let scheduler = Arc::new(ThreadPoolScheduler::with_cancel_runtime(2, cancel.clone()));
+        let scheduler = Arc::new(DefaultScheduler::with_cancel_runtime(cancel.clone()));
         let module = ConcurrencyModule::with_full_backends(
             scheduler,
             Arc::new(DefaultSyncRuntime::new()),
@@ -1618,7 +1551,7 @@ mod tests {
             Arc::new(StdNetIoRuntime::new()),
             Arc::new(ThreadTimerRuntime::new()),
         );
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
 
         let token = module
             .function("cancel_token")
@@ -1626,7 +1559,7 @@ mod tests {
             .call(&[], &mut ctx)
             .unwrap();
         let flag = cancel.cancel_flag(&token).unwrap();
-        ctx.set_sync_eval(Arc::new(SlowEval { flag }));
+        ctx.set_expr_evaluator(Rc::new(SlowEval { flag }));
 
         let task = module
             .function("cancelable")
@@ -1636,9 +1569,9 @@ mod tests {
         let err = module
             .function("timeout")
             .unwrap()
-            .call(&[task, NonFunctionValue::new(json!(50))], &mut ctx);
+            .call(&[task, serde_json::json!(json!(50))], &mut ctx);
 
-        assert!(matches!(err, Err(Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
     }
 }
 

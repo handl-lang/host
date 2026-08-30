@@ -1,37 +1,40 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, Error, FunctionValue, NonFunctionValue};
-use serde_json::json;
+use std::rc::Rc;
 
+use handl_platform::{EvalContext, EvalError, Module};
+use serde_json::json;
+use serde_json::Value;
+
+use crate::function_value::FunctionValue;
 use crate::test_helpers::{ErrorEval, TrueEval};
 use crate::{
     AssertModule, BenchmarkModule, FuzzModule, PropertyModule, SnapshotModule, TestModule,
 };
 
-fn ctx() -> CanonicalContext {
-    let mut context = CanonicalContext::new();
-    context.set_eval(Box::new(TrueEval));
+fn ctx() -> EvalContext {
+    let mut context = EvalContext::new();
+    context.set_expr_evaluator(Rc::new(TrueEval));
     context
 }
 
-fn err_ctx() -> CanonicalContext {
-    let mut context = CanonicalContext::new();
-    context.set_eval(Box::new(ErrorEval));
+fn err_ctx() -> EvalContext {
+    let mut context = EvalContext::new();
+    context.set_expr_evaluator(Rc::new(ErrorEval));
     context
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(v)
+fn n(v: f64) -> Value {
+    json!(v)
 }
 
-fn b(v: bool) -> NonFunctionValue {
-    NonFunctionValue::new(v)
+fn b(v: bool) -> Value {
+    json!(v)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v)
+fn s(v: &str) -> Value {
+    json!(v)
 }
 
-fn fn_value(body: &str, params: &[&str]) -> NonFunctionValue {
+fn fn_value(body: &str, params: &[&str]) -> Value {
     let params: Vec<_> = params
         .iter()
         .map(|p| (p.to_string(), serde_json::Value::Null))
@@ -41,29 +44,29 @@ fn fn_value(body: &str, params: &[&str]) -> NonFunctionValue {
         return_schema: None,
         body: body.to_string(),
         patterns: Vec::new(),
-            captured: Vec::new(),
+        captured: Vec::new(),
     };
-    NonFunctionValue::new(value.to_json())
+    value.to_json()
 }
 
 fn call(
-    module: &dyn handl_plugin_vm_common::Module,
+    module: &dyn Module,
     name: &str,
-    args: &[NonFunctionValue],
-) -> NonFunctionValue {
+    args: &[Value],
+) -> Value {
     module
         .function(name)
         .expect("function exists")
         .call(args, &mut ctx())
-        .unwrap_or_else(|e| NonFunctionValue::new(e.to_string()))
+        .unwrap_or_else(|e| json!(e.to_string()))
 }
 
 fn call_err(
-    module: &dyn handl_plugin_vm_common::Module,
+    module: &dyn Module,
     name: &str,
-    args: &[NonFunctionValue],
-    context: &mut CanonicalContext,
-) -> Result<NonFunctionValue, Error> {
+    args: &[Value],
+    context: &mut EvalContext,
+) -> Result<Value, EvalError> {
     module
         .function(name)
         .expect("function exists")
@@ -114,10 +117,10 @@ fn assert_throws_passes_when_function_errors() {
 
 #[test]
 fn test_run_reports_passing_cases() {
-    let suite = NonFunctionValue::new(json!([
-        { "name": "one", "body": fn_value("true", &[]).into_inner() },
-        { "name": "two", "body": fn_value("true", &[]).into_inner() }
-    ]));
+    let suite = json!([
+        { "name": "one", "body": fn_value("true", &[]) },
+        { "name": "two", "body": fn_value("true", &[]) }
+    ]);
     let report = call(&TestModule, "run", &[suite]);
     assert_eq!(report.get("passed").and_then(|v| v.as_u64()), Some(2));
     assert_eq!(report.get("failed").and_then(|v| v.as_u64()), Some(0));
@@ -125,9 +128,9 @@ fn test_run_reports_passing_cases() {
 
 #[test]
 fn test_run_reports_failing_cases() {
-    let suite = NonFunctionValue::new(json!([
-        { "name": "bad", "body": fn_value("error", &[]).into_inner() }
-    ]));
+    let suite = json!([
+        { "name": "bad", "body": fn_value("error", &[]) }
+    ]);
     let mut context = err_ctx();
     let report = TestModule
         .function("run")
@@ -187,7 +190,7 @@ fn snapshot_match_passes_for_equal_values() {
 
 #[test]
 fn snapshot_format_serializes_value() {
-    let value = NonFunctionValue::new(json!({ "a": 1, "b": [2, 3] }));
+    let value = json!({ "a": 1, "b": [2, 3] });
     let result = call(&SnapshotModule, "format", &[value]);
     assert!(result.as_str().is_some());
 }

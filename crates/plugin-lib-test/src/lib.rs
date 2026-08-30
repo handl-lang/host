@@ -12,13 +12,14 @@
 //! - [`FuzzModule`] — `fuzz.run`
 //! - [`SnapshotModule`] — `snapshot.match`, `snapshot.format`
 //!
-//! All modules are stateless, `Copy`, and follow the `Function<NonFunctionValue>`
+//! All modules are stateless, `Copy`, and follow the `Function`
 //! contract used by the rest of the standard library.
 
 mod assert;
 mod benchmark;
 mod error;
 mod fuzz;
+mod function_value;
 mod property;
 mod shared;
 mod snapshot;

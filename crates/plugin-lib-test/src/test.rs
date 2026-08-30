@@ -1,6 +1,6 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
+use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, obj, require_array, require_function};
@@ -16,7 +16,7 @@ impl Module for TestModule {
         "test"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "run" => Some(&Run),
             _ => None,
@@ -26,12 +26,12 @@ impl Module for TestModule {
 
 #[derive(Clone, Copy)]
 struct Run;
-impl Function<NonFunctionValue> for Run {
+impl Function for Run {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.is_empty() {
             return Err(TestError::ArgumentCount {
                 expected: 1,
@@ -56,8 +56,8 @@ impl Function<NonFunctionValue> for Run {
             result_map.insert("name".to_string(), serde_json::Value::String(name));
 
             let body = match case.get("body") {
-                Some(body_val) => NonFunctionValue::new(body_val.clone()),
-                None => NonFunctionValue::new(serde_json::Value::Null),
+                Some(body_val) => json!(body_val.clone()),
+                None => json!(serde_json::Value::Null),
             };
 
             let func = match require_function(&body) {
@@ -74,10 +74,10 @@ impl Function<NonFunctionValue> for Run {
                 }
             };
 
-            let test_args: Vec<NonFunctionValue> = match case.get("args") {
+            let test_args: Vec<Value> = match case.get("args") {
                 Some(serde_json::Value::Array(arr)) => arr
                     .iter()
-                    .map(|v| NonFunctionValue::new(v.clone()))
+                    .map(|v| json!(v.clone()))
                     .collect(),
                 Some(_) => {
                     result_map.insert("pass".to_string(), serde_json::Value::Bool(false));

@@ -8,11 +8,10 @@ ureq = "2"
 
 [dependencies]
 handl-platform = { workspace = true }
+handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-ext-eval = { path = "../plugin-ext-eval" }
 handl-plugin-lib-http-server.workspace = true
-handl-plugin-vm-common.workspace = true
-handl-plugin-vm-backend-rust-interpreter.workspace = true
-handl-plugin-vm-host-eval.workspace = true
-handl-plugin-vm-values-json.workspace = true
+serde_json = "1"
 tokio = { version = "1", features = ["rt", "net", "sync", "macros", "time", "fs"] }
 hyper = { version = "1", features = ["server", "client", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio", "server", "http1", "http2"] }
@@ -20,4 +19,3 @@ http-body-util = "0.1"
 bytes = "1"
 mime_guess = "2"
 matchit = "0.8"
-serde_json = "1"

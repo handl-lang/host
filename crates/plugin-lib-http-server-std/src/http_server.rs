@@ -19,10 +19,7 @@ use tokio::sync::oneshot;
 use handl_plugin_lib_http_server::{
     Handler, HttpMethod, HttpServer, HttpServerError, HttpServerRequest, HttpServerResponse,
 };
-use handl_plugin_vm_backend_rust_interpreter::CanonicalEval;
-use handl_plugin_vm_host_eval::EvalHost;
-use handl_plugin_vm_values_json::{Error as VmError, Eval, FunctionValue, NonFunctionValue};
-use serde_json::Value as JsonValue;
+use handl_plugin_lib_http_server::function_value::FunctionValue;
 
 /// Runtime configuration for [`StdHttpServer`].
 #[derive(Clone, Debug)]
@@ -56,7 +53,6 @@ struct ServerState {
     runtime: Mutex<Option<ServerRuntime>>,
     local_addr: Mutex<Option<SocketAddr>>,
     config: ServerConfig,
-    eval: Arc<CanonicalEval<EvalHost>>,
 }
 
 impl Default for ServerState {
@@ -67,7 +63,6 @@ impl Default for ServerState {
             runtime: Mutex::new(None),
             local_addr: Mutex::new(None),
             config: ServerConfig::default(),
-            eval: Arc::new(CanonicalEval::new(EvalHost::default(), None, None)),
         }
     }
 }
@@ -207,27 +202,18 @@ impl HttpServer for StdHttpServer {
         path: &str,
         function_value: FunctionValue,
     ) -> Result<(), HttpServerError> {
-        let eval = self.state.eval.clone();
-        let handler: Handler = Box::new(move |req: HttpServerRequest| {
-            let mut vars: Vec<(String, NonFunctionValue)> = function_value
-                .params
-                .iter()
-                .map(|(name, _)| {
-                    let value = req
-                        .params
-                        .get(name)
-                        .map(|s| NonFunctionValue::new(s.clone()))
-                        .unwrap_or_default();
-                    (name.clone(), value)
-                })
-                .collect();
-            vars.push(("request".to_string(), request_to_value(&req)));
-
-            match eval.eval_expr(&function_value.body, &vars) {
-                Ok(value) => value_to_response(&value),
-                Err(VmError::Other(msg)) => HttpServerResponse::new(500, msg),
-                Err(e) => HttpServerResponse::new(500, e.to_string()),
-            }
+        // TODO(ADR 0040 migration): The old system used CanonicalEval<EvalHost> to
+        // evaluate function bodies inside route handlers. The new system's
+        // ExprEvaluator trait is not Send + Sync, so it cannot be captured in a
+        // Send + Sync handler closure. For now, we register a stub handler that
+        // returns 501 Not Implemented. A proper migration would either:
+        //   1. Make ExprEvaluator Send + Sync, or
+        //   2. Use a channel-based approach to send evaluation requests back to
+        //      a single-threaded eval loop, or
+        //   3. Use the async evaluation path (call_function_async).
+        let _ = function_value;
+        let handler: Handler = Box::new(move |_req: HttpServerRequest| {
+            HttpServerResponse::new(501, "route_function not yet migrated (ADR 0040)")
         });
         self.route(method, path, handler)
     }
@@ -429,63 +415,6 @@ fn error_response(status: u16, body: &str) -> Response<Full<Bytes>> {
         .header(hyper::header::CONTENT_TYPE, "text/plain")
         .body(Full::new(Bytes::from(body.to_string())))
         .unwrap_or_else(|_| Response::new(Full::new(Bytes::from("internal error"))))
-}
-
-fn request_to_value(req: &HttpServerRequest) -> NonFunctionValue {
-    NonFunctionValue::new(JsonValue::Object({
-        let mut map = serde_json::Map::new();
-        map.insert(
-            "method".to_string(),
-            JsonValue::String(req.method.as_str().to_string()),
-        );
-        map.insert("path".to_string(), JsonValue::String(req.path.clone()));
-        map.insert(
-            "params".to_string(),
-            JsonValue::Object(
-                req.params
-                    .iter()
-                    .map(|(k, v)| (k.clone(), JsonValue::String(v.clone())))
-                    .collect(),
-            ),
-        );
-        map.insert(
-            "query".to_string(),
-            JsonValue::Object(
-                req.query
-                    .iter()
-                    .map(|(k, v)| (k.clone(), JsonValue::String(v.clone())))
-                    .collect(),
-            ),
-        );
-        map.insert(
-            "headers".to_string(),
-            JsonValue::Object(
-                req.headers
-                    .iter()
-                    .map(|(k, v)| (k.clone(), JsonValue::String(v.clone())))
-                    .collect(),
-            ),
-        );
-        map.insert("body".to_string(), JsonValue::String(req.body.clone()));
-        map
-    }))
-}
-
-fn value_to_response(value: &NonFunctionValue) -> HttpServerResponse {
-    let body = value
-        .as_str()
-        .map(|s| s.to_string())
-        .or_else(|| value.as_number().map(|n| n.to_string()))
-        .or_else(|| {
-            let inner = value.inner();
-            if inner.is_null() {
-                Some(String::new())
-            } else {
-                Some(serde_json::to_string(inner).unwrap_or_default())
-            }
-        })
-        .unwrap_or_default();
-    HttpServerResponse::new(200, body)
 }
 
 fn factory() -> Arc<dyn HttpServer> {

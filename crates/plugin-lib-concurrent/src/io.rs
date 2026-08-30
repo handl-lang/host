@@ -6,40 +6,40 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{Sender, channel};
 use std::thread;
 
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::EvalError;
+use serde_json::Value;
 use mio::net::TcpStream as MioTcpStream;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::Mutex;
-use serde_json::json;
 
 /// Backend trait for blocking async I/O primitives.
-pub trait IoRuntime: Send + Sync {
+pub trait IoRuntime {
     /// Open a TCP connection to `addr` and return a socket handle.
-    fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error>;
+    fn tcp_connect(&self, addr: Value) -> Result<Value, EvalError>;
 
     /// Send `data` over `socket`.
     fn tcp_send(
         &self,
-        socket: NonFunctionValue,
-        data: NonFunctionValue,
-    ) -> Result<NonFunctionValue, Error>;
+        socket: Value,
+        data: Value,
+    ) -> Result<Value, EvalError>;
 
     /// Receive up to 4096 bytes from `socket`.
-    fn tcp_recv(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error>;
+    fn tcp_recv(&self, socket: Value) -> Result<Value, EvalError>;
 
     /// Close `socket`.
-    fn tcp_close(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error>;
+    fn tcp_close(&self, socket: Value) -> Result<Value, EvalError>;
 }
 
-fn socket_id(socket: &NonFunctionValue) -> Result<u64, Error> {
-    socket
-        .get("id")
+fn socket_id(socket: &Value) -> Result<u64, EvalError> {
+    socket.as_object()
+        .and_then(|o| o.get("id"))
         .and_then(|v| v.as_u64())
-        .ok_or_else(|| Error::PrimitiveError("expected a tcp_socket value".to_string()))
+        .ok_or_else(|| EvalError::Other("expected a tcp_socket value".to_string()))
 }
 
-fn tcp_socket_value(id: u64) -> NonFunctionValue {
-    NonFunctionValue::new(json!({"type": "tcp_socket", "id": id}))
+fn tcp_socket_value(id: u64) -> Value {
+    serde_json::json!({"type": "tcp_socket", "id": id})
 }
 
 /// Blocking `std::net::TcpStream` I/O backend.
@@ -67,12 +67,12 @@ impl Default for StdNetIoRuntime {
 }
 
 impl IoRuntime for StdNetIoRuntime {
-    fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_connect(&self, addr: Value) -> Result<Value, EvalError> {
         let addr = addr.as_str().ok_or_else(|| {
-            Error::PrimitiveError("tcp_connect expected a host:port string".to_string())
+            EvalError::Other("tcp_connect expected a host:port string".to_string())
         })?;
 
-        let stream = TcpStream::connect(addr).map_err(|e| Error::PrimitiveError(e.to_string()))?;
+        let stream = TcpStream::connect(addr).map_err(|e| EvalError::Other(e.to_string()))?;
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         self.streams.lock().insert(id, stream);
@@ -82,52 +82,52 @@ impl IoRuntime for StdNetIoRuntime {
 
     fn tcp_send(
         &self,
-        socket: NonFunctionValue,
-        data: NonFunctionValue,
-    ) -> Result<NonFunctionValue, Error> {
+        socket: Value,
+        data: Value,
+    ) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         let stream = streams
             .get_mut(&id)
-            .ok_or_else(|| Error::PrimitiveError("tcp_send: unknown socket".to_string()))?;
+            .ok_or_else(|| EvalError::Other("tcp_send: unknown socket".to_string()))?;
 
         let payload = data
             .as_str()
             .map(String::from)
-            .unwrap_or_else(|| data.inner().to_string());
+            .unwrap_or_else(|| data.to_string());
 
         stream
             .write_all(payload.as_bytes())
-            .map_err(|e| Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| EvalError::Other(e.to_string()))?;
 
-        Ok(NonFunctionValue::new(json!(null)))
+        Ok(serde_json::json!(null))
     }
 
-    fn tcp_recv(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_recv(&self, socket: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         let stream = streams
             .get_mut(&id)
-            .ok_or_else(|| Error::PrimitiveError("tcp_recv: unknown socket".to_string()))?;
+            .ok_or_else(|| EvalError::Other("tcp_recv: unknown socket".to_string()))?;
 
         let mut buf = [0u8; 4096];
         let n = stream
             .read(&mut buf)
-            .map_err(|e| Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| EvalError::Other(e.to_string()))?;
 
         let text = String::from_utf8_lossy(&buf[..n]).to_string();
-        Ok(NonFunctionValue::new(json!(text)))
+        Ok(serde_json::json!(text))
     }
 
-    fn tcp_close(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_close(&self, socket: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         if streams.remove(&id).is_none() {
-            return Err(Error::PrimitiveError(
+            return Err(EvalError::Other(
                 "tcp_close: unknown socket".to_string(),
             ));
         }
-        Ok(NonFunctionValue::new(json!(null)))
+        Ok(serde_json::json!(null))
     }
 }
 
@@ -137,20 +137,20 @@ enum Command {
     Connect {
         addr: SocketAddr,
         token: Token,
-        tx: Sender<Result<u64, Error>>,
+        tx: Sender<Result<u64, String>>,
     },
     Send {
         token: Token,
         data: Vec<u8>,
-        tx: Sender<Result<usize, Error>>,
+        tx: Sender<Result<usize, String>>,
     },
     Recv {
         token: Token,
-        tx: Sender<Result<String, Error>>,
+        tx: Sender<Result<String, String>>,
     },
     Close {
         token: Token,
-        tx: Sender<Result<(), Error>>,
+        tx: Sender<Result<(), String>>,
     },
     Shutdown(Sender<()>),
 }
@@ -158,16 +158,16 @@ enum Command {
 struct Sending {
     data: Vec<u8>,
     offset: usize,
-    tx: Sender<Result<usize, Error>>,
+    tx: Sender<Result<usize, String>>,
 }
 
 struct MioSocketState {
     stream: MioTcpStream,
     connected: bool,
     registered: bool,
-    connect_tx: Option<Sender<Result<u64, Error>>>,
+    connect_tx: Option<Sender<Result<u64, String>>>,
     send: Option<Sending>,
-    recv: Option<Sender<Result<String, Error>>>,
+    recv: Option<Sender<Result<String, String>>>,
 }
 
 fn update_interest(registry: &mio::Registry, token: Token, state: &mut MioSocketState) {
@@ -218,7 +218,7 @@ fn handle_writable(token: Token, state: &mut MioSocketState, registry: &mio::Reg
                 }
                 Err(err) if err.kind() == ErrorKind::NotConnected => return false,
                 Err(err) => {
-                    let e = Error::PrimitiveError(err.to_string());
+                    let e = err.to_string();
                     if let Some(tx) = state.connect_tx.take() {
                         let _ = tx.send(Err(e));
                     }
@@ -230,7 +230,7 @@ fn handle_writable(token: Token, state: &mut MioSocketState, registry: &mio::Reg
                 }
             },
             Ok(Some(err)) => {
-                let e = Error::PrimitiveError(err.to_string());
+                let e = err.to_string();
                 if let Some(tx) = state.connect_tx.take() {
                     let _ = tx.send(Err(e));
                 }
@@ -241,7 +241,7 @@ fn handle_writable(token: Token, state: &mut MioSocketState, registry: &mio::Reg
                 return true;
             }
             Err(err) => {
-                let e = Error::PrimitiveError(err.to_string());
+                let e = err.to_string();
                 if let Some(tx) = state.connect_tx.take() {
                     let _ = tx.send(Err(e));
                 }
@@ -272,7 +272,7 @@ fn handle_writable(token: Token, state: &mut MioSocketState, registry: &mio::Reg
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => break,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => {
-                    let _ = sending.tx.send(Err(Error::PrimitiveError(e.to_string())));
+                    let _ = sending.tx.send(Err(e.to_string()));
                     break;
                 }
             }
@@ -306,7 +306,7 @@ fn handle_readable(token: Token, state: &mut MioSocketState, registry: &mio::Reg
                 state.recv = Some(tx);
             }
             Err(e) => {
-                let _ = tx.send(Err(Error::PrimitiveError(e.to_string())));
+                let _ = tx.send(Err(e.to_string()));
             }
         }
     }
@@ -398,7 +398,7 @@ impl MioIoRuntime {
                                 }
                             }
                             Err(err) => {
-                                let _ = tx.send(Err(Error::PrimitiveError(err.to_string())));
+                                let _ = tx.send(Err(err.to_string()));
                             }
                         },
                         Command::Send { token, data, tx } => {
@@ -406,9 +406,9 @@ impl MioIoRuntime {
                             let mut remove = false;
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.send.is_some() {
-                                    let _ = tx.send(Err(Error::PrimitiveError(
+                                    let _ = tx.send(Err(
                                         "tcp_send: a send is already pending".to_string(),
-                                    )));
+                                    ));
                                 } else {
                                     state.send = Some(Sending {
                                         data,
@@ -421,9 +421,9 @@ impl MioIoRuntime {
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError(
+                                let _ = tx.send(Err(
                                     "tcp_send: unknown socket".to_string(),
-                                )));
+                                ));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -434,9 +434,9 @@ impl MioIoRuntime {
                             let mut remove = false;
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.recv.is_some() {
-                                    let _ = tx.send(Err(Error::PrimitiveError(
+                                    let _ = tx.send(Err(
                                         "tcp_recv: a recv is already pending".to_string(),
-                                    )));
+                                    ));
                                 } else {
                                     state.recv = Some(tx);
                                     update_interest(poll.registry(), token, state);
@@ -445,9 +445,9 @@ impl MioIoRuntime {
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError(
+                                let _ = tx.send(Err(
                                     "tcp_recv: unknown socket".to_string(),
-                                )));
+                                ));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -459,9 +459,9 @@ impl MioIoRuntime {
                                 let _ = poll.registry().deregister(&mut state.stream);
                                 let _ = tx.send(Ok(()));
                             } else {
-                                let _ = tx.send(Err(Error::PrimitiveError(
+                                let _ = tx.send(Err(
                                     "tcp_close: unknown socket".to_string(),
-                                )));
+                                ));
                             }
                         }
                         Command::Shutdown(ack) => {
@@ -489,90 +489,90 @@ impl Default for MioIoRuntime {
 }
 
 impl IoRuntime for MioIoRuntime {
-    fn tcp_connect(&self, addr: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_connect(&self, addr: Value) -> Result<Value, EvalError> {
         let addr = addr.as_str().ok_or_else(|| {
-            Error::PrimitiveError("tcp_connect expected a host:port string".to_string())
+            EvalError::Other("tcp_connect expected a host:port string".to_string())
         })?;
         let mut addrs = addr
             .to_socket_addrs()
-            .map_err(|e| Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| EvalError::Other(e.to_string()))?;
         let socket_addr = addrs.next().ok_or_else(|| {
-            Error::PrimitiveError("tcp_connect could not resolve address".to_string())
+            EvalError::Other("tcp_connect could not resolve address".to_string())
         })?;
         let id = self.next_token.fetch_add(1, Ordering::SeqCst) as u64;
         let token = Token(id as usize);
-        let (tx, rx) = channel::<Result<u64, Error>>();
+        let (tx, rx) = channel::<Result<u64, String>>();
         self.tx
             .send(Command::Connect {
                 addr: socket_addr,
                 token,
                 tx,
             })
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         let result = rx
             .recv()
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?;
         match result {
             Ok(id) => Ok(tcp_socket_value(id)),
-            Err(e) => Err(e),
+            Err(e) => Err(EvalError::Other(e)),
         }
     }
 
     fn tcp_send(
         &self,
-        socket: NonFunctionValue,
-        data: NonFunctionValue,
-    ) -> Result<NonFunctionValue, Error> {
+        socket: Value,
+        data: Value,
+    ) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let token = Token(id as usize);
         let payload = data
             .as_str()
             .map(String::from)
-            .unwrap_or_else(|| data.inner().to_string());
-        let (tx, rx) = channel::<Result<usize, Error>>();
+            .unwrap_or_else(|| data.to_string());
+        let (tx, rx) = channel::<Result<usize, String>>();
         self.tx
             .send(Command::Send {
                 token,
                 data: payload.into_bytes(),
                 tx,
             })
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         match rx.recv() {
-            Ok(Ok(_)) => Ok(NonFunctionValue::new(json!(null))),
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err(Error::PrimitiveError("io backend disconnected".to_string())),
+            Ok(Ok(_)) => Ok(serde_json::json!(null)),
+            Ok(Err(e)) => Err(EvalError::Other(e)),
+            Err(_) => Err(EvalError::Other("io backend disconnected".to_string())),
         }
     }
 
-    fn tcp_recv(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_recv(&self, socket: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let token = Token(id as usize);
-        let (tx, rx) = channel::<Result<String, Error>>();
+        let (tx, rx) = channel::<Result<String, String>>();
         self.tx
             .send(Command::Recv { token, tx })
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         let text = rx
             .recv()
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?
-            .map_err(|e| e)?;
-        Ok(NonFunctionValue::new(json!(text)))
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?
+            .map_err(EvalError::Other)?;
+        Ok(serde_json::json!(text))
     }
 
-    fn tcp_close(&self, socket: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn tcp_close(&self, socket: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let token = Token(id as usize);
-        let (tx, rx) = channel::<Result<(), Error>>();
+        let (tx, rx) = channel::<Result<(), String>>();
         self.tx
             .send(Command::Close { token, tx })
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?;
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?;
         let _ = self.waker.lock().wake();
         rx.recv()
-            .map_err(|_| Error::PrimitiveError("io backend disconnected".to_string()))?
-            .map_err(|e| e)?;
-        Ok(NonFunctionValue::new(json!(null)))
+            .map_err(|_| EvalError::Other("io backend disconnected".to_string()))?
+            .map_err(EvalError::Other)?;
+        Ok(serde_json::json!(null))
     }
 }
 
@@ -604,9 +604,9 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
-        io.tcp_send(socket.clone(), NonFunctionValue::new(json!("hello")))
+        io.tcp_send(socket.clone(), serde_json::json!("hello"))
             .unwrap();
 
         let resp = io.tcp_recv(socket.clone()).unwrap();
@@ -623,7 +623,7 @@ mod tests {
         drop(listener);
 
         let io = StdNetIoRuntime::new();
-        let res = io.tcp_connect(NonFunctionValue::new(json!(addr)));
+        let res = io.tcp_connect(serde_json::json!(addr));
         assert!(res.is_err(), "expected connection refused");
     }
 
@@ -640,10 +640,10 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
         io.tcp_close(socket.clone()).unwrap();
-        let res = io.tcp_send(socket, NonFunctionValue::new(json!("hello")));
+        let res = io.tcp_send(socket, serde_json::json!("hello"));
         assert!(res.is_err(), "expected send on closed socket to error");
     }
 
@@ -658,7 +658,7 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
         let resp = io.tcp_recv(socket).unwrap();
         assert_eq!(resp.as_str(), Some(""));
@@ -667,7 +667,7 @@ mod tests {
     #[test]
     fn tcp_close_unknown_id_error() {
         let io = StdNetIoRuntime::new();
-        let socket = NonFunctionValue::new(json!({ "type": "tcp_socket", "id": 999 }));
+        let socket = serde_json::json!({ "type": "tcp_socket", "id": 999 });
         let res = io.tcp_close(socket);
         assert!(res.is_err(), "expected close on unknown socket to error");
     }
@@ -685,9 +685,9 @@ mod tests {
         });
 
         let io = StdNetIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
-        io.tcp_send(socket.clone(), NonFunctionValue::new(json!(123)))
+        io.tcp_send(socket.clone(), serde_json::json!(123))
             .unwrap();
 
         let resp = io.tcp_recv(socket).unwrap();
@@ -699,7 +699,7 @@ mod tests {
     #[test]
     fn tcp_connect_invalid_address_error() {
         let io = StdNetIoRuntime::new();
-        let res = io.tcp_connect(NonFunctionValue::new(json!("not-a-host:12345")));
+        let res = io.tcp_connect(serde_json::json!("not-a-host:12345"));
         assert!(res.is_err(), "expected invalid address to error");
     }
 
@@ -716,9 +716,9 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
-        io.tcp_send(socket.clone(), NonFunctionValue::new(json!("hello")))
+        io.tcp_send(socket.clone(), serde_json::json!("hello"))
             .unwrap();
 
         let resp = io.tcp_recv(socket.clone()).unwrap();
@@ -735,7 +735,7 @@ mod tests {
         drop(listener);
 
         let io = MioIoRuntime::new();
-        let res = io.tcp_connect(NonFunctionValue::new(json!(addr)));
+        let res = io.tcp_connect(serde_json::json!(addr));
         assert!(res.is_err(), "expected connection refused");
     }
 
@@ -758,14 +758,14 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
-        io.tcp_send(socket.clone(), NonFunctionValue::new(json!("one")))
+        io.tcp_send(socket.clone(), serde_json::json!("one"))
             .unwrap();
         let resp = io.tcp_recv(socket.clone()).unwrap();
         assert_eq!(resp.as_str(), Some("one"));
 
-        io.tcp_send(socket.clone(), NonFunctionValue::new(json!("two")))
+        io.tcp_send(socket.clone(), serde_json::json!("two"))
             .unwrap();
         let resp = io.tcp_recv(socket.clone()).unwrap();
         assert_eq!(resp.as_str(), Some("two"));
@@ -785,11 +785,11 @@ mod tests {
         });
 
         let io = MioIoRuntime::new();
-        let socket = io.tcp_connect(NonFunctionValue::new(json!(addr))).unwrap();
+        let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
         io.tcp_close(socket.clone()).unwrap();
 
-        let res = io.tcp_send(socket, NonFunctionValue::new(json!("hello")));
+        let res = io.tcp_send(socket, serde_json::json!("hello"));
         assert!(res.is_err(), "expected send on closed socket to error");
     }
 }

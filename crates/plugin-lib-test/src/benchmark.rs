@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
+use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, obj, require_function, require_integer};
@@ -18,7 +18,7 @@ impl Module for BenchmarkModule {
         "benchmark"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "run" => Some(&Run),
             _ => None,
@@ -28,12 +28,12 @@ impl Module for BenchmarkModule {
 
 #[derive(Clone, Copy)]
 struct Run;
-impl Function<NonFunctionValue> for Run {
+impl Function for Run {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() < 2 {
             return Err(TestError::ArgumentCount {
                 expected: 2,
@@ -51,11 +51,11 @@ impl Function<NonFunctionValue> for Run {
             .into());
         }
 
-        let bench_args: Vec<NonFunctionValue> = if args.len() >= 3 {
+        let bench_args: Vec<Value> = if args.len() >= 3 {
             match args[2].as_array() {
                 Some(arr) => arr
                     .iter()
-                    .map(|v| NonFunctionValue::new(v.clone()))
+                    .map(|v| json!(v.clone()))
                     .collect(),
                 None => {
                     return Err(TestError::TypeMismatch {
@@ -86,7 +86,7 @@ impl Function<NonFunctionValue> for Run {
             (
                 "result",
                 last_result
-                    .map(|v| v.into_inner())
+                    .map(|v| v)
                     .unwrap_or(serde_json::Value::Null),
             ),
         ]))

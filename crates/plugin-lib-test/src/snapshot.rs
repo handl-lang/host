@@ -1,6 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
 
 use crate::error::TestError;
 use crate::shared::{b, require_len, require_string, str};
@@ -16,7 +15,7 @@ impl Module for SnapshotModule {
         "snapshot"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "format" => Some(&Format),
             "match" => Some(&Match),
@@ -27,31 +26,31 @@ impl Module for SnapshotModule {
 
 #[derive(Clone, Copy)]
 struct Format;
-impl Function<NonFunctionValue> for Format {
+impl Function for Format {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let serialized =
-            serde_json::to_string_pretty(args[0].inner()).unwrap_or_else(|_| "null".to_string());
+            serde_json::to_string_pretty(&args[0]).unwrap_or_else(|_| "null".to_string());
         Ok(str(serialized))
     }
 }
 
 #[derive(Clone, Copy)]
 struct Match;
-impl Function<NonFunctionValue> for Match {
+impl Function for Match {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 3)?;
         let name = require_string(&args[0])?;
-        let actual = args[1].inner();
-        let expected = args[2].inner();
+        let actual = &args[1];
+        let expected = &args[2];
 
         if actual != expected {
             return Err(TestError::SnapshotMismatch {

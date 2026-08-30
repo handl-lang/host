@@ -11,24 +11,27 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 
-use handl_plugin_vm_values_json::{Context, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, ExprEvaluator};
+use serde_json::Value;
+use crate::function_value::FunctionValue;
 use serde_json::json;
 
 /// A replaceable backend for the cancellation primitives:
 /// `cancel_token`, `cancel`, and `cancelable`.
-pub trait CancelRuntime: Send + Sync {
+pub trait CancelRuntime {
     /// Creates a new cancellation token.
-    fn cancel_token(&self) -> NonFunctionValue;
+    fn cancel_token(&self) -> Value;
 
     /// Marks `token` as cancelled and returns the updated token value.
-    fn cancel(&self, token: NonFunctionValue) -> Result<NonFunctionValue, Error>;
+    fn cancel(&self, token: Value) -> Result<Value, EvalError>;
 
     /// Returns `true` if `token` has been cancelled.
-    fn is_cancelled(&self, token: &NonFunctionValue) -> bool;
+    fn is_cancelled(&self, token: &Value) -> bool;
 
     /// Returns the shared cancellation flag for `token`, if the token is known.
-    fn cancel_flag(&self, token: &NonFunctionValue) -> Option<Arc<AtomicBool>>;
+    fn cancel_flag(&self, token: &Value) -> Option<Arc<AtomicBool>>;
 
     /// Runs `thunk` unless `token` is already cancelled. If `token` is
     /// cancelled before the thunk starts, an error is returned. If the token
@@ -36,40 +39,40 @@ pub trait CancelRuntime: Send + Sync {
     /// object that records the cancellation.
     fn cancelable(
         &self,
-        token: NonFunctionValue,
+        token: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error>;
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError>;
 }
 
-fn token_value(id: u64, cancelled: bool) -> NonFunctionValue {
-    NonFunctionValue::new(json!({
+fn token_value(id: u64, cancelled: bool) -> Value {
+    serde_json::json!(json!({
         "type": "cancel_token",
         "id": id,
         "cancelled": cancelled,
     }))
 }
 
-fn token_id(token: &NonFunctionValue) -> Result<u64, Error> {
+fn token_id(token: &Value) -> Result<u64, EvalError> {
     let obj = token
         .as_object()
-        .ok_or_else(|| Error::PrimitiveError("expected a cancel token".to_string()))?;
+        .ok_or_else(|| EvalError::Other("expected a cancel token".to_string()))?;
     let kind = obj
         .get("type")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::PrimitiveError("cancel token missing 'type'".to_string()))?;
+        .ok_or_else(|| EvalError::Other("cancel token missing 'type'".to_string()))?;
     if kind != "cancel_token" {
-        return Err(Error::PrimitiveError(format!(
+        return Err(EvalError::Other(format!(
             "expected cancel_token, got {kind}"
         )));
     }
     obj.get("id")
         .and_then(|v| v.as_u64())
-        .ok_or_else(|| Error::PrimitiveError("cancel token missing numeric 'id'".to_string()))
+        .ok_or_else(|| EvalError::Other("cancel token missing numeric 'id'".to_string()))
 }
 
-fn poison<T>(_: std::sync::PoisonError<T>) -> Error {
-    Error::PrimitiveError("cancel runtime lock poisoned".to_string())
+fn poison<T>(_: std::sync::PoisonError<T>) -> EvalError {
+    EvalError::Other("cancel runtime lock poisoned".to_string())
 }
 
 /// An in-memory, `std`-based cancellation runtime.
@@ -96,24 +99,24 @@ impl Default for DefaultCancelRuntime {
 }
 
 impl CancelRuntime for DefaultCancelRuntime {
-    fn cancel_token(&self) -> NonFunctionValue {
+    fn cancel_token(&self) -> Value {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let flag = Arc::new(AtomicBool::new(false));
         self.flags.lock().unwrap().insert(id, flag);
         token_value(id, false)
     }
 
-    fn cancel(&self, token: NonFunctionValue) -> Result<NonFunctionValue, Error> {
+    fn cancel(&self, token: Value) -> Result<Value, EvalError> {
         let id = token_id(&token)?;
         let flags = self.flags.lock().map_err(poison)?;
         let flag = flags
             .get(&id)
-            .ok_or_else(|| Error::PrimitiveError(format!("cancel token {id} not found")))?;
+            .ok_or_else(|| EvalError::Other(format!("cancel token {id} not found")))?;
         flag.store(true, Ordering::SeqCst);
         Ok(token_value(id, true))
     }
 
-    fn is_cancelled(&self, token: &NonFunctionValue) -> bool {
+    fn is_cancelled(&self, token: &Value) -> bool {
         if let Some(id) = token_id(token).ok() {
             if let Ok(flags) = self.flags.lock() {
                 if let Some(flag) = flags.get(&id) {
@@ -124,7 +127,7 @@ impl CancelRuntime for DefaultCancelRuntime {
         false
     }
 
-    fn cancel_flag(&self, token: &NonFunctionValue) -> Option<Arc<AtomicBool>> {
+    fn cancel_flag(&self, token: &Value) -> Option<Arc<AtomicBool>> {
         token_id(token)
             .ok()
             .and_then(|id| self.flags.lock().ok()?.get(&id).cloned())
@@ -132,23 +135,23 @@ impl CancelRuntime for DefaultCancelRuntime {
 
     fn cancelable(
         &self,
-        token: NonFunctionValue,
+        token: Value,
         thunk: FunctionValue,
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         let flag = self
             .cancel_flag(&token)
-            .ok_or_else(|| Error::PrimitiveError("expected a valid cancel token".to_string()))?;
+            .ok_or_else(|| EvalError::Other("expected a valid cancel token".to_string()))?;
 
         if flag.load(Ordering::SeqCst) {
-            return Err(Error::PrimitiveError("cancelled".to_string()));
+            return Err(EvalError::Other("cancelled".to_string()));
         }
 
         let result = ctx.eval_expr(&thunk.body, &[])?;
 
         if flag.load(Ordering::SeqCst) {
-            return Ok(NonFunctionValue::new(json!({
-                "value": result.inner().clone(),
+            return Ok(serde_json::json!(json!({
+                "value": result.clone(),
                 "cancelled": true,
             })));
         }
@@ -157,21 +160,26 @@ impl CancelRuntime for DefaultCancelRuntime {
     }
 }
 
-/// An `Eval` wrapper that checks a shared cancellation flag before every
-/// expression evaluation, aborting with `cancelled` when the flag is set.
+/// An `ExprEvaluator` wrapper that checks a shared cancellation flag before
+/// every expression evaluation, aborting with `cancelled` when the flag is set.
+///
+/// NOTE(ADR 0040 migration): The old system used `Arc<dyn Eval + Send + Sync>`
+/// which was thread-safe. The new `ExprEvaluator` trait is not `Send + Sync`
+/// because `EvalContext` uses `Rc` internally. This wrapper is kept for
+/// single-threaded use only.
 pub struct CancelableEval {
-    inner: Arc<dyn Eval<NonFunctionValue> + Send + Sync>,
+    inner: Rc<dyn ExprEvaluator>,
     flag: Arc<AtomicBool>,
 }
 
-impl Eval<NonFunctionValue> for CancelableEval {
+impl ExprEvaluator for CancelableEval {
     fn eval_expr(
         &self,
         expr: &str,
-        vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, Error> {
+        vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
         if self.flag.load(Ordering::SeqCst) {
-            return Err(Error::PrimitiveError("cancelled".to_string()));
+            return Err(EvalError::Other("cancelled".to_string()));
         }
         self.inner.eval_expr(expr, vars)
     }
@@ -180,7 +188,7 @@ impl Eval<NonFunctionValue> for CancelableEval {
 impl CancelableEval {
     /// Creates a new `CancelableEval` that aborts when `flag` is `true`.
     pub fn new(
-        inner: Arc<dyn Eval<NonFunctionValue> + Send + Sync>,
+        inner: Rc<dyn ExprEvaluator>,
         flag: Arc<AtomicBool>,
     ) -> Self {
         Self { inner, flag }
@@ -190,23 +198,24 @@ impl CancelableEval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::{CanonicalContext, Eval};
+    use handl_platform::EvalContext;
     use serde_json::json;
     use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
 
     #[derive(Clone, Default)]
     struct MockEval {
         calls: Arc<Mutex<Vec<String>>>,
     }
 
-    impl Eval<NonFunctionValue> for MockEval {
+    impl ExprEvaluator for MockEval {
         fn eval_expr(
             &self,
             expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
-            Ok(NonFunctionValue::new(json!({ "body": expr })))
+            Ok(serde_json::json!(json!({ "body": expr })))
         }
     }
 
@@ -220,9 +229,9 @@ mod tests {
         }
     }
 
-    fn ctx() -> CanonicalContext {
-        let mut ctx = CanonicalContext::new();
-        ctx.set_eval(Box::new(MockEval::default()));
+    fn ctx() -> EvalContext {
+        let mut ctx = EvalContext::new();
+        ctx.set_expr_evaluator(Rc::new(MockEval::default()));
         ctx
     }
 
@@ -239,21 +248,21 @@ mod tests {
         assert_eq!(cancelled.get("cancelled"), Some(&json!(true)));
 
         let err = c.cancelable(cancelled, thunk("work"), &mut ctx);
-        assert!(matches!(err, Err(Error::PrimitiveError(_))));
+        assert!(matches!(err, Err(EvalError::Other(_))));
 
         let fresh = c.cancel_token();
         let result = c.cancelable(fresh, thunk("ok"), &mut ctx).unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "ok" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "ok" })));
     }
 
     struct PanicEval;
 
-    impl Eval<NonFunctionValue> for PanicEval {
+    impl ExprEvaluator for PanicEval {
         fn eval_expr(
             &self,
             _expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             panic!("inner eval should not be called");
         }
     }
@@ -263,19 +272,19 @@ mod tests {
         calls: Arc<Mutex<Vec<String>>>,
     }
 
-    impl Eval<NonFunctionValue> for SeqMockEval {
+    impl ExprEvaluator for SeqMockEval {
         fn eval_expr(
             &self,
             expr: &str,
-            _vars: &[(String, NonFunctionValue)],
-        ) -> Result<NonFunctionValue, Error> {
+            _vars: &[(String, Value)],
+        ) -> Result<Value, EvalError> {
             let mut calls = self.calls.lock().unwrap();
             calls.push(expr.to_string());
             let call = calls.len();
             drop(calls);
 
             if call == 1 {
-                Ok(NonFunctionValue::new(json!("inner")))
+                Ok(serde_json::json!(json!("inner")))
             } else {
                 panic!("inner eval should not be called after the first call");
             }
@@ -285,27 +294,27 @@ mod tests {
     #[test]
     fn cancelable_eval_aborts_when_flag_set() {
         let flag = Arc::new(AtomicBool::new(true));
-        let eval = CancelableEval::new(Arc::new(PanicEval), flag);
+        let eval = CancelableEval::new(Rc::new(PanicEval), flag);
 
         let err = eval.eval_expr("anything", &[]).unwrap_err();
-        assert!(matches!(err, Error::PrimitiveError(ref m) if m == "cancelled"));
+        assert!(matches!(err, EvalError::Other(ref m) if m == "cancelled"));
     }
 
     #[test]
     fn cancelable_eval_delegates_when_flag_clear() {
         let flag = Arc::new(AtomicBool::new(false));
-        let inner = Arc::new(MockEval::default());
+        let inner = Rc::new(MockEval::default());
         let eval = CancelableEval::new(inner.clone(), flag);
 
         let result = eval.eval_expr("work", &[]).unwrap();
-        assert_eq!(result, NonFunctionValue::new(json!({ "body": "work" })));
+        assert_eq!(result, serde_json::json!(json!({ "body": "work" })));
         assert_eq!(inner.calls.lock().unwrap().as_slice(), &["work"]);
     }
 
     #[test]
     fn cancel_during_nested_eval() {
         let flag = Arc::new(AtomicBool::new(false));
-        let inner = Arc::new(SeqMockEval::default());
+        let inner = Rc::new(SeqMockEval::default());
         let eval = CancelableEval::new(inner.clone(), flag.clone());
 
         let inner_expr = eval.eval_expr("first", &[]).unwrap();
@@ -315,7 +324,7 @@ mod tests {
         flag.store(true, Ordering::SeqCst);
 
         let err = eval.eval_expr(inner_expr, &[]).unwrap_err();
-        assert!(matches!(err, Error::PrimitiveError(ref m) if m == "cancelled"));
+        assert!(matches!(err, EvalError::Other(ref m) if m == "cancelled"));
         assert_eq!(inner.calls.lock().unwrap().as_slice(), &["first"]);
     }
 

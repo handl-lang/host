@@ -1,6 +1,6 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
+use serde_json::json;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -19,7 +19,7 @@ impl Module for PropertyModule {
         "property"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "for_all" => Some(&ForAll),
             _ => None,
@@ -29,12 +29,12 @@ impl Module for PropertyModule {
 
 #[derive(Clone, Copy)]
 struct ForAll;
-impl Function<NonFunctionValue> for ForAll {
+impl Function for ForAll {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         if args.len() < 2 {
             return Err(TestError::ArgumentCount {
                 expected: 2,
@@ -62,15 +62,15 @@ impl Function<NonFunctionValue> for ForAll {
         let mut rng = StdRng::seed_from_u64(seed);
 
         for _ in 0..count {
-            let inputs: Vec<NonFunctionValue> = (0..func.params.len())
-                .map(|_| NonFunctionValue::new(rng.random::<f64>()))
+            let inputs: Vec<Value> = (0..func.params.len())
+                .map(|_| json!(rng.random::<f64>()))
                 .collect();
 
             match call_function(ctx, &func, &inputs) {
                 Ok(result) => {
                     if !result.as_bool().unwrap_or(false) {
                         let counterexample: Vec<_> =
-                            inputs.iter().map(|v| v.inner().clone()).collect();
+                            inputs.iter().map(|v| v.clone()).collect();
                         return Err(TestError::PropertyFailed {
                             counterexample: serde_json::Value::Array(counterexample),
                             message: "property returned false".to_string(),
@@ -79,7 +79,7 @@ impl Function<NonFunctionValue> for ForAll {
                     }
                 }
                 Err(e) => {
-                    let counterexample: Vec<_> = inputs.iter().map(|v| v.inner().clone()).collect();
+                    let counterexample: Vec<_> = inputs.iter().map(|v| v.clone()).collect();
                     return Err(TestError::PropertyFailed {
                         counterexample: serde_json::Value::Array(counterexample),
                         message: e.to_string(),

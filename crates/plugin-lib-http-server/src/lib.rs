@@ -21,6 +21,7 @@
 //! - **`handl-lib-http-server-std`** — concrete implementation.
 
 mod error;
+pub mod function_value;
 mod http_method;
 mod http_server;
 mod request;

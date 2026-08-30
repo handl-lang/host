@@ -4,24 +4,27 @@ use crate::ConcurrencyModule;
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
 use crate::scheduler::{DefaultScheduler, Scheduler};
 use crate::sync::{DefaultSyncRuntime, SyncRuntime};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, Error, Eval, FunctionValue, NonFunctionValue};
+use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, ExprEvaluator};
 use serde_json::json;
+use serde_json::Value;
+use crate::function_value::FunctionValue;
 use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 
 #[derive(Clone, Default)]
 struct MockEval {
     calls: Arc<Mutex<Vec<String>>>,
 }
 
-impl Eval<NonFunctionValue> for MockEval {
+impl ExprEvaluator for MockEval {
     fn eval_expr(
         &self,
         expr: &str,
-        _vars: &[(String, NonFunctionValue)],
-    ) -> Result<NonFunctionValue, Error> {
+        _vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
         self.calls.lock().unwrap().push(expr.to_string());
-        Ok(NonFunctionValue::new(json!({ "body": expr })))
+        Ok(serde_json::json!(json!({ "body": expr })))
     }
 }
 
@@ -35,9 +38,9 @@ fn thunk(body: &str) -> FunctionValue {
     }
 }
 
-fn ctx() -> CanonicalContext {
-    let mut ctx = CanonicalContext::new();
-    ctx.set_eval(Box::new(MockEval::default()));
+fn ctx() -> EvalContext {
+    let mut ctx = EvalContext::new();
+    ctx.set_expr_evaluator(Rc::new(MockEval::default()));
     ctx
 }
 
@@ -46,7 +49,7 @@ fn send_to_closed_channel_returns_error() {
     let s = DefaultSyncRuntime::new();
     let ch = s.channel(None);
     s.close(ch.clone()).unwrap();
-    assert!(s.send(ch, NonFunctionValue::new(json!(42))).is_err());
+    assert!(s.send(ch, serde_json::json!(json!(42))).is_err());
 }
 
 #[test]
@@ -60,28 +63,28 @@ fn recv_from_closed_channel_returns_error() {
 #[test]
 fn acquire_more_than_semaphore_max_returns_error() {
     let s = DefaultSyncRuntime::new();
-    let sem = s.semaphore(NonFunctionValue::new(json!(3)));
-    assert!(s.acquire(sem, NonFunctionValue::new(json!(5))).is_err());
+    let sem = s.semaphore(serde_json::json!(json!(3)));
+    assert!(s.acquire(sem, serde_json::json!(json!(5))).is_err());
 }
 
 #[test]
 fn lock_with_bad_value_returns_error() {
     let s = DefaultSyncRuntime::new();
-    let bad = NonFunctionValue::new(json!(42));
+    let bad = serde_json::json!(json!(42));
     assert!(s.lock(bad, thunk("work"), &mut ctx()).is_err());
 }
 
 #[test]
 fn atomic_read_on_missing_id_returns_error() {
     let a = DefaultAtomicRuntime::new();
-    let missing = NonFunctionValue::new(json!({ "type": "atomic", "id": 999 }));
+    let missing = serde_json::json!(json!({ "type": "atomic", "id": 999 }));
     assert!(a.atomic_read(missing).is_err());
 }
 
 #[test]
 fn timeout_on_missing_task_returns_error() {
     let s = DefaultScheduler::new();
-    let missing = NonFunctionValue::new(json!({ "type": "task", "id": 999 }));
+    let missing = serde_json::json!(json!({ "type": "task", "id": 999 }));
     let mut ctx = ctx();
     assert!(s.timeout(missing, 10, &mut ctx).is_err());
 }

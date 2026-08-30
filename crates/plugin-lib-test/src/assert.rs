@@ -1,6 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
+use serde_json::Value;
 
 use crate::error::TestError;
 use crate::shared::{b, call_function, require_bool, require_function, require_len};
@@ -17,7 +16,7 @@ impl Module for AssertModule {
         "assert"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "equal" => Some(&Equal),
             "not_equal" => Some(&NotEqual),
@@ -32,19 +31,19 @@ impl Module for AssertModule {
 
 #[derive(Clone, Copy)]
 struct Equal;
-impl Function<NonFunctionValue> for Equal {
+impl Function for Equal {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 2)?;
-        if args[0].inner() != args[1].inner() {
+        if args[0] != args[1] {
             return Err(TestError::AssertionFailed {
                 message: format!(
                     "expected {} to equal {}",
-                    serde_json::to_string(args[0].inner()).unwrap_or_default(),
-                    serde_json::to_string(args[1].inner()).unwrap_or_default()
+                    serde_json::to_string(&args[0]).unwrap_or_default(),
+                    serde_json::to_string(&args[1]).unwrap_or_default()
                 ),
             }
             .into());
@@ -55,19 +54,19 @@ impl Function<NonFunctionValue> for Equal {
 
 #[derive(Clone, Copy)]
 struct NotEqual;
-impl Function<NonFunctionValue> for NotEqual {
+impl Function for NotEqual {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 2)?;
-        if args[0].inner() == args[1].inner() {
+        if args[0] == args[1] {
             return Err(TestError::AssertionFailed {
                 message: format!(
                     "expected {} to not equal {}",
-                    serde_json::to_string(args[0].inner()).unwrap_or_default(),
-                    serde_json::to_string(args[1].inner()).unwrap_or_default()
+                    serde_json::to_string(&args[0]).unwrap_or_default(),
+                    serde_json::to_string(&args[1]).unwrap_or_default()
                 ),
             }
             .into());
@@ -78,12 +77,12 @@ impl Function<NonFunctionValue> for NotEqual {
 
 #[derive(Clone, Copy)]
 struct True;
-impl Function<NonFunctionValue> for True {
+impl Function for True {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if !value {
@@ -98,12 +97,12 @@ impl Function<NonFunctionValue> for True {
 
 #[derive(Clone, Copy)]
 struct False;
-impl Function<NonFunctionValue> for False {
+impl Function for False {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if value {
@@ -118,22 +117,22 @@ impl Function<NonFunctionValue> for False {
 
 #[derive(Clone, Copy)]
 struct Contains;
-impl Function<NonFunctionValue> for Contains {
+impl Function for Contains {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 2)?;
-        let haystack = args[0].inner();
-        let needle = args[1].inner();
+        let haystack = &args[0];
+        let needle = &args[1];
 
         let found = match (haystack, needle) {
             (serde_json::Value::Array(arr), _) => arr.contains(needle),
             (serde_json::Value::Object(map), serde_json::Value::String(key)) => {
                 map.contains_key(key)
             }
-            (serde_json::Value::String(s), serde_json::Value::String(part)) => s.contains(part),
+            (serde_json::Value::String(s), serde_json::Value::String(part)) => s.contains(part.as_str()),
             _ => false,
         };
 
@@ -149,12 +148,12 @@ impl Function<NonFunctionValue> for Contains {
 
 #[derive(Clone, Copy)]
 struct Throws;
-impl Function<NonFunctionValue> for Throws {
+impl Function for Throws {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[Value],
+        ctx: &mut EvalContext,
+    ) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let func = require_function(&args[0])?;
         if call_function(ctx, &func, &[]).is_err() {
