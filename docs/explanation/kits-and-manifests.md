@@ -19,7 +19,6 @@ plugins = [
     "handl-plugin-function",
     "handl-plugin-grammar-infix-pipe",
     "handl-plugin-grammar-apply",
-    "handl-plugin-ast-apply",
     "handl-plugin-fmt-expression",
     "handl-plugin-lint-unused-imports",
 ]

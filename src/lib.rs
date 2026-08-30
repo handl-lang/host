@@ -7,7 +7,6 @@
 pub use handl_platform::*;
 
 // Non-optional workspace crates that remain after the canonical retirement.
-pub use handl_plugin_ast;
 pub use handl_plugin_source;
 
 #[cfg(test)]

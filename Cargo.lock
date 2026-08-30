@@ -909,7 +909,6 @@ name = "handl"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-source",
  "serde_json",
 ]
@@ -1148,10 +1147,6 @@ dependencies = [
  "handl-plugin-load",
  "serde_json",
 ]
-
-[[package]]
-name = "handl-plugin-ast"
-version = "0.1.0"
 
 [[package]]
 name = "handl-plugin-diag-expression"
@@ -1473,7 +1468,6 @@ name = "handl-plugin-lib-collections"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -1520,7 +1514,6 @@ name = "handl-plugin-lib-crypto"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-module",
  "hex",
  "md-5",
@@ -1534,7 +1527,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -1635,7 +1627,6 @@ dependencies = [
  "crate-icu4x-extra",
  "fixed_decimal",
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-module",
  "icu",
  "icu_provider",
@@ -1741,7 +1732,6 @@ name = "handl-plugin-lib-rand"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-module",
  "rand 0.9.5",
  "serde_json",
@@ -1862,7 +1852,6 @@ name = "handl-plugin-lib-utils"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-ast",
  "handl-plugin-lib-base64",
  "handl-plugin-lib-encoding",
  "handl-plugin-lib-hex",
@@ -2068,6 +2057,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
+ "handl-plugin-engine-eval-cranelift",
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex",
  "handl-plugin-engine-lex-pattern",

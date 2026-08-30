@@ -5,7 +5,6 @@ edition = "2024"
 
 [workspace]
 members = [
-  "crates/plugin-ast",
   "crates/plugin-ext-build",
   "crates/plugin-ext-cli",
   "crates/plugin-ext-compile",
@@ -146,7 +145,6 @@ cranelift-module = "0.115"
 cranelift-jit = "0.115"
 cranelift-object = "0.115"
 
-handl-plugin-ast = { path = "crates/plugin-ast" }
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
@@ -258,9 +256,6 @@ handl-defining-handl = { path = "crates/handl-defining-handl" }
 
 [features]
 default = []
-
-[dependencies.handl-plugin-ast]
-workspace = true
 
 [dependencies.handl-plugin-source]
 workspace = true
