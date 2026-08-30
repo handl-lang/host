@@ -28,7 +28,7 @@ fn pick_no_args_errors() {
     let result = call_err("pick", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -82,7 +82,7 @@ fn choice_no_args_errors() {
     let result = call_err("choice", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 

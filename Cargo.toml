@@ -79,6 +79,7 @@ members = [
   "crates/plugin-lib-ws-whatwg-wasm",
   "crates/plugin-lib-yaml",
   "crates/plugin-parser",
+  "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-ast-apply",
   "crates/plugin-ast-array",

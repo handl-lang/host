@@ -1,9 +1,8 @@
 //! Minimal, composable VM piece for the handl platform.
 //!
 //! The `Vm` is generic over the host and environment types so that the
-//! concrete `DefaultHost` and `Env` are no longer hard-coded.  A
-//! `RuntimeHost` (or any other `CallableLookup` implementation) can be supplied
-//! instead.
+//! concrete `DefaultHost` and `Env` are no longer hard-coded.  Any
+//! `CallableLookup` implementation can be supplied instead.
 
 pub use crate::value::*;
 

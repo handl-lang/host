@@ -38,7 +38,7 @@ fn int_no_args_errors() {
     let result = call_err("int", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -71,7 +71,7 @@ fn int_three_args_errors() {
     let result = call_err("int", &[n(1.0), n(2.0), n(3.0)]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 

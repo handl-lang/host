@@ -1,16 +1,16 @@
 use super::WsRfcModule;
 use handl_platform::Module;
-use handl_platform::{EvalContext};
+use handl_platform::EvalContext;
 
-fn ctx() -> CanonicalContext {
+fn ctx() -> EvalContext {
     EvalContext::new()
 }
 
-fn call(name: &str, args: &[serde_json::Value], ctx: &mut CanonicalContext) -> serde_json::Value {
+fn call(name: &str, args: &[serde_json::Value], ctx: &mut EvalContext) -> serde_json::Value {
     WsRfcModule.function(name).unwrap().call(args, ctx).unwrap()
 }
 
-fn call_err(name: &str, args: &[serde_json::Value], ctx: &mut CanonicalContext) {
+fn call_err(name: &str, args: &[serde_json::Value], ctx: &mut EvalContext) {
     WsRfcModule
         .function(name)
         .unwrap()
@@ -35,10 +35,10 @@ fn client_create_connect_close() {
         ],
         &mut ctx,
     );
-    assert_eq!(connected, &serde_json::json!(null));
+    assert_eq!(connected, serde_json::json!(null));
 
     let closed = call("close", &[c], &mut ctx);
-    assert_eq!(closed, &serde_json::json!(null));
+    assert_eq!(closed, serde_json::json!(null));
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn client_send_recv_roundtrip() {
     );
 
     let msg = call("recv", &[c.clone()], &mut ctx);
-    assert_eq!(msg, &serde_json::json!("hello"));
+    assert_eq!(msg, serde_json::json!("hello"));
 
     let empty = call("recv", &[c.clone()], &mut ctx);
     assert!(empty.is_null());
@@ -93,10 +93,10 @@ fn server_listen_stop() {
         ],
         &mut ctx,
     );
-    assert_eq!(listened, &serde_json::json!(null));
+    assert_eq!(listened, serde_json::json!(null));
 
     let stopped = call("stop", &[s], &mut ctx);
-    assert_eq!(stopped, &serde_json::json!(null));
+    assert_eq!(stopped, serde_json::json!(null));
 }
 
 #[test]

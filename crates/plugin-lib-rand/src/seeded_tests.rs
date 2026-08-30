@@ -46,7 +46,7 @@ fn seeded_int_no_args_errors() {
     let result = call_err("seeded_int", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -77,7 +77,7 @@ fn seeded_float_no_args_errors() {
     let result = call_err("seeded_float", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 

@@ -46,7 +46,7 @@ fn gauss_no_args_errors() {
     let result = call_err("gauss", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -104,7 +104,7 @@ fn exponential_no_args_errors() {
     let result = call_err("exponential", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -153,7 +153,7 @@ fn poisson_no_args_errors() {
     let result = call_err("poisson", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -226,6 +226,6 @@ fn binomial_no_args_errors() {
     let result = call_err("binomial", &[]);
     assert!(matches!(
         result,
-        Err(EvalError::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }

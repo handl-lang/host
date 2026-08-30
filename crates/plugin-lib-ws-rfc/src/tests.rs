@@ -479,16 +479,16 @@ mod module_helpers {
         ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
         MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
     };
-    use handl_platform::Function;
-    
-    fn ctx() -> CanonicalContext {
+    use handl_platform::{EvalContext, Function};
+
+    fn ctx() -> EvalContext {
         EvalContext::new()
     }
 
     fn call_err<F: Function>(
         f: &F,
         args: &[serde_json::Value],
-        ctx: &mut CanonicalContext,
+        ctx: &mut EvalContext,
     ) {
         assert!(f.call(args, ctx).is_err());
     }
@@ -496,7 +496,7 @@ mod module_helpers {
     fn call_ok<F: Function>(
         f: &F,
         args: &[serde_json::Value],
-        ctx: &mut CanonicalContext,
+        ctx: &mut EvalContext,
     ) -> serde_json::Value {
         f.call(args, ctx).unwrap()
     }

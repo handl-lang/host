@@ -98,8 +98,7 @@ pub type Scope = HashMap<String, Value>;
 /// `EvaluatorCallback::dispatch`.
 ///
 /// The trait is `'static` (no `Send`/`Sync` bound) because evaluation is
-/// single-threaded and synchronous, mirroring the existing `CanonicalContext`
-/// pattern in `plugin-vm-values-json`.
+/// single-threaded and synchronous.
 pub trait EvaluatorCallback: 'static {
     /// Dispatch `req` to the matching `Behavior<Eval>` rule, calling
     /// exec-control hooks before and after. Sets `req.result` on success.
