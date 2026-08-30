@@ -14,7 +14,7 @@
 pub use handl_platform::{
     AsyncFunction, BasicEvaluator, BasicEvaluatorCallback, BasicExecControl, ControlFlow, Eval,
     EvalBehavior, EvalContext, EvalError, EvalLimits, EvalRequest, EvaluatorCallback, ExecControl,
-    ExprEvaluator, Function, Module, ModuleLookup, Scope,
+    ExprEvaluator, Function, HandlerClause, Module, ModuleLookup, Scope,
 };
 
 pub mod adapters;

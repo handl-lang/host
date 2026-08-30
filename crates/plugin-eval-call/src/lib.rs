@@ -12,6 +12,16 @@
 //! and looked up in the scope stack to find the function value. If it
 //! evaluates to a function value (JSON object with `params`/`body`), it is
 //! used directly.
+//!
+//! ## Effect-handler dispatch
+//!
+//! When the callee is a simple `var` node and the name is not a bound
+//! variable and not a module-qualified function, the rule checks
+//! `ctx.find_handler(name)` for a matching effect handler. If a handler
+//! matches, the handler body is evaluated with the call's args bound to the
+//! handler's params and the resume name bound to an identity function (so
+//! `resume(value)` returns `value`). The handler body's result replaces the
+//! operation's result in the surrounding computation.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -66,6 +76,37 @@ impl Behavior<Eval> for CallRule {
             let result = req.ctx.call_function(&qualified_name, &evaluated_args)?;
             req.result = Some(result);
             return Ok(());
+        }
+
+        // Effect-handler dispatch: if the callee is a simple `var` node,
+        // check for a matching handler before trying variable lookup.
+        // This intercepts operation (effect) calls inside `handle` expressions.
+        if let Some(op_name) = try_var_name(callee_value) {
+            if let Some(clause) = req.ctx.find_handler(&op_name).cloned() {
+                // Evaluate the arguments.
+                let mut evaluated_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    let arg_ast = ast_from_value(arg)?;
+                    evaluated_args.push(req.ctx.eval(&arg_ast)?);
+                }
+                // Bind handler params and resume name in a fresh scope.
+                req.ctx.push_scope();
+                for (i, param) in clause.params.iter().enumerate() {
+                    if let Some(arg) = evaluated_args.get(i) {
+                        req.ctx.define(param.clone(), arg.clone());
+                    }
+                }
+                // Bind the resume name to an identity function so
+                // `resume(value)` returns `value`. In the tree-walking
+                // interpreter the parent computation is already on the
+                // Rust call stack, so the handler body's result replaces
+                // the operation's result and the computation continues.
+                req.ctx.define(&clause.resume_name, identity_function());
+                let result = req.ctx.eval(&clause.body);
+                req.ctx.pop_scope();
+                req.result = Some(result?);
+                return Ok(());
+            }
         }
 
         // Evaluate the callee to get a function value.
@@ -161,6 +202,36 @@ fn try_qualified_name(callee_value: &Value) -> Option<String> {
     let func_name = index_ast.payload.get("value")?.as_str()?.to_string();
 
     Some(format!("{module_name}.{func_name}"))
+}
+
+/// If `callee_value` is a `var` AST node, return its name. Otherwise `None`.
+///
+/// Used to check for effect-handler dispatch before evaluating the callee.
+fn try_var_name(callee_value: &Value) -> Option<String> {
+    let callee_ast = serde_json::from_value::<AstNode>(callee_value.clone()).ok()?;
+    if callee_ast.kind != "var" {
+        return None;
+    }
+    callee_ast
+        .payload
+        .get("name")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+}
+
+/// Create an identity function value for the effect-handler resume
+/// continuation.
+///
+/// `resume(value)` returns `value`. In the tree-walking interpreter the
+/// parent computation is already on the Rust call stack, so the handler
+/// body's result replaces the operation's result and the computation
+/// continues with that value.
+fn identity_function() -> Value {
+    serde_json::json!({
+        "params": [["__resume_value", null]],
+        "body": { "kind": "var", "span": null, "payload": { "name": "__resume_value" } },
+        "captured": {}
+    })
 }
 
 /// Registers the `call` rule with the [`BasicEvaluator`].

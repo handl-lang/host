@@ -388,6 +388,34 @@ pub trait ModuleLookup: 'static {
 }
 
 // ---------------------------------------------------------------------------
+// HandlerClause (effect handlers)
+// ---------------------------------------------------------------------------
+
+/// A handler clause in a `handle` expression.
+///
+/// When an operation (effect) is performed inside a `handle` expression, the
+/// matching handler clause runs. If the handler resumes (by calling the
+/// continuation), the computation continues from where the effect was
+/// performed.
+///
+/// See ADR 0040 — Continuation / yield / resumability.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HandlerClause {
+    /// The operation name this clause matches (e.g. `"fetch"`).
+    pub operation: String,
+    /// Parameter names bound when the handler fires (bound to the
+    /// operation's evaluated arguments).
+    pub params: Vec<String>,
+    /// The continuation name — bound to a resume function in the handler's
+    /// scope so the handler body can call `resume(value)` to continue the
+    /// computation that performed the effect.
+    pub resume_name: String,
+    /// The handler body AST. Evaluated when the handler fires; its result
+    /// replaces the operation's result in the surrounding computation.
+    pub body: AstNode,
+}
+
+// ---------------------------------------------------------------------------
 // EvalContext
 // ---------------------------------------------------------------------------
 
@@ -428,6 +456,18 @@ pub struct EvalContext {
     /// Runtime-only; not serialized. Re-attached by the host on resume.
     #[serde(skip)]
     expr_evaluator: Option<Rc<dyn ExprEvaluator>>,
+    /// Stack of handler frames from enclosing `handle` expressions.
+    ///
+    /// Each frame is a list of [`HandlerClause`]s from one `handle` expression.
+    /// Frames are pushed outermost-first, so `handlers[0]` is the outermost
+    /// (highest-precedence) frame. When an operation is performed, the call
+    /// rule searches from the outermost frame inward — outer handlers take
+    /// precedence over inner handlers, matching the original interpreter's
+    /// merge-and-reverse search order.
+    ///
+    /// Serializable: handler clauses contain only AST data (no runtime
+    /// handles), so the handler stack is part of the continuation state.
+    handlers: Vec<Vec<HandlerClause>>,
 }
 
 impl EvalContext {
@@ -441,6 +481,7 @@ impl EvalContext {
             evaluator: None,
             modules: None,
             expr_evaluator: None,
+            handlers: Vec::new(),
         }
     }
 
@@ -741,8 +782,8 @@ impl EvalContext {
     ///
     /// The `evaluator`, `modules`, and `expr_evaluator` handles are
     /// runtime-only and skipped (see `#[serde(skip)]` on the struct). The
-    /// serialized form captures `scopes`, `limits`, and `call_count` — all
-    /// the state needed to resume.
+    /// serialized form captures `scopes`, `limits`, `call_count`, and
+    /// `handlers` — all the state needed to resume.
     pub fn to_json(&self) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::to_value(self)
     }
@@ -754,6 +795,54 @@ impl EvalContext {
     /// before evaluation can resume.
     pub fn from_json(json: &serde_json::Value) -> Result<Self, serde_json::Error> {
         serde_json::from_value(json.clone())
+    }
+
+    // -- effect handlers -----------------------------------------------------
+
+    /// Push a handler frame (a list of [`HandlerClause`]s) onto the handler
+    /// stack.
+    ///
+    /// Called by the `handle` eval rule before evaluating the subject
+    /// expression. The clauses are active for the duration of the subject
+    /// evaluation and removed by [`pop_handlers`].
+    ///
+    /// [`pop_handlers`]: EvalContext::pop_handlers
+    pub fn push_handlers(&mut self, handlers: Vec<HandlerClause>) {
+        self.handlers.push(handlers);
+    }
+
+    /// Pop the topmost handler frame.
+    ///
+    /// Called by the `handle` eval rule after the subject expression has been
+    /// evaluated. Returns the popped clauses, or `None` if the handler stack
+    /// is empty.
+    pub fn pop_handlers(&mut self) -> Option<Vec<HandlerClause>> {
+        self.handlers.pop()
+    }
+
+    /// Find the handler clause matching `operation`, searching from the
+    /// outermost (highest-precedence) frame inward.
+    ///
+    /// Within each frame, the **last** matching clause wins (mirroring the
+    /// original interpreter's `.rev()` search). Outer frames take precedence
+    /// over inner frames. Returns `None` if no clause matches.
+    pub fn find_handler(&self, operation: &str) -> Option<&HandlerClause> {
+        for frame in &self.handlers {
+            if let Some(clause) = frame.iter().rev().find(|h| h.operation == operation) {
+                return Some(clause);
+            }
+        }
+        None
+    }
+
+    /// Returns `true` if any handler clause matches `operation`.
+    pub fn has_handler(&self, operation: &str) -> bool {
+        self.find_handler(operation).is_some()
+    }
+
+    /// Returns the number of handler frames on the stack.
+    pub fn handler_depth(&self) -> usize {
+        self.handlers.len()
     }
 }
 
@@ -771,6 +860,7 @@ impl std::fmt::Debug for EvalContext {
             .field("call_count", &self.call_count)
             .field("has_evaluator", &self.evaluator.is_some())
             .field("has_modules", &self.modules.is_some())
+            .field("handler_depth", &self.handlers.len())
             .finish()
     }
 }
@@ -784,13 +874,14 @@ impl Clone for EvalContext {
             evaluator: self.evaluator.clone(),
             modules: self.modules.clone(),
             expr_evaluator: self.expr_evaluator.clone(),
+            handlers: self.handlers.clone(),
         }
     }
 }
 
 impl PartialEq for EvalContext {
     /// Compares only the serializable state (`scopes`, `limits`,
-    /// `call_count`). The runtime handles (`evaluator`, `modules`,
+    /// `call_count`, `handlers`). The runtime handles (`evaluator`, `modules`,
     /// `expr_evaluator`) are `Rc<dyn Trait>` pointers that are not
     /// meaningfully comparable and are excluded — consistent with their
     /// `#[serde(skip)]` annotation.
@@ -798,6 +889,7 @@ impl PartialEq for EvalContext {
         self.scopes == other.scopes
             && self.limits == other.limits
             && self.call_count == other.call_count
+            && self.handlers == other.handlers
     }
 }
 

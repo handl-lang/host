@@ -13,7 +13,7 @@ pub struct Span {
 }
 
 /// A single, generic, composable AST node.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AstNode {
     /// The node kind, keyed to registered `Behavior`s.
     pub kind: String,
