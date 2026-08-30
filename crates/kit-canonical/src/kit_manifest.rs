@@ -113,7 +113,6 @@ pub fn canonical_manifest() -> KitManifest {
             // Typecheck behavior plugin
             "plugin-typecheck-core".to_string(),
             // Format and lint behavior plugins
-            "plugin-fmt-trivia".to_string(),
             "plugin-fmt-stmt".to_string(),
             "plugin-diag-expression".to_string(),
             // Build and compile behavior plugins (placeholders)

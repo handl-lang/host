@@ -76,7 +76,6 @@ members = [
   "crates/plugin-diag-expression",
   "crates/plugin-fmt-expression",
   "crates/plugin-fmt-stmt",
-  "crates/plugin-fmt-trivia",
   "crates/plugin-lsp-completion",
   "crates/plugin-lsp-goto",
   "crates/plugin-lsp-symbol",
@@ -219,7 +218,6 @@ handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
-handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }

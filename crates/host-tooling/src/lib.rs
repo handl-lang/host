@@ -2,7 +2,6 @@
 
 use handl_platform::{PlatformError, Plugin};
 use handl_plugin_fmt_stmt::StatementFormatter;
-use handl_plugin_fmt_trivia::TriviaFormatter;
 
 /// A diagnostic message with severity and optional source span.
 ///
@@ -52,7 +51,6 @@ mod semantic_tokens_tests;
 #[allow(dead_code)]
 pub struct ToolingHost<K: Plugin> {
     kit: K,
-    trivia_formatter: TriviaFormatter,
     statement_formatter: StatementFormatter,
     completion: Option<Box<dyn CompletionPlugin>>,
     goto_def: Option<Box<dyn GotoDefPlugin>>,
@@ -66,7 +64,6 @@ impl<K: Plugin> ToolingHost<K> {
     pub fn new(kit: K) -> Self {
         Self {
             kit,
-            trivia_formatter: TriviaFormatter::new(),
             statement_formatter: StatementFormatter::new(),
             completion: None,
             goto_def: None,
