@@ -26,9 +26,8 @@ impl Behavior<Format> for TriviaFormatter {
     }
 
     fn apply(&self, _op: &mut FormatRequest) -> Result<(), PlatformError> {
-        // TODO: the concrete `Token<DynKind>` formatting path cannot be
-        // cleanly adapted to the generic `FormatRequest`; wire the token stream
-        // through the request once a canonical representation is available.
+        // TODO: wire the token stream through the request once a canonical
+        // representation is available.
         Ok(())
     }
 }

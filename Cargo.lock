@@ -1829,16 +1829,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-ext-lexer"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lexer",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-plugin-ext-lint"
 version = "0.1.0"
 dependencies = [
@@ -1851,15 +1841,6 @@ name = "handl-plugin-ext-lsp"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-ext-parser"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lexer",
  "serde_json",
 ]
 
@@ -1902,14 +1883,6 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lexer"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2513,15 +2486,6 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-parser"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-ast",
- "handl-plugin-lexer",
- "thiserror 2.0.20",
 ]
 
 [[package]]

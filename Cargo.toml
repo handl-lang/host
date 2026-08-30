@@ -12,10 +12,8 @@ members = [
   "crates/plugin-ext-eval",
   "crates/plugin-ext-fmt",
   "crates/plugin-ext-kit",
-  "crates/plugin-ext-lexer",
   "crates/plugin-ext-lint",
   "crates/plugin-ext-lsp",
-  "crates/plugin-ext-parser",
   "crates/plugin-ext-plugin",
   "crates/plugin-ext-typecheck",
   "crates/host-cli",
@@ -23,7 +21,6 @@ members = [
   "crates/kit-canonical",
   "crates/kit-cli",
   "crates/kit-hello",
-  "crates/plugin-lexer",
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-wasm",
@@ -74,7 +71,6 @@ members = [
   "crates/plugin-lib-ws-whatwg-native",
   "crates/plugin-lib-ws-whatwg-wasm",
   "crates/plugin-lib-yaml",
-  "crates/plugin-parser",
   "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-diag-expression",
@@ -199,10 +195,8 @@ handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
 handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
 handl-plugin-applier = { path = "crates/plugin-applier" }
 handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }
-handl-plugin-ext-lexer = { path = "crates/plugin-ext-lexer" }
 handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
 handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
-handl-plugin-ext-parser = { path = "crates/plugin-ext-parser" }
 handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-host-cli = { path = "crates/host-cli" }
@@ -210,7 +204,6 @@ handl-host-lsp = { path = "crates/host-lsp" }
 handl-kit-canonical = { path = "crates/kit-canonical" }
 handl-kit-cli = { path = "crates/kit-cli" }
 handl-kit-hello = { path = "crates/kit-hello" }
-handl-plugin-lexer = { path = "crates/plugin-lexer" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
@@ -261,7 +254,6 @@ handl-plugin-lib-ws-rfc-native = { path = "crates/plugin-lib-ws-rfc-native" }
 handl-plugin-lib-ws-whatwg-native = { path = "crates/plugin-lib-ws-whatwg-native" }
 handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
-handl-plugin-parser = { path = "crates/plugin-parser" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }

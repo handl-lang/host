@@ -233,7 +233,7 @@ pub fn ast_to_platform_nodes(ast: &Ast) -> Vec<handl_platform::AstNode> {
 }
 
 // ---------------------------------------------------------------------------
-// Token classification helpers (string-based replacements for DynKind downcast)
+// Token classification helpers (string-based kind matching)
 // ---------------------------------------------------------------------------
 
 /// Whether a token kind string represents an identifier.
