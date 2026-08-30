@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 
 /// Errors produced by key-value store implementations.
 #[derive(Debug, Clone)]
@@ -22,6 +22,6 @@ impl std::error::Error for KvError {}
 
 impl From<KvError> for VmError {
     fn from(err: KvError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }

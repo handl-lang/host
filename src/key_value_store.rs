@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
+use handl_platform::{EvalContext, EvalError, Function};
 
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::{Context, Function};
+use handl_platform::Module;
 
 use crate::error::KvError;
 
@@ -60,7 +58,7 @@ impl Module for KeyValueStoreModule {
         "kv"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "get" => Some(&self.get),
             "set" => Some(&self.set),
@@ -73,32 +71,17 @@ impl Module for KeyValueStoreModule {
     }
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<&str, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_two_strings(args: &[NonFunctionValue]) -> Result<(&str, &str), Error> {
+fn require_two_strings(args: &[serde_json::Value]) -> Result<(&str, &str), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
-    let key = args[0].as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })?;
-    let value = args[1].as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })?;
+    let key = args[0].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+    let value = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
     Ok((key, value))
 }
 
@@ -106,17 +89,17 @@ struct GetFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for GetFn {
+impl Function for GetFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let key = require_one_string(args)?;
         let value = self.store.get(key)?;
         Ok(match value {
-            Some(v) => NonFunctionValue::new(v),
-            None => NonFunctionValue::default(),
+            Some(v) => serde_json::Value::from(v),
+            None => serde_json::Value::Null,
         })
     }
 }
@@ -125,15 +108,15 @@ struct SetFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for SetFn {
+impl Function for SetFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (key, value) = require_two_strings(args)?;
         self.store.set(key, value)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -141,15 +124,15 @@ struct RemoveFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for RemoveFn {
+impl Function for RemoveFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let key = require_one_string(args)?;
         self.store.remove(key)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -157,14 +140,14 @@ struct ClearFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for ClearFn {
+impl Function for ClearFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.store.clear()?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -172,16 +155,16 @@ struct HasFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for HasFn {
+impl Function for HasFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let key = require_one_string(args)?;
         self.store
             .has(key)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -190,15 +173,15 @@ struct SizeFn {
     store: Arc<dyn KeyValueStore>,
 }
 
-impl Function<NonFunctionValue> for SizeFn {
+impl Function for SizeFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.store
             .size()
-            .map(|n| NonFunctionValue::new(serde_json::json!(n)))
+            .map(|n| serde_json::Value::from(serde_json::json!(n)))
             .map_err(Into::into)
     }
 }
