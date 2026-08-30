@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -38,6 +39,18 @@ use crate::{
 /// the `From` impl so that `Behavior<Eval>::apply` can return them seamlessly.
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum EvalError {
+    /// Execution yielded, capturing the current [`EvalContext`] for later
+    /// resumption.
+    ///
+    /// The context *is* the continuation (see ADR 0040 — yield / resumability).
+    /// A rule returns this variant to suspend evaluation mid-flight; the host
+    /// catches the resulting [`PlatformError::Yield`], serializes the context,
+    /// and later resumes by re-dispatching `Eval` with a restored context.
+    #[error("evaluation yielded")]
+    Yield {
+        /// The captured execution context — all state needed to resume.
+        context: EvalContext,
+    },
     /// A function was called that is not registered in any module.
     #[error("unknown function: {0}")]
     UnknownFunction(String),
@@ -57,7 +70,10 @@ pub enum EvalError {
 
 impl From<EvalError> for PlatformError {
     fn from(e: EvalError) -> Self {
-        PlatformError::Plugin(e.to_string())
+        match e {
+            EvalError::Yield { context } => PlatformError::Yield { context },
+            other => PlatformError::Plugin(other.to_string()),
+        }
     }
 }
 
@@ -70,7 +86,7 @@ impl From<EvalError> for PlatformError {
 /// When set, `BasicEvaluator` checks `max_depth` before pushing a new scope
 /// and `max_calls` before each dispatch, returning [`EvalError::ResourceLimit`]
 /// if the limit would be exceeded.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EvalLimits {
     /// Maximum scope depth (number of nested scopes).
     pub max_depth: Option<usize>,
@@ -343,6 +359,7 @@ pub trait ModuleLookup: 'static {
 /// The context is the continuation: it captures all mutable state needed to
 /// resume or serialize an in-progress evaluation (see ADR 0040 — yield /
 /// resumability).
+#[derive(Serialize, Deserialize)]
 pub struct EvalContext {
     /// Stack of variable scopes, innermost last.
     scopes: Vec<Scope>,
@@ -351,13 +368,23 @@ pub struct EvalContext {
     /// Number of dispatch calls made so far.
     call_count: usize,
     /// Recursion handle — set by `BasicEvaluator::run`.
+    ///
+    /// Runtime-only; not serialized. On deserialization this is `None` and
+    /// must be re-attached by the host when resuming.
+    #[serde(skip)]
     evaluator: Option<Rc<dyn EvaluatorCallback>>,
     /// Module/function lookup handle — set by the host before evaluation
     /// so eval rules can call `ctx.call_function("math.add", &[1, 2])`.
+    ///
+    /// Runtime-only; not serialized. Re-attached by the host on resume.
+    #[serde(skip)]
     modules: Option<Rc<dyn ModuleLookup>>,
     /// String-expression evaluator — set by the host so host functions
     /// can call `ctx.eval_expr("x", &[("x", value)])` to evaluate
     /// expression strings from `FunctionValue.body`.
+    ///
+    /// Runtime-only; not serialized. Re-attached by the host on resume.
+    #[serde(skip)]
     expr_evaluator: Option<Rc<dyn ExprEvaluator>>,
 }
 
@@ -606,6 +633,38 @@ impl EvalContext {
             .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
         func.call(args, self)
     }
+
+    // -- yield / resumability -----------------------------------------------
+
+    /// Yield execution, capturing the current context for later resumption.
+    ///
+    /// A rule calls this (after taking ownership of the context via
+    /// `std::mem::take(&mut req.ctx)`) to suspend evaluation mid-flight.
+    /// The returned [`EvalError::Yield`] propagates through dispatch and
+    /// surfaces as a [`PlatformError::Yield`] that the host can catch,
+    /// serialize, and later resume (see ADR 0040).
+    pub fn yield_now(self) -> EvalError {
+        EvalError::Yield { context: self }
+    }
+
+    /// Serialize the context for cross-machine resumability.
+    ///
+    /// The `evaluator`, `modules`, and `expr_evaluator` handles are
+    /// runtime-only and skipped (see `#[serde(skip)]` on the struct). The
+    /// serialized form captures `scopes`, `limits`, and `call_count` — all
+    /// the state needed to resume.
+    pub fn to_json(&self) -> Result<serde_json::Value, serde_json::Error> {
+        serde_json::to_value(self)
+    }
+
+    /// Deserialize a context for resumption.
+    ///
+    /// The runtime handles (`evaluator`, `modules`, `expr_evaluator`) are
+    /// `None` after deserialization and must be re-attached by the host
+    /// before evaluation can resume.
+    pub fn from_json(json: &serde_json::Value) -> Result<Self, serde_json::Error> {
+        serde_json::from_value(json.clone())
+    }
 }
 
 impl Default for EvalContext {
@@ -636,6 +695,19 @@ impl Clone for EvalContext {
             modules: self.modules.clone(),
             expr_evaluator: self.expr_evaluator.clone(),
         }
+    }
+}
+
+impl PartialEq for EvalContext {
+    /// Compares only the serializable state (`scopes`, `limits`,
+    /// `call_count`). The runtime handles (`evaluator`, `modules`,
+    /// `expr_evaluator`) are `Rc<dyn Trait>` pointers that are not
+    /// meaningfully comparable and are excluded — consistent with their
+    /// `#[serde(skip)]` annotation.
+    fn eq(&self, other: &Self) -> bool {
+        self.scopes == other.scopes
+            && self.limits == other.limits
+            && self.call_count == other.call_count
     }
 }
 
@@ -742,6 +814,50 @@ impl BasicEvaluator {
     /// Add an exec-control rule.
     pub fn add_exec_control(&mut self, rule: Arc<dyn ExecControl>) {
         self.exec_controls.push(rule);
+    }
+
+    /// Resume evaluation from a yielded context.
+    ///
+    /// Re-attaches the evaluator (and, if not already present, the module
+    /// lookup) handle to the restored [`EvalContext`], then dispatches `ast`
+    /// with it. This is the counterpart to [`EvalError::Yield`] / [`EvalContext::yield_now`]:
+    /// the host serializes the yielded context, later deserializes it, and
+    /// calls `resume` to continue evaluation (see ADR 0040).
+    ///
+    /// If the resumed evaluation yields again, the returned
+    /// [`PlatformError::Yield`] carries the new context for another
+    /// resume cycle.
+    pub fn resume(
+        &self,
+        ast: &AstNode,
+        mut context: EvalContext,
+        ctx: &mut PluginContext,
+    ) -> Result<Value, PlatformError> {
+        // Build the recursion handle (clones Arc pointers — cheap).
+        let callback = Rc::new(BasicEvaluatorCallback {
+            rules: self.rules.clone(),
+            exec_controls: self.exec_controls.clone(),
+        });
+        context.set_evaluator(callback.clone());
+
+        // Re-attach the module lookup if the restored context doesn't have one
+        // (handles are skipped during serialization).
+        if !context.has_modules() {
+            if let Some(modules) = ctx.plugins.module_lookup() {
+                context.set_modules(modules);
+            }
+        }
+
+        let mut req = EvalRequest {
+            ast: ast.clone(),
+            ctx: context,
+            options: ResolvedOptions::new(),
+            result: None,
+        };
+
+        callback.dispatch(&mut req)?;
+
+        req.result.ok_or(PlatformError::NotImplemented)
     }
 }
 
@@ -1184,5 +1300,199 @@ mod tests {
         let err = EvalError::UnknownFunction("foo".into());
         let pe: PlatformError = err.into();
         assert!(matches!(pe, PlatformError::Plugin(_)));
+    }
+
+    #[test]
+    fn yield_error_converts_to_platform_yield() {
+        let ctx = EvalContext::new();
+        let err = ctx.yield_now();
+        let pe: PlatformError = err.into();
+        assert!(matches!(pe, PlatformError::Yield { .. }));
+    }
+
+    // -----------------------------------------------------------------------
+    // Yield / resumability tests (ADR 0040)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn eval_context_serialization_round_trip() {
+        let mut ctx = EvalContext::new();
+        ctx.define("x", serde_json::json!(42));
+        ctx.push_scope();
+        ctx.define("y", serde_json::json!("hello"));
+        ctx.set_limits(EvalLimits {
+            max_depth: Some(10),
+            max_calls: Some(100),
+        });
+        // Bump the call counter a few times.
+        ctx.bump_call_count();
+        ctx.bump_call_count();
+        ctx.bump_call_count();
+
+        let json = ctx.to_json().unwrap();
+        let restored = EvalContext::from_json(&json).unwrap();
+
+        // Serializable state is preserved.
+        assert_eq!(restored, ctx, "scopes/limits/call_count must match");
+        assert_eq!(restored.call_count(), 3);
+        assert_eq!(restored.depth(), 2);
+        assert_eq!(restored.lookup("x"), Some(&serde_json::json!(42)));
+        assert_eq!(restored.lookup("y"), Some(&serde_json::json!("hello")));
+        assert_eq!(restored.limits().max_depth, Some(10));
+        assert_eq!(restored.limits().max_calls, Some(100));
+
+        // Runtime handles are NOT serialized — they are None after restore.
+        assert!(!restored.has_evaluator());
+        assert!(!restored.has_modules());
+    }
+
+    /// A rule that yields on the first call (capturing the context with a
+    /// `done` flag set) and returns `42` on resume when `done` is present.
+    struct YieldOnce;
+
+    impl Behavior<Eval> for YieldOnce {
+        fn kind(&self) -> &str {
+            "yield_once"
+        }
+        fn apply(&self, op: &mut EvalRequest) -> Result<(), PlatformError> {
+            if op.ctx.lookup("done").is_some() {
+                op.result = Some(serde_json::json!(42));
+            } else {
+                // Mark done, then yield — the context is the continuation.
+                let mut ctx = std::mem::take(&mut op.ctx);
+                ctx.define("done", serde_json::json!(true));
+                return Err(ctx.yield_now().into());
+            }
+            Ok(())
+        }
+    }
+    impl EvalBehavior for YieldOnce {}
+
+    #[test]
+    fn yield_mid_evaluation_then_resume() {
+        let mut evaluator = BasicEvaluator::new();
+        evaluator
+            .accept(Arc::new(YieldOnce) as Arc<dyn EvalBehavior>)
+            .unwrap();
+
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut pctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+
+        // First run: the rule yields.
+        let err = evaluator
+            .run(
+                &CapabilityRequest {
+                    capability: "eval".into(),
+                    payload: serde_json::json!({"kind": "yield_once"}),
+                },
+                &mut pctx,
+            )
+            .unwrap_err();
+
+        let yielded_context = match err {
+            PlatformError::Yield { context } => context,
+            other => panic!("expected PlatformError::Yield, got {other:?}"),
+        };
+        // The yielding rule set "done" before yielding.
+        assert_eq!(yielded_context.lookup("done"), Some(&serde_json::json!(true)));
+
+        // Serialize → deserialize (simulating cross-machine resumability).
+        let json = yielded_context.to_json().unwrap();
+        let restored = EvalContext::from_json(&json).unwrap();
+        assert_eq!(restored, yielded_context);
+        // Handles are gone after deserialization.
+        assert!(!restored.has_evaluator());
+
+        // Resume: the rule sees "done" and returns 42.
+        let ast = AstNode {
+            kind: "yield_once".to_string(),
+            span: None,
+            payload: serde_json::json!({"kind": "yield_once"}),
+        };
+        let (mut plugins2, mut kits2) = (PluginRegistry::new(), KitRegistry::new());
+        let mut pctx2 = PluginContext {
+            plugins: &mut plugins2,
+            kits: &mut kits2,
+        };
+        let result = evaluator.resume(&ast, restored, &mut pctx2).unwrap();
+        assert_eq!(result, serde_json::json!(42));
+    }
+
+    /// A parent rule that evaluates a child node via `ctx.eval`.
+    struct ParentRule;
+    impl Behavior<Eval> for ParentRule {
+        fn kind(&self) -> &str {
+            "parent"
+        }
+        fn apply(&self, op: &mut EvalRequest) -> Result<(), PlatformError> {
+            let child = AstNode {
+                kind: "yield_once".to_string(),
+                span: None,
+                payload: serde_json::Value::Null,
+            };
+            // The child yields — the error must propagate up through us.
+            let result = op.ctx.eval(&child)?;
+            op.result = Some(result);
+            Ok(())
+        }
+    }
+    impl EvalBehavior for ParentRule {}
+
+    #[test]
+    fn yield_propagates_through_nested_eval() {
+        let mut evaluator = BasicEvaluator::new();
+        evaluator
+            .accept(Arc::new(YieldOnce) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ParentRule) as Arc<dyn EvalBehavior>)
+            .unwrap();
+
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        let mut pctx = PluginContext {
+            plugins: &mut plugins,
+            kits: &mut kits,
+        };
+
+        // The parent rule evaluates a yielding child. The yield must bubble
+        // all the way up to `run` as a PlatformError::Yield.
+        let err = evaluator
+            .run(
+                &CapabilityRequest {
+                    capability: "eval".into(),
+                    payload: serde_json::json!({"kind": "parent"}),
+                },
+                &mut pctx,
+            )
+            .unwrap_err();
+
+        let yielded_context = match err {
+            PlatformError::Yield { context } => context,
+            other => panic!("expected PlatformError::Yield, got {other:?}"),
+        };
+        // The child set "done" before yielding — the captured context
+        // reflects the state at the yield point.
+        assert_eq!(yielded_context.lookup("done"), Some(&serde_json::json!(true)));
+
+        // Resume from the parent: the child now sees "done" and returns 42,
+        // which the parent passes through as its result.
+        let json = yielded_context.to_json().unwrap();
+        let restored = EvalContext::from_json(&json).unwrap();
+
+        let parent_ast = AstNode {
+            kind: "parent".to_string(),
+            span: None,
+            payload: serde_json::json!({"kind": "parent"}),
+        };
+        let (mut plugins2, mut kits2) = (PluginRegistry::new(), KitRegistry::new());
+        let mut pctx2 = PluginContext {
+            plugins: &mut plugins2,
+            kits: &mut kits2,
+        };
+        let result = evaluator.resume(&parent_ast, restored, &mut pctx2).unwrap();
+        assert_eq!(result, serde_json::json!(42));
     }
 }
