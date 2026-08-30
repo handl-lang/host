@@ -1,0 +1,13 @@
+[package]
+name = "handl-plugin-eval-call"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-plugin-ext-eval = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-platform = { workspace = true }
+serde_json = { workspace = true }

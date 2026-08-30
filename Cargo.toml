@@ -158,11 +158,21 @@ members = [
   "crates/plugin-eval-hello",
   "crates/plugin-eval-json",
   "crates/plugin-eval-core",
+  "crates/plugin-eval-value",
+  "crates/plugin-eval-array",
+  "crates/plugin-eval-object",
+  "crates/plugin-eval-index",
+  "crates/plugin-eval-field-access",
+  "crates/plugin-eval-assign",
+  "crates/plugin-eval-function",
+  "crates/plugin-eval-call",
+  "crates/plugin-eval-handle",
   "crates/plugin-token-bool",
   "crates/plugin-token-comment",
   "crates/plugin-token-doc-comment",
   "crates/plugin-token-delimiter",
   "crates/plugin-token-identifier",
+  "crates/plugin-token-keyword",
   "crates/plugin-token-keyword-as",
   "crates/plugin-token-keyword-handle",
   "crates/plugin-token-null",
@@ -367,11 +377,21 @@ handl-plugin-runtime-object = { path = "crates/plugin-runtime-object" }
 handl-plugin-eval-hello = { path = "crates/plugin-eval-hello" }
 handl-plugin-eval-json = { path = "crates/plugin-eval-json" }
 handl-plugin-eval-core = { path = "crates/plugin-eval-core" }
+handl-plugin-eval-value = { path = "crates/plugin-eval-value" }
+handl-plugin-eval-array = { path = "crates/plugin-eval-array" }
+handl-plugin-eval-object = { path = "crates/plugin-eval-object" }
+handl-plugin-eval-index = { path = "crates/plugin-eval-index" }
+handl-plugin-eval-field-access = { path = "crates/plugin-eval-field-access" }
+handl-plugin-eval-assign = { path = "crates/plugin-eval-assign" }
+handl-plugin-eval-function = { path = "crates/plugin-eval-function" }
+handl-plugin-eval-call = { path = "crates/plugin-eval-call" }
+handl-plugin-eval-handle = { path = "crates/plugin-eval-handle" }
 handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
 handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
 handl-plugin-token-doc-comment = { path = "crates/plugin-token-doc-comment" }
 handl-plugin-token-delimiter = { path = "crates/plugin-token-delimiter" }
 handl-plugin-token-identifier = { path = "crates/plugin-token-identifier" }
+handl-plugin-token-keyword = { path = "crates/plugin-token-keyword" }
 handl-plugin-token-keyword-as = { path = "crates/plugin-token-keyword-as" }
 handl-plugin-token-keyword-handle = { path = "crates/plugin-token-keyword-handle" }
 handl-plugin-token-null = { path = "crates/plugin-token-null" }

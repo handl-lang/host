@@ -1116,7 +1116,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-eval-array"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-assign"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-call"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-eval-core"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-field-access"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-function"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-handle"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
@@ -1134,10 +1188,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-eval-index"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-eval-json"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-object"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-eval-value"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
  "serde_json",
 ]
 
@@ -2579,6 +2660,14 @@ dependencies = [
  "handl-plugin-grammar-textmate",
  "handl-plugin-lexer",
  "handl-plugin-lexer-ident",
+]
+
+[[package]]
+name = "handl-plugin-token-keyword"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-grammar-textmate",
+ "handl-plugin-lexer",
 ]
 
 [[package]]

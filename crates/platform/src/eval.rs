@@ -312,6 +312,21 @@ impl EvalContext {
         None
     }
 
+    /// Collect all variables from all scopes into a map.
+    ///
+    /// Inner scopes shadow outer scopes (later entries overwrite earlier
+    /// ones). Used by function-literal evaluation to capture the closure
+    /// environment.
+    pub fn collect_vars(&self) -> HashMap<String, Value> {
+        let mut vars = HashMap::new();
+        for scope in &self.scopes {
+            for (name, value) in scope {
+                vars.insert(name.clone(), value.clone());
+            }
+        }
+        vars
+    }
+
     // -- limits / counters --------------------------------------------------
 
     /// Returns the configured limits.
