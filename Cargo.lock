@@ -1116,6 +1116,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-eval-core"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-eval",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-eval-hello"
 version = "0.1.0"
 dependencies = [
