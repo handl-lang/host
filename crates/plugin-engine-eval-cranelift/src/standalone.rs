@@ -409,6 +409,7 @@ pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
     // Get the target directory from cargo metadata.
     let output = Command::new("cargo")
         .args(["metadata", "--no-deps", "--format-version", "1"])
+        .arg("--manifest-path")
         .arg(&manifest_path)
         .output()
         .map_err(|e| LangError::Engine(format!("cargo metadata failed: {}", e)))?;
