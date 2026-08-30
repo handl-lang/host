@@ -37,6 +37,8 @@
 
 #![warn(missing_docs)]
 
+pub mod meta;
+
 use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, LangError, Language, Source, Tokens, Value};

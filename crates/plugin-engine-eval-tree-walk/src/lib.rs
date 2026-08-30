@@ -171,8 +171,10 @@ impl<'h> EvalEngine for TreeWalkEngine<'h> {
 
 impl<'h> TreeWalkEngine<'h> {
     /// Evaluate a single node by looking up its eval scheme and interpreting
-    /// it. If no scheme exists for the node kind, returns the payload as the
-    /// value.
+    /// it. If no scheme exists for the node kind:
+    /// - `foreign.<name>` kinds dispatch to host function `<name>` (ADR-0041
+    ///   Phase 2 — makes `eval`/`self`/`compile` handl-callable).
+    /// - Other kinds return the payload as the value.
     fn eval_node(
         &self,
         ast: &Ast,
@@ -194,7 +196,39 @@ impl<'h> TreeWalkEngine<'h> {
                 };
                 self.eval_scheme(&def.scheme, &mut ctx)
             }
-            None => Ok(node.payload.clone()),
+            None => {
+                // Fallback for `foreign.<name>` node kinds (ADR-0041 Phase 2):
+                // if no explicit scheme exists but the kind is `foreign.<name>`,
+                // dispatch to the host function `<name>` with children as args.
+                // This makes `eval`/`self`/`compile` handl-callable without
+                // requiring per-function scheme entries in the Language data.
+                if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
+                    let host = self.host.ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "unregistered foreign: {}",
+                            foreign_name
+                        ))
+                    })?;
+                    let host_fn = host.lookup(foreign_name).ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "unregistered foreign: {}",
+                            foreign_name
+                        ))
+                    })?;
+                    let mut arg_vals = Vec::new();
+                    if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                        for child_ref in children {
+                            if let Some(idx) = child_ref.as_u64() {
+                                let child_ref = AstRef::new(idx as usize);
+                                arg_vals.push(self.eval_node(ast, child_ref, lang, env)?);
+                            }
+                        }
+                    }
+                    host_fn.call(&arg_vals)
+                } else {
+                    Ok(node.payload.clone())
+                }
+            }
         }
     }
 

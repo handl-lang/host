@@ -2532,6 +2532,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
