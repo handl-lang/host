@@ -975,7 +975,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-diag-expression",
  "handl-plugin-fmt-stmt",
- "handl-plugin-fmt-trivia",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
@@ -1421,14 +1420,6 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-fmt-stmt"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-fmt-trivia"
 version = "0.1.0"
 dependencies = [
  "handl-platform",

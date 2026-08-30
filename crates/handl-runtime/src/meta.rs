@@ -1,39 +1,41 @@
-//! # Meta host functions: `eval`, `self`, `compile`
+//! # Meta host functions: `lex`, `parse`, `eval`, `run`, `self`, `compile`
 //!
 //! ADR-0041 Phase 2 — the "meta is gone" step. These are handl-callable
-//! host functions, dispatched via [`Scheme::Foreign`] when a handl program
-//! evaluates a `foreign.eval` / `foreign.self` / `foreign.compile` node.
+//! host functions that expose the language pipeline stages as ordinary
+//! functions:
 //!
-//! - `eval(handle, src)` — look up the [`Language`] registered under `handle`,
-//!   build a fresh [`Runtime`], and run `src` under it. Returns the result
-//!   value.
-//! - `self()` — return the handle of the currently-running language.
-//! - `compile(handle, target)` — return a compiled-artifact marker (the
-//!   handle). Full native compilation via cranelift is a follow-on; this
-//!   proves the call surface.
+//! - `lex(handle, text)` → tokens (JSON-serialized [`Tokens`])
+//! - `parse(handle, tokens)` → ast (JSON-serialized [`Ast`])
+//! - `eval(handle, ast)` → result value (just the eval engine, no lex/parse)
+//! - `run(handle, text)` → result value (convenience: `eval(lang, parse(lex(text)))`)
+//! - `self()` → handle of the currently-running language
+//! - `compile(handle, target)` → compiled-artifact marker (stub)
+//!
+//! The key design: `eval(lang, ast)` takes a **pre-parsed AST**, not source
+//! text. This separates the pipeline stages so a handl program can
+//! manipulate ASTs and tokens as first-class values:
+//! `run(lang, text) == eval(lang, parse(lang, lex(lang, text)))`.
 //!
 //! A [`LanguageRegistry`] maps handle strings to `(Language, RuntimeConfig)`.
-//! It is `Rc`-shared so `eval` can create sub-runtimes recursively without
-//! borrowing conflicts.
+//! It is `Rc`-shared so host functions can create sub-runtimes recursively
+//! without borrowing conflicts.
 //!
 //! [`MetaHostFunctions`] implements [`HostFunctions`] by returning the meta
-//! functions for `"eval"` / `"self"` / `"compile"` and delegating everything
-//! else to an optional user-supplied [`HostFunctions`] (so meta functions
-//! coexist with user host functions like `"double"`).
+//! functions for their names and delegating everything else to an optional
+//! user-supplied [`HostFunctions`].
 
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{LangError, Language, Source, Value};
+use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
 use handl_plugin_engine_eval::{HostFn, HostFunctions};
 
 use crate::{Runtime, RuntimeConfig};
 
-/// A registry of named [`Language`] values, `Rc`-shared for recursive `eval`.
+/// A registry of named [`Language`] values, `Rc`-shared for recursive calls.
 ///
 /// Maps a handle string (e.g. `"handl"`) to the [`Language`] data and the
-/// [`RuntimeConfig`] that selects its engines. Built once at startup; the
-/// `eval` host function clones the `Rc` to build sub-runtimes.
+/// [`RuntimeConfig`] that selects its engines. Built once at startup.
 #[derive(Debug, Default)]
 pub struct LanguageRegistry {
     entries: HashMap<String, (Language, RuntimeConfig)>,
@@ -61,16 +63,116 @@ impl LanguageRegistry {
     }
 }
 
-/// `eval(handle, src)` host function (ADR-0041 Phase 2).
+// ---------------------------------------------------------------------------
+// Shared helper: build a sub-runtime with meta functions re-attached
+// ---------------------------------------------------------------------------
+
+/// Build a [`Runtime`] for `handle` with [`MetaHostFunctions`] attached, so
+/// the sub-runtime can also call `lex`/`parse`/`eval`/`run`/`self`/`compile`.
 ///
-/// Looks up the [`Language`] registered under `handle` in the
-/// [`LanguageRegistry`], builds a fresh [`Runtime`] (with meta host functions
-/// re-attached so the sub-program can also call `eval`), and runs `src`
-/// through `lex → parse → eval`. Returns the result value.
-pub struct EvalHostFn {
-    /// Shared registry of named languages.
+/// The [`MetaHostFunctions`] is leaked to obtain a `'static` reference — it
+/// lives for the process lifetime. This is acceptable because each `eval`/
+/// `run` call creates a fresh sub-runtime, and the leaked meta is small
+/// (just `Rc` clones + a handle string).
+fn build_runtime(
+    registry: &Rc<LanguageRegistry>,
+    handle: &str,
+    delegate: &Option<Rc<dyn HostFunctions>>,
+) -> Result<Runtime<'static>, LangError> {
+    let (lang, config) = registry
+        .get(handle)
+        .ok_or_else(|| LangError::Engine(format!("unknown language: {}", handle)))?
+        .clone();
+    let sub_meta = MetaHostFunctions::new(registry.clone(), handle.to_string(), delegate.clone());
+    let sub_meta_static: &'static MetaHostFunctions = Box::leak(Box::new(sub_meta));
+    Runtime::from_config(lang, &config, Some(sub_meta_static))
+}
+
+// ---------------------------------------------------------------------------
+// lex(handle, text) → tokens
+// ---------------------------------------------------------------------------
+
+/// `lex(handle, text)` host function.
+///
+/// Looks up the [`Language`] under `handle`, builds a [`Runtime`], and lexes
+/// `text` into tokens. Returns tokens as a JSON-serialized [`Tokens`] value.
+pub struct LexHostFn {
     registry: Rc<LanguageRegistry>,
-    /// Optional user host functions to pass through to sub-runtimes.
+    delegate: Option<Rc<dyn HostFunctions>>,
+}
+
+impl LexHostFn {
+    /// Create a `lex` host function backed by `registry`.
+    pub fn new(registry: Rc<LanguageRegistry>, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+        Self { registry, delegate }
+    }
+}
+
+impl HostFn for LexHostFn {
+    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+        let handle = args
+            .first()
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("lex: expected (handle, text)".into()))?;
+        let text = args
+            .get(1)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("lex: expected (handle, text)".into()))?;
+        let runtime = build_runtime(&self.registry, handle, &self.delegate)?;
+        let tokens = runtime.lex(&Source::new(text))?;
+        serde_json::to_value(&tokens).map_err(|e| LangError::Engine(format!("lex: {}", e)))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// parse(handle, tokens) → ast
+// ---------------------------------------------------------------------------
+
+/// `parse(handle, tokens)` host function.
+///
+/// Looks up the [`Language`] under `handle`, builds a [`Runtime`], and parses
+/// `tokens` (JSON-serialized [`Tokens`]) into an AST. Returns the AST as a
+/// JSON-serialized [`Ast`] value.
+pub struct ParseHostFn {
+    registry: Rc<LanguageRegistry>,
+    delegate: Option<Rc<dyn HostFunctions>>,
+}
+
+impl ParseHostFn {
+    /// Create a `parse` host function backed by `registry`.
+    pub fn new(registry: Rc<LanguageRegistry>, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+        Self { registry, delegate }
+    }
+}
+
+impl HostFn for ParseHostFn {
+    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+        let handle = args
+            .first()
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("parse: expected (handle, tokens)".into()))?;
+        let tokens_val = args
+            .get(1)
+            .ok_or_else(|| LangError::Engine("parse: expected (handle, tokens)".into()))?;
+        let tokens: Tokens = serde_json::from_value(tokens_val.clone())
+            .map_err(|e| LangError::Engine(format!("parse: {}", e)))?;
+        let runtime = build_runtime(&self.registry, handle, &self.delegate)?;
+        let ast = runtime.parse(&tokens)?;
+        serde_json::to_value(&ast).map_err(|e| LangError::Engine(format!("parse: {}", e)))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// eval(handle, ast) → value
+// ---------------------------------------------------------------------------
+
+/// `eval(handle, ast)` host function (ADR-0041 Phase 2).
+///
+/// Looks up the [`Language`] under `handle`, builds a [`Runtime`], and
+/// evaluates `ast` (JSON-serialized [`Ast`]) through the eval engine only —
+/// no lex/parse. Returns the result value.
+pub struct EvalHostFn {
+    registry: Rc<LanguageRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
@@ -83,56 +185,77 @@ impl EvalHostFn {
 
 impl HostFn for EvalHostFn {
     fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        // Two calling conventions:
-        //   eval(handle, src)  — 2-arg: explicit language handle
-        //   eval(src)          — 1-arg: use the current language (self)
-        let (handle, src) = if args.len() >= 2 {
-            let handle = args
-                .first()
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
-            let src = args
-                .get(1)
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
-            (handle.to_string(), src.to_string())
-        } else if args.len() == 1 {
-            let src = args
-                .first()
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("eval: expected (handle, src) or (src)".into()))?;
-            // Use the current language handle (stored in the registry as
-            // "handl" by canonical_meta_host_functions).
-            ("handl".to_string(), src.to_string())
-        } else {
-            return Err(LangError::Engine(
-                "eval: expected (handle, src) or (src)".into(),
-            ));
-        };
-
-        let (lang, config) = self
-            .registry
-            .get(&handle)
-            .ok_or_else(|| LangError::Engine(format!("eval: unknown language: {}", handle)))?
-            .clone();
-
-        // Build a MetaHostFunctions for the sub-runtime so the sub-program
-        // can also call eval/self/compile. The sub-meta uses the same
-        // registry and the same delegate.
-        let sub_meta = MetaHostFunctions::new(
-            self.registry.clone(),
-            handle,
-            self.delegate.clone(),
-        );
-        let runtime = Runtime::from_config(lang, &config, Some(&sub_meta))?;
-        runtime.run(&Source::new(&src))
+        let handle = args
+            .first()
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("eval: expected (handle, ast)".into()))?;
+        let ast_val = args
+            .get(1)
+            .ok_or_else(|| LangError::Engine("eval: expected (handle, ast)".into()))?;
+        let ast: Ast = serde_json::from_value(ast_val.clone())
+            .map_err(|e| LangError::Engine(format!("eval: {}", e)))?;
+        let runtime = build_runtime(&self.registry, handle, &self.delegate)?;
+        runtime.eval(&ast)
     }
 }
+
+// ---------------------------------------------------------------------------
+// run(handle, text) → value  (convenience: lex → parse → eval)
+// ---------------------------------------------------------------------------
+
+/// `run(handle, text)` host function — convenience composite.
+///
+/// Equivalent to `eval(handle, parse(handle, lex(handle, text)))`. Provided
+/// so source programs can evaluate source strings without manually composing
+/// the three stages.
+pub struct RunHostFn {
+    registry: Rc<LanguageRegistry>,
+    delegate: Option<Rc<dyn HostFunctions>>,
+}
+
+impl RunHostFn {
+    /// Create a `run` host function backed by `registry`.
+    pub fn new(registry: Rc<LanguageRegistry>, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+        Self { registry, delegate }
+    }
+}
+
+impl HostFn for RunHostFn {
+    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+        // Two calling conventions:
+        //   run(handle, text) — 2-arg: explicit language handle
+        //   run(text)         — 1-arg: use the current language (self)
+        let (handle, text) = if args.len() >= 2 {
+            let h = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("run: expected (handle, text) or (text)".into()))?;
+            let t = args
+                .get(1)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("run: expected (handle, text) or (text)".into()))?;
+            (h.to_string(), t.to_string())
+        } else if args.len() == 1 {
+            let t = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("run: expected (handle, text) or (text)".into()))?;
+            ("handl".to_string(), t.to_string())
+        } else {
+            return Err(LangError::Engine("run: expected (handle, text) or (text)".into()));
+        };
+        let runtime = build_runtime(&self.registry, &handle, &self.delegate)?;
+        runtime.run(&Source::new(&text))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// self() → handle
+// ---------------------------------------------------------------------------
 
 /// `self()` host function — returns the handle of the currently-running
 /// language (ADR-0041 Phase 3).
 pub struct SelfHostFn {
-    /// The handle of the language currently running.
     handle: String,
 }
 
@@ -151,13 +274,15 @@ impl HostFn for SelfHostFn {
     }
 }
 
-/// `compile(handle, target)` host function (ADR-0041 Phase 2 stub).
+// ---------------------------------------------------------------------------
+// compile(handle, target) → marker (stub)
+// ---------------------------------------------------------------------------
+
+/// `compile(handle, target)` host function (stub).
 ///
 /// Returns the handle as a marker value. Full native compilation via the
-/// cranelift engine is a follow-on; this proves the call surface is
-/// handl-callable.
+/// cranelift engine is a follow-on.
 pub struct CompileHostFn {
-    /// Shared registry of named languages.
     registry: Rc<LanguageRegistry>,
 }
 
@@ -178,43 +303,50 @@ impl HostFn for CompileHostFn {
             .get(1)
             .and_then(|v| v.as_str())
             .unwrap_or("native");
-
-        // Verify the language exists.
         if self.registry.get(handle).is_none() {
             return Err(LangError::Engine(format!(
                 "compile: unknown language: {}",
                 handle
             )));
         }
-
-        // Stub: return a marker indicating compilation succeeded.
         Ok(Value::String(format!("compiled:{}:{}", handle, target)))
     }
 }
 
+// ---------------------------------------------------------------------------
+// MetaHostFunctions registry
+// ---------------------------------------------------------------------------
+
 /// A [`HostFunctions`] registry that includes the meta functions
-/// (`eval`/`self`/`compile`) and delegates unknown names to an optional
-/// user-supplied [`HostFunctions`].
-///
-/// This is the bridge that makes `eval`/`self`/`compile` handl-callable:
-/// when the eval engine encounters a `Scheme::Foreign("eval")` node, it
-/// calls `lookup("eval")` which returns the [`EvalHostFn`] stored here.
+/// (`lex`/`parse`/`eval`/`run`/`self`/`compile`) and delegates unknown names
+/// to an optional user-supplied [`HostFunctions`].
 pub struct MetaHostFunctions {
-    /// The `eval` host function.
+    lex_fn: LexHostFn,
+    parse_fn: ParseHostFn,
     eval_fn: EvalHostFn,
-    /// The `self` host function.
+    run_fn: RunHostFn,
     self_fn: SelfHostFn,
-    /// The `compile` host function.
     compile_fn: CompileHostFn,
-    /// Optional user host functions for non-meta names.
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl Clone for MetaHostFunctions {
     fn clone(&self) -> Self {
         Self {
+            lex_fn: LexHostFn {
+                registry: Rc::clone(&self.lex_fn.registry),
+                delegate: self.delegate.clone(),
+            },
+            parse_fn: ParseHostFn {
+                registry: Rc::clone(&self.parse_fn.registry),
+                delegate: self.delegate.clone(),
+            },
             eval_fn: EvalHostFn {
                 registry: Rc::clone(&self.eval_fn.registry),
+                delegate: self.delegate.clone(),
+            },
+            run_fn: RunHostFn {
+                registry: Rc::clone(&self.run_fn.registry),
                 delegate: self.delegate.clone(),
             },
             self_fn: SelfHostFn {
@@ -236,12 +368,13 @@ impl MetaHostFunctions {
         current: String,
         delegate: Option<Rc<dyn HostFunctions>>,
     ) -> Self {
-        let eval_fn = EvalHostFn::new(registry, delegate.clone());
-        let compile_fn = CompileHostFn::new(Rc::clone(&eval_fn.registry));
         Self {
-            eval_fn,
+            lex_fn: LexHostFn::new(Rc::clone(&registry), delegate.clone()),
+            parse_fn: ParseHostFn::new(Rc::clone(&registry), delegate.clone()),
+            eval_fn: EvalHostFn::new(Rc::clone(&registry), delegate.clone()),
+            run_fn: RunHostFn::new(Rc::clone(&registry), delegate.clone()),
             self_fn: SelfHostFn::new(current),
-            compile_fn,
+            compile_fn: CompileHostFn::new(registry),
             delegate,
         }
     }
@@ -250,7 +383,10 @@ impl MetaHostFunctions {
 impl HostFunctions for MetaHostFunctions {
     fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
         match name {
+            "lex" => Some(&self.lex_fn),
+            "parse" => Some(&self.parse_fn),
             "eval" => Some(&self.eval_fn),
+            "run" => Some(&self.run_fn),
             "self" => Some(&self.self_fn),
             "compile" => Some(&self.compile_fn),
             _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
@@ -259,12 +395,7 @@ impl HostFunctions for MetaHostFunctions {
 }
 
 /// Build a [`MetaHostFunctions`] for the canonical handl language, registering
-/// it under the handle `"handl"` with the standard engine config
-/// (`lex=data`, `parse=pratt`, `eval=tree-walk`).
-///
-/// This is the convenience entry point for hosts (e.g. `Kit::new`) that want
-/// meta functions wired with zero ceremony. The returned `Rc<MetaHostFunctions>`
-/// can be passed to [`Runtime::from_config`] as the host-functions argument.
+/// it under the handle `"handl"` with the standard engine config.
 pub fn canonical_meta_host_functions(
     lang: Language,
 ) -> (Rc<LanguageRegistry>, Rc<MetaHostFunctions>) {
@@ -292,65 +423,126 @@ mod tests {
     use handl_language::{Ast, AstNode};
     use serde_json::json;
 
-    /// A handl program can `eval("handl", "1 + 2")` and get `3`.
-    ///
-    /// This is the "meta is gone" test: the eval host function dispatches to
-    /// a real `Runtime::run`, proving `eval` is a handl-callable function
-    /// over a first-class `Language` value (represented as a handle string
-    /// in the execution value space).
-    #[test]
-    fn eval_host_function_evals_sub_program() {
+    fn make_runtime() -> Runtime<'static> {
         let canonical = handl_kit_data_canonical::assemble()
             .expect("canonical kit must assemble")
             .lang()
             .clone();
-
         let (_registry, meta) = canonical_meta_host_functions(canonical.clone());
-
+        // Leak meta to get &'static for the runtime.
+        let meta_static: &'static MetaHostFunctions =
+            Box::leak(Box::new(Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone())));
         let config = RuntimeConfig::new()
             .with_lex("data")
             .with_parse("pratt")
             .with_eval("tree-walk");
-        let runtime = Runtime::from_config(canonical, &config, Some(&*meta))
-            .expect("runtime must build");
+        Runtime::from_config(canonical, &config, Some(meta_static)).expect("runtime must build")
+    }
 
-        // Build an AST that calls eval("handl", "1 + 2"):
-        //   0: value "handl"  (the language handle)
-        //   1: value "1 + 2"  (the source to eval)
-        //   2: foreign.eval { children: [0, 1] }
+    /// `lex("handl", "1 + 2")` returns a JSON-serialized Tokens value.
+    #[test]
+    fn lex_host_function_returns_tokens() {
+        let runtime = make_runtime();
         let mut ast = Ast::new();
         ast.push(AstNode::new("value").with_payload(json!("handl")));
         ast.push(AstNode::new("value").with_payload(json!("1 + 2")));
-        ast.push(
-            AstNode::new("foreign.eval")
-                .with_payload(json!({"children": [0, 1]})),
-        );
+        ast.push(AstNode::new("foreign.lex").with_payload(json!({"children": [0, 1]})));
+        let result = runtime.eval(&ast).expect("lex must succeed");
+        // Tokens serialize as a JSON array of {kind, text} objects.
+        assert!(result.is_array(), "lex should return an array, got: {}", result);
+    }
 
+    /// `parse("handl", tokens)` returns a JSON-serialized Ast value.
+    #[test]
+    fn parse_host_function_returns_ast() {
+        let runtime = make_runtime();
+        // First lex "1 + 2" to get tokens, then parse them.
+        // Build: 0: value "handl", 1: value "1 + 2", 2: foreign.lex {children:[0,1]}
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("value").with_payload(json!("handl")));
+        ast.push(AstNode::new("value").with_payload(json!("1 + 2")));
+        ast.push(AstNode::new("foreign.lex").with_payload(json!({"children": [0, 1]})));
+        let tokens = runtime.eval(&ast).expect("lex must succeed");
+
+        // Now parse: 0: value "handl", 1: <tokens>, 2: foreign.parse {children:[0,1]}
+        let mut ast2 = Ast::new();
+        ast2.push(AstNode::new("value").with_payload(json!("handl")));
+        ast2.push(AstNode::new("value").with_payload(tokens));
+        ast2.push(AstNode::new("foreign.parse").with_payload(json!({"children": [0, 1]})));
+        let result = runtime.eval(&ast2).expect("parse must succeed");
+        // Ast serializes as {"nodes": [...]}
+        assert!(
+            result.get("nodes").is_some(),
+            "parse should return an Ast with 'nodes', got: {}",
+            result
+        );
+    }
+
+    /// `eval("handl", ast)` evaluates a pre-parsed AST and returns the result.
+    #[test]
+    fn eval_host_function_evals_ast() {
+        let runtime = make_runtime();
+
+        // Build a simple AST: 0: value 42
+        let mut sub_ast = Ast::new();
+        sub_ast.push(AstNode::new("value").with_payload(json!(42)));
+        let sub_ast_val = serde_json::to_value(&sub_ast).unwrap();
+
+        // Build the calling AST: 0: value "handl", 1: <ast>, 2: foreign.eval
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("value").with_payload(json!("handl")));
+        ast.push(AstNode::new("value").with_payload(sub_ast_val));
+        ast.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
         let result = runtime.eval(&ast).expect("eval must succeed");
-        assert_eq!(result, json!(3), "eval(handl, '1 + 2') should return 3");
+        assert_eq!(result, json!(42), "eval(handl, ast[42]) should return 42");
+    }
+
+    /// Full pipeline: `eval(lang, parse(lang, lex(lang, text)))` == `run(lang, text)`.
+    #[test]
+    fn pipeline_eval_parse_lex_equals_run() {
+        let runtime = make_runtime();
+
+        // Build: lex("handl", "1 + 2")
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("value").with_payload(json!("handl")));
+        ast.push(AstNode::new("value").with_payload(json!("1 + 2")));
+        ast.push(AstNode::new("foreign.lex").with_payload(json!({"children": [0, 1]})));
+        let tokens = runtime.eval(&ast).expect("lex must succeed");
+
+        // parse("handl", tokens)
+        let mut ast2 = Ast::new();
+        ast2.push(AstNode::new("value").with_payload(json!("handl")));
+        ast2.push(AstNode::new("value").with_payload(tokens));
+        ast2.push(AstNode::new("foreign.parse").with_payload(json!({"children": [0, 1]})));
+        let parsed_ast = runtime.eval(&ast2).expect("parse must succeed");
+
+        // eval("handl", parsed_ast)
+        let mut ast3 = Ast::new();
+        ast3.push(AstNode::new("value").with_payload(json!("handl")));
+        ast3.push(AstNode::new("value").with_payload(parsed_ast));
+        ast3.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
+        let pipeline_result = runtime.eval(&ast3).expect("eval must succeed");
+
+        // run("handl", "1 + 2")
+        let mut ast4 = Ast::new();
+        ast4.push(AstNode::new("value").with_payload(json!("handl")));
+        ast4.push(AstNode::new("value").with_payload(json!("1 + 2")));
+        ast4.push(AstNode::new("foreign.run").with_payload(json!({"children": [0, 1]})));
+        let run_result = runtime.eval(&ast4).expect("run must succeed");
+
+        assert_eq!(
+            pipeline_result, run_result,
+            "eval(parse(lex(text))) should equal run(text)"
+        );
+        assert_eq!(pipeline_result, json!(3));
     }
 
     /// `self()` returns the handle of the currently-running language.
     #[test]
     fn self_host_function_returns_current_handle() {
-        let lang = handl_kit_data_canonical::assemble()
-            .expect("canonical kit must assemble")
-            .lang()
-            .clone();
-
-        let (_registry, meta) = canonical_meta_host_functions(lang.clone());
-
-        let config = RuntimeConfig::new()
-            .with_lex("data")
-            .with_parse("pratt")
-            .with_eval("tree-walk");
-        let runtime = Runtime::from_config(lang, &config, Some(&*meta))
-            .expect("runtime must build");
-
-        // AST: foreign.self {} — no args
+        let runtime = make_runtime();
         let mut ast = Ast::new();
         ast.push(AstNode::new("foreign.self"));
-
         let result = runtime.eval(&ast).expect("self must succeed");
         assert_eq!(result, json!("handl"), "self() should return 'handl'");
     }
@@ -358,66 +550,27 @@ mod tests {
     /// `compile("handl", "native")` returns a compiled marker.
     #[test]
     fn compile_host_function_returns_marker() {
-        let lang = handl_kit_data_canonical::assemble()
-            .expect("canonical kit must assemble")
-            .lang()
-            .clone();
-
-        let (_registry, meta) = canonical_meta_host_functions(lang.clone());
-
-        let config = RuntimeConfig::new()
-            .with_lex("data")
-            .with_parse("pratt")
-            .with_eval("tree-walk");
-        let runtime = Runtime::from_config(lang, &config, Some(&*meta))
-            .expect("runtime must build");
-
-        // AST: 0: value "handl", 1: value "native", 2: foreign.compile {children:[0,1]}
+        let runtime = make_runtime();
         let mut ast = Ast::new();
         ast.push(AstNode::new("value").with_payload(json!("handl")));
         ast.push(AstNode::new("value").with_payload(json!("native")));
-        ast.push(
-            AstNode::new("foreign.compile")
-                .with_payload(json!({"children": [0, 1]})),
-        );
-
+        ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1]})));
         let result = runtime.eval(&ast).expect("compile must succeed");
-        assert_eq!(
-            result, json!("compiled:handl:native"),
-            "compile should return a marker"
-        );
+        assert_eq!(result, json!("compiled:handl:native"));
     }
 
     /// `eval` with an unknown language handle returns an error.
     #[test]
     fn eval_unknown_language_returns_error() {
-        let lang = handl_kit_data_canonical::assemble()
-            .expect("canonical kit must assemble")
-            .lang()
-            .clone();
-
-        let (_registry, meta) = canonical_meta_host_functions(lang.clone());
-
-        let config = RuntimeConfig::new()
-            .with_lex("data")
-            .with_parse("pratt")
-            .with_eval("tree-walk");
-        let runtime = Runtime::from_config(lang, &config, Some(&*meta))
-            .expect("runtime must build");
-
+        let runtime = make_runtime();
+        let mut sub_ast = Ast::new();
+        sub_ast.push(AstNode::new("value").with_payload(json!(1)));
+        let sub_ast_val = serde_json::to_value(&sub_ast).unwrap();
         let mut ast = Ast::new();
         ast.push(AstNode::new("value").with_payload(json!("nonexistent")));
-        ast.push(AstNode::new("value").with_payload(json!("1")));
-        ast.push(
-            AstNode::new("foreign.eval")
-                .with_payload(json!({"children": [0, 1]})),
-        );
-
+        ast.push(AstNode::new("value").with_payload(sub_ast_val));
+        ast.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
         let err = runtime.eval(&ast).unwrap_err();
-        assert!(
-            err.to_string().contains("unknown language"),
-            "expected unknown language error, got: {}",
-            err
-        );
+        assert!(err.to_string().contains("unknown language"), "got: {}", err);
     }
 }
