@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-engine-lex"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+serde_json = { workspace = true }

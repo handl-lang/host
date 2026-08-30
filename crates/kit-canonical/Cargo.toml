@@ -4,113 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-handl-plugin-ast = { workspace = true }
-handl-plugin-ast-handl = { workspace = true }
-handl-plugin-lexer = { workspace = true }
-handl-plugin-lexer-block-comment = { workspace = true }
-handl-plugin-lexer-delimiter = { workspace = true }
-handl-plugin-lexer-ident = { workspace = true }
-handl-plugin-lexer-keyword = { workspace = true }
-handl-plugin-lexer-line-comment = { workspace = true }
-handl-plugin-lexer-number = { workspace = true }
-handl-plugin-lexer-operator = { workspace = true }
-handl-plugin-lexer-string = { workspace = true }
-handl-plugin-lexer-template = { workspace = true }
+# Data-driven runtime path.
+handl-kit-data-canonical = { workspace = true }
+handl-runtime = { workspace = true }
+handl-language = { workspace = true }
+
+# Platform types (AstNode, Span, PlatformError).
 handl-platform = { workspace = true }
+
+# Serialization.
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"
 
-handl-plugin-ext-lexer = { path = "../plugin-ext-lexer" }
-handl-plugin-ext-parser = { path = "../plugin-ext-parser" }
-handl-plugin-ext-build = { path = "../plugin-ext-build" }
-handl-plugin-ext-compile = { path = "../plugin-ext-compile" }
-handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
-handl-plugin-ext-lint = { path = "../plugin-ext-lint" }
-handl-plugin-target-native = { path = "../plugin-target-native" }
-
-handl-plugin-eval-hello = { path = "../plugin-eval-hello" }
-handl-plugin-eval-json = { path = "../plugin-eval-json" }
-
-# New eval/exec/module plugins (ADR 0040 steps 3-8).
-handl-plugin-eval-core = { path = "../plugin-eval-core" }
-handl-plugin-eval-value = { path = "../plugin-eval-value" }
-handl-plugin-eval-call = { path = "../plugin-eval-call" }
-handl-plugin-eval-array = { path = "../plugin-eval-array" }
-handl-plugin-eval-object = { path = "../plugin-eval-object" }
-handl-plugin-eval-index = { path = "../plugin-eval-index" }
-handl-plugin-eval-field-access = { path = "../plugin-eval-field-access" }
-handl-plugin-eval-handle = { path = "../plugin-eval-handle" }
-handl-plugin-eval-assign = { path = "../plugin-eval-assign" }
-handl-plugin-eval-function = { path = "../plugin-eval-function" }
-handl-plugin-eval-match = { path = "../plugin-eval-match" }
-handl-plugin-exec-max-depth = { path = "../plugin-exec-max-depth" }
-handl-plugin-exec-max-calls = { path = "../plugin-exec-max-calls" }
-handl-plugin-module = { path = "../plugin-module" }
-
-handl-plugin-ast-apply = { path = "../plugin-ast-apply" }
-handl-plugin-ast-array = { path = "../plugin-ast-array" }
-handl-plugin-ast-assign = { path = "../plugin-ast-assign" }
-handl-plugin-ast-call = { workspace = true }
-handl-plugin-ast-handle = { path = "../plugin-ast-handle" }
-handl-plugin-ast-handl-value = { workspace = true }
-handl-plugin-ast-index = { path = "../plugin-ast-index" }
-handl-plugin-ast-let = { path = "../plugin-ast-let" }
-handl-plugin-ast-match = { path = "../plugin-ast-match" }
-handl-plugin-ast-object = { path = "../plugin-ast-object" }
-handl-plugin-ast-pipe = { path = "../plugin-ast-pipe" }
-handl-plugin-ast-stmt-export = { workspace = true }
-handl-plugin-ast-stmt-import = { workspace = true }
-handl-plugin-ast-stmt-module = { workspace = true }
-handl-plugin-ast-var = { path = "../plugin-ast-var" }
-
-handl-plugin-grammar-apply = { path = "../plugin-grammar-apply" }
-handl-plugin-grammar-array = { path = "../plugin-grammar-array" }
-handl-plugin-grammar-arith = { path = "../plugin-grammar-arith" }
-handl-plugin-grammar-assign = { path = "../plugin-grammar-assign" }
-handl-plugin-grammar-call = { workspace = true }
-handl-plugin-grammar-cmp = { path = "../plugin-grammar-cmp" }
-handl-plugin-grammar-handle = { path = "../plugin-grammar-handle" }
-handl-plugin-grammar-index = { path = "../plugin-grammar-index" }
-handl-plugin-grammar-infix-fanout = { path = "../plugin-grammar-infix-fanout" }
-handl-plugin-grammar-infix-flow = { path = "../plugin-grammar-infix-flow" }
-handl-plugin-grammar-let = { path = "../plugin-grammar-let" }
-handl-plugin-grammar-primary-identifier = { workspace = true }
-handl-plugin-grammar-primary-value = { workspace = true }
-handl-plugin-grammar-match = { path = "../plugin-grammar-match" }
-handl-plugin-grammar-object = { path = "../plugin-grammar-object" }
-handl-plugin-grammar-pipe = { path = "../plugin-grammar-pipe" }
-handl-plugin-grammar-function-literal = { path = "../plugin-grammar-function-literal" }
-handl-plugin-grammar-template = { path = "../plugin-grammar-template" }
-handl-plugin-grammar-type-annot = { path = "../plugin-grammar-type-annot" }
-
-handl-plugin-grammar-stmt-let = { path = "../plugin-grammar-stmt-let" }
-handl-plugin-grammar-stmt-const = { path = "../plugin-grammar-stmt-const" }
-handl-plugin-grammar-stmt-import = { path = "../plugin-grammar-stmt-import" }
-handl-plugin-grammar-stmt-export = { path = "../plugin-grammar-stmt-export" }
-handl-plugin-grammar-stmt-module = { path = "../plugin-grammar-stmt-module" }
-
-handl-plugin-token-bool = { path = "../plugin-token-bool" }
-handl-plugin-token-comment = { path = "../plugin-token-comment" }
-handl-plugin-token-doc-comment = { path = "../plugin-token-doc-comment" }
-handl-plugin-token-delimiter = { path = "../plugin-token-delimiter" }
-handl-plugin-token-identifier = { path = "../plugin-token-identifier" }
-handl-plugin-token-keyword-as = { path = "../plugin-token-keyword-as" }
-handl-plugin-token-keyword-handle = { path = "../plugin-token-keyword-handle" }
-handl-plugin-token-keyword = { path = "../plugin-token-keyword" }
-handl-plugin-token-null = { path = "../plugin-token-null" }
-handl-plugin-token-number = { workspace = true }
-handl-plugin-token-operator = { path = "../plugin-token-operator" }
-handl-plugin-token-string = { path = "../plugin-token-string" }
-handl-plugin-token-kind = { workspace = true }
-handl-plugin-grammar-textmate = { workspace = true }
-
-# Format and lint behavior plugins (ADR-0034 P1.3)
-handl-plugin-fmt-trivia = { path = "../plugin-fmt-trivia" }
-handl-plugin-fmt-stmt = { path = "../plugin-fmt-stmt" }
-handl-plugin-diag-expression = { path = "../plugin-diag-expression" }
-handl-plugin-diag-core = { path = "../plugin-diag-core" }
-
-handl-plugin-load = { path = "../plugin-load" }
-handl-plugin-loader-native = { path = "../plugin-loader-native" }
-handl-plugin-loader-wasm = { path = "../plugin-loader-wasm" }
+[dev-dependencies]
+criterion = "0.5"

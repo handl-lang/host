@@ -1,9 +1,34 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
-use handl_plugin_diag_core::Diagnostic;
 use handl_platform::{PlatformError, Plugin};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
+
+/// A diagnostic message with severity and optional source span.
+///
+/// This is a local replacement for the former `handl_plugin_diag_core::Diagnostic`
+/// type, kept here so the `ToolingHost::diagnose` API remains stable while the
+/// old plugin-diag-core crate is removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostic {
+    /// Severity level.
+    pub level: DiagnosticLevel,
+    /// Diagnostic message.
+    pub message: String,
+    /// Optional source span (byte offsets).
+    pub span: Option<handl_platform::Span>,
+}
+
+/// Severity of a diagnostic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticLevel {
+    /// Error-level diagnostic.
+    Error,
+    /// Warning-level diagnostic.
+    Warning,
+    /// Info-level diagnostic.
+    Info,
+}
 
 pub mod command;
 

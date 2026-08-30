@@ -1,0 +1,19 @@
+[package]
+name = "handl-defining-handl"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+handl-kit-data-canonical = { workspace = true }
+handl-runtime = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-plugin-engine-eval-cranelift = { workspace = true }
+handl-test-utils = { workspace = true }

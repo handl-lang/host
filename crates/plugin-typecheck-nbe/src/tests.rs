@@ -199,6 +199,66 @@ fn synth_universe_and_literal() {
 }
 
 #[test]
+fn language_value_synth_and_round_trip() {
+    // ADR-0041 Phase 2: `Language` is a first-class value. A language handle
+    // synthesizes to `type.language`, evals to a `Value::Language`, quotes
+    // back to a `Term::Language`, and two equal handles unify.
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = TCtx::new();
+
+    // synth: Term::Language("handl") : type.language
+    let ty = synth(&mut ctx, &env, &tctx, &language("handl")).unwrap();
+    assert_eq!(
+        quote(&ty, &[]),
+        Term::Collection(Name::new("type.language")),
+        "a Language value synthesizes to type.language"
+    );
+
+    // eval: Term::Language -> Value::Language (handle preserved)
+    let v = eval(&language("handl"), &env);
+    assert_eq!(v, Value::Language(Name::new("handl")));
+
+    // quote: Value::Language -> Term::Language (round-trips)
+    assert_eq!(quote(&v, &[]), language("handl"));
+
+    // normalize is identity on the leaf
+    assert_eq!(normalize(&language("handl")), language("handl"));
+}
+
+#[test]
+fn language_values_unify_by_handle() {
+    let mut ctx = MetaContext::new();
+    // Equal handles unify.
+    assert!(unify(
+        &mut ctx,
+        &Value::Language(Name::new("handl")),
+        &Value::Language(Name::new("handl"))
+    )
+    .is_ok());
+    // Distinct handles do not unify.
+    assert!(unify(
+        &mut ctx,
+        &Value::Language(Name::new("handl")),
+        &Value::Language(Name::new("json"))
+    )
+    .is_err());
+}
+
+#[test]
+fn language_value_checks_against_type_language() {
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = TCtx::new();
+    let ty = Value::Collection(Name::new("type.language"));
+    // A language handle checks against `type.language`.
+    assert!(check(&mut ctx, &env, &tctx, &language("handl"), &ty).is_ok());
+    // A language handle does not check against an unrelated collection.
+    let wrong = Value::Collection(Name::new("type.number"));
+    assert!(check(&mut ctx, &env, &tctx, &language("handl"), &wrong).is_err());
+}
+
+#[test]
 fn synth_variable() {
     let mut ctx = MetaContext::new();
     let tctx = TCtx::new().extend(Name::new("x"), named_ty("Bool"));

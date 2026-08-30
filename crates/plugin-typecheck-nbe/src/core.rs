@@ -340,6 +340,11 @@ pub enum Term {
     Literal(Literal),
     /// Base collection (e.g. `type.number`).
     Collection(Name),
+    /// A first-class `Language` value (ADR-0041 Phase 2): an opaque handle
+    /// naming a `Language` registered with the runtime. The handle is a leaf
+    /// value; the runtime resolves it to the structured
+    /// `handl_language::Language` data when `eval`/`self`/`compile` is called.
+    Language(Name),
     /// Membership type `T(x)`.
     Membership {
         value: Box<Term>,
@@ -448,6 +453,9 @@ pub enum Value {
     Literal(Literal),
     /// Base collection value (e.g. `type.number`).
     Collection(Name),
+    /// A first-class `Language` value (ADR-0041 Phase 2): an opaque handle
+    /// naming a `Language` registered with the runtime.
+    Language(Name),
     /// Membership type `T(x)`.
     Membership {
         value: Box<Value>,

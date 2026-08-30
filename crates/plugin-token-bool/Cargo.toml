@@ -1,8 +1,0 @@
-[package]
-name = "handl-plugin-token-bool"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lexer.workspace = true
-handl-plugin-grammar-textmate = { workspace = true }

@@ -302,7 +302,7 @@ register = "nonexistent.plugin.id"
         host.register_plugin(LoaderHostPlugin::default());
         host.register_plugin(
             DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap())
-                .with_fallback_kit("canonical"),
+                .with_fallback_kit("hello"),
         );
         let result = host.load();
         assert!(

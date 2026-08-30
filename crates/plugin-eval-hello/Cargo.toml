@@ -1,9 +1,0 @@
-[package]
-name = "handl-plugin-eval-hello"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lib-hello = { workspace = true }
-handl-platform = { workspace = true }
-serde_json = { workspace = true }

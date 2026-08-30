@@ -1,7 +1,0 @@
-[package]
-name = "handl-plugin-diag-core"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lexer = { workspace = true }

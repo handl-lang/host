@@ -1,0 +1,9 @@
+[package]
+name = "handl-emitter-tokens"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+serde_json = { workspace = true }

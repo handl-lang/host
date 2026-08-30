@@ -57,6 +57,7 @@ scripts/coverage.sh --clean               # clean stale artifacts first
 ```
 
 Notes:
+
 - Coverage builds disable incremental compilation (`CARGO_INCREMENTAL=0`).
 - The `fuzz/` workspace is separate and not covered by `--workspace`.
 - Outputs go to `coverage/` (gitignored). CI runs in `.github/workflows/coverage.yml`.

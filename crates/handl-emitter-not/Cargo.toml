@@ -1,0 +1,11 @@
+[package]
+name = "handl-emitter-not"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

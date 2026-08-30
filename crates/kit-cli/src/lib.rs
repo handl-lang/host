@@ -30,7 +30,6 @@
 //! host.load().unwrap();
 //! ```
 
-use handl_kit_canonical::CanonicalKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
@@ -88,10 +87,13 @@ impl Plugin for CliKit {
         }
         self.registered.store(true, Ordering::SeqCst);
 
-        ctx.register_plugin(CanonicalKit::new())?;
+        // Register ModuleRuntime so library plugins can register their modules.
+        ctx.register_plugin(handl_plugin_module::ModuleRuntime::default())?;
 
         // Concrete library plugins — these register modules (math, str, fs,
-        // json, etc.) into the ModuleRuntime that CanonicalKit provides.
+        // json, etc.) into the ModuleRuntime. The language operations (lexer,
+        // parser, evaluator) are now provided by the data-driven
+        // `handl-kit-canonical::Kit` backed by `handl-runtime`.
         ctx.register_plugin(handl_plugin_lib_os_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin)?;

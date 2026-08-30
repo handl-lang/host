@@ -24,16 +24,6 @@ members = [
   "crates/kit-cli",
   "crates/kit-hello",
   "crates/plugin-lexer",
-  "crates/plugin-lexer-common",
-  "crates/plugin-lexer-ident",
-  "crates/plugin-lexer-number",
-  "crates/plugin-lexer-string",
-  "crates/plugin-lexer-template",
-  "crates/plugin-lexer-operator",
-  "crates/plugin-lexer-delimiter",
-  "crates/plugin-lexer-keyword",
-  "crates/plugin-lexer-line-comment",
-  "crates/plugin-lexer-block-comment",
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-wasm",
@@ -87,85 +77,14 @@ members = [
   "crates/plugin-parser",
   "crates/plugin-applier",
   "crates/platform",
-  "crates/plugin-ast-apply",
-  "crates/plugin-ast-array",
-  "crates/plugin-ast-assign",
-  "crates/plugin-ast-call",
-  "crates/plugin-ast-field-access",
-  "crates/plugin-ast-function",
-  "crates/plugin-ast-handle",
-  "crates/plugin-ast-handl",
-  "crates/plugin-ast-handl-value",
-  "crates/plugin-ast-index",
-  "crates/plugin-ast-let",
-  "crates/plugin-ast-match",
-  "crates/plugin-ast-object",
-  "crates/plugin-ast-pipe",
-  "crates/plugin-ast-stmt-export",
-  "crates/plugin-ast-stmt-import",
-  "crates/plugin-ast-stmt-module",
-  "crates/plugin-ast-var",
-  "crates/plugin-diag-core",
   "crates/plugin-diag-expression",
   "crates/plugin-fmt-expression",
   "crates/plugin-fmt-stmt",
   "crates/plugin-fmt-trivia",
-  "crates/plugin-grammar-apply",
-  "crates/plugin-grammar-array",
-  "crates/plugin-grammar-arith",
-  "crates/plugin-grammar-assign",
-  "crates/plugin-grammar-call",
-  "crates/plugin-grammar-cmp",
-  "crates/plugin-grammar-function-literal",
-  "crates/plugin-grammar-handle",
-  "crates/plugin-grammar-index",
-  "crates/plugin-grammar-infix-assign",
-  "crates/plugin-grammar-infix-fanout",
-  "crates/plugin-grammar-infix-flow",
-  "crates/plugin-grammar-infix-pipe",
-  "crates/plugin-grammar-infix-ternary",
-  "crates/plugin-grammar-let",
-  "crates/plugin-grammar-match",
-  "crates/plugin-grammar-object",
-  "crates/plugin-grammar-pipe",
-  "crates/plugin-grammar-template",
-  "crates/plugin-grammar-textmate",
-  "crates/plugin-grammar-postfix-call",
-  "crates/plugin-grammar-postfix-field",
-  "crates/plugin-grammar-postfix-index",
-  "crates/plugin-grammar-postfix-mood",
-  "crates/plugin-grammar-primary-array",
-  "crates/plugin-grammar-primary-handle",
-  "crates/plugin-grammar-primary-identifier",
-  "crates/plugin-grammar-primary-match",
-  "crates/plugin-grammar-primary-not",
-  "crates/plugin-grammar-primary-object",
-  "crates/plugin-grammar-primary-paren",
-  "crates/plugin-grammar-primary-typeof",
-  "crates/plugin-grammar-primary-value",
-  "crates/plugin-grammar-stmt-const",
-  "crates/plugin-grammar-stmt-export",
-  "crates/plugin-grammar-stmt-import",
-  "crates/plugin-grammar-stmt-let",
-  "crates/plugin-grammar-stmt-module",
-  "crates/plugin-grammar-type-annot",
   "crates/plugin-lsp-completion",
   "crates/plugin-lsp-goto",
   "crates/plugin-lsp-symbol",
   "crates/plugin-target-native-example",
-  "crates/plugin-eval-hello",
-  "crates/plugin-eval-json",
-  "crates/plugin-eval-core",
-  "crates/plugin-eval-value",
-  "crates/plugin-eval-array",
-  "crates/plugin-eval-object",
-  "crates/plugin-eval-match",
-  "crates/plugin-eval-index",
-  "crates/plugin-eval-field-access",
-  "crates/plugin-eval-assign",
-  "crates/plugin-eval-function",
-  "crates/plugin-eval-call",
-  "crates/plugin-eval-handle",
   "crates/plugin-exec-cache",
   "crates/plugin-exec-trace",
   "crates/plugin-exec-counter",
@@ -176,19 +95,6 @@ members = [
   "crates/plugin-exec-max-depth",
   "crates/plugin-exec-max-calls",
   "crates/plugin-module",
-  "crates/plugin-token-bool",
-  "crates/plugin-token-comment",
-  "crates/plugin-token-doc-comment",
-  "crates/plugin-token-delimiter",
-  "crates/plugin-token-identifier",
-  "crates/plugin-token-keyword",
-  "crates/plugin-token-keyword-as",
-  "crates/plugin-token-keyword-handle",
-  "crates/plugin-token-null",
-  "crates/plugin-token-number",
-  "crates/plugin-token-operator",
-  "crates/plugin-token-string",
-  "crates/plugin-token-kind",
   "crates/plugin-typecheck-core",
   "crates/plugin-source",
   "crates/plugin-target-native",
@@ -202,6 +108,60 @@ members = [
   "crates/crate-ecma402-traits",
   "crates/crate-icu4x-extra",
   "crates/handl-test-utils",
+  "crates/handl-language",
+  "crates/plugin-engine-lex",
+  "crates/plugin-engine-lex-pattern",
+  "crates/plugin-engine-parse",
+  "crates/plugin-engine-eval",
+  "crates/plugin-engine-parse-pratt",
+  "crates/plugin-engine-eval-tree-walk",
+  "crates/plugin-engine-eval-bytecode",
+  "crates/plugin-engine-eval-cranelift",
+  "crates/handl-runtime",
+  "crates/handl-emitters",
+  "crates/handl-emitter-identifier",
+  "crates/handl-emitter-value",
+  "crates/handl-emitter-arith",
+  "crates/handl-emitter-let",
+  "crates/handl-emitter-call",
+  "crates/handl-emitter-branch",
+  "crates/handl-emitter-function",
+  "crates/handl-emitter-tokens",
+  "crates/handl-emitter-cmp",
+  "crates/handl-emitter-assign",
+  "crates/handl-emitter-pipe",
+  "crates/handl-emitter-flow",
+  "crates/handl-emitter-fanout",
+  "crates/handl-emitter-ternary",
+  "crates/handl-emitter-not",
+  "crates/handl-emitter-paren",
+  "crates/handl-emitter-typeof",
+  "crates/handl-emitter-array",
+  "crates/handl-emitter-object",
+  "crates/handl-emitter-match",
+  "crates/handl-emitter-handle",
+  "crates/handl-emitter-postfix-call",
+  "crates/handl-emitter-postfix-field",
+  "crates/handl-emitter-postfix-index",
+  "crates/handl-emitter-postfix-mood",
+  "crates/handl-emitter-apply",
+  "crates/handl-emitter-arrow",
+  "crates/handl-emitter-function-literal",
+  "crates/handl-emitter-stmt-const",
+  "crates/handl-emitter-stmt-export",
+  "crates/handl-emitter-stmt-import",
+  "crates/handl-emitter-stmt-let",
+  "crates/handl-emitter-stmt-module",
+  "crates/handl-emitter-template",
+  "crates/handl-emitter-textmate",
+  "crates/handl-emitter-type-annot",
+  "crates/handl-kit-data",
+  "crates/handl-kit-data-canonical",
+  "crates/handl-kit-data-config",
+  "crates/handl-emitter-eval-core",
+  "crates/handl-emitter-eval-hello",
+  "crates/handl-emitter-eval-json",
+  "crates/handl-defining-handl",
 ]
 resolver = "3"
 
@@ -226,6 +186,10 @@ pass-lang = "1"
 driver-lang = "1"
 libloading = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
+cranelift = { version = "0.115", features = ["frontend", "native"] }
+cranelift-module = "0.115"
+cranelift-jit = "0.115"
+cranelift-object = "0.115"
 
 handl-plugin-ast = { path = "crates/plugin-ast" }
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
@@ -247,16 +211,6 @@ handl-kit-canonical = { path = "crates/kit-canonical" }
 handl-kit-cli = { path = "crates/kit-cli" }
 handl-kit-hello = { path = "crates/kit-hello" }
 handl-plugin-lexer = { path = "crates/plugin-lexer" }
-handl-plugin-lexer-common = { path = "crates/plugin-lexer-common" }
-handl-plugin-lexer-ident = { path = "crates/plugin-lexer-ident" }
-handl-plugin-lexer-number = { path = "crates/plugin-lexer-number" }
-handl-plugin-lexer-string = { path = "crates/plugin-lexer-string" }
-handl-plugin-lexer-template = { path = "crates/plugin-lexer-template" }
-handl-plugin-lexer-operator = { path = "crates/plugin-lexer-operator" }
-handl-plugin-lexer-delimiter = { path = "crates/plugin-lexer-delimiter" }
-handl-plugin-lexer-keyword = { path = "crates/plugin-lexer-keyword" }
-handl-plugin-lexer-line-comment = { path = "crates/plugin-lexer-line-comment" }
-handl-plugin-lexer-block-comment = { path = "crates/plugin-lexer-block-comment" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
@@ -309,85 +263,14 @@ handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
 handl-plugin-parser = { path = "crates/plugin-parser" }
 handl-platform = { path = "crates/platform" }
-handl-plugin-ast-apply = { path = "crates/plugin-ast-apply" }
-handl-plugin-ast-array = { path = "crates/plugin-ast-array" }
-handl-plugin-ast-assign = { path = "crates/plugin-ast-assign" }
-handl-plugin-ast-call = { path = "crates/plugin-ast-call" }
-handl-plugin-ast-field-access = { path = "crates/plugin-ast-field-access" }
-handl-plugin-ast-function = { path = "crates/plugin-ast-function" }
-handl-plugin-ast-handle = { path = "crates/plugin-ast-handle" }
-handl-plugin-ast-handl = { path = "crates/plugin-ast-handl" }
-handl-plugin-ast-handl-value = { path = "crates/plugin-ast-handl-value" }
-handl-plugin-ast-index = { path = "crates/plugin-ast-index" }
-handl-plugin-ast-let = { path = "crates/plugin-ast-let" }
-handl-plugin-ast-match = { path = "crates/plugin-ast-match" }
-handl-plugin-ast-object = { path = "crates/plugin-ast-object" }
-handl-plugin-ast-pipe = { path = "crates/plugin-ast-pipe" }
-handl-plugin-ast-stmt-export = { path = "crates/plugin-ast-stmt-export" }
-handl-plugin-ast-stmt-import = { path = "crates/plugin-ast-stmt-import" }
-handl-plugin-ast-stmt-module = { path = "crates/plugin-ast-stmt-module" }
-handl-plugin-ast-var = { path = "crates/plugin-ast-var" }
-handl-plugin-diag-core = { path = "crates/plugin-diag-core" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
 handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
 handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
-handl-plugin-grammar-apply = { path = "crates/plugin-grammar-apply" }
-handl-plugin-grammar-array = { path = "crates/plugin-grammar-array" }
-handl-plugin-grammar-arith = { path = "crates/plugin-grammar-arith" }
-handl-plugin-grammar-assign = { path = "crates/plugin-grammar-assign" }
-handl-plugin-grammar-call = { path = "crates/plugin-grammar-call" }
-handl-plugin-grammar-cmp = { path = "crates/plugin-grammar-cmp" }
-handl-plugin-grammar-function-literal = { path = "crates/plugin-grammar-function-literal" }
-handl-plugin-grammar-handle = { path = "crates/plugin-grammar-handle" }
-handl-plugin-grammar-index = { path = "crates/plugin-grammar-index" }
-handl-plugin-grammar-infix-assign = { path = "crates/plugin-grammar-infix-assign" }
-handl-plugin-grammar-infix-fanout = { path = "crates/plugin-grammar-infix-fanout" }
-handl-plugin-grammar-infix-flow = { path = "crates/plugin-grammar-infix-flow" }
-handl-plugin-grammar-infix-pipe = { path = "crates/plugin-grammar-infix-pipe" }
-handl-plugin-grammar-infix-ternary = { path = "crates/plugin-grammar-infix-ternary" }
-handl-plugin-grammar-let = { path = "crates/plugin-grammar-let" }
-handl-plugin-grammar-match = { path = "crates/plugin-grammar-match" }
-handl-plugin-grammar-object = { path = "crates/plugin-grammar-object" }
-handl-plugin-grammar-pipe = { path = "crates/plugin-grammar-pipe" }
-handl-plugin-grammar-template = { path = "crates/plugin-grammar-template" }
-handl-plugin-grammar-textmate = { path = "crates/plugin-grammar-textmate" }
-handl-plugin-grammar-postfix-call = { path = "crates/plugin-grammar-postfix-call" }
-handl-plugin-grammar-postfix-field = { path = "crates/plugin-grammar-postfix-field" }
-handl-plugin-grammar-postfix-index = { path = "crates/plugin-grammar-postfix-index" }
-handl-plugin-grammar-postfix-mood = { path = "crates/plugin-grammar-postfix-mood" }
-handl-plugin-grammar-primary-array = { path = "crates/plugin-grammar-primary-array" }
-handl-plugin-grammar-primary-handle = { path = "crates/plugin-grammar-primary-handle" }
-handl-plugin-grammar-primary-identifier = { path = "crates/plugin-grammar-primary-identifier" }
-handl-plugin-grammar-primary-match = { path = "crates/plugin-grammar-primary-match" }
-handl-plugin-grammar-primary-not = { path = "crates/plugin-grammar-primary-not" }
-handl-plugin-grammar-primary-object = { path = "crates/plugin-grammar-primary-object" }
-handl-plugin-grammar-primary-paren = { path = "crates/plugin-grammar-primary-paren" }
-handl-plugin-grammar-primary-typeof = { path = "crates/plugin-grammar-primary-typeof" }
-handl-plugin-grammar-primary-value = { path = "crates/plugin-grammar-primary-value" }
-handl-plugin-grammar-stmt-const = { path = "crates/plugin-grammar-stmt-const" }
-handl-plugin-grammar-stmt-export = { path = "crates/plugin-grammar-stmt-export" }
-handl-plugin-grammar-stmt-import = { path = "crates/plugin-grammar-stmt-import" }
-handl-plugin-grammar-stmt-let = { path = "crates/plugin-grammar-stmt-let" }
-handl-plugin-grammar-stmt-module = { path = "crates/plugin-grammar-stmt-module" }
-handl-plugin-grammar-type-annot = { path = "crates/plugin-grammar-type-annot" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
 handl-plugin-target-native-example = { path = "crates/plugin-target-native-example" }
-handl-plugin-eval-hello = { path = "crates/plugin-eval-hello" }
-handl-plugin-eval-json = { path = "crates/plugin-eval-json" }
-handl-plugin-eval-core = { path = "crates/plugin-eval-core" }
-handl-plugin-eval-value = { path = "crates/plugin-eval-value" }
-handl-plugin-eval-array = { path = "crates/plugin-eval-array" }
-handl-plugin-eval-object = { path = "crates/plugin-eval-object" }
-handl-plugin-eval-match = { path = "crates/plugin-eval-match" }
-handl-plugin-eval-index = { path = "crates/plugin-eval-index" }
-handl-plugin-eval-field-access = { path = "crates/plugin-eval-field-access" }
-handl-plugin-eval-assign = { path = "crates/plugin-eval-assign" }
-handl-plugin-eval-function = { path = "crates/plugin-eval-function" }
-handl-plugin-eval-call = { path = "crates/plugin-eval-call" }
-handl-plugin-eval-handle = { path = "crates/plugin-eval-handle" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
 handl-plugin-exec-trace = { path = "crates/plugin-exec-trace" }
 handl-plugin-exec-counter = { path = "crates/plugin-exec-counter" }
@@ -398,19 +281,6 @@ handl-plugin-exec-deny = { path = "crates/plugin-exec-deny" }
 handl-plugin-exec-max-depth = { path = "crates/plugin-exec-max-depth" }
 handl-plugin-exec-max-calls = { path = "crates/plugin-exec-max-calls" }
 handl-plugin-module = { path = "crates/plugin-module" }
-handl-plugin-token-bool = { path = "crates/plugin-token-bool" }
-handl-plugin-token-comment = { path = "crates/plugin-token-comment" }
-handl-plugin-token-doc-comment = { path = "crates/plugin-token-doc-comment" }
-handl-plugin-token-delimiter = { path = "crates/plugin-token-delimiter" }
-handl-plugin-token-identifier = { path = "crates/plugin-token-identifier" }
-handl-plugin-token-keyword = { path = "crates/plugin-token-keyword" }
-handl-plugin-token-keyword-as = { path = "crates/plugin-token-keyword-as" }
-handl-plugin-token-keyword-handle = { path = "crates/plugin-token-keyword-handle" }
-handl-plugin-token-null = { path = "crates/plugin-token-null" }
-handl-plugin-token-number = { path = "crates/plugin-token-number" }
-handl-plugin-token-operator = { path = "crates/plugin-token-operator" }
-handl-plugin-token-string = { path = "crates/plugin-token-string" }
-handl-plugin-token-kind = { path = "crates/plugin-token-kind" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-plugin-target-native = { path = "crates/plugin-target-native" }
@@ -420,7 +290,61 @@ handl-kit-server = { path = "crates/kit-server" }
 handl-kit-type = { path = "crates/kit-type" }
 handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
 handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
+handl-language = { path = "crates/handl-language" }
 handl-test-utils = { path = "crates/handl-test-utils" }
+handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
+handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
+handl-plugin-engine-eval = { path = "crates/plugin-engine-eval" }
+handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
+handl-plugin-engine-eval-tree-walk = { path = "crates/plugin-engine-eval-tree-walk" }
+handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode" }
+handl-plugin-engine-eval-cranelift = { path = "crates/plugin-engine-eval-cranelift" }
+handl-runtime = { path = "crates/handl-runtime" }
+handl-emitters = { path = "crates/handl-emitters" }
+handl-emitter-identifier = { path = "crates/handl-emitter-identifier" }
+handl-emitter-value = { path = "crates/handl-emitter-value" }
+handl-emitter-arith = { path = "crates/handl-emitter-arith" }
+handl-emitter-let = { path = "crates/handl-emitter-let" }
+handl-emitter-call = { path = "crates/handl-emitter-call" }
+handl-emitter-branch = { path = "crates/handl-emitter-branch" }
+handl-emitter-function = { path = "crates/handl-emitter-function" }
+handl-emitter-tokens = { path = "crates/handl-emitter-tokens" }
+handl-emitter-cmp = { path = "crates/handl-emitter-cmp" }
+handl-emitter-assign = { path = "crates/handl-emitter-assign" }
+handl-emitter-pipe = { path = "crates/handl-emitter-pipe" }
+handl-emitter-flow = { path = "crates/handl-emitter-flow" }
+handl-emitter-fanout = { path = "crates/handl-emitter-fanout" }
+handl-emitter-ternary = { path = "crates/handl-emitter-ternary" }
+handl-emitter-not = { path = "crates/handl-emitter-not" }
+handl-emitter-paren = { path = "crates/handl-emitter-paren" }
+handl-emitter-typeof = { path = "crates/handl-emitter-typeof" }
+handl-emitter-array = { path = "crates/handl-emitter-array" }
+handl-emitter-object = { path = "crates/handl-emitter-object" }
+handl-emitter-match = { path = "crates/handl-emitter-match" }
+handl-emitter-handle = { path = "crates/handl-emitter-handle" }
+handl-emitter-postfix-call = { path = "crates/handl-emitter-postfix-call" }
+handl-emitter-postfix-field = { path = "crates/handl-emitter-postfix-field" }
+handl-emitter-postfix-index = { path = "crates/handl-emitter-postfix-index" }
+handl-emitter-postfix-mood = { path = "crates/handl-emitter-postfix-mood" }
+handl-emitter-apply = { path = "crates/handl-emitter-apply" }
+handl-emitter-arrow = { path = "crates/handl-emitter-arrow" }
+handl-emitter-function-literal = { path = "crates/handl-emitter-function-literal" }
+handl-emitter-stmt-const = { path = "crates/handl-emitter-stmt-const" }
+handl-emitter-stmt-export = { path = "crates/handl-emitter-stmt-export" }
+handl-emitter-stmt-import = { path = "crates/handl-emitter-stmt-import" }
+handl-emitter-stmt-let = { path = "crates/handl-emitter-stmt-let" }
+handl-emitter-stmt-module = { path = "crates/handl-emitter-stmt-module" }
+handl-emitter-template = { path = "crates/handl-emitter-template" }
+handl-emitter-textmate = { path = "crates/handl-emitter-textmate" }
+handl-emitter-type-annot = { path = "crates/handl-emitter-type-annot" }
+handl-kit-data = { path = "crates/handl-kit-data" }
+handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
+handl-kit-data-config = { path = "crates/handl-kit-data-config" }
+handl-emitter-eval-core = { path = "crates/handl-emitter-eval-core" }
+handl-emitter-eval-hello = { path = "crates/handl-emitter-eval-hello" }
+handl-emitter-eval-json = { path = "crates/handl-emitter-eval-json" }
+handl-defining-handl = { path = "crates/handl-defining-handl" }
 
 [features]
 default = []

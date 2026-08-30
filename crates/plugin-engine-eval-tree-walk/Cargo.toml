@@ -1,0 +1,13 @@
+[package]
+name = "handl-plugin-engine-eval-tree-walk"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-test-utils = { workspace = true }
+serde_json = { workspace = true }

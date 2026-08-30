@@ -6,8 +6,11 @@ use serde::{Deserialize, Serialize};
 /// A manifest describing the plugins bundled in a kit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KitManifest {
+    /// The kit identifier.
     pub id: String,
+    /// The kit version.
     pub version: String,
+    /// The list of plugin ids included in this kit.
     pub plugins: Vec<String>,
 }
 

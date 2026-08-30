@@ -1,0 +1,21 @@
+[package]
+name = "handl-emitters"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
+handl-emitter-identifier = { workspace = true }
+handl-emitter-value = { workspace = true }
+handl-emitter-arith = { workspace = true }
+handl-emitter-let = { workspace = true }
+handl-emitter-call = { workspace = true }
+handl-emitter-branch = { workspace = true }
+handl-emitter-function = { workspace = true }

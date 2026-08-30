@@ -105,6 +105,7 @@ pub fn eval(term: &Term, env: &Env) -> Value {
         Term::Hole(h) => Value::Neutral(Neutral::Hole(*h)),
         Term::Literal(l) => Value::Literal(l.clone()),
         Term::Collection(name) => Value::Collection(name.clone()),
+        Term::Language(name) => Value::Language(name.clone()),
         Term::Membership { value, collection } => {
             eval_membership(eval(value, env), eval(collection, env))
         }
@@ -286,6 +287,7 @@ pub fn instantiate_tvar_value(value: &Value, name: &Name, replacement: &Value) -
         },
         Value::Literal(l) => Value::Literal(l.clone()),
         Value::Collection(name) => Value::Collection(name.clone()),
+        Value::Language(name) => Value::Language(name.clone()),
         Value::Membership { value, collection } => Value::Membership {
             value: Box::new(instantiate_tvar_value(value, name, replacement)),
             collection: Box::new(instantiate_tvar_value(collection, name, replacement)),
@@ -453,6 +455,7 @@ fn instantiate_tvar_term(term: &Term, name: &Name, replacement: &Value, names: &
         Term::Hole(_) => term.clone(),
         Term::Literal(_) => term.clone(),
         Term::Collection(name) => Term::Collection(name.clone()),
+        Term::Language(name) => Term::Language(name.clone()),
         Term::Membership { value, collection } => Term::Membership {
             value: Box::new(instantiate_tvar_term(value, name, replacement, names)),
             collection: Box::new(instantiate_tvar_term(collection, name, replacement, names)),
@@ -576,6 +579,7 @@ pub fn quote(value: &Value, names: &[Name]) -> Term {
         },
         Value::Literal(l) => Term::Literal(l.clone()),
         Value::Collection(name) => Term::Collection(name.clone()),
+        Value::Language(name) => Term::Language(name.clone()),
         Value::Membership { value, collection } => Term::Membership {
             value: Box::new(quote(value, names)),
             collection: Box::new(quote(collection, names)),

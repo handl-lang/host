@@ -1,4 +1,3 @@
-use handl_kit_canonical::CanonicalKit;
 use handl_kit_cli::CliKit;
 use handl_kit_config::ConfigKit;
 use handl_kit_hello::HelloKit;
@@ -199,10 +198,8 @@ impl Plugin for ManifestKit {
     }
 }
 
-/// A concrete kit plugin that wraps the built-in canonical and hello kits.
+/// A concrete kit plugin that wraps the built-in hello, cli, config, and server kits.
 pub enum BasicKit {
-    /// The canonical kit.
-    Canonical(CanonicalKit),
     /// The CLI kit.
     Cli(CliKit),
     /// The hello kit.
@@ -217,14 +214,13 @@ pub enum BasicKit {
 
 impl Default for BasicKit {
     fn default() -> Self {
-        Self::Canonical(CanonicalKit::new())
+        Self::Hello(HelloKit::new())
     }
 }
 
 impl Plugin for BasicKit {
     fn id(&self) -> &str {
         match self {
-            Self::Canonical(k) => k.id(),
             Self::Cli(k) => k.id(),
             Self::Hello(k) => k.id(),
             Self::Config(k) => k.id(),
@@ -235,7 +231,6 @@ impl Plugin for BasicKit {
 
     fn name(&self) -> &str {
         match self {
-            Self::Canonical(k) => k.name(),
             Self::Cli(k) => k.name(),
             Self::Hello(k) => k.name(),
             Self::Config(k) => k.name(),
@@ -254,7 +249,6 @@ impl Plugin for BasicKit {
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         match self {
-            Self::Canonical(k) => k.contribute(ctx),
             Self::Cli(k) => k.contribute(ctx),
             Self::Hello(k) => k.contribute(ctx),
             Self::Config(k) => k.contribute(ctx),
@@ -269,7 +263,6 @@ impl Plugin for BasicKit {
         ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
         match self {
-            Self::Canonical(k) => k.run(request, ctx),
             Self::Cli(k) => k.run(request, ctx),
             Self::Hello(k) => k.run(request, ctx),
             Self::Config(k) => k.run(request, ctx),
@@ -299,7 +292,6 @@ impl BasicKitLoaderPlugin {
         }
 
         match name_or_path {
-            "canonical" => Ok(BasicKit::Canonical(CanonicalKit::new())),
             "cli" => Ok(BasicKit::Cli(CliKit::new())),
             "hello" => Ok(BasicKit::Hello(HelloKit::new())),
             "config" => Ok(BasicKit::Config(ConfigKit::new())),

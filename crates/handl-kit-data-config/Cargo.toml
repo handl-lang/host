@@ -1,0 +1,14 @@
+[package]
+name = "handl-kit-data-config"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+handl-kit-data = { workspace = true }
+handl-kit-data-canonical = { workspace = true }
+handl-runtime = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

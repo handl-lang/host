@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::Kit;
-use handl_plugin_lexer::DefaultLexError;
+use handl_language::LangError;
 
 pub fn offset_to_position(text: &str, offset: usize) -> (u32, u32) {
     let mut offset = offset.min(text.len());
@@ -26,9 +26,9 @@ pub fn offset_to_position(text: &str, offset: usize) -> (u32, u32) {
     (line, col)
 }
 
-fn span_to_range(text: &str, span: handl_plugin_lexer::Span) -> Value {
-    let (start_line, start_char) = offset_to_position(text, span.start);
-    let (end_line, end_char) = offset_to_position(text, span.end);
+fn span_to_range(text: &str, start: usize, end: usize) -> Value {
+    let (start_line, start_char) = offset_to_position(text, start);
+    let (end_line, end_char) = offset_to_position(text, end);
     json!({
         "start": { "line": start_line, "character": start_char },
         "end": { "line": end_line, "character": end_char },
@@ -36,16 +36,27 @@ fn span_to_range(text: &str, span: handl_plugin_lexer::Span) -> Value {
 }
 
 pub fn collect_diagnostics(source: &str) -> Vec<Value> {
-    let kit = Kit::new();
+    let kit = match Kit::new() {
+        Ok(k) => k,
+        Err(e) => {
+            return vec![json!({
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 0, "character": 0 },
+                },
+                "severity": 1,
+                "message": e.to_string(),
+            })];
+        }
+    };
     match kit.lex(source) {
         Err(e) => {
-            let span = match e {
-                DefaultLexError::UnterminatedString { span } => span,
-                DefaultLexError::InvalidNumber { span } => span,
-                DefaultLexError::UnexpectedChar { span, .. } => span,
+            let (start, end) = match &e {
+                LangError::LexError { position, .. } => (*position, *position + 1),
+                _ => (0, 0),
             };
             vec![json!({
-                "range": span_to_range(source, span),
+                "range": span_to_range(source, start, end),
                 "severity": 1,
                 "message": e.to_string(),
             })]

@@ -112,6 +112,7 @@ impl Substitution {
             },
             Value::Literal(l) => Value::Literal(l.clone()),
             Value::Collection(name) => Value::Collection(name.clone()),
+            Value::Language(name) => Value::Language(name.clone()),
             Value::Membership { value, collection } => Value::Membership {
                 value: Box::new(self.apply_value(value)),
                 collection: Box::new(self.apply_value(collection)),
@@ -315,6 +316,7 @@ impl Substitution {
             Term::Hole(_) => term.clone(),
             Term::Literal(_) => term.clone(),
             Term::Collection(name) => Term::Collection(name.clone()),
+            Term::Language(name) => Term::Language(name.clone()),
             Term::Membership { value, collection } => Term::Membership {
                 value: Box::new(self.apply_term(value, names)),
                 collection: Box::new(self.apply_term(collection, names)),
@@ -500,6 +502,16 @@ pub fn unify(ctx: &mut MetaContext, lhs: &Value, rhs: &Value) -> Result<(), Unif
             }
         }
         (Value::Null, Value::Null) => Ok(()),
+        (Value::Language(a), Value::Language(b)) => {
+            if a == b {
+                Ok(())
+            } else {
+                Err(UnificationError::Mismatch(
+                    format!("language {}", a),
+                    format!("language {}", b),
+                ))
+            }
+        }
         (Value::Array(a1), Value::Array(a2)) => {
             if a1.len() != a2.len() {
                 return Err(UnificationError::Mismatch(
@@ -696,6 +708,7 @@ fn occurs_check(ctx: &MetaContext, m: MetaVar, value: &Value) -> bool {
         }
         Value::Pair { fst, snd } => occurs_check(ctx, m, fst) || occurs_check(ctx, m, snd),
         Value::Collection(_) => false,
+        Value::Language(_) => false,
         Value::Membership { value, collection } => {
             occurs_check(ctx, m, value) || occurs_check(ctx, m, collection)
         }
@@ -744,6 +757,7 @@ fn occurs_check_tvar(ctx: &MetaContext, name: &Name, value: &Value) -> bool {
             occurs_check_tvar(ctx, name, fst) || occurs_check_tvar(ctx, name, snd)
         }
         Value::Collection(_) => false,
+        Value::Language(_) => false,
         Value::Membership { value, collection } => {
             occurs_check_tvar(ctx, name, value) || occurs_check_tvar(ctx, name, collection)
         }
@@ -868,6 +882,7 @@ fn occurs_check_term(ctx: &MetaContext, m: MetaVar, term: &Term) -> bool {
             }
         }
         Term::Collection(_) => false,
+        Term::Language(_) => false,
         Term::Membership { value, collection } => {
             occurs_check_term(ctx, m, value) || occurs_check_term(ctx, m, collection)
         }
@@ -940,6 +955,7 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
         }
         Term::Proj1(e) | Term::Proj2(e) => occurs_check_term_tvar(ctx, name, e),
         Term::Collection(_) => false,
+        Term::Language(_) => false,
         Term::Membership { value, collection } => {
             occurs_check_term_tvar(ctx, name, value)
                 || occurs_check_term_tvar(ctx, name, collection)

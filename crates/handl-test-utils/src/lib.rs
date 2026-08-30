@@ -37,6 +37,9 @@ use handl_platform::{
 };
 use handl_plugin_module::ModuleRegistry;
 
+/// Conformance test harness for `plugin-engine-*` engines (ADR-0044).
+pub mod conformance;
+
 /// Closure type backing [`MockFunction`] and [`CaptureFnWithHandler`].
 type FnHandler = Box<dyn Fn(&[Value], &mut EvalContext) -> Result<Value, EvalError> + Send + Sync>;
 

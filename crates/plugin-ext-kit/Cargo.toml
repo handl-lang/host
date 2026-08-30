@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
-handl-kit-canonical = { workspace = true }
 handl-kit-cli = { workspace = true }
 handl-kit-hello = { workspace = true }
 handl-kit-config = { workspace = true }

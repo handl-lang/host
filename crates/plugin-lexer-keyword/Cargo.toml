@@ -1,8 +1,0 @@
-[package]
-name = "handl-plugin-lexer-keyword"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-plugin-lexer.workspace = true
-handl-plugin-lexer-ident.workspace = true

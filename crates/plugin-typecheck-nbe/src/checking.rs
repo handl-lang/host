@@ -168,6 +168,7 @@ pub fn synth(
             Ok(fty)
         }
         Term::Collection(_) => Ok(Value::Universe(Level::zero())),
+        Term::Language(_) => Ok(Value::Collection(Name::new("type.language"))),
         Term::Membership { .. } => Ok(Value::Universe(Level::zero())),
         // TODO(ADR0032): We synthesize the unreduced `Membership` value here.
         // The unification of `Value::Membership` with `Value::IsEvidence` for
@@ -502,6 +503,16 @@ pub fn check(
                 Err(TypeError::TypeMismatch {
                     expected: format!("member of {}", name),
                     found: "null".into(),
+                })
+            }
+        }
+        (Term::Language(n), Value::Collection(name)) => {
+            if name.0.as_str() == "type.language" {
+                Ok(())
+            } else {
+                Err(TypeError::TypeMismatch {
+                    expected: format!("member of {}", name),
+                    found: format!("language {}", n),
                 })
             }
         }

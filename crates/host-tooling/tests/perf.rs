@@ -5,10 +5,41 @@
 use std::time::{Duration, Instant};
 
 use handl_host_tooling::ToolingHost;
-use handl_kit_canonical::CanonicalKit;
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
 
-fn host() -> ToolingHost<CanonicalKit> {
-    ToolingHost::new(CanonicalKit::new())
+/// Minimal stub kit plugin (replaces the removed `CanonicalKit`).
+struct StubKit;
+
+impl Plugin for StubKit {
+    fn id(&self) -> &str {
+        "stub.kit"
+    }
+    fn name(&self) -> &str {
+        "stub-kit"
+    }
+    fn capabilities(&self) -> &[CapabilityId] {
+        &[]
+    }
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+    fn contribute(&self, _ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        Ok(())
+    }
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+fn host() -> ToolingHost<StubKit> {
+    ToolingHost::new(StubKit)
 }
 
 fn pipe_expr(n: usize) -> String {

@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
-handl-kit-canonical = { workspace = true }
+handl-plugin-module = { workspace = true }
 handl-plugin-lib-utils.workspace = true
 handl-plugin-lib-cmp.workspace = true
 handl-plugin-lib-crypto.workspace = true

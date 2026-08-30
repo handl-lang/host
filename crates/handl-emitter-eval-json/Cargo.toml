@@ -1,0 +1,13 @@
+[package]
+name = "handl-emitter-eval-json"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+handl-emitters = { workspace = true }
+handl-language = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,230 @@
+//! # handl-plugin-engine-eval
+//!
+//! The **abstraction** crate for the eval operation (ADR-0044 §3, §4, §7).
+//!
+//! Splits `plugin-ext-eval` into an abstraction (operation marker + trait,
+//! no engine) and an engine crate (`plugin-engine-eval-tree-walk`). This
+//! crate defines the `Eval` operation marker, [`EvalRequest`], the
+//! [`EvalEngine`] trait, and the [`HostFunctions`]/[`HostFn`] traits that form
+//! the bridge for `Foreign` scheme dispatch (ADR-0044 §7 "Foreign host-function
+//! registration"). **No interpreter code lives here** — the abstraction is the
+//! contract; the tree-walk (or bytecode/cranelift) engine implements it.
+//!
+//! Engines consume [`handl_language::Language`] **data** — they look up
+//! `lang.eval[node.kind]` to find a [`handl_language::Scheme`] and interpret
+//! it, not match on a static Rust enum of canonical kinds.
+
+#![warn(missing_docs)]
+
+use handl_language::{Ast, LangError, Language, Value};
+
+/// The eval operation marker.
+///
+/// A zero-sized type identifying the eval stage. It carries no state; its
+/// purpose is to namespace the eval abstraction and pair with
+/// [`EvalRequest`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Eval;
+
+/// Request passed to an [`EvalEngine`].
+///
+/// Carries the [`Ast`] to evaluate plus a serializable options map. The
+/// options are opaque to this crate — a concrete engine interprets them
+/// against the `Language`'s `options` fragment set.
+#[derive(Debug, Clone, Default)]
+pub struct EvalRequest {
+    /// The AST to evaluate.
+    pub ast: Ast,
+    /// Engine-specific options (opaque key/value pairs).
+    pub options: serde_json::Value,
+}
+
+impl EvalRequest {
+    /// Create a new request from an `Ast` with no options.
+    pub fn new(ast: Ast) -> Self {
+        Self {
+            ast,
+            options: serde_json::Value::Null,
+        }
+    }
+
+    /// Attach an options value (builder style).
+    pub fn with_options(mut self, options: serde_json::Value) -> Self {
+        self.options = options;
+        self
+    }
+}
+
+/// The trait an eval engine implements.
+///
+/// An engine looks up `lang.eval[node.kind]` →
+/// [`handl_language::EvalSchemeDef`] → [`handl_language::Scheme`] and
+/// interprets the scheme. The engine is pure data-driven: it does not match on
+/// a static `CanonicalKind` enum.
+///
+/// # Errors
+///
+/// Returns [`LangError`] on evaluation failure (unknown variable, unknown
+/// primitive, unregistered foreign function, etc.).
+pub trait EvalEngine {
+    /// Evaluate `req.ast` into a [`Value`] using the language's eval schemes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on failure.
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError>;
+}
+
+/// A registry of host functions, looked up by name.
+///
+/// This is the bridge the tree-walk (and other engines) use to resolve
+/// [`handl_language::Scheme::Foreign`] — a `Foreign(name)` scheme looks up
+/// `name` in the host functions registry and calls it. These are runtime-only
+/// types (not serializable); a `Runtime` (Phase 3) owns the concrete
+/// registry and passes it to the engine.
+///
+/// See ADR-0044 §7 "Foreign host-function registration".
+pub trait HostFunctions {
+    /// Look up a host function by name.
+    fn lookup(&self, name: &str) -> Option<&dyn HostFn>;
+}
+
+/// A single host function callable by an engine.
+///
+/// Engines call `HostFn::call` when interpreting a
+/// [`handl_language::Scheme::Foreign`] scheme, passing the evaluated argument
+/// values.
+pub trait HostFn {
+    /// Call this host function with the given argument values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on failure (e.g. wrong argument count or types).
+    fn call(&self, args: &[Value]) -> Result<Value, LangError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_language::{Ast, AstNode};
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    #[test]
+    fn eval_marker_constructs() {
+        let _ = Eval;
+        let e1 = Eval;
+        let e2 = Eval;
+        assert_eq!(e1, e2);
+        let e3 = Eval::default();
+        assert_eq!(e1, e3);
+    }
+
+    #[test]
+    fn eval_request_new_from_ast() {
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("lit"));
+        let req = EvalRequest::new(ast);
+        assert_eq!(req.ast.len(), 1);
+        assert_eq!(req.options, serde_json::Value::Null);
+    }
+
+    #[test]
+    fn eval_request_with_options() {
+        let req = EvalRequest::new(Ast::new()).with_options(json!({"max_depth": 100}));
+        assert_eq!(req.options, json!({"max_depth": 100}));
+    }
+
+    /// A stub engine that returns `NotImplemented`, used to verify trait
+    /// dispatch shape.
+    struct StubEval;
+
+    impl EvalEngine for StubEval {
+        fn eval(&self, _lang: &Language, _req: &EvalRequest) -> Result<Value, LangError> {
+            Err(LangError::NotImplemented)
+        }
+    }
+
+    #[test]
+    fn trait_dispatch_returns_engine_result() {
+        let engine = StubEval;
+        let lang = Language::new();
+        let req = EvalRequest::new(Ast::new());
+        let result = engine.eval(&lang, &req);
+        assert_eq!(result.unwrap_err(), LangError::NotImplemented);
+    }
+
+    #[test]
+    fn trait_dispatch_via_dyn_reference() {
+        let engine: Box<dyn EvalEngine> = Box::new(StubEval);
+        let lang = Language::new();
+        let req = EvalRequest::new(Ast::new());
+        let result = engine.eval(&lang, &req);
+        assert!(matches!(result, Err(LangError::NotImplemented)));
+    }
+
+    /// A host function that returns the sum of its integer arguments.
+    struct AddHostFn;
+
+    impl HostFn for AddHostFn {
+        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+            let sum: i64 = args.iter().filter_map(|v| v.as_i64()).sum();
+            Ok(Value::from(sum))
+        }
+    }
+
+    /// A simple host function registry backed by a `HashMap`.
+    struct MapHostFunctions {
+        fns: HashMap<String, Box<dyn HostFn>>,
+    }
+
+    impl MapHostFunctions {
+        fn new() -> Self {
+            Self {
+                fns: HashMap::new(),
+            }
+        }
+
+        fn register(&mut self, name: impl Into<String>, f: Box<dyn HostFn>) {
+            self.fns.insert(name.into(), f);
+        }
+    }
+
+    impl HostFunctions for MapHostFunctions {
+        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+            self.fns.get(name).map(|f| f.as_ref())
+        }
+    }
+
+    #[test]
+    fn host_functions_lookup_registered() {
+        let mut host = MapHostFunctions::new();
+        host.register("add", Box::new(AddHostFn));
+        let f = host.lookup("add").expect("add should be registered");
+        let result = f.call(&[json!(2), json!(3)]).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn host_functions_lookup_unregistered_returns_none() {
+        let host = MapHostFunctions::new();
+        assert!(host.lookup("missing").is_none());
+    }
+
+    #[test]
+    fn host_fn_call_with_no_args() {
+        let f = AddHostFn;
+        let result = f.call(&[]).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    #[test]
+    fn host_functions_via_dyn_trait() {
+        let mut host = MapHostFunctions::new();
+        host.register("add", Box::new(AddHostFn));
+        let dyn_host: &dyn HostFunctions = &host;
+        let f = dyn_host.lookup("add").expect("add should be registered");
+        let result = f.call(&[json!(10), json!(20)]).unwrap();
+        assert_eq!(result, json!(30));
+    }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "handl-emitter-branch"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
+handl-emitter-value = { workspace = true }
+handl-emitter-arith = { workspace = true }
+serde_json = { workspace = true }

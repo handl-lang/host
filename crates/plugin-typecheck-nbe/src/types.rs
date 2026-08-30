@@ -183,6 +183,19 @@ pub fn collection_value(name: impl Into<Name>) -> Value {
     Value::Collection(name.into())
 }
 
+/// Construct a first-class `Language` value term (ADR-0041 Phase 2).
+///
+/// `name` is the opaque handle identifying a `Language` registered with the
+/// runtime. The term synthesizes to `type.language`.
+pub fn language(name: impl Into<Name>) -> Term {
+    Term::Language(name.into())
+}
+
+/// Construct a first-class `Language` value (ADR-0041 Phase 2).
+pub fn language_value(name: impl Into<Name>) -> Value {
+    Value::Language(name.into())
+}
+
 pub fn membership(value: Term, collection: Term) -> Term {
     Term::Membership {
         value: Box::new(value),

@@ -1,0 +1,57 @@
+[package]
+name = "handl-kit-data-canonical"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-emitters = { workspace = true }
+handl-kit-data = { workspace = true }
+handl-runtime = { workspace = true }
+# Original Phase 4 emitters.
+handl-emitter-identifier = { workspace = true }
+handl-emitter-value = { workspace = true }
+handl-emitter-arith = { workspace = true }
+handl-emitter-let = { workspace = true }
+handl-emitter-call = { workspace = true }
+handl-emitter-branch = { workspace = true }
+handl-emitter-function = { workspace = true }
+# Full-language emitters (ADR-0044 Phase 4 complete set).
+handl-emitter-tokens = { workspace = true }
+handl-emitter-cmp = { workspace = true }
+handl-emitter-assign = { workspace = true }
+handl-emitter-pipe = { workspace = true }
+handl-emitter-flow = { workspace = true }
+handl-emitter-fanout = { workspace = true }
+handl-emitter-ternary = { workspace = true }
+handl-emitter-not = { workspace = true }
+handl-emitter-paren = { workspace = true }
+handl-emitter-typeof = { workspace = true }
+handl-emitter-array = { workspace = true }
+handl-emitter-object = { workspace = true }
+handl-emitter-match = { workspace = true }
+handl-emitter-handle = { workspace = true }
+handl-emitter-postfix-call = { workspace = true }
+handl-emitter-postfix-field = { workspace = true }
+handl-emitter-postfix-index = { workspace = true }
+handl-emitter-postfix-mood = { workspace = true }
+handl-emitter-apply = { workspace = true }
+handl-emitter-arrow = { workspace = true }
+handl-emitter-function-literal = { workspace = true }
+handl-emitter-template = { workspace = true }
+handl-emitter-type-annot = { workspace = true }
+handl-emitter-textmate = { workspace = true }
+handl-emitter-stmt-let = { workspace = true }
+handl-emitter-stmt-const = { workspace = true }
+handl-emitter-stmt-import = { workspace = true }
+handl-emitter-stmt-export = { workspace = true }
+handl-emitter-stmt-module = { workspace = true }
+handl-emitter-eval-core = { workspace = true }
+handl-emitter-eval-hello = { workspace = true }
+handl-emitter-eval-json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }

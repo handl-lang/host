@@ -4,12 +4,13 @@
 //! single `Value`/`Term` space used by the platform VM.
 
 pub use handl_plugin_typecheck_nbe::Term::{
-    Array, Collection, Empty, Eq, Is, Membership, Null, Object, Refl, TypedLet,
+    Array, Collection, Empty, Eq, Is, Language, Membership, Null, Object, Refl, TypedLet,
 };
 pub use handl_plugin_typecheck_nbe::{
     Env, Kind, Level, Literal, MetaContext, Name, TCtx, Term, TypeError, Value, Var, check, eval,
     normalize, synth, synth_type,
 };
+pub use handl_plugin_typecheck_nbe::{language, language_value};
 pub use handl_plugin_typecheck_nbe::{prelude_env, prelude_tctx};
 
 /// Convenience `typecheck` using a fresh `MetaContext`, the empty `Env`,
