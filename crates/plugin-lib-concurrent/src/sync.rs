@@ -536,6 +536,9 @@ impl SyncRuntime for DefaultSyncRuntime {
 mod tests {
     use super::*;
     use handl_platform::ExprEvaluator;
+    // `json` macro is currently unused in these tests but retained for future
+    // test cases; see ADR 0040 migration notes.
+    #[allow(unused_imports)]
     use serde_json::json;
     use std::sync::{Arc, Mutex};
     use std::rc::Rc;

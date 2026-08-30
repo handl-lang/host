@@ -259,7 +259,7 @@ pub struct SyncFn {
 impl SyncFn {
     fn translate(
         &self,
-        args: &[Value],
+        _args: &[Value],
         result: Result<Value, EvalError>,
     ) -> Result<Value, EvalError> {
         match result {

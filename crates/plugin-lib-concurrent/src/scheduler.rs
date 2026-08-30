@@ -21,7 +21,9 @@ use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
 use crate::cancel::{CancelRuntime, DefaultCancelRuntime};
 use crate::timer::{ThreadTimerRuntime, TimerRuntime};
-use handl_platform::{EvalContext, EvalError, ExprEvaluator};
+use handl_platform::{EvalContext, EvalError};
+#[cfg(test)]
+use handl_platform::ExprEvaluator;
 use serde_json::Value;
 use crate::function_value::FunctionValue;
 use serde_json::json;
@@ -518,6 +520,10 @@ impl Scheduler for DefaultScheduler {
 enum Job {
     Execute {
         id: u64,
+        // `body` is currently never read because task bodies cannot be evaluated
+        // after the ADR 0040 migration (ExprEvaluator is not Send + Sync); the
+        // field is retained for the future restoration of threaded evaluation.
+        #[allow(dead_code)]
         body: String,
         cancel_flag: Option<Arc<AtomicBool>>,
     },
@@ -532,7 +538,7 @@ fn worker_thread(jobs: Arc<Mutex<mpsc::Receiver<Job>>>, results: mpsc::Sender<(u
             Job::Shutdown => break,
             Job::Execute {
                 id,
-                body,
+                body: _,
                 cancel_flag,
             } => {
                 // TODO(ADR 0040 migration): The old system used Arc<dyn Eval + Send + Sync>
@@ -750,6 +756,10 @@ impl Default for ThreadPoolScheduler {
 }
 
 impl Scheduler for ThreadPoolScheduler {
+    // The body after the early `return Err(...)` is unreachable pending the
+    // restoration of Send + Sync evaluation after the ADR 0040 migration; the
+    // implementation is retained for that future work.
+    #[allow(unreachable_code, unused_variables)]
     fn spawn(
         &self,
         work: FunctionValue,
@@ -800,6 +810,7 @@ impl Scheduler for ThreadPoolScheduler {
         Ok(task_value(id, TaskStatus::Pending.as_str()))
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn spawn_cancelable(
         &self,
         token: Value,
@@ -1064,6 +1075,12 @@ impl Scheduler for ThreadPoolScheduler {
 }
 
 /// Result of executing a `WorkStealingJob`.
+///
+/// `Ok` and `Err` are currently never constructed because task bodies cannot be
+/// evaluated after the ADR 0040 migration (ExprEvaluator is not Send + Sync);
+/// only `Cancelled` is sent. The variants are retained for the future restoration
+/// of threaded evaluation.
+#[allow(dead_code)]
 enum TaskResult {
     Ok(Value),
     Err(String),
@@ -1333,6 +1350,10 @@ impl Default for WorkStealingScheduler {
 }
 
 impl Scheduler for WorkStealingScheduler {
+    // The body after the early `return Err(...)` is unreachable pending the
+    // restoration of Send + Sync evaluation after the ADR 0040 migration; the
+    // implementation is retained for that future work.
+    #[allow(unreachable_code, unused_variables)]
     fn spawn(
         &self,
         work: FunctionValue,
@@ -1372,6 +1393,7 @@ impl Scheduler for WorkStealingScheduler {
         Ok(task_value(id, TaskStatus::Pending.as_str()))
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn spawn_cancelable(
         &self,
         token: Value,

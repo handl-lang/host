@@ -12,7 +12,12 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::rc::Rc;
+// `thread` and `Duration` are currently only referenced by the placeholder
+// thread-contended stress tests, which are `#[ignore]`d pending Send + Sync
+// EvalContext support (ADR 0040 migration); retained for that future work.
+#[allow(unused_imports)]
 use std::thread;
+#[allow(unused_imports)]
 use std::time::Duration;
 
 /// A thread-safe `ExprEvaluator` that can return an index or increment a shared
@@ -65,6 +70,9 @@ impl ExprEvaluator for MockEval {
     }
 }
 
+// Currently only referenced by `#[ignore]`d stress tests; retained for the
+// future restoration of threaded evaluation after the ADR 0040 migration.
+#[allow(dead_code)]
 fn thunk(body: &str) -> Value {
     FunctionValue {
         params: Vec::new(),
