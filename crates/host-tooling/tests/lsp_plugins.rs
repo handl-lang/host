@@ -1,12 +1,11 @@
 use handl_host_tooling::{Location, TextContentChange, ToolingHost};
 use handl_kit_canonical::CanonicalKit;
-use handl_plugin_fmt_expression::ExpressionFormatter;
 use handl_plugin_lsp_completion::BasicCompletion;
 use handl_plugin_lsp_goto::BasicGotoDef;
 use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 
 fn host() -> ToolingHost<CanonicalKit> {
-    ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
+    ToolingHost::new(CanonicalKit::new())
         .with_completion_plugin(Box::new(BasicCompletion::new()))
         .with_goto_def_plugin(Box::new(BasicGotoDef::new()))
         .with_document_symbols_plugin(Box::new(BasicDocumentSymbols::new()))

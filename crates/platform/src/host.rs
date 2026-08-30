@@ -1,11 +1,5 @@
 //! Runtime implementations that coordinate plugins and kits.
 
-#[cfg(feature = "concurrent")]
-use handl_plugin_vm_common::ModuleRuntime;
-
-#[cfg(feature = "concurrent")]
-use handl_plugin_lib_concurrent::ConcurrencyModule;
-
 use crate::error::PlatformError;
 use crate::kit::{Kit, KitRegistry};
 use crate::plugin::ProcessPlugin;
@@ -24,40 +18,14 @@ pub trait CallableLookup: Send + Sync {
 pub struct DefaultHost {
     plugins: PluginRegistry,
     kits: KitRegistry,
-    #[cfg(feature = "concurrent")]
-    modules: ModuleRuntime,
 }
 
 impl DefaultHost {
     /// Creates a new, empty default host.
     pub fn new() -> Self {
-        #[cfg(feature = "concurrent")]
-        let mut modules = ModuleRuntime::new();
-
-        #[cfg(feature = "concurrent")]
-        {
-            modules = modules.with(ConcurrencyModule::new());
-        }
-
         Self {
             plugins: PluginRegistry::default(),
             kits: KitRegistry::default(),
-            #[cfg(feature = "concurrent")]
-            modules,
-        }
-    }
-
-    /// Returns `true` if `name` resolves to a function in the module host.
-    #[allow(unused_variables)]
-    pub fn resolve(&self, name: &str) -> bool {
-        #[cfg(feature = "concurrent")]
-        {
-            return self.modules.function(name).is_some();
-        }
-
-        #[cfg(not(feature = "concurrent"))]
-        {
-            false
         }
     }
 
@@ -231,19 +199,5 @@ mod tests {
             }),
             Err(PlatformError::UnknownCapability(_))
         ));
-    }
-
-    #[cfg(feature = "concurrent")]
-    #[test]
-    fn concurrent_spawn_resolves_with_feature() {
-        let host = DefaultHost::new();
-        assert!(host.resolve("concurrent.spawn"));
-    }
-
-    #[cfg(not(feature = "concurrent"))]
-    #[test]
-    fn concurrent_spawn_unavailable_without_feature() {
-        let host = DefaultHost::new();
-        assert!(!host.resolve("concurrent.spawn"));
     }
 }

@@ -6,10 +6,7 @@ edition.workspace = true
 [dependencies]
 handl-platform = { workspace = true }
 handl-kit-config = { workspace = true }
-handl-plugin-lib-test.workspace = true
 handl-plugin-lib-rand.workspace = true
 handl-plugin-lib-os-std.workspace = true
-handl-plugin-lib-http-server-std.workspace = true
 handl-plugin-lib-http-client-std.workspace = true
 handl-plugin-lib-otlp-std.workspace = true
-handl-plugin-lib-ws-rfc-native.workspace = true

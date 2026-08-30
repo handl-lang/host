@@ -247,6 +247,10 @@ impl Plugin for ModuleRuntime {
     ) -> Result<CapabilityResponse, PlatformError> {
         Err(PlatformError::NotImplemented)
     }
+
+    fn module_lookup(&self) -> Option<std::rc::Rc<dyn handl_platform::ModuleLookup>> {
+        Some(std::rc::Rc::new(self.clone()))
+    }
 }
 
 impl RuleAcceptor for ModuleRuntime {

@@ -777,7 +777,7 @@ impl Plugin for BasicEvaluator {
     fn run(
         &self,
         request: &CapabilityRequest,
-        _ctx: &mut PluginContext,
+        ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
         if !self.capabilities.contains(&request.capability) {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
@@ -796,8 +796,14 @@ impl Plugin for BasicEvaluator {
         });
 
         // Build the context and wire up the handle.
-        let mut ctx = EvalContext::new();
-        ctx.set_evaluator(callback.clone());
+        let mut eval_ctx = EvalContext::new();
+        eval_ctx.set_evaluator(callback.clone());
+
+        // Wire up the module lookup so eval rules can resolve
+        // module-qualified function calls (e.g. `hello.greet("world")`).
+        if let Some(modules) = ctx.plugins.module_lookup() {
+            eval_ctx.set_modules(modules);
+        }
 
         let mut req = EvalRequest {
             ast: AstNode {
@@ -805,7 +811,7 @@ impl Plugin for BasicEvaluator {
                 span: None,
                 payload: request.payload.clone(),
             },
-            ctx,
+            ctx: eval_ctx,
             options: ResolvedOptions::new(),
             result: None,
         };

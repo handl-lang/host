@@ -4,7 +4,6 @@ use handl_plugin_diag_core::Diagnostic;
 use handl_platform::{PlatformError, Plugin};
 use handl_plugin_fmt_stmt::StatementFormatter;
 use handl_plugin_fmt_trivia::TriviaFormatter;
-use handl_plugin_vm_values_json::Formatter;
 
 pub mod command;
 
@@ -28,7 +27,6 @@ mod semantic_tokens_tests;
 #[allow(dead_code)]
 pub struct ToolingHost<K: Plugin> {
     kit: K,
-    formatter: Box<dyn Formatter>,
     trivia_formatter: TriviaFormatter,
     statement_formatter: StatementFormatter,
     completion: Option<Box<dyn CompletionPlugin>>,
@@ -39,11 +37,10 @@ pub struct ToolingHost<K: Plugin> {
 }
 
 impl<K: Plugin> ToolingHost<K> {
-    /// Creates a new tooling host with the given kit and formatter.
-    pub fn new(kit: K, formatter: Box<dyn Formatter>) -> Self {
+    /// Creates a new tooling host with the given kit.
+    pub fn new(kit: K) -> Self {
         Self {
             kit,
-            formatter,
             trivia_formatter: TriviaFormatter::new(),
             statement_formatter: StatementFormatter::new(),
             completion: None,

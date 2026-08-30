@@ -20,7 +20,3 @@ handl-plugin-lib-ws-whatwg-native.workspace = true
 handl-plugin-lib-ip.workspace = true
 handl-plugin-lib-compress-gzip.workspace = true
 handl-plugin-lib-archive-tar.workspace = true
-handl-plugin-lib-concurrent = { workspace = true, optional = true }
-
-[features]
-concurrent = ["dep:handl-plugin-lib-concurrent"]

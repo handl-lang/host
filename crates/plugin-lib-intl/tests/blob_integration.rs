@@ -5,8 +5,8 @@
 //! the buffer provider path instead of compiled data.
 
 use handl_plugin_lib_intl::IntlModule;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
+use handl_platform::{EvalContext, Module};
+use serde_json::Value;
 
 fn blob() -> Vec<u8> {
     let path =
@@ -19,32 +19,30 @@ fn module() -> IntlModule {
     IntlModule::with_blob_provider(blob())
 }
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[Value]) -> Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> Value {
+    serde_json::json!(v)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> Value {
+    serde_json::json!(v)
 }
 
-fn obj(pairs: &[(&str, serde_json::Value)]) -> NonFunctionValue {
+fn obj(pairs: &[(&str, Value)]) -> Value {
     let mut map = serde_json::Map::new();
     for (k, v) in pairs {
         map.insert(k.to_string(), v.clone());
     }
-    NonFunctionValue::new(serde_json::Value::Object(map))
+    Value::Object(map)
 }
 
-fn arr_str(items: &[&str]) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::Value::Array(
-        items.iter().map(|s| serde_json::json!(s)).collect(),
-    ))
+fn arr_str(items: &[&str]) -> Value {
+    Value::Array(items.iter().map(|s| serde_json::json!(s)).collect())
 }
 
 // ── format_number ─────────────────────────────────────────────────
@@ -263,19 +261,19 @@ fn blob_format_date_locale_de() {
 #[test]
 fn blob_compare_strings_less() {
     let result = call(&module(), "compare_strings", &[s("a"), s("b")]);
-    assert_eq!(result.as_number(), Some(-1.0));
+    assert_eq!(result.as_f64(), Some(-1.0));
 }
 
 #[test]
 fn blob_compare_strings_equal() {
     let result = call(&module(), "compare_strings", &[s("a"), s("a")]);
-    assert_eq!(result.as_number(), Some(0.0));
+    assert_eq!(result.as_f64(), Some(0.0));
 }
 
 #[test]
 fn blob_compare_strings_greater() {
     let result = call(&module(), "compare_strings", &[s("b"), s("a")]);
-    assert_eq!(result.as_number(), Some(1.0));
+    assert_eq!(result.as_f64(), Some(1.0));
 }
 
 #[test]
@@ -290,7 +288,7 @@ fn blob_compare_strings_numeric() {
             obj(&[("numeric", serde_json::json!(true))]),
         ],
     );
-    assert_eq!(result.as_number(), Some(1.0));
+    assert_eq!(result.as_f64(), Some(1.0));
 }
 
 // ── segment ───────────────────────────────────────────────────────
@@ -475,7 +473,7 @@ fn blob_format_duration_returns_graceful_error() {
     ]);
     let module = module();
     let func = module.function("format_duration").expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     let result = func.call(&[dur, s("en")], &mut ctx);
     assert!(result.is_err(), "expected graceful error, not panic");
     let err = result.unwrap_err();
@@ -526,7 +524,7 @@ fn blob_compiled_parity_format_list() {
 fn blob_compiled_parity_compare_strings() {
     let compiled = call(&IntlModule::new(), "compare_strings", &[s("a"), s("b")]);
     let blob_result = call(&module(), "compare_strings", &[s("a"), s("b")]);
-    assert_eq!(compiled.as_number(), blob_result.as_number());
+    assert_eq!(compiled.as_f64(), blob_result.as_f64());
 }
 
 #[test]
@@ -633,7 +631,7 @@ fn blob_supported_locales_of_subset_of_compiled() {
 fn blob_invalid_blob_returns_error() {
     let module = IntlModule::with_blob_provider(vec![0u8; 10]);
     let func = module.function("format_number").expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     let result = func.call(&[n(1.0)], &mut ctx);
     assert!(result.is_err(), "expected error with invalid blob");
 }
@@ -642,7 +640,7 @@ fn blob_invalid_blob_returns_error() {
 fn blob_empty_blob_returns_error() {
     let module = IntlModule::with_blob_provider(vec![]);
     let func = module.function("format_number").expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     let result = func.call(&[n(1.0)], &mut ctx);
     assert!(result.is_err(), "expected error with empty blob");
 }

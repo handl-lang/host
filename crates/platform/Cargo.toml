@@ -7,14 +7,9 @@ edition.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-handl-plugin-vm = { workspace = true }
-handl-plugin-vm-values-json = { workspace = true }
 handl-plugin-typecheck-nbe = { workspace = true }
 semver = "1"
 toml = "0.8"
-
-[features]
-concurrent = []
 
 [dev-dependencies]
 serde_json = { workspace = true }

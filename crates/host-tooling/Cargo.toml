@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-load.workspace = true
-handl-plugin-fmt-expression.workspace = true
 handl-plugin-fmt-trivia.workspace = true
 handl-plugin-fmt-stmt.workspace = true
 handl-plugin-diag-expression.workspace = true
@@ -14,7 +13,6 @@ handl-plugin-lexer.workspace = true
 handl-plugin-grammar-textmate = { workspace = true }
 handl-kit-canonical.workspace = true
 handl-platform.workspace = true
-handl-plugin-vm-values-json.workspace = true
 handl-plugin-token-kind.workspace = true
 handl-plugin-token-number = { workspace = true }
 handl-plugin-token-string = { workspace = true }

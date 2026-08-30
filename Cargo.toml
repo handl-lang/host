@@ -44,7 +44,6 @@ members = [
   "crates/plugin-lib-collections",
   "crates/plugin-lib-compress",
   "crates/plugin-lib-compress-gzip",
-  "crates/plugin-lib-concurrent",
   "crates/plugin-lib-crypto",
   "crates/plugin-lib-datetime",
   "crates/plugin-lib-encoding",
@@ -52,8 +51,6 @@ members = [
   "crates/plugin-lib-hex",
   "crates/plugin-lib-http-client",
   "crates/plugin-lib-http-client-std",
-  "crates/plugin-lib-http-server",
-  "crates/plugin-lib-http-server-std",
   "crates/plugin-lib-intl",
   "crates/plugin-lib-ip",
   "crates/plugin-lib-json",
@@ -67,7 +64,6 @@ members = [
   "crates/plugin-lib-rand",
   "crates/plugin-lib-serialize",
   "crates/plugin-lib-stats",
-  "crates/plugin-lib-test",
   "crates/plugin-lib-tls",
   "crates/plugin-lib-tls-native",
   "crates/plugin-lib-toml",
@@ -79,7 +75,6 @@ members = [
   "crates/plugin-lib-utils",
   "crates/plugin-lib-ws-rfc",
   "crates/plugin-lib-ws-rfc-memory",
-  "crates/plugin-lib-ws-rfc-native",
   "crates/plugin-lib-ws-whatwg-native",
   "crates/plugin-lib-ws-whatwg-wasm",
   "crates/plugin-lib-yaml",
@@ -149,12 +144,6 @@ members = [
   "crates/plugin-lsp-goto",
   "crates/plugin-lsp-symbol",
   "crates/plugin-target-native-example",
-  "crates/plugin-target-rust",
-  "crates/plugin-runtime-arithmetic",
-  "crates/plugin-runtime-array",
-  "crates/plugin-runtime-apply",
-  "crates/plugin-runtime-boolean",
-  "crates/plugin-runtime-object",
   "crates/plugin-eval-hello",
   "crates/plugin-eval-json",
   "crates/plugin-eval-core",
@@ -191,20 +180,14 @@ members = [
   "crates/plugin-token-string",
   "crates/plugin-token-kind",
   "crates/plugin-typecheck-core",
-  "crates/plugin-runtime",
   "crates/plugin-source",
   "crates/plugin-target-native",
   "crates/host-tooling",
-  "crates/plugin-vm",
-  "crates/plugin-vm-backend-rust-interpreter",
-  "crates/plugin-vm-common",
   "crates/kit-config",
-  "crates/plugin-vm-host-eval",
   "crates/kit-server",
   "crates/plugin-typecheck-nbe",
   "crates/kit-type",
   "crates/kit-type-schema-json",
-  "crates/plugin-vm-values-json",
   "crates/crate-ecma402-icu4x",
   "crates/crate-ecma402-traits",
   "crates/crate-icu4x-extra",
@@ -274,7 +257,6 @@ handl-plugin-lib-base64 = { path = "crates/plugin-lib-base64" }
 handl-plugin-lib-collections = { path = "crates/plugin-lib-collections" }
 handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
 handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
-handl-plugin-lib-concurrent = { path = "crates/plugin-lib-concurrent" }
 handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
 handl-plugin-lib-datetime = { path = "crates/plugin-lib-datetime" }
 handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
@@ -282,8 +264,6 @@ handl-plugin-lib-hello = { path = "crates/plugin-lib-hello" }
 handl-plugin-lib-hex = { path = "crates/plugin-lib-hex" }
 handl-plugin-lib-http-client = { path = "crates/plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" }
-handl-plugin-lib-http-server = { path = "crates/plugin-lib-http-server" }
-handl-plugin-lib-http-server-std = { path = "crates/plugin-lib-http-server-std" }
 handl-plugin-lib-intl = { path = "crates/plugin-lib-intl" }
 handl-plugin-lib-ip = { path = "crates/plugin-lib-ip" }
 handl-plugin-lib-json = { path = "crates/plugin-lib-json" }
@@ -297,7 +277,6 @@ handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
 handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
 handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }
 handl-plugin-lib-stats = { path = "crates/plugin-lib-stats" }
-handl-plugin-lib-test = { path = "crates/plugin-lib-test" }
 handl-plugin-lib-tls = { path = "crates/plugin-lib-tls" }
 handl-plugin-lib-tls-native = { path = "crates/plugin-lib-tls-native" }
 handl-plugin-lib-toml = { path = "crates/plugin-lib-toml" }
@@ -309,7 +288,6 @@ handl-plugin-lib-dedent = { path = "crates/plugin-lib-dedent" }
 handl-plugin-lib-utils = { path = "crates/plugin-lib-utils" }
 handl-plugin-lib-ws-rfc = { path = "crates/plugin-lib-ws-rfc" }
 handl-plugin-lib-ws-rfc-memory = { path = "crates/plugin-lib-ws-rfc-memory" }
-handl-plugin-lib-ws-rfc-native = { path = "crates/plugin-lib-ws-rfc-native" }
 handl-plugin-lib-ws-whatwg-native = { path = "crates/plugin-lib-ws-whatwg-native" }
 handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
@@ -379,12 +357,6 @@ handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
 handl-plugin-target-native-example = { path = "crates/plugin-target-native-example" }
-handl-plugin-target-rust = { path = "crates/plugin-target-rust" }
-handl-plugin-runtime-arithmetic = { path = "crates/plugin-runtime-arithmetic" }
-handl-plugin-runtime-array = { path = "crates/plugin-runtime-array" }
-handl-plugin-runtime-apply = { path = "crates/plugin-runtime-apply" }
-handl-plugin-runtime-boolean = { path = "crates/plugin-runtime-boolean" }
-handl-plugin-runtime-object = { path = "crates/plugin-runtime-object" }
 handl-plugin-eval-hello = { path = "crates/plugin-eval-hello" }
 handl-plugin-eval-json = { path = "crates/plugin-eval-json" }
 handl-plugin-eval-core = { path = "crates/plugin-eval-core" }
@@ -421,20 +393,14 @@ handl-plugin-token-operator = { path = "crates/plugin-token-operator" }
 handl-plugin-token-string = { path = "crates/plugin-token-string" }
 handl-plugin-token-kind = { path = "crates/plugin-token-kind" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
-handl-plugin-runtime = { path = "crates/plugin-runtime" }
 handl-plugin-source = { path = "crates/plugin-source" }
 handl-plugin-target-native = { path = "crates/plugin-target-native" }
 handl-host-tooling = { path = "crates/host-tooling" }
-handl-plugin-vm = { path = "crates/plugin-vm" }
-handl-plugin-vm-backend-rust-interpreter = { path = "crates/plugin-vm-backend-rust-interpreter" }
-handl-plugin-vm-common = { path = "crates/plugin-vm-common" }
 handl-kit-config = { path = "crates/kit-config" }
-handl-plugin-vm-host-eval = { path = "crates/plugin-vm-host-eval" }
 handl-kit-server = { path = "crates/kit-server" }
 handl-kit-type = { path = "crates/kit-type" }
 handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
 handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }
-handl-plugin-vm-values-json = { path = "crates/plugin-vm-values-json" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 
 [features]

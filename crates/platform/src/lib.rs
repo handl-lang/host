@@ -21,8 +21,6 @@ pub mod error;
 pub mod eval;
 /// Generic format operation and rule acceptor.
 pub mod format;
-/// Expression formatter trait for formatting concrete VM expression trees.
-pub mod formatter;
 /// Runtime implementations that coordinate plugins and kits.
 pub mod host;
 /// Kit manifests and registries.
@@ -39,8 +37,6 @@ pub mod plugin;
 pub mod plugin_model;
 /// Plugin composition resolution.
 pub mod resolve;
-/// Runtime built-in host and behavior rules.
-pub mod runtime_host;
 /// Generic typecheck operation and rule acceptor.
 pub mod typecheck;
 /// Unified `Value`/`Term` space for the platform VM.
@@ -57,7 +53,6 @@ pub use config::*;
 pub use error::*;
 pub use eval::*;
 pub use format::*;
-pub use formatter::*;
 pub use host::*;
 pub use kit::*;
 pub use lint::*;
@@ -66,7 +61,6 @@ pub use options::*;
 pub use plugin::*;
 pub use plugin_model::*;
 pub use resolve::*;
-pub use runtime_host::*;
 pub use typecheck::*;
 
 /// Unified value space primitives re-exported from `handl_plugin_typecheck_nbe`.

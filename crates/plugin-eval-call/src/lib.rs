@@ -53,6 +53,21 @@ impl Behavior<Eval> for CallRule {
                 EvalError::TypeMismatch("call: missing or non-array \"args\" field".into())
             })?;
 
+        // Try module-qualified call first: if the callee is an `index`
+        // expression with a `var` target and a string literal index
+        // (e.g. `hello.greet`), attempt `ctx.call_function("hello.greet", args)`.
+        if let Some(qualified_name) = try_qualified_name(callee_value) {
+            // Evaluate the arguments first.
+            let mut evaluated_args = Vec::with_capacity(args.len());
+            for arg in args {
+                let arg_ast = ast_from_value(arg)?;
+                evaluated_args.push(req.ctx.eval(&arg_ast)?);
+            }
+            let result = req.ctx.call_function(&qualified_name, &evaluated_args)?;
+            req.result = Some(result);
+            return Ok(());
+        }
+
         // Evaluate the callee to get a function value.
         let callee_ast = ast_from_value(callee_value)?;
         let callee_result = req.ctx.eval(&callee_ast)?;
@@ -116,6 +131,36 @@ fn ast_from_value(value: &Value) -> Result<AstNode, EvalError> {
     serde_json::from_value::<AstNode>(value.clone()).map_err(|e| {
         EvalError::TypeMismatch(format!("call: failed to deserialize child AST: {e}"))
     })
+}
+
+/// Check if `callee_value` represents a module-qualified name like
+/// `hello.greet` (parsed as an `index` AST with a `var` target and a
+/// string literal index). Returns the qualified name (`"hello.greet"`)
+/// if so, or `None` otherwise.
+fn try_qualified_name(callee_value: &Value) -> Option<String> {
+    let callee_ast = serde_json::from_value::<AstNode>(callee_value.clone()).ok()?;
+
+    if callee_ast.kind != "index" {
+        return None;
+    }
+
+    // The target must be a `var` node.
+    let target_value = callee_ast.payload.get("target")?;
+    let target_ast = serde_json::from_value::<AstNode>(target_value.clone()).ok()?;
+    if target_ast.kind != "var" {
+        return None;
+    }
+    let module_name = target_ast.payload.get("name")?.as_str()?.to_string();
+
+    // The index must be a `value` node with a string payload.
+    let index_value = callee_ast.payload.get("index")?;
+    let index_ast = serde_json::from_value::<AstNode>(index_value.clone()).ok()?;
+    if index_ast.kind != "value" {
+        return None;
+    }
+    let func_name = index_ast.payload.get("value")?.as_str()?.to_string();
+
+    Some(format!("{module_name}.{func_name}"))
 }
 
 /// Registers the `call` rule with the [`BasicEvaluator`].

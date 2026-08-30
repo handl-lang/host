@@ -96,11 +96,6 @@ impl Plugin for ConfigKit {
         ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_archive_tar::LibraryPlugin)?;
 
-        #[cfg(feature = "concurrent")]
-        {
-            ctx.register_plugin(handl_plugin_lib_concurrent::LibraryPlugin)?;
-        }
-
         Ok(())
     }
 

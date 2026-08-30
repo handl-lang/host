@@ -6,11 +6,10 @@
 //!
 //! - **OS stdlib** (`fs.*`, `env.*`, `path.*`, `time.*`, `cmd.*`, `process.*`, `tmp.*`, `socket.*`, `sig.*`)
 //!   from [`handl-lib-os-std`].
-//! - **HTTP server** (`http_server.*`) from [`handl-lib-http-server-std`].
 //! - **HTTP client** (`http_client.*`) from [`handl-lib-http-client-std`].
 //! - **Random** (`rand.*`) from [`handl-lib-rand`].
 //!
-//! This is the kit you want when handl needs to open ports, read files,
+//! This is the kit you want when handl needs to read files,
 //! spawn processes, or make HTTP requests.
 
 use handl_kit_config::ConfigKit;
@@ -70,13 +69,10 @@ impl Plugin for ServerKit {
 
         // Server-side concrete plugins — ConfigKit already registered
         // CanonicalKit (which provides ModuleRuntime) and the pure plugins.
-        ctx.register_plugin(handl_plugin_lib_test::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_rand::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_os_std::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_http_server_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_http_client_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_otlp_std::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_ws_rfc_native::LibraryPlugin)?;
 
         Ok(())
     }

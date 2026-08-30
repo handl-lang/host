@@ -6,10 +6,9 @@ use std::time::{Duration, Instant};
 
 use handl_host_tooling::ToolingHost;
 use handl_kit_canonical::CanonicalKit;
-use handl_plugin_fmt_expression::ExpressionFormatter;
 
 fn host() -> ToolingHost<CanonicalKit> {
-    ToolingHost::new(CanonicalKit::new(), Box::new(ExpressionFormatter::new()))
+    ToolingHost::new(CanonicalKit::new())
 }
 
 fn pipe_expr(n: usize) -> String {

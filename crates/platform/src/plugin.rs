@@ -83,6 +83,16 @@ pub trait Plugin: Send + Sync + Any {
         request: &CapabilityRequest,
         ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError>;
+
+    /// Returns this plugin's module lookup handle, if it provides one.
+    ///
+    /// Plugins that act as a module registry (e.g. `ModuleRuntime`) override
+    /// this to return `Some(self)`. The `BasicEvaluator` uses this to wire
+    /// `EvalContext::set_modules` so that eval rules can resolve
+    /// module-qualified function calls (e.g. `hello.greet("world")`).
+    fn module_lookup(&self) -> Option<std::rc::Rc<dyn crate::eval::ModuleLookup>> {
+        None
+    }
 }
 
 /// A registry of loaded plugins indexed by capability.
@@ -343,6 +353,17 @@ impl PluginRegistry {
             let any = arc.as_ref() as &dyn Any;
             if let Some(concrete) = any.downcast_ref::<P>() {
                 return Some(concrete);
+            }
+        }
+        None
+    }
+
+    /// Returns a module lookup handle from the first registered plugin that
+    /// provides one, if any.
+    pub fn module_lookup(&self) -> Option<std::rc::Rc<dyn crate::eval::ModuleLookup>> {
+        for arc in self.plugins.iter().flatten() {
+            if let Some(lookup) = arc.module_lookup() {
+                return Some(lookup);
             }
         }
         None

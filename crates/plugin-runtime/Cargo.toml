@@ -1,8 +1,0 @@
-[package]
-name = "handl-plugin-runtime"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-platform = { workspace = true }
-handl-plugin-lib-type = { workspace = true }
