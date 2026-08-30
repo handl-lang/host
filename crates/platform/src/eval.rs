@@ -15,6 +15,8 @@
 //! `BasicEvaluator` before and after each dispatch.
 
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -134,11 +136,7 @@ pub trait ExprEvaluator: 'static {
     ///
     /// `expr` is a raw expression string (e.g. `"x"`, `"42"`, `"add(x, 1)"`).
     /// `vars` are `(name, value)` pairs to bind before evaluation.
-    fn eval_expr(
-        &self,
-        expr: &str,
-        vars: &[(String, Value)],
-    ) -> Result<Value, EvalError>;
+    fn eval_expr(&self, expr: &str, vars: &[(String, Value)]) -> Result<Value, EvalError>;
 }
 
 /// Concrete `EvaluatorCallback` backed by cloned rule and exec-control lists.
@@ -304,6 +302,50 @@ pub trait Function: Send + Sync {
     /// `args` are the already-evaluated argument values. `ctx` is the
     /// evaluation context the call is happening within.
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError>;
+
+    /// Downcast this function to an [`AsyncFunction`] if it supports async
+    /// execution.
+    ///
+    /// The default implementation returns `None` — sync-only functions do
+    /// nothing here. Functions that also implement [`AsyncFunction`] override
+    /// this to return `Some(self)` so that [`EvalContext::call_function_async`]
+    /// can dispatch through the async path.
+    ///
+    /// This is the bridge between the sync `Function` trait object held by
+    /// [`ModuleLookup`] and the async call path: lookup returns a
+    /// `&dyn Function`, and `call_function_async` uses `as_async` to decide
+    /// whether to await or call sync.
+    fn as_async(&self) -> Option<&dyn AsyncFunction> {
+        None
+    }
+}
+
+/// A callable host function that supports async execution.
+///
+/// This is the async counterpart of [`Function`], per ADR 0040's "Async
+/// evaluation" section. Functions that perform IO-bound work (HTTP, WebSocket,
+/// timers, sockets) implement this trait so they can be awaited from
+/// [`EvalContext::call_function_async`] without blocking the calling thread.
+///
+/// A type can implement *both* [`Function`] and [`AsyncFunction`]: the sync
+/// `call` is used by [`EvalContext::call_function`], and `call_async` is used
+/// by [`EvalContext::call_function_async`]. To make the async path visible to
+/// the lookup machinery, the [`Function::as_async`] override must return
+/// `Some(self)`.
+///
+/// The returned future is `Pin<Box<dyn Future + 'a>>` — single-threaded
+/// (consistent with [`EvalContext`]'s `Rc`-based handles), no `Send` bound.
+pub trait AsyncFunction: Send + Sync {
+    /// Invoke the function asynchronously.
+    ///
+    /// `args` are the already-evaluated argument values. `ctx` is the
+    /// evaluation context the call is happening within. The returned future
+    /// borrows `self`, `args`, and `ctx` for its lifetime `'a`.
+    fn call_async<'a>(
+        &'a self,
+        args: &'a [Value],
+        ctx: &'a mut EvalContext,
+    ) -> Pin<Box<dyn Future<Output = Result<Value, EvalError>> + 'a>>;
 }
 
 /// A named group of functions — the runtime-side analogue of a namespace.
@@ -443,11 +485,7 @@ impl EvalContext {
     ///
     /// Delegates to the [`ExprEvaluator`] set via [`set_expr_evaluator`].
     /// Returns [`EvalError::Other`] if no evaluator is set.
-    pub fn eval_expr(
-        &mut self,
-        expr: &str,
-        vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    pub fn eval_expr(&mut self, expr: &str, vars: &[(String, Value)]) -> Result<Value, EvalError> {
         let evaluator = self
             .expr_evaluator
             .clone()
@@ -632,6 +670,58 @@ impl EvalContext {
             .lookup(name)
             .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
         func.call(args, self)
+    }
+
+    /// Asynchronously evaluate a child AST node.
+    ///
+    /// This is the async counterpart of [`eval`](Self::eval), per ADR 0040's
+    /// "Async evaluation" section. The simplest viable approach is used:
+    /// dispatch goes through the *same* sync [`EvaluatorCallback`] (sync
+    /// `Behavior<Eval>` rules work unchanged) and the result is wrapped in a
+    /// `Future`. Sync rules need no async impl; only [`Function`] impls that
+    /// need IO-bound work implement [`AsyncFunction`] and are reached via
+    /// [`call_function_async`](Self::call_function_async).
+    ///
+    /// The platform's `Plugin::run` contract stays sync — async happens
+    /// *inside* evaluation, not at the capability dispatch boundary.
+    pub fn eval_async<'a>(
+        &'a mut self,
+        node: &'a AstNode,
+    ) -> Pin<Box<dyn Future<Output = Result<Value, PlatformError>> + 'a>> {
+        Box::pin(async move { self.eval(node) })
+    }
+
+    /// Asynchronously call a registered host function by qualified name.
+    ///
+    /// Looks up `name` through the [`ModuleLookup`] handle (same as
+    /// [`call_function`](Self::call_function)). If the resolved function
+    /// also implements [`AsyncFunction`] (advertised via
+    /// [`Function::as_async`]), it is awaited through `call_async`; otherwise
+    /// the sync `call` is invoked and its result is wrapped in a ready
+    /// future. This lets async-capable functions (HTTP, WebSocket, timers)
+    /// coexist with sync functions in the same registry.
+    ///
+    /// Returns [`EvalError::UnknownFunction`] if no module registry is set or
+    /// the name is not found.
+    pub fn call_function_async<'a>(
+        &'a mut self,
+        name: &'a str,
+        args: &'a [Value],
+    ) -> Pin<Box<dyn Future<Output = Result<Value, EvalError>> + 'a>> {
+        Box::pin(async move {
+            let modules = self
+                .modules
+                .clone()
+                .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
+            let func = modules
+                .lookup(name)
+                .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
+            if let Some(async_fn) = func.as_async() {
+                async_fn.call_async(args, self).await
+            } else {
+                func.call(args, self)
+            }
+        })
     }
 
     // -- yield / resumability -----------------------------------------------
@@ -1397,7 +1487,10 @@ mod tests {
             other => panic!("expected PlatformError::Yield, got {other:?}"),
         };
         // The yielding rule set "done" before yielding.
-        assert_eq!(yielded_context.lookup("done"), Some(&serde_json::json!(true)));
+        assert_eq!(
+            yielded_context.lookup("done"),
+            Some(&serde_json::json!(true))
+        );
 
         // Serialize → deserialize (simulating cross-machine resumability).
         let json = yielded_context.to_json().unwrap();
@@ -1475,7 +1568,10 @@ mod tests {
         };
         // The child set "done" before yielding — the captured context
         // reflects the state at the yield point.
-        assert_eq!(yielded_context.lookup("done"), Some(&serde_json::json!(true)));
+        assert_eq!(
+            yielded_context.lookup("done"),
+            Some(&serde_json::json!(true))
+        );
 
         // Resume from the parent: the child now sees "done" and returns 42,
         // which the parent passes through as its result.
@@ -1494,5 +1590,190 @@ mod tests {
         };
         let result = evaluator.resume(&parent_ast, restored, &mut pctx2).unwrap();
         assert_eq!(result, serde_json::json!(42));
+    }
+
+    // -----------------------------------------------------------------------
+    // Async evaluation tests (ADR 0040 — async evaluation)
+    // -----------------------------------------------------------------------
+
+    /// `eval_async` dispatches through the same sync `Behavior<Eval>` rules
+    /// and wraps the result in a `Future`. Sync rules work unchanged.
+    #[test]
+    fn eval_async_wraps_sync_rule_result() {
+        struct Echo;
+        impl Behavior<Eval> for Echo {
+            fn kind(&self) -> &str {
+                "echo"
+            }
+            fn apply(&self, op: &mut EvalRequest) -> Result<(), PlatformError> {
+                op.result = Some(op.ast.payload.clone());
+                Ok(())
+            }
+        }
+        impl EvalBehavior for Echo {}
+
+        let mut evaluator = BasicEvaluator::new();
+        evaluator
+            .accept(Arc::new(Echo) as Arc<dyn EvalBehavior>)
+            .unwrap();
+
+        let callback = Rc::new(BasicEvaluatorCallback {
+            rules: evaluator.rules.clone(),
+            exec_controls: evaluator.exec_controls.clone(),
+        });
+        let mut ctx = EvalContext::new();
+        ctx.set_evaluator(callback);
+
+        let ast = AstNode {
+            kind: "echo".to_string(),
+            span: None,
+            payload: serde_json::json!({"v": 7}),
+        };
+
+        // Drive the async future on this thread.
+        let fut = ctx.eval_async(&ast);
+        let result = futures_block_on(fut).unwrap();
+        assert_eq!(result, serde_json::json!({"v": 7}));
+    }
+
+    /// `call_function_async` awaits an `AsyncFunction` (advertised via
+    /// `Function::as_async`).
+    #[test]
+    fn call_function_async_uses_async_path() {
+        use std::future::ready;
+        use std::pin::Pin;
+
+        struct AsyncEcho;
+        impl Function for AsyncEcho {
+            fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+                Err(EvalError::Other("sync call should not be used".into()))
+            }
+            fn as_async(&self) -> Option<&dyn AsyncFunction> {
+                Some(self)
+            }
+        }
+        impl AsyncFunction for AsyncEcho {
+            fn call_async<'a>(
+                &'a self,
+                args: &'a [Value],
+                _ctx: &'a mut EvalContext,
+            ) -> Pin<Box<dyn std::future::Future<Output = Result<Value, EvalError>> + 'a>>
+            {
+                let v = args.first().cloned().unwrap_or(Value::Null);
+                Box::pin(ready(Ok(v)))
+            }
+        }
+
+        struct EchoModule;
+        impl Module for EchoModule {
+            fn name(&self) -> &str {
+                "echo"
+            }
+            fn function(&self, name: &str) -> Option<&dyn Function> {
+                match name {
+                    "echo" => Some(&AsyncEcho),
+                    _ => None,
+                }
+            }
+        }
+
+        let lookup: Rc<dyn ModuleLookup> = Rc::new(TestRegistry(EchoModule));
+        let mut ctx = EvalContext::new();
+        ctx.set_modules(lookup);
+
+        let args = [serde_json::json!("hi")];
+        let fut = ctx.call_function_async("echo.echo", &args);
+        let result = futures_block_on(fut).unwrap();
+        assert_eq!(result, serde_json::json!("hi"));
+    }
+
+    /// `call_function_async` falls back to the sync `call` when the function
+    /// does not implement `AsyncFunction`.
+    #[test]
+    fn call_function_async_falls_back_to_sync() {
+        struct SyncEcho;
+        impl Function for SyncEcho {
+            fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+                Ok(args.first().cloned().unwrap_or(Value::Null))
+            }
+        }
+
+        struct EchoModule;
+        impl Module for EchoModule {
+            fn name(&self) -> &str {
+                "echo"
+            }
+            fn function(&self, name: &str) -> Option<&dyn Function> {
+                match name {
+                    "echo" => Some(&SyncEcho),
+                    _ => None,
+                }
+            }
+        }
+
+        let lookup: Rc<dyn ModuleLookup> = Rc::new(TestRegistry(EchoModule));
+        let mut ctx = EvalContext::new();
+        ctx.set_modules(lookup);
+
+        let args = [serde_json::json!(42)];
+        let fut = ctx.call_function_async("echo.echo", &args);
+        let result = futures_block_on(fut).unwrap();
+        assert_eq!(result, serde_json::json!(42));
+    }
+
+    /// `call_function_async` returns `UnknownFunction` when no registry is set.
+    #[test]
+    fn call_function_async_without_registry_returns_unknown_function() {
+        let mut ctx = EvalContext::new();
+        let args = [serde_json::json!(1)];
+        let fut = ctx.call_function_async("math.add", &args);
+        let err = futures_block_on(fut).unwrap_err();
+        assert_eq!(err, EvalError::UnknownFunction("math.add".to_string()));
+    }
+
+    /// A minimal single-module [`ModuleLookup`] for tests, so the platform
+    /// crate doesn't need to depend on `plugin-module` (which would be
+    /// circular).
+    struct TestRegistry<M: Module>(M);
+    impl<M: Module + 'static> ModuleLookup for TestRegistry<M> {
+        fn lookup(&self, qualified_name: &str) -> Option<&dyn Function> {
+            if let Some((module_name, func_name)) = qualified_name.split_once('.') {
+                if self.0.name() == module_name {
+                    return self.0.function(func_name);
+                }
+            }
+            self.0.function(qualified_name)
+        }
+    }
+
+    /// A minimal single-threaded future executor for tests.
+    ///
+    /// Polls a future to completion on the current thread using a no-op waker.
+    /// This avoids pulling in an executor dependency (`tokio`/`futures`) just
+    /// for the platform's unit tests — the futures here are all ready or
+    /// trivially pollable.
+    fn futures_block_on<F: std::future::Future>(mut fut: F) -> F::Output {
+        use std::pin::Pin;
+        use std::sync::Arc;
+        use std::task::{Context, Poll, Wake, Waker};
+
+        struct NoopWake;
+        impl Wake for NoopWake {
+            fn wake(self: Arc<Self>) {}
+        }
+
+        let waker: Waker = Arc::new(NoopWake).into();
+        let mut cx = Context::from_waker(&waker);
+        // SAFETY: `fut` is shadowed and not moved after pinning.
+        let mut fut = unsafe { Pin::new_unchecked(&mut fut) };
+        loop {
+            match fut.as_mut().poll(&mut cx) {
+                Poll::Ready(out) => return out,
+                Poll::Pending => {
+                    // Our test futures never genuinely park; spin once.
+                    std::thread::yield_now();
+                }
+            }
+        }
     }
 }

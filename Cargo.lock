@@ -1176,6 +1176,7 @@ name = "handl-plugin-ext-eval"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-module",
  "serde_json",
 ]
 
