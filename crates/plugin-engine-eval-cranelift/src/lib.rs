@@ -246,6 +246,7 @@ impl<'h> EvalEngine for CraneliftEngine<'h> {
 /// compile module keeps the module alive via the `CompiledResult`.
 pub struct EvalCtx<'h> {
     /// The language definition (raw pointer; valid for the eval call).
+    #[allow(dead_code)]
     lang: *const Language,
     /// The AST being evaluated (raw pointer; valid for the eval call).
     ast: *const Ast,

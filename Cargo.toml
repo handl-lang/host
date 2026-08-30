@@ -92,7 +92,6 @@ members = [
   "crates/plugin-module",
   "crates/plugin-typecheck-core",
   "crates/plugin-source",
-  "crates/plugin-target-native",
   "crates/host-tooling",
   "crates/kit-config",
   "crates/kit-server",
@@ -234,7 +233,6 @@ handl-plugin-exec-max-calls = { path = "crates/plugin-exec-max-calls" }
 handl-plugin-module = { path = "crates/plugin-module" }
 handl-plugin-typecheck-core = { path = "crates/plugin-typecheck-core" }
 handl-plugin-source = { path = "crates/plugin-source" }
-handl-plugin-target-native = { path = "crates/plugin-target-native" }
 handl-host-tooling = { path = "crates/host-tooling" }
 handl-kit-config = { path = "crates/kit-config" }
 handl-kit-server = { path = "crates/kit-server" }

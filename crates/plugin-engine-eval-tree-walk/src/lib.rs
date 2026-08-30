@@ -70,17 +70,31 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 pub struct TreeWalkEngine<'h> {
     /// The host functions registry for `Foreign` dispatch (may be `None`).
     host: Option<&'h dyn HostFunctions>,
+    /// Global variables injected by the host (e.g. `self` → language handle).
+    /// Pre-populated into the root scope on every eval call.
+    globals: HashMap<String, Value>,
 }
 
 impl<'h> TreeWalkEngine<'h> {
     /// Create a new tree-walk engine with no host functions.
     pub fn new() -> Self {
-        Self { host: None }
+        Self {
+            host: None,
+            globals: HashMap::new(),
+        }
     }
 
     /// Attach a host functions registry (builder style).
     pub fn with_host(mut self, host: &'h dyn HostFunctions) -> Self {
         self.host = Some(host);
+        self
+    }
+
+    /// Inject a global variable visible to all eval calls (builder style).
+    /// Used by the host to inject `self` (the current language handle) and
+    /// other ambient values (ADR-0041 Phase 3).
+    pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
+        self.globals.insert(name.into(), value);
         self
     }
 }
@@ -163,6 +177,12 @@ impl<'h> EvalEngine for TreeWalkEngine<'h> {
             return Ok(Value::Null);
         }
         let mut env = ScopeStack::new();
+        // Inject host-provided globals (e.g. `self` → language handle) into
+        // the root scope. ADR-0041 Phase 3: `self` is an ambient variable,
+        // not a function call.
+        for (name, val) in &self.globals {
+            env.define(name, val.clone());
+        }
         // The root is the last node in the arena (Pratt convention).
         let root_ref = AstRef::new(ast.len() - 1);
         self.eval_node(ast, root_ref, lang, &mut env)

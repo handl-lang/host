@@ -24,7 +24,6 @@
 //!   `tls.server_config`, `tls.connect`, `tls.accept`, `tls.read`,
 //!   `tls.write`, `tls.close_conn`, `tls.close_listener`
 
-use handl_platform::{Module};
 mod error;
 mod module;
 mod service;

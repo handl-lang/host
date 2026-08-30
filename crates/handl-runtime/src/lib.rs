@@ -39,6 +39,8 @@
 
 pub mod meta;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
@@ -292,7 +294,8 @@ impl<'h> Runtime<'h> {
     /// # Phase 3 resolvable names
     ///
     /// - `parse = "pratt"` → [`PrattEngine`]
-    /// - `eval = "tree-walk"` → [`TreeWalkEngine`] (with host if provided)
+    /// - `eval = "tree-walk"` → [`TreeWalkEngine`] (with host if provided,
+    ///   plus any globals injected as root-scope variables)
     /// - `lex = "data"` → [`DataLexerEngine`] (data-driven lexer reading
     ///   `LexerRuleDef` fragments)
     ///
@@ -303,6 +306,21 @@ impl<'h> Runtime<'h> {
         lang: Language,
         config: &RuntimeConfig,
         host_functions: Option<&'h dyn HostFunctions>,
+    ) -> Result<Self, LangError> {
+        Self::from_config_with_globals(lang, config, host_functions, None)
+    }
+
+    /// Like [`from_config`] but injects `globals` as root-scope variables
+    /// in the eval engine (e.g. `self` → language handle). ADR-0041 Phase 3.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::Engine`] for any unknown engine name.
+    pub fn from_config_with_globals(
+        lang: Language,
+        config: &RuntimeConfig,
+        host_functions: Option<&'h dyn HostFunctions>,
+        globals: Option<&HashMap<String, Value>>,
     ) -> Result<Self, LangError> {
         // Resolve lex engine.
         let lex_engine: Option<Box<dyn LexerEngine>> = match &config.lex {
@@ -336,10 +354,15 @@ impl<'h> Runtime<'h> {
         let eval_engine: Option<Box<dyn EvalEngine + 'h>> = match &config.eval {
             Some(name) => match name.as_str() {
                 "tree-walk" => {
-                    let engine = match host_functions {
+                    let mut engine = match host_functions {
                         Some(host) => TreeWalkEngine::new().with_host(host),
                         None => TreeWalkEngine::new(),
                     };
+                    if let Some(globals) = globals {
+                        for (name, val) in globals {
+                            engine = engine.with_global(name, val.clone());
+                        }
+                    }
                     Some(Box::new(engine))
                 }
                 _ => {

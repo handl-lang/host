@@ -18,7 +18,6 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use handl_platform::{EvalContext};
 
 use handl_plugin_lib_kv::{KeyValueStore, KvError};
 

@@ -1,4 +1,4 @@
-use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::EvalError;
 
 
 pub(super) fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {

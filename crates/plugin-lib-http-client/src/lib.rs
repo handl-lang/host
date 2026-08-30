@@ -32,7 +32,6 @@
 //!
 //! Expressions can then call `http.get("https://...")`, `http.post(url, body)`, etc.
 
-use handl_platform::{Module};
 mod error;
 mod http_client;
 

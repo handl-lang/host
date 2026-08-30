@@ -2037,15 +2037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-target-native"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-type",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-target-native-example"
 version = "0.1.0"
 dependencies = [

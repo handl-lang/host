@@ -46,7 +46,6 @@
 //! `intl.format_relative_time(5, "second")`, `intl.format_date("2024-05-08")`,
 //! etc.
 
-use handl_platform::{Function, Module};
 mod common;
 mod compare_strings;
 mod display_name;

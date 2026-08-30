@@ -252,8 +252,16 @@ impl PrattEngine {
             // Consume the operator token.
             let _op = cursor.advance()?;
 
-            // Parse the right operand with the infix's right binding power.
-            let right = self.expression_inner(lang, cursor, rbp_right)?;
+            // Parse the right operand. For `call` nodes, use rbp=0 so nested
+            // calls (e.g. `parse(self, lex(...))`) are fully parsed as the
+            // first argument, not truncated at the next `(`. For other infix
+            // operators, use the row's right binding power.
+            let arg_rbp = if infix_row.child_shape.node_kind == "call" {
+                0
+            } else {
+                rbp_right
+            };
+            let right = self.expression_inner(lang, cursor, arg_rbp)?;
 
             // Build the infix node: children = [left, right, ...].
             let infix_kind = infix_row.child_shape.node_kind.clone();
@@ -265,6 +273,33 @@ impl PrattEngine {
             for _ in 2..infix_arity {
                 let extra = self.expression_inner(lang, cursor, rbp_right)?;
                 children.push(extra.index());
+            }
+            // ADR-0041 Phase 2: variable-arity calls. If the infix node is a
+            // `call` and the next token is a comma, keep parsing comma-
+            // separated arguments until `token.rparen`. This makes
+            // `eval(handle, ast)`, `parse(handle, tokens)`, etc. parseable
+            // from source. The fixed-arity grammar row stays as-is (arity 2
+            // = callee + first arg); this extension adds the remaining args.
+            //
+            // Args are parsed with rbp=0 so nested calls (e.g.
+            // `parse(self, lex(...))`) are fully parsed as expressions, not
+            // truncated at the next `(`.
+            if infix_kind == "call" {
+                while let Some(next) = cursor.peek() {
+                    if next.kind != "token.comma" {
+                        break;
+                    }
+                    // Consume the comma.
+                    let _ = cursor.advance()?;
+                    let arg = self.expression_inner(lang, cursor, 0)?;
+                    children.push(arg.index());
+                }
+                // Consume the closing `)`.
+                if let Some(next) = cursor.peek() {
+                    if next.kind == "token.rparen" {
+                        let _ = cursor.advance()?;
+                    }
+                }
             }
             let payload = serde_json::json!({ "children": children });
             let node = AstNode::new(&infix_kind).with_payload(payload);

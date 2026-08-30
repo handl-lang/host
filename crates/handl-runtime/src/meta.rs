@@ -68,12 +68,13 @@ impl LanguageRegistry {
 // ---------------------------------------------------------------------------
 
 /// Build a [`Runtime`] for `handle` with [`MetaHostFunctions`] attached, so
-/// the sub-runtime can also call `lex`/`parse`/`eval`/`run`/`self`/`compile`.
+/// the sub-runtime can also call `lex`/`parse`/`eval`/`run`/`compile`.
+///
+/// Injects `self` as a global variable bound to `handle` (ADR-0041 Phase 3:
+/// `self` is an ambient variable, not a function call).
 ///
 /// The [`MetaHostFunctions`] is leaked to obtain a `'static` reference — it
-/// lives for the process lifetime. This is acceptable because each `eval`/
-/// `run` call creates a fresh sub-runtime, and the leaked meta is small
-/// (just `Rc` clones + a handle string).
+/// lives for the process lifetime.
 fn build_runtime(
     registry: &Rc<LanguageRegistry>,
     handle: &str,
@@ -85,7 +86,9 @@ fn build_runtime(
         .clone();
     let sub_meta = MetaHostFunctions::new(registry.clone(), handle.to_string(), delegate.clone());
     let sub_meta_static: &'static MetaHostFunctions = Box::leak(Box::new(sub_meta));
-    Runtime::from_config(lang, &config, Some(sub_meta_static))
+    let mut globals = HashMap::new();
+    globals.insert("self".to_string(), Value::String(handle.to_string()));
+    Runtime::from_config_with_globals(lang, &config, Some(sub_meta_static), Some(&globals))
 }
 
 // ---------------------------------------------------------------------------
@@ -387,8 +390,9 @@ impl HostFunctions for MetaHostFunctions {
             "parse" => Some(&self.parse_fn),
             "eval" => Some(&self.eval_fn),
             "run" => Some(&self.run_fn),
-            "self" => Some(&self.self_fn),
             "compile" => Some(&self.compile_fn),
+            // Note: `self` is no longer a host function — it's injected as a
+            // global variable by `build_runtime` / `Kit::new`. ADR-0041 Phase 3.
             _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
         }
     }
@@ -436,7 +440,11 @@ mod tests {
             .with_lex("data")
             .with_parse("pratt")
             .with_eval("tree-walk");
-        Runtime::from_config(canonical, &config, Some(meta_static)).expect("runtime must build")
+        // Inject `self` as a global variable (ADR-0041 Phase 3).
+        let mut globals = HashMap::new();
+        globals.insert("self".to_string(), Value::String("handl".to_string()));
+        Runtime::from_config_with_globals(canonical, &config, Some(meta_static), Some(&globals))
+            .expect("runtime must build")
     }
 
     /// `lex("handl", "1 + 2")` returns a JSON-serialized Tokens value.
@@ -537,14 +545,17 @@ mod tests {
         assert_eq!(pipeline_result, json!(3));
     }
 
-    /// `self()` returns the handle of the currently-running language.
+    /// `self` is injected as a global variable bound to the current language
+    /// handle (ADR-0041 Phase 3: `self` is an ambient variable, not a fn call).
     #[test]
-    fn self_host_function_returns_current_handle() {
+    fn self_global_returns_current_handle() {
         let runtime = make_runtime();
+        // `self` is a var node — the tree-walk looks it up in the root scope
+        // where `build_runtime` injected `self = "handl"`.
         let mut ast = Ast::new();
-        ast.push(AstNode::new("foreign.self"));
+        ast.push(AstNode::new("var").with_payload(json!("self")));
         let result = runtime.eval(&ast).expect("self must succeed");
-        assert_eq!(result, json!("handl"), "self() should return 'handl'");
+        assert_eq!(result, json!("handl"), "self should return 'handl'");
     }
 
     /// `compile("handl", "native")` returns a compiled marker.

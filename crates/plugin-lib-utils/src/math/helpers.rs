@@ -1,5 +1,4 @@
 use handl_platform::EvalError;
-use handl_platform::{EvalContext, Function};
 
 pub(crate) use crate::shared::{b, num};
 

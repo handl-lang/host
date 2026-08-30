@@ -1,5 +1,4 @@
 use handl_platform::{EvalContext, EvalError, Function};
-use crate::function_value::FunctionValue;
 
 use crate::shared::{
     apply_fn, arr, b, find_first, is_truthy_fn, key_to_string, map_iter, require_function_and_array,

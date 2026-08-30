@@ -23,7 +23,7 @@
 
 #![warn(missing_docs)]
 
-use handl_language::{LangError, Language, LexerPattern, LexerRuleDef, Source, Token, Tokens};
+use handl_language::{LangError, Language, LexerPattern, LexerRuleDef, Token, Tokens};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 
 /// A data-driven lexer engine that reads [`LexerRuleDef`] fragments from the

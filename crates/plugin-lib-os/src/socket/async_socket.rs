@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 
-use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_platform::{EvalError, Function, Module};
 
 use crate::error::OsError;
 
@@ -75,6 +75,7 @@ impl Module for AsyncSocketModule {
     }
 }
 
+#[allow(dead_code)]
 fn require_string_arg(args: &[serde_json::Value]) -> Result<&str, EvalError> {
     args.first()
         .ok_or_else(|| EvalError::TypeMismatch("socket: expected 1 argument, got 0".to_string()))?
@@ -82,6 +83,7 @@ fn require_string_arg(args: &[serde_json::Value]) -> Result<&str, EvalError> {
         .ok_or_else(|| EvalError::TypeMismatch("socket: expected string argument".to_string()))
 }
 
+#[allow(dead_code)]
 fn require_number_arg(args: &[serde_json::Value]) -> Result<i64, EvalError> {
     args.first()
         .ok_or_else(|| EvalError::TypeMismatch("socket: expected 1 argument, got 0".to_string()))?
@@ -90,11 +92,13 @@ fn require_number_arg(args: &[serde_json::Value]) -> Result<i64, EvalError> {
         .map(|n| n as i64)
 }
 
+#[allow(dead_code)]
 struct AsyncConnectFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
 impl AsyncConnectFn {
+    #[allow(dead_code)]
     fn call<'a>(
         &'a self,
         args: &'a [serde_json::Value],
@@ -107,11 +111,13 @@ impl AsyncConnectFn {
     }
 }
 
+#[allow(dead_code)]
 struct AsyncSendFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
 impl AsyncSendFn {
+    #[allow(dead_code)]
     fn call<'a>(
         &'a self,
         args: &'a [serde_json::Value],
@@ -134,11 +140,13 @@ impl AsyncSendFn {
     }
 }
 
+#[allow(dead_code)]
 struct AsyncRecvFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
 impl AsyncRecvFn {
+    #[allow(dead_code)]
     fn call<'a>(
         &'a self,
         args: &'a [serde_json::Value],
@@ -160,11 +168,13 @@ impl AsyncRecvFn {
     }
 }
 
+#[allow(dead_code)]
 struct AsyncCloseFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
 impl AsyncCloseFn {
+    #[allow(dead_code)]
     fn call<'a>(
         &'a self,
         args: &'a [serde_json::Value],

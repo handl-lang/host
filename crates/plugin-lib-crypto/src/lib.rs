@@ -41,7 +41,6 @@
 //! Expressions can then call `crypto.sha256("hello")`,
 //! `crypto.md5("hello")`, etc.
 
-use handl_platform::{Function, Module};
 mod common;
 mod error;
 mod hash;

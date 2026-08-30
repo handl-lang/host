@@ -23,7 +23,6 @@
 //! assert_eq!(message, Message::Text("hello".to_string()));
 //! ```
 
-use handl_platform::{Function};
 pub mod close;
 pub mod error;
 pub mod frame;

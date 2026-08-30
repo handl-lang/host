@@ -2,7 +2,6 @@
 //! files and verify the resulting `Language` has the expected fragments
 //! (ADR-0044 §6 end state).
 
-use handl_kit_data::DataKit;
 use handl_kit_data_canonical;
 
 #[test]

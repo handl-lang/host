@@ -77,14 +77,24 @@ impl Kit {
     pub fn new() -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let (_registry, meta) = canonical_meta_host_functions(lang);
+        let config = kit.runtime_config().clone();
+        let (_registry, meta) = canonical_meta_host_functions(lang.clone());
         // Leak the MetaHostFunctions to obtain a &'static reference. It lives
         // for the process lifetime — acceptable for a Kit that is typically
         // created once at startup. This avoids self-referential borrow issues.
         let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(
             Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone()),
         ));
-        let runtime = kit.into_runtime(Some(meta_static))?;
+        // Inject `self` as a global variable bound to "handl" (ADR-0041
+        // Phase 3: `self` is an ambient variable, not a function call).
+        let mut globals = std::collections::HashMap::new();
+        globals.insert("self".to_string(), serde_json::json!("handl"));
+        let runtime = Runtime::from_config_with_globals(
+            lang,
+            &config,
+            Some(meta_static),
+            Some(&globals),
+        )?;
         Ok(Kit { runtime })
     }
 

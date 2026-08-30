@@ -201,7 +201,7 @@ impl DefaultScheduler {
         self.cancel_runtime.clone()
     }
 
-    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<Vec<TaskRecord>>, EvalError> {
+    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<'_, Vec<TaskRecord>>, EvalError> {
         self.tasks
             .lock()
             .map_err(|_| EvalError::Other("scheduler lock poisoned".to_string()))
@@ -623,7 +623,7 @@ impl ThreadPoolScheduler {
         self.cancel_runtime.clone()
     }
 
-    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<Vec<TaskRecord>>, EvalError> {
+    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<'_, Vec<TaskRecord>>, EvalError> {
         self.tasks
             .lock()
             .map_err(|_| EvalError::Other("scheduler lock poisoned".to_string()))
@@ -631,7 +631,7 @@ impl ThreadPoolScheduler {
 
     fn lock_results(
         &self,
-    ) -> Result<std::sync::MutexGuard<mpsc::Receiver<(u64, EvalResult)>>, EvalError> {
+    ) -> Result<std::sync::MutexGuard<'_, mpsc::Receiver<(u64, EvalResult)>>, EvalError> {
         self.results_rx
             .lock()
             .map_err(|_| EvalError::Other("result channel lock poisoned".to_string()))
@@ -1231,7 +1231,7 @@ impl WorkStealingScheduler {
         self.cancel_runtime.clone()
     }
 
-    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<HashMap<u64, TaskState>>, EvalError> {
+    fn lock_tasks(&self) -> Result<std::sync::MutexGuard<'_, HashMap<u64, TaskState>>, EvalError> {
         self.tasks
             .lock()
             .map_err(|_| EvalError::Other("scheduler lock poisoned".to_string()))
@@ -1239,7 +1239,7 @@ impl WorkStealingScheduler {
 
     fn lock_results(
         &self,
-    ) -> Result<std::sync::MutexGuard<mpsc::Receiver<(u64, TaskResult)>>, EvalError> {
+    ) -> Result<std::sync::MutexGuard<'_, mpsc::Receiver<(u64, TaskResult)>>, EvalError> {
         self.results_rx
             .lock()
             .map_err(|_| EvalError::Other("result channel lock poisoned".to_string()))

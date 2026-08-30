@@ -52,7 +52,6 @@
 //!     .with(DateTimeModule);
 //! ```
 
-use handl_platform::{Function, Module};
 mod datetime;
 mod error;
 

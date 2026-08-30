@@ -602,7 +602,7 @@ impl Function for ServerListen {
             server.max_connections = max_connections;
             *server._incoming.get_mut().unwrap() = std_rx;
             let next_conn_id = Arc::new(AtomicUsize::new(1));
-            (next_conn_id)
+            next_conn_id
         };
 
         let (handler, tls, max_connections) = {
@@ -760,14 +760,14 @@ async fn handle_connection<S>(
     stream: S,
     std_tx: mpsc::Sender<Value>,
     handler: Option<FunctionValue>,
-    next_conn_id: Arc<AtomicUsize>,
+    _next_conn_id: Arc<AtomicUsize>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
         return;
     };
-    let (mut write, mut read) = ws.split();
+    let (_write, mut read) = ws.split();
 
     while let Some(Ok(msg)) = read.next().await {
         let value = serde_json::json!(tungstenite_to_json(msg));

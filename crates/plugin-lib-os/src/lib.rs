@@ -66,7 +66,6 @@
 
 #![allow(clippy::module_inception)]
 
-use handl_platform::{Module};
 mod cmd;
 mod env;
 mod error;
