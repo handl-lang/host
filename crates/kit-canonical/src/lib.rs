@@ -58,11 +58,15 @@ use handl_plugin_eval_hello::HelloEvalPlugin;
 use handl_plugin_eval_json::JsonEvalPlugin;
 use handl_plugin_grammar_apply::ApplyRule;
 use handl_plugin_grammar_array::ArrayRule;
+use handl_plugin_grammar_arith::ArithRule;
 use handl_plugin_grammar_assign::AssignRule;
 use handl_plugin_grammar_call::CallRule;
+use handl_plugin_grammar_cmp::CmpRule;
 use handl_plugin_grammar_function_literal::ArrowRule;
 use handl_plugin_grammar_handle::HandleRule;
 use handl_plugin_grammar_index::IndexRule;
+use handl_plugin_grammar_infix_fanout::FanoutRule;
+use handl_plugin_grammar_infix_flow::FlowRule;
 use handl_plugin_grammar_match::MatchRule;
 use handl_plugin_grammar_object::ObjectRule;
 use handl_plugin_grammar_pipe::PipeRule;
@@ -162,6 +166,10 @@ const GRAMMAR_RULE_PLUGIN_IDS: &[&str] = &[
     "plugin-grammar-call",
     "plugin-grammar-index",
     "plugin-grammar-pipe",
+    "plugin-grammar-cmp",
+    "plugin-grammar-infix-flow",
+    "plugin-grammar-infix-fanout",
+    "plugin-grammar-arith",
     "plugin-grammar-function-literal",
     "plugin-grammar-template",
     "plugin-grammar-apply",
@@ -184,6 +192,10 @@ fn rule_for_plugin_id(id: &str) -> Option<Box<dyn ParserBehavior<DynKind>>> {
         "plugin-grammar-apply" => Box::new(ApplyRule),
         "plugin-grammar-index" => Box::new(IndexRule),
         "plugin-grammar-pipe" => Box::new(PipeRule),
+        "plugin-grammar-cmp" => Box::new(CmpRule),
+        "plugin-grammar-infix-flow" => Box::new(FlowRule),
+        "plugin-grammar-infix-fanout" => Box::new(FanoutRule),
+        "plugin-grammar-arith" => Box::new(ArithRule),
         "plugin-grammar-function-literal" => Box::new(ArrowRule),
         "plugin-grammar-template" => Box::new(TemplateRule),
         "plugin-grammar-assign" => Box::new(AssignRule),
@@ -222,6 +234,12 @@ const AST_KIND_TABLE: &[(&str, &str, AstKindRole)] = &[
     // `|>` desugars to `call` at parse time, so plugin-grammar-pipe produces
     // `call` nodes (same kind as plugin-grammar-call).
     ("plugin-grammar-pipe", "call", AstKindRole::Produces),
+    // Comparison sugars (`==`, `!=`, `<`, `<=`, `>`, `>=`, `<=>`) and arrow
+    // sugars (`>>>`, `&&&`) also desugar to `call` nodes at parse time.
+    ("plugin-grammar-cmp", "call", AstKindRole::Produces),
+    ("plugin-grammar-infix-flow", "call", AstKindRole::Produces),
+    ("plugin-grammar-infix-fanout", "call", AstKindRole::Produces),
+    ("plugin-grammar-arith", "call", AstKindRole::Produces),
     ("plugin-grammar-function-literal", "function", AstKindRole::Produces),
     ("plugin-grammar-assign", "assign", AstKindRole::Produces),
     ("plugin-grammar-array", "array", AstKindRole::Produces),

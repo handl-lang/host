@@ -7,7 +7,7 @@ use handl_platform::{
 use handl_plugin_module::{ModuleRuntime, ModuleRule};
 
 use crate::{
-    Base64Module, BoolModule, CmpModule, EncodingModule, FnModule, HexModule, JsonModule,
+    Base64Module, BoolModule, EncodingModule, FnModule, HexModule, JsonModule,
     MathModule, MoodModule, OptionModule, ParseModule, ResultModule, SerializeModule, StrModule,
     TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule, YamlModule,
 };
@@ -37,7 +37,6 @@ impl Plugin for LibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(MathModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(StrModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(BoolModule))?;
-        ctx.contribute::<ModuleRuntime>(ModuleRule::new(CmpModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(FnModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;

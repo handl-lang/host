@@ -26,10 +26,6 @@
 //!   `str.slugify`, `str.word_wrap`
 //! - [`BoolModule`] — `bool.and`, `bool.or`, `bool.not`, `bool.xor`,
 //!   `bool.nand`, `bool.nor`, `bool.implies`, `bool.eq`
-//! - [`CmpModule`] — `cmp.eq`, `cmp.ne`, `cmp.lt`, `cmp.le`, `cmp.gt`,
-//!   `cmp.ge`, `cmp.compare`, `cmp.min`, `cmp.max`, `cmp.clamp`,
-//!   `cmp.between`, `cmp.in_range`, `cmp.is_sorted`, `cmp.is_sorted_desc`,
-//!   `cmp.sort`, `cmp.sort_desc`
 //! - [`FnModule`] — `fn.pipe`, `fn.flow`, `fn.compose`, `fn.fanout`,
 //!   `fn.choice`, `fn.apply`, `fn.map`, `fn.filter`, `fn.reduce`,
 //!   `fn.tap`, `fn.constantly`, `fn.flip`, `fn.partial`, `fn.when`,
@@ -64,22 +60,20 @@
 
 use handl_platform::{Module};
 mod bool;
-mod cmp;
 mod encoding;
 mod r#fn;
-mod function_value;
+pub mod function_value;
 mod math;
 mod mood;
 mod option;
 mod parse;
 mod result;
 mod serialize;
-pub(crate) mod shared;
+pub mod shared;
 mod r#str;
 mod r#type;
 
 pub use bool::BoolModule;
-pub use cmp::CmpModule;
 pub use encoding::EncodingModule;
 pub use r#fn::FnModule;
 pub use handl_plugin_lib_base64::Base64Module;

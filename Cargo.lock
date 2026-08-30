@@ -828,12 +828,16 @@ dependencies = [
  "handl-plugin-fmt-stmt",
  "handl-plugin-fmt-trivia",
  "handl-plugin-grammar-apply",
+ "handl-plugin-grammar-arith",
  "handl-plugin-grammar-array",
  "handl-plugin-grammar-assign",
  "handl-plugin-grammar-call",
+ "handl-plugin-grammar-cmp",
  "handl-plugin-grammar-function-literal",
  "handl-plugin-grammar-handle",
  "handl-plugin-grammar-index",
+ "handl-plugin-grammar-infix-fanout",
+ "handl-plugin-grammar-infix-flow",
  "handl-plugin-grammar-let",
  "handl-plugin-grammar-match",
  "handl-plugin-grammar-object",
@@ -887,6 +891,7 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-canonical",
  "handl-platform",
+ "handl-plugin-lib-cmp",
  "handl-plugin-lib-collections",
  "handl-plugin-lib-json",
  "handl-plugin-lib-os-std",
@@ -902,6 +907,7 @@ dependencies = [
  "handl-kit-canonical",
  "handl-platform",
  "handl-plugin-lib-archive-tar",
+ "handl-plugin-lib-cmp",
  "handl-plugin-lib-collections",
  "handl-plugin-lib-compress-gzip",
  "handl-plugin-lib-crypto",
@@ -1477,6 +1483,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-grammar-arith"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-operator",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-grammar-array"
 version = "0.1.0"
 dependencies = [
@@ -1509,6 +1528,19 @@ dependencies = [
  "handl-plugin-lexer",
  "handl-plugin-token-delimiter",
  "handl-plugin-token-kind",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-grammar-cmp"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-operator",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1565,7 +1597,11 @@ name = "handl-plugin-grammar-infix-fanout"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-grammar-primary-identifier",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-operator",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
  "serde_json",
 ]
 
@@ -1574,7 +1610,12 @@ name = "handl-plugin-grammar-infix-flow"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
- "handl-plugin-grammar-primary-identifier",
+ "handl-plugin-ext-parser",
+ "handl-plugin-lexer",
+ "handl-plugin-lexer-operator",
+ "handl-plugin-token-kind",
+ "handl-plugin-token-operator",
+ "serde_json",
 ]
 
 [[package]]
@@ -2000,6 +2041,16 @@ dependencies = [
  "base64",
  "handl-platform",
  "handl-plugin-lib-encoding",
+ "handl-plugin-module",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-cmp"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-utils",
  "handl-plugin-module",
  "serde_json",
 ]

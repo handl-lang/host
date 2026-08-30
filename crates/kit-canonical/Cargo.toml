@@ -66,10 +66,14 @@ handl-plugin-ast-var = { path = "../plugin-ast-var" }
 
 handl-plugin-grammar-apply = { path = "../plugin-grammar-apply" }
 handl-plugin-grammar-array = { path = "../plugin-grammar-array" }
+handl-plugin-grammar-arith = { path = "../plugin-grammar-arith" }
 handl-plugin-grammar-assign = { path = "../plugin-grammar-assign" }
 handl-plugin-grammar-call = { workspace = true }
+handl-plugin-grammar-cmp = { path = "../plugin-grammar-cmp" }
 handl-plugin-grammar-handle = { path = "../plugin-grammar-handle" }
 handl-plugin-grammar-index = { path = "../plugin-grammar-index" }
+handl-plugin-grammar-infix-fanout = { path = "../plugin-grammar-infix-fanout" }
+handl-plugin-grammar-infix-flow = { path = "../plugin-grammar-infix-flow" }
 handl-plugin-grammar-let = { path = "../plugin-grammar-let" }
 handl-plugin-grammar-primary-identifier = { workspace = true }
 handl-plugin-grammar-primary-value = { workspace = true }

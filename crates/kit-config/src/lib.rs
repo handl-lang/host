@@ -82,6 +82,7 @@ impl Plugin for ConfigKit {
         ctx.register_plugin(CanonicalKit::new())?;
 
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;

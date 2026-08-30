@@ -1,6 +1,6 @@
 use handl_platform::Module;
 
-use super::CmpModule;
+use crate::CmpModule;
 use handl_platform::{EvalContext, EvalError};
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {

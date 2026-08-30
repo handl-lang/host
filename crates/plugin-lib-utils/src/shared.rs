@@ -1,3 +1,11 @@
+//! Shared helpers for handl library crates.
+//!
+//! These primitives (argument requirements, value constructors, function
+//! application, extremum selection) are used by the modules in this crate and
+//! are also re-exported for sibling library crates such as
+//! `handl-plugin-lib-cmp` so they can compose without duplicating the
+//! function-value machinery.
+
 use serde_json::{Map, Value as JsonValue};
 
 use crate::function_value::FunctionValue;
@@ -10,7 +18,7 @@ use handl_platform::{EvalContext, EvalError};
 
 // ── type requirements ──────────────────────────────────────────────
 
-pub(crate) fn require_array(arg: &serde_json::Value) -> Result<&[serde_json::Value], EvalError> {
+pub fn require_array(arg: &serde_json::Value) -> Result<&[serde_json::Value], EvalError> {
     arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
 }
 
@@ -20,7 +28,7 @@ pub(crate) fn require_function_value(arg: &serde_json::Value) -> Result<Function
 
 // ── argument count requirements ────────────────────────────────────
 
-pub(crate) fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
+pub fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
     args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
 }
 
@@ -42,7 +50,7 @@ pub(crate) fn require_two_arrays(
     Ok((a, b))
 }
 
-pub(crate) fn require_function_and_array(
+pub fn require_function_and_array(
     args: &[serde_json::Value],
 ) -> Result<(FunctionValue, &[serde_json::Value]), EvalError> {
     if args.len() < 2 {
@@ -188,15 +196,15 @@ pub(crate) fn is_truthy_value(value: &serde_json::Value) -> bool {
 
 // ── constructors ───────────────────────────────────────────────────
 
-pub(crate) fn arr(items: &[serde_json::Value]) -> serde_json::Value {
+pub fn arr(items: &[serde_json::Value]) -> serde_json::Value {
     serde_json::Value::from(serde_json::Value::Array(items.to_vec()))
 }
 
-pub(crate) fn b(value: bool) -> serde_json::Value {
+pub fn b(value: bool) -> serde_json::Value {
     serde_json::Value::from(value)
 }
 
-pub(crate) fn num(value: f64) -> serde_json::Value {
+pub fn num(value: f64) -> serde_json::Value {
     serde_json::Value::from(serde_json::json!(value))
 }
 
@@ -245,7 +253,7 @@ pub(crate) fn value_to_string(value: &serde_json::Value) -> String {
 
 /// Returns a reference to the element selected by `better` over all items.
 /// `better(candidate, best)` should be true when `candidate` should replace `best`.
-pub(crate) fn find_extremum_by<'a, T>(
+pub fn find_extremum_by<'a, T>(
     items: &'a [T],
     mut better: impl FnMut(&T, &T) -> bool,
 ) -> Option<&'a T> {
@@ -370,7 +378,7 @@ pub(crate) fn err_result(message: &str) -> serde_json::Value {
 // ════════════════════════════════════════════════════════════════════
 
 /// Apply a single-param function to a value: bind_param + eval_expr.
-pub(crate) fn apply_fn(
+pub fn apply_fn(
     ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     value: &serde_json::Value,

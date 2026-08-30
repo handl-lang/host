@@ -1,5 +1,0 @@
-eq: type.bool = cmp.eq(1, 1);
-min: type.num = cmp.min(3, 1, 2);
-clamp: type.num = cmp.clamp(10, 0, 5);
-sorted: type.arr = cmp.sort([3, 1, 2]);
-{ eq: eq, min: min, clamp: clamp, sorted: sorted }

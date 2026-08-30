@@ -21,6 +21,8 @@ pub enum OperatorKind {
     Minus,
     /// `*`
     Star,
+    /// `**`
+    Pow,
     /// `/`
     Slash,
     /// `<`
@@ -37,6 +39,10 @@ pub enum OperatorKind {
     GreaterEqual,
     /// `<=>`
     Spaceship,
+    /// `>>>`
+    Flow,
+    /// `&&&`
+    Fanout,
     /// End-of-input sentinel.
     Eof,
 }
@@ -50,6 +56,7 @@ impl fmt::Display for OperatorKind {
             OperatorKind::Plus => write!(f, "+"),
             OperatorKind::Minus => write!(f, "-"),
             OperatorKind::Star => write!(f, "*"),
+            OperatorKind::Pow => write!(f, "**"),
             OperatorKind::Slash => write!(f, "/"),
             OperatorKind::LessThan => write!(f, "<"),
             OperatorKind::GreaterThan => write!(f, ">"),
@@ -58,6 +65,8 @@ impl fmt::Display for OperatorKind {
             OperatorKind::LessEqual => write!(f, "<="),
             OperatorKind::GreaterEqual => write!(f, ">="),
             OperatorKind::Spaceship => write!(f, "<=>"),
+            OperatorKind::Flow => write!(f, ">>>"),
+            OperatorKind::Fanout => write!(f, "&&&"),
             OperatorKind::Eof => write!(f, "eof"),
         }
     }
@@ -107,7 +116,7 @@ fn regex_escape(s: &str) -> String {
 /// All operator strings recognized by this plugin, in priority order
 /// (longest first so that multi-char operators match before single-char).
 pub const OPERATOR_STRINGS: &[&str] = &[
-    "|>", "->", "<=>", "==", "!=", "<=", ">=", "=", "+", "-", "*", "/", "<", ">",
+    "|>", "->", "<=>", ">>>", "&&&", "==", "!=", "<=", ">=", "**", "=", "+", "-", "*", "/", "<", ">",
 ];
 
 impl GrammarContributor for TokenFactory {

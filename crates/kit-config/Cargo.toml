@@ -7,6 +7,7 @@ edition.workspace = true
 handl-platform = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-plugin-lib-utils.workspace = true
+handl-plugin-lib-cmp.workspace = true
 handl-plugin-lib-crypto.workspace = true
 handl-plugin-lib-datetime.workspace = true
 handl-plugin-lib-intl.workspace = true

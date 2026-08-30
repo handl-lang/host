@@ -2,8 +2,8 @@ use handl_platform::Function;
 use handl_platform::Module;
 
 use crate::r#fn::combinators::{
-    Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, Map, Match,
-    Partial, Pipe, Reduce, Tap, Unless, When,
+    Apply, Choice, Compose, Constantly, Converge, Fanout, FanoutFn, Filter, Flip, Flow, Map,
+    Match, Partial, Pipe, Reduce, Tap, Unless, When,
 };
 use crate::r#fn::higher_order::{CountBy, Every, Find, FlatMap, GroupBy, Partition, SomeFn};
 
@@ -25,6 +25,7 @@ impl Module for FnModule {
             "flow" => Some(&Flow),
             "compose" => Some(&Compose),
             "fanout" => Some(&Fanout),
+            "fanout_fn" => Some(&FanoutFn),
             "choice" => Some(&Choice),
             "apply" => Some(&Apply),
             "map" => Some(&Map),

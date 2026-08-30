@@ -94,6 +94,7 @@ impl Plugin for CliKit {
         // json, etc.) into the ModuleRuntime that CanonicalKit provides.
         ctx.register_plugin(handl_plugin_lib_os_std::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_json::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_toml::LibraryPlugin)?;

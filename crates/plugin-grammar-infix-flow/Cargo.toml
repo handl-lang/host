@@ -5,6 +5,9 @@ edition.workspace = true
 
 [dependencies]
 handl-platform.workspace = true
-
-[dev-dependencies]
-handl-plugin-grammar-primary-identifier.workspace = true
+handl-plugin-ext-parser.workspace = true
+handl-plugin-lexer.workspace = true
+handl-plugin-lexer-operator.workspace = true
+serde_json = "1"
+handl-plugin-token-kind = { path = "../plugin-token-kind" }
+handl-plugin-token-operator = { path = "../plugin-token-operator" }

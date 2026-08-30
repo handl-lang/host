@@ -43,6 +43,7 @@ members = [
   "crates/plugin-lib-base64",
   "crates/plugin-lib-collections",
   "crates/plugin-lib-compress",
+  "crates/plugin-lib-cmp",
   "crates/plugin-lib-compress-gzip",
   "crates/plugin-lib-concurrent",
   "crates/plugin-lib-crypto",
@@ -111,8 +112,10 @@ members = [
   "crates/plugin-fmt-trivia",
   "crates/plugin-grammar-apply",
   "crates/plugin-grammar-array",
+  "crates/plugin-grammar-arith",
   "crates/plugin-grammar-assign",
   "crates/plugin-grammar-call",
+  "crates/plugin-grammar-cmp",
   "crates/plugin-grammar-function-literal",
   "crates/plugin-grammar-handle",
   "crates/plugin-grammar-index",
@@ -263,6 +266,7 @@ handl-plugin-lib-archive-tar = { path = "crates/plugin-lib-archive-tar" }
 handl-plugin-lib-base64 = { path = "crates/plugin-lib-base64" }
 handl-plugin-lib-collections = { path = "crates/plugin-lib-collections" }
 handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
+handl-plugin-lib-cmp = { path = "crates/plugin-lib-cmp" }
 handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
 handl-plugin-lib-concurrent = { path = "crates/plugin-lib-concurrent" }
 handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
@@ -330,8 +334,10 @@ handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
 handl-plugin-fmt-trivia = { path = "crates/plugin-fmt-trivia" }
 handl-plugin-grammar-apply = { path = "crates/plugin-grammar-apply" }
 handl-plugin-grammar-array = { path = "crates/plugin-grammar-array" }
+handl-plugin-grammar-arith = { path = "crates/plugin-grammar-arith" }
 handl-plugin-grammar-assign = { path = "crates/plugin-grammar-assign" }
 handl-plugin-grammar-call = { path = "crates/plugin-grammar-call" }
+handl-plugin-grammar-cmp = { path = "crates/plugin-grammar-cmp" }
 handl-plugin-grammar-function-literal = { path = "crates/plugin-grammar-function-literal" }
 handl-plugin-grammar-handle = { path = "crates/plugin-grammar-handle" }
 handl-plugin-grammar-index = { path = "crates/plugin-grammar-index" }

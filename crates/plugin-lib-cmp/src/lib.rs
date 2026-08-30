@@ -1,12 +1,27 @@
+//! # handl-lib-cmp
+//!
+//! Comparison and ordering utilities for the handl runtime.
+//!
+//! Provides the `cmp` module — `cmp.eq`, `cmp.ne`, `cmp.lt`, `cmp.le`,
+//! `cmp.gt`, `cmp.ge`, `cmp.compare`, `cmp.min`, `cmp.max`, `cmp.clamp`,
+//! `cmp.between`, `cmp.in_range`, `cmp.is_sorted`, `cmp.is_sorted_desc`,
+//! `cmp.sort`, `cmp.sort_desc`, `cmp.sort_by`, `cmp.sort_by_desc`,
+//! `cmp.min_by`, `cmp.max_by`.
+//!
+//! These are the functions that the `cmp` grammar sugars (`==`, `!=`, `<`,
+//! `<=`, `>`, `>=`, `<=>`) desugar to at parse time.
+
 use std::cmp::Ordering;
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use serde_json::Value as JsonValue;
-
-use crate::shared::{
+use handl_plugin_lib_utils::shared::{
     apply_fn, arr as to_arr, b as to_bool, find_extremum_by, num, require_array,
     require_function_and_array, require_one_arg,
 };
+use serde_json::Value as JsonValue;
+
+pub mod plugin;
+pub use plugin::LibraryPlugin;
 
 /// The `cmp` module — comparison and ordering utilities.
 ///
@@ -58,7 +73,13 @@ fn value_kind(v: &JsonValue) -> u8 {
     }
 }
 
-fn compare_values(a: &JsonValue, b: &JsonValue) -> Ordering {
+/// Total ordering over arbitrary JSON values, used by every `cmp` function.
+///
+/// Ordering across kinds follows `value_kind` (null < bool < number < string
+/// < array < object); within a kind the natural ordering is used. This is
+/// exposed so sibling crates (e.g. a future `cmp-order`/`cmp-sort` split) can
+/// reuse the same comparison semantics without re-implementing them.
+pub fn compare_values(a: &JsonValue, b: &JsonValue) -> Ordering {
     value_kind(a)
         .cmp(&value_kind(b))
         .then_with(|| match (a, b) {
@@ -478,4 +499,5 @@ impl Function for MaxBy {
     }
 }
 
-
+#[cfg(test)]
+mod tests;

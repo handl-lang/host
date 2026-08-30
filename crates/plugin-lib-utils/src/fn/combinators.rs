@@ -176,6 +176,42 @@ impl Function for Fanout {
     }
 }
 
+// ── fanout_fn ──────────────────────────────────────────────────────
+
+/// Lazy fanout: `fn.fanout_fn(f, g)` returns a function `x => fn.fanout(x, f, g)`,
+/// i.e. an arrow that splits its input across `f` and `g` and yields
+/// `[f(x), g(x)]`. This is the curried/combinator form of [`Fanout`] and the
+/// desugar target of the `&&&` arrow-calculus sugar.
+#[derive(Clone, Copy)]
+pub struct FanoutFn;
+impl Function for FanoutFn {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let fns = require_functions(args)?;
+        // Bake the branch functions into the body as object-literal JSON so the
+        // returned arrow, when applied, calls `fn.fanout(x, f, g, ...)`. Object
+        // literals accept quoted keys, so `serde_json::to_string` output parses.
+        let branches: Vec<String> = fns
+            .iter()
+            .map(|fv| serde_json::to_string(&fv.clone().to_json()))
+            .collect::<Result<_, _>>()
+            .map_err(|e| EvalError::Other(format!("fanout_fn: serialize branch: {e}")))?;
+        let branch_list = branches.join(", ");
+        let body = format!("fn.fanout(x, {branch_list})");
+        let fn_val = FunctionValue {
+            params: vec![("x".to_string(), serde_json::Value::Null)],
+            return_schema: None,
+            body,
+            patterns: Vec::new(),
+            captured: Vec::new(),
+        };
+        Ok(serde_json::Value::from(fn_val))
+    }
+}
+
 // ── choice ─────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
