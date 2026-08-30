@@ -326,25 +326,46 @@ impl Kit {
 
     /// Parses `input` into a generic [`KitNode`].
     pub fn parse(&self, input: &str) -> Result<KitNode, PlatformError> {
+        let ast = self.parse_to_ast(input)?;
+        ast_to_kitnode_with_kit(&ast, self)
+    }
+
+    /// Parses `input` into a raw [`AstNode`], bypassing the [`KitNode`]
+    /// conversion.
+    ///
+    /// This is the entry point used by hosts that dispatch evaluation
+    /// through the plugin system (ADR 0040): the `Eval` operation's
+    /// `Behavior` rules consume [`AstNode`]s directly, decoding their
+    /// `payload` fields, so the host needs the raw AST rather than the
+    /// higher-level [`KitNode`] representation.
+    pub fn parse_to_ast(&self, input: &str) -> Result<AstNode, PlatformError> {
         let tokens = self
             .lex(input)
             .map_err(|e| PlatformError::Plugin(e.to_string()))?;
 
         let parser = parser_for_plugins(&self.selected_grammar_rules)?;
-        let ast = parser.parse(&tokens)?;
-        ast_to_kitnode_with_kit(&ast, self)
+        parser.parse(&tokens)
     }
 
     /// Parses a module (a sequence of top-level statements) into a
     /// `Vec<KitNode>`.
     pub fn parse_module(&self, input: &str) -> Result<Vec<KitNode>, PlatformError> {
+        let asts = self.parse_module_to_ast(input)?;
+        asts.iter().map(|ast| ast_to_kitnode_with_kit(ast, self)).collect()
+    }
+
+    /// Parses a module (a sequence of top-level statements) into a
+    /// `Vec<AstNode>`, bypassing the [`KitNode`] conversion.
+    ///
+    /// See [`Kit::parse_to_ast`] for why hosts prefer the raw AST when
+    /// dispatching evaluation through the plugin system.
+    pub fn parse_module_to_ast(&self, input: &str) -> Result<Vec<AstNode>, PlatformError> {
         let tokens = self
             .lex(input)
             .map_err(|e| PlatformError::Plugin(e.to_string()))?;
 
         let parser = parser_for_plugins(&self.selected_grammar_rules)?;
-        let asts = parser.parse_module(&tokens)?;
-        asts.iter().map(|ast| ast_to_kitnode_with_kit(ast, self)).collect()
+        parser.parse_module(&tokens)
     }
 
     /// Returns the TextMate grammar rules for this kit, collected from
