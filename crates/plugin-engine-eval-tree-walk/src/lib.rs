@@ -251,10 +251,16 @@ impl<'h> TreeWalkEngine<'h> {
                 } else {
                     name.clone()
                 };
+                // ADR-0041 Phase 2: if the variable is not bound in scope,
+                // return its name as a string value. This allows unbound
+                // identifiers like `eval` to flow into `App` dispatch, where
+                // `apply_closure` / `Scheme::App` checks host functions.
+                // A bound variable shadows this fallback (the common case).
                 ctx.env
                     .lookup(&var_name)
                     .cloned()
-                    .ok_or_else(|| LangError::UnknownVariable { name: var_name })
+                    .map(Ok)
+                    .unwrap_or_else(|| Ok(Value::from(var_name)))
             }
 
             Scheme::Child(child_ref) => {
@@ -303,9 +309,33 @@ impl<'h> TreeWalkEngine<'h> {
 
             Scheme::App { callee, args } => {
                 let closure_val = self.eval_scheme(callee, ctx)?;
-                let mut arg_vals = Vec::with_capacity(args.len());
+                // ADR-0041 Phase 2: evaluate args, tolerating missing children
+                // (the call grammar is fixed arity 2 = callee + 1 arg, but
+                // the scheme lists 2 args; Child(2) may be out of bounds for
+                // source-parsed calls with 1 arg). Missing children are
+                // skipped, so `eval("1 + 2")` dispatches with 1 arg.
+                let mut arg_vals = Vec::new();
                 for arg in args {
-                    arg_vals.push(self.eval_scheme(arg, ctx)?);
+                    match self.eval_scheme(arg, ctx) {
+                        Ok(v) => arg_vals.push(v),
+                        Err(LangError::Engine(ref msg))
+                            if msg.contains("child ") && msg.contains("not found") =>
+                        {
+                            // Skip missing child — variable-arity call.
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+                // If the callee is a string naming a registered host
+                // function, dispatch to it. This makes `eval("1 + 2")` work:
+                // `var("eval")` evaluates to the string "eval", and App
+                // dispatches to the eval host fn.
+                if let Some(name) = closure_val.as_str() {
+                    if let Some(host) = ctx.host {
+                        if let Some(host_fn) = host.lookup(name) {
+                            return host_fn.call(&arg_vals);
+                        }
+                    }
                 }
                 self.apply_closure(&closure_val, &arg_vals, ctx)
             }
@@ -354,6 +384,18 @@ impl<'h> TreeWalkEngine<'h> {
         args: &[Value],
         ctx: &mut EvalCtx<'_, 'h>,
     ) -> Result<Value, LangError> {
+        // ADR-0041 Phase 2: if the callee is a string that names a registered
+        // host function, dispatch to it. This makes `eval("handl", "1 + 2")`
+        // parse as `call(var("eval"), ...)` and dispatch to the `eval` host
+        // function — no special syntax needed.
+        if let Some(name) = closure.as_str() {
+            if let Some(host) = ctx.host {
+                if let Some(host_fn) = host.lookup(name) {
+                    return host_fn.call(args);
+                }
+            }
+        }
+
         let obj = closure
             .as_object()
             .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
@@ -707,6 +749,9 @@ mod tests {
 
     #[test]
     fn var_unknown_variable_errors() {
+        // ADR-0041 Phase 2: unbound variables now return their name as a
+        // string value (so identifiers like `eval` can flow into host-function
+        // dispatch via `App`). This test verifies the new behavior.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
@@ -718,13 +763,8 @@ mod tests {
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var")]);
         let req = EvalRequest::new(ast);
-        let err = engine.eval(&lang, &req).unwrap_err();
-        assert_eq!(
-            err,
-            LangError::UnknownVariable {
-                name: "unknown".into()
-            }
-        );
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, Value::from("unknown"));
     }
 
     #[test]

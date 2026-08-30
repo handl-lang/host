@@ -13,7 +13,9 @@
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
+use handl_runtime::meta::{canonical_meta_host_functions, MetaHostFunctions};
 use handl_runtime::Runtime;
+use std::rc::Rc;
 
 /// Kit manifest loading and the default canonical manifest.
 pub mod kit_manifest;
@@ -39,11 +41,15 @@ pub struct SpannedToken {
 ///
 /// [`Kit::new`] assembles the data-driven canonical language
 /// (`handl_kit_data_canonical::assemble`) and binds it to the Pratt parse
-/// engine and tree-walk eval engine via [`Runtime::from_config`].
+/// engine and tree-walk eval engine via [`Runtime::from_config`]. It also
+/// wires the meta host functions (`eval`/`self`/`compile`) so a running
+/// handl program can call `eval(lang, src)`, `runtime.self()`, and
+/// `compile(lang, target)` (ADR-0041 Phase 2–3).
 ///
 /// All staged methods (`lex`, `parse`, `eval`, `run`) delegate to the
 /// underlying [`Runtime`].
 pub struct Kit {
+    /// The runtime, borrowing the leaked meta host functions for dispatch.
     runtime: Runtime<'static>,
 }
 
@@ -61,14 +67,24 @@ impl Kit {
     /// Assembles all Phase 4 data fragments via
     /// `handl_kit_data_canonical::assemble` and binds the resulting
     /// [`Language`](handl_language::Language) to the data-driven lexer,
-    /// Pratt parser, and tree-walk evaluator.
+    /// Pratt parser, and tree-walk evaluator. Wires meta host functions
+    /// (`eval`/`self`/`compile`) so a running handl program can call them
+    /// (ADR-0041 Phase 2–3).
     ///
     /// # Errors
     ///
     /// Returns [`LangError`] if fragment assembly or engine binding fails.
     pub fn new() -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
-        let runtime = kit.into_runtime(None)?;
+        let lang = kit.lang().clone();
+        let (_registry, meta) = canonical_meta_host_functions(lang);
+        // Leak the MetaHostFunctions to obtain a &'static reference. It lives
+        // for the process lifetime — acceptable for a Kit that is typically
+        // created once at startup. This avoids self-referential borrow issues.
+        let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(
+            Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone()),
+        ));
+        let runtime = kit.into_runtime(Some(meta_static))?;
         Ok(Kit { runtime })
     }
 

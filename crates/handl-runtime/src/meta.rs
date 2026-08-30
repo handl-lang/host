@@ -83,18 +83,36 @@ impl EvalHostFn {
 
 impl HostFn for EvalHostFn {
     fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        let handle = args
-            .first()
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
-        let src = args
-            .get(1)
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
+        // Two calling conventions:
+        //   eval(handle, src)  — 2-arg: explicit language handle
+        //   eval(src)          — 1-arg: use the current language (self)
+        let (handle, src) = if args.len() >= 2 {
+            let handle = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
+            let src = args
+                .get(1)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("eval: expected (handle, src)".into()))?;
+            (handle.to_string(), src.to_string())
+        } else if args.len() == 1 {
+            let src = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| LangError::Engine("eval: expected (handle, src) or (src)".into()))?;
+            // Use the current language handle (stored in the registry as
+            // "handl" by canonical_meta_host_functions).
+            ("handl".to_string(), src.to_string())
+        } else {
+            return Err(LangError::Engine(
+                "eval: expected (handle, src) or (src)".into(),
+            ));
+        };
 
         let (lang, config) = self
             .registry
-            .get(handle)
+            .get(&handle)
             .ok_or_else(|| LangError::Engine(format!("eval: unknown language: {}", handle)))?
             .clone();
 
@@ -103,11 +121,11 @@ impl HostFn for EvalHostFn {
         // registry and the same delegate.
         let sub_meta = MetaHostFunctions::new(
             self.registry.clone(),
-            handle.to_string(),
+            handle,
             self.delegate.clone(),
         );
         let runtime = Runtime::from_config(lang, &config, Some(&sub_meta))?;
-        runtime.run(&Source::new(src))
+        runtime.run(&Source::new(&src))
     }
 }
 
@@ -190,6 +208,24 @@ pub struct MetaHostFunctions {
     compile_fn: CompileHostFn,
     /// Optional user host functions for non-meta names.
     delegate: Option<Rc<dyn HostFunctions>>,
+}
+
+impl Clone for MetaHostFunctions {
+    fn clone(&self) -> Self {
+        Self {
+            eval_fn: EvalHostFn {
+                registry: Rc::clone(&self.eval_fn.registry),
+                delegate: self.delegate.clone(),
+            },
+            self_fn: SelfHostFn {
+                handle: self.self_fn.handle.clone(),
+            },
+            compile_fn: CompileHostFn {
+                registry: Rc::clone(&self.compile_fn.registry),
+            },
+            delegate: self.delegate.clone(),
+        }
+    }
 }
 
 impl MetaHostFunctions {

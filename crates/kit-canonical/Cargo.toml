@@ -8,6 +8,7 @@ edition = "2024"
 handl-kit-data-canonical = { workspace = true }
 handl-runtime = { workspace = true }
 handl-language = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
 
 # Platform types (AstNode, Span, PlatformError).
 handl-platform = { workspace = true }
