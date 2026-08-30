@@ -115,41 +115,66 @@ impl Emitter for AstOptionEmitter {
     }
 }
 
-/// Build a registry with the seven Phase 4 emitters (used by assembly tests).
+/// Build a registry with seven inline test emitters (used by assembly tests).
 fn seven_emitter_registry() -> EmitterRegistry {
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("identifier", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_identifier::IdentifierEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.identifier",
+            grammar_id: "grammar.identifier.prefix",
+            eval_id: "eval.var",
+            node_kind: "var",
+        })
     });
     reg.register_emitter("value", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_value::ValueEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.number",
+            grammar_id: "grammar.value.number.prefix",
+            eval_id: "eval.value.number",
+            node_kind: "value.number",
+        })
     });
     reg.register_emitter("arith", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_arith::ArithEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.plus",
+            grammar_id: "grammar.add.infix",
+            eval_id: "eval.binary.add",
+            node_kind: "binary.add",
+        })
     });
     reg.register_emitter("let", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_let::LetEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.keyword.let",
+            grammar_id: "grammar.let.prefix",
+            eval_id: "eval.let",
+            node_kind: "let",
+        })
     });
     reg.register_emitter("call", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_call::CallEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.lparen",
+            grammar_id: "grammar.call.infix",
+            eval_id: "eval.call",
+            node_kind: "call",
+        })
     });
     reg.register_emitter("branch", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_branch::BranchEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.keyword.if",
+            grammar_id: "grammar.if.prefix",
+            eval_id: "eval.if",
+            node_kind: "if",
+        })
     });
     reg.register_emitter("function", || {
-        Box::new(SevenEmitterWrapper(handl_emitter_function::FunctionEmitter::new()))
+        Box::new(ConstructEmitter {
+            token_id: "token.arrow",
+            grammar_id: "grammar.arrow.infix",
+            eval_id: "eval.function",
+            node_kind: "function",
+        })
     });
     reg
-}
-
-/// A thin wrapper so `Box<dyn Fn() -> Box<dyn Emitter>>` closures can return
-/// the per-construct emitter types (which all implement `Emitter`).
-struct SevenEmitterWrapper<E: Emitter>(E);
-
-impl<E: Emitter> Emitter for SevenEmitterWrapper<E> {
-    fn emit(&self) -> Result<Language, LangError> {
-        self.0.emit()
-    }
 }
 
 // ---------------------------------------------------------------------------

@@ -918,7 +918,7 @@ dependencies = [
 name = "handl-defining-handl"
 version = "0.1.0"
 dependencies = [
- "handl-emitters",
+ "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-eval",
@@ -932,416 +932,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-emitter-apply"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-arith"
-version = "0.1.0"
-dependencies = [
- "handl-emitter-value",
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-array"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-arrow"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-assign"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-branch"
-version = "0.1.0"
-dependencies = [
- "handl-emitter-arith",
- "handl-emitter-value",
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-call"
-version = "0.1.0"
-dependencies = [
- "handl-emitter-arith",
- "handl-emitter-function",
- "handl-emitter-identifier",
- "handl-emitter-let",
- "handl-emitter-value",
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-cmp"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-eval-core"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-eval-hello"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-eval-json"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-fanout"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-flow"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-function"
-version = "0.1.0"
-dependencies = [
- "handl-emitter-call",
- "handl-emitter-identifier",
- "handl-emitter-let",
- "handl-emitter-value",
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-function-literal"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-handle"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-identifier"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-let"
-version = "0.1.0"
-dependencies = [
- "handl-emitter-arith",
- "handl-emitter-identifier",
- "handl-emitter-value",
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-match"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-not"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-object"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-paren"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-pipe"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-postfix-call"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-postfix-field"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-postfix-index"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-postfix-mood"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-stmt-const"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-stmt-export"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-stmt-import"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-stmt-let"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-stmt-module"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-template"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-ternary"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-textmate"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-tokens"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-type-annot"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-typeof"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "serde_json",
-]
-
-[[package]]
-name = "handl-emitter-value"
-version = "0.1.0"
-dependencies = [
- "handl-emitters",
- "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
-]
-
-[[package]]
 name = "handl-emitters"
 version = "0.1.0"
 dependencies = [
- "handl-emitter-arith",
- "handl-emitter-branch",
- "handl-emitter-call",
- "handl-emitter-function",
- "handl-emitter-identifier",
- "handl-emitter-let",
- "handl-emitter-value",
  "handl-language",
- "handl-plugin-engine-eval",
- "handl-plugin-engine-eval-tree-walk",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "serde_json",
 ]
 
 [[package]]
@@ -1399,6 +993,7 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
+ "handl-plugin-engine-eval",
  "handl-runtime",
  "serde",
  "serde_json",
@@ -1447,13 +1042,6 @@ dependencies = [
 name = "handl-kit-data"
 version = "0.1.0"
 dependencies = [
- "handl-emitter-arith",
- "handl-emitter-branch",
- "handl-emitter-call",
- "handl-emitter-function",
- "handl-emitter-identifier",
- "handl-emitter-let",
- "handl-emitter-value",
  "handl-emitters",
  "handl-language",
  "handl-plugin-engine-eval",
@@ -1469,45 +1057,6 @@ dependencies = [
 name = "handl-kit-data-canonical"
 version = "0.1.0"
 dependencies = [
- "handl-emitter-apply",
- "handl-emitter-arith",
- "handl-emitter-array",
- "handl-emitter-arrow",
- "handl-emitter-assign",
- "handl-emitter-branch",
- "handl-emitter-call",
- "handl-emitter-cmp",
- "handl-emitter-eval-core",
- "handl-emitter-eval-hello",
- "handl-emitter-eval-json",
- "handl-emitter-fanout",
- "handl-emitter-flow",
- "handl-emitter-function",
- "handl-emitter-function-literal",
- "handl-emitter-handle",
- "handl-emitter-identifier",
- "handl-emitter-let",
- "handl-emitter-match",
- "handl-emitter-not",
- "handl-emitter-object",
- "handl-emitter-paren",
- "handl-emitter-pipe",
- "handl-emitter-postfix-call",
- "handl-emitter-postfix-field",
- "handl-emitter-postfix-index",
- "handl-emitter-postfix-mood",
- "handl-emitter-stmt-const",
- "handl-emitter-stmt-export",
- "handl-emitter-stmt-import",
- "handl-emitter-stmt-let",
- "handl-emitter-stmt-module",
- "handl-emitter-template",
- "handl-emitter-ternary",
- "handl-emitter-textmate",
- "handl-emitter-tokens",
- "handl-emitter-type-annot",
- "handl-emitter-typeof",
- "handl-emitter-value",
  "handl-emitters",
  "handl-kit-data",
  "handl-language",
@@ -1515,7 +1064,9 @@ dependencies = [
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-parse-pratt",
  "handl-runtime",
+ "serde",
  "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -1667,7 +1218,6 @@ dependencies = [
 name = "handl-plugin-engine-lex-pattern"
 version = "0.1.0"
 dependencies = [
- "handl-emitter-tokens",
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-lex",

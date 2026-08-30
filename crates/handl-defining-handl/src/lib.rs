@@ -22,11 +22,12 @@
 //! attempt to describe the full handl language as data. Instead it:
 //!
 //! 1. Builds the **self-hosting infrastructure**: a [`Language`] value
-//!    describing the subset, loadable both from Rust emitters ([`language`])
-//!    and from an authored **data file** ([`language_from_data_file`]).
+//!    describing the subset, loadable both from the canonical YAML data files
+//!    ([`language`]) and from an authored **JSON data file**
+//!    ([`language_from_data_file`]).
 //! 2. Ships the **data file** (`data/handl.json`) — the ADR §6 end state:
 //!    "authored data files are canonical." The file is the serialized
-//!    [`Language`]; loading it requires no Rust emitters.
+//!    [`Language`]; loading it requires no Rust code.
 //! 3. Provides a **self-hosting corpus** ([`corpus`]) of subset programs used
 //!    by the integration tests (`self_host.rs`, `bootstrap.rs`,
 //!    `futamura.rs`) to prove the self-hosting *mechanism*.
@@ -43,13 +44,12 @@
 //!
 //! ## Two load paths
 //!
-//! - [`language`] — assembles the `Language` from the Phase 4 emitters via
-//!   [`handl_kit_data_canonical::assemble`]. This is the emitter-based path
-//!   (the migration scaffold, ADR §6).
+//! - [`language`] — assembles the `Language` from the canonical YAML data
+//!   files via [`handl_kit_data_canonical::assemble`]. This is the
+//!   data-driven path (ADR §6 end state).
 //! - [`language_from_data_file`] — loads the `Language` from the authored
 //!   `data/handl.json` file (embedded via `include_str!` for portability,
-//!   deserialized at runtime). This is the ADR §6 end state: the language
-//!   definition as pure data, no Rust emitters needed at load time.
+//!   deserialized at runtime). This is the standalone data-file path.
 //!
 //! Both paths produce an equal `Language` (asserted in tests).
 
@@ -64,16 +64,17 @@ use serde_json::json;
 /// the canonical language definition ships as data, not as Rust.
 pub const DATA_FILE: &str = "data/handl.json";
 
-/// The self-describing `Language` assembled from the Phase 4 emitters.
+/// The self-describing `Language` assembled from the canonical YAML data
+/// files.
 ///
 /// This is the canonical data-driven language: the same `Language` produced by
-/// [`handl_kit_data_canonical::assemble`] — the seven migrated constructs
-/// (identifier, value, arith, let, call, branch, function) merged into one
-/// `Language` value. It is "handl defining handl" for the subset.
+/// [`handl_kit_data_canonical::assemble`] — the full language (tokens, grammar,
+/// eval, AST shapes, capabilities) merged into one `Language` value from the
+/// 7 YAML files in `handl-kit-data-canonical/data/`. It is "handl defining
+/// handl" for the subset.
 ///
-/// This is the emitter-based path (ADR §6 migration scaffold). The
-/// data-file-based path is [`language_from_data_file`]; both produce an equal
-/// `Language`.
+/// This is the data-driven path (ADR §6 end state). The standalone data-file
+/// path is [`language_from_data_file`]; both produce an equal `Language`.
 pub fn language() -> Language {
     // Delegate to the canonical data-driven kit assembly. This is the same
     // merged Language used by the data-driven runtime path — the single

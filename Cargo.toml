@@ -115,48 +115,9 @@ members = [
   "crates/plugin-engine-eval-cranelift",
   "crates/handl-runtime",
   "crates/handl-emitters",
-  "crates/handl-emitter-identifier",
-  "crates/handl-emitter-value",
-  "crates/handl-emitter-arith",
-  "crates/handl-emitter-let",
-  "crates/handl-emitter-call",
-  "crates/handl-emitter-branch",
-  "crates/handl-emitter-function",
-  "crates/handl-emitter-tokens",
-  "crates/handl-emitter-cmp",
-  "crates/handl-emitter-assign",
-  "crates/handl-emitter-pipe",
-  "crates/handl-emitter-flow",
-  "crates/handl-emitter-fanout",
-  "crates/handl-emitter-ternary",
-  "crates/handl-emitter-not",
-  "crates/handl-emitter-paren",
-  "crates/handl-emitter-typeof",
-  "crates/handl-emitter-array",
-  "crates/handl-emitter-object",
-  "crates/handl-emitter-match",
-  "crates/handl-emitter-handle",
-  "crates/handl-emitter-postfix-call",
-  "crates/handl-emitter-postfix-field",
-  "crates/handl-emitter-postfix-index",
-  "crates/handl-emitter-postfix-mood",
-  "crates/handl-emitter-apply",
-  "crates/handl-emitter-arrow",
-  "crates/handl-emitter-function-literal",
-  "crates/handl-emitter-stmt-const",
-  "crates/handl-emitter-stmt-export",
-  "crates/handl-emitter-stmt-import",
-  "crates/handl-emitter-stmt-let",
-  "crates/handl-emitter-stmt-module",
-  "crates/handl-emitter-template",
-  "crates/handl-emitter-textmate",
-  "crates/handl-emitter-type-annot",
   "crates/handl-kit-data",
   "crates/handl-kit-data-canonical",
   "crates/handl-kit-data-config",
-  "crates/handl-emitter-eval-core",
-  "crates/handl-emitter-eval-hello",
-  "crates/handl-emitter-eval-json",
   "crates/handl-defining-handl",
 ]
 resolver = "3"
@@ -294,48 +255,9 @@ handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode
 handl-plugin-engine-eval-cranelift = { path = "crates/plugin-engine-eval-cranelift" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
-handl-emitter-identifier = { path = "crates/handl-emitter-identifier" }
-handl-emitter-value = { path = "crates/handl-emitter-value" }
-handl-emitter-arith = { path = "crates/handl-emitter-arith" }
-handl-emitter-let = { path = "crates/handl-emitter-let" }
-handl-emitter-call = { path = "crates/handl-emitter-call" }
-handl-emitter-branch = { path = "crates/handl-emitter-branch" }
-handl-emitter-function = { path = "crates/handl-emitter-function" }
-handl-emitter-tokens = { path = "crates/handl-emitter-tokens" }
-handl-emitter-cmp = { path = "crates/handl-emitter-cmp" }
-handl-emitter-assign = { path = "crates/handl-emitter-assign" }
-handl-emitter-pipe = { path = "crates/handl-emitter-pipe" }
-handl-emitter-flow = { path = "crates/handl-emitter-flow" }
-handl-emitter-fanout = { path = "crates/handl-emitter-fanout" }
-handl-emitter-ternary = { path = "crates/handl-emitter-ternary" }
-handl-emitter-not = { path = "crates/handl-emitter-not" }
-handl-emitter-paren = { path = "crates/handl-emitter-paren" }
-handl-emitter-typeof = { path = "crates/handl-emitter-typeof" }
-handl-emitter-array = { path = "crates/handl-emitter-array" }
-handl-emitter-object = { path = "crates/handl-emitter-object" }
-handl-emitter-match = { path = "crates/handl-emitter-match" }
-handl-emitter-handle = { path = "crates/handl-emitter-handle" }
-handl-emitter-postfix-call = { path = "crates/handl-emitter-postfix-call" }
-handl-emitter-postfix-field = { path = "crates/handl-emitter-postfix-field" }
-handl-emitter-postfix-index = { path = "crates/handl-emitter-postfix-index" }
-handl-emitter-postfix-mood = { path = "crates/handl-emitter-postfix-mood" }
-handl-emitter-apply = { path = "crates/handl-emitter-apply" }
-handl-emitter-arrow = { path = "crates/handl-emitter-arrow" }
-handl-emitter-function-literal = { path = "crates/handl-emitter-function-literal" }
-handl-emitter-stmt-const = { path = "crates/handl-emitter-stmt-const" }
-handl-emitter-stmt-export = { path = "crates/handl-emitter-stmt-export" }
-handl-emitter-stmt-import = { path = "crates/handl-emitter-stmt-import" }
-handl-emitter-stmt-let = { path = "crates/handl-emitter-stmt-let" }
-handl-emitter-stmt-module = { path = "crates/handl-emitter-stmt-module" }
-handl-emitter-template = { path = "crates/handl-emitter-template" }
-handl-emitter-textmate = { path = "crates/handl-emitter-textmate" }
-handl-emitter-type-annot = { path = "crates/handl-emitter-type-annot" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
 handl-kit-data-config = { path = "crates/handl-kit-data-config" }
-handl-emitter-eval-core = { path = "crates/handl-emitter-eval-core" }
-handl-emitter-eval-hello = { path = "crates/handl-emitter-eval-hello" }
-handl-emitter-eval-json = { path = "crates/handl-emitter-eval-json" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 
 [features]

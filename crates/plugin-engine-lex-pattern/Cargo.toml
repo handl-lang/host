@@ -10,5 +10,4 @@ handl-plugin-engine-lex = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-handl-emitter-tokens = { workspace = true }
 handl-kit-data-canonical = { workspace = true }

@@ -1,0 +1,261 @@
+- id: eval.apply
+  node_kind: apply
+  scheme: !Child 0
+- id: eval.array
+  node_kind: array
+  scheme: !Prim
+    op: array
+    args:
+    - !Child 0
+- id: eval.assign
+  node_kind: assign
+  scheme: !Prim
+    op: assign
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.add
+  node_kind: binary.add
+  scheme: !Prim
+    op: add
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.compare
+  node_kind: binary.compare
+  scheme: !Prim
+    op: compare
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.div
+  node_kind: binary.div
+  scheme: !Prim
+    op: div
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.eq
+  node_kind: binary.eq
+  scheme: !Prim
+    op: eq
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.gt
+  node_kind: binary.gt
+  scheme: !Prim
+    op: gt
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.gte
+  node_kind: binary.gte
+  scheme: !Prim
+    op: gte
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.lt
+  node_kind: binary.lt
+  scheme: !Prim
+    op: lt
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.lte
+  node_kind: binary.lte
+  scheme: !Prim
+    op: lte
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.mul
+  node_kind: binary.mul
+  scheme: !Prim
+    op: mul
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.neq
+  node_kind: binary.neq
+  scheme: !Prim
+    op: neq
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.pow
+  node_kind: binary.pow
+  scheme: !Prim
+    op: pow
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.binary.sub
+  node_kind: binary.sub
+  scheme: !Prim
+    op: sub
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.call
+  node_kind: call
+  scheme: !App
+    callee: !Child 0
+    args:
+    - !Child 1
+    - !Child 2
+- id: eval.fanout
+  node_kind: fanout
+  scheme: !Foreign
+    name: fn.fanout_fn
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.field-access
+  node_kind: field-access
+  scheme: !Foreign
+    name: field_access
+    args:
+    - !Child 0
+- id: eval.flow
+  node_kind: flow
+  scheme: !Foreign
+    name: fn.flow
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.function
+  node_kind: function
+  scheme: !Prim
+    op: closure
+    args: []
+- id: eval.handle
+  node_kind: handle
+  scheme: !Foreign
+    name: handle
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.hello.greet
+  node_kind: hello.greet
+  scheme: !Foreign
+    name: hello.greet
+    args: []
+- id: eval.if
+  node_kind: if
+  scheme: !Branch
+    cond: !Child 0
+    then: !Child 1
+    else_: !Child 2
+- id: eval.index
+  node_kind: index
+  scheme: !Prim
+    op: index
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.json
+  node_kind: json
+  scheme: !Foreign
+    name: json
+    args: []
+- id: eval.let
+  node_kind: let
+  scheme: !Bind
+    name: $payload
+    value: !Child 0
+    body: !Child 1
+- id: eval.match
+  node_kind: match
+  scheme: !Foreign
+    name: match
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.mood
+  node_kind: mood
+  scheme: !Child 0
+- id: eval.object
+  node_kind: object
+  scheme: !Prim
+    op: object
+    args:
+    - !Child 0
+- id: eval.paren
+  node_kind: paren
+  scheme: !Child 0
+- id: eval.pipe
+  node_kind: pipe
+  scheme: !App
+    callee: !Child 1
+    args:
+    - !Child 0
+- id: eval.resolve
+  node_kind: resolve
+  scheme: !Foreign
+    name: resolve
+    args: []
+- id: eval.stmt-const
+  node_kind: stmt.const
+  scheme: !Bind
+    name: $payload
+    value: !Child 0
+    body: !Child 1
+- id: eval.stmt-export
+  node_kind: stmt.export
+  scheme: !Foreign
+    name: export
+    args:
+    - !Child 0
+- id: eval.stmt-import
+  node_kind: stmt.import
+  scheme: !Foreign
+    name: import
+    args:
+    - !Child 0
+- id: eval.stmt-let
+  node_kind: stmt.let
+  scheme: !Bind
+    name: $payload
+    value: !Child 0
+    body: !Child 1
+- id: eval.stmt-module
+  node_kind: stmt.module
+  scheme: !Foreign
+    name: module
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.template
+  node_kind: template
+  scheme: !Foreign
+    name: eval_template
+    args: []
+- id: eval.ternary
+  node_kind: ternary
+  scheme: !Branch
+    cond: !Child 0
+    then: !Child 1
+    else_: !Child 2
+- id: eval.type-annot
+  node_kind: type-annot
+  scheme: !Bind
+    name: $payload
+    value: !Child 1
+    body: !Child 0
+- id: eval.typeof
+  node_kind: typeof
+  scheme: !Prim
+    op: typeof
+    args:
+    - !Child 0
+- id: eval.unary.not
+  node_kind: unary.not
+  scheme: !Prim
+    op: not
+    args:
+    - !Child 0
+- id: eval.var
+  node_kind: var
+  scheme: !Var $payload

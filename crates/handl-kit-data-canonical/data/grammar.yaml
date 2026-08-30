@@ -1,0 +1,369 @@
+- id: grammar.arrow.infix
+  token: token.arrow
+  position: Infix
+  binding_power:
+  - 31
+  - 32
+  child_shape:
+    node_kind: function
+    arity: 2
+- id: grammar.not.prefix
+  token: token.bang
+  position: Prefix
+  binding_power:
+  - 70
+  - 0
+  child_shape:
+    node_kind: unary.not
+    arity: 1
+- id: grammar.value.bool
+  token: token.bool
+  position: Prefix
+  child_shape:
+    node_kind: value
+    arity: 0
+- id: grammar.type-annot.infix
+  token: token.colon
+  position: Infix
+  binding_power:
+  - 12
+  - 13
+  child_shape:
+    node_kind: type-annot
+    arity: 2
+- id: grammar.field-access.postfix
+  token: token.dot
+  position: Infix
+  binding_power:
+  - 90
+  - 0
+  child_shape:
+    node_kind: field-access
+    arity: 1
+- id: grammar.eq.infix
+  token: token.eqeq
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.eq
+    arity: 2
+- id: grammar.assign.infix
+  token: token.equal
+  position: Infix
+  binding_power:
+  - 10
+  - 11
+  child_shape:
+    node_kind: assign
+    arity: 2
+- id: grammar.fanout.infix
+  token: token.fanout
+  position: Infix
+  binding_power:
+  - 25
+  - 25
+  child_shape:
+    node_kind: fanout
+    arity: 2
+- id: grammar.flow.infix
+  token: token.flow
+  position: Infix
+  binding_power:
+  - 20
+  - 20
+  child_shape:
+    node_kind: flow
+    arity: 2
+- id: grammar.gt.infix
+  token: token.gt
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.gt
+    arity: 2
+- id: grammar.gte.infix
+  token: token.gte
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.gte
+    arity: 2
+- id: grammar.identifier.prefix
+  token: token.identifier
+  position: Prefix
+  child_shape:
+    node_kind: var
+    arity: 0
+- id: grammar.if.prefix
+  token: token.if
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: if
+    arity: 3
+- id: grammar.stmt-const.prefix
+  token: token.keyword.const
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: stmt.const
+    arity: 2
+- id: grammar.stmt-export.prefix
+  token: token.keyword.export
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: stmt.export
+    arity: 1
+- id: grammar.handle.prefix
+  token: token.keyword.handle
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: handle
+    arity: 2
+- id: grammar.stmt-import.prefix
+  token: token.keyword.import
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: stmt.import
+    arity: 1
+- id: grammar.stmt-let.prefix
+  token: token.keyword.let
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: stmt.let
+    arity: 2
+- id: grammar.match.prefix
+  token: token.keyword.match
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: match
+    arity: 2
+- id: grammar.stmt-module.prefix
+  token: token.keyword.module
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: stmt.module
+    arity: 2
+- id: grammar.typeof.prefix
+  token: token.keyword.typeof
+  position: Prefix
+  binding_power:
+  - 70
+  - 0
+  child_shape:
+    node_kind: typeof
+    arity: 1
+- id: grammar.object.prefix
+  token: token.lbrace
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: object
+    arity: 1
+- id: grammar.index.postfix
+  token: token.lbracket
+  position: Infix
+  binding_power:
+  - 90
+  - 0
+  child_shape:
+    node_kind: index
+    arity: 2
+- id: grammar.array.prefix
+  token: token.lbracket
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: array
+    arity: 1
+- id: grammar.let.prefix
+  token: token.let
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: let
+    arity: 2
+- id: grammar.call.infix
+  token: token.lparen
+  position: Infix
+  binding_power:
+  - 90
+  - 91
+  child_shape:
+    node_kind: call
+    arity: 2
+- id: grammar.paren.prefix
+  token: token.lparen
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: paren
+    arity: 1
+- id: grammar.lt.infix
+  token: token.lt
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.lt
+    arity: 2
+- id: grammar.lte.infix
+  token: token.lte
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.lte
+    arity: 2
+- id: grammar.sub.infix
+  token: token.minus
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: binary.sub
+    arity: 2
+- id: grammar.mood.postfix
+  token: token.mood
+  position: Infix
+  binding_power:
+  - 90
+  - 0
+  child_shape:
+    node_kind: mood
+    arity: 1
+- id: grammar.neq.infix
+  token: token.neq
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.neq
+    arity: 2
+- id: grammar.value.null
+  token: token.null
+  position: Prefix
+  child_shape:
+    node_kind: value
+    arity: 0
+- id: grammar.value.number
+  token: token.number
+  position: Prefix
+  child_shape:
+    node_kind: value
+    arity: 0
+- id: grammar.pipe.infix
+  token: token.pipe
+  position: Infix
+  binding_power:
+  - 30
+  - 31
+  child_shape:
+    node_kind: pipe
+    arity: 2
+- id: grammar.add.infix
+  token: token.plus
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: binary.add
+    arity: 2
+- id: grammar.pow.infix
+  token: token.pow
+  position: Infix
+  binding_power:
+  - 65
+  - 64
+  child_shape:
+    node_kind: binary.pow
+    arity: 2
+- id: grammar.ternary.infix
+  token: token.question
+  position: Infix
+  binding_power:
+  - 15
+  - 16
+  child_shape:
+    node_kind: ternary
+    arity: 3
+- id: grammar.div.infix
+  token: token.slash
+  position: Infix
+  binding_power:
+  - 60
+  - 61
+  child_shape:
+    node_kind: binary.div
+    arity: 2
+- id: grammar.compare.infix
+  token: token.spaceship
+  position: Infix
+  binding_power:
+  - 50
+  - 51
+  child_shape:
+    node_kind: binary.compare
+    arity: 2
+- id: grammar.mul.infix
+  token: token.star
+  position: Infix
+  binding_power:
+  - 60
+  - 61
+  child_shape:
+    node_kind: binary.mul
+    arity: 2
+- id: grammar.value.string
+  token: token.string
+  position: Prefix
+  child_shape:
+    node_kind: value
+    arity: 0
+- id: grammar.template.prefix
+  token: token.template
+  position: Prefix
+  child_shape:
+    node_kind: template
+    arity: 0

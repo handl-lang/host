@@ -8,7 +8,6 @@ Known, focused commands that pass:
 cargo build
 cargo check --workspace
 cargo test -p handl-language
-cargo test -p handl-emitters
 cargo test -p handl-kit-data-canonical
 cargo test -p handl-kit-canonical     # kit-canonical (legacy Kit wrapper)
 cargo test -p handl-host-lsp
@@ -28,16 +27,17 @@ cargo test --workspace
 ## Architecture notes
 
 The platform follows **ADR-0044: Language as Data and Runtime Split** (status:
-Accepted). The language definition — tokens, grammar rules, AST shapes, eval
-schemes — is pure serializable data, not Rust trait impls. Rust crates
-_emit_ data fragments; kits _merge_ fragments into a `Language` value; engines
+Accepted, §6 end state complete). The language definition — tokens, grammar
+rules, AST shapes, eval schemes — is pure serializable data (YAML files), not
+Rust trait impls. Kits _merge_ fragments into a `Language` value; engines
 _interpret_ the `Language` data.
 
 ### Data-driven language pipeline
 
 ```
-handl-emitter-*  →  handl-kit-data-canonical  →  handl-language::Language
-(emit fragments)     (assemble + merge)            (pure data)
+handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
+  (7 YAML files, one per fragment type)    (pure data, deserialized at
+                                            compile time via include_str!)
                                                     ↓
                               handl-runtime binds Language → engines
                                                     ↓
@@ -60,19 +60,19 @@ handl-emitter-*  →  handl-kit-data-canonical  →  handl-language::Language
   and the `Fragment` trait. Staged entry points: `lex`, `parse`, `eval`,
   `run`.
 
-- **`handl-emitter-*`** (37 crates) — Each emits a small set of `Language`
-  fragments for one language construct (e.g. `handl-emitter-let` emits the
-  `let` token kind, grammar row, AST shape, and eval scheme). Emitters use
-  helpers from **`handl-emitters`** (`declare_token`, `prefix_atom`,
-  `prefix_compound`, `infix_binary`, `eval_scheme`, `prim_binary`,
-  `app_call`). Emitters are the migration scaffold (ADR-0044 §6); the end
-  state is authored data files.
+- **`handl-kit-data-canonical`** — The canonical language definition. Loads
+  7 YAML data files (`data/tokens.yaml`, `data/grammar.yaml`, `data/eval.yaml`,
+  `data/ast.yaml`, `data/caps.yaml`, `data/options.yaml`,
+  `data/lexer_rules.yaml`) embedded via `include_str!` and deserializes them
+  into a `Language`. Defines `EXCLUDED_FRAGMENT_IDS` (3 fragments excluded to
+  resolve behavioral collisions), `manifest()`, `registry()`, `assemble()`.
+  This is the data-driven equivalent of the old `kit-canonical` plugin
+  registry. The 37 `handl-emitter-*` crates that originally produced these
+  files have been deleted (ADR-0044 §6 end state).
 
-- **`handl-kit-data-canonical`** — Assembles all 37 emitters into a
-  `DataKit` / `Language`. Defines `EMITTER_NAMES`, `EXCLUDED_FRAGMENT_IDS`
-  (3 fragments excluded to resolve behavioral collisions), `manifest()`,
-  `registry()`, `assemble()`. This is the data-driven equivalent of the old
-  `kit-canonical` plugin registry.
+- **`handl-emitters`** — Thin trait definition crate (`Emitter` trait) used
+  by the kit assembly framework. No per-construct emitters exist; the
+  language definition is the YAML files in `handl-kit-data-canonical/data/`.
 
 - **`handl-kit-data`** — The data kit framework: `DataKitManifest`,
   `FragmentSource` (emitter or data file), `FragmentSourceEntry`, include/
@@ -149,8 +149,9 @@ it and a `PluginContext`.
   `[workspace.dependencies]`.
 - Prefer `PlatformError` for plugin/runtime failures; do not leak concrete
   crate errors into `handl-platform` APIs.
-- New language constructs should be added as a `handl-emitter-*` crate that
-  emits data fragments, not as a Rust `impl Behavior`. See ADR-0044 §6.
+- New language constructs should be added as YAML fragments in
+  `handl-kit-data-canonical/data/` (one file per fragment type), not as Rust
+  `impl Behavior`. See ADR-0044 §6.
 - Run `vp check` before committing. Run `vp check --fix` to auto-fix
   formatting.
 

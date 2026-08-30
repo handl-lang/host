@@ -1,0 +1,486 @@
+- id: ast.apply
+  node_kind: apply
+  payload_schema:
+    properties:
+      args:
+        items:
+          type: object
+        type: array
+      callee:
+        type: object
+    required:
+    - callee
+    - args
+    type: object
+- id: ast.array
+  node_kind: array
+  payload_schema:
+    properties:
+      elements:
+        items:
+          type: object
+        type: array
+    required:
+    - elements
+    type: object
+- id: ast.assign
+  node_kind: assign
+  payload_schema:
+    properties:
+      target:
+        type: object
+      value:
+        type: object
+    required:
+    - target
+    - value
+    type: object
+- id: ast.binary.add
+  node_kind: binary.add
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.compare
+  node_kind: binary.compare
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.div
+  node_kind: binary.div
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.eq
+  node_kind: binary.eq
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.gt
+  node_kind: binary.gt
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.gte
+  node_kind: binary.gte
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.lt
+  node_kind: binary.lt
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.lte
+  node_kind: binary.lte
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.mul
+  node_kind: binary.mul
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.neq
+  node_kind: binary.neq
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.pow
+  node_kind: binary.pow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.binary.sub
+  node_kind: binary.sub
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.call
+  node_kind: call
+  payload_schema:
+    properties:
+      args:
+        items:
+          type: object
+        type: array
+      callee:
+        type: object
+    required:
+    - callee
+    - args
+    type: object
+- id: ast.const
+  node_kind: const
+  payload_schema:
+    properties:
+      name:
+        type: string
+      value:
+        type: object
+    required:
+    - name
+    - value
+    type: object
+- id: ast.export
+  node_kind: export
+  payload_schema:
+    properties:
+      name:
+        type: string
+      value:
+        type: object
+    required:
+    - name
+    - value
+    type: object
+- id: ast.field-access
+  node_kind: field-access
+  payload_schema:
+    properties:
+      field:
+        type: string
+      target:
+        type: object
+    required:
+    - target
+    - field
+    type: object
+- id: ast.function
+  node_kind: function
+  payload_schema:
+    properties:
+      body:
+        type: object
+      params:
+        items:
+          type: string
+        type: array
+    required:
+    - params
+    - body
+    type: object
+- id: ast.handle
+  node_kind: handle
+  payload_schema:
+    properties:
+      body:
+        type: object
+      clauses:
+        items:
+          type: object
+        type: array
+    required:
+    - body
+    - clauses
+    type: object
+- id: ast.hello.greet
+  node_kind: hello.greet
+  payload_schema:
+    properties:
+      name:
+        type: string
+    type: object
+- id: ast.if
+  node_kind: if
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.import
+  node_kind: import
+  payload_schema:
+    properties:
+      items:
+        items:
+          type: string
+        type: array
+      path:
+        type: string
+    required:
+    - path
+    type: object
+- id: ast.index
+  node_kind: index
+  payload_schema:
+    properties:
+      index:
+        type: object
+      target:
+        type: object
+    required:
+    - target
+    - index
+    type: object
+- id: ast.json
+  node_kind: json
+  payload_schema:
+    properties:
+      args:
+        type: array
+      expr:
+        type: string
+    type: object
+- id: ast.let
+  node_kind: let
+  payload_schema:
+    properties:
+      name:
+        type: string
+      value:
+        type: object
+    required:
+    - name
+    - value
+    type: object
+- id: ast.match
+  node_kind: match
+  payload_schema:
+    properties:
+      arms:
+        items:
+          properties:
+            body:
+              type: object
+            pattern:
+              type: object
+          required:
+          - pattern
+          - body
+          type: object
+        type: array
+      scrutinee:
+        type: object
+    required:
+    - scrutinee
+    - arms
+    type: object
+- id: ast.module
+  node_kind: module
+  payload_schema:
+    properties:
+      body:
+        items:
+          type: object
+        type: array
+      name:
+        type: string
+    required:
+    - name
+    - body
+    type: object
+- id: ast.object
+  node_kind: object
+  payload_schema:
+    properties:
+      entries:
+        items:
+          properties:
+            key:
+              type: string
+            value:
+              type: object
+          required:
+          - key
+          - value
+          type: object
+        type: array
+    required:
+    - entries
+    type: object
+- id: ast.paren
+  node_kind: paren
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.pipe
+  node_kind: pipe
+  payload_schema:
+    properties:
+      stages:
+        items:
+          type: object
+        type: array
+    required:
+    - stages
+    type: object
+- id: ast.resolve
+  node_kind: resolve
+  payload_schema:
+    properties:
+      path:
+        type: string
+    type: object
+- id: ast.template
+  node_kind: template
+  payload_schema:
+    properties:
+      segments:
+        items:
+          type: object
+        type: array
+    required:
+    - segments
+    type: object
+- id: ast.type-annot
+  node_kind: type-annot
+  payload_schema:
+    properties:
+      type:
+        type: string
+    required:
+    - type
+    type: object
+- id: ast.typeof
+  node_kind: typeof
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.unary.not
+  node_kind: unary.not
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.value
+  node_kind: value
+  payload_schema:
+    properties:
+      value: {}
+    required:
+    - value
+    type: object
+- id: ast.var
+  node_kind: var
+  payload_schema:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
