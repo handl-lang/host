@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::Rng;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{bool_val, num, require_int, require_number};
 use crate::error::RandError;
@@ -21,20 +19,17 @@ use crate::error::RandError;
 #[derive(Clone, Copy)]
 pub struct Int;
 
-impl Function<NonFunctionValue> for Int {
+impl Function for Int {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (min, max) = match args.len() {
             1 => (0, require_int(args, 0)?),
             2 => (require_int(args, 0)?, require_int(args, 1)?),
             n => {
-                return Err(Error::ArgumentCount {
-                    expected: 2,
-                    got: n,
-                });
+                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,)));
             }
         };
         if min > max {
@@ -62,12 +57,12 @@ impl Function<NonFunctionValue> for Int {
 #[derive(Clone, Copy)]
 pub struct Float;
 
-impl Function<NonFunctionValue> for Float {
+impl Function for Float {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         match args.len() {
             0 => {
                 let result = rand::rng().random::<f64>();
@@ -99,10 +94,7 @@ impl Function<NonFunctionValue> for Float {
                 let result = rand::rng().random_range(min..max);
                 Ok(num(result))
             }
-            n => Err(Error::ArgumentCount {
-                expected: 2,
-                got: n,
-            }),
+            n => Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,))),
         }
     }
 }
@@ -116,12 +108,12 @@ impl Function<NonFunctionValue> for Float {
 #[derive(Clone, Copy)]
 pub struct Bool;
 
-impl Function<NonFunctionValue> for Bool {
+impl Function for Bool {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(bool_val(rand::rng().random()))
     }
 }

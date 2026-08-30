@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::decimal::provider::DecimalSymbolsV1;
 use icu_provider::{DataMarker, IterableDynamicDataProvider};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::require_string;
 use super::error::IntlError;
@@ -23,12 +21,12 @@ impl Default for GetCanonicalLocales {
     }
 }
 
-impl Function<NonFunctionValue> for GetCanonicalLocales {
+impl Function for GetCanonicalLocales {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let locales = if args.is_empty() {
             return Err(IntlError::InvalidArgument {
                 message: "at least one locale required".into(),
@@ -46,7 +44,7 @@ impl Function<NonFunctionValue> for GetCanonicalLocales {
                         })
                         .map(|s| s.to_string())
                 })
-                .collect::<Result<Vec<_>, Error>>()?
+                .collect::<Result<Vec<_>, EvalError>>()?
         } else {
             let single = require_string(args, 0)?;
             vec![single.to_string()]
@@ -63,7 +61,7 @@ impl Function<NonFunctionValue> for GetCanonicalLocales {
             })
             .collect();
 
-        Ok(NonFunctionValue::new(serde_json::Value::Array(canonical)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(canonical)))
     }
 }
 
@@ -127,7 +125,7 @@ fn is_supported_compiled(locale: &str) -> bool {
 
 fn blob_supported_languages(
     provider: &super::provider::IntlProvider,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<String>, EvalError> {
     let bdp = provider.as_blob_data_provider().map_err(|e| {
         IntlError::DataProvider {
             message: e.to_string(),
@@ -150,12 +148,12 @@ fn blob_supported_languages(
     Ok(langs)
 }
 
-impl Function<NonFunctionValue> for SupportedLocalesOf {
+impl Function for SupportedLocalesOf {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let blob_langs = if let Some(provider) = &self.provider {
             Some(blob_supported_languages(provider)?)
         } else {
@@ -169,7 +167,7 @@ impl Function<NonFunctionValue> for SupportedLocalesOf {
             };
             let arr: Vec<serde_json::Value> =
                 langs.into_iter().map(|l| serde_json::json!(l)).collect();
-            return Ok(NonFunctionValue::new(serde_json::Value::Array(arr)));
+            return Ok(serde_json::Value::from(serde_json::Value::Array(arr)));
         } else if let Some(arr) = args[0].as_array() {
             arr.iter()
                 .map(|v| {
@@ -182,7 +180,7 @@ impl Function<NonFunctionValue> for SupportedLocalesOf {
                         })
                         .map(|s| s.to_string())
                 })
-                .collect::<Result<Vec<_>, Error>>()?
+                .collect::<Result<Vec<_>, EvalError>>()?
         } else {
             let single = require_string(args, 0)?;
             vec![single.to_string()]
@@ -216,6 +214,6 @@ impl Function<NonFunctionValue> for SupportedLocalesOf {
             .map(|l| serde_json::json!(l))
             .collect();
 
-        Ok(NonFunctionValue::new(serde_json::Value::Array(filtered)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(filtered)))
     }
 }

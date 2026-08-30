@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -40,7 +38,7 @@ impl Module for TimeModule {
         "time"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "now" => Some(&self.now),
             "epoch" => Some(&self.epoch),
@@ -53,15 +51,15 @@ struct NowFn {
     time: Arc<dyn Time>,
 }
 
-impl Function<NonFunctionValue> for NowFn {
+impl Function for NowFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.time
             .now_millis()
-            .map(|ms| NonFunctionValue::new(serde_json::json!(ms)))
+            .map(|ms| serde_json::Value::from(serde_json::json!(ms)))
             .map_err(Into::into)
     }
 }
@@ -70,15 +68,15 @@ struct EpochFn {
     time: Arc<dyn Time>,
 }
 
-impl Function<NonFunctionValue> for EpochFn {
+impl Function for EpochFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.time
             .now_seconds()
-            .map(|s| NonFunctionValue::new(serde_json::json!(s)))
+            .map(|s| serde_json::Value::from(serde_json::json!(s)))
             .map_err(Into::into)
     }
 }

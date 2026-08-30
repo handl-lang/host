@@ -1,15 +1,14 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
 
 use super::module::IntlModule;
 
-fn call() -> NonFunctionValue {
+fn call() -> serde_json::Value {
     let module = IntlModule::new();
     let func = module
         .function("supported_locales_of")
         .expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(&[], &mut ctx).expect("call succeeds")
 }
 

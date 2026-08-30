@@ -1,4 +1,4 @@
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -25,6 +25,6 @@ impl std::error::Error for CollectionsError {}
 
 impl From<CollectionsError> for VmError {
     fn from(err: CollectionsError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }

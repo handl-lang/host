@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{n, parse_iso, require_two_strings};
+use handl_platform::{EvalContext, EvalError, Function};
 
 fn duration_secs_f64(
     dt_a: chrono::DateTime<chrono::Utc>,
@@ -16,12 +14,12 @@ fn duration_secs_f64(
 
 #[derive(Clone, Copy)]
 pub struct DurationBetween;
-impl Function<NonFunctionValue> for DurationBetween {
+impl Function for DurationBetween {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let dt_a = parse_iso(a)?;
         let dt_b = parse_iso(b)?;
@@ -31,18 +29,18 @@ impl Function<NonFunctionValue> for DurationBetween {
         map.insert("minutes".to_string(), serde_json::json!(secs / 60.0));
         map.insert("hours".to_string(), serde_json::json!(secs / 3600.0));
         map.insert("days".to_string(), serde_json::json!(secs / 86400.0));
-        Ok(NonFunctionValue::new(serde_json::Value::Object(map)))
+        Ok(serde_json::Value::from(serde_json::Value::Object(map)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct DurationSeconds;
-impl Function<NonFunctionValue> for DurationSeconds {
+impl Function for DurationSeconds {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let dt_a = parse_iso(a)?;
         let dt_b = parse_iso(b)?;
@@ -52,12 +50,12 @@ impl Function<NonFunctionValue> for DurationSeconds {
 
 #[derive(Clone, Copy)]
 pub struct DurationMinutes;
-impl Function<NonFunctionValue> for DurationMinutes {
+impl Function for DurationMinutes {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let dt_a = parse_iso(a)?;
         let dt_b = parse_iso(b)?;
@@ -67,12 +65,12 @@ impl Function<NonFunctionValue> for DurationMinutes {
 
 #[derive(Clone, Copy)]
 pub struct DurationHours;
-impl Function<NonFunctionValue> for DurationHours {
+impl Function for DurationHours {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let dt_a = parse_iso(a)?;
         let dt_b = parse_iso(b)?;
@@ -82,12 +80,12 @@ impl Function<NonFunctionValue> for DurationHours {
 
 #[derive(Clone, Copy)]
 pub struct DurationDays;
-impl Function<NonFunctionValue> for DurationDays {
+impl Function for DurationDays {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let dt_a = parse_iso(a)?;
         let dt_b = parse_iso(b)?;

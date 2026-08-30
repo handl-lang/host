@@ -32,7 +32,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_utils::{MathModule, StrModule};
 //! use handl_plugin_lib_os::{
 //!     FsModule, EnvModule, PathModule, TimeModule,
@@ -66,6 +66,7 @@
 
 #![allow(clippy::module_inception)]
 
+use handl_platform::{Module};
 mod cmd;
 mod env;
 mod error;

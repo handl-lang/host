@@ -1,7 +1,5 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     b, num, require_one_string, require_two_strings, s, string_predicate_fn, string_unary_fn,
@@ -19,12 +17,12 @@ string_unary_fn!(Reverse, |input: &str| input
 
 #[derive(Clone, Copy)]
 pub struct Length;
-impl Function<NonFunctionValue> for Length {
+impl Function for Length {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         Ok(num(input.chars().count() as f64))
     }
@@ -32,17 +30,14 @@ impl Function<NonFunctionValue> for Length {
 
 #[derive(Clone, Copy)]
 pub struct Concat;
-impl Function<NonFunctionValue> for Concat {
+impl Function for Concat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let mut result = String::new();
         for arg in args {
@@ -57,12 +52,12 @@ string_predicate_fn!(Equals, |input: &str, other: &str| input == other);
 
 #[derive(Clone, Copy)]
 pub struct IsEmpty;
-impl Function<NonFunctionValue> for IsEmpty {
+impl Function for IsEmpty {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         Ok(b(input.is_empty()))
     }
@@ -70,12 +65,12 @@ impl Function<NonFunctionValue> for IsEmpty {
 
 #[derive(Clone, Copy)]
 pub struct TrimMatches;
-impl Function<NonFunctionValue> for TrimMatches {
+impl Function for TrimMatches {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, chars) = require_two_strings(args)?;
         if chars.is_empty() {
             return Ok(s(input.to_string()));
@@ -87,12 +82,12 @@ impl Function<NonFunctionValue> for TrimMatches {
 
 #[derive(Clone, Copy)]
 pub struct IsAlpha;
-impl Function<NonFunctionValue> for IsAlpha {
+impl Function for IsAlpha {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         Ok(b(
             !input.is_empty() && input.chars().all(|c| c.is_alphabetic())
@@ -102,12 +97,12 @@ impl Function<NonFunctionValue> for IsAlpha {
 
 #[derive(Clone, Copy)]
 pub struct IsNumeric;
-impl Function<NonFunctionValue> for IsNumeric {
+impl Function for IsNumeric {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         Ok(b(!input.is_empty() && input.chars().all(|c| c.is_numeric())))
     }
@@ -115,12 +110,12 @@ impl Function<NonFunctionValue> for IsNumeric {
 
 #[derive(Clone, Copy)]
 pub struct IsAlphanumeric;
-impl Function<NonFunctionValue> for IsAlphanumeric {
+impl Function for IsAlphanumeric {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         Ok(b(
             !input.is_empty() && input.chars().all(|c| c.is_alphanumeric())

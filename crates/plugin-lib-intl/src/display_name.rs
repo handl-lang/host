@@ -1,6 +1,3 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::experimental::dimension::provider::currency::displayname::CurrencyDisplaynameV1;
 use icu::locale::DataLocale;
 use icu::locale::names::{
@@ -12,6 +9,7 @@ use icu_provider::{
     DataIdentifierBorrowed, DataMarkerAttributes, DataProvider, DataRequest, ResultDataError,
 };
 use writeable::Writeable;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{make_provider, opt_str, optional_locale, optional_object, require_string, s};
 use super::error::IntlError;
@@ -63,12 +61,12 @@ impl Default for DisplayName {
     }
 }
 
-impl Function<NonFunctionValue> for DisplayName {
+impl Function for DisplayName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let code = require_string(args, 0)?;
         let name_type = require_string(args, 1)?;
         let locale = optional_locale(args, 2)?;

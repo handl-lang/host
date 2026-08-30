@@ -74,13 +74,6 @@ use handl_plugin_grammar_stmt_module::ModuleStmtRule;
 use handl_plugin_grammar_template::TemplateRule;
 use handl_plugin_grammar_type_annot::TypeAnnotRule;
 use handl_plugin_target_native::NativeTarget;
-// The old `ModuleRuntime` from `plugin-vm-common` is still registered because
-// the lib crates (`plugin-lib-utils`, `plugin-lib-collections`) still implement
-// the old generic `Module<V>` trait and contribute `ModuleRule`s into it. In
-// step 11 those crates migrate to the new non-generic `Module` trait and will
-// be re-wired to the new `plugin-module` `ModuleRuntime` below.
-use handl_plugin_vm_common::ModuleRuntime as LegacyModuleRuntime;
-
 // New eval/exec/module plugins (ADR 0040 steps 3-8).
 use handl_plugin_eval_array::EvalArrayPlugin;
 use handl_plugin_eval_assign::EvalAssignPlugin;
@@ -512,17 +505,12 @@ impl Plugin for KitRuntime {
         // Target and library plugins
         ctx.register_plugin(NativeTarget::new())?;
 
-        // Function-registration mechanisms.
+        // Function-registration mechanism.
         //
         // The new `plugin-module` `ModuleRuntime` is the single function-
-        // registration mechanism going forward (ADR 0040). It is registered
-        // alongside the legacy `plugin-vm-common` `ModuleRuntime`, which the
-        // lib crates (`plugin-lib-utils`, `plugin-lib-collections`) still
-        // contribute into via the old generic `Module<V>` trait. Once those
-        // crates migrate to the new non-generic `Module` trait (step 11), the
-        // legacy runtime will be removed.
+        // registration mechanism (ADR 0040). All `plugin-lib-*` crates now
+        // contribute into it via the new non-generic `Module` trait.
         ctx.register_plugin(ModuleRuntime::new())?;
-        ctx.register_plugin(LegacyModuleRuntime::new())?;
         Ok(())
     }
 

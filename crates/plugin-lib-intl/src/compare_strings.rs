@@ -1,12 +1,10 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::collator::{
     Collator, CollatorPreferences,
     options::{AlternateHandling, CaseLevel, CollatorOptions, MaxVariable, Strength},
     preferences::{CollationCaseFirst, CollationNumericOrdering},
 };
 use std::cmp::Ordering;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     make_provider, opt_bool, opt_str, optional_locale, optional_object, require_string,
@@ -55,12 +53,12 @@ impl Default for CompareStrings {
     }
 }
 
-impl Function<NonFunctionValue> for CompareStrings {
+impl Function for CompareStrings {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let a = require_string(args, 0)?;
         let b = require_string(args, 1)?;
         let locale = optional_locale(args, 2)?;
@@ -139,6 +137,6 @@ impl Function<NonFunctionValue> for CompareStrings {
             }
         };
 
-        Ok(NonFunctionValue::new(result))
+        Ok(serde_json::Value::from(result))
     }
 }

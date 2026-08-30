@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalError};
 
 // ── rand.seeded_int ──────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ fn seeded_int_no_args_errors() {
     let result = call_err("seeded_int", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -77,7 +77,7 @@ fn seeded_float_no_args_errors() {
     let result = call_err("seeded_float", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -226,7 +226,7 @@ fn seeded_string_correct_length() {
 fn seeded_string_hex_charset() {
     let result = call(
         "seeded_string",
-        &[n(42.0), n(50.0), NonFunctionValue::new("hex")],
+        &[n(42.0), n(50.0), serde_json::Value::from("hex")],
     );
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);

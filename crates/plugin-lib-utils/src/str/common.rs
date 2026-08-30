@@ -1,56 +1,46 @@
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-pub(super) fn require_string(arg: &NonFunctionValue) -> Result<&str, Error> {
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+pub(super) fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
+    arg.as_str().ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-pub(super) fn require_one_string(args: &[NonFunctionValue]) -> Result<&str, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })?;
+pub(super) fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args.first().ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
     require_string(arg)
 }
 
-pub(super) fn require_two_strings(args: &[NonFunctionValue]) -> Result<(&str, &str), Error> {
+pub(super) fn require_two_strings(args: &[serde_json::Value]) -> Result<(&str, &str), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
     let a = require_string(&args[0])?;
     let b = require_string(&args[1])?;
     Ok((a, b))
 }
 
-pub(super) fn s(value: impl Into<String>) -> NonFunctionValue {
-    NonFunctionValue::new(value.into())
+pub(super) fn s(value: impl Into<String>) -> serde_json::Value {
+    serde_json::Value::from(value.into())
 }
 
-pub(super) fn b(value: bool) -> NonFunctionValue {
-    NonFunctionValue::new(value)
+pub(super) fn b(value: bool) -> serde_json::Value {
+    serde_json::Value::from(value)
 }
 
-pub(super) fn num(value: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(value))
+pub(super) fn num(value: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(value))
 }
 
 macro_rules! string_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_plugin_vm::Function<handl_plugin_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_platform::Function for $struct_name {
             fn call(
                 &self,
-                args: &[handl_plugin_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_plugin_vm::Context<handl_plugin_vm_values_json::NonFunctionValue>,
-            ) -> Result<handl_plugin_vm_values_json::NonFunctionValue, handl_plugin_vm_values_json::Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
                 let input = $crate::r#str::common::require_one_string(args)?;
                 Ok($crate::r#str::common::s($body(input)))
             }
@@ -63,12 +53,12 @@ macro_rules! string_predicate_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_plugin_vm::Function<handl_plugin_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_platform::Function for $struct_name {
             fn call(
                 &self,
-                args: &[handl_plugin_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_plugin_vm::Context<handl_plugin_vm_values_json::NonFunctionValue>,
-            ) -> Result<handl_plugin_vm_values_json::NonFunctionValue, handl_plugin_vm_values_json::Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
                 let (input, pattern) = $crate::r#str::common::require_two_strings(args)?;
                 Ok($crate::r#str::common::b($body(input, pattern)))
             }

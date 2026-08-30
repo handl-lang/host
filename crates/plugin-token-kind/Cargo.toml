@@ -23,6 +23,7 @@ handl-plugin-token-doc-comment = { path = "../plugin-token-doc-comment" }
 handl-plugin-token-identifier = { path = "../plugin-token-identifier" }
 handl-plugin-token-keyword-as = { path = "../plugin-token-keyword-as" }
 handl-plugin-token-keyword-handle = { path = "../plugin-token-keyword-handle" }
+handl-plugin-token-keyword = { path = "../plugin-token-keyword" }
 handl-plugin-token-null = { path = "../plugin-token-null" }
 handl-plugin-token-number.workspace = true
 handl-plugin-token-operator = { path = "../plugin-token-operator" }

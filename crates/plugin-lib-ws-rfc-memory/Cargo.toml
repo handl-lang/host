@@ -5,10 +5,8 @@ edition.workspace = true
 description = "In-memory RFC 6455 WebSocket runtime module for the handl runtime."
 
 [dependencies]
+handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
 handl-plugin-lib-ws-rfc.workspace = true
-handl-plugin-vm.workspace = true
-handl-plugin-vm-common.workspace = true
-handl-plugin-vm-values-json.workspace = true
 serde_json.workspace = true
 base64 = "0.22"

@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use super::arithmetic::{
     Add, Clamp, Div, Factorial, FloorDiv, Gcd, Lcm, Lerp, MapRange, Max, Min, Mod, Mul, Sub,
@@ -26,7 +25,7 @@ impl Module for MathModule {
         "math"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "abs" => Some(&Abs),
             "add" => Some(&Add),

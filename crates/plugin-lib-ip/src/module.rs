@@ -11,9 +11,8 @@
 //!   `cidr.network(cidr)`, `cidr.broadcast(cidr)`
 //! - `socket.parse(string)`, `socket.format(sock)`
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value as JsonValue;
 
 use crate::{Cidr, IpAddr, IpError, SocketAddr};
@@ -27,7 +26,7 @@ impl Module for IpModule {
         "ip"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "parse" => Some(&IpParse),
             "format" => Some(&IpFormat),
@@ -48,36 +47,31 @@ impl Module for IpModule {
     }
 }
 
-fn ip_err(err: IpError) -> Error {
-    Error::PrimitiveError(err.to_string())
+fn ip_err(err: IpError) -> EvalError {
+    EvalError::Other(err.to_string())
 }
 
-fn require_arg_count(args: &[NonFunctionValue], expected: usize) -> Result<(), Error> {
+fn require_arg_count(args: &[serde_json::Value], expected: usize) -> Result<(), EvalError> {
     if args.len() == expected {
         Ok(())
     } else {
-        Err(Error::ArgumentCount {
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
             expected,
-            got: args.len(),
-        })
+            args.len()
+        )))
     }
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<String, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: args.len(),
-    })?;
+fn require_one_string(args: &[serde_json::Value]) -> Result<String, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
     arg.as_str()
         .map(|s| s.to_string())
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn bool_(value: bool) -> NonFunctionValue {
-    NonFunctionValue::new(value)
+fn bool_(value: bool) -> serde_json::Value {
+    serde_json::Value::from(value)
 }
 
 fn ip_to_json(ip: IpAddr) -> JsonValue {
@@ -96,129 +90,99 @@ fn ip_to_json(ip: IpAddr) -> JsonValue {
     })
 }
 
-fn as_ip(value: &NonFunctionValue) -> Result<IpAddr, Error> {
+fn as_ip(value: &serde_json::Value) -> Result<IpAddr, EvalError> {
     if let Some(s) = value.as_str() {
         IpAddr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
         let s = obj
             .get("address")
             .and_then(|v| v.as_str())
-            .ok_or(Error::TypeMismatch {
-                expected: "ip object with address",
-                got: "object without address",
-            })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "ip object with address", "object without address",)))?;
         IpAddr::parse(s).map_err(ip_err)
     } else {
-        Err(Error::TypeMismatch {
-            expected: "string or ip object",
-            got: "non-string/non-object",
-        })
+        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or ip object", "non-string/non-object",)))
     }
 }
 
-fn as_cidr(value: &NonFunctionValue) -> Result<Cidr, Error> {
+fn as_cidr(value: &serde_json::Value) -> Result<Cidr, EvalError> {
     if let Some(s) = value.as_str() {
         Cidr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
         let s = obj
             .get("address")
             .and_then(|v| v.as_str())
-            .ok_or(Error::TypeMismatch {
-                expected: "cidr object with address",
-                got: "object without address",
-            })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "cidr object with address", "object without address",)))?;
         let prefix = obj
             .get("prefix")
             .and_then(|v| v.as_f64())
-            .ok_or(Error::TypeMismatch {
-                expected: "cidr object with prefix",
-                got: "object without numeric prefix",
-            })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "cidr object with prefix", "object without numeric prefix",)))?;
         if prefix < 0.0 || prefix.fract() != 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative integer prefix",
-                got: "invalid prefix",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer prefix", "invalid prefix",)));
         }
         Cidr::parse(&format!("{}/{}", s, prefix as u8)).map_err(ip_err)
     } else {
-        Err(Error::TypeMismatch {
-            expected: "string or cidr object",
-            got: "non-string/non-object",
-        })
+        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or cidr object", "non-string/non-object",)))
     }
 }
 
-fn as_socket(value: &NonFunctionValue) -> Result<SocketAddr, Error> {
+fn as_socket(value: &serde_json::Value) -> Result<SocketAddr, EvalError> {
     if let Some(s) = value.as_str() {
         SocketAddr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
-        let ip_value = obj.get("ip").ok_or(Error::TypeMismatch {
-            expected: "socket object with ip",
-            got: "object without ip",
-        })?;
-        let ip = as_ip(&NonFunctionValue::new(ip_value.clone()))?;
+        let ip_value = obj.get("ip").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "socket object with ip", "object without ip",)))?;
+        let ip = as_ip(&serde_json::Value::from(ip_value.clone()))?;
         let port = obj
             .get("port")
             .and_then(|v| v.as_f64())
-            .ok_or(Error::TypeMismatch {
-                expected: "socket object with numeric port",
-                got: "object without port",
-            })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "socket object with numeric port", "object without port",)))?;
         if port < 0.0 || port.fract() != 0.0 || port > u16::MAX as f64 {
-            return Err(Error::TypeMismatch {
-                expected: "valid port number",
-                got: "invalid port",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "valid port number", "invalid port",)));
         }
         Ok(SocketAddr {
             ip,
             port: port as u16,
         })
     } else {
-        Err(Error::TypeMismatch {
-            expected: "string or socket object",
-            got: "non-string/non-object",
-        })
+        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or socket object", "non-string/non-object",)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct IpParse;
-impl Function<NonFunctionValue> for IpParse {
+impl Function for IpParse {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let ip = IpAddr::parse(&s).map_err(ip_err)?;
-        Ok(NonFunctionValue::new(ip_to_json(ip)))
+        Ok(serde_json::Value::from(ip_to_json(ip)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct IpFormat;
-impl Function<NonFunctionValue> for IpFormat {
+impl Function for IpFormat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
-        Ok(NonFunctionValue::new(ip.to_string()))
+        Ok(serde_json::Value::from(ip.to_string()))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct IpIsLoopback;
-impl Function<NonFunctionValue> for IpIsLoopback {
+impl Function for IpIsLoopback {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
         Ok(bool_(ip.is_loopback()))
@@ -227,12 +191,12 @@ impl Function<NonFunctionValue> for IpIsLoopback {
 
 #[derive(Clone, Copy)]
 pub struct IpIsMulticast;
-impl Function<NonFunctionValue> for IpIsMulticast {
+impl Function for IpIsMulticast {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
         Ok(bool_(ip.is_multicast()))
@@ -241,12 +205,12 @@ impl Function<NonFunctionValue> for IpIsMulticast {
 
 #[derive(Clone, Copy)]
 pub struct IpIsPrivate;
-impl Function<NonFunctionValue> for IpIsPrivate {
+impl Function for IpIsPrivate {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
         Ok(bool_(ip.is_private()))
@@ -255,12 +219,12 @@ impl Function<NonFunctionValue> for IpIsPrivate {
 
 #[derive(Clone, Copy)]
 pub struct IpIsLinkLocal;
-impl Function<NonFunctionValue> for IpIsLinkLocal {
+impl Function for IpIsLinkLocal {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
         Ok(bool_(ip.is_link_local()))
@@ -269,12 +233,12 @@ impl Function<NonFunctionValue> for IpIsLinkLocal {
 
 #[derive(Clone, Copy)]
 pub struct IpIsUnspecified;
-impl Function<NonFunctionValue> for IpIsUnspecified {
+impl Function for IpIsUnspecified {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let ip = as_ip(&args[0])?;
         Ok(bool_(ip.is_unspecified()))
@@ -283,19 +247,19 @@ impl Function<NonFunctionValue> for IpIsUnspecified {
 
 #[derive(Clone, Copy)]
 pub struct CidrParse;
-impl Function<NonFunctionValue> for CidrParse {
+impl Function for CidrParse {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let cidr = Cidr::parse(&s).map_err(ip_err)?;
         let (version, address, prefix) = match cidr {
             Cidr::V4(c) => (4, c.addr.to_string(), c.prefix),
             Cidr::V6(c) => (6, c.addr.to_string(), c.prefix),
         };
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "version": version,
             "address": address,
             "prefix": prefix as f64,
@@ -305,26 +269,26 @@ impl Function<NonFunctionValue> for CidrParse {
 
 #[derive(Clone, Copy)]
 pub struct CidrFormat;
-impl Function<NonFunctionValue> for CidrFormat {
+impl Function for CidrFormat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let cidr = as_cidr(&args[0])?;
-        Ok(NonFunctionValue::new(cidr.to_string()))
+        Ok(serde_json::Value::from(cidr.to_string()))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct CidrContains;
-impl Function<NonFunctionValue> for CidrContains {
+impl Function for CidrContains {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let cidr = as_cidr(&args[0])?;
         let ip = as_ip(&args[1])?;
@@ -334,43 +298,43 @@ impl Function<NonFunctionValue> for CidrContains {
 
 #[derive(Clone, Copy)]
 pub struct CidrNetwork;
-impl Function<NonFunctionValue> for CidrNetwork {
+impl Function for CidrNetwork {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let cidr = as_cidr(&args[0])?;
-        Ok(NonFunctionValue::new(cidr.network().to_string()))
+        Ok(serde_json::Value::from(cidr.network().to_string()))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct CidrBroadcast;
-impl Function<NonFunctionValue> for CidrBroadcast {
+impl Function for CidrBroadcast {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let cidr = as_cidr(&args[0])?;
-        Ok(NonFunctionValue::new(cidr.broadcast().to_string()))
+        Ok(serde_json::Value::from(cidr.broadcast().to_string()))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct SocketParse;
-impl Function<NonFunctionValue> for SocketParse {
+impl Function for SocketParse {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let sock = SocketAddr::parse(&s).map_err(ip_err)?;
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "ip": ip_to_json(sock.ip()),
             "port": sock.port() as f64,
         })))
@@ -379,14 +343,14 @@ impl Function<NonFunctionValue> for SocketParse {
 
 #[derive(Clone, Copy)]
 pub struct SocketFormat;
-impl Function<NonFunctionValue> for SocketFormat {
+impl Function for SocketFormat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 1)?;
         let sock = as_socket(&args[0])?;
-        Ok(NonFunctionValue::new(sock.to_string()))
+        Ok(serde_json::Value::from(sock.to_string()))
     }
 }

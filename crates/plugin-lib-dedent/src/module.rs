@@ -1,6 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::dedent::dedent;
 
@@ -13,7 +12,7 @@ impl Module for DedentModule {
         "dedent"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "dedent" => Some(&Dedent),
             _ => None,
@@ -25,21 +24,15 @@ impl Module for DedentModule {
 #[derive(Clone, Copy)]
 pub struct Dedent;
 
-impl Function<NonFunctionValue> for Dedent {
+impl Function for Dedent {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let arg = args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?;
-        let text = arg.as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let text = arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
 
-        Ok(NonFunctionValue::new(dedent(text)))
+        Ok(serde_json::Value::from(dedent(text)))
     }
 }

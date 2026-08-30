@@ -4,11 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
-handl-plugin-vm-common.workspace = true
-handl-plugin-vm.workspace = true
-handl-plugin-vm-backend-rust-interpreter.workspace = true
-handl-plugin-vm-values-json.workspace = true
 serde_json = "1"
 sha2.workspace = true
 md-5.workspace = true
@@ -16,4 +13,3 @@ hex.workspace = true
 
 [dev-dependencies]
 handl-plugin-ast.workspace = true
-handl-plugin-vm-host-eval.workspace = true

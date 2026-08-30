@@ -7,7 +7,8 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_kind::DynKind;
 use serde_json::json;
 
 /// Token capability required by the call grammar rule.
@@ -103,16 +104,22 @@ impl<K: CallToken> ParserBehavior<K> for CallRule {
     }
 }
 
-impl CallToken for LexKind {
+impl CallToken for DynKind {
     fn is_call_open(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::ParenOpen))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::ParenOpen)
+            .unwrap_or(false)
     }
 
     fn is_call_close(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::ParenClose))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::ParenClose)
+            .unwrap_or(false)
     }
 
     fn is_comma(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Comma)
+            .unwrap_or(false)
     }
 }

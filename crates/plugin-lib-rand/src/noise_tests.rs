@@ -1,4 +1,5 @@
 use super::test_helpers::*;
+use handl_platform::{EvalError};
 
 // ── rand.perlin_1d ──────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ fn perlin_1d_no_args_errors() {
     let result = call_err("perlin_1d", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -85,7 +86,7 @@ fn perlin_2d_no_args_errors() {
     let result = call_err("perlin_2d", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -94,7 +95,7 @@ fn perlin_2d_one_arg_errors() {
     let result = call_err("perlin_2d", &[n(1.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -138,7 +139,7 @@ fn perlin_3d_no_args_errors() {
     let result = call_err("perlin_3d", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -147,7 +148,7 @@ fn perlin_3d_one_arg_errors() {
     let result = call_err("perlin_3d", &[n(1.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -198,7 +199,7 @@ fn simplex_2d_no_args_errors() {
     let result = call_err("simplex_2d", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -207,7 +208,7 @@ fn simplex_2d_one_arg_errors() {
     let result = call_err("simplex_2d", &[n(1.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -261,7 +262,7 @@ fn simplex_3d_no_args_errors() {
     let result = call_err("simplex_3d", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -270,6 +271,6 @@ fn simplex_3d_one_arg_errors() {
     let result = call_err("simplex_3d", &[n(1.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }

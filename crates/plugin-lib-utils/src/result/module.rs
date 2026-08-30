@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use crate::result::functions::{Err, IsErr, IsOk, Ok};
 
@@ -17,7 +16,7 @@ impl Module for ResultModule {
         "result"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "ok" => Some(&Ok),
             "err" => Some(&Err),

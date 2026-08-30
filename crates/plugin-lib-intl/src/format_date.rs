@@ -1,6 +1,3 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::datetime::fieldsets::builder::{DateFields, FieldSetBuilder, ZoneStyle};
 use icu::datetime::input::{Date, DateTime, Time, ZonedDateTime};
 use icu::datetime::options::{Length, SubsecondDigits, TimePrecision, YearStyle};
@@ -11,6 +8,7 @@ use icu::datetime::{
 };
 use icu::time::zone::{TimeZone, UtcOffset};
 use writeable::Writeable;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     DataProvider, apply_numbering_system, make_provider, opt_bool, opt_int, opt_str,
@@ -78,12 +76,12 @@ impl Default for FormatDate {
     }
 }
 
-impl Function<NonFunctionValue> for FormatDate {
+impl Function for FormatDate {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let date_str = require_string(args, 0)?;
         let mut locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;
@@ -139,12 +137,12 @@ impl Default for FormatDateToParts {
     }
 }
 
-impl Function<NonFunctionValue> for FormatDateToParts {
+impl Function for FormatDateToParts {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let date_str = require_string(args, 0)?;
         let mut locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;
@@ -279,7 +277,7 @@ fn format_with_field_bag(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let mut collector = PartsCollector::new();
     format_with_field_bag_to_parts(date_str, locale, opts, dp, &mut collector)?;
     let parts = collector.into_parts();
@@ -292,7 +290,7 @@ fn format_with_field_bag_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let style = opt_str(opts, "style").unwrap_or("medium");
     let length = derive_length_from_fields(opts, style);
 
@@ -419,7 +417,7 @@ fn derive_length_from_fields(
     }
 }
 
-fn parse_datetime_flexible(s: &str) -> Result<(i32, u8, u8, u8, u8, u8), Error> {
+fn parse_datetime_flexible(s: &str) -> Result<(i32, u8, u8, u8, u8, u8), EvalError> {
     let s = s.trim();
     if s.contains('T') {
         parse_datetime(s)
@@ -526,7 +524,7 @@ fn format_date_only(
     style: &str,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let (year, month, day) = parse_date(date_str)?;
     let date = Date::try_new_iso(year, month, day).map_err(|e| {
         IntlError::InvalidDate {
@@ -564,7 +562,7 @@ fn format_date_only_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let (year, month, day) = parse_date(date_str)?;
     let date = Date::try_new_iso(year, month, day).map_err(|e| {
         IntlError::InvalidDate {
@@ -606,7 +604,7 @@ fn format_time_only(
     style: &str,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let (hour, minute, second) = parse_time_only(time_str)?;
     let nanos = parse_nanos_from_str(time_str);
     let time = Time::try_new(hour, minute, second, nanos).map_err(|e| {
@@ -650,7 +648,7 @@ fn format_time_only_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let (hour, minute, second) = parse_time_only(time_str)?;
     let nanos = parse_nanos_from_str(time_str);
     let time = Time::try_new(hour, minute, second, nanos).map_err(|e| {
@@ -698,7 +696,7 @@ fn format_datetime(
     style: &str,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let (year, month, day, hour, minute, second) = parse_datetime(date_str)?;
     let nanos = parse_nanos_from_str(date_str);
     let date = Date::try_new_iso(year, month, day).map_err(|e| {
@@ -748,7 +746,7 @@ fn format_datetime_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let (year, month, day, hour, minute, second) = parse_datetime(date_str)?;
     let nanos = parse_nanos_from_str(date_str);
     let date = Date::try_new_iso(year, month, day).map_err(|e| {
@@ -796,7 +794,7 @@ fn format_datetime_to_parts(
     })
 }
 
-fn parse_date(s: &str) -> Result<(i32, u8, u8), Error> {
+fn parse_date(s: &str) -> Result<(i32, u8, u8), EvalError> {
     let s = s.trim();
     if s.is_empty() {
         return Err(IntlError::InvalidDate {
@@ -837,7 +835,7 @@ fn parse_date(s: &str) -> Result<(i32, u8, u8), Error> {
     Ok((sign * year, month, day))
 }
 
-fn parse_time_only(s: &str) -> Result<(u8, u8, u8), Error> {
+fn parse_time_only(s: &str) -> Result<(u8, u8, u8), EvalError> {
     let s = s.trim();
     let time_part = if s.contains('T') {
         s.split_once('T').map(|(_, t)| t).unwrap_or(s)
@@ -847,7 +845,7 @@ fn parse_time_only(s: &str) -> Result<(u8, u8, u8), Error> {
     parse_time(time_part)
 }
 
-fn parse_time(time_part: &str) -> Result<(u8, u8, u8), Error> {
+fn parse_time(time_part: &str) -> Result<(u8, u8, u8), EvalError> {
     let time_part = strip_timezone(time_part);
     let time_part = strip_fractional_seconds(time_part);
     let parts: Vec<&str> = time_part.split(':').collect();
@@ -873,7 +871,7 @@ fn parse_time(time_part: &str) -> Result<(u8, u8, u8), Error> {
     Ok((hour, minute, second))
 }
 
-fn parse_datetime(s: &str) -> Result<(i32, u8, u8, u8, u8, u8), Error> {
+fn parse_datetime(s: &str) -> Result<(i32, u8, u8, u8, u8, u8), EvalError> {
     let s = s.trim();
     let (date_part, time_part) = s.split_once('T').ok_or_else(|| {
         IntlError::InvalidDate {

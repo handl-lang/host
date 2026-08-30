@@ -3,9 +3,8 @@
 //! Hexadecimal encoding for the handl runtime.
 
 use handl_plugin_lib_encoding::{Encoding, EncodingError};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value;
 
 /// Hexadecimal encoding.
@@ -45,7 +44,7 @@ impl Module for HexModule {
         "hex"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "hex" => Some(&HexName),
             _ => None,
@@ -56,19 +55,16 @@ impl Module for HexModule {
 #[derive(Debug, Clone, Copy)]
 struct HexName;
 
-impl Function<NonFunctionValue> for HexName {
+impl Function for HexName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "encoding",
             "name": "hex",
         })))

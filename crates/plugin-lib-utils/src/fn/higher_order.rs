@@ -1,5 +1,5 @@
-use handl_plugin_vm::{Context, Function, GenericFunction};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use crate::function_value::FunctionValue;
 
 use crate::shared::{
     apply_fn, arr, b, find_first, is_truthy_fn, key_to_string, map_iter, require_function_and_array,
@@ -9,12 +9,12 @@ use crate::shared::{
 
 #[derive(Clone, Copy)]
 pub struct FlatMap;
-impl Function<NonFunctionValue> for FlatMap {
+impl Function for FlatMap {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         let mapped = map_iter(ctx, &fn_val, array.iter())?;
         let mut results = Vec::new();
@@ -29,57 +29,37 @@ impl Function<NonFunctionValue> for FlatMap {
     }
 }
 
-impl GenericFunction<NonFunctionValue> for FlatMap {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 // ── find ───────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
 pub struct Find;
-impl Function<NonFunctionValue> for Find {
+impl Function for Find {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         let result = find_first(ctx, &fn_val, array.iter())?;
         match result {
-            Some(v) => Ok(NonFunctionValue::new(v)),
-            None => Ok(NonFunctionValue::new(serde_json::Value::Null)),
+            Some(v) => Ok(serde_json::Value::from(v)),
+            None => Ok(serde_json::Value::from(serde_json::Value::Null)),
         }
     }
 }
 
-impl GenericFunction<NonFunctionValue> for Find {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 // ── some / every ───────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
 pub struct SomeFn;
-impl Function<NonFunctionValue> for SomeFn {
+impl Function for SomeFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         for item in array {
             if is_truthy_fn(ctx, &fn_val, item)? {
@@ -90,25 +70,15 @@ impl Function<NonFunctionValue> for SomeFn {
     }
 }
 
-impl GenericFunction<NonFunctionValue> for SomeFn {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct Every;
-impl Function<NonFunctionValue> for Every {
+impl Function for Every {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         for item in array {
             if !is_truthy_fn(ctx, &fn_val, item)? {
@@ -119,27 +89,17 @@ impl Function<NonFunctionValue> for Every {
     }
 }
 
-impl GenericFunction<NonFunctionValue> for Every {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 // ── group_by ───────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
 pub struct GroupBy;
-impl Function<NonFunctionValue> for GroupBy {
+impl Function for GroupBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         let mut groups: std::collections::BTreeMap<String, Vec<serde_json::Value>> =
             std::collections::BTreeMap::new();
@@ -152,31 +112,21 @@ impl Function<NonFunctionValue> for GroupBy {
         for (k, v) in groups {
             result.insert(k, serde_json::Value::Array(v));
         }
-        Ok(NonFunctionValue::new(serde_json::Value::Object(result)))
+        Ok(serde_json::Value::from(serde_json::Value::Object(result)))
     }
 }
 
-impl GenericFunction<NonFunctionValue> for GroupBy {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 // ── partition ──────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
 pub struct Partition;
-impl Function<NonFunctionValue> for Partition {
+impl Function for Partition {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         let mut matching = Vec::new();
         let mut rest = Vec::new();
@@ -194,27 +144,17 @@ impl Function<NonFunctionValue> for Partition {
     }
 }
 
-impl GenericFunction<NonFunctionValue> for Partition {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
 
 // ── count_by ───────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
 pub struct CountBy;
-impl Function<NonFunctionValue> for CountBy {
+impl Function for CountBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (fn_val, array) = require_function_and_array(args)?;
         let mut counts: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
         for item in array {
@@ -226,17 +166,7 @@ impl Function<NonFunctionValue> for CountBy {
         for (k, v) in counts {
             result.insert(k, serde_json::json!(v));
         }
-        Ok(NonFunctionValue::new(serde_json::Value::Object(result)))
+        Ok(serde_json::Value::from(serde_json::Value::Object(result)))
     }
 }
 
-impl GenericFunction<NonFunctionValue> for CountBy {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}

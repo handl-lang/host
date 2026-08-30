@@ -1,6 +1,6 @@
 use super::module::IntlModule;
 use super::provider::IntlProvider;
-use handl_plugin_vm_common::Module;
+use handl_platform::Module;
 
 #[test]
 fn provider_from_blob() {

@@ -1,7 +1,5 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::plurals::{PluralCategory, PluralRuleType, PluralRules, PluralRulesOptions};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     apply_fraction_digits, apply_minimum_integer_digits, apply_significant_digits,
@@ -53,12 +51,12 @@ impl Default for SelectPlural {
     }
 }
 
-impl Function<NonFunctionValue> for SelectPlural {
+impl Function for SelectPlural {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let n = require_number(args, 0)?;
         let locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;

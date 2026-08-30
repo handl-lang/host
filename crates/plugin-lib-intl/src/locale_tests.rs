@@ -1,36 +1,35 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{CanonicalContext, Error};
+use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError};
 
 use super::module::IntlModule;
 
-fn call(args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(args: &[serde_json::Value]) -> serde_json::Value {
     let module = IntlModule::new();
     let func = module.function("locale").expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_err(args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let module = IntlModule::new();
     let func = module.function("locale").expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn obj(pairs: &[(&str, &str)]) -> NonFunctionValue {
+fn obj(pairs: &[(&str, &str)]) -> serde_json::Value {
     let mut map = serde_json::Map::new();
     for (k, v) in pairs {
         map.insert(k.to_string(), serde_json::json!(v));
     }
-    NonFunctionValue::new(serde_json::Value::Object(map))
+    serde_json::Value::from(serde_json::Value::Object(map))
 }
 
-fn get_str(result: &NonFunctionValue, key: &str) -> Option<String> {
+fn get_str(result: &serde_json::Value, key: &str) -> Option<String> {
     result
         .as_object()?
         .get(key)?
@@ -38,7 +37,7 @@ fn get_str(result: &NonFunctionValue, key: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn is_null(result: &NonFunctionValue, key: &str) -> bool {
+fn is_null(result: &serde_json::Value, key: &str) -> bool {
     result
         .as_object()
         .and_then(|o| o.get(key))

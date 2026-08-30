@@ -37,4 +37,4 @@ pub use factory::EofFactory;
 pub use lexer::Lexer;
 pub use rule::{FnRule, LexRule};
 pub use span::Span;
-pub use token::{DynToken, DynTokenKind, CommentTokenKind, Token, TokenKind};
+pub use token::{DynToken, DynTokenKind, CommentTokenKind, EofKind, Token, TokenKind};

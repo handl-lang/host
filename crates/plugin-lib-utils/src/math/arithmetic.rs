@@ -1,17 +1,16 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::helpers::{num, require_number, require_two_numbers};
 use crate::shared::find_extremum_by;
 
 #[derive(Clone, Copy)]
 pub struct Add;
-impl Function<NonFunctionValue> for Add {
+impl Function for Add {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         Ok(num(a + b))
     }
@@ -19,12 +18,12 @@ impl Function<NonFunctionValue> for Add {
 
 #[derive(Clone, Copy)]
 pub struct Sub;
-impl Function<NonFunctionValue> for Sub {
+impl Function for Sub {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         Ok(num(a - b))
     }
@@ -32,12 +31,12 @@ impl Function<NonFunctionValue> for Sub {
 
 #[derive(Clone, Copy)]
 pub struct Mul;
-impl Function<NonFunctionValue> for Mul {
+impl Function for Mul {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         Ok(num(a * b))
     }
@@ -45,18 +44,15 @@ impl Function<NonFunctionValue> for Mul {
 
 #[derive(Clone, Copy)]
 pub struct Div;
-impl Function<NonFunctionValue> for Div {
+impl Function for Div {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if b == 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-zero divisor",
-                got: "zero",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero divisor", "zero",)));
         }
         Ok(num(a / b))
     }
@@ -64,12 +60,12 @@ impl Function<NonFunctionValue> for Div {
 
 #[derive(Clone, Copy)]
 pub struct Min;
-impl Function<NonFunctionValue> for Min {
+impl Function for Min {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         let values = [a, b];
         let best = find_extremum_by(&values, |x, y| !(*y < *x)).unwrap();
@@ -79,12 +75,12 @@ impl Function<NonFunctionValue> for Min {
 
 #[derive(Clone, Copy)]
 pub struct Max;
-impl Function<NonFunctionValue> for Max {
+impl Function for Max {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         let values = [a, b];
         let best = find_extremum_by(&values, |x, y| !(*y > *x)).unwrap();
@@ -94,17 +90,14 @@ impl Function<NonFunctionValue> for Max {
 
 #[derive(Clone, Copy)]
 pub struct Clamp;
-impl Function<NonFunctionValue> for Clamp {
+impl Function for Clamp {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let value = require_number(&args[0])?;
         let min = require_number(&args[1])?;
@@ -115,12 +108,12 @@ impl Function<NonFunctionValue> for Clamp {
 
 #[derive(Clone, Copy)]
 pub struct Mod;
-impl Function<NonFunctionValue> for Mod {
+impl Function for Mod {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         Ok(num(a.rem_euclid(b)))
     }
@@ -128,18 +121,15 @@ impl Function<NonFunctionValue> for Mod {
 
 #[derive(Clone, Copy)]
 pub struct FloorDiv;
-impl Function<NonFunctionValue> for FloorDiv {
+impl Function for FloorDiv {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if b == 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-zero divisor",
-                got: "zero",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero divisor", "zero",)));
         }
         Ok(num((a / b).floor()))
     }
@@ -151,18 +141,15 @@ fn gcd_u64(a: u64, b: u64) -> u64 {
 
 #[derive(Clone, Copy)]
 pub struct Gcd;
-impl Function<NonFunctionValue> for Gcd {
+impl Function for Gcd {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if a < 0.0 || b < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         Ok(num(gcd_u64(a as u64, b as u64) as f64))
     }
@@ -170,18 +157,15 @@ impl Function<NonFunctionValue> for Gcd {
 
 #[derive(Clone, Copy)]
 pub struct Lcm;
-impl Function<NonFunctionValue> for Lcm {
+impl Function for Lcm {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if a < 0.0 || b < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let a_u = a as u64;
         let b_u = b as u64;
@@ -194,28 +178,19 @@ impl Function<NonFunctionValue> for Lcm {
 
 #[derive(Clone, Copy)]
 pub struct Factorial;
-impl Function<NonFunctionValue> for Factorial {
+impl Function for Factorial {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let arg = args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
         let x = require_number(arg)?;
         if x < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         if x.fract() != 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "integer",
-                got: "non-integer",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "integer", "non-integer",)));
         }
         let n = x as u64;
         let mut result: f64 = 1.0;
@@ -228,17 +203,14 @@ impl Function<NonFunctionValue> for Factorial {
 
 #[derive(Clone, Copy)]
 pub struct Lerp;
-impl Function<NonFunctionValue> for Lerp {
+impl Function for Lerp {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let start = require_number(&args[0])?;
         let end = require_number(&args[1])?;
@@ -249,17 +221,14 @@ impl Function<NonFunctionValue> for Lerp {
 
 #[derive(Clone, Copy)]
 pub struct MapRange;
-impl Function<NonFunctionValue> for MapRange {
+impl Function for MapRange {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 5 {
-            return Err(Error::ArgumentCount {
-                expected: 5,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 5, args.len(),)));
         }
         let value = require_number(&args[0])?;
         let in_min = require_number(&args[1])?;

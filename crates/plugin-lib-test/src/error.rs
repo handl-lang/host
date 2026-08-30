@@ -67,6 +67,6 @@ impl std::error::Error for TestError {}
 
 impl From<TestError> for VmError {
     fn from(err: TestError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }

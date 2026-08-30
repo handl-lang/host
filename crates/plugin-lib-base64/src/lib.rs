@@ -4,9 +4,8 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_plugin_lib_encoding::{Encoding, EncodingError};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value;
 
 /// Base64 encoding.
@@ -48,7 +47,7 @@ impl Module for Base64Module {
         "base64"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "base64" => Some(&Base64Name),
             _ => None,
@@ -59,19 +58,16 @@ impl Module for Base64Module {
 #[derive(Debug, Clone, Copy)]
 struct Base64Name;
 
-impl Function<NonFunctionValue> for Base64Name {
+impl Function for Base64Name {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "encoding",
             "name": "base64",
         })))

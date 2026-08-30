@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -41,7 +39,7 @@ impl Module for EnvModule {
         "env"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "get" => Some(&self.get),
             "has" => Some(&self.has),
@@ -51,32 +49,26 @@ impl Module for EnvModule {
     }
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<&str, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
 struct GetFn {
     env: Arc<dyn Env>,
 }
 
-impl Function<NonFunctionValue> for GetFn {
+impl Function for GetFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let key = require_one_string(args)?;
         let value = self.env.get(key)?;
         Ok(match value {
-            Some(v) => NonFunctionValue::new(v),
-            None => NonFunctionValue::default(),
+            Some(v) => serde_json::Value::from(v),
+            None => serde_json::Value::Null,
         })
     }
 }
@@ -85,16 +77,16 @@ struct HasFn {
     env: Arc<dyn Env>,
 }
 
-impl Function<NonFunctionValue> for HasFn {
+impl Function for HasFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let key = require_one_string(args)?;
         self.env
             .has(key)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -103,14 +95,14 @@ struct KeysFn {
     env: Arc<dyn Env>,
 }
 
-impl Function<NonFunctionValue> for KeysFn {
+impl Function for KeysFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let keys = self.env.keys()?;
         let arr: Vec<serde_json::Value> = keys.into_iter().map(serde_json::Value::String).collect();
-        Ok(NonFunctionValue::new(serde_json::Value::Array(arr)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
 }

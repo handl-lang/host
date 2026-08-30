@@ -1,5 +1,4 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::helpers::{num, require_number, require_two_numbers, unary_fn};
 
@@ -20,12 +19,12 @@ unary_fn!(Radians, |x: f64| x.to_radians());
 
 #[derive(Clone, Copy)]
 pub struct Atan2;
-impl Function<NonFunctionValue> for Atan2 {
+impl Function for Atan2 {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (y, x) = require_two_numbers(args)?;
         Ok(num(y.atan2(x)))
     }
@@ -33,12 +32,12 @@ impl Function<NonFunctionValue> for Atan2 {
 
 #[derive(Clone, Copy)]
 pub struct Hypot;
-impl Function<NonFunctionValue> for Hypot {
+impl Function for Hypot {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         Ok(num(a.hypot(b)))
     }

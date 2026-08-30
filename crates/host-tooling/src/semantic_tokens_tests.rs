@@ -2,8 +2,24 @@ use crate::{
     CanonicalTokenClassifier, SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest,
     TokenClassifier, canonical_semantic_tokens,
 };
-use handl_kit_canonical::{LexDelimiter, LexKind, LexKeyword, LexOperator, LexTemplateSegment};
-use handl_plugin_lexer::Lexer;
+use handl_kit_canonical::{DynKind, DynLexer};
+use handl_plugin_lexer::{EofKind, Lexer, Token};
+use handl_plugin_lexer_template::TemplateSegment;
+use handl_plugin_token_bool::BoolKind;
+use handl_plugin_token_comment::CommentKind;
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_doc_comment::DocCommentKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::TemplateKind;
+use handl_plugin_token_keyword::KeywordKind;
+use handl_plugin_token_null::NullKind;
+use handl_plugin_token_number::NumberKind;
+use handl_plugin_token_operator::OperatorKind;
+use handl_plugin_token_string::StringKind;
+
+fn dyn_kind(k: impl handl_plugin_lexer::DynTokenKind) -> DynKind {
+    DynKind(Box::new(k))
+}
 
 #[test]
 fn legend_default_has_standard_token_types() {
@@ -48,7 +64,7 @@ fn classifier_maps_number_to_number_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(&LexKind::Number(42.0), &legend)
+        .classify(&dyn_kind(NumberKind::Number(42.0)), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("number").unwrap());
     assert_eq!(mods, 0);
@@ -59,7 +75,7 @@ fn classifier_maps_string_to_string_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(&LexKind::String("hello".to_string()), &legend)
+        .classify(&dyn_kind(StringKind::String("hello".to_string())), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("string").unwrap());
     assert_eq!(mods, 0);
@@ -70,10 +86,7 @@ fn classifier_maps_keyword_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(
-            &LexKind::Keyword(LexKeyword::Match),
-            &legend,
-        )
+        .classify(&dyn_kind(KeywordKind("match")), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
     assert_eq!(mods, 0);
@@ -84,7 +97,7 @@ fn classifier_maps_bool_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier
-        .classify(&LexKind::Bool(true), &legend)
+        .classify(&dyn_kind(BoolKind::Bool(true)), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
 }
@@ -94,7 +107,7 @@ fn classifier_maps_null_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier
-        .classify(&LexKind::Null, &legend)
+        .classify(&dyn_kind(NullKind::Null), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
 }
@@ -104,10 +117,7 @@ fn classifier_maps_operator_to_operator_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(
-            &LexKind::Operator(LexOperator::Plus),
-            &legend,
-        )
+        .classify(&dyn_kind(OperatorKind::Plus), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("operator").unwrap());
     assert_eq!(mods, 0);
@@ -118,10 +128,7 @@ fn classifier_maps_delimiter_to_punctuation_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier
-        .classify(
-            &LexKind::Delimiter(LexDelimiter::ParenOpen),
-            &legend,
-        )
+        .classify(&dyn_kind(DelimiterKind::ParenOpen), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("punctuation").unwrap());
 }
@@ -131,7 +138,7 @@ fn classifier_maps_identifier_to_variable_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(&LexKind::Identifier("x".to_string()), &legend)
+        .classify(&dyn_kind(IdentKind::Ident("x".to_string())), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("variable").unwrap());
     assert_eq!(mods, 0);
@@ -143,7 +150,7 @@ fn classifier_maps_doc_comment_with_documentation_modifier() {
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
         .classify(
-            &LexKind::DocComment("/// doc".to_string()),
+            &dyn_kind(DocCommentKind::DocComment("/// doc".to_string())),
             &legend,
         )
         .unwrap();
@@ -156,7 +163,7 @@ fn classifier_maps_comment_without_modifiers() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, mods) = classifier
-        .classify(&LexKind::Comment("// comment".to_string()), &legend)
+        .classify(&dyn_kind(CommentKind::Comment("// comment".to_string())), &legend)
         .unwrap();
     assert_eq!(ty, legend.token_type_index("comment").unwrap());
     assert_eq!(mods, 0);
@@ -167,7 +174,10 @@ fn classifier_maps_template_to_string_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier
-        .classify(&LexKind::Template(vec![LexTemplateSegment::Text("hello".into())]), &legend)
+        .classify(
+            &dyn_kind(TemplateKind(vec![TemplateSegment::Text("hello".into())])),
+            &legend,
+        )
         .unwrap();
     assert_eq!(ty, legend.token_type_index("string").unwrap());
 }
@@ -176,7 +186,7 @@ fn classifier_maps_template_to_string_type() {
 fn classifier_returns_none_for_eof() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
-    assert!(classifier.classify(&LexKind::Eof, &legend).is_none());
+    assert!(classifier.classify(&dyn_kind(EofKind), &legend).is_none());
 }
 
 #[test]
@@ -187,7 +197,7 @@ fn classifier_returns_none_for_unknown_type_name() {
     };
     let classifier = CanonicalTokenClassifier;
     assert!(classifier
-        .classify(&LexKind::Number(42.0), &legend)
+        .classify(&dyn_kind(NumberKind::Number(42.0)), &legend)
         .is_none());
 }
 
@@ -263,14 +273,12 @@ fn canonical_semantic_tokens_empty_source_returns_empty() {
 /// identifier token using the context-aware classifier, returning
 /// `(token_type_index, modifier_bit_flags)`.
 fn classify_first_identifier(source: &str) -> (u32, u32) {
-    use handl_kit_canonical::LexLexer;
-    let lexer = LexLexer;
-    let tokens: Vec<handl_plugin_lexer::Token<LexKind>> =
-        lexer.lex(source).unwrap();
+    let lexer = DynLexer;
+    let tokens: Vec<Token<DynKind>> = lexer.lex(source).unwrap();
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     for (i, token) in tokens.iter().enumerate() {
-        if matches!(token.kind, LexKind::Identifier(_)) {
+        if token.kind.downcast_ref::<IdentKind>().is_some() {
             return crate::semantic_tokens::ContextClassifier::classify(
                 &classifier, &tokens, i, source, &legend,
             )
@@ -285,15 +293,13 @@ fn classify_first_identifier(source: &str) -> (u32, u32) {
 fn classify_all_identifiers(
     source: &str,
 ) -> Vec<(String, u32, u32)> {
-    use handl_kit_canonical::LexLexer;
-    let lexer = LexLexer;
-    let tokens: Vec<handl_plugin_lexer::Token<LexKind>> =
-        lexer.lex(source).unwrap();
+    let lexer = DynLexer;
+    let tokens: Vec<Token<DynKind>> = lexer.lex(source).unwrap();
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let mut out = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
-        if let LexKind::Identifier(s) = &token.kind {
+        if let Some(IdentKind::Ident(s)) = token.kind.downcast_ref::<IdentKind>() {
             let (ty, mods) = crate::semantic_tokens::ContextClassifier::classify(
                 &classifier, &tokens, i, source, &legend,
             )

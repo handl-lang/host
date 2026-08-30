@@ -1,64 +1,63 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::helpers::num;
 
 #[derive(Clone, Copy)]
 pub struct Pi;
-impl Function<NonFunctionValue> for Pi {
+impl Function for Pi {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(num(std::f64::consts::PI))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct E;
-impl Function<NonFunctionValue> for E {
+impl Function for E {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(num(std::f64::consts::E))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Nan;
-impl Function<NonFunctionValue> for Nan {
+impl Function for Nan {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(num(f64::NAN))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Infinity;
-impl Function<NonFunctionValue> for Infinity {
+impl Function for Infinity {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(num(f64::INFINITY))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Tau;
-impl Function<NonFunctionValue> for Tau {
+impl Function for Tau {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(num(std::f64::consts::TAU))
     }
 }

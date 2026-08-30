@@ -1,23 +1,23 @@
 use std::sync::Arc;
+use handl_platform::{EvalContext};
 
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
+use handl_platform::Module;
 use serde_json::Value;
 
 use crate::otlp_module::OtlpModule;
 use crate::stub::{OtlpEvent, StubOtlpState};
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v)
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v)
 }
 
-fn obj(v: Value) -> NonFunctionValue {
-    NonFunctionValue::new(v)
+fn obj(v: Value) -> serde_json::Value {
+    serde_json::Value::from(v)
 }
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
@@ -92,7 +92,7 @@ fn set_attribute_is_recorded() {
     call(
         &module,
         "set_attribute",
-        &[id.clone(), s("key"), NonFunctionValue::new(42)],
+        &[id.clone(), s("key"), serde_json::Value::from(42)],
     );
     assert!(matches!(state.events()[1], OtlpEvent::SpanAttribute { .. }));
 }
@@ -135,7 +135,7 @@ fn record_metric_is_recorded() {
         "record_metric",
         &[
             s("requests"),
-            NonFunctionValue::new(1.0),
+            serde_json::Value::from(1.0),
             obj(serde_json::json!({"kind": "counter"})),
         ],
     );

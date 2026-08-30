@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 
 /// Errors that can occur in TLS operations.
 #[derive(Debug, Clone)]
@@ -36,7 +36,7 @@ impl std::error::Error for TlsError {}
 
 impl From<TlsError> for VmError {
     fn from(err: TlsError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

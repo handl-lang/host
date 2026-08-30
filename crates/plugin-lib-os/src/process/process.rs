@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -60,7 +58,7 @@ impl Module for ProcessModule {
         "process"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "spawn" => Some(&self.spawn),
             "kill" => Some(&self.kill),
@@ -71,8 +69,8 @@ impl Module for ProcessModule {
     }
 }
 
-fn status_to_value(status: ProcessStatus) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!({
+fn status_to_value(status: ProcessStatus) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!({
         "process_id": status.process_id,
         "running": status.running,
         "exit_code": status.exit_code,
@@ -83,36 +81,27 @@ struct SpawnFn {
     process: Arc<dyn Process>,
 }
 
-impl Function<NonFunctionValue> for SpawnFn {
+impl Function for SpawnFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let program = args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?;
-        let program = program.as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let program = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let program = program.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
 
         let arg_strings: Vec<String> = args
             .iter()
             .skip(1)
             .map(|v| {
-                v.as_str().map(String::from).ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })
+                v.as_str().map(String::from).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
             })
             .collect::<Result<_, _>>()?;
         let arg_refs: Vec<&str> = arg_strings.iter().map(String::as_str).collect();
 
         self.process
             .spawn(program, &arg_refs)
-            .map(|id| NonFunctionValue::new(serde_json::json!(id)))
+            .map(|id| serde_json::Value::from(serde_json::json!(id)))
             .map_err(Into::into)
     }
 }
@@ -121,24 +110,18 @@ struct KillFn {
     process: Arc<dyn Process>,
 }
 
-impl Function<NonFunctionValue> for KillFn {
+impl Function for KillFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
         }
-        let process_id = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
         self.process.kill(process_id)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -146,25 +129,19 @@ struct WaitFn {
     process: Arc<dyn Process>,
 }
 
-impl Function<NonFunctionValue> for WaitFn {
+impl Function for WaitFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
         }
-        let process_id = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
         self.process
             .wait(process_id)
-            .map(|code| NonFunctionValue::new(serde_json::json!(code)))
+            .map(|code| serde_json::Value::from(serde_json::json!(code)))
             .map_err(Into::into)
     }
 }
@@ -173,22 +150,16 @@ struct StatusFn {
     process: Arc<dyn Process>,
 }
 
-impl Function<NonFunctionValue> for StatusFn {
+impl Function for StatusFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
         }
-        let process_id = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
         self.process
             .status(process_id)
             .map(status_to_value)

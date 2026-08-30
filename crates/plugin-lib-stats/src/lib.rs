@@ -2,36 +2,29 @@
 //!
 //! Statistical aggregate functions for the handl runtime.
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value;
 
-fn num(value: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(value))
+fn num(value: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(value))
 }
 
-fn require_one_array(args: &[NonFunctionValue]) -> Result<&[Value], Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })?;
-    arg.as_array().ok_or(Error::TypeMismatch {
-        expected: "array",
-        got: "non-array",
-    })
+fn require_one_array(args: &[serde_json::Value]) -> Result<&[Value], EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
 }
 
 macro_rules! stats_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl Function<NonFunctionValue> for $struct_name {
+        impl Function for $struct_name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let input = require_one_array(args)?;
                 Ok($body(input))
             }
@@ -60,34 +53,34 @@ stats_unary_fn!(Product, |input: &[Value]| {
 
 #[derive(Clone, Copy)]
 pub struct Min;
-impl Function<NonFunctionValue> for Min {
+impl Function for Min {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
         match numbers.iter().copied().min_by(|a, c| a.total_cmp(c)) {
             Some(m) => Ok(num(m)),
-            None => Ok(NonFunctionValue::new(Value::Null)),
+            None => Ok(serde_json::Value::from(Value::Null)),
         }
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Max;
-impl Function<NonFunctionValue> for Max {
+impl Function for Max {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
         match numbers.iter().copied().max_by(|a, c| a.total_cmp(c)) {
             Some(m) => Ok(num(m)),
-            None => Ok(NonFunctionValue::new(Value::Null)),
+            None => Ok(serde_json::Value::from(Value::Null)),
         }
     }
 }
@@ -128,7 +121,7 @@ impl Module for StatsModule {
         "stats"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "sum" => Some(&Sum),
             "avg" => Some(&Avg),

@@ -1,6 +1,20 @@
-use handl_kit_canonical::{LexDelimiter, LexKind, LexLexer, LexOperator};
+use handl_kit_canonical::{DynKind, DynLexer};
 use handl_platform::PlatformError;
 use handl_plugin_lexer::{DefaultLexError, Lexer, LexError, Token, TokenKind};
+
+use handl_plugin_token_bool::BoolKind;
+use handl_plugin_token_comment::CommentKind;
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_doc_comment::DocCommentKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::TemplateKind;
+use handl_plugin_token_keyword::KeywordKind;
+use handl_plugin_token_keyword_as::AsKind;
+use handl_plugin_token_keyword_handle::HandleKind;
+use handl_plugin_token_null::NullKind;
+use handl_plugin_token_number::NumberKind;
+use handl_plugin_token_operator::OperatorKind;
+use handl_plugin_token_string::StringKind;
 
 /// LSP semantic token type names and modifier names, in protocol order.
 ///
@@ -116,7 +130,7 @@ pub trait ContextClassifier<K: TokenKind> {
     ) -> Option<(u32, u32)>;
 }
 
-/// Classifier for `LexKind` — maps canonical token variants to LSP
+/// Classifier for `DynKind` — maps canonical token kinds to LSP
 /// semantic token types using the legend's named indices.
 ///
 /// Implements both [`TokenClassifier`] (context-unaware, for backward
@@ -131,51 +145,66 @@ impl CanonicalTokenClassifier {
     /// [`ContextClassifier`] impl refines identifiers by role.
     fn classify_simple(
         &self,
-        kind: &LexKind,
+        kind: &DynKind,
         legend: &SemanticTokenLegend,
     ) -> Option<(u32, u32)> {
-        let type_name = match kind {
-            LexKind::Number(_) => "number",
-            LexKind::String(_) => "string",
-            LexKind::Comment(_) => "comment",
-            LexKind::DocComment(_) => "comment",
-            LexKind::Bool(_) => "keyword",
-            LexKind::Null => "keyword",
-            LexKind::Keyword(_) => "keyword",
-            LexKind::Operator(_) => "operator",
-            LexKind::Delimiter(_) => "punctuation",
-            LexKind::Identifier(_) => "variable",
-            LexKind::Template(_) => "string",
-            LexKind::Eof => return None,
+        let type_name = if kind.downcast_ref::<NumberKind>().is_some() {
+            "number"
+        } else if kind.downcast_ref::<StringKind>().is_some() {
+            "string"
+        } else if kind.downcast_ref::<CommentKind>().is_some() {
+            "comment"
+        } else if kind.downcast_ref::<DocCommentKind>().is_some() {
+            "comment"
+        } else if kind.downcast_ref::<BoolKind>().is_some() {
+            "keyword"
+        } else if kind.downcast_ref::<NullKind>().is_some() {
+            "keyword"
+        } else if kind.downcast_ref::<KeywordKind>().is_some()
+            || kind.downcast_ref::<AsKind>().is_some()
+            || kind.downcast_ref::<HandleKind>().is_some()
+        {
+            "keyword"
+        } else if kind.downcast_ref::<OperatorKind>().is_some() {
+            "operator"
+        } else if kind.downcast_ref::<DelimiterKind>().is_some() {
+            "punctuation"
+        } else if kind.downcast_ref::<IdentKind>().is_some() {
+            "variable"
+        } else if kind.downcast_ref::<TemplateKind>().is_some() {
+            "string"
+        } else if kind.is_eof() {
+            return None;
+        } else {
+            return None;
         };
 
         let ty = legend.token_type_index(type_name)?;
 
-        let mods = match kind {
-            LexKind::DocComment(_) => {
-                legend.modifier_bit("documentation").unwrap_or(0)
-            }
-            _ => 0,
+        let mods = if kind.downcast_ref::<DocCommentKind>().is_some() {
+            legend.modifier_bit("documentation").unwrap_or(0)
+        } else {
+            0
         };
 
         Some((ty, mods))
     }
 }
 
-impl TokenClassifier<LexKind> for CanonicalTokenClassifier {
+impl TokenClassifier<DynKind> for CanonicalTokenClassifier {
     fn classify(
         &self,
-        kind: &LexKind,
+        kind: &DynKind,
         legend: &SemanticTokenLegend,
     ) -> Option<(u32, u32)> {
         self.classify_simple(kind, legend)
     }
 }
 
-impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
+impl ContextClassifier<DynKind> for CanonicalTokenClassifier {
     fn classify(
         &self,
-        tokens: &[Token<LexKind>],
+        tokens: &[Token<DynKind>],
         index: usize,
         source: &str,
         legend: &SemanticTokenLegend,
@@ -183,19 +212,28 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
         let kind = &tokens[index].kind;
 
         // Non-identifier tokens use the simple, context-unaware mapping.
-        if !matches!(kind, LexKind::Identifier(_)) {
+        if kind.downcast_ref::<IdentKind>().is_none() {
             return self.classify_simple(kind, legend);
         }
 
-        let ident = match kind {
-            LexKind::Identifier(s) => s.as_str(),
-            _ => unreachable!(),
+        let ident = match kind.downcast_ref::<IdentKind>() {
+            Some(IdentKind::Ident(s)) => s.as_str(),
+            _ => return None,
+        };
+
+        // Helper: check if token at index has a specific delimiter kind.
+        let is_delim = |i: usize, d: DelimiterKind| -> bool {
+            tokens
+                .get(i)
+                .and_then(|t| t.kind.downcast_ref::<DelimiterKind>())
+                .map(|k| *k == d)
+                .unwrap_or(false)
         };
 
         // Type reference: the identifier `type` followed by a dot (e.g.
         // `type.str`, `type.string`). The lexer splits `type.str` into
         // separate tokens, so we check the lookahead pattern.
-        if ident == "type" && matches!(tokens.get(index + 1).map(|t| &t.kind), Some(LexKind::Delimiter(LexDelimiter::Dot))) {
+        if ident == "type" && is_delim(index + 1, DelimiterKind::Dot) {
             let ty = legend.token_type_index("type")?;
             return Some((ty, 0));
         }
@@ -214,15 +252,8 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
             return Some((ty, 0));
         }
 
-        let next = tokens.get(index + 1).map(|t| &t.kind);
-        let prev = if index > 0 {
-            Some(&tokens[index - 1].kind)
-        } else {
-            None
-        };
-
         // Function call: the next token is an opening parenthesis.
-        if matches!(next, Some(LexKind::Delimiter(LexDelimiter::ParenOpen))) {
+        if is_delim(index + 1, DelimiterKind::ParenOpen) {
             let ty = legend.token_type_index("function")?;
             return Some((ty, 0));
         }
@@ -230,15 +261,12 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
         // Dotted function call: `ident . ident (` — the first identifier
         // is a module name in a qualified call like `crypto.sha256(...)`.
         // Classify it as `function`.
-        if matches!(next, Some(LexKind::Delimiter(LexDelimiter::Dot)))
-            && matches!(
-                tokens.get(index + 2).map(|t| &t.kind),
-                Some(LexKind::Identifier(_))
-            )
-            && matches!(
-                tokens.get(index + 3).map(|t| &t.kind),
-                Some(LexKind::Delimiter(LexDelimiter::ParenOpen))
-            )
+        if is_delim(index + 1, DelimiterKind::Dot)
+            && tokens
+                .get(index + 2)
+                .and_then(|t| t.kind.downcast_ref::<IdentKind>())
+                .is_some()
+            && is_delim(index + 3, DelimiterKind::ParenOpen)
         {
             let ty = legend.token_type_index("function")?;
             return Some((ty, 0));
@@ -248,13 +276,13 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
         // a property. We determine the enclosing bracket by scanning backwards
         // for the nearest unmatched opening delimiter, which disambiguates
         // comma-separated pairs in `(a: T, b: T)` vs `{ a: T, b: T }`.
-        if matches!(next, Some(LexKind::Delimiter(LexDelimiter::Colon))) {
+        if is_delim(index + 1, DelimiterKind::Colon) {
             match enclosing_open_delim(tokens, index) {
-                Some(LexDelimiter::ParenOpen) => {
+                Some(DelimiterKind::ParenOpen) => {
                     let ty = legend.token_type_index("parameter")?;
                     return Some((ty, 0));
                 }
-                Some(LexDelimiter::BraceOpen) => {
+                Some(DelimiterKind::BraceOpen) => {
                     let ty = legend.token_type_index("property")?;
                     return Some((ty, 0));
                 }
@@ -265,20 +293,17 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
         // Binding declaration: at the start of a line and followed by `:` or `=`
         // (and not inside a paren/brace list, which is handled above).
         if is_at_line_start(tokens, index, source)
-            && matches!(
-                next,
-                Some(LexKind::Delimiter(LexDelimiter::Colon))
-                    | Some(LexKind::Operator(LexOperator::Equal))
-            )
+            && (is_delim(index + 1, DelimiterKind::Colon)
+                || tokens
+                    .get(index + 1)
+                    .and_then(|t| t.kind.downcast_ref::<OperatorKind>())
+                    .map(|k| *k == OperatorKind::Equal)
+                    .unwrap_or(false))
         {
             let ty = legend.token_type_index("variable")?;
             let mods = legend.modifier_bit("declaration").unwrap_or(0);
             return Some((ty, mods));
         }
-
-        // Suppress unused warning for `prev` while keeping it available for
-        // future heuristics.
-        let _ = prev;
 
         // Default: a plain variable reference.
         let ty = legend.token_type_index("variable")?;
@@ -292,24 +317,25 @@ impl ContextClassifier<LexKind> for CanonicalTokenClassifier {
 /// Used to decide whether a `key:` pair is a parameter (inside `(...)`) or a
 /// property (inside `{ ... }`). Returns `None` if the token is not inside any
 /// parenthesis or brace group.
-fn enclosing_open_delim(tokens: &[Token<LexKind>], index: usize) -> Option<LexDelimiter> {
+fn enclosing_open_delim(tokens: &[Token<DynKind>], index: usize) -> Option<DelimiterKind> {
     let mut depth_paren: i32 = 0;
     let mut depth_brace: i32 = 0;
     let mut i = index;
     while i > 0 {
         i -= 1;
-        match &tokens[i].kind {
-            LexKind::Delimiter(LexDelimiter::ParenClose) => depth_paren += 1,
-            LexKind::Delimiter(LexDelimiter::BraceClose) => depth_brace += 1,
-            LexKind::Delimiter(LexDelimiter::ParenOpen) => {
+        let dk = tokens[i].kind.downcast_ref::<DelimiterKind>();
+        match dk {
+            Some(DelimiterKind::ParenClose) => depth_paren += 1,
+            Some(DelimiterKind::BraceClose) => depth_brace += 1,
+            Some(DelimiterKind::ParenOpen) => {
                 if depth_paren == 0 {
-                    return Some(LexDelimiter::ParenOpen);
+                    return Some(DelimiterKind::ParenOpen);
                 }
                 depth_paren -= 1;
             }
-            LexKind::Delimiter(LexDelimiter::BraceOpen) => {
+            Some(DelimiterKind::BraceOpen) => {
                 if depth_brace == 0 {
-                    return Some(LexDelimiter::BraceOpen);
+                    return Some(DelimiterKind::BraceOpen);
                 }
                 depth_brace -= 1;
             }
@@ -323,7 +349,7 @@ fn enclosing_open_delim(tokens: &[Token<LexKind>], index: usize) -> Option<LexDe
 ///
 /// Compares the gap between the previous token's end and the current token's
 /// start; if that gap contains a newline, the current token begins a new line.
-fn is_at_line_start(tokens: &[Token<LexKind>], index: usize, source: &str) -> bool {
+fn is_at_line_start(tokens: &[Token<DynKind>], index: usize, source: &str) -> bool {
     if index == 0 {
         return true;
     }
@@ -348,8 +374,8 @@ pub struct BasicSemanticTokens<K: TokenKind, C: ContextClassifier<K>, L: Lexer<K
     _marker: std::marker::PhantomData<(K, E)>,
 }
 
-impl<C: ContextClassifier<LexKind>, L: Lexer<LexKind, DefaultLexError>>
-    BasicSemanticTokens<LexKind, C, L, DefaultLexError>
+impl<C: ContextClassifier<DynKind>, L: Lexer<DynKind, DefaultLexError>>
+    BasicSemanticTokens<DynKind, C, L, DefaultLexError>
 {
     pub fn new(lexer: L, classifier: C, legend: SemanticTokenLegend) -> Self {
         Self {
@@ -361,8 +387,8 @@ impl<C: ContextClassifier<LexKind>, L: Lexer<LexKind, DefaultLexError>>
     }
 }
 
-impl<C: ContextClassifier<LexKind> + Send + Sync, L: Lexer<LexKind, DefaultLexError> + Send + Sync>
-    SemanticTokensPlugin for BasicSemanticTokens<LexKind, C, L, DefaultLexError>
+impl<C: ContextClassifier<DynKind> + Send + Sync, L: Lexer<DynKind, DefaultLexError> + Send + Sync>
+    SemanticTokensPlugin for BasicSemanticTokens<DynKind, C, L, DefaultLexError>
 {
     fn legend(&self) -> SemanticTokenLegend {
         self.legend.clone()
@@ -423,9 +449,9 @@ impl<C: ContextClassifier<LexKind> + Send + Sync, L: Lexer<LexKind, DefaultLexEr
 
 /// Convenience constructor for the default canonical semantic tokens provider.
 pub fn canonical_semantic_tokens(
-) -> BasicSemanticTokens<LexKind, CanonicalTokenClassifier, LexLexer, DefaultLexError> {
+) -> BasicSemanticTokens<DynKind, CanonicalTokenClassifier, DynLexer, DefaultLexError> {
     BasicSemanticTokens::new(
-        LexLexer,
+        DynLexer,
         CanonicalTokenClassifier,
         SemanticTokenLegend::default(),
     )

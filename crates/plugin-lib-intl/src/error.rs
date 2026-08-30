@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 
 #[derive(Debug, Clone)]
 pub enum IntlError {
@@ -37,7 +37,7 @@ impl std::error::Error for IntlError {}
 
 impl IntlError {
     pub fn into_vm_error(self) -> VmError {
-        VmError::PrimitiveError(self.to_string())
+        VmError::Other(self.to_string())
     }
 }
 

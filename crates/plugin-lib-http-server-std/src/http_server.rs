@@ -225,7 +225,7 @@ impl HttpServer for StdHttpServer {
 
             match eval.eval_expr(&function_value.body, &vars) {
                 Ok(value) => value_to_response(&value),
-                Err(VmError::PrimitiveError(msg)) => HttpServerResponse::new(500, msg),
+                Err(VmError::Other(msg)) => HttpServerResponse::new(500, msg),
                 Err(e) => HttpServerResponse::new(500, e.to_string()),
             }
         });

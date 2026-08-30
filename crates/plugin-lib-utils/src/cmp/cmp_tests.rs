@@ -1,42 +1,42 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
+use handl_platform::Module;
 
 use super::CmpModule;
+use handl_platform::{EvalContext, EvalError};
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
 fn call_err(
     module: &dyn Module,
     name: &str,
-    args: &[NonFunctionValue],
-) -> Result<NonFunctionValue, Error> {
+    args: &[serde_json::Value],
+) -> Result<serde_json::Value, EvalError> {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(v))
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn arr(values: &[serde_json::Value]) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::Value::Array(values.to_vec()))
+fn arr(values: &[serde_json::Value]) -> serde_json::Value {
+    serde_json::Value::from(serde_json::Value::Array(values.to_vec()))
 }
 
-fn obj(entries: &[(&str, serde_json::Value)]) -> NonFunctionValue {
+fn obj(entries: &[(&str, serde_json::Value)]) -> serde_json::Value {
     let mut map = serde_json::Map::new();
     for (k, v) in entries {
         map.insert(k.to_string(), v.clone());
     }
-    NonFunctionValue::new(serde_json::Value::Object(map))
+    serde_json::Value::from(serde_json::Value::Object(map))
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn ge_mixed_types() {
 #[test]
 fn compare_less() {
     assert_eq!(
-        call(&CmpModule, "compare", &[n(1.0), n(2.0)]).as_number(),
+        call(&CmpModule, "compare", &[n(1.0), n(2.0)]).as_f64(),
         Some(-1.0)
     );
 }
@@ -121,7 +121,7 @@ fn compare_less() {
 #[test]
 fn compare_equal() {
     assert_eq!(
-        call(&CmpModule, "compare", &[s("x"), s("x")]).as_number(),
+        call(&CmpModule, "compare", &[s("x"), s("x")]).as_f64(),
         Some(0.0)
     );
 }
@@ -129,7 +129,7 @@ fn compare_equal() {
 #[test]
 fn compare_greater() {
     assert_eq!(
-        call(&CmpModule, "compare", &[n(3.0), n(1.0)]).as_number(),
+        call(&CmpModule, "compare", &[n(3.0), n(1.0)]).as_f64(),
         Some(1.0)
     );
 }
@@ -137,7 +137,7 @@ fn compare_greater() {
 #[test]
 fn min_numbers() {
     assert_eq!(
-        call(&CmpModule, "min", &[n(3.0), n(1.0), n(2.0)]).as_number(),
+        call(&CmpModule, "min", &[n(3.0), n(1.0), n(2.0)]).as_f64(),
         Some(1.0)
     );
 }
@@ -153,7 +153,7 @@ fn min_strings() {
 #[test]
 fn max_numbers() {
     assert_eq!(
-        call(&CmpModule, "max", &[n(3.0), n(1.0), n(2.0)]).as_number(),
+        call(&CmpModule, "max", &[n(3.0), n(1.0), n(2.0)]).as_f64(),
         Some(3.0)
     );
 }
@@ -169,7 +169,7 @@ fn max_strings() {
 #[test]
 fn clamp_within() {
     assert_eq!(
-        call(&CmpModule, "clamp", &[n(5.0), n(0.0), n(10.0)]).as_number(),
+        call(&CmpModule, "clamp", &[n(5.0), n(0.0), n(10.0)]).as_f64(),
         Some(5.0)
     );
 }
@@ -177,7 +177,7 @@ fn clamp_within() {
 #[test]
 fn clamp_below() {
     assert_eq!(
-        call(&CmpModule, "clamp", &[n(-1.0), n(0.0), n(10.0)]).as_number(),
+        call(&CmpModule, "clamp", &[n(-1.0), n(0.0), n(10.0)]).as_f64(),
         Some(0.0)
     );
 }
@@ -185,7 +185,7 @@ fn clamp_below() {
 #[test]
 fn clamp_above() {
     assert_eq!(
-        call(&CmpModule, "clamp", &[n(15.0), n(0.0), n(10.0)]).as_number(),
+        call(&CmpModule, "clamp", &[n(15.0), n(0.0), n(10.0)]).as_f64(),
         Some(10.0)
     );
 }
@@ -193,7 +193,7 @@ fn clamp_above() {
 #[test]
 fn clamp_inverted_bounds_errors() {
     let result = call_err(&CmpModule, "clamp", &[n(5.0), n(10.0), n(0.0)]);
-    assert!(matches!(result, Err(Error::PrimitiveError(_))));
+    assert!(matches!(result, Err(EvalError::Other(_))));
 }
 
 #[test]
@@ -319,17 +319,17 @@ fn sort_numbers_desc() {
 #[test]
 fn eq_missing_args_errors() {
     let result = call_err(&CmpModule, "eq", &[n(1.0)]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn compare_missing_args_errors() {
     let result = call_err(&CmpModule, "compare", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn min_empty_args_errors() {
     let result = call_err(&CmpModule, "min", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }

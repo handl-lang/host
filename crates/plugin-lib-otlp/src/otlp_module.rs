@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error as VmError, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value;
 
 use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
@@ -71,7 +70,7 @@ impl Module for OtlpModule {
         "otlp"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "configure" => Some(&self.configure_fn),
             "start_span" => Some(&self.start_span_fn),
@@ -87,50 +86,32 @@ impl Module for OtlpModule {
     }
 }
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, VmError> {
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
     args.get(idx)
-        .ok_or(VmError::ArgumentCount {
-            expected: idx + 1,
-            got: args.len(),
-        })?
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
         .as_str()
-        .ok_or(VmError::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_number_at(args: &[NonFunctionValue], idx: usize) -> Result<f64, VmError> {
+fn require_number_at(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
     args.get(idx)
-        .ok_or(VmError::ArgumentCount {
-            expected: idx + 1,
-            got: args.len(),
-        })?
-        .as_number()
-        .ok_or(VmError::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
+        .as_f64()
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
 }
 
 fn require_object_at(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
-) -> Result<&serde_json::Map<String, Value>, VmError> {
+) -> Result<&serde_json::Map<String, Value>, EvalError> {
     args.get(idx)
-        .ok_or(VmError::ArgumentCount {
-            expected: idx + 1,
-            got: args.len(),
-        })?
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
         .as_object()
-        .ok_or(VmError::TypeMismatch {
-            expected: "object",
-            got: "non-object",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
 }
 
 fn optional_object_at(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
 ) -> Option<&serde_json::Map<String, Value>> {
     args.get(idx).and_then(|v| v.as_object())
@@ -144,20 +125,17 @@ fn value_map_to_hashmap(map: &serde_json::Map<String, Value>) -> HashMap<String,
     map.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
 }
 
-fn parse_headers(map: &serde_json::Map<String, Value>) -> Result<HashMap<String, String>, VmError> {
+fn parse_headers(map: &serde_json::Map<String, Value>) -> Result<HashMap<String, String>, EvalError> {
     map.iter()
         .map(|(k, v)| {
             v.as_str()
                 .map(|s| (k.clone(), s.to_string()))
-                .ok_or(VmError::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })
+                .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
         })
         .collect()
 }
 
-fn parse_config(args: &[NonFunctionValue]) -> Result<OtlpConfig, VmError> {
+fn parse_config(args: &[serde_json::Value]) -> Result<OtlpConfig, EvalError> {
     let obj = require_object_at(args, 0)?;
     let endpoint = get_string(obj, "endpoint").unwrap_or("").to_string();
     let service_name = get_string(obj, "service_name")
@@ -193,15 +171,15 @@ struct ConfigureFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for ConfigureFn {
+impl Function for ConfigureFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let config = parse_config(args)?;
-        self.state.configure(config).map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        self.state.configure(config).map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -209,12 +187,12 @@ struct StartSpanFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for StartSpanFn {
+impl Function for StartSpanFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let name = require_string_at(args, 0)?;
         let mut options = StartSpanOptions::default();
         if let Some(obj) = optional_object_at(args, 1) {
@@ -224,8 +202,8 @@ impl Function<NonFunctionValue> for StartSpanFn {
         let id = self
             .state
             .start_span(name, options)
-            .map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(id))
+            .map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(id))
     }
 }
 
@@ -233,15 +211,15 @@ struct EndSpanFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for EndSpanFn {
+impl Function for EndSpanFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = require_string_at(args, 0)?;
-        self.state.end_span(id).map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        self.state.end_span(id).map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -249,26 +227,23 @@ struct SetAttributeFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for SetAttributeFn {
+impl Function for SetAttributeFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = require_string_at(args, 0)?;
         let key = require_string_at(args, 1)?;
         let value = args
             .get(2)
-            .ok_or(VmError::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            })?
-            .inner()
+            .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)))?
+            
             .clone();
         self.state
             .set_attribute(id, key, value)
-            .map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+            .map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -276,12 +251,12 @@ struct AddEventFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for AddEventFn {
+impl Function for AddEventFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = require_string_at(args, 0)?;
         let name = require_string_at(args, 1)?;
         let attributes = args
@@ -291,8 +266,8 @@ impl Function<NonFunctionValue> for AddEventFn {
             .unwrap_or_default();
         self.state
             .add_event(id, name, attributes)
-            .map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+            .map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -300,12 +275,12 @@ struct RecordLogFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for RecordLogFn {
+impl Function for RecordLogFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let level = require_string_at(args, 0)?;
         let message = require_string_at(args, 1)?;
         let attributes = args
@@ -315,8 +290,8 @@ impl Function<NonFunctionValue> for RecordLogFn {
             .unwrap_or_default();
         self.state
             .record_log(level, message, attributes)
-            .map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+            .map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -324,12 +299,12 @@ struct RecordMetricFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for RecordMetricFn {
+impl Function for RecordMetricFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let name = require_string_at(args, 0)?;
         let value = require_number_at(args, 1)?;
         let mut options = MetricOptions::default();
@@ -341,8 +316,8 @@ impl Function<NonFunctionValue> for RecordMetricFn {
         }
         self.state
             .record_metric(name, value, options)
-            .map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+            .map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -350,14 +325,14 @@ struct FlushFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for FlushFn {
+impl Function for FlushFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
-        self.state.flush().map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        self.state.flush().map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -365,14 +340,14 @@ struct ShutdownFn {
     state: Arc<dyn OtlpState>,
 }
 
-impl Function<NonFunctionValue> for ShutdownFn {
+impl Function for ShutdownFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, VmError> {
-        self.state.shutdown().map_err(VmError::from)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        self.state.shutdown().map_err(EvalError::from)?;
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 

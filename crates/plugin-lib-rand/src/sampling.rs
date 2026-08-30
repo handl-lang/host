@@ -1,11 +1,9 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::Rng;
 use rand::prelude::IndexedRandom;
 use rand::seq::SliceRandom;
 use serde_json::Value;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{array, require_array, require_int};
 use crate::error::RandError;
@@ -21,18 +19,18 @@ use crate::error::RandError;
 #[derive(Clone, Copy)]
 pub struct Pick;
 
-impl Function<NonFunctionValue> for Pick {
+impl Function for Pick {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arr = require_array(args, 0)?;
         if arr.is_empty() {
             return Err(RandError::EmptyArray.into());
         }
         let choice = arr.choose(&mut rand::rng()).expect("non-empty array");
-        Ok(NonFunctionValue::new(choice.clone()))
+        Ok(serde_json::Value::from(choice.clone()))
     }
 }
 
@@ -48,12 +46,12 @@ impl Function<NonFunctionValue> for Pick {
 #[derive(Clone, Copy)]
 pub struct Choice;
 
-impl Function<NonFunctionValue> for Choice {
+impl Function for Choice {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arr = require_array(args, 0)?;
         let count = require_int(args, 1)?;
 
@@ -89,12 +87,12 @@ impl Function<NonFunctionValue> for Choice {
 #[derive(Clone, Copy)]
 pub struct Sample;
 
-impl Function<NonFunctionValue> for Sample {
+impl Function for Sample {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arr = require_array(args, 0)?;
         let count = require_int(args, 1)?;
 
@@ -131,12 +129,12 @@ impl Function<NonFunctionValue> for Sample {
 #[derive(Clone, Copy)]
 pub struct Shuffle;
 
-impl Function<NonFunctionValue> for Shuffle {
+impl Function for Shuffle {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arr = require_array(args, 0)?;
         let mut shuffled: Vec<Value> = arr.to_vec();
         shuffled.shuffle(&mut rand::rng());
@@ -157,12 +155,12 @@ impl Function<NonFunctionValue> for Shuffle {
 #[derive(Clone, Copy)]
 pub struct WeightedPick;
 
-impl Function<NonFunctionValue> for WeightedPick {
+impl Function for WeightedPick {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let items = require_array(args, 0)?;
         let weights = require_array(args, 1)?;
 
@@ -194,10 +192,10 @@ impl Function<NonFunctionValue> for WeightedPick {
         for (i, &w) in weight_values.iter().enumerate() {
             cumulative += w;
             if threshold <= cumulative {
-                return Ok(NonFunctionValue::new(items[i].clone()));
+                return Ok(serde_json::Value::from(items[i].clone()));
             }
         }
 
-        Ok(NonFunctionValue::new(items[items.len() - 1].clone()))
+        Ok(serde_json::Value::from(items[items.len() - 1].clone()))
     }
 }

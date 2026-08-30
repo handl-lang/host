@@ -1,4 +1,3 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::fmt;
 
 use writeable::{Part, PartsWrite};
@@ -45,15 +44,15 @@ impl PartsCollector {
             .collect()
     }
 
-    /// Returns the collected parts as a `NonFunctionValue` array of
+    /// Returns the collected parts as a `serde_json::Value` array of
     /// `{ "type": ..., "value": ... }` objects.
-    pub fn into_value(self) -> NonFunctionValue {
+    pub fn into_value(self) -> serde_json::Value {
         let arr: Vec<serde_json::Value> = self
             .into_parts()
             .into_iter()
             .map(|(part_type, value)| serde_json::json!({ "type": part_type, "value": value }))
             .collect();
-        NonFunctionValue::new(serde_json::Value::Array(arr))
+        serde_json::Value::from(serde_json::Value::Array(arr))
     }
 }
 

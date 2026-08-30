@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::locale::Locale;
 use icu::locale::extensions::unicode::{Key, Value};
 use icu::locale::subtags::{Language, Region, Script};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{optional_object, require_string};
 use super::error::IntlError;
@@ -44,12 +42,12 @@ impl Default for LocaleInfo {
     }
 }
 
-impl Function<NonFunctionValue> for LocaleInfo {
+impl Function for LocaleInfo {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let tag = require_string(args, 0)?;
         let opts = optional_object(args, 1)?;
 
@@ -196,6 +194,6 @@ impl Function<NonFunctionValue> for LocaleInfo {
                 .unwrap_or(serde_json::Value::Null),
         );
 
-        Ok(NonFunctionValue::new(serde_json::Value::Object(result)))
+        Ok(serde_json::Value::from(serde_json::Value::Object(result)))
     }
 }

@@ -7,7 +7,8 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_kind::DynKind;
 use serde_json::json;
 
 /// Token capability required by the array grammar rule.
@@ -93,16 +94,22 @@ impl<K: ArrayToken> ParserBehavior<K> for ArrayRule {
     }
 }
 
-impl ArrayToken for LexKind {
+impl ArrayToken for DynKind {
     fn is_bracket_open(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BracketOpen))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BracketOpen)
+            .unwrap_or(false)
     }
 
     fn is_bracket_close(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BracketClose))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BracketClose)
+            .unwrap_or(false)
     }
 
     fn is_comma(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Comma)
+            .unwrap_or(false)
     }
 }

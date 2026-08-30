@@ -4,10 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
+serde_json = { workspace = true }
 handl-plugin-lib-kv.workspace = true
-handl-plugin-vm-values-json.workspace = true
-handl-plugin-vm-common.workspace = true
 
 [dev-dependencies]
-handl-plugin-vm.workspace = true

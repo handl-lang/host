@@ -43,9 +43,8 @@ impl Serializer for Json {
     }
 }
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 /// The `json` module.
 ///
@@ -59,7 +58,7 @@ impl Module for JsonModule {
         "json"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "json" => Some(&JsonName),
             _ => None,
@@ -70,19 +69,16 @@ impl Module for JsonModule {
 #[derive(Debug, Clone, Copy)]
 struct JsonName;
 
-impl Function<NonFunctionValue> for JsonName {
+impl Function for JsonName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "serializer",
             "name": "json",
         })))

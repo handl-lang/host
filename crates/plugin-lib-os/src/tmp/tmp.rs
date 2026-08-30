@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -38,7 +36,7 @@ impl Module for TmpModule {
         "tmp"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "file" => Some(&self.file),
             "dir" => Some(&self.dir),
@@ -51,15 +49,15 @@ struct FileFn {
     tmp: Arc<dyn Tmp>,
 }
 
-impl Function<NonFunctionValue> for FileFn {
+impl Function for FileFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.tmp
             .file()
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -68,15 +66,15 @@ struct DirFn {
     tmp: Arc<dyn Tmp>,
 }
 
-impl Function<NonFunctionValue> for DirFn {
+impl Function for DirFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.tmp
             .dir()
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }

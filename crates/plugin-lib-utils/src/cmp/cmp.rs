@@ -1,8 +1,6 @@
 use std::cmp::Ordering;
 
-use handl_plugin_vm::{Context, Function, GenericFunction};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
 use serde_json::Value as JsonValue;
 
 use crate::shared::{
@@ -22,7 +20,7 @@ impl Module for CmpModule {
         "cmp"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "eq" => Some(&Eq),
             "ne" => Some(&Ne),
@@ -103,66 +101,60 @@ fn compare_values(a: &JsonValue, b: &JsonValue) -> Ordering {
         })
 }
 
-fn compare_nfv(a: &NonFunctionValue, b: &NonFunctionValue) -> Ordering {
-    compare_values(a.inner(), b.inner())
+fn compare_nfv(a: &serde_json::Value, b: &serde_json::Value) -> Ordering {
+    compare_values(a, b)
 }
 
-fn require_two(args: &[NonFunctionValue]) -> Result<(&NonFunctionValue, &NonFunctionValue), Error> {
+fn require_two(args: &[serde_json::Value]) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
     Ok((&args[0], &args[1]))
 }
 
 fn require_three(
-    args: &[NonFunctionValue],
-) -> Result<(&NonFunctionValue, &NonFunctionValue, &NonFunctionValue), Error> {
+    args: &[serde_json::Value],
+) -> Result<(&serde_json::Value, &serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 3 {
-        return Err(Error::ArgumentCount {
-            expected: 3,
-            got: args.len(),
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
     }
     Ok((&args[0], &args[1], &args[2]))
 }
 
 #[derive(Clone, Copy)]
 pub struct Eq;
-impl Function<NonFunctionValue> for Eq {
+impl Function for Eq {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
-        Ok(to_bool(a.inner() == b_arg.inner()))
+        Ok(to_bool(a == b_arg))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Ne;
-impl Function<NonFunctionValue> for Ne {
+impl Function for Ne {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
-        Ok(to_bool(a.inner() != b_arg.inner()))
+        Ok(to_bool(a != b_arg))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Lt;
-impl Function<NonFunctionValue> for Lt {
+impl Function for Lt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
         Ok(to_bool(compare_nfv(a, b_arg) == Ordering::Less))
     }
@@ -170,12 +162,12 @@ impl Function<NonFunctionValue> for Lt {
 
 #[derive(Clone, Copy)]
 pub struct Le;
-impl Function<NonFunctionValue> for Le {
+impl Function for Le {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
         Ok(to_bool(compare_nfv(a, b_arg) != Ordering::Greater))
     }
@@ -183,12 +175,12 @@ impl Function<NonFunctionValue> for Le {
 
 #[derive(Clone, Copy)]
 pub struct Gt;
-impl Function<NonFunctionValue> for Gt {
+impl Function for Gt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
         Ok(to_bool(compare_nfv(a, b_arg) == Ordering::Greater))
     }
@@ -196,12 +188,12 @@ impl Function<NonFunctionValue> for Gt {
 
 #[derive(Clone, Copy)]
 pub struct Ge;
-impl Function<NonFunctionValue> for Ge {
+impl Function for Ge {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
         Ok(to_bool(compare_nfv(a, b_arg) != Ordering::Less))
     }
@@ -209,12 +201,12 @@ impl Function<NonFunctionValue> for Ge {
 
 #[derive(Clone, Copy)]
 pub struct Compare;
-impl Function<NonFunctionValue> for Compare {
+impl Function for Compare {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b_arg) = require_two(args)?;
         Ok(num(match compare_nfv(a, b_arg) {
             Ordering::Less => -1.0,
@@ -226,17 +218,14 @@ impl Function<NonFunctionValue> for Compare {
 
 #[derive(Clone, Copy)]
 pub struct Min;
-impl Function<NonFunctionValue> for Min {
+impl Function for Min {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Less).ok_or(
-            Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            },
+            EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)),
         )?;
         Ok(best.clone())
     }
@@ -244,17 +233,14 @@ impl Function<NonFunctionValue> for Min {
 
 #[derive(Clone, Copy)]
 pub struct Max;
-impl Function<NonFunctionValue> for Max {
+impl Function for Max {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let best = find_extremum_by(args, |a, b| compare_nfv(a, b) == Ordering::Greater).ok_or(
-            Error::ArgumentCount {
-                expected: 1,
-                got: 0,
-            },
+            EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)),
         )?;
         Ok(best.clone())
     }
@@ -262,15 +248,15 @@ impl Function<NonFunctionValue> for Max {
 
 #[derive(Clone, Copy)]
 pub struct Clamp;
-impl Function<NonFunctionValue> for Clamp {
+impl Function for Clamp {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (value, lo, hi) = require_three(args)?;
         if compare_nfv(lo, hi) == Ordering::Greater {
-            return Err(Error::PrimitiveError(
+            return Err(EvalError::Other(
                 "clamp bounds are inverted".to_string(),
             ));
         }
@@ -284,7 +270,7 @@ impl Function<NonFunctionValue> for Clamp {
     }
 }
 
-fn between_impl(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn between_impl(args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let (x, lo, hi) = require_three(args)?;
     Ok(to_bool(
         compare_nfv(lo, x) != Ordering::Greater && compare_nfv(x, hi) != Ordering::Greater,
@@ -293,29 +279,29 @@ fn between_impl(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
 
 #[derive(Clone, Copy)]
 pub struct Between;
-impl Function<NonFunctionValue> for Between {
+impl Function for Between {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         between_impl(args)
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct InRange;
-impl Function<NonFunctionValue> for InRange {
+impl Function for InRange {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         between_impl(args)
     }
 }
 
-fn is_sorted_impl(args: &[NonFunctionValue], descending: bool) -> Result<NonFunctionValue, Error> {
+fn is_sorted_impl(args: &[serde_json::Value], descending: bool) -> Result<serde_json::Value, EvalError> {
     let input = require_one_arg(args)?;
     let arr_val = require_array(input)?;
     for window in arr_val.windows(2) {
@@ -332,29 +318,29 @@ fn is_sorted_impl(args: &[NonFunctionValue], descending: bool) -> Result<NonFunc
 
 #[derive(Clone, Copy)]
 pub struct IsSorted;
-impl Function<NonFunctionValue> for IsSorted {
+impl Function for IsSorted {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         is_sorted_impl(args, false)
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct IsSortedDesc;
-impl Function<NonFunctionValue> for IsSortedDesc {
+impl Function for IsSortedDesc {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         is_sorted_impl(args, true)
     }
 }
 
-fn sort_impl(args: &[NonFunctionValue], descending: bool) -> Result<NonFunctionValue, Error> {
+fn sort_impl(args: &[serde_json::Value], descending: bool) -> Result<serde_json::Value, EvalError> {
     let input = require_one_arg(args)?;
     let arr_val = require_array(input)?;
     let mut sorted: Vec<JsonValue> = arr_val.to_vec();
@@ -368,24 +354,24 @@ fn sort_impl(args: &[NonFunctionValue], descending: bool) -> Result<NonFunctionV
 
 #[derive(Clone, Copy)]
 pub struct Sort;
-impl Function<NonFunctionValue> for Sort {
+impl Function for Sort {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         sort_impl(args, false)
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct SortDesc;
-impl Function<NonFunctionValue> for SortDesc {
+impl Function for SortDesc {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         sort_impl(args, true)
     }
 }
@@ -393,18 +379,15 @@ impl Function<NonFunctionValue> for SortDesc {
 // ── sort_by / sort_by_desc ─────────────────────────────────────────
 
 fn sort_by_impl(
-    args: &[NonFunctionValue],
-    ctx: &mut dyn Context<NonFunctionValue>,
+    args: &[serde_json::Value],
+    ctx: &mut EvalContext,
     descending: bool,
-) -> Result<NonFunctionValue, Error> {
+) -> Result<serde_json::Value, EvalError> {
     let (fn_val, array) = require_function_and_array(args)?;
     let mut keyed: Vec<(f64, JsonValue)> = Vec::with_capacity(array.len());
     for item in array {
         let key = apply_fn(ctx, &fn_val, item)?;
-        let num = key.as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         keyed.push((num, item.clone()));
     }
     if descending {
@@ -418,65 +401,44 @@ fn sort_by_impl(
 
 #[derive(Clone, Copy)]
 pub struct SortBy;
-impl Function<NonFunctionValue> for SortBy {
+impl Function for SortBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         sort_by_impl(args, ctx, false)
     }
 }
 
-impl GenericFunction<NonFunctionValue> for SortBy {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
+
 
 #[derive(Clone, Copy)]
 pub struct SortByDesc;
-impl Function<NonFunctionValue> for SortByDesc {
+impl Function for SortByDesc {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         sort_by_impl(args, ctx, true)
     }
 }
 
-impl GenericFunction<NonFunctionValue> for SortByDesc {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
+
 
 // ── min_by / max_by ────────────────────────────────────────────────
 
 fn extremum_by_impl(
-    args: &[NonFunctionValue],
-    ctx: &mut dyn Context<NonFunctionValue>,
+    args: &[serde_json::Value],
+    ctx: &mut EvalContext,
     pick_max: bool,
-) -> Result<NonFunctionValue, Error> {
+) -> Result<serde_json::Value, EvalError> {
     let (fn_val, array) = require_function_and_array(args)?;
     let mut best: Option<(f64, &JsonValue)> = None;
     for item in array {
         let key = apply_fn(ctx, &fn_val, item)?;
-        let num = key.as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         match &best {
             None => best = Some((num, item)),
             Some((bn, _)) if pick_max && num > *bn => best = Some((num, item)),
@@ -485,53 +447,35 @@ fn extremum_by_impl(
         }
     }
     match best {
-        Some((_, v)) => Ok(NonFunctionValue::new(v.clone())),
-        None => Ok(NonFunctionValue::new(JsonValue::Null)),
+        Some((_, v)) => Ok(serde_json::Value::from(v.clone())),
+        None => Ok(serde_json::Value::from(JsonValue::Null)),
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MinBy;
-impl Function<NonFunctionValue> for MinBy {
+impl Function for MinBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         extremum_by_impl(args, ctx, false)
     }
 }
 
-impl GenericFunction<NonFunctionValue> for MinBy {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
+
 
 #[derive(Clone, Copy)]
 pub struct MaxBy;
-impl Function<NonFunctionValue> for MaxBy {
+impl Function for MaxBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         extremum_by_impl(args, ctx, true)
     }
 }
 
-impl GenericFunction<NonFunctionValue> for MaxBy {
-    fn call_with_types(
-        &self,
-        args: &[NonFunctionValue],
-        _type_args: &[String],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        self.call(args, ctx)
-    }
-}
+

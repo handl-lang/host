@@ -1,20 +1,18 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{format_iso, parse_iso, require_one_string, s};
 use chrono::{Datelike, Duration, Timelike, Utc};
+use handl_platform::{EvalContext, EvalError, Function};
 
 macro_rules! bound_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl Function<NonFunctionValue> for $struct_name {
+        impl Function for $struct_name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let input = require_one_string(args)?;
                 let dt = parse_iso(input)?;
                 let result: chrono::DateTime<Utc> = $body(&dt);

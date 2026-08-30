@@ -4,9 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
-handl-plugin-vm-values-json.workspace = true
-handl-plugin-vm-common.workspace = true
+serde_json = { workspace = true }
 handl-plugin-lib-os.workspace = true
 
 [target."cfg(unix)".dependencies]
@@ -14,6 +14,3 @@ mio = { version = "1", features = ["net", "os-poll"] }
 nix = { version = "0.29", features = ["signal", "process"] }
 
 [dev-dependencies]
-handl-plugin-vm.workspace = true
-handl-plugin-vm-backend-rust-interpreter.workspace = true
-handl-plugin-vm-common.workspace = true

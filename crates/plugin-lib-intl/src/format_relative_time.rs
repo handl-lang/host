@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::experimental::relativetime::{RelativeTimeFormatter, RelativeTimeFormatterOptions};
 use writeable::Writeable;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     DataProvider, decimal_from_f64, make_provider, opt_str, optional_locale, optional_object,
@@ -50,12 +48,12 @@ impl Default for FormatRelativeTime {
     }
 }
 
-impl Function<NonFunctionValue> for FormatRelativeTime {
+impl Function for FormatRelativeTime {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let value = require_number(args, 0)?;
         let unit = require_string(args, 1)?;
         let locale = optional_locale(args, 2)?;
@@ -84,7 +82,7 @@ fn create_formatter(
     style: &str,
     options: RelativeTimeFormatterOptions,
     dp: &DataProvider,
-) -> Result<RelativeTimeFormatter, Error> {
+) -> Result<RelativeTimeFormatter, EvalError> {
     let prefs = locale.into();
     let result = match (unit, style) {
         ("second", "long") => match dp.as_buffer_provider() {

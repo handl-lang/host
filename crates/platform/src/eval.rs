@@ -106,6 +106,26 @@ pub trait EvaluatorCallback: 'static {
     fn dispatch(&self, req: &mut EvalRequest) -> Result<(), PlatformError>;
 }
 
+/// String-expression evaluator callback for host functions that need to
+/// evaluate expression strings (e.g. `FunctionValue.body`) with variable
+/// bindings.
+///
+/// This is the ADR 0040 replacement for the old `Eval<V>` trait from
+/// `plugin-vm`. The concrete implementation is provided by the host
+/// (e.g. `kit-canonical`) and set on `EvalContext` via
+/// [`EvalContext::set_expr_evaluator`].
+pub trait ExprEvaluator: 'static {
+    /// Evaluate an expression string with the given variable bindings.
+    ///
+    /// `expr` is a raw expression string (e.g. `"x"`, `"42"`, `"add(x, 1)"`).
+    /// `vars` are `(name, value)` pairs to bind before evaluation.
+    fn eval_expr(
+        &self,
+        expr: &str,
+        vars: &[(String, Value)],
+    ) -> Result<Value, EvalError>;
+}
+
 /// Concrete `EvaluatorCallback` backed by cloned rule and exec-control lists.
 ///
 /// Created by `BasicEvaluator::run`; not intended to be constructed directly
@@ -336,6 +356,10 @@ pub struct EvalContext {
     /// Module/function lookup handle — set by the host before evaluation
     /// so eval rules can call `ctx.call_function("math.add", &[1, 2])`.
     modules: Option<Rc<dyn ModuleLookup>>,
+    /// String-expression evaluator — set by the host so host functions
+    /// can call `ctx.eval_expr("x", &[("x", value)])` to evaluate
+    /// expression strings from `FunctionValue.body`.
+    expr_evaluator: Option<Rc<dyn ExprEvaluator>>,
 }
 
 impl EvalContext {
@@ -348,6 +372,7 @@ impl EvalContext {
             call_count: 0,
             evaluator: None,
             modules: None,
+            expr_evaluator: None,
         }
     }
 
@@ -377,6 +402,31 @@ impl EvalContext {
     /// Returns `true` if a module lookup handle is set.
     pub fn has_modules(&self) -> bool {
         self.modules.is_some()
+    }
+
+    /// Set the string-expression evaluator handle.
+    ///
+    /// The host wires an [`ExprEvaluator`] into the context so host
+    /// functions (e.g. `fp.map`, `option.map`) can evaluate expression
+    /// strings from `FunctionValue.body` via `ctx.eval_expr`.
+    pub fn set_expr_evaluator(&mut self, evaluator: Rc<dyn ExprEvaluator>) {
+        self.expr_evaluator = Some(evaluator);
+    }
+
+    /// Evaluate an expression string with the given variable bindings.
+    ///
+    /// Delegates to the [`ExprEvaluator`] set via [`set_expr_evaluator`].
+    /// Returns [`EvalError::Other`] if no evaluator is set.
+    pub fn eval_expr(
+        &mut self,
+        expr: &str,
+        vars: &[(String, Value)],
+    ) -> Result<Value, EvalError> {
+        let evaluator = self
+            .expr_evaluator
+            .clone()
+            .ok_or_else(|| EvalError::Other("no expr evaluator set".to_string()))?;
+        evaluator.eval_expr(expr, vars)
     }
 
     /// Set resource limits.
@@ -585,6 +635,7 @@ impl Clone for EvalContext {
             call_count: self.call_count,
             evaluator: self.evaluator.clone(),
             modules: self.modules.clone(),
+            expr_evaluator: self.expr_evaluator.clone(),
         }
     }
 }

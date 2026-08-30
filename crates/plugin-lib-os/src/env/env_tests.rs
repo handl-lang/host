@@ -1,18 +1,17 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
 
 use super::env::EnvModule;
 use super::env_stub::StubEnv;
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
 #[test]

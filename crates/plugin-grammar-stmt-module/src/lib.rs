@@ -7,7 +7,11 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword, LexOperator};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_keyword::KeywordKind;
+use handl_plugin_token_operator::OperatorKind;
 use serde_json::json;
 
 /// Token capability required by the module statement grammar rule.
@@ -112,24 +116,31 @@ impl<K: ModuleStmtToken> ParserBehavior<K> for ModuleStmtRule {
     }
 }
 
-impl ModuleStmtToken for LexKind {
+impl ModuleStmtToken for DynKind {
     fn is_module_stmt(&self) -> bool {
-        matches!(self, LexKind::Keyword(LexKeyword::Module))
+        self.downcast_ref::<KeywordKind>()
+            .map(|k| k.name() == "module")
+            .unwrap_or(false)
     }
 
     fn as_module_stmt_name(&self) -> Option<&str> {
-        match self {
-            LexKind::Identifier(name) => Some(name.as_str()),
-            _ => None,
+        if let Some(IdentKind::Ident(name)) = self.downcast_ref::<IdentKind>() {
+            Some(name.as_str())
+        } else {
+            None
         }
     }
 
     fn is_module_stmt_equal(&self) -> bool {
-        matches!(self, LexKind::Operator(LexOperator::Equal))
+        self.downcast_ref::<OperatorKind>()
+            .map(|k| *k == OperatorKind::Equal)
+            .unwrap_or(false)
     }
 
     fn is_module_stmt_semicolon(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Semicolon)
+            .unwrap_or(false)
     }
 }
 

@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use crate::r#type::coercion::{ToBool, ToNumber, ToString};
 use crate::r#type::predicates::{
@@ -29,7 +28,7 @@ impl Module for TypeModule {
         "type"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             // base type tags
             "string" => Some(&STRING_TAG),

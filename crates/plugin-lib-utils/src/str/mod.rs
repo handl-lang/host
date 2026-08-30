@@ -1,4 +1,3 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 mod basic;
 mod case;
 mod common;
@@ -16,8 +15,8 @@ pub use transform::{
     SplitAt, SplitWhitespace, StripPrefix, StripSuffix, Truncate, WordWrap,
 };
 
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
+use handl_platform::Function;
+use handl_platform::Module;
 
 /// The `str` module — string utility functions.
 ///
@@ -31,7 +30,7 @@ impl Module for StrModule {
         "str"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             // basic
             "upper" => Some(&Upper),

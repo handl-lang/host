@@ -1,5 +1,4 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::shared::{
     as_kind, complement, err_result, matches, ok_result, project, require_arg_count,
@@ -8,16 +7,16 @@ use crate::shared::{
 
 #[derive(Clone, Copy)]
 pub struct TypeOf;
-impl Function<NonFunctionValue> for TypeOf {
+impl Function for TypeOf {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arg = require_one_arg(args)?;
         let type_name = if arg.is_null() {
             "null"
-        } else if arg.is_bool() {
+        } else if arg.is_boolean() {
             "bool"
         } else if arg.is_number() {
             "num"
@@ -30,33 +29,33 @@ impl Function<NonFunctionValue> for TypeOf {
         } else {
             "unknown"
         };
-        Ok(NonFunctionValue::new(type_name.to_string()))
+        Ok(serde_json::Value::from(type_name.to_string()))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct TypeIs;
-impl Function<NonFunctionValue> for TypeIs {
+impl Function for TypeIs {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(NonFunctionValue::new(matches(value, kind)))
+        Ok(serde_json::Value::from(matches(value, kind)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct TypeMust;
-impl Function<NonFunctionValue> for TypeMust {
+impl Function for TypeMust {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
@@ -69,61 +68,61 @@ impl Function<NonFunctionValue> for TypeMust {
 
 #[derive(Clone, Copy)]
 pub struct TypeMay;
-impl Function<NonFunctionValue> for TypeMay {
+impl Function for TypeMay {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(project(value, kind).unwrap_or_else(|| NonFunctionValue::new(serde_json::Value::Null)))
+        Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(serde_json::Value::Null)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct TypeNot;
-impl Function<NonFunctionValue> for TypeNot {
+impl Function for TypeNot {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
         Ok(complement(value, kind)
-            .unwrap_or_else(|| NonFunctionValue::new(serde_json::Value::Null)))
+            .unwrap_or_else(|| serde_json::Value::from(serde_json::Value::Null)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct TypeWhen;
-impl Function<NonFunctionValue> for TypeWhen {
+impl Function for TypeWhen {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 3)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
         let default = &args[2];
-        Ok(project(value, kind).unwrap_or_else(|| NonFunctionValue::new(default.inner().clone())))
+        Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(default.clone())))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct StringTag(&'static str);
-impl Function<NonFunctionValue> for StringTag {
+impl Function for StringTag {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 0)?;
-        Ok(NonFunctionValue::new(self.0.to_string()))
+        Ok(serde_json::Value::from(self.0.to_string()))
     }
 }
 

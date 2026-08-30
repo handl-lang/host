@@ -7,7 +7,9 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_keyword::KeywordKind;
 use serde_json::json;
 
 /// Token capability required by the match grammar rule.
@@ -145,25 +147,35 @@ impl<K: MatchToken> ParserBehavior<K> for MatchRule {
     }
 }
 
-impl MatchToken for LexKind {
+impl MatchToken for DynKind {
     fn is_match(&self) -> bool {
-        matches!(self, LexKind::Keyword(LexKeyword::Match))
+        self.downcast_ref::<KeywordKind>()
+            .map(|k| k.name() == "match")
+            .unwrap_or(false)
     }
 
     fn is_brace_open(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BraceOpen))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BraceOpen)
+            .unwrap_or(false)
     }
 
     fn is_brace_close(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BraceClose))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BraceClose)
+            .unwrap_or(false)
     }
 
     fn is_comma(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Comma)
+            .unwrap_or(false)
     }
 
     fn is_colon(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Colon))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Colon)
+            .unwrap_or(false)
     }
 }
 

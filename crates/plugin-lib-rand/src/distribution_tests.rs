@@ -1,4 +1,5 @@
 use super::test_helpers::*;
+use handl_platform::{EvalError};
 
 // ── rand.gauss ───────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ fn gauss_no_args_errors() {
     let result = call_err("gauss", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -103,7 +104,7 @@ fn exponential_no_args_errors() {
     let result = call_err("exponential", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -152,7 +153,7 @@ fn poisson_no_args_errors() {
     let result = call_err("poisson", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -225,6 +226,6 @@ fn binomial_no_args_errors() {
     let result = call_err("binomial", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }

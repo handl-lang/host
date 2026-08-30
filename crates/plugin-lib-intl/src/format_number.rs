@@ -1,10 +1,8 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use handl_platform::{EvalContext, EvalError, Function};
 
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::decimal::options::{DecimalFormatterOptions, GroupingStrategy};
 use icu::decimal::{CompactDecimalFormatter, DecimalFormatter};
 use icu::experimental::dimension::currency::CurrencyType;
@@ -84,12 +82,12 @@ impl Default for FormatNumber {
     }
 }
 
-impl Function<NonFunctionValue> for FormatNumber {
+impl Function for FormatNumber {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let n = require_number(args, 0)?;
         let mut locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;
@@ -157,14 +155,14 @@ fn decimal_formatter(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<Rc<DecimalFormatter>, Error> {
+) -> Result<Rc<DecimalFormatter>, EvalError> {
     let formatter_opts = build_formatter_options(opts);
     let key = (
         dp.provider_id(),
         locale.to_string(),
         format!("{:?}", formatter_opts),
     );
-    DECIMAL_FORMATTERS.with(|cache| -> Result<Rc<DecimalFormatter>, Error> {
+    DECIMAL_FORMATTERS.with(|cache| -> Result<Rc<DecimalFormatter>, EvalError> {
         let mut cache = cache.borrow_mut();
         if let Some(f) = cache.get(&key) {
             Ok(Rc::clone(f))
@@ -193,7 +191,7 @@ fn format_standard(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
 
     let mut decimal = decimal_from_f64(n);
@@ -208,7 +206,7 @@ fn format_compact(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     compact_display: &str,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let formatter = if compact_display == "long" {
         match dp.as_buffer_provider() {
             Some(p) => CompactDecimalFormatter::try_new_long_with_buffer_provider(
@@ -246,7 +244,7 @@ fn format_decimal_with_options(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
     let formatted = formatter.format(decimal);
     Ok(formatted.write_to_string().into_owned())
@@ -257,7 +255,7 @@ fn format_scientific(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     if n == 0.0 || n.is_nan() || n.is_infinite() {
         return format_standard(n, locale, opts, dp);
     }
@@ -275,7 +273,7 @@ fn format_engineering(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     if n == 0.0 || n.is_nan() || n.is_infinite() {
         return format_standard(n, locale, opts, dp);
     }
@@ -294,7 +292,7 @@ fn format_exponent(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
     let mut decimal = fixed_decimal::Decimal::from(exponent);
     decimal.apply_sign_display(fixed_decimal::SignDisplay::ExceptZero);
@@ -306,7 +304,7 @@ fn format_percent(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let formatter = match dp.as_buffer_provider() {
         Some(p) => {
             PercentFormatter::try_new_with_buffer_provider(p, locale.into(), Default::default())
@@ -336,7 +334,7 @@ fn format_currency(
     display: &str,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let currency_code = CurrencyType::try_from_str(currency).map_err(|_| {
         IntlError::InvalidCurrency {
             code: currency.to_string(),
@@ -403,7 +401,7 @@ fn format_unit(
     locale: &icu::locale::Locale,
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     _dp: &DataProvider,
-) -> Result<String, Error> {
+) -> Result<String, EvalError> {
     let unit_str = opt_str(opts, "unit").ok_or_else(|| {
         IntlError::InvalidArgument {
             message: "unit option required for unit style".into(),
@@ -516,12 +514,12 @@ impl Default for FormatNumberToParts {
     }
 }
 
-impl Function<NonFunctionValue> for FormatNumberToParts {
+impl Function for FormatNumberToParts {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let n = require_number(args, 0)?;
         let mut locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;
@@ -575,7 +573,7 @@ fn format_decimal_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
     let formatted = formatter.format(decimal);
     formatted.write_to_parts(sink).map_err(|e| {
@@ -592,7 +590,7 @@ fn format_standard_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
 
     let mut decimal = decimal_from_f64(n);
@@ -613,7 +611,7 @@ fn format_compact_to_parts(
     compact_display: &str,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let formatter = if compact_display == "long" {
         match dp.as_buffer_provider() {
             Some(p) => CompactDecimalFormatter::try_new_long_with_buffer_provider(
@@ -657,7 +655,7 @@ fn format_scientific_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     if n == 0.0 || n.is_nan() || n.is_infinite() {
         return format_standard_to_parts(n, locale, opts, dp, sink);
     }
@@ -694,7 +692,7 @@ fn format_engineering_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     if n == 0.0 || n.is_nan() || n.is_infinite() {
         return format_standard_to_parts(n, locale, opts, dp, sink);
     }
@@ -732,7 +730,7 @@ fn format_exponent_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let formatter = decimal_formatter(locale, opts, dp)?;
     let mut decimal = fixed_decimal::Decimal::from(exponent);
     decimal.apply_sign_display(fixed_decimal::SignDisplay::ExceptZero);
@@ -751,7 +749,7 @@ fn format_percent_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let formatter = match dp.as_buffer_provider() {
         Some(p) => {
             PercentFormatter::try_new_with_buffer_provider(p, locale.into(), Default::default())
@@ -787,7 +785,7 @@ fn format_currency_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let currency_code = CurrencyType::try_from_str(currency).map_err(|_| {
         IntlError::InvalidCurrency {
             code: currency.to_string(),
@@ -858,7 +856,7 @@ fn format_unit_to_parts(
     opts: Option<&serde_json::Map<String, serde_json::Value>>,
     _dp: &DataProvider,
     sink: &mut PartsCollector,
-) -> Result<(), Error> {
+) -> Result<(), EvalError> {
     let unit_str = opt_str(opts, "unit").ok_or_else(|| {
         IntlError::InvalidArgument {
             message: "unit option required for unit style".into(),

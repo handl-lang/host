@@ -7,8 +7,8 @@
 
 use std::collections::HashSet;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use crate::function_value::FunctionValue;
 
 use super::common::{arr, b, num, require_array, require_one_array, require_two_arrays};
 
@@ -40,21 +40,18 @@ fn dedup_ordered(items: &[serde_json::Value]) -> Vec<serde_json::Value> {
     result
 }
 
-fn require_function_value(arg: &NonFunctionValue) -> Result<FunctionValue, Error> {
-    FunctionValue::from_json(arg.inner()).ok_or(Error::TypeMismatch {
-        expected: "function value",
-        got: "non-function",
-    })
+fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
 }
 
 fn bind_param(
     fn_val: &FunctionValue,
     value: &serde_json::Value,
-) -> Vec<(String, NonFunctionValue)> {
+) -> Vec<(String, serde_json::Value)> {
     fn_val
         .params
         .first()
-        .map(|(name, _)| vec![(name.clone(), NonFunctionValue::new(value.clone()))])
+        .map(|(name, _)| vec![(name.clone(), serde_json::Value::from(value.clone()))])
         .unwrap_or_default()
 }
 
@@ -62,12 +59,12 @@ fn bind_param(
 #[derive(Clone, Copy)]
 pub struct New;
 
-impl Function<NonFunctionValue> for New {
+impl Function for New {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(arr(&[]))
     }
 }
@@ -76,12 +73,12 @@ impl Function<NonFunctionValue> for New {
 #[derive(Clone, Copy)]
 pub struct From;
 
-impl Function<NonFunctionValue> for From {
+impl Function for From {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         let mut values: Vec<serde_json::Value> = Vec::new();
         for item in input {
@@ -97,12 +94,12 @@ impl Function<NonFunctionValue> for From {
 #[derive(Clone, Copy)]
 pub struct ToArray;
 
-impl Function<NonFunctionValue> for ToArray {
+impl Function for ToArray {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(arr(input))
     }
@@ -112,12 +109,12 @@ impl Function<NonFunctionValue> for ToArray {
 #[derive(Clone, Copy)]
 pub struct Len;
 
-impl Function<NonFunctionValue> for Len {
+impl Function for Len {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(num(input.len() as f64))
     }
@@ -127,12 +124,12 @@ impl Function<NonFunctionValue> for Len {
 #[derive(Clone, Copy)]
 pub struct IsEmpty;
 
-impl Function<NonFunctionValue> for IsEmpty {
+impl Function for IsEmpty {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(b(input.is_empty()))
     }
@@ -142,18 +139,15 @@ impl Function<NonFunctionValue> for IsEmpty {
 #[derive(Clone, Copy)]
 pub struct Add;
 
-impl Function<NonFunctionValue> for Add {
+impl Function for Add {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        })?;
-        let target = value.inner();
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let target = value;
         let mut values = input.to_vec();
         if !has_value(&values, target) {
             values.push(target.clone());
@@ -166,18 +160,15 @@ impl Function<NonFunctionValue> for Add {
 #[derive(Clone, Copy)]
 pub struct Remove;
 
-impl Function<NonFunctionValue> for Remove {
+impl Function for Remove {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        })?;
-        let target = value.inner();
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let target = value;
         let mut values = input.to_vec();
         if let Some(pos) = values.iter().position(|item| item == target) {
             values.remove(pos);
@@ -190,18 +181,15 @@ impl Function<NonFunctionValue> for Remove {
 #[derive(Clone, Copy)]
 pub struct Has;
 
-impl Function<NonFunctionValue> for Has {
+impl Function for Has {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        })?;
-        Ok(b(has_value(input, value.inner())))
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        Ok(b(has_value(input, value)))
     }
 }
 
@@ -209,12 +197,12 @@ impl Function<NonFunctionValue> for Has {
 #[derive(Clone, Copy)]
 pub struct Unique;
 
-impl Function<NonFunctionValue> for Unique {
+impl Function for Unique {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(arr(&dedup_ordered(input)))
     }
@@ -224,12 +212,12 @@ impl Function<NonFunctionValue> for Unique {
 #[derive(Clone, Copy)]
 pub struct Union;
 
-impl Function<NonFunctionValue> for Union {
+impl Function for Union {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_arrays(args)?;
         let mut seen: HashSet<String> = HashSet::new();
         let mut result = Vec::with_capacity(a.len() + b.len());
@@ -247,12 +235,12 @@ impl Function<NonFunctionValue> for Union {
 #[derive(Clone, Copy)]
 pub struct Intersection;
 
-impl Function<NonFunctionValue> for Intersection {
+impl Function for Intersection {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_arrays(args)?;
         let b_set: HashSet<String> = b.iter().map(value_key).collect();
         let mut seen: HashSet<String> = HashSet::new();
@@ -271,12 +259,12 @@ impl Function<NonFunctionValue> for Intersection {
 #[derive(Clone, Copy)]
 pub struct Difference;
 
-impl Function<NonFunctionValue> for Difference {
+impl Function for Difference {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_arrays(args)?;
         let b_set: HashSet<String> = b.iter().map(value_key).collect();
         let mut seen: HashSet<String> = HashSet::new();
@@ -295,12 +283,12 @@ impl Function<NonFunctionValue> for Difference {
 #[derive(Clone, Copy)]
 pub struct SymmetricDifference;
 
-impl Function<NonFunctionValue> for SymmetricDifference {
+impl Function for SymmetricDifference {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_arrays(args)?;
         let a_set: HashSet<String> = a.iter().map(value_key).collect();
         let b_set: HashSet<String> = b.iter().map(value_key).collect();
@@ -326,14 +314,14 @@ impl Function<NonFunctionValue> for SymmetricDifference {
 #[derive(Clone, Copy)]
 pub struct Without;
 
-impl Function<NonFunctionValue> for Without {
+impl Function for Without {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let array = require_array(args, 0)?;
-        let excludes: HashSet<String> = args[1..].iter().map(|v| value_key(v.inner())).collect();
+        let excludes: HashSet<String> = args[1..].iter().map(|v| value_key(v)).collect();
         let mut seen: HashSet<String> = HashSet::new();
         let mut result = Vec::new();
         for item in array {
@@ -350,17 +338,14 @@ impl Function<NonFunctionValue> for Without {
 #[derive(Clone, Copy)]
 pub struct UniqueBy;
 
-impl Function<NonFunctionValue> for UniqueBy {
+impl Function for UniqueBy {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array(args, 0)?;
         let fn_val = require_function_value(&args[1])?;
@@ -369,7 +354,7 @@ impl Function<NonFunctionValue> for UniqueBy {
         for item in array {
             let vars = bind_param(&fn_val, item);
             let key = ctx.eval_expr(&fn_val.body, &vars)?;
-            let key_str = value_key(key.inner());
+            let key_str = value_key(&key);
             if seen.insert(key_str) {
                 result.push(item.clone());
             }

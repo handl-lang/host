@@ -1,20 +1,18 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{
     format_iso, parse_iso, parse_offset, require_one_string, require_two_strings, s,
 };
 use chrono::Utc;
+use handl_platform::{EvalContext, EvalError, Function};
 
 #[derive(Clone, Copy)]
 pub struct ToTimezone;
-impl Function<NonFunctionValue> for ToTimezone {
+impl Function for ToTimezone {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, offset_str) = require_two_strings(args)?;
         let dt = parse_iso(input)?;
         let offset = parse_offset(offset_str)?;
@@ -37,12 +35,12 @@ impl Function<NonFunctionValue> for ToTimezone {
 
 #[derive(Clone, Copy)]
 pub struct ToUtc;
-impl Function<NonFunctionValue> for ToUtc {
+impl Function for ToUtc {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         Ok(s(format_iso(&dt.with_timezone(&Utc))))

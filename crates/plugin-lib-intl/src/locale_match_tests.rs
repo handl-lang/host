@@ -1,35 +1,34 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
+use handl_platform::{EvalError};
 
 use super::module::IntlModule;
 
-fn call_canonical(args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call_canonical(args: &[serde_json::Value]) -> serde_json::Value {
     let module = IntlModule::new();
     let func = module
         .function("get_canonical_locales")
         .expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_supported(args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call_supported(args: &[serde_json::Value]) -> serde_json::Value {
     let module = IntlModule::new();
     let func = module
         .function("supported_locales_of")
         .expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn arr(v: &[&str]) -> NonFunctionValue {
+fn arr(v: &[&str]) -> serde_json::Value {
     let items: Vec<serde_json::Value> = v.iter().map(|x| serde_json::json!(x)).collect();
-    NonFunctionValue::new(serde_json::Value::Array(items))
+    serde_json::Value::from(serde_json::Value::Array(items))
 }
 
 #[test]
@@ -76,12 +75,12 @@ fn supported_locales_no_args_returns_all() {
 
 // ── Blob provider tests ───────────────────────────────────────────
 
-fn call_supported_with_blob(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_supported_with_blob(args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let module = IntlModule::with_blob_provider(vec![0u8; 10]);
     let func = module
         .function("supported_locales_of")
         .expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 

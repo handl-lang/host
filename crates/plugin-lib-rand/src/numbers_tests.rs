@@ -1,4 +1,5 @@
 use super::test_helpers::*;
+use handl_platform::{EvalError};
 
 // ── rand.int ─────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ fn int_no_args_errors() {
     let result = call_err("int", &[]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 
@@ -46,7 +47,7 @@ fn int_non_integer_errors() {
     let result = call_err("int", &[n(1.5), n(6.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::TypeMismatch { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 
@@ -70,7 +71,7 @@ fn int_three_args_errors() {
     let result = call_err("int", &[n(1.0), n(2.0), n(3.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::ArgumentCount { .. })
+        Err(EvalError::ArgumentCount { .. })
     ));
 }
 

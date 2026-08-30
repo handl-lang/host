@@ -1,10 +1,8 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::HttpError;
 
@@ -201,7 +199,7 @@ impl Module for HttpClientModule {
         "http"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "get" => Some(&self.get),
             "post" => Some(&self.post),
@@ -217,37 +215,25 @@ impl Module for HttpClientModule {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
     args.get(idx)
-        .ok_or(Error::ArgumentCount {
-            expected: idx + 1,
-            got: args.len(),
-        })?
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
         .as_str()
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
 fn extract_headers(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
-) -> Result<HashMap<String, String>, Error> {
+) -> Result<HashMap<String, String>, EvalError> {
     match args.get(idx) {
         None => Ok(HashMap::new()),
         Some(v) if v.is_null() => Ok(HashMap::new()),
         Some(v) => {
-            let obj = v.as_object().ok_or(Error::TypeMismatch {
-                expected: "object",
-                got: "non-object",
-            })?;
+            let obj = v.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
             let mut headers = HashMap::new();
             for (key, val) in obj {
-                let value = val.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?;
+                let value = val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
                 headers.insert(key.clone(), value.to_string());
             }
             Ok(headers)
@@ -255,14 +241,14 @@ fn extract_headers(
     }
 }
 
-fn response_to_value(resp: HttpResponse) -> NonFunctionValue {
+fn response_to_value(resp: HttpResponse) -> serde_json::Value {
     let ok = resp.ok();
     let headers: serde_json::Map<String, serde_json::Value> = resp
         .headers
         .into_iter()
         .map(|(k, v)| (k, serde_json::Value::String(v)))
         .collect();
-    NonFunctionValue::new(serde_json::json!({
+    serde_json::Value::from(serde_json::json!({
         "status": resp.status,
         "status_text": resp.status_text,
         "ok": ok,
@@ -279,12 +265,12 @@ macro_rules! bodyless_fn {
             client: Arc<dyn HttpClient>,
         }
 
-        impl Function<NonFunctionValue> for $name {
+        impl Function for $name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let url = require_string_at(args, 0)?;
                 let headers = extract_headers(args, 1)?;
                 let req = HttpRequest {
@@ -309,12 +295,12 @@ macro_rules! body_fn {
             client: Arc<dyn HttpClient>,
         }
 
-        impl Function<NonFunctionValue> for $name {
+        impl Function for $name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let url = require_string_at(args, 0)?;
                 let body = require_string_at(args, 1)?;
                 let headers = extract_headers(args, 2)?;
@@ -346,25 +332,22 @@ struct RequestFn {
     client: Arc<dyn HttpClient>,
 }
 
-impl Function<NonFunctionValue> for RequestFn {
+impl Function for RequestFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let method_str = require_string_at(args, 0)?;
         let method = HttpMethod::parse(method_str)
-            .ok_or_else(|| Error::PrimitiveError(format!("unknown HTTP method: {method_str}")))?;
+            .ok_or_else(|| EvalError::Other(format!("unknown HTTP method: {method_str}")))?;
         let url = require_string_at(args, 1)?;
         let body = match args.get(2) {
             None => None,
             Some(v) if v.is_null() => None,
             Some(v) => Some(
                 v.as_str()
-                    .ok_or(Error::TypeMismatch {
-                        expected: "string",
-                        got: "non-string",
-                    })?
+                    .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
                     .to_string(),
             ),
         };

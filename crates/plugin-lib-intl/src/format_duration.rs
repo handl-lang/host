@@ -1,10 +1,8 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use handl_platform::{EvalContext, EvalError, Function};
 
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::experimental::duration::{
     Duration, DurationFormatter, DurationSign, ValidatedDurationFormatterOptions,
     options::{
@@ -69,12 +67,12 @@ impl Default for FormatDuration {
     }
 }
 
-impl Function<NonFunctionValue> for FormatDuration {
+impl Function for FormatDuration {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let obj = require_object(args, 0)?;
         let locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;
@@ -123,7 +121,7 @@ impl Function<NonFunctionValue> for FormatDuration {
 
         let key = (locale.to_string(), format!("{:?}", options));
         let formatter =
-            DURATION_FORMATTERS.with(|cache| -> Result<Rc<DurationFormatter>, Error> {
+            DURATION_FORMATTERS.with(|cache| -> Result<Rc<DurationFormatter>, EvalError> {
                 let mut cache = cache.borrow_mut();
                 if let Some(f) = cache.get(&key) {
                     Ok(Rc::clone(f))

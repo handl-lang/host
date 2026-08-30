@@ -6,7 +6,7 @@
 //! contributions; for now they live in `kit-canonical` so that `handl-expr`
 //! remains a thin compatibility re-export crate.
 
-use crate::LexKind;
+use crate::DynKind;
 use handl_platform::PlatformError;
 use handl_plugin_lexer::Token;
 use handl_plugin_vm::{Expr, Pattern};
@@ -34,9 +34,9 @@ pub struct Stmt<V> {
     /// The statement payload.
     pub kind: StmtKind<V>,
     /// Comment tokens appearing before the statement.
-    pub leading: Vec<Token<LexKind>>,
+    pub leading: Vec<Token<DynKind>>,
     /// Comment tokens appearing immediately after the statement.
-    pub trailing: Vec<Token<LexKind>>,
+    pub trailing: Vec<Token<DynKind>>,
 }
 
 impl<V> Stmt<V> {

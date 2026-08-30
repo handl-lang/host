@@ -1,7 +1,5 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{num, require_two_strings, string_predicate_fn};
 
@@ -11,12 +9,12 @@ string_predicate_fn!(EndsWith, |input: &str, pat: &str| input.ends_with(pat));
 
 #[derive(Clone, Copy)]
 pub struct Count;
-impl Function<NonFunctionValue> for Count {
+impl Function for Count {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, pattern) = require_two_strings(args)?;
         Ok(num(input.matches(pattern).count() as f64))
     }
@@ -24,12 +22,12 @@ impl Function<NonFunctionValue> for Count {
 
 #[derive(Clone, Copy)]
 pub struct Find;
-impl Function<NonFunctionValue> for Find {
+impl Function for Find {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, pattern) = require_two_strings(args)?;
         let idx = input
             .find(pattern)
@@ -42,12 +40,12 @@ impl Function<NonFunctionValue> for Find {
 
 #[derive(Clone, Copy)]
 pub struct RFind;
-impl Function<NonFunctionValue> for RFind {
+impl Function for RFind {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, pattern) = require_two_strings(args)?;
         let idx = input
             .rfind(pattern)
@@ -74,12 +72,12 @@ fn levenshtein(a: &[char], b: &[char]) -> usize {
 
 #[derive(Clone, Copy)]
 pub struct Levenshtein;
-impl Function<NonFunctionValue> for Levenshtein {
+impl Function for Levenshtein {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let a_chars: Vec<char> = a.chars().collect();
         let b_chars: Vec<char> = b.chars().collect();
@@ -90,12 +88,12 @@ impl Function<NonFunctionValue> for Levenshtein {
 
 #[derive(Clone, Copy)]
 pub struct Similarity;
-impl Function<NonFunctionValue> for Similarity {
+impl Function for Similarity {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_strings(args)?;
         let a_chars: Vec<char> = a.chars().collect();
         let b_chars: Vec<char> = b.chars().collect();

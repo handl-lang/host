@@ -1,35 +1,27 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
-fn require_one_arg(args: &[NonFunctionValue]) -> Result<&NonFunctionValue, Error> {
-    args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })
+fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
+    args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
 }
 
 fn require_two_args(
-    args: &[NonFunctionValue],
-) -> Result<(&NonFunctionValue, &NonFunctionValue), Error> {
+    args: &[serde_json::Value],
+) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
     Ok((&args[0], &args[1]))
 }
 
 #[derive(Clone, Copy)]
 pub struct Identity;
-impl Function<NonFunctionValue> for Identity {
+impl Function for Identity {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let arg = require_one_arg(args)?;
         Ok(arg.clone())
     }
@@ -37,12 +29,12 @@ impl Function<NonFunctionValue> for Identity {
 
 #[derive(Clone, Copy)]
 pub struct Default;
-impl Function<NonFunctionValue> for Default {
+impl Function for Default {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (value, fallback) = require_two_args(args)?;
         if value.is_null() {
             Ok(fallback.clone())
@@ -54,17 +46,17 @@ impl Function<NonFunctionValue> for Default {
 
 #[derive(Clone, Copy)]
 pub struct Coalesce;
-impl Function<NonFunctionValue> for Coalesce {
+impl Function for Coalesce {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         for arg in args {
             if !arg.is_null() {
                 return Ok(arg.clone());
             }
         }
-        Ok(NonFunctionValue::new(serde_json::Value::Null))
+        Ok(serde_json::Value::from(serde_json::Value::Null))
     }
 }

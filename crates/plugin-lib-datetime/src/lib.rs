@@ -45,13 +45,14 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_datetime::DateTimeModule;
 //!
 //! let host = ModuleRuntime::new()
 //!     .with(DateTimeModule);
 //! ```
 
+use handl_platform::{Function, Module};
 mod datetime;
 mod error;
 

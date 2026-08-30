@@ -1,7 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
 
+use handl_platform::{EvalContext, EvalError, Function};
 use super::common::{num, require_number};
 
 const PERM: [u8; 256] = [
@@ -152,12 +150,12 @@ fn perlin_3d(x: f64, y: f64, z: f64) -> f64 {
 #[derive(Clone, Copy)]
 pub struct Perlin1D;
 
-impl Function<NonFunctionValue> for Perlin1D {
+impl Function for Perlin1D {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let x = require_number(args, 0)?;
         Ok(num(perlin_1d(x)))
     }
@@ -176,12 +174,12 @@ impl Function<NonFunctionValue> for Perlin1D {
 #[derive(Clone, Copy)]
 pub struct Perlin2D;
 
-impl Function<NonFunctionValue> for Perlin2D {
+impl Function for Perlin2D {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let x = require_number(args, 0)?;
         let y = require_number(args, 1)?;
         Ok(num(perlin_2d(x, y)))
@@ -201,12 +199,12 @@ impl Function<NonFunctionValue> for Perlin2D {
 #[derive(Clone, Copy)]
 pub struct Perlin3D;
 
-impl Function<NonFunctionValue> for Perlin3D {
+impl Function for Perlin3D {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let x = require_number(args, 0)?;
         let y = require_number(args, 1)?;
         let z = require_number(args, 2)?;
@@ -420,12 +418,12 @@ fn simplex_3d(x: f64, y: f64, z: f64) -> f64 {
 #[derive(Clone, Copy)]
 pub struct Simplex2D;
 
-impl Function<NonFunctionValue> for Simplex2D {
+impl Function for Simplex2D {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let x = require_number(args, 0)?;
         let y = require_number(args, 1)?;
         Ok(num(simplex_2d(x, y)))
@@ -445,12 +443,12 @@ impl Function<NonFunctionValue> for Simplex2D {
 #[derive(Clone, Copy)]
 pub struct Simplex3D;
 
-impl Function<NonFunctionValue> for Simplex3D {
+impl Function for Simplex3D {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let x = require_number(args, 0)?;
         let y = require_number(args, 1)?;
         let z = require_number(args, 2)?;

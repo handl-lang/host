@@ -1,10 +1,9 @@
 use fixed_decimal::{
     Decimal, FloatPrecision, SignDisplay, SignedRoundingMode, UnsignedRoundingMode,
 };
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
 use icu::locale::Locale;
 use icu_provider_blob::BlobDataProvider;
+use handl_platform::{EvalError};
 
 use super::error::IntlError;
 use super::provider::IntlProvider;
@@ -32,7 +31,7 @@ impl DataProvider {
 }
 
 /// Create a `DataProvider` from an optional `IntlProvider`.
-pub(super) fn make_provider(provider: &Option<IntlProvider>) -> Result<DataProvider, Error> {
+pub(super) fn make_provider(provider: &Option<IntlProvider>) -> Result<DataProvider, EvalError> {
     match provider {
         Some(p) => {
             let id = p.blob_ptr() as usize;
@@ -49,68 +48,41 @@ pub(super) fn make_provider(provider: &Option<IntlProvider>) -> Result<DataProvi
 }
 
 /// Require a number argument at `idx`.
-pub(super) fn require_number(args: &[NonFunctionValue], idx: usize) -> Result<f64, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_number().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })
+pub(super) fn require_number(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
 }
 
 /// Require a string argument at `idx`.
-pub(super) fn require_string(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+pub(super) fn require_string(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
 /// Require an array argument at `idx`.
 pub(super) fn require_array(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
-) -> Result<&[serde_json::Value], Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_array().ok_or(Error::TypeMismatch {
-        expected: "array",
-        got: "non-array",
-    })
+) -> Result<&[serde_json::Value], EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
 }
 
 /// Require an object argument at `idx`.
 pub(super) fn require_object(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
-) -> Result<&serde_json::Map<String, serde_json::Value>, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_object().ok_or(Error::TypeMismatch {
-        expected: "object",
-        got: "non-object",
-    })
+) -> Result<&serde_json::Map<String, serde_json::Value>, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
 }
 
 /// Extract an optional locale argument at the given index.
 /// Defaults to `en` if not present.
-pub(super) fn optional_locale(args: &[NonFunctionValue], idx: usize) -> Result<Locale, Error> {
+pub(super) fn optional_locale(args: &[serde_json::Value], idx: usize) -> Result<Locale, EvalError> {
     match args.get(idx) {
         Some(arg) => {
-            let s = arg.as_str().ok_or(Error::TypeMismatch {
-                expected: "string",
-                got: "non-string",
-            })?;
+            let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
             Locale::try_from_str(s).map_err(|_| {
                 IntlError::InvalidLocale {
                     input: s.to_string(),
@@ -124,15 +96,12 @@ pub(super) fn optional_locale(args: &[NonFunctionValue], idx: usize) -> Result<L
 
 /// Extract an optional options object at the given index.
 pub(super) fn optional_object(
-    args: &[NonFunctionValue],
+    args: &[serde_json::Value],
     idx: usize,
-) -> Result<Option<&serde_json::Map<String, serde_json::Value>>, Error> {
+) -> Result<Option<&serde_json::Map<String, serde_json::Value>>, EvalError> {
     match args.get(idx) {
         Some(arg) => {
-            let obj = arg.as_object().ok_or(Error::TypeMismatch {
-                expected: "object",
-                got: "non-object",
-            })?;
+            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
             Ok(Some(obj))
         }
         None => Ok(None),
@@ -176,8 +145,8 @@ pub(super) fn opt_bool(
     })
 }
 
-pub(super) fn s(value: impl Into<String>) -> NonFunctionValue {
-    NonFunctionValue::new(value.into())
+pub(super) fn s(value: impl Into<String>) -> serde_json::Value {
+    serde_json::Value::from(value.into())
 }
 
 /// Apply a `numberingSystem` option to a locale by setting the Unicode `-u-nu-<value>` extension.

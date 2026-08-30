@@ -1,6 +1,4 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::list::{
     ListFormatter,
     options::{ListFormatterOptions, ListLength},
@@ -45,12 +43,12 @@ impl Default for FormatList {
     }
 }
 
-impl Function<NonFunctionValue> for FormatList {
+impl Function for FormatList {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let items = require_array(args, 0)?;
         let locale = optional_locale(args, 1)?;
         let opts = optional_object(args, 2)?;

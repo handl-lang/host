@@ -1,4 +1,4 @@
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -62,7 +62,7 @@ impl std::error::Error for RandError {}
 
 impl From<RandError> for VmError {
     fn from(err: RandError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

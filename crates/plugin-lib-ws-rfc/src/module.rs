@@ -20,8 +20,7 @@
 //! transport. Real TCP/TLS networking will be added later.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -85,14 +84,14 @@ impl Inner {
 /// Reusable `Function` implementations used by the `ws_rfc` and
 /// `ws_rfc_native` runtime modules.
 
-fn parse_opcode(s: &str) -> Result<OpCode, Error> {
+fn parse_opcode(s: &str) -> Result<OpCode, EvalError> {
     match s {
         "text" => Ok(OpCode::Text),
         "binary" => Ok(OpCode::Binary),
         "close" => Ok(OpCode::Close),
         "ping" => Ok(OpCode::Ping),
         "pong" => Ok(OpCode::Pong),
-        _ => Err(Error::PrimitiveError(format!(
+        _ => Err(EvalError::Other(format!(
             "unknown websocket opcode: {s}"
         ))),
     }
@@ -109,44 +108,35 @@ fn opcode_to_string(op: OpCode) -> &'static str {
     }
 }
 
-fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, Error> {
+fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, EvalError> {
     let opcode = obj
         .get("opcode")
         .and_then(|v| v.as_str())
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
         .and_then(parse_opcode)?;
 
     let payload_b64 = obj.get("payload").and_then(|v| v.as_str()).unwrap_or("");
     let payload = BASE64_STANDARD
         .decode(payload_b64)
-        .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+        .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
 
     let fin = obj
         .get("fin")
         .map(|v| {
-            v.as_bool().ok_or(Error::TypeMismatch {
-                expected: "bool",
-                got: "non-bool",
-            })
+            v.as_bool().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "bool", "non-bool",)))
         })
         .unwrap_or(Ok(true))?;
 
     let mask = match obj.get("mask") {
         Some(v) if v.is_null() => None,
         Some(v) => {
-            let s = v.as_str().ok_or(Error::TypeMismatch {
-                expected: "string",
-                got: "non-string",
-            })?;
+            let s = v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
             let bytes = BASE64_STANDARD
                 .decode(s)
-                .map_err(|e| Error::PrimitiveError(format!("mask base64 decode error: {e}")))?;
+                .map_err(|e| EvalError::Other(format!("mask base64 decode error: {e}")))?;
             let bytes: [u8; 4] = bytes
                 .try_into()
-                .map_err(|_| Error::PrimitiveError("mask must be exactly 4 bytes".to_string()))?;
+                .map_err(|_| EvalError::Other("mask must be exactly 4 bytes".to_string()))?;
             Some(bytes)
         }
         None => None,
@@ -158,93 +148,57 @@ fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, Error>
 }
 
 fn require_one_object(
-    args: &[NonFunctionValue],
-) -> Result<&serde_json::Map<String, JsonValue>, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: args.len(),
-    })?;
-    arg.as_object().ok_or(Error::TypeMismatch {
-        expected: "object",
-        got: "non-object",
-    })
+    args: &[serde_json::Value],
+) -> Result<&serde_json::Map<String, JsonValue>, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<&str, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: args.len(),
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_value_at(args: &[NonFunctionValue], idx: usize) -> Result<&NonFunctionValue, Error> {
-    args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })
+fn require_value_at(args: &[serde_json::Value], idx: usize) -> Result<&serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
 }
 
-fn parse_u16(value: &JsonValue) -> Result<u16, Error> {
-    let n = value.as_f64().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })?;
+fn parse_u16(value: &JsonValue) -> Result<u16, EvalError> {
+    let n = value.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
     if n < 0.0 || n.fract() != 0.0 || n > u16::MAX as f64 {
-        return Err(Error::TypeMismatch {
-            expected: "u16",
-            got: "invalid integer",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "invalid integer",)));
     }
     Ok(n as u16)
 }
 
-fn parse_id(value: &NonFunctionValue, key: &str) -> Result<usize, Error> {
-    if let Some(n) = value.as_number() {
+fn parse_id(value: &serde_json::Value, key: &str) -> Result<usize, EvalError> {
+    if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(Error::TypeMismatch {
-        expected: "number or object",
-        got: "non-number non-object",
-    })?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number or object", "non-number non-object",)))?;
     let id = obj
         .get(key)
-        .ok_or_else(|| Error::PrimitiveError(format!("missing {key}")))?;
-    let n = id.as_f64().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })?;
+        .ok_or_else(|| EvalError::Other(format!("missing {key}")))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
     Ok(n as usize)
 }
 
 #[derive(Clone, Copy)]
 pub struct ClientNew;
 
-impl Function<NonFunctionValue> for ClientNew {
+impl Function for ClientNew {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
 
         let inner = inner();
@@ -255,7 +209,7 @@ impl Function<NonFunctionValue> for ClientNew {
             id
         };
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "websocket_client",
             "client_id": id,
         })))
@@ -265,17 +219,14 @@ impl Function<NonFunctionValue> for ClientNew {
 #[derive(Clone, Copy)]
 pub struct ClientConnect;
 
-impl Function<NonFunctionValue> for ClientConnect {
+impl Function for ClientConnect {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -284,30 +235,27 @@ impl Function<NonFunctionValue> for ClientConnect {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
             "unknown websocket client: {id}"
         )))?;
         client.url = url.to_string();
         client.connected = true;
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct ClientSend;
 
-impl Function<NonFunctionValue> for ClientSend {
+impl Function for ClientSend {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -315,72 +263,69 @@ impl Function<NonFunctionValue> for ClientSend {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
             "unknown websocket client: {id}"
         )))?;
 
-        client.queue.push_back(args[1].inner().clone());
+        client.queue.push_back(args[1].clone());
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct ClientRecv;
 
-impl Function<NonFunctionValue> for ClientRecv {
+impl Function for ClientRecv {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
 
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
             "unknown websocket client: {id}"
         )))?;
 
         let value = client.queue.pop_front().unwrap_or(JsonValue::Null);
-        Ok(NonFunctionValue::new(value))
+        Ok(serde_json::Value::from(value))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct ClientClose;
 
-impl Function<NonFunctionValue> for ClientClose {
+impl Function for ClientClose {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
 
         let inner = inner();
         let guard = inner.lock().unwrap();
         guard.clients.lock().unwrap().remove(&id);
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct ServerNew;
 
-impl Function<NonFunctionValue> for ServerNew {
+impl Function for ServerNew {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
 
         let inner = inner();
@@ -397,7 +342,7 @@ impl Function<NonFunctionValue> for ServerNew {
             id
         };
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "websocket_server",
             "server_id": id,
         })))
@@ -407,17 +352,14 @@ impl Function<NonFunctionValue> for ServerNew {
 #[derive(Clone, Copy)]
 pub struct ServerListen;
 
-impl Function<NonFunctionValue> for ServerListen {
+impl Function for ServerListen {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
 
         let id = parse_id(&args[0], "server_id")?;
@@ -426,28 +368,28 @@ impl Function<NonFunctionValue> for ServerListen {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut servers = guard.servers.lock().unwrap();
-        let server = servers.get_mut(&id).ok_or(Error::PrimitiveError(format!(
+        let server = servers.get_mut(&id).ok_or(EvalError::Other(format!(
             "unknown websocket server: {id}"
         )))?;
         server.addr = addr.to_string();
-        server.handler = Some(args[2].inner().clone());
+        server.handler = Some(args[2].clone());
 
         let mut addr_map = guard.addr_to_server.lock().unwrap();
         addr_map.insert(addr.to_string(), id);
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct ServerStop;
 
-impl Function<NonFunctionValue> for ServerStop {
+impl Function for ServerStop {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "server_id")?;
 
         let inner = inner();
@@ -458,22 +400,22 @@ impl Function<NonFunctionValue> for ServerStop {
             addr_map.remove(&server.addr);
         }
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct FrameEncode;
 
-impl Function<NonFunctionValue> for FrameEncode {
+impl Function for FrameEncode {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let obj = require_one_object(args)?;
         let frame = build_frame(obj)?;
-        Ok(NonFunctionValue::new(
+        Ok(serde_json::Value::from(
             BASE64_STANDARD.encode(&frame.encode()),
         ))
     }
@@ -482,18 +424,18 @@ impl Function<NonFunctionValue> for FrameEncode {
 #[derive(Clone, Copy)]
 pub struct FrameDecode;
 
-impl Function<NonFunctionValue> for FrameDecode {
+impl Function for FrameDecode {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let bytes = BASE64_STANDARD
             .decode(s)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         let (frame, _) = Frame::decode(&bytes)
-            .map_err(|e| Error::PrimitiveError(format!("frame decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("frame decode error: {e}")))?;
 
         let mut obj = serde_json::Map::new();
         obj.insert(
@@ -514,23 +456,23 @@ impl Function<NonFunctionValue> for FrameDecode {
                 JsonValue::String(BASE64_STANDARD.encode(&key)),
             );
         }
-        Ok(NonFunctionValue::new(JsonValue::Object(obj)))
+        Ok(serde_json::Value::from(JsonValue::Object(obj)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MessageFromFrame;
 
-impl Function<NonFunctionValue> for MessageFromFrame {
+impl Function for MessageFromFrame {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let obj = require_one_object(args)?;
         let frame = build_frame(obj)?;
         let message = Message::from_frame(&frame)
-            .map_err(|e| Error::PrimitiveError(format!("message from frame error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("message from frame error: {e}")))?;
 
         let value = match message {
             Message::Text(text) => serde_json::json!({ "text": text }),
@@ -544,22 +486,22 @@ impl Function<NonFunctionValue> for MessageFromFrame {
             }
             Message::Close(None) => serde_json::json!({ "close": null }),
         };
-        Ok(NonFunctionValue::new(value))
+        Ok(serde_json::Value::from(value))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MessageToFrame;
 
-impl Function<NonFunctionValue> for MessageToFrame {
+impl Function for MessageToFrame {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let obj = require_one_object(args)?;
         if obj.len() != 1 {
-            return Err(Error::PrimitiveError(
+            return Err(EvalError::Other(
                 "message object must have exactly one key".to_string(),
             ));
         }
@@ -568,54 +510,36 @@ impl Function<NonFunctionValue> for MessageToFrame {
         let value = obj.get(key).unwrap();
         let message = match key.as_str() {
             "text" => {
-                let text = value.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?;
+                let text = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
                 Message::Text(text.to_string())
             }
             "binary" => {
-                let s = value.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
-                    .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+                    .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
                 Message::Binary(bytes)
             }
             "ping" => {
-                let s = value.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
-                    .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+                    .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
                 Message::Ping(bytes)
             }
             "pong" => {
-                let s = value.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
-                    .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+                    .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
                 Message::Pong(bytes)
             }
             "close" => {
                 if value.is_null() {
                     Message::Close(None)
                 } else {
-                    let close_obj = value.as_object().ok_or(Error::TypeMismatch {
-                        expected: "object",
-                        got: "non-object",
-                    })?;
-                    let code = parse_u16(close_obj.get("code").ok_or(Error::TypeMismatch {
-                        expected: "number",
-                        got: "missing",
-                    })?)?;
+                    let close_obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
+                    let code = parse_u16(close_obj.get("code").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "missing",)))?)?;
                     let reason = close_obj
                         .get("reason")
                         .and_then(|v| v.as_str())
@@ -625,14 +549,14 @@ impl Function<NonFunctionValue> for MessageToFrame {
                 }
             }
             _ => {
-                return Err(Error::PrimitiveError(format!(
+                return Err(EvalError::Other(format!(
                     "unknown message type: {key}"
                 )));
             }
         };
 
         let frame = message.into_frame(None);
-        Ok(NonFunctionValue::new(
+        Ok(serde_json::Value::from(
             BASE64_STANDARD.encode(&frame.encode()),
         ))
     }

@@ -9,6 +9,8 @@ handl-plugin-ext-parser = { workspace = true }
 handl-plugin-lexer = { workspace = true }
 serde_json = { workspace = true }
 handl-plugin-token-kind = { path = "../plugin-token-kind" }
+handl-plugin-token-delimiter = { path = "../plugin-token-delimiter" }
+handl-plugin-token-keyword = { path = "../plugin-token-keyword" }
 
 [dev-dependencies]
 handl-plugin-grammar-primary-value = { workspace = true }

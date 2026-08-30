@@ -7,7 +7,8 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexKind, LexKeyword};
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_keyword_handle::HandleKind;
 use serde_json::json;
 
 /// Token capability required by the handle grammar rule.
@@ -67,8 +68,8 @@ impl<K: HandleToken> ParserBehavior<K> for HandleRule {
     }
 }
 
-impl HandleToken for LexKind {
+impl HandleToken for DynKind {
     fn is_handle(&self) -> bool {
-        matches!(self, LexKind::Keyword(LexKeyword::Handle))
+        self.downcast_ref::<HandleKind>().is_some()
     }
 }

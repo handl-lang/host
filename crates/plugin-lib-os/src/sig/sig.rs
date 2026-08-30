@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -38,7 +36,7 @@ impl Module for SigModule {
         "sig"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "send" => Some(&self.send),
             "list" => Some(&self.list),
@@ -51,28 +49,19 @@ struct SendFn {
     sig: Arc<dyn Sig>,
 }
 
-impl Function<NonFunctionValue> for SendFn {
+impl Function for SendFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
-        let process_id = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })? as i64;
-        let signal = args[1].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
+        let signal = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
         self.sig.send(process_id, signal)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -80,15 +69,15 @@ struct ListFn {
     sig: Arc<dyn Sig>,
 }
 
-impl Function<NonFunctionValue> for ListFn {
+impl Function for ListFn {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let signals = self.sig.list()?;
         let arr: Vec<serde_json::Value> =
             signals.into_iter().map(serde_json::Value::String).collect();
-        Ok(NonFunctionValue::new(serde_json::Value::Array(arr)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
 }

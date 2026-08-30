@@ -1,8 +1,6 @@
-//! VM module exposing `hello.greet` to the runtime.
+//! Module exposing `hello.greet` to the runtime.
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function, Module};
 
 use crate::greet;
 
@@ -10,23 +8,22 @@ use crate::greet;
 #[derive(Clone, Copy)]
 pub struct HelloGreet;
 
-impl Function<NonFunctionValue> for HelloGreet {
+impl Function for HelloGreet {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 1 {
-            return Err(Error::ArgumentCount {
-                expected: 1,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!(
+                "hello.greet: expected 1 argument, got {}",
+                args.len()
+            )));
         }
-        let name = args[0].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
+        let name = args[0].as_str().ok_or_else(|| {
+            EvalError::TypeMismatch("hello.greet: expected string argument".to_string())
         })?;
-        Ok(NonFunctionValue::new(serde_json::Value::String(greet(name))))
+        Ok(serde_json::Value::String(greet(name)))
     }
 }
 
@@ -39,7 +36,7 @@ impl Module for HelloModule {
         "hello"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "greet" => Some(&HelloGreet),
             _ => None,

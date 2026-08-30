@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use crate::option::functions::{
     And, Filter, FlatMap, IsNone, IsSome, Map, MapOr, NoneFn, Or, OrElse, SomeFn, Unwrap, UnwrapOr,
@@ -20,7 +19,7 @@ impl Module for OptionModule {
         "option"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "some" => Some(&SomeFn),
             "none" => Some(&NoneFn),

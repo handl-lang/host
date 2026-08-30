@@ -1,6 +1,6 @@
 use std::fmt;
 
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 
 #[derive(Debug, Clone)]
 pub enum DatetimeError {
@@ -80,7 +80,7 @@ impl std::error::Error for DatetimeError {}
 
 impl From<DatetimeError> for VmError {
     fn from(err: DatetimeError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

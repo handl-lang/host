@@ -9,5 +9,5 @@
 
 pub use handl_platform::{
     BasicExecControl, BasicEvaluator, BasicEvaluatorCallback, ControlFlow, Eval, EvalBehavior,
-    EvalContext, EvalError, EvalLimits, EvalRequest, EvaluatorCallback, ExecControl, Scope,
+    EvalContext, EvalError, EvalLimits, EvalRequest, EvaluatorCallback, ExecControl, ExprEvaluator, Scope,
 };

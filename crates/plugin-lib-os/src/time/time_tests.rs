@@ -1,13 +1,12 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
 
 use super::time::TimeModule;
 use super::time_stub::StubTime;
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
@@ -20,13 +19,13 @@ fn module_name() {
 #[test]
 fn now() {
     let module = TimeModule::new(StubTime::new(1_000, 1));
-    assert_eq!(call(&module, "now", &[]).as_number(), Some(1000.0));
+    assert_eq!(call(&module, "now", &[]).as_f64(), Some(1000.0));
 }
 
 #[test]
 fn epoch() {
     let module = TimeModule::new(StubTime::new(1_000, 42));
-    assert_eq!(call(&module, "epoch", &[]).as_number(), Some(42.0));
+    assert_eq!(call(&module, "epoch", &[]).as_f64(), Some(42.0));
 }
 
 #[test]

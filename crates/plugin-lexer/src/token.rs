@@ -127,6 +127,46 @@ impl fmt::Display for DynToken {
     }
 }
 
+// ---------------------------------------------------------------------------
+// EofKind — canonical end-of-input token kind for dynamic token streams
+// ---------------------------------------------------------------------------
+
+/// Canonical end-of-input token kind.
+///
+/// Used by dynamic token kind factories ([`DynTokenKind`] implementors) to
+/// produce the EOF sentinel without requiring each per-concern kind to carry
+/// its own `Eof` variant.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EofKind;
+
+impl fmt::Display for EofKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "eof")
+    }
+}
+
+impl DynTokenKind for EofKind {
+    fn is_eof(&self) -> bool {
+        true
+    }
+
+    fn is_error(&self) -> bool {
+        false
+    }
+
+    fn eq_kind(&self, other: &dyn DynTokenKind) -> bool {
+        other.as_any().downcast_ref::<EofKind>().is_some()
+    }
+
+    fn dyn_clone(&self) -> Box<dyn DynTokenKind> {
+        Box::new(EofKind)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 /// A lexed token — its kind and source span.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token<K: TokenKind> {

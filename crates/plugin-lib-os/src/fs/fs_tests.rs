@@ -1,28 +1,28 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
+use handl_platform::{EvalError};
 
 use super::fs::FsModule;
 use super::fs_stub::StubFs;
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
 fn call_err(
     module: &dyn Module,
     name: &str,
-    args: &[NonFunctionValue],
-) -> handl_plugin_vm_values_json::Error {
+    args: &[serde_json::Value],
+) -> EvalError {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).unwrap_err()
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn read_file_not_found() {
     let module = FsModule::new(StubFs::default());
     let err = call_err(&module, "read", &[s("missing.txt")]);
     match err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+        EvalError::Other(msg) => {
             assert!(msg.contains("not found"))
         }
         other => panic!("expected PrimitiveError, got {other:?}"),
@@ -114,9 +114,6 @@ fn argument_count() {
     let err = call_err(&module, "read", &[]);
     assert_eq!(
         err,
-        handl_plugin_vm_values_json::Error::ArgumentCount {
-            expected: 1,
-            got: 0
-        }
+        EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0))
     );
 }

@@ -1,53 +1,42 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{require_one_string, require_string, require_two_strings, s};
 
 #[derive(Clone, Copy)]
 pub struct Split;
-impl Function<NonFunctionValue> for Split {
+impl Function for Split {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, sep) = require_two_strings(args)?;
         let parts: Vec<serde_json::Value> = input
             .split(sep)
             .map(|part| serde_json::Value::String(part.to_string()))
             .collect();
-        Ok(NonFunctionValue::new(serde_json::Value::Array(parts)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(parts)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Join;
-impl Function<NonFunctionValue> for Join {
+impl Function for Join {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let sep = require_string(&args[1])?;
-        let arr = args[0].as_array().ok_or(Error::TypeMismatch {
-            expected: "array",
-            got: "non-array",
-        })?;
+        let arr = args[0].as_array().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))?;
         let parts: Vec<&str> = arr
             .iter()
             .map(|v| {
-                v.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })
+                v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(s(parts.join(sep)))
@@ -56,17 +45,14 @@ impl Function<NonFunctionValue> for Join {
 
 #[derive(Clone, Copy)]
 pub struct Replace;
-impl Function<NonFunctionValue> for Replace {
+impl Function for Replace {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let input = require_string(&args[0])?;
         let from = require_string(&args[1])?;
@@ -77,17 +63,14 @@ impl Function<NonFunctionValue> for Replace {
 
 #[derive(Clone, Copy)]
 pub struct ReplaceFirst;
-impl Function<NonFunctionValue> for ReplaceFirst {
+impl Function for ReplaceFirst {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let input = require_string(&args[0])?;
         let from = require_string(&args[1])?;
@@ -98,34 +81,22 @@ impl Function<NonFunctionValue> for ReplaceFirst {
 
 #[derive(Clone, Copy)]
 pub struct Repeat;
-impl Function<NonFunctionValue> for Repeat {
+impl Function for Repeat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let count = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let count = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if count < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         if !count.is_finite() || count > 1_000_000.0 {
-            return Err(Error::TypeMismatch {
-                expected: "finite number <= 1_000_000",
-                got: "non-finite or excessively large number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
         }
         Ok(s(input.repeat(count as usize)))
     }
@@ -133,32 +104,23 @@ impl Function<NonFunctionValue> for Repeat {
 
 #[derive(Clone, Copy)]
 pub struct CharAt;
-impl Function<NonFunctionValue> for CharAt {
+impl Function for CharAt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let index = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if index < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let char_count = input.chars().count();
         if (index as usize) >= char_count {
-            return Err(Error::PrimitiveError(format!(
+            return Err(EvalError::Other(format!(
                 "index {index} out of bounds (char count: {char_count})"
             )));
         }
@@ -168,32 +130,20 @@ impl Function<NonFunctionValue> for CharAt {
 
 #[derive(Clone, Copy)]
 pub struct Slice;
-impl Function<NonFunctionValue> for Slice {
+impl Function for Slice {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let start = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
-        let end = args[2].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if start < 0.0 || end < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let chars: Vec<char> = input.chars().collect();
         let end = (end as usize).min(chars.len());
@@ -219,34 +169,22 @@ fn pad_to_len(input: &str, target_len: usize, pad_char: &str, pad_left: bool) ->
 
 #[derive(Clone, Copy)]
 pub struct PadLeft;
-impl Function<NonFunctionValue> for PadLeft {
+impl Function for PadLeft {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let target_len = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if target_len < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         if !target_len.is_finite() || target_len > 1_000_000.0 {
-            return Err(Error::TypeMismatch {
-                expected: "finite number <= 1_000_000",
-                got: "non-finite or excessively large number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
         }
         let pad_char = require_string(&args[2])?;
         Ok(s(pad_to_len(input, target_len as usize, pad_char, true)))
@@ -255,34 +193,22 @@ impl Function<NonFunctionValue> for PadLeft {
 
 #[derive(Clone, Copy)]
 pub struct PadRight;
-impl Function<NonFunctionValue> for PadRight {
+impl Function for PadRight {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let target_len = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if target_len < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         if !target_len.is_finite() || target_len > 1_000_000.0 {
-            return Err(Error::TypeMismatch {
-                expected: "finite number <= 1_000_000",
-                got: "non-finite or excessively large number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
         }
         let pad_char = require_string(&args[2])?;
         Ok(s(pad_to_len(input, target_len as usize, pad_char, false)))
@@ -291,12 +217,12 @@ impl Function<NonFunctionValue> for PadRight {
 
 #[derive(Clone, Copy)]
 pub struct StripPrefix;
-impl Function<NonFunctionValue> for StripPrefix {
+impl Function for StripPrefix {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, prefix) = require_two_strings(args)?;
         Ok(s(input.strip_prefix(prefix).unwrap_or(input).to_string()))
     }
@@ -304,12 +230,12 @@ impl Function<NonFunctionValue> for StripPrefix {
 
 #[derive(Clone, Copy)]
 pub struct StripSuffix;
-impl Function<NonFunctionValue> for StripSuffix {
+impl Function for StripSuffix {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, suffix) = require_two_strings(args)?;
         Ok(s(input.strip_suffix(suffix).unwrap_or(input).to_string()))
     }
@@ -317,12 +243,12 @@ impl Function<NonFunctionValue> for StripSuffix {
 
 #[derive(Clone, Copy)]
 pub struct Lines;
-impl Function<NonFunctionValue> for Lines {
+impl Function for Lines {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let lines: Vec<serde_json::Value> = if input.is_empty() {
             vec![serde_json::Value::String(String::new())]
@@ -332,34 +258,25 @@ impl Function<NonFunctionValue> for Lines {
                 .map(|line| serde_json::Value::String(line.to_string()))
                 .collect()
         };
-        Ok(NonFunctionValue::new(serde_json::Value::Array(lines)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(lines)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct SplitAt;
-impl Function<NonFunctionValue> for SplitAt {
+impl Function for SplitAt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let index = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if index < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let chars: Vec<char> = input.chars().collect();
         let mid = (index as usize).min(chars.len());
@@ -369,51 +286,42 @@ impl Function<NonFunctionValue> for SplitAt {
             serde_json::Value::String(left),
             serde_json::Value::String(right),
         ];
-        Ok(NonFunctionValue::new(serde_json::Value::Array(parts)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(parts)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct SplitWhitespace;
-impl Function<NonFunctionValue> for SplitWhitespace {
+impl Function for SplitWhitespace {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let parts: Vec<serde_json::Value> = input
             .split_whitespace()
             .map(|part| serde_json::Value::String(part.to_string()))
             .collect();
-        Ok(NonFunctionValue::new(serde_json::Value::Array(parts)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(parts)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Truncate;
-impl Function<NonFunctionValue> for Truncate {
+impl Function for Truncate {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let max_len = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let max_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if max_len < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let max_len = max_len as usize;
         let suffix = if args.len() >= 3 {
@@ -438,12 +346,12 @@ impl Function<NonFunctionValue> for Truncate {
 
 #[derive(Clone, Copy)]
 pub struct Slugify;
-impl Function<NonFunctionValue> for Slugify {
+impl Function for Slugify {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let slug: String = input
             .to_lowercase()
@@ -480,28 +388,19 @@ impl Function<NonFunctionValue> for Slugify {
 
 #[derive(Clone, Copy)]
 pub struct WordWrap;
-impl Function<NonFunctionValue> for WordWrap {
+impl Function for WordWrap {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_string(&args[0])?;
-        let width = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let width = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if width < 1.0 {
-            return Err(Error::TypeMismatch {
-                expected: "positive number",
-                got: "non-positive number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive number", "non-positive number",)));
         }
         let width = width as usize;
         let mut result = String::new();

@@ -1,5 +1,4 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::helpers::{num, require_number, require_two_numbers, unary_fn};
 
@@ -12,12 +11,12 @@ unary_fn!(Cbrt, |x: f64| x.cbrt());
 
 #[derive(Clone, Copy)]
 pub struct Pow;
-impl Function<NonFunctionValue> for Pow {
+impl Function for Pow {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (base, exp) = require_two_numbers(args)?;
         Ok(num(base.powf(exp)))
     }

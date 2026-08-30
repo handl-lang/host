@@ -13,13 +13,14 @@ pub use rule::TemplateRule;
 pub use token::TemplateToken;
 
 use handl_plugin_lexer_template::TemplateSegment;
-use handl_plugin_token_kind::LexKind;
+use handl_plugin_token_kind::{DynKind, TemplateKind};
 
-impl TemplateToken for LexKind {
+impl TemplateToken for DynKind {
     fn as_template_segments(&self) -> Option<&[TemplateSegment]> {
-        match self {
-            LexKind::Template(segments) => Some(segments.as_slice()),
-            _ => None,
+        if let Some(TemplateKind(segments)) = self.downcast_ref::<TemplateKind>() {
+            Some(segments.as_slice())
+        } else {
+            None
         }
     }
 }

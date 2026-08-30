@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalError};
 
 // ── rand.string ──────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ fn string_negative_length_errors() {
 
 #[test]
 fn string_hex_charset() {
-    let result = call("string", &[n(100.0), NonFunctionValue::new("hex")]);
+    let result = call("string", &[n(100.0), serde_json::Value::from("hex")]);
     let s = extract_str(&result);
     assert_eq!(s.len(), 100);
     for c in s.chars() {
@@ -48,7 +48,7 @@ fn string_hex_charset() {
 
 #[test]
 fn string_numeric_charset() {
-    let result = call("string", &[n(50.0), NonFunctionValue::new("numeric")]);
+    let result = call("string", &[n(50.0), serde_json::Value::from("numeric")]);
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);
     for c in s.chars() {
@@ -58,7 +58,7 @@ fn string_numeric_charset() {
 
 #[test]
 fn string_alpha_charset() {
-    let result = call("string", &[n(50.0), NonFunctionValue::new("alpha")]);
+    let result = call("string", &[n(50.0), serde_json::Value::from("alpha")]);
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);
     for c in s.chars() {
@@ -68,7 +68,7 @@ fn string_alpha_charset() {
 
 #[test]
 fn string_lower_charset() {
-    let result = call("string", &[n(50.0), NonFunctionValue::new("lower")]);
+    let result = call("string", &[n(50.0), serde_json::Value::from("lower")]);
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);
     for c in s.chars() {
@@ -78,7 +78,7 @@ fn string_lower_charset() {
 
 #[test]
 fn string_upper_charset() {
-    let result = call("string", &[n(50.0), NonFunctionValue::new("upper")]);
+    let result = call("string", &[n(50.0), serde_json::Value::from("upper")]);
     let s = extract_str(&result);
     assert_eq!(s.len(), 50);
     for c in s.chars() {
@@ -88,7 +88,7 @@ fn string_upper_charset() {
 
 #[test]
 fn string_invalid_charset_errors() {
-    let result = call_err("string", &[n(10.0), NonFunctionValue::new("binary")]);
+    let result = call_err("string", &[n(10.0), serde_json::Value::from("binary")]);
     assert!(result.is_err());
 }
 
@@ -97,7 +97,7 @@ fn string_non_string_charset_errors() {
     let result = call_err("string", &[n(10.0), n(42.0)]);
     assert!(matches!(
         result,
-        Err(handl_plugin_vm::Error::TypeMismatch { .. })
+        Err(EvalError::TypeMismatch { .. })
     ));
 }
 

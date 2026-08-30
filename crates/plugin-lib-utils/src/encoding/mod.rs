@@ -1,36 +1,23 @@
 use std::sync::Arc;
 
 use handl_plugin_lib_encoding::EncodingRegistry;
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 fn codec_name(
-    value: &NonFunctionValue,
-) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
+    value: &serde_json::Value,
+) -> Result<String, EvalError> {
     let obj = value
         .as_object()
-        .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
-            expected: "codec object",
-            got: "non-object",
-        })?;
+        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "codec object", "non-object",)))?;
     let ty = obj.get("type").and_then(|v| v.as_str()).ok_or_else(|| {
-        handl_plugin_vm::Error::TypeMismatch {
-            expected: "codec object with type",
-            got: "object without type",
-        }
+        EvalError::TypeMismatch(format!("expected {}, got {}", "codec object with type", "object without type",))
     })?;
     if ty != "encoding" {
-        return Err(handl_plugin_vm::Error::TypeMismatch {
-            expected: "type: encoding",
-            got: "non-encoding",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "type: encoding", "non-encoding",)));
     }
     let name = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-        handl_plugin_vm::Error::TypeMismatch {
-            expected: "codec object with name",
-            got: "object without name",
-        }
+        EvalError::TypeMismatch(format!("expected {}, got {}", "codec object with name", "object without name",))
     })?;
     Ok(name.to_string())
 }
@@ -75,7 +62,7 @@ impl Module for EncodingModule {
         "encoding"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "encode" => Some(&self.encode),
             "decode" => Some(&self.decode),
@@ -88,26 +75,23 @@ struct Encode {
     registry: Arc<EncodingRegistry>,
 }
 
-impl Function<NonFunctionValue> for Encode {
+impl Function for Encode {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let name = codec_name(&args[1])?;
         let encoding = self.registry.get(&name).ok_or_else(|| {
-            handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}"))
+            EvalError::Other(format!("unknown encoding: {name}"))
         })?;
         let output = encoding
-            .encode(args[0].inner())
-            .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
-        Ok(NonFunctionValue::new(output))
+            .encode(&args[0])
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        Ok(serde_json::Value::from(output))
     }
 }
 
@@ -115,25 +99,22 @@ struct Decode {
     registry: Arc<EncodingRegistry>,
 }
 
-impl Function<NonFunctionValue> for Decode {
+impl Function for Decode {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let name = codec_name(&args[1])?;
         let encoding = self.registry.get(&name).ok_or_else(|| {
-            handl_plugin_vm::Error::PrimitiveError(format!("unknown encoding: {name}"))
+            EvalError::Other(format!("unknown encoding: {name}"))
         })?;
         let output = encoding
-            .decode(args[0].inner())
-            .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
-        Ok(NonFunctionValue::new(output))
+            .decode(&args[0])
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        Ok(serde_json::Value::from(output))
     }
 }

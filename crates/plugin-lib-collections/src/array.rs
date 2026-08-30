@@ -1,5 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, FunctionValue, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use crate::function_value::FunctionValue;
 
 use crate::common::{arr, b, num, require_one_array, require_two_arrays};
 
@@ -7,24 +7,18 @@ use crate::common::{arr, b, num, require_one_array, require_two_arrays};
 // Shared helpers for array functions
 // ════════════════════════════════════════════════════════════════════
 
-fn require_array_value(arg: &NonFunctionValue) -> Result<&[serde_json::Value], Error> {
-    arg.as_array().ok_or(Error::TypeMismatch {
-        expected: "array",
-        got: "non-array",
-    })
+fn require_array_value(arg: &serde_json::Value) -> Result<&[serde_json::Value], EvalError> {
+    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
 }
 
-fn require_function_value(arg: &NonFunctionValue) -> Result<FunctionValue, Error> {
-    FunctionValue::from_json(arg.inner()).ok_or(Error::TypeMismatch {
-        expected: "function value",
-        got: "non-function",
-    })
+fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
 }
 
-fn is_truthy_value(value: &NonFunctionValue) -> bool {
+fn is_truthy_value(value: &serde_json::Value) -> bool {
     if let Some(b) = value.as_bool() {
         b
-    } else if let Some(n) = value.as_number() {
+    } else if let Some(n) = value.as_f64() {
         n != 0.0
     } else if let Some(s) = value.as_str() {
         !s.is_empty()
@@ -42,11 +36,11 @@ fn is_truthy_value(value: &NonFunctionValue) -> bool {
 fn bind_param(
     fn_val: &FunctionValue,
     value: &serde_json::Value,
-) -> Vec<(String, NonFunctionValue)> {
+) -> Vec<(String, serde_json::Value)> {
     fn_val
         .params
         .first()
-        .map(|(name, _)| vec![(name.clone(), NonFunctionValue::new(value.clone()))])
+        .map(|(name, _)| vec![(name.clone(), serde_json::Value::from(value.clone()))])
         .unwrap_or_default()
 }
 
@@ -54,49 +48,49 @@ fn bind_two_params(
     fn_val: &FunctionValue,
     a: &serde_json::Value,
     b: &serde_json::Value,
-) -> Vec<(String, NonFunctionValue)> {
+) -> Vec<(String, serde_json::Value)> {
     let names: Vec<&String> = fn_val.params.iter().map(|(name, _)| name).collect();
     let a_name = names.first().map(|s| s.as_str()).unwrap_or("acc");
     let b_name = names.get(1).map(|s| s.as_str()).unwrap_or("x");
     vec![
-        (a_name.to_string(), NonFunctionValue::new(a.clone())),
-        (b_name.to_string(), NonFunctionValue::new(b.clone())),
+        (a_name.to_string(), serde_json::Value::from(a.clone())),
+        (b_name.to_string(), serde_json::Value::from(b.clone())),
     ]
 }
 
 fn apply_fn(
-    ctx: &mut dyn Context<NonFunctionValue>,
+    ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     value: &serde_json::Value,
-) -> Result<NonFunctionValue, Error> {
+) -> Result<serde_json::Value, EvalError> {
     let vars = bind_param(fn_val, value);
     ctx.eval_expr(&fn_val.body, &vars)
 }
 
 fn apply_fn2(
-    ctx: &mut dyn Context<NonFunctionValue>,
+    ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     a: &serde_json::Value,
     b: &serde_json::Value,
-) -> Result<NonFunctionValue, Error> {
+) -> Result<serde_json::Value, EvalError> {
     let vars = bind_two_params(fn_val, a, b);
     ctx.eval_expr(&fn_val.body, &vars)
 }
 
 fn is_truthy_fn(
-    ctx: &mut dyn Context<NonFunctionValue>,
+    ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     value: &serde_json::Value,
-) -> Result<bool, Error> {
+) -> Result<bool, EvalError> {
     let result = apply_fn(ctx, fn_val, value)?;
     Ok(is_truthy_value(&result))
 }
 
 fn find_first<'a, I>(
-    ctx: &mut dyn Context<NonFunctionValue>,
+    ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     iter: I,
-) -> Result<Option<serde_json::Value>, Error>
+) -> Result<Option<serde_json::Value>, EvalError>
 where
     I: Iterator<Item = &'a serde_json::Value>,
 {
@@ -109,10 +103,10 @@ where
 }
 
 fn find_index<'a, I>(
-    ctx: &mut dyn Context<NonFunctionValue>,
+    ctx: &mut EvalContext,
     fn_val: &FunctionValue,
     iter: I,
-) -> Result<Option<usize>, Error>
+) -> Result<Option<usize>, EvalError>
 where
     I: Iterator<Item = &'a serde_json::Value>,
 {
@@ -132,12 +126,12 @@ macro_rules! array_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl Function<NonFunctionValue> for $struct_name {
+        impl Function for $struct_name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let input = require_one_array(args)?;
                 Ok($body(input))
             }
@@ -158,12 +152,12 @@ array_unary_fn!(Reverse, |input: &[serde_json::Value]| {
     arr(&reversed)
 });
 array_unary_fn!(First, |input: &[serde_json::Value]| match input.first() {
-    Some(v) => NonFunctionValue::new(v.clone()),
-    None => NonFunctionValue::new(serde_json::Value::Null),
+    Some(v) => serde_json::Value::from(v.clone()),
+    None => serde_json::Value::from(serde_json::Value::Null),
 });
 array_unary_fn!(Last, |input: &[serde_json::Value]| match input.last() {
-    Some(v) => NonFunctionValue::new(v.clone()),
-    None => NonFunctionValue::new(serde_json::Value::Null),
+    Some(v) => serde_json::Value::from(v.clone()),
+    None => serde_json::Value::from(serde_json::Value::Null),
 });
 array_unary_fn!(Flatten, |input: &[serde_json::Value]| {
     let mut flat = Vec::new();
@@ -178,12 +172,12 @@ array_unary_fn!(Flatten, |input: &[serde_json::Value]| {
 
 #[derive(Clone, Copy)]
 pub struct DeepFlatten;
-impl Function<NonFunctionValue> for DeepFlatten {
+impl Function for DeepFlatten {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         fn deep_flat(items: &[serde_json::Value], out: &mut Vec<serde_json::Value>) {
             for item in items {
@@ -201,12 +195,12 @@ impl Function<NonFunctionValue> for DeepFlatten {
 
 #[derive(Clone, Copy)]
 pub struct Concat;
-impl Function<NonFunctionValue> for Concat {
+impl Function for Concat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_arrays(args)?;
         let combined: Vec<serde_json::Value> = a.iter().chain(b.iter()).cloned().collect();
         Ok(arr(&combined))
@@ -215,44 +209,38 @@ impl Function<NonFunctionValue> for Concat {
 
 #[derive(Clone, Copy)]
 pub struct Contains;
-impl Function<NonFunctionValue> for Contains {
+impl Function for Contains {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let needle = &args[1];
-        let found = array.iter().any(|item| item == needle.inner());
+        let found = array.iter().any(|item| item == needle);
         Ok(b(found))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct IndexOf;
-impl Function<NonFunctionValue> for IndexOf {
+impl Function for IndexOf {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let needle = &args[1];
         let idx = array
             .iter()
-            .position(|item| item == needle.inner())
+            .position(|item| item == needle)
             .map(|i| i as f64)
             .unwrap_or(-1.0);
         Ok(num(idx))
@@ -261,32 +249,20 @@ impl Function<NonFunctionValue> for IndexOf {
 
 #[derive(Clone, Copy)]
 pub struct Slice;
-impl Function<NonFunctionValue> for Slice {
+impl Function for Slice {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let start = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
-        let end = args[2].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if start < 0.0 || end < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let start = start as usize;
         let end = end as usize;
@@ -298,54 +274,42 @@ impl Function<NonFunctionValue> for Slice {
 
 #[derive(Clone, Copy)]
 pub struct At;
-impl Function<NonFunctionValue> for At {
+impl Function for At {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if index < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         match array.get(index as usize) {
-            Some(v) => Ok(NonFunctionValue::new(v.clone())),
-            None => Ok(NonFunctionValue::new(serde_json::Value::Null)),
+            Some(v) => Ok(serde_json::Value::from(v.clone())),
+            None => Ok(serde_json::Value::from(serde_json::Value::Null)),
         }
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct Push;
-impl Function<NonFunctionValue> for Push {
+impl Function for Push {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let mut result = array.to_vec();
         for arg in &args[1..] {
-            result.push(arg.inner().clone());
+            result.push(arg.clone());
         }
         Ok(arr(&result))
     }
@@ -353,12 +317,12 @@ impl Function<NonFunctionValue> for Push {
 
 #[derive(Clone, Copy)]
 pub struct Pop;
-impl Function<NonFunctionValue> for Pop {
+impl Function for Pop {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let array = require_one_array(args)?;
         if array.is_empty() {
             return Ok(arr(&[]));
@@ -369,12 +333,12 @@ impl Function<NonFunctionValue> for Pop {
 
 #[derive(Clone, Copy)]
 pub struct Shift;
-impl Function<NonFunctionValue> for Shift {
+impl Function for Shift {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let array = require_one_array(args)?;
         if array.is_empty() {
             return Ok(arr(&[]));
@@ -385,29 +349,20 @@ impl Function<NonFunctionValue> for Shift {
 
 #[derive(Clone, Copy)]
 pub struct Fill;
-impl Function<NonFunctionValue> for Fill {
+impl Function for Fill {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
-        let count = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let count = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if count < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
-        let value = args[1].inner().clone();
+        let value = args[1].clone();
         let result: Vec<serde_json::Value> = (0..count as usize).map(|_| value.clone()).collect();
         Ok(arr(&result))
     }
@@ -419,28 +374,19 @@ impl Function<NonFunctionValue> for Fill {
 
 #[derive(Clone, Copy)]
 pub struct Take;
-impl Function<NonFunctionValue> for Take {
+impl Function for Take {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let n = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if n < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let n = (n as usize).min(array.len());
         Ok(arr(&array[..n]))
@@ -449,28 +395,19 @@ impl Function<NonFunctionValue> for Take {
 
 #[derive(Clone, Copy)]
 pub struct Drop;
-impl Function<NonFunctionValue> for Drop {
+impl Function for Drop {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let n = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if n < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let n = (n as usize).min(array.len());
         Ok(arr(&array[n..]))
@@ -505,20 +442,17 @@ array_unary_fn!(Unzip, |input: &[serde_json::Value]| {
 
 #[derive(Clone, Copy)]
 pub struct Intersperse;
-impl Function<NonFunctionValue> for Intersperse {
+impl Function for Intersperse {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let sep = args[1].inner().clone();
+        let sep = args[1].clone();
         let mut result = Vec::with_capacity(array.len().saturating_mul(2));
         for (i, item) in array.iter().enumerate() {
             if i > 0 {
@@ -532,17 +466,14 @@ impl Function<NonFunctionValue> for Intersperse {
 
 #[derive(Clone, Copy)]
 pub struct Intercalate;
-impl Function<NonFunctionValue> for Intercalate {
+impl Function for Intercalate {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let sep = require_array_value(&args[1])?;
@@ -573,21 +504,18 @@ array_unary_fn!(Dedupe, |input: &[serde_json::Value]| {
 
 #[derive(Clone, Copy)]
 pub struct Prepend;
-impl Function<NonFunctionValue> for Prepend {
+impl Function for Prepend {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let mut result = Vec::with_capacity(array.len() + 1);
-        result.push(args[1].inner().clone());
+        result.push(args[1].clone());
         result.extend(array.iter().cloned());
         Ok(arr(&result))
     }
@@ -595,17 +523,14 @@ impl Function<NonFunctionValue> for Prepend {
 
 #[derive(Clone, Copy)]
 pub struct TakeWhile;
-impl Function<NonFunctionValue> for TakeWhile {
+impl Function for TakeWhile {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -623,17 +548,14 @@ impl Function<NonFunctionValue> for TakeWhile {
 
 #[derive(Clone, Copy)]
 pub struct DropWhile;
-impl Function<NonFunctionValue> for DropWhile {
+impl Function for DropWhile {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -651,25 +573,22 @@ impl Function<NonFunctionValue> for DropWhile {
 
 #[derive(Clone, Copy)]
 pub struct Scan;
-impl Function<NonFunctionValue> for Scan {
+impl Function for Scan {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
-        let mut acc = args[2].inner().clone();
+        let mut acc = args[2].clone();
         let mut results = Vec::with_capacity(array.len());
         for item in array {
             let result_val = apply_fn2(ctx, &fn_val, &acc, item)?;
-            acc = result_val.into_inner();
+            acc = result_val;
             results.push(acc.clone());
         }
         Ok(arr(&results))
@@ -678,23 +597,20 @@ impl Function<NonFunctionValue> for Scan {
 
 #[derive(Clone, Copy)]
 pub struct Foldr;
-impl Function<NonFunctionValue> for Foldr {
+impl Function for Foldr {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
         let mut acc = args[2].clone();
         for item in array.iter().rev() {
-            acc = apply_fn2(ctx, &fn_val, acc.inner(), item)?;
+            acc = apply_fn2(ctx, &fn_val, &acc, item)?;
         }
         Ok(acc)
     }
@@ -702,17 +618,14 @@ impl Function<NonFunctionValue> for Foldr {
 
 #[derive(Clone, Copy)]
 pub struct FindIndex;
-impl Function<NonFunctionValue> for FindIndex {
+impl Function for FindIndex {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -723,41 +636,35 @@ impl Function<NonFunctionValue> for FindIndex {
 
 #[derive(Clone, Copy)]
 pub struct FindLast;
-impl Function<NonFunctionValue> for FindLast {
+impl Function for FindLast {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
         let result = find_first(ctx, &fn_val, array.iter().rev())?;
         match result {
-            Some(v) => Ok(NonFunctionValue::new(v)),
-            None => Ok(NonFunctionValue::new(serde_json::Value::Null)),
+            Some(v) => Ok(serde_json::Value::from(v)),
+            None => Ok(serde_json::Value::from(serde_json::Value::Null)),
         }
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct FindLastIndex;
-impl Function<NonFunctionValue> for FindLastIndex {
+impl Function for FindLastIndex {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -770,28 +677,19 @@ impl Function<NonFunctionValue> for FindLastIndex {
 
 #[derive(Clone, Copy)]
 pub struct Windows;
-impl Function<NonFunctionValue> for Windows {
+impl Function for Windows {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let size = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if size < 1.0 {
-            return Err(Error::TypeMismatch {
-                expected: "positive number",
-                got: "non-positive number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive number", "non-positive number",)));
         }
         let size = size as usize;
         if size > array.len() {
@@ -807,16 +705,13 @@ impl Function<NonFunctionValue> for Windows {
 
 #[derive(Clone, Copy)]
 pub struct Transpose;
-impl Function<NonFunctionValue> for Transpose {
+impl Function for Transpose {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let array = require_array_value(args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?)?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let array = require_array_value(args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?)?;
         if array.is_empty() {
             return Ok(arr(&[]));
         }
@@ -844,31 +739,22 @@ impl Function<NonFunctionValue> for Transpose {
 
 #[derive(Clone, Copy)]
 pub struct InsertAt;
-impl Function<NonFunctionValue> for InsertAt {
+impl Function for InsertAt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if index < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let index = (index as usize).min(array.len());
-        let value = args[2].inner().clone();
+        let value = args[2].clone();
         let mut result = Vec::with_capacity(array.len() + 1);
         result.extend_from_slice(&array[..index]);
         result.push(value);
@@ -879,28 +765,19 @@ impl Function<NonFunctionValue> for InsertAt {
 
 #[derive(Clone, Copy)]
 pub struct RemoveAt;
-impl Function<NonFunctionValue> for RemoveAt {
+impl Function for RemoveAt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if index < 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-negative number",
-                got: "negative number",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
         }
         let index = index as usize;
         if index >= array.len() {
@@ -919,39 +796,24 @@ impl Function<NonFunctionValue> for RemoveAt {
 
 #[derive(Clone, Copy)]
 pub struct Range;
-impl Function<NonFunctionValue> for Range {
+impl Function for Range {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
-        let start = args[0].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
-        let end = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let start = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let end = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         let step = if args.len() >= 3 {
-            args[2].as_number().ok_or(Error::TypeMismatch {
-                expected: "number",
-                got: "non-number",
-            })?
+            args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?
         } else {
             1.0
         };
         if step == 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "non-zero step",
-                got: "zero step",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero step", "zero step",)));
         }
         let mut values = Vec::new();
         let mut current = start;
@@ -972,17 +834,14 @@ impl Function<NonFunctionValue> for Range {
 
 #[derive(Clone, Copy)]
 pub struct Zip;
-impl Function<NonFunctionValue> for Zip {
+impl Function for Zip {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let a = require_array_value(&args[0])?;
         let b = require_array_value(&args[1])?;
@@ -996,28 +855,19 @@ impl Function<NonFunctionValue> for Zip {
 
 #[derive(Clone, Copy)]
 pub struct Chunk;
-impl Function<NonFunctionValue> for Chunk {
+impl Function for Chunk {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let input = require_array_value(&args[0])?;
-        let size = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
         if size <= 0.0 {
-            return Err(Error::TypeMismatch {
-                expected: "positive chunk size",
-                got: "non-positive chunk size",
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive chunk size", "non-positive chunk size",)));
         }
         let size = size as usize;
         let chunks: Vec<serde_json::Value> = input
@@ -1030,12 +880,12 @@ impl Function<NonFunctionValue> for Chunk {
 
 #[derive(Clone, Copy)]
 pub struct Compact;
-impl Function<NonFunctionValue> for Compact {
+impl Function for Compact {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         let result: Vec<serde_json::Value> =
             input.iter().filter(|v| !v.is_null()).cloned().collect();
@@ -1045,23 +895,17 @@ impl Function<NonFunctionValue> for Compact {
 
 #[derive(Clone, Copy)]
 pub struct Pluck;
-impl Function<NonFunctionValue> for Pluck {
+impl Function for Pluck {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let array = require_array_value(&args[0])?;
-        let key = args[1].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        let key = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
         let result: Vec<serde_json::Value> = array
             .iter()
             .map(|item| {

@@ -1,18 +1,18 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::CanonicalContext;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::EvalContext;
+use handl_platform::{EvalError};
 
 use super::cmd::{CmdModule, CmdOutput};
 use super::cmd_stub::StubCmd;
 
-fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = module.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn run() {
     );
     let module = CmdModule::new(cmd);
     let result = call(&module, "run", &[s("echo"), s("hello")]);
-    let obj = result.inner();
+    let obj = result;
     assert_eq!(obj["exit_code"], 0);
     assert_eq!(obj["stdout"], "hello");
     assert_eq!(obj["stderr"], "");
@@ -51,7 +51,7 @@ fn run_with_args() {
     );
     let module = CmdModule::new(cmd);
     let result = call(&module, "run", &[s("ls"), s("-la"), s("/tmp")]);
-    let obj = result.inner();
+    let obj = result;
     assert_eq!(obj["stdout"], "file1\nfile2");
 }
 
@@ -67,7 +67,7 @@ fn run_nonzero_exit() {
     );
     let module = CmdModule::new(cmd);
     let result = call(&module, "run", &[s("false")]);
-    let obj = result.inner();
+    let obj = result;
     assert_eq!(obj["exit_code"], 1);
     assert_eq!(obj["stderr"], "error");
 }
@@ -76,10 +76,10 @@ fn run_nonzero_exit() {
 fn run_not_found() {
     let module = CmdModule::new(StubCmd::default());
     let func = module.function("run").unwrap();
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     let err = func.call(&[s("nope")], &mut ctx).unwrap_err();
     match err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+        EvalError::Other(msg) => {
             assert!(msg.contains("not found"))
         }
         other => panic!("expected PrimitiveError, got {other:?}"),
@@ -96,13 +96,10 @@ fn unknown_function() {
 fn missing_program_arg() {
     let module = CmdModule::new(StubCmd::default());
     let func = module.function("run").unwrap();
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     let err = func.call(&[], &mut ctx).unwrap_err();
     assert_eq!(
         err,
-        handl_plugin_vm_values_json::Error::ArgumentCount {
-            expected: 1,
-            got: 0
-        }
+        EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0))
     );
 }

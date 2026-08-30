@@ -1,29 +1,28 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm_values_json::{CanonicalContext, Error};
 
-use handl_plugin_vm_common::Module;
+use handl_platform::Module;
 
 use super::StrModule;
+use handl_platform::{EvalContext, EvalError};
 
-fn call(name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(name: &str, args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(v))
 }
 
 #[test]
@@ -58,13 +57,13 @@ fn lower() {
 #[test]
 fn lower_no_args_errors() {
     let result = call_err("lower", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn lower_non_string_errors() {
     let result = call_err("lower", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -87,13 +86,13 @@ fn trim() {
 #[test]
 fn trim_no_args_errors() {
     let result = call_err("trim", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn trim_non_string_errors() {
     let result = call_err("trim", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -121,13 +120,13 @@ fn trim_start() {
 #[test]
 fn trim_start_no_args_errors() {
     let result = call_err("trim_start", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn trim_start_non_string_errors() {
     let result = call_err("trim_start", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -145,13 +144,13 @@ fn trim_end() {
 #[test]
 fn trim_end_no_args_errors() {
     let result = call_err("trim_end", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn trim_end_non_string_errors() {
     let result = call_err("trim_end", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -206,19 +205,19 @@ fn trim_matches_only_match_chars() {
 #[test]
 fn trim_matches_no_args_errors() {
     let result = call_err("trim_matches", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn trim_matches_first_arg_non_string_errors() {
     let result = call_err("trim_matches", &[n(42.0), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn trim_matches_second_arg_non_string_errors() {
     let result = call_err("trim_matches", &[s("hello"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── reverse ─────────────────────────────────────────────────────────
@@ -231,13 +230,13 @@ fn reverse() {
 #[test]
 fn reverse_no_args_errors() {
     let result = call_err("reverse", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn reverse_non_string_errors() {
     let result = call_err("reverse", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -254,39 +253,39 @@ fn reverse_unicode() {
 
 #[test]
 fn length_ascii() {
-    assert_eq!(call("length", &[s("hello")]).as_number(), Some(5.0));
+    assert_eq!(call("length", &[s("hello")]).as_f64(), Some(5.0));
 }
 
 #[test]
 fn length_empty() {
-    assert_eq!(call("length", &[s("")]).as_number(), Some(0.0));
+    assert_eq!(call("length", &[s("")]).as_f64(), Some(0.0));
 }
 
 #[test]
 fn length_unicode() {
-    assert_eq!(call("length", &[s("héllo")]).as_number(), Some(5.0));
+    assert_eq!(call("length", &[s("héllo")]).as_f64(), Some(5.0));
 }
 
 #[test]
 fn length_no_args_errors() {
     let result = call_err("length", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn length_non_string_errors() {
     let result = call_err("length", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn length_empty_string() {
-    assert_eq!(call("length", &[s("")]).as_number(), Some(0.0));
+    assert_eq!(call("length", &[s("")]).as_f64(), Some(0.0));
 }
 
 #[test]
 fn length_unicode_edge() {
-    assert_eq!(call("length", &[s("café")]).as_number(), Some(4.0));
+    assert_eq!(call("length", &[s("café")]).as_f64(), Some(4.0));
 }
 
 // ── concat ──────────────────────────────────────────────────────────
@@ -310,25 +309,25 @@ fn concat_three() {
 #[test]
 fn concat_one_arg_errors() {
     let result = call_err("concat", &[s("a")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn concat_no_args_errors() {
     let result = call_err("concat", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn concat_single_arg_errors() {
     let result = call_err("concat", &[s("a")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn concat_non_string_arg_errors() {
     let result = call_err("concat", &[s("a"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -364,13 +363,13 @@ fn is_empty_whitespace_is_not_empty() {
 #[test]
 fn is_empty_no_args_errors() {
     let result = call_err("is_empty", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn is_empty_non_string_errors() {
     let result = call_err("is_empty", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── equals ──────────────────────────────────────────────────────────
@@ -407,25 +406,25 @@ fn equals_case_sensitive() {
 #[test]
 fn equals_no_args_errors() {
     let result = call_err("equals", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn equals_one_arg_errors() {
     let result = call_err("equals", &[s("hello")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn equals_first_arg_non_string_errors() {
     let result = call_err("equals", &[n(42.0), s("hello")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn equals_second_arg_non_string_errors() {
     let result = call_err("equals", &[s("hello"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── is_alpha ────────────────────────────────────────────────────────
@@ -453,13 +452,13 @@ fn is_alpha_unicode() {
 #[test]
 fn is_alpha_no_args_errors() {
     let result = call_err("is_alpha", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn is_alpha_non_string_errors() {
     let result = call_err("is_alpha", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── is_numeric ──────────────────────────────────────────────────────
@@ -487,13 +486,13 @@ fn is_numeric_unicode_digits() {
 #[test]
 fn is_numeric_no_args_errors() {
     let result = call_err("is_numeric", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn is_numeric_non_string_errors() {
     let result = call_err("is_numeric", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── is_alphanumeric ─────────────────────────────────────────────────
@@ -530,13 +529,13 @@ fn is_alphanumeric_unicode() {
 #[test]
 fn is_alphanumeric_no_args_errors() {
     let result = call_err("is_alphanumeric", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn is_alphanumeric_non_string_errors() {
     let result = call_err("is_alphanumeric", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── shared error tests ──────────────────────────────────────────────
@@ -551,10 +550,7 @@ fn type_mismatch_on_non_string() {
     let result = call_err("upper", &[n(42.0)]);
     assert_eq!(
         result,
-        Err(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string"
-        })
+        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string")))
     );
 }
 
@@ -563,9 +559,6 @@ fn argument_count_on_missing_args() {
     let result = call_err("upper", &[]);
     assert_eq!(
         result,
-        Err(Error::ArgumentCount {
-            expected: 1,
-            got: 0
-        })
+        Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0)))
     );
 }

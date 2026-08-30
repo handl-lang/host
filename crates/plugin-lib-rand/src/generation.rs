@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::Rng;
 use serde_json::Value;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{array, require_int, s};
 use crate::error::RandError;
@@ -30,12 +28,12 @@ use crate::error::RandError;
 #[derive(Clone, Copy)]
 pub struct String_;
 
-impl Function<NonFunctionValue> for String_ {
+impl Function for String_ {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let length = require_int(args, 0)?;
         if length < 0 {
             return Err(RandError::InvalidStringLength { length }.into());
@@ -44,20 +42,11 @@ impl Function<NonFunctionValue> for String_ {
         let charset_name = match args.len() {
             1 => "alphanumeric",
             2 => {
-                let val = args.get(1).ok_or(Error::ArgumentCount {
-                    expected: 2,
-                    got: 1,
-                })?;
-                val.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?
+                let val = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, 1,)))?;
+                val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
             }
             n => {
-                return Err(Error::ArgumentCount {
-                    expected: 2,
-                    got: n,
-                });
+                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,)));
             }
         };
 
@@ -98,12 +87,12 @@ impl Function<NonFunctionValue> for String_ {
 #[derive(Clone, Copy)]
 pub struct Bytes;
 
-impl Function<NonFunctionValue> for Bytes {
+impl Function for Bytes {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let length = require_int(args, 0)?;
         if length < 0 {
             return Err(RandError::InvalidByteLength { length }.into());
@@ -129,12 +118,12 @@ impl Function<NonFunctionValue> for Bytes {
 #[derive(Clone, Copy)]
 pub struct Uuid;
 
-impl Function<NonFunctionValue> for Uuid {
+impl Function for Uuid {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let mut rng = rand::rng();
         let mut bytes = [0u8; 16];
         rng.fill(&mut bytes);

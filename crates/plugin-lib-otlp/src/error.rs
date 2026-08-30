@@ -1,4 +1,4 @@
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 use thiserror::Error;
 
 /// Errors that can occur inside the OTLP module.
@@ -44,7 +44,7 @@ impl OtlpError {
 
 impl From<OtlpError> for VmError {
     fn from(err: OtlpError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

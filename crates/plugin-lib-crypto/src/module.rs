@@ -1,6 +1,5 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Function;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::Function;
 
 use super::hash::{Md5, Sha256};
 
@@ -19,7 +18,7 @@ impl Module for CryptoModule {
         "crypto"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "sha256" => Some(&Sha256),
             "md5" => Some(&Md5),

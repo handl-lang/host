@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -48,7 +46,7 @@ impl Module for FsModule {
         "fs"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "read" => Some(&self.read),
             "write" => Some(&self.write),
@@ -60,20 +58,18 @@ impl Module for FsModule {
     }
 }
 
-fn require_string_arg(args: &[NonFunctionValue], expected: usize) -> Result<Vec<&str>, Error> {
+fn require_string_arg(args: &[serde_json::Value], expected: usize) -> Result<Vec<&str>, EvalError> {
     if args.len() < expected {
-        return Err(Error::ArgumentCount {
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
             expected,
-            got: args.len(),
-        });
+            args.len()
+        )));
     }
     args.iter()
         .take(expected)
         .map(|v| {
-            v.as_str().ok_or(Error::TypeMismatch {
-                expected: "string",
-                got: "non-string",
-            })
+            v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
         })
         .collect()
 }
@@ -82,16 +78,16 @@ struct ReadFileFn {
     fs: Arc<dyn Fs>,
 }
 
-impl Function<NonFunctionValue> for ReadFileFn {
+impl Function for ReadFileFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 1)?[0];
         self.fs
             .read_file(path)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -100,19 +96,16 @@ struct WriteFileFn {
     fs: Arc<dyn Fs>,
 }
 
-impl Function<NonFunctionValue> for WriteFileFn {
+impl Function for WriteFileFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 2)?[0];
-        let content = args[1].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        let content = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
         self.fs.write_file(path, content)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -120,16 +113,16 @@ struct ExistsFn {
     fs: Arc<dyn Fs>,
 }
 
-impl Function<NonFunctionValue> for ExistsFn {
+impl Function for ExistsFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 1)?[0];
         self.fs
             .exists(path)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -138,15 +131,15 @@ struct RemoveFn {
     fs: Arc<dyn Fs>,
 }
 
-impl Function<NonFunctionValue> for RemoveFn {
+impl Function for RemoveFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 1)?[0];
         self.fs.remove(path)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
 
@@ -154,16 +147,16 @@ struct ListDirFn {
     fs: Arc<dyn Fs>,
 }
 
-impl Function<NonFunctionValue> for ListDirFn {
+impl Function for ListDirFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 1)?[0];
         let entries = self.fs.list_dir(path)?;
         let arr: Vec<serde_json::Value> =
             entries.into_iter().map(serde_json::Value::String).collect();
-        Ok(NonFunctionValue::new(serde_json::Value::Array(arr)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
 }

@@ -62,10 +62,12 @@
 //! This crate is interface-agnostic — usable from CLI, MCP, or any consumer
 //! that evaluates handl expressions.
 
+use handl_platform::{Module};
 mod bool;
 mod cmp;
 mod encoding;
 mod r#fn;
+mod function_value;
 mod math;
 mod mood;
 mod option;

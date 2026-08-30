@@ -1,19 +1,21 @@
-//! Lexical token vocabulary, factory, and lexer for the handl dialect.
+//! Dynamic token kind for the handl dialect.
 //!
-//! Defines [`LexKind`] and its supporting enums ([`LexKeyword`],
-//! [`LexDelimiter`], [`LexOperator`]) by composing the narrow token-kind
-//! building blocks from the `plugin-token-*` crates. Also provides
-//! [`LexFactory`] (the lexer factory) and [`LexLexer`] (the concrete lexer).
+//! [`DynKind`] wraps `Box<dyn DynTokenKind>` and implements [`TokenKind`],
+//! making it a first-class token kind for the generic lexer and parser.
+//! Each per-concern kind (`NumberKind`, `StringKind`, `AsKind`, etc.) is
+//! boxed into `DynKind` by [`DynFactory`]. Adding a new token kind = adding
+//! a new `plugin-token-*` crate and a line in `DynFactory` — no central enum
+//! to edit.
 //!
-//! This crate has **no grammar-rule dependencies**. Each `plugin-grammar-*`
-//! crate implements its own token-capability trait for [`LexKind`], keeping
-//! the wiring local to the rule that needs it.
+//! This crate also provides [`DynLexer`] (the concrete lexer) and the
+//! [`DynFactory`] that wires all per-concern capability traits together.
 
+use std::any::Any;
 use std::fmt;
 
 use handl_plugin_lexer::{
-    compose_token_kind, CommentTokenKind, DefaultLexError, EofFactory, Lexer, LexerConfig,
-    Token,
+    CommentTokenKind, DefaultLexError, DynTokenKind, EofFactory, EofKind, Lexer, LexerConfig,
+    Token, TokenKind,
 };
 use handl_plugin_lexer_block_comment::BlockCommentRule;
 use handl_plugin_lexer_delimiter::DelimiterRule;
@@ -36,6 +38,7 @@ use handl_plugin_lexer_number::NumberToken;
 use handl_plugin_lexer_operator::OperatorToken;
 use handl_plugin_lexer_string::StringToken;
 
+// Per-concern kinds
 use handl_plugin_token_bool::{BoolKind, TokenFactory as BoolFactory};
 use handl_plugin_token_comment::{CommentKind, TokenFactory as CommentFactory};
 use handl_plugin_token_delimiter::{DelimiterKind, TokenFactory as DelimiterFactory};
@@ -43,6 +46,7 @@ use handl_plugin_token_doc_comment::{DocCommentKind, DocCommentRule, TokenFactor
 use handl_plugin_token_identifier::{IdentKind, TokenFactory as IdentFactory};
 use handl_plugin_token_keyword_as::{AsKind, TokenFactory as AsFactory};
 use handl_plugin_token_keyword_handle::{HandleKind, TokenFactory as HandleFactory};
+use handl_plugin_token_keyword::{KeywordKind, TokenFactory as KeywordFactory};
 use handl_plugin_token_null::{NullKind, TokenFactory as NullFactory};
 use handl_plugin_token_number::{NumberKind, TokenFactory as NumberFactory};
 use handl_plugin_token_operator::{CANONICAL_OPERATOR_CHARS, OperatorKind, TokenFactory as OperatorFactory};
@@ -50,312 +54,170 @@ use handl_plugin_token_string::{StringKind, TokenFactory as StringFactory};
 
 use handl_plugin_grammar_textmate::{GrammarContributor, GrammarRule};
 
-pub use handl_plugin_lexer_template::TemplateSegment as LexTemplateSegment;
+pub use handl_plugin_lexer_template::TemplateSegment as DynTemplateSegment;
 
 // ---------------------------------------------------------------------------
-// Sub-enums
+// TemplateKind — token kind for template literals
 // ---------------------------------------------------------------------------
 
-/// Keyword forms used by the lex token kind.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LexKeyword {
-    Match,
-    Handle,
-    As,
-    TypeOf,
-    Not,
-    Import,
-    Export,
-    Module,
-}
-
-/// Delimiter forms.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LexDelimiter {
-    ParenOpen,
-    ParenClose,
-    BracketOpen,
-    BracketClose,
-    BraceOpen,
-    BraceClose,
-    Comma,
-    Colon,
-    Dot,
-    Semicolon,
-}
-
-/// Operator forms.
+/// Token kind for template string literals.
 #[derive(Debug, Clone, PartialEq)]
-pub enum LexOperator {
-    Pipe,
-    Arrow,
-    Equal,
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    LessThan,
-    GreaterThan,
-    Other(String),
-}
+pub struct TemplateKind(pub Vec<TemplateSegment>);
 
-// ---------------------------------------------------------------------------
-// Composed token kind
-// ---------------------------------------------------------------------------
-
-compose_token_kind! {
-    /// Unified token kind for the handl dialect.
-    pub enum LexKind {
-        factory: LexFactory;
-
-        Eof,
-        Number(f64),
-        String(String),
-        Template(Vec<TemplateSegment>),
-        Identifier(String),
-        Bool(bool),
-        Null,
-        Comment(String),
-        DocComment(String),
-        Delimiter(LexDelimiter),
-        Operator(LexOperator),
-        Keyword(LexKeyword),
-    }
-
-    NumberKind {
-        Number(v) => Number(v),
-        Eof => Eof,
-    }
-    StringKind {
-        String(v) => String(v),
-        Eof => Eof,
-    }
-    IdentKind {
-        Ident(v) => Identifier(v),
-        Eof => Eof,
-    }
-    BoolKind {
-        Bool(v) => Bool(v),
-        Eof => Eof,
-    }
-    NullKind {
-        Null => Null,
-        Eof => Eof,
-    }
-    CommentKind {
-        Comment(v) => Comment(v),
-        Eof => Eof,
-    }
-    DocCommentKind {
-        DocComment(v) => DocComment(v),
-        Eof => Eof,
-    }
-    DelimiterKind {
-        ParenOpen => Delimiter(LexDelimiter::ParenOpen),
-        ParenClose => Delimiter(LexDelimiter::ParenClose),
-        BracketOpen => Delimiter(LexDelimiter::BracketOpen),
-        BracketClose => Delimiter(LexDelimiter::BracketClose),
-        BraceOpen => Delimiter(LexDelimiter::BraceOpen),
-        BraceClose => Delimiter(LexDelimiter::BraceClose),
-        Comma => Delimiter(LexDelimiter::Comma),
-        Colon => Delimiter(LexDelimiter::Colon),
-        Dot => Delimiter(LexDelimiter::Dot),
-        Semicolon => Delimiter(LexDelimiter::Semicolon),
-        Eof => Eof,
-    }
-    OperatorKind {
-        Pipe => Operator(LexOperator::Pipe),
-        Arrow => Operator(LexOperator::Arrow),
-        Equal => Operator(LexOperator::Equal),
-        Plus => Operator(LexOperator::Plus),
-        Minus => Operator(LexOperator::Minus),
-        Star => Operator(LexOperator::Star),
-        Slash => Operator(LexOperator::Slash),
-        LessThan => Operator(LexOperator::LessThan),
-        GreaterThan => Operator(LexOperator::GreaterThan),
-        Eof => Eof,
-    }
-    AsKind {
-        As => Keyword(LexKeyword::As),
-        Eof => Eof,
-    }
-    HandleKind {
-        Handle => Keyword(LexKeyword::Handle),
-        Eof => Eof,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Display
-// ---------------------------------------------------------------------------
-
-const KEYWORD_DISPLAY: &[(LexKeyword, &str)] = &[
-    (LexKeyword::Match, "match"),
-    (LexKeyword::Handle, "handle"),
-    (LexKeyword::As, "as"),
-    (LexKeyword::TypeOf, "typeof"),
-    (LexKeyword::Not, "not"),
-    (LexKeyword::Import, "import"),
-    (LexKeyword::Export, "export"),
-    (LexKeyword::Module, "module"),
-];
-
-const DELIM_DISPLAY: &[(LexDelimiter, &str)] = &[
-    (LexDelimiter::ParenOpen, "("),
-    (LexDelimiter::ParenClose, ")"),
-    (LexDelimiter::BracketOpen, "["),
-    (LexDelimiter::BracketClose, "]"),
-    (LexDelimiter::BraceOpen, "{{"),
-    (LexDelimiter::BraceClose, "}}"),
-    (LexDelimiter::Comma, ","),
-    (LexDelimiter::Colon, ":"),
-    (LexDelimiter::Dot, "."),
-    (LexDelimiter::Semicolon, ";"),
-];
-
-impl fmt::Display for LexKind {
+impl fmt::Display for TemplateKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LexKind::Number(n) => write!(f, "number({n})"),
-            LexKind::String(s) => write!(f, "string({s:?})"),
-            LexKind::Template(segments) => {
-                write!(f, "template(")?;
-                for seg in segments {
-                    match seg {
-                        TemplateSegment::Text(t) => write!(f, "{t:?}")?,
-                        TemplateSegment::Expr(e) => write!(f, "${{{e}}}")?,
-                    }
-                }
-                write!(f, ")")
+        write!(f, "template(")?;
+        for seg in &self.0 {
+            match seg {
+                TemplateSegment::Text(t) => write!(f, "{t:?}")?,
+                TemplateSegment::Expr(e) => write!(f, "${{{e}}}")?,
             }
-            LexKind::Identifier(s) => write!(f, "identifier({s})"),
-            LexKind::Bool(b) => write!(f, "bool({b})"),
-            LexKind::Null => write!(f, "null"),
-            LexKind::Comment(s) => write!(f, "comment({s:?})"),
-            LexKind::DocComment(s) => write!(f, "doc-comment({s:?})"),
-            LexKind::Delimiter(d) => {
-                let text = DELIM_DISPLAY
-                    .iter()
-                    .find(|(delim, _)| *delim == *d)
-                    .map(|(_, t)| *t)
-                    .unwrap_or("");
-                write!(f, "{text}")
-            }
-            LexKind::Operator(o) => match o {
-                LexOperator::Pipe => write!(f, "|>"),
-                LexOperator::Arrow => write!(f, "->"),
-                LexOperator::Equal => write!(f, "="),
-                LexOperator::Plus => write!(f, "+"),
-                LexOperator::Minus => write!(f, "-"),
-                LexOperator::Star => write!(f, "*"),
-                LexOperator::Slash => write!(f, "/"),
-                LexOperator::LessThan => write!(f, "<"),
-                LexOperator::GreaterThan => write!(f, ">"),
-                LexOperator::Other(s) => write!(f, "operator({s})"),
-            },
-            LexKind::Keyword(k) => {
-                let text = KEYWORD_DISPLAY
-                    .iter()
-                    .find(|(kw, _)| *kw == *k)
-                    .map(|(_, t)| *t)
-                    .unwrap_or("");
-                write!(f, "{text}")
-            }
-            LexKind::Eof => write!(f, "eof"),
         }
+        write!(f, ")")
+    }
+}
+
+impl DynTokenKind for TemplateKind {
+    fn is_eof(&self) -> bool {
+        false
+    }
+
+    fn is_error(&self) -> bool {
+        false
+    }
+
+    fn eq_kind(&self, other: &dyn DynTokenKind) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<TemplateKind>()
+            .map(|k| k.0 == self.0)
+            .unwrap_or(false)
+    }
+
+    fn dyn_clone(&self) -> Box<dyn DynTokenKind> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
 // ---------------------------------------------------------------------------
-// Infrastructure trait impls (not grammar-specific)
+// DynKind — dynamic, open token kind
 // ---------------------------------------------------------------------------
 
-impl CommentTokenKind for LexKind {
+/// Dynamic token kind wrapping `Box<dyn DynTokenKind>`.
+///
+/// This is the canonical token kind for the handl dialect. It is open:
+/// any type implementing [`DynTokenKind`] can be boxed into `DynKind` by
+/// [`DynFactory`]. Consumers query via [`DynKind::downcast_ref`].
+#[derive(Debug)]
+pub struct DynKind(pub Box<dyn DynTokenKind>);
+
+impl Clone for DynKind {
+    fn clone(&self) -> Self {
+        DynKind(self.0.dyn_clone())
+    }
+}
+
+impl DynKind {
+    /// Creates a `DynKind` from any `DynTokenKind`.
+    pub fn new(kind: impl DynTokenKind) -> Self {
+        DynKind(Box::new(kind))
+    }
+
+    /// Downcasts the inner kind to `T`.
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.0.as_any().downcast_ref::<T>()
+    }
+
+    /// Returns the inner trait object.
+    pub fn inner(&self) -> &dyn DynTokenKind {
+        self.0.as_ref()
+    }
+}
+
+impl PartialEq for DynKind {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_kind(other.0.as_ref())
+    }
+}
+
+impl fmt::Display for DynKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TokenKind for DynKind {
+    type Factory = DynFactory;
+
+    fn is_eof(&self) -> bool {
+        self.0.is_eof()
+    }
+
+    fn is_error(&self) -> bool {
+        self.0.is_error()
+    }
+}
+
+impl CommentTokenKind for DynKind {
     fn is_comment(&self) -> bool {
-        matches!(
-            self,
-            LexKind::Comment(_) | LexKind::DocComment(_)
-        )
+        self.downcast_ref::<CommentKind>().is_some()
+            || self.downcast_ref::<DocCommentKind>().is_some()
     }
 }
 
-impl TemplateTokenKind for LexKind {
+impl TemplateTokenKind for DynKind {
     fn template_kind(segments: Vec<TemplateSegment>) -> Self {
-        LexKind::Template(segments)
+        DynKind(Box::new(TemplateKind(segments)))
     }
 }
 
-impl SemicolonToken for LexKind {
+impl SemicolonToken for DynKind {
     fn is_semicolon(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Semicolon)
+            .unwrap_or(false)
     }
 }
 
 // ---------------------------------------------------------------------------
-// Factory
+// DynFactory — wires all per-concern capability traits for DynKind
 // ---------------------------------------------------------------------------
 
-/// The factory that turns raw values into [`LexKind`] tokens.
+/// Factory that produces `DynKind` tokens for the canonical handl dialect.
+///
+/// Each capability method boxes the appropriate per-concern kind. Adding a
+/// new token kind = adding a new method mapping here and a dependency on the
+/// new `plugin-token-*` crate.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct LexFactory;
+pub struct DynFactory;
 
-impl LexFactory {
-    /// Returns all keyword text and their kinds, as the single source of truth.
-    pub fn all_keywords() -> &'static [(&'static str, LexKind)] {
-        &[
-            ("true", LexKind::Bool(true)),
-            ("false", LexKind::Bool(false)),
-            ("null", LexKind::Null),
-            ("match", LexKind::Keyword(LexKeyword::Match)),
-            ("handle", LexKind::Keyword(LexKeyword::Handle)),
-            ("as", LexKind::Keyword(LexKeyword::As)),
-            ("typeof", LexKind::Keyword(LexKeyword::TypeOf)),
-            ("not", LexKind::Keyword(LexKeyword::Not)),
-            ("import", LexKind::Keyword(LexKeyword::Import)),
-            ("export", LexKind::Keyword(LexKeyword::Export)),
-            ("module", LexKind::Keyword(LexKeyword::Module)),
-        ]
-    }
-
-    /// Returns all operator strings recognized by this factory.
-    pub fn all_operators() -> Vec<String> {
-        vec![
-            "|>".to_string(),
-            "->".to_string(),
-            "=".to_string(),
-            "+".to_string(),
-            "-".to_string(),
-            "*".to_string(),
-            "/".to_string(),
-            "<".to_string(),
-            ">".to_string(),
-        ]
+impl EofFactory<DynKind> for DynFactory {
+    fn eof_kind(&self) -> DynKind {
+        DynKind(Box::new(EofKind))
     }
 }
 
-impl EofFactory<LexKind> for LexFactory {
-    fn eof_kind(&self) -> LexKind {
-        LexKind::Eof
-    }
-}
-
-impl StringToken<LexKind> for LexFactory {
+impl StringToken<DynKind> for DynFactory {
     fn is_string_start(&self, ch: char) -> bool {
         ch == '"' || ch == '\''
     }
 
-    fn string_kind(&self, value: String) -> LexKind {
-        LexKind::String(value)
+    fn string_kind(&self, value: String) -> DynKind {
+        DynKind(Box::new(StringKind::String(value)))
     }
 }
 
-impl NumberToken<LexKind> for LexFactory {
+impl NumberToken<DynKind> for DynFactory {
     fn is_number_start(&self, ch: char) -> bool {
         ch.is_ascii_digit() || ch == '-'
     }
 
-    fn number_kind(&self, value: f64) -> LexKind {
-        LexKind::Number(value)
+    fn number_kind(&self, value: f64) -> DynKind {
+        DynKind(Box::new(NumberKind::Number(value)))
     }
 
     fn number_regex(&self) -> &str {
@@ -363,7 +225,7 @@ impl NumberToken<LexKind> for LexFactory {
     }
 }
 
-impl IdentToken<LexKind> for LexFactory {
+impl IdentToken<DynKind> for DynFactory {
     fn is_ident_start(&self, ch: char) -> bool {
         ch.is_alphabetic() || ch == '_'
     }
@@ -372,8 +234,8 @@ impl IdentToken<LexKind> for LexFactory {
         ch.is_alphanumeric() || ch == '_'
     }
 
-    fn ident_kind(&self, text: String) -> LexKind {
-        LexKind::Identifier(text)
+    fn ident_kind(&self, text: String) -> DynKind {
+        DynKind(Box::new(IdentKind::Ident(text)))
     }
 
     fn identifier_regex(&self) -> &str {
@@ -381,44 +243,62 @@ impl IdentToken<LexKind> for LexFactory {
     }
 }
 
-impl KeywordToken<LexKind> for LexFactory {
-    fn keyword_kind(&self, text: &str) -> Option<LexKind> {
-        Self::all_keywords()
-            .iter()
-            .find(|(kw, _)| *kw == text)
-            .map(|(_, kind)| kind.clone())
+impl KeywordToken<DynKind> for DynFactory {
+    fn keyword_kind(&self, text: &str) -> Option<DynKind> {
+        match text {
+            "true" => Some(DynKind(Box::new(BoolKind::Bool(true)))),
+            "false" => Some(DynKind(Box::new(BoolKind::Bool(false)))),
+            "null" => Some(DynKind(Box::new(NullKind::Null))),
+            "as" => Some(DynKind(Box::new(AsKind::As))),
+            "handle" => Some(DynKind(Box::new(HandleKind::Handle))),
+            "match" | "typeof" | "not" | "import" | "export" | "module" => {
+                Some(DynKind(Box::new(KeywordKind(
+                    // SAFETY: all arms are 'static strings
+                    match text {
+                        "match" => "match",
+                        "typeof" => "typeof",
+                        "not" => "not",
+                        "import" => "import",
+                        "export" => "export",
+                        "module" => "module",
+                        _ => unreachable!(),
+                    },
+                ))))
+            }
+            _ => None,
+        }
     }
 }
 
-impl OperatorToken<LexKind> for LexFactory {
+impl OperatorToken<DynKind> for DynFactory {
     fn operator_chars(&self) -> &str {
         CANONICAL_OPERATOR_CHARS
     }
 
-    fn operator_kind(&self, text: &str) -> Option<LexKind> {
+    fn operator_kind(&self, text: &str) -> Option<DynKind> {
         let op = match text {
-            "|>" => LexOperator::Pipe,
-            "->" => LexOperator::Arrow,
-            "=" => LexOperator::Equal,
-            "+" => LexOperator::Plus,
-            "-" => LexOperator::Minus,
-            "*" => LexOperator::Star,
-            "/" => LexOperator::Slash,
-            "<" => LexOperator::LessThan,
-            ">" => LexOperator::GreaterThan,
-            _ => LexOperator::Other(text.to_string()),
+            "|>" => OperatorKind::Pipe,
+            "->" => OperatorKind::Arrow,
+            "=" => OperatorKind::Equal,
+            "+" => OperatorKind::Plus,
+            "-" => OperatorKind::Minus,
+            "*" => OperatorKind::Star,
+            "/" => OperatorKind::Slash,
+            "<" => OperatorKind::LessThan,
+            ">" => OperatorKind::GreaterThan,
+            _ => return None,
         };
-        Some(LexKind::Operator(op))
+        Some(DynKind(Box::new(op)))
     }
 }
 
-impl CommentToken<LexKind> for LexFactory {
-    fn comment_kind(&self, text: String) -> LexKind {
-        LexKind::Comment(text)
+impl CommentToken<DynKind> for DynFactory {
+    fn comment_kind(&self, text: String) -> DynKind {
+        DynKind(Box::new(CommentKind::Comment(text)))
     }
 
-    fn doc_comment_kind(&self, text: String) -> LexKind {
-        LexKind::DocComment(text)
+    fn doc_comment_kind(&self, text: String) -> DynKind {
+        DynKind(Box::new(DocCommentKind::DocComment(text)))
     }
 
     fn line_comment_prefix(&self) -> Option<&str> {
@@ -439,30 +319,30 @@ impl CommentToken<LexKind> for LexFactory {
 }
 
 // ---------------------------------------------------------------------------
-// Lexer
+// DynLexer — concrete lexer for the handl dialect
 // ---------------------------------------------------------------------------
 
 /// The concrete lexer for the handl dialect.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct LexLexer;
+pub struct DynLexer;
 
-impl LexLexer {
+impl DynLexer {
     /// Returns the lexer configuration used by this lexer.
     ///
     /// Exposed so tooling (grammar generators, semantic token providers) can
     /// introspect keywords, delimiters, and rules without duplicating them.
-    pub fn config() -> LexerConfig<LexKind, DefaultLexError> {
-        LexerConfig::new(LexFactory)
-            .with_delimiter('(', LexKind::Delimiter(LexDelimiter::ParenOpen))
-            .with_delimiter(')', LexKind::Delimiter(LexDelimiter::ParenClose))
-            .with_delimiter('[', LexKind::Delimiter(LexDelimiter::BracketOpen))
-            .with_delimiter(']', LexKind::Delimiter(LexDelimiter::BracketClose))
-            .with_delimiter('{', LexKind::Delimiter(LexDelimiter::BraceOpen))
-            .with_delimiter('}', LexKind::Delimiter(LexDelimiter::BraceClose))
-            .with_delimiter(',', LexKind::Delimiter(LexDelimiter::Comma))
-            .with_delimiter(':', LexKind::Delimiter(LexDelimiter::Colon))
-            .with_delimiter('.', LexKind::Delimiter(LexDelimiter::Dot))
-            .with_delimiter(';', LexKind::Delimiter(LexDelimiter::Semicolon))
+    pub fn config() -> LexerConfig<DynKind, DefaultLexError> {
+        LexerConfig::new(DynFactory)
+            .with_delimiter('(', DynKind(Box::new(DelimiterKind::ParenOpen)))
+            .with_delimiter(')', DynKind(Box::new(DelimiterKind::ParenClose)))
+            .with_delimiter('[', DynKind(Box::new(DelimiterKind::BracketOpen)))
+            .with_delimiter(']', DynKind(Box::new(DelimiterKind::BracketClose)))
+            .with_delimiter('{', DynKind(Box::new(DelimiterKind::BraceOpen)))
+            .with_delimiter('}', DynKind(Box::new(DelimiterKind::BraceClose)))
+            .with_delimiter(',', DynKind(Box::new(DelimiterKind::Comma)))
+            .with_delimiter(':', DynKind(Box::new(DelimiterKind::Colon)))
+            .with_delimiter('.', DynKind(Box::new(DelimiterKind::Dot)))
+            .with_delimiter(';', DynKind(Box::new(DelimiterKind::Semicolon)))
             .with_rule(DocCommentRule)
             .with_rule(LineCommentRule)
             .with_rule(BlockCommentRule)
@@ -474,10 +354,42 @@ impl LexLexer {
             .with_rule(OperatorRule)
             .with_rule(DelimiterRule)
     }
+
+    /// Returns all keyword text and their kinds, as the single source of truth.
+    pub fn all_keywords() -> Vec<(&'static str, DynKind)> {
+        vec![
+            ("true", DynKind(Box::new(BoolKind::Bool(true)))),
+            ("false", DynKind(Box::new(BoolKind::Bool(false)))),
+            ("null", DynKind(Box::new(NullKind::Null))),
+            ("match", DynKind(Box::new(KeywordKind("match")))),
+            ("handle", DynKind(Box::new(HandleKind::Handle))),
+            ("as", DynKind(Box::new(AsKind::As))),
+            ("typeof", DynKind(Box::new(KeywordKind("typeof")))),
+            ("not", DynKind(Box::new(KeywordKind("not")))),
+            ("import", DynKind(Box::new(KeywordKind("import")))),
+            ("export", DynKind(Box::new(KeywordKind("export")))),
+            ("module", DynKind(Box::new(KeywordKind("module")))),
+        ]
+    }
+
+    /// Returns all operator strings recognized by this factory.
+    pub fn all_operators() -> Vec<String> {
+        vec![
+            "|>".to_string(),
+            "->".to_string(),
+            "=".to_string(),
+            "+".to_string(),
+            "-".to_string(),
+            "*".to_string(),
+            "/".to_string(),
+            "<".to_string(),
+            ">".to_string(),
+        ]
+    }
 }
 
-impl Lexer<LexKind, DefaultLexError> for LexLexer {
-    fn lex(&self, input: &str) -> Result<Vec<Token<LexKind>>, DefaultLexError> {
+impl Lexer<DynKind, DefaultLexError> for DynLexer {
+    fn lex(&self, input: &str) -> Result<Vec<Token<DynKind>>, DefaultLexError> {
         let tokens = Self::config().lex(input)?;
 
         Ok(tokens
@@ -491,16 +403,16 @@ impl Lexer<LexKind, DefaultLexError> for LexLexer {
 // GrammarContributor
 // ---------------------------------------------------------------------------
 
-impl GrammarContributor for LexFactory {
+impl GrammarContributor for DynFactory {
     fn grammar_rules(&self) -> Vec<GrammarRule> {
-        // Collect rules from each sub-factory that implements GrammarContributor.
-        let contributors: [&dyn GrammarContributor; 11] = [
+        let contributors: [&dyn GrammarContributor; 12] = [
             &DocCommentFactory,
             &CommentFactory,
             &StringFactory,
             &NumberFactory,
             &BoolFactory,
             &NullFactory,
+            &KeywordFactory,
             &AsFactory,
             &HandleFactory,
             &OperatorFactory,
@@ -508,45 +420,6 @@ impl GrammarContributor for LexFactory {
             &IdentFactory,
         ];
 
-        let mut rules = handl_plugin_grammar_textmate::collect_rules(&contributors);
-
-        // Add keywords that don't have their own dedicated token plugins.
-        // These are defined directly in LexFactory::all_keywords() and are
-        // not covered by plugin-token-keyword-as or plugin-token-keyword-handle.
-        let extra_keywords: Vec<String> = LexFactory::all_keywords()
-            .iter()
-            .filter(|(_, kind)| matches!(kind, LexKind::Keyword(_)))
-            .map(|(text, _)| text.to_string())
-            .filter(|text| text != "as" && text != "handle")
-            .collect();
-        if !extra_keywords.is_empty() {
-            let alt = extra_keywords
-                .iter()
-                .map(|s| regex_escape(s))
-                .collect::<Vec<_>>()
-                .join("|");
-            rules.push(GrammarRule::match_rule(
-                "keywords",
-                "keyword",
-                &format!(r"\b({alt})\b"),
-                50,
-            ));
-        }
-
-        // Sort by priority (collect_rules already sorts, but we added more)
-        rules.sort_by_key(|r| r.priority);
-        rules
+        handl_plugin_grammar_textmate::collect_rules(&contributors)
     }
-}
-
-fn regex_escape(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$'
-            | '/' => {
-                format!("\\{c}")
-            }
-            _ => c.to_string(),
-        })
-        .collect()
 }

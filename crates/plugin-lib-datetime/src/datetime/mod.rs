@@ -1,4 +1,3 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 mod arithmetic;
 mod bounds;
 mod common;
@@ -29,8 +28,8 @@ pub use format_parse::{Format, Parse};
 pub use timezone::{ToTimezone, ToUtc};
 pub use validate::IsValid;
 
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Function;
+use handl_platform::Module;
+use handl_platform::Function;
 
 /// The `datetime` module — date and time utility functions.
 ///
@@ -47,7 +46,7 @@ impl Module for DateTimeModule {
         "datetime"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             // convert
             "from_unix" => Some(&FromUnix),

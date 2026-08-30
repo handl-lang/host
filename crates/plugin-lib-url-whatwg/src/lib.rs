@@ -3,9 +3,8 @@
 //! WHATWG URL Standard parser for `handl-lib-parse`.
 
 use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::{Value, json};
 
 /// Parser for the WHATWG URL Standard.
@@ -90,7 +89,7 @@ impl Module for UrlWhatwgModule {
         "url_whatwg"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "url_whatwg" => Some(&UrlWhatwgName),
             _ => None,
@@ -101,20 +100,17 @@ impl Module for UrlWhatwgModule {
 #[derive(Debug, Clone, Copy)]
 struct UrlWhatwgName;
 
-impl Function<NonFunctionValue> for UrlWhatwgName {
+impl Function for UrlWhatwgName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
 
-        Ok(NonFunctionValue::new(json!({
+        Ok(serde_json::Value::from(json!({
             "type": "parser",
             "name": "url_whatwg",
         })))
@@ -124,7 +120,7 @@ impl Function<NonFunctionValue> for UrlWhatwgName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::CanonicalContext;
+    use handl_platform::EvalContext;
 
     #[test]
     fn parses_http_url() {
@@ -161,8 +157,8 @@ mod tests {
 
     #[test]
     fn url_whatwg_object_is_parser_token() {
-        let mut ctx = CanonicalContext::new();
-        let obj = UrlWhatwgName.call(&[], &mut ctx).unwrap().into_inner();
+        let mut ctx = EvalContext::new();
+        let obj = UrlWhatwgName.call(&[], &mut ctx).unwrap();
         assert_eq!(obj["type"], "parser");
         assert_eq!(obj["name"], "url_whatwg");
         assert!(obj.get("parse").is_none());

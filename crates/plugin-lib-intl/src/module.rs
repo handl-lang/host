@@ -1,6 +1,5 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Function;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Module;
+use handl_platform::Function;
 
 use super::compare_strings::CompareStrings;
 use super::display_name::DisplayName;
@@ -126,7 +125,7 @@ impl Module for IntlModule {
         "intl"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "format_number" => Some(&self.f_format_number),
             "format_number_to_parts" => Some(&self.f_format_number_to_parts),

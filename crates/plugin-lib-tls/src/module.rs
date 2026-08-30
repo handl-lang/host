@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value;
 
 use super::error::TlsError;
@@ -83,7 +82,7 @@ impl Module for TlsModule {
         "tls"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "version" => Some(&self.version),
             "generate_self_signed" => Some(&self.generate_self_signed),
@@ -103,54 +102,39 @@ impl Module for TlsModule {
 }
 
 fn require_arg<'a>(
-    args: &'a [NonFunctionValue],
+    args: &'a [serde_json::Value],
     idx: usize,
-) -> Result<&'a NonFunctionValue, Error> {
-    args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })
+) -> Result<&'a serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
 }
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    require_arg(args, idx)?.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
+    require_arg(args, idx)?.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_number_at(args: &[NonFunctionValue], idx: usize) -> Result<f64, Error> {
+fn require_number_at(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
     require_arg(args, idx)?
-        .as_number()
-        .ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })
+        .as_f64()
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
 }
 
-fn require_usize_at(args: &[NonFunctionValue], idx: usize) -> Result<usize, Error> {
+fn require_usize_at(args: &[serde_json::Value], idx: usize) -> Result<usize, EvalError> {
     let n = require_number_at(args, idx)?;
     if n < 0.0 || n.trunc() != n {
-        return Err(Error::TypeMismatch {
-            expected: "non-negative integer",
-            got: "non-integer number",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer", "non-integer number",)));
     }
     Ok(n as usize)
 }
 
-fn require_u16_at(args: &[NonFunctionValue], idx: usize) -> Result<u16, Error> {
+fn require_u16_at(args: &[serde_json::Value], idx: usize) -> Result<u16, EvalError> {
     let n = require_number_at(args, idx)?;
     if n < 0.0 || n > u16::MAX as f64 || n.trunc() != n {
-        return Err(Error::TypeMismatch {
-            expected: "port number (0-65535)",
-            got: "invalid port",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "port number (0-65535)", "invalid port",)));
     }
     Ok(n as u16)
 }
 
-fn extract_hosts(value: &NonFunctionValue) -> Result<Vec<String>, TlsError> {
+fn extract_hosts(value: &serde_json::Value) -> Result<Vec<String>, TlsError> {
     if let Some(s) = value.as_str() {
         return Ok(vec![s.to_string()]);
     }
@@ -169,7 +153,7 @@ fn extract_hosts(value: &NonFunctionValue) -> Result<Vec<String>, TlsError> {
     })
 }
 
-fn extract_string_array(value: &NonFunctionValue) -> Result<Vec<String>, TlsError> {
+fn extract_string_array(value: &serde_json::Value) -> Result<Vec<String>, TlsError> {
     let arr = value.as_array().ok_or_else(|| TlsError::InvalidInput {
         message: "expected an array of strings".to_string(),
     })?;
@@ -183,16 +167,13 @@ fn extract_string_array(value: &NonFunctionValue) -> Result<Vec<String>, TlsErro
     Ok(out)
 }
 
-fn optional_string_at(args: &[NonFunctionValue], idx: usize) -> Result<Option<&str>, Error> {
+fn optional_string_at(args: &[serde_json::Value], idx: usize) -> Result<Option<&str>, EvalError> {
     match args.get(idx) {
         None => Ok(None),
         Some(v) if v.is_null() => Ok(None),
         Some(v) => v
             .as_str()
-            .ok_or(Error::TypeMismatch {
-                expected: "string or null",
-                got: "non-string non-null",
-            })
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string or null", "non-string non-null",)))
             .map(Some),
     }
 }
@@ -205,14 +186,14 @@ macro_rules! no_arg_fn {
             service: Arc<dyn TlsService>,
         }
 
-        impl Function<NonFunctionValue> for $name {
+        impl Function for $name {
             fn call(
                 &self,
-                _args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                _args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let value = self.service.$method();
-                Ok(NonFunctionValue::new(value))
+                Ok(serde_json::Value::from(value))
             }
         }
     };
@@ -224,15 +205,15 @@ struct GenerateSelfSignedFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for GenerateSelfSignedFn {
+impl Function for GenerateSelfSignedFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let hosts = extract_hosts(require_arg(args, 0)?)?;
         let value = self.service.generate_self_signed(&hosts)?;
-        Ok(NonFunctionValue::new(value))
+        Ok(serde_json::Value::from(value))
     }
 }
 
@@ -240,15 +221,15 @@ struct ParseCertFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for ParseCertFn {
+impl Function for ParseCertFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let pem = require_string_at(args, 0)?;
         let value = self.service.parse_cert(pem)?;
-        Ok(NonFunctionValue::new(value))
+        Ok(serde_json::Value::from(value))
     }
 }
 
@@ -256,15 +237,15 @@ struct FingerprintFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for FingerprintFn {
+impl Function for FingerprintFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let pem = require_string_at(args, 0)?;
         let fp = self.service.fingerprint(pem)?;
-        Ok(NonFunctionValue::new(fp))
+        Ok(serde_json::Value::from(fp))
     }
 }
 
@@ -272,17 +253,17 @@ struct ClientConfigFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for ClientConfigFn {
+impl Function for ClientConfigFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let roots = extract_string_array(require_arg(args, 0)?)?;
         let cert = optional_string_at(args, 1)?;
         let key = optional_string_at(args, 2)?;
         let id = self.service.client_config(&roots, cert, key)?;
-        Ok(NonFunctionValue::new(id))
+        Ok(serde_json::Value::from(id))
     }
 }
 
@@ -290,16 +271,16 @@ struct ServerConfigFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for ServerConfigFn {
+impl Function for ServerConfigFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let cert = require_string_at(args, 0)?;
         let key = require_string_at(args, 1)?;
         let id = self.service.server_config(cert, key)?;
-        Ok(NonFunctionValue::new(id))
+        Ok(serde_json::Value::from(id))
     }
 }
 
@@ -307,17 +288,17 @@ struct ConnectFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for ConnectFn {
+impl Function for ConnectFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let host = require_string_at(args, 0)?;
         let port = require_u16_at(args, 1)?;
         let config_id = require_usize_at(args, 2)?;
         let id = self.service.connect(host, port, config_id)?;
-        Ok(NonFunctionValue::new(id))
+        Ok(serde_json::Value::from(id))
     }
 }
 
@@ -325,17 +306,17 @@ struct AcceptFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for AcceptFn {
+impl Function for AcceptFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let addr = require_string_at(args, 0)?;
         let port = require_u16_at(args, 1)?;
         let config_id = require_usize_at(args, 2)?;
         let id = self.service.accept(addr, port, config_id)?;
-        Ok(NonFunctionValue::new(id))
+        Ok(serde_json::Value::from(id))
     }
 }
 
@@ -343,16 +324,16 @@ struct ReadFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for ReadFn {
+impl Function for ReadFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let conn_id = require_usize_at(args, 0)?;
         let len = require_usize_at(args, 1)?;
         let data = self.service.read(conn_id, len)?;
-        Ok(NonFunctionValue::new(data))
+        Ok(serde_json::Value::from(data))
     }
 }
 
@@ -360,16 +341,16 @@ struct WriteFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for WriteFn {
+impl Function for WriteFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let conn_id = require_usize_at(args, 0)?;
         let data = require_string_at(args, 1)?;
         self.service.write(conn_id, data)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -377,15 +358,15 @@ struct CloseConnFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for CloseConnFn {
+impl Function for CloseConnFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let conn_id = require_usize_at(args, 0)?;
         self.service.close_conn(conn_id)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        Ok(serde_json::Value::from(Value::Null))
     }
 }
 
@@ -393,14 +374,14 @@ struct CloseListenerFn {
     service: Arc<dyn TlsService>,
 }
 
-impl Function<NonFunctionValue> for CloseListenerFn {
+impl Function for CloseListenerFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let listener_id = require_usize_at(args, 0)?;
         self.service.close_listener(listener_id)?;
-        Ok(NonFunctionValue::new(Value::Null))
+        Ok(serde_json::Value::from(Value::Null))
     }
 }

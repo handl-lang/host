@@ -1,20 +1,18 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{b, n, parse_iso, require_one_string};
 use chrono::{Datelike, Timelike};
+use handl_platform::{EvalContext, EvalError, Function};
 
 macro_rules! component_fn {
     ($struct_name:ident, $extract:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl Function<NonFunctionValue> for $struct_name {
+        impl Function for $struct_name {
             fn call(
                 &self,
-                args: &[NonFunctionValue],
-                _ctx: &mut dyn Context<NonFunctionValue>,
-            ) -> Result<NonFunctionValue, Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<serde_json::Value, EvalError> {
                 let input = require_one_string(args)?;
                 let dt = parse_iso(input)?;
                 Ok(n($extract(&dt) as f64))
@@ -32,12 +30,12 @@ component_fn!(Second, |dt: &chrono::DateTime<chrono::Utc>| dt.second());
 
 #[derive(Clone, Copy)]
 pub struct Weekday;
-impl Function<NonFunctionValue> for Weekday {
+impl Function for Weekday {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         // chrono: Sunday = 0, Monday = 1, ..., Saturday = 6
@@ -49,12 +47,12 @@ impl Function<NonFunctionValue> for Weekday {
 
 #[derive(Clone, Copy)]
 pub struct DayOfYear;
-impl Function<NonFunctionValue> for DayOfYear {
+impl Function for DayOfYear {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         Ok(n(dt.ordinal() as f64))
@@ -63,12 +61,12 @@ impl Function<NonFunctionValue> for DayOfYear {
 
 #[derive(Clone, Copy)]
 pub struct WeekOfYear;
-impl Function<NonFunctionValue> for WeekOfYear {
+impl Function for WeekOfYear {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         Ok(n(dt.iso_week().week() as f64))
@@ -77,12 +75,12 @@ impl Function<NonFunctionValue> for WeekOfYear {
 
 #[derive(Clone, Copy)]
 pub struct Quarter;
-impl Function<NonFunctionValue> for Quarter {
+impl Function for Quarter {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         let month = dt.month();
@@ -93,12 +91,12 @@ impl Function<NonFunctionValue> for Quarter {
 
 #[derive(Clone, Copy)]
 pub struct IsLeapYear;
-impl Function<NonFunctionValue> for IsLeapYear {
+impl Function for IsLeapYear {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         let year = dt.year();
@@ -109,12 +107,12 @@ impl Function<NonFunctionValue> for IsLeapYear {
 
 #[derive(Clone, Copy)]
 pub struct IsWeekend;
-impl Function<NonFunctionValue> for IsWeekend {
+impl Function for IsWeekend {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_string(args)?;
         let dt = parse_iso(input)?;
         // Sunday = 0, Saturday = 6 in chrono's num_days_from_sunday

@@ -4,9 +4,8 @@ use std::sync::Arc;
 use handl_plugin_lib_parse::DynParser;
 use handl_plugin_lib_url_rfc::Rfc;
 use handl_plugin_lib_url_whatwg::Whatwg;
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 /// The `parse` runtime module.
 ///
@@ -38,7 +37,7 @@ impl Module for ParseModule {
         "parse"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "parse" => Some(&self.parse),
             _ => None,
@@ -50,75 +49,57 @@ struct Parse {
     parsers: HashMap<String, Arc<dyn DynParser>>,
 }
 
-impl Function<NonFunctionValue> for Parse {
+impl Function for Parse {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
 
         let input = value_as_string(&args[0])?;
         let name = parser_name(&args[1])?;
         let parser = self.parsers.get(&name).ok_or_else(|| {
-            handl_plugin_vm::Error::PrimitiveError(format!("unknown parser: {name}"))
+            EvalError::Other(format!("unknown parser: {name}"))
         })?;
 
         let value = parser
             .parse(&input)
-            .map_err(|e| handl_plugin_vm::Error::PrimitiveError(e.to_string()))?;
+            .map_err(|e| EvalError::Other(e.to_string()))?;
 
-        Ok(NonFunctionValue::new(value))
+        Ok(serde_json::Value::from(value))
     }
 }
 
 fn parser_name(
-    value: &NonFunctionValue,
-) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
+    value: &serde_json::Value,
+) -> Result<String, EvalError> {
     let Some(obj) = value.as_object() else {
-        return Err(handl_plugin_vm::Error::TypeMismatch {
-            expected: "parser object",
-            got: "non-object",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object", "non-object",)));
     };
 
     let Some(ty) = obj.get("type").and_then(|v| v.as_str()) else {
-        return Err(handl_plugin_vm::Error::TypeMismatch {
-            expected: "parser object with type",
-            got: "object without type",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object with type", "object without type",)));
     };
 
     if ty != "parser" {
-        return Err(handl_plugin_vm::Error::TypeMismatch {
-            expected: "type: parser",
-            got: "non-parser",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "type: parser", "non-parser",)));
     }
 
     let Some(name) = obj.get("name").and_then(|v| v.as_str()) else {
-        return Err(handl_plugin_vm::Error::TypeMismatch {
-            expected: "parser object with name",
-            got: "parser object without name",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object with name", "parser object without name",)));
     };
 
     Ok(name.to_string())
 }
 
 fn value_as_string(
-    value: &NonFunctionValue,
-) -> Result<String, handl_plugin_vm::Error<NonFunctionValue>> {
+    value: &serde_json::Value,
+) -> Result<String, EvalError> {
     value
         .as_str()
         .map(String::from)
-        .ok_or_else(|| handl_plugin_vm::Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }

@@ -1,4 +1,5 @@
 use super::OsError;
+use handl_platform::{EvalError};
 
 #[test]
 fn not_found_display() {
@@ -43,9 +44,9 @@ fn io_display() {
 #[test]
 fn converts_to_vm_error() {
     let err = OsError::NotFound { path: "/x".into() };
-    let vm_err: handl_plugin_vm_values_json::Error = err.into();
+    let vm_err: EvalError = err.into();
     match vm_err {
-        handl_plugin_vm_values_json::Error::PrimitiveError(msg) => {
+        EvalError::Other(msg) => {
             assert!(msg.contains("not found"))
         }
         other => panic!("expected PrimitiveError, got {other:?}"),

@@ -2,10 +2,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
 
-use handl_plugin_vm::{AsyncFunction, Context, Function};
-use handl_plugin_vm_common::Module;
+use handl_platform::{EvalContext, EvalError, Function, Module};
 
 use crate::error::OsError;
 
@@ -30,11 +28,22 @@ pub trait AsyncSocket: Send + Sync {
     fn close<'a>(&'a self, handle: i64) -> AsyncSocketFuture<'a, ()>;
 }
 
-/// Module adapter for [`AsyncSocket`] — exposes `socket.*` async functions.
+/// Module adapter for [`AsyncSocket`] — exposes `socket.*` functions.
+///
+/// **ADR 0040 gap:** The new non-generic `Module`/`Function` traits are
+/// synchronous. Async socket operations need to be reworked to use the
+/// `EvalContext::eval_async` path or a capability-based approach. For now
+/// the async function impls are retained as standalone structs but are not
+/// exposed through the `Module` trait (which has no `async_function` method
+/// in the new system).
 pub struct AsyncSocketModule {
+    #[allow(dead_code)]
     connect: AsyncConnectFn,
+    #[allow(dead_code)]
     send: AsyncSendFn,
+    #[allow(dead_code)]
     recv: AsyncRecvFn,
+    #[allow(dead_code)]
     close: AsyncCloseFn,
 }
 
@@ -61,45 +70,23 @@ impl Module for AsyncSocketModule {
         "socket"
     }
 
-    fn function(&self, _name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, _name: &str) -> Option<&dyn Function> {
         None
     }
-
-    fn async_function(&self, name: &str) -> Option<&dyn AsyncFunction<NonFunctionValue>> {
-        match name {
-            "connect" => Some(&self.connect),
-            "send" => Some(&self.send),
-            "recv" => Some(&self.recv),
-            "close" => Some(&self.close),
-            _ => None,
-        }
-    }
 }
 
-fn require_string_arg(args: &[NonFunctionValue]) -> Result<&str, Error> {
+fn require_string_arg(args: &[serde_json::Value]) -> Result<&str, EvalError> {
     args.first()
-        .ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?
+        .ok_or_else(|| EvalError::TypeMismatch("socket: expected 1 argument, got 0".to_string()))?
         .as_str()
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or_else(|| EvalError::TypeMismatch("socket: expected string argument".to_string()))
 }
 
-fn require_number_arg(args: &[NonFunctionValue]) -> Result<i64, Error> {
+fn require_number_arg(args: &[serde_json::Value]) -> Result<i64, EvalError> {
     args.first()
-        .ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?
-        .as_number()
-        .ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })
+        .ok_or_else(|| EvalError::TypeMismatch("socket: expected 1 argument, got 0".to_string()))?
+        .as_f64()
+        .ok_or_else(|| EvalError::TypeMismatch("socket: expected number argument".to_string()))
         .map(|n| n as i64)
 }
 
@@ -107,16 +94,15 @@ struct AsyncConnectFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
-impl AsyncFunction<NonFunctionValue> for AsyncConnectFn {
+impl AsyncConnectFn {
     fn call<'a>(
         &'a self,
-        args: &'a [NonFunctionValue],
-        _ctx: &'a mut (dyn Context<NonFunctionValue> + 'a),
-    ) -> Pin<Box<dyn Future<Output = Result<NonFunctionValue, Error>> + 'a>> {
+        args: &'a [serde_json::Value],
+    ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             let address = require_string_arg(args)?;
-            let handle = self.socket.connect(address).await?;
-            Ok(NonFunctionValue::new(handle))
+            let handle = self.socket.connect(address).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            Ok(serde_json::Value::from(handle))
         })
     }
 }
@@ -125,29 +111,25 @@ struct AsyncSendFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
-impl AsyncFunction<NonFunctionValue> for AsyncSendFn {
+impl AsyncSendFn {
     fn call<'a>(
         &'a self,
-        args: &'a [NonFunctionValue],
-        _ctx: &'a mut (dyn Context<NonFunctionValue> + 'a),
-    ) -> Pin<Box<dyn Future<Output = Result<NonFunctionValue, Error>> + 'a>> {
+        args: &'a [serde_json::Value],
+    ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             if args.len() < 2 {
-                return Err(Error::ArgumentCount {
-                    expected: 2,
-                    got: args.len(),
-                });
+                return Err(EvalError::TypeMismatch(format!(
+                    "socket.send: expected 2 args, got {}",
+                    args.len()
+                )));
             }
             let handle = require_number_arg(args)?;
             let data = args[1]
                 .as_str()
-                .ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?
+                .ok_or_else(|| EvalError::TypeMismatch("socket.send: expected string argument".to_string()))?
                 .to_string();
-            let sent = self.socket.send(handle, &data).await?;
-            Ok(NonFunctionValue::new(sent))
+            let sent = self.socket.send(handle, &data).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            Ok(serde_json::Value::from(sent))
         })
     }
 }
@@ -156,26 +138,24 @@ struct AsyncRecvFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
-impl AsyncFunction<NonFunctionValue> for AsyncRecvFn {
+impl AsyncRecvFn {
     fn call<'a>(
         &'a self,
-        args: &'a [NonFunctionValue],
-        _ctx: &'a mut (dyn Context<NonFunctionValue> + 'a),
-    ) -> Pin<Box<dyn Future<Output = Result<NonFunctionValue, Error>> + 'a>> {
+        args: &'a [serde_json::Value],
+    ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             if args.len() < 2 {
-                return Err(Error::ArgumentCount {
-                    expected: 2,
-                    got: args.len(),
-                });
+                return Err(EvalError::TypeMismatch(format!(
+                    "socket.recv: expected 2 args, got {}",
+                    args.len()
+                )));
             }
             let handle = require_number_arg(args)?;
-            let length = args[1].as_number().ok_or(Error::TypeMismatch {
-                expected: "number",
-                got: "non-number",
-            })? as usize;
-            let data = self.socket.recv(handle, length).await?;
-            Ok(NonFunctionValue::new(data))
+            let length = args[1].as_f64()
+                .ok_or_else(|| EvalError::TypeMismatch("socket.recv: expected number argument".to_string()))?
+                as usize;
+            let data = self.socket.recv(handle, length).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            Ok(serde_json::Value::from(data))
         })
     }
 }
@@ -184,16 +164,15 @@ struct AsyncCloseFn {
     socket: Arc<dyn AsyncSocket>,
 }
 
-impl AsyncFunction<NonFunctionValue> for AsyncCloseFn {
+impl AsyncCloseFn {
     fn call<'a>(
         &'a self,
-        args: &'a [NonFunctionValue],
-        _ctx: &'a mut (dyn Context<NonFunctionValue> + 'a),
-    ) -> Pin<Box<dyn Future<Output = Result<NonFunctionValue, Error>> + 'a>> {
+        args: &'a [serde_json::Value],
+    ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             let handle = require_number_arg(args)?;
-            self.socket.close(handle).await?;
-            Ok(NonFunctionValue::default())
+            self.socket.close(handle).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            Ok(serde_json::Value::Null)
         })
     }
 }

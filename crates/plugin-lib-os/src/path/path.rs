@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -47,7 +45,7 @@ impl Module for PathModule {
         "path"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "join" => Some(&self.join),
             "resolve" => Some(&self.resolve),
@@ -59,48 +57,36 @@ impl Module for PathModule {
     }
 }
 
-fn collect_string_args(args: &[NonFunctionValue]) -> Result<Vec<&str>, Error> {
+fn collect_string_args(args: &[serde_json::Value]) -> Result<Vec<&str>, EvalError> {
     if args.is_empty() {
-        return Err(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
     }
     args.iter()
         .map(|v| {
-            v.as_str().ok_or(Error::TypeMismatch {
-                expected: "string",
-                got: "non-string",
-            })
+            v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
         })
         .collect()
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<&str, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: 0,
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
 struct JoinFn {
     path: Arc<dyn Path>,
 }
 
-impl Function<NonFunctionValue> for JoinFn {
+impl Function for JoinFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let parts = collect_string_args(args)?;
         self.path
             .join(&parts)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -109,16 +95,16 @@ struct ResolveFn {
     path: Arc<dyn Path>,
 }
 
-impl Function<NonFunctionValue> for ResolveFn {
+impl Function for ResolveFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let parts = collect_string_args(args)?;
         self.path
             .resolve(&parts)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -127,16 +113,16 @@ struct BasenameFn {
     path: Arc<dyn Path>,
 }
 
-impl Function<NonFunctionValue> for BasenameFn {
+impl Function for BasenameFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_one_string(args)?;
         self.path
             .basename(path)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -145,16 +131,16 @@ struct DirnameFn {
     path: Arc<dyn Path>,
 }
 
-impl Function<NonFunctionValue> for DirnameFn {
+impl Function for DirnameFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_one_string(args)?;
         self.path
             .dirname(path)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -163,16 +149,16 @@ struct ExtnameFn {
     path: Arc<dyn Path>,
 }
 
-impl Function<NonFunctionValue> for ExtnameFn {
+impl Function for ExtnameFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let path = require_one_string(args)?;
         self.path
             .extname(path)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }

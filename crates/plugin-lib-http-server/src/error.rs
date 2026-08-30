@@ -35,7 +35,7 @@ impl std::error::Error for HttpServerError {}
 
 impl From<HttpServerError> for VmError {
     fn from(err: HttpServerError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

@@ -7,7 +7,9 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::DynKind;
 use serde_json::json;
 
 /// Token capability required by the index grammar rule.
@@ -117,23 +119,30 @@ impl<K: IndexToken> ParserBehavior<K> for IndexRule {
     }
 }
 
-impl IndexToken for LexKind {
+impl IndexToken for DynKind {
     fn is_bracket_open(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BracketOpen))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BracketOpen)
+            .unwrap_or(false)
     }
 
     fn is_bracket_close(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BracketClose))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BracketClose)
+            .unwrap_or(false)
     }
 
     fn is_dot(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Dot))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Dot)
+            .unwrap_or(false)
     }
 
     fn ident_text(&self) -> Option<&str> {
-        match self {
-            LexKind::Identifier(s) => Some(s.as_str()),
-            _ => None,
+        if let Some(IdentKind::Ident(s)) = self.downcast_ref::<IdentKind>() {
+            Some(s.as_str())
+        } else {
+            None
         }
     }
 }

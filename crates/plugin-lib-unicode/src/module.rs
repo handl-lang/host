@@ -9,9 +9,8 @@
 //! - `unicode.code_point_at(string, index)` — number or `null`
 //! - `unicode.decode(string)` — array of `[byte_offset, code_point]` pairs
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value as JsonValue;
 
 use super::decode::Utf8Iterator;
@@ -26,7 +25,7 @@ impl Module for UnicodeModule {
         "unicode"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "is_valid_identifier" => Some(&IsValidIdentifier),
             "is_xid_start" => Some(&IsXidStart),
@@ -39,66 +38,48 @@ impl Module for UnicodeModule {
     }
 }
 
-fn require_one_string(args: &[NonFunctionValue]) -> Result<String, Error> {
-    let arg = args.first().ok_or(Error::ArgumentCount {
-        expected: 1,
-        got: args.len(),
-    })?;
+fn require_one_string(args: &[serde_json::Value]) -> Result<String, EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
     arg.as_str()
         .map(|s| s.to_string())
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_string_and_index(args: &[NonFunctionValue]) -> Result<(String, usize), Error> {
+fn require_string_and_index(args: &[serde_json::Value]) -> Result<(String, usize), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
     let s = args[0]
         .as_str()
         .map(|s| s.to_string())
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
-    let n = args[1].as_number().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })?;
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+    let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
     if n < 0.0 || n.fract() != 0.0 {
-        return Err(Error::TypeMismatch {
-            expected: "non-negative integer",
-            got: "invalid index",
-        });
+        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer", "invalid index",)));
     }
     Ok((s, n as usize))
 }
 
-fn bool_(value: bool) -> NonFunctionValue {
-    NonFunctionValue::new(value)
+fn bool_(value: bool) -> serde_json::Value {
+    serde_json::Value::from(value)
 }
 
-fn num(value: f64) -> NonFunctionValue {
-    NonFunctionValue::new(value)
+fn num(value: f64) -> serde_json::Value {
+    serde_json::Value::from(value)
 }
 
-fn null() -> NonFunctionValue {
-    NonFunctionValue::new(JsonValue::Null)
+fn null() -> serde_json::Value {
+    serde_json::Value::from(JsonValue::Null)
 }
 
 #[derive(Clone, Copy)]
 pub struct IsValidIdentifier;
-impl Function<NonFunctionValue> for IsValidIdentifier {
+impl Function for IsValidIdentifier {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         Ok(bool_(is_identifier(&s)))
     }
@@ -106,12 +87,12 @@ impl Function<NonFunctionValue> for IsValidIdentifier {
 
 #[derive(Clone, Copy)]
 pub struct IsXidStart;
-impl Function<NonFunctionValue> for IsXidStart {
+impl Function for IsXidStart {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let first = s.chars().next();
         Ok(bool_(first.map_or(false, is_identifier_start)))
@@ -120,12 +101,12 @@ impl Function<NonFunctionValue> for IsXidStart {
 
 #[derive(Clone, Copy)]
 pub struct IsXidContinue;
-impl Function<NonFunctionValue> for IsXidContinue {
+impl Function for IsXidContinue {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let first = s.chars().next();
         Ok(bool_(first.map_or(false, is_identifier_continue)))
@@ -134,29 +115,29 @@ impl Function<NonFunctionValue> for IsXidContinue {
 
 #[derive(Clone, Copy)]
 pub struct CodePoints;
-impl Function<NonFunctionValue> for CodePoints {
+impl Function for CodePoints {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let points: Vec<JsonValue> = s
             .chars()
             .map(|ch| JsonValue::Number(serde_json::Number::from(ch as u32)))
             .collect();
-        Ok(NonFunctionValue::new(JsonValue::Array(points)))
+        Ok(serde_json::Value::from(JsonValue::Array(points)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct CodePointAt;
-impl Function<NonFunctionValue> for CodePointAt {
+impl Function for CodePointAt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (s, index) = require_string_and_index(args)?;
         match s.chars().nth(index) {
             Some(ch) => Ok(num(ch as u32 as f64)),
@@ -167,23 +148,23 @@ impl Function<NonFunctionValue> for CodePointAt {
 
 #[derive(Clone, Copy)]
 pub struct Decode;
-impl Function<NonFunctionValue> for Decode {
+impl Function for Decode {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
         let mut pairs = Vec::new();
         for item in Utf8Iterator::new(s.as_bytes()) {
             let (offset, ch) =
-                item.map_err(|_| Error::PrimitiveError("invalid UTF-8 in string".to_string()))?;
+                item.map_err(|_| EvalError::Other("invalid UTF-8 in string".to_string()))?;
             let pair = JsonValue::Array(vec![
                 JsonValue::Number(serde_json::Number::from(offset)),
                 JsonValue::Number(serde_json::Number::from(ch as u32)),
             ]);
             pairs.push(pair);
         }
-        Ok(NonFunctionValue::new(JsonValue::Array(pairs)))
+        Ok(serde_json::Value::from(JsonValue::Array(pairs)))
     }
 }

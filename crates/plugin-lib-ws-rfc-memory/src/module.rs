@@ -20,9 +20,8 @@ use handl_plugin_lib_ws_rfc::{
     ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
     MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
 };
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 /// The `ws_rfc` runtime module — WebSocket frame, message and in-process
 /// client/server primitives.
@@ -34,7 +33,7 @@ impl Module for WsRfcModule {
         "ws_rfc"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "client" => Some(&ClientNew),
             "connect" => Some(&ClientConnect),

@@ -1,5 +1,4 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{arr, b, num, require_array, require_one_array};
 use super::error::CollectionsError;
@@ -17,12 +16,12 @@ pub enum End {
 #[derive(Clone, Copy)]
 pub struct New;
 
-impl Function<NonFunctionValue> for New {
+impl Function for New {
     fn call(
         &self,
-        _args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         Ok(arr(&[]))
     }
 }
@@ -33,12 +32,12 @@ impl Function<NonFunctionValue> for New {
 #[derive(Clone, Copy)]
 pub struct From;
 
-impl Function<NonFunctionValue> for From {
+impl Function for From {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(arr(input))
     }
@@ -50,12 +49,12 @@ impl Function<NonFunctionValue> for From {
 #[derive(Clone, Copy)]
 pub struct ToArray;
 
-impl Function<NonFunctionValue> for ToArray {
+impl Function for ToArray {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(arr(input))
     }
@@ -65,12 +64,12 @@ impl Function<NonFunctionValue> for ToArray {
 #[derive(Clone, Copy)]
 pub struct Len;
 
-impl Function<NonFunctionValue> for Len {
+impl Function for Len {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(num(input.len() as f64))
     }
@@ -80,12 +79,12 @@ impl Function<NonFunctionValue> for Len {
 #[derive(Clone, Copy)]
 pub struct IsEmpty;
 
-impl Function<NonFunctionValue> for IsEmpty {
+impl Function for IsEmpty {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         Ok(b(input.is_empty()))
     }
@@ -99,21 +98,18 @@ pub struct Push {
     pub end: End,
 }
 
-impl Function<NonFunctionValue> for Push {
+impl Function for Push {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        })?;
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
         let mut values = input.to_vec();
         match self.end {
-            End::Back => values.push(value.inner().clone()),
-            End::Front => values.insert(0, value.inner().clone()),
+            End::Back => values.push(value.clone()),
+            End::Front => values.insert(0, value.clone()),
         }
         Ok(arr(&values))
     }
@@ -127,12 +123,12 @@ pub struct Pop {
     pub end: End,
 }
 
-impl Function<NonFunctionValue> for Pop {
+impl Function for Pop {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         if input.is_empty() {
             return Err(CollectionsError::Empty.into());
@@ -153,12 +149,12 @@ pub struct Peek {
     pub end: End,
 }
 
-impl Function<NonFunctionValue> for Peek {
+impl Function for Peek {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let input = require_one_array(args)?;
         if input.is_empty() {
             return Err(CollectionsError::Empty.into());
@@ -167,6 +163,6 @@ impl Function<NonFunctionValue> for Peek {
             End::Back => input.last().unwrap(),
             End::Front => input.first().unwrap(),
         };
-        Ok(NonFunctionValue::new(value.clone()))
+        Ok(serde_json::Value::from(value.clone()))
     }
 }

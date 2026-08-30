@@ -6,6 +6,7 @@
 //! exposes `otlp.*` functions to handl programs. Concrete exporters live
 //! in `handl-lib-otlp-std`.
 
+use handl_platform::{Module};
 pub mod error;
 pub mod id;
 pub mod otlp_module;

@@ -1,9 +1,9 @@
-use handl_plugin_vm_values_json::Error as VmError;
+use handl_platform::EvalError as VmError;
 use std::fmt;
 
 /// Errors produced by OS service implementations.
 ///
-/// Converts to [`handl_plugin_vm::Error`] via `From`, so service methods can return
+/// Converts to [`EvalError`] via `From`, so service methods can return
 /// `Result<T, OsError>` and the adapter handles the conversion.
 #[derive(Debug, Clone)]
 pub enum OsError {
@@ -30,7 +30,7 @@ impl std::error::Error for OsError {}
 
 impl From<OsError> for VmError {
     fn from(err: OsError) -> Self {
-        VmError::PrimitiveError(err.to_string())
+        VmError::Other(err.to_string())
     }
 }
 

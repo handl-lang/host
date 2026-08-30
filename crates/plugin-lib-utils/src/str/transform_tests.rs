@@ -1,37 +1,36 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm_values_json::{CanonicalContext, Error};
 
-use handl_plugin_vm_common::Module;
+use handl_platform::Module;
 
 use super::StrModule;
+use handl_platform::{EvalContext, EvalError};
 
-fn call(name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(name: &str, args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(v))
 }
 
-fn arr(items: &[&str]) -> NonFunctionValue {
+fn arr(items: &[&str]) -> serde_json::Value {
     let values: Vec<serde_json::Value> = items
         .iter()
         .map(|item| serde_json::Value::String(item.to_string()))
         .collect();
-    NonFunctionValue::new(serde_json::Value::Array(values))
+    serde_json::Value::from(serde_json::Value::Array(values))
 }
 
 // ── split ───────────────────────────────────────────────────────────
@@ -49,25 +48,25 @@ fn split() {
 #[test]
 fn split_no_args_errors() {
     let result = call_err("split", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn split_one_arg_errors() {
     let result = call_err("split", &[s("a,b,c")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn split_first_arg_non_string_errors() {
     let result = call_err("split", &[n(42.0), s(",")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn split_second_arg_non_string_errors() {
     let result = call_err("split", &[s("a,b"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -103,25 +102,25 @@ fn join() {
 #[test]
 fn join_no_args_errors() {
     let result = call_err("join", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn join_one_arg_errors() {
     let result = call_err("join", &[arr(&["a", "b"])]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn join_first_arg_non_array_errors() {
     let result = call_err("join", &[s("hello"), s(",")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn join_second_arg_non_string_errors() {
     let result = call_err("join", &[arr(&["a", "b"]), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -131,9 +130,9 @@ fn join_empty_array() {
 
 #[test]
 fn join_with_non_string_elements_errors() {
-    let json_arr = NonFunctionValue::new(serde_json::json!([1, 2, 3]));
+    let json_arr = serde_json::Value::from(serde_json::json!([1, 2, 3]));
     let result = call_err("join", &[json_arr, s(",")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── replace ─────────────────────────────────────────────────────────
@@ -147,31 +146,31 @@ fn replace() {
 #[test]
 fn replace_no_args_errors() {
     let result = call_err("replace", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn replace_two_args_errors() {
     let result = call_err("replace", &[s("hello"), s("l")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn replace_first_arg_non_string_errors() {
     let result = call_err("replace", &[n(42.0), s("l"), s("L")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn replace_second_arg_non_string_errors() {
     let result = call_err("replace", &[s("hello"), n(42.0), s("L")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn replace_third_arg_non_string_errors() {
     let result = call_err("replace", &[s("hello"), s("l"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -208,31 +207,31 @@ fn replace_first_no_match() {
 #[test]
 fn replace_first_no_args_errors() {
     let result = call_err("replace_first", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn replace_first_two_args_errors() {
     let result = call_err("replace_first", &[s("hello"), s("l")]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn replace_first_first_arg_non_string_errors() {
     let result = call_err("replace_first", &[n(42.0), s("l"), s("L")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn replace_first_second_arg_non_string_errors() {
     let result = call_err("replace_first", &[s("hello"), n(42.0), s("L")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn replace_first_third_arg_non_string_errors() {
     let result = call_err("replace_first", &[s("hello"), s("l"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -266,25 +265,25 @@ fn repeat_zero() {
 #[test]
 fn repeat_negative_errors() {
     let result = call_err("repeat", &[s("ab"), n(-1.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn repeat_no_args_errors() {
     let result = call_err("repeat", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn repeat_first_arg_non_string_errors() {
     let result = call_err("repeat", &[n(42.0), n(3.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn repeat_second_arg_non_number_errors() {
     let result = call_err("repeat", &[s("ab"), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -301,13 +300,13 @@ fn repeat_empty_string() {
 #[test]
 fn repeat_infinity_errors() {
     let result = call_err("repeat", &[s("ab"), n(f64::INFINITY)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn repeat_excessive_count_errors() {
     let result = call_err("repeat", &[s("ab"), n(1_000_001.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -326,31 +325,31 @@ fn char_at() {
 #[test]
 fn char_at_out_of_bounds_errors() {
     let result = call_err("char_at", &[s("hi"), n(10.0)]);
-    assert!(matches!(result, Err(Error::PrimitiveError(_))));
+    assert!(matches!(result, Err(EvalError::Other(_))));
 }
 
 #[test]
 fn char_at_negative_errors() {
     let result = call_err("char_at", &[s("hello"), n(-1.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn char_at_no_args_errors() {
     let result = call_err("char_at", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn char_at_first_arg_non_string_errors() {
     let result = call_err("char_at", &[n(42.0), n(0.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn char_at_second_arg_non_number_errors() {
     let result = call_err("char_at", &[s("hello"), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -386,31 +385,31 @@ fn slice_unicode() {
 #[test]
 fn slice_negative_errors() {
     let result = call_err("slice", &[s("hello"), n(-1.0), n(3.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn slice_no_args_errors() {
     let result = call_err("slice", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn slice_two_args_errors() {
     let result = call_err("slice", &[s("hello"), n(0.0)]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn slice_first_arg_non_string_errors() {
     let result = call_err("slice", &[n(42.0), n(0.0), n(3.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn slice_negative_start_errors() {
     let result = call_err("slice", &[s("hello"), n(-1.0), n(3.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -463,7 +462,7 @@ fn pad_left_already_long_enough() {
 #[test]
 fn pad_left_negative_errors() {
     let result = call_err("pad_left", &[s("hi"), n(-1.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -477,31 +476,31 @@ fn pad_left_unicode() {
 #[test]
 fn pad_left_no_args_errors() {
     let result = call_err("pad_left", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn pad_left_two_args_errors() {
     let result = call_err("pad_left", &[s("hi"), n(5.0)]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn pad_left_first_arg_non_string_errors() {
     let result = call_err("pad_left", &[n(42.0), n(5.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_left_second_arg_non_number_errors() {
     let result = call_err("pad_left", &[s("hi"), s("x"), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_left_third_arg_non_string_errors() {
     let result = call_err("pad_left", &[s("hi"), n(5.0), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -532,13 +531,13 @@ fn pad_left_multi_char_pad() {
 #[test]
 fn pad_left_infinity_errors() {
     let result = call_err("pad_left", &[s("hi"), n(f64::INFINITY), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_left_excessive_target_errors() {
     let result = call_err("pad_left", &[s("hi"), n(1_000_001.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── pad_right ───────────────────────────────────────────────────────
@@ -570,37 +569,37 @@ fn pad_right_already_long_enough() {
 #[test]
 fn pad_right_negative_errors() {
     let result = call_err("pad_right", &[s("hi"), n(-1.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_right_no_args_errors() {
     let result = call_err("pad_right", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn pad_right_two_args_errors() {
     let result = call_err("pad_right", &[s("hi"), n(5.0)]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn pad_right_first_arg_non_string_errors() {
     let result = call_err("pad_right", &[n(42.0), n(5.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_right_second_arg_non_number_errors() {
     let result = call_err("pad_right", &[s("hi"), s("x"), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_right_third_arg_non_string_errors() {
     let result = call_err("pad_right", &[s("hi"), n(5.0), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -631,13 +630,13 @@ fn pad_right_unicode() {
 #[test]
 fn pad_right_infinity_errors() {
     let result = call_err("pad_right", &[s("hi"), n(f64::INFINITY), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn pad_right_excessive_target_errors() {
     let result = call_err("pad_right", &[s("hi"), n(1_000_001.0), s(" ")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── strip_prefix ────────────────────────────────────────────────────
@@ -677,19 +676,19 @@ fn strip_prefix_empty_prefix() {
 #[test]
 fn strip_prefix_no_args_errors() {
     let result = call_err("strip_prefix", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn strip_prefix_first_arg_non_string_errors() {
     let result = call_err("strip_prefix", &[n(42.0), s("he")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn strip_prefix_second_arg_non_string_errors() {
     let result = call_err("strip_prefix", &[s("hello"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── strip_suffix ────────────────────────────────────────────────────
@@ -729,19 +728,19 @@ fn strip_suffix_empty_suffix() {
 #[test]
 fn strip_suffix_no_args_errors() {
     let result = call_err("strip_suffix", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn strip_suffix_first_arg_non_string_errors() {
     let result = call_err("strip_suffix", &[n(42.0), s("lo")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn strip_suffix_second_arg_non_string_errors() {
     let result = call_err("strip_suffix", &[s("hello"), n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── lines ───────────────────────────────────────────────────────────
@@ -794,13 +793,13 @@ fn lines_trailing_newline() {
 #[test]
 fn lines_no_args_errors() {
     let result = call_err("lines", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn lines_non_string_errors() {
     let result = call_err("lines", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── split_at ────────────────────────────────────────────────────────
@@ -853,25 +852,25 @@ fn split_at_unicode() {
 #[test]
 fn split_at_no_args_errors() {
     let result = call_err("split_at", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn split_at_first_arg_non_string_errors() {
     let result = call_err("split_at", &[n(42.0), n(2.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn split_at_second_arg_non_number_errors() {
     let result = call_err("split_at", &[s("hello"), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn split_at_negative_errors() {
     let result = call_err("split_at", &[s("hello"), n(-1.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── split_whitespace ────────────────────────────────────────────────
@@ -910,13 +909,13 @@ fn split_whitespace_all_whitespace() {
 #[test]
 fn split_whitespace_no_args_errors() {
     let result = call_err("split_whitespace", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn split_whitespace_non_string_errors() {
     let result = call_err("split_whitespace", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── truncate ────────────────────────────────────────────────────────
@@ -966,25 +965,25 @@ fn truncate_zero_max() {
 #[test]
 fn truncate_negative_errors() {
     let result = call_err("truncate", &[s("hello"), n(-1.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn truncate_no_args_errors() {
     let result = call_err("truncate", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn truncate_first_arg_non_string_errors() {
     let result = call_err("truncate", &[n(42.0), n(5.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn truncate_second_arg_non_number_errors() {
     let result = call_err("truncate", &[s("hello"), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -1055,13 +1054,13 @@ fn slugify_unicode() {
 #[test]
 fn slugify_no_args_errors() {
     let result = call_err("slugify", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn slugify_non_string_errors() {
     let result = call_err("slugify", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── word_wrap ───────────────────────────────────────────────────────
@@ -1114,29 +1113,29 @@ fn word_wrap_empty_lines() {
 #[test]
 fn word_wrap_negative_width_errors() {
     let result = call_err("word_wrap", &[s("hello"), n(-1.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn word_wrap_zero_width_errors() {
     let result = call_err("word_wrap", &[s("hello"), n(0.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn word_wrap_no_args_errors() {
     let result = call_err("word_wrap", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn word_wrap_first_arg_non_string_errors() {
     let result = call_err("word_wrap", &[n(42.0), n(10.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn word_wrap_second_arg_non_number_errors() {
     let result = call_err("word_wrap", &[s("hello"), s("x")]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }

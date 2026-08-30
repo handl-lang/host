@@ -34,7 +34,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_intl::IntlModule;
 //!
 //! let host = ModuleRuntime::new()
@@ -46,6 +46,7 @@
 //! `intl.format_relative_time(5, "second")`, `intl.format_date("2024-05-08")`,
 //! etc.
 
+use handl_platform::{Function, Module};
 mod common;
 mod compare_strings;
 mod display_name;

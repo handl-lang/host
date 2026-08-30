@@ -2,9 +2,8 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -34,7 +33,7 @@ fn inner() -> Arc<Mutex<Inner>> {
 
 struct Connection {
     tx: tokio_mpsc::UnboundedSender<TungsteniteMessage>,
-    rx: Arc<Mutex<mpsc::Receiver<NonFunctionValue>>>,
+    rx: Arc<Mutex<mpsc::Receiver<serde_json::Value>>>,
 }
 
 struct Inner {
@@ -55,40 +54,22 @@ impl Inner {
     }
 }
 
-fn require_string_at(args: &[NonFunctionValue], idx: usize) -> Result<&str, Error> {
-    let arg = args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })?;
-    arg.as_str().ok_or(Error::TypeMismatch {
-        expected: "string",
-        got: "non-string",
-    })
+fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_value_at(args: &[NonFunctionValue], idx: usize) -> Result<&NonFunctionValue, Error> {
-    args.get(idx).ok_or(Error::ArgumentCount {
-        expected: idx + 1,
-        got: args.len(),
-    })
+fn require_value_at(args: &[serde_json::Value], idx: usize) -> Result<&serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
 }
 
-fn parse_id(value: &NonFunctionValue) -> Result<usize, Error> {
-    if let Some(n) = value.as_number() {
+fn parse_id(value: &serde_json::Value) -> Result<usize, EvalError> {
+    if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(Error::TypeMismatch {
-        expected: "number or object",
-        got: "non-number non-object",
-    })?;
-    let id = obj.get("connection_id").ok_or(Error::TypeMismatch {
-        expected: "connection_id",
-        got: "missing",
-    })?;
-    let n = id.as_f64().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number or object", "non-number non-object",)))?;
+    let id = obj.get("connection_id").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "connection_id", "missing",)))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
     Ok(n as usize)
 }
 
@@ -113,54 +94,42 @@ fn tungstenite_to_json(msg: TungsteniteMessage) -> JsonValue {
     }
 }
 
-fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
+fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalError> {
     if let Some(text) = value.as_str() {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
-    let obj = value.as_object().ok_or(Error::TypeMismatch {
-        expected: "string or object",
-        got: "non-string non-object",
-    })?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string or object", "non-string non-object",)))?;
     if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
     if let Some(b64) = obj.get("binary").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Binary(bytes));
     }
     if let Some(b64) = obj.get("ping").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Ping(bytes));
     }
     if let Some(b64) = obj.get("pong").and_then(|v| v.as_str()) {
         let bytes = BASE64_STANDARD
             .decode(b64)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
         return Ok(TungsteniteMessage::Pong(bytes));
     }
     if let Some(close) = obj.get("close") {
         if close.is_null() {
             return Ok(TungsteniteMessage::Close(None));
         }
-        let close_obj = close.as_object().ok_or(Error::TypeMismatch {
-            expected: "object",
-            got: "non-object",
-        })?;
+        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
         let code = close_obj
             .get("code")
             .and_then(|v| v.as_u64())
-            .ok_or(Error::TypeMismatch {
-                expected: "u16",
-                got: "non-number",
-            })?;
-        let code = u16::try_from(code).map_err(|_| Error::TypeMismatch {
-            expected: "u16",
-            got: "out of range",
-        })?;
+            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "non-number",)))?;
+        let code = u16::try_from(code).map_err(|_| EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "out of range",)))?;
         let reason = close_obj
             .get("reason")
             .and_then(|v| v.as_str())
@@ -171,7 +140,7 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
             reason: reason.into(),
         })));
     }
-    Err(Error::PrimitiveError(
+    Err(EvalError::Other(
         "websocket message must be a string, {text}, {binary}, {ping}, {pong}, or {close}"
             .to_string(),
     ))
@@ -180,20 +149,17 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, Error> {
 #[derive(Debug, Clone, Copy)]
 pub struct WebsocketWhatwgName;
 
-impl Function<NonFunctionValue> for WebsocketWhatwgName {
+impl Function for WebsocketWhatwgName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "websocket",
             "name": "websocket_whatwg",
         })))
@@ -203,21 +169,21 @@ impl Function<NonFunctionValue> for WebsocketWhatwgName {
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectionConnect;
 
-impl Function<NonFunctionValue> for ConnectionConnect {
+impl Function for ConnectionConnect {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let url = require_string_at(args, 0)?;
 
-        let (std_tx, std_rx) = mpsc::channel::<NonFunctionValue>();
+        let (std_tx, std_rx) = mpsc::channel::<serde_json::Value>();
         let (cmd_tx, mut cmd_rx) = tokio_mpsc::unbounded_channel::<TungsteniteMessage>();
 
         let url_string = url.to_string();
         let connect_result = runtime().block_on(tokio_tungstenite::connect_async(&url_string));
         let (ws_stream, _) =
-            connect_result.map_err(|e| Error::PrimitiveError(format!("connect failed: {e}")))?;
+            connect_result.map_err(|e| EvalError::Other(format!("connect failed: {e}")))?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -231,7 +197,7 @@ impl Function<NonFunctionValue> for ConnectionConnect {
                     }
                     next = read.next() => match next {
                         Some(Ok(msg)) => {
-                            let value = NonFunctionValue::new(tungstenite_to_json(msg));
+                            let value = serde_json::Value::from(tungstenite_to_json(msg));
                             if std_tx.send(value).is_err() {
                                 break;
                             }
@@ -253,7 +219,7 @@ impl Function<NonFunctionValue> for ConnectionConnect {
             },
         );
 
-        Ok(NonFunctionValue::new(serde_json::json!({
+        Ok(serde_json::Value::from(serde_json::json!({
             "type": "websocket_connection",
             "connection_id": id,
         })))
@@ -263,52 +229,49 @@ impl Function<NonFunctionValue> for ConnectionConnect {
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectionSend;
 
-impl Function<NonFunctionValue> for ConnectionSend {
+impl Function for ConnectionSend {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
 
         let id = parse_id(&args[0])?;
-        let msg = json_to_tungstenite(args[1].inner())?;
+        let msg = json_to_tungstenite(&args[1])?;
 
         let inner = inner();
         let guard = inner.lock().unwrap();
         let connections = guard.connections.lock().unwrap();
-        let conn = connections.get(&id).ok_or(Error::PrimitiveError(format!(
+        let conn = connections.get(&id).ok_or(EvalError::Other(format!(
             "unknown websocket connection: {id}"
         )))?;
         conn.tx
             .send(msg)
-            .map_err(|_| Error::PrimitiveError("websocket connection is closed".to_string()))?;
+            .map_err(|_| EvalError::Other("websocket connection is closed".to_string()))?;
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectionRecv;
 
-impl Function<NonFunctionValue> for ConnectionRecv {
+impl Function for ConnectionRecv {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?)?;
 
         let rx = {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let connections = guard.connections.lock().unwrap();
-            let conn = connections.get(&id).ok_or(Error::PrimitiveError(format!(
+            let conn = connections.get(&id).ok_or(EvalError::Other(format!(
                 "unknown websocket connection: {id}"
             )))?;
             conn.rx.clone()
@@ -318,7 +281,7 @@ impl Function<NonFunctionValue> for ConnectionRecv {
             .lock()
             .unwrap()
             .recv()
-            .unwrap_or_else(|_| NonFunctionValue::new(JsonValue::Null));
+            .unwrap_or_else(|_| serde_json::Value::from(JsonValue::Null));
         Ok(value)
     }
 }
@@ -326,12 +289,12 @@ impl Function<NonFunctionValue> for ConnectionRecv {
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectionClose;
 
-impl Function<NonFunctionValue> for ConnectionClose {
+impl Function for ConnectionClose {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?)?;
 
         let inner = inner();
@@ -341,7 +304,7 @@ impl Function<NonFunctionValue> for ConnectionClose {
             let _ = conn.tx.send(TungsteniteMessage::Close(None));
         }
 
-        Ok(NonFunctionValue::new(JsonValue::Null))
+        Ok(serde_json::Value::from(JsonValue::Null))
     }
 }
 
@@ -353,7 +316,7 @@ impl Module for WsWhatwgNativeModule {
         "ws_whatwg_native"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "ws_whatwg_native" => Some(&WebsocketWhatwgName),
             "connect" => Some(&ConnectionConnect),

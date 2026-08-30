@@ -1,25 +1,25 @@
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
+use handl_platform::Module;
 
 use super::ResultModule;
+use handl_platform::{EvalContext, EvalError};
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(v))
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn call(name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = ResultModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(name: &str, args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let func = ResultModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
@@ -30,8 +30,8 @@ fn ok_wraps_value() {
     let value = n(42.0);
     let result = call("ok", &[value]);
     assert_eq!(
-        result.inner(),
-        &serde_json::json!({"_tag": "Ok", "value": 42.0})
+        result,
+        serde_json::json!({"_tag": "Ok", "value": 42.0})
     );
 }
 
@@ -40,8 +40,8 @@ fn err_wraps_error() {
     let error = s("nope");
     let result = call("err", &[error]);
     assert_eq!(
-        result.inner(),
-        &serde_json::json!({"_tag": "Err", "error": "nope"})
+        result,
+        serde_json::json!({"_tag": "Err", "error": "nope"})
     );
 }
 
@@ -49,11 +49,11 @@ fn err_wraps_error() {
 fn constructors_require_one_arg() {
     assert!(matches!(
         call_err("ok", &[]),
-        Err(Error::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch(_))
     ));
     assert!(matches!(
         call_err("err", &[]),
-        Err(Error::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch(_))
     ));
 }
 
@@ -103,10 +103,10 @@ fn is_err_false_for_non_result() {
 fn predicates_require_one_arg() {
     assert!(matches!(
         call_err("is_ok", &[]),
-        Err(Error::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch(_))
     ));
     assert!(matches!(
         call_err("is_err", &[]),
-        Err(Error::ArgumentCount { .. })
+        Err(EvalError::TypeMismatch(_))
     ));
 }

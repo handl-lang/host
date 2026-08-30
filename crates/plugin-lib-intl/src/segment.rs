@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 use icu::segmenter::options::{LineBreakOptions, LineBreakStrictness, LineBreakWordOption};
 use icu::segmenter::{GraphemeClusterSegmenter, LineSegmenter, SentenceSegmenter, WordSegmenter};
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{make_provider, opt_str, optional_locale, optional_object, require_string};
 use super::error::IntlError;
@@ -48,12 +46,12 @@ impl Default for Segment {
     }
 }
 
-impl Function<NonFunctionValue> for Segment {
+impl Function for Segment {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let text = require_string(args, 0)?;
         let granularity = require_string(args, 1)?;
         let locale = optional_locale(args, 2)?;
@@ -149,7 +147,7 @@ impl Function<NonFunctionValue> for Segment {
             }
         };
 
-        Ok(NonFunctionValue::new(serde_json::Value::Array(segments)))
+        Ok(serde_json::Value::from(serde_json::Value::Array(segments)))
     }
 }
 

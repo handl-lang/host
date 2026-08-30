@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use super::distribution::{Binomial, Exponential, Gauss, Poisson};
 use super::generation::{Bytes, String_, Uuid};
@@ -42,7 +41,7 @@ impl Module for RandModule {
         "rand"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "int" => Some(&Int),
             "float" => Some(&Float),

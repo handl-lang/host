@@ -1,4 +1,5 @@
 use super::*;
+use handl_platform::{EvalContext};
 
 // ── OpCode ──────────────────────────────────────────────────────────
 
@@ -478,26 +479,25 @@ mod module_helpers {
         ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
         MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
     };
-    use handl_plugin_vm::Function;
-    use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
-
+    use handl_platform::Function;
+    
     fn ctx() -> CanonicalContext {
-        CanonicalContext::new()
+        EvalContext::new()
     }
 
-    fn call_err<F: Function<NonFunctionValue>>(
+    fn call_err<F: Function>(
         f: &F,
-        args: &[NonFunctionValue],
+        args: &[serde_json::Value],
         ctx: &mut CanonicalContext,
     ) {
         assert!(f.call(args, ctx).is_err());
     }
 
-    fn call_ok<F: Function<NonFunctionValue>>(
+    fn call_ok<F: Function>(
         f: &F,
-        args: &[NonFunctionValue],
+        args: &[serde_json::Value],
         ctx: &mut CanonicalContext,
-    ) -> NonFunctionValue {
+    ) -> serde_json::Value {
         f.call(args, ctx).unwrap()
     }
 
@@ -506,7 +506,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "payload": "aGVsbG8=",
             }))],
             &mut ctx,
@@ -518,7 +518,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "foo",
                 "payload": "aGVsbG8=",
             }))],
@@ -531,7 +531,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "not-base64",
             }))],
@@ -544,7 +544,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "mask": 123,
@@ -558,7 +558,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "mask": "aGVsbG8=",
@@ -572,7 +572,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "fin": "yes",
@@ -586,7 +586,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!("not an object"))],
+            &[serde_json::Value::from(serde_json::json!("not an object"))],
             &mut ctx,
         );
     }
@@ -596,7 +596,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameDecode,
-            &[NonFunctionValue::new(serde_json::json!("not-base64!!!"))],
+            &[serde_json::Value::from(serde_json::json!("not-base64!!!"))],
             &mut ctx,
         );
     }
@@ -606,7 +606,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &FrameDecode,
-            &[NonFunctionValue::new(serde_json::json!("cAA="))],
+            &[serde_json::Value::from(serde_json::json!("cAA="))],
             &mut ctx,
         );
     }
@@ -616,7 +616,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({}))],
+            &[serde_json::Value::from(serde_json::json!({}))],
             &mut ctx,
         );
     }
@@ -626,7 +626,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"unknown": "value"}),
             )],
             &mut ctx,
@@ -638,7 +638,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"text": 123}))],
+            &[serde_json::Value::from(serde_json::json!({"text": 123}))],
             &mut ctx,
         );
     }
@@ -648,7 +648,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"binary": 123}))],
+            &[serde_json::Value::from(serde_json::json!({"binary": 123}))],
             &mut ctx,
         );
     }
@@ -658,7 +658,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"binary": "not-base64"}),
             )],
             &mut ctx,
@@ -670,7 +670,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"close": "bad"}))],
+            &[serde_json::Value::from(serde_json::json!({"close": "bad"}))],
             &mut ctx,
         );
     }
@@ -680,7 +680,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"reason": "nope"},
             }))],
             &mut ctx,
@@ -692,7 +692,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": "1000", "reason": "nope"},
             }))],
             &mut ctx,
@@ -704,7 +704,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": 1000.5, "reason": "nope"},
             }))],
             &mut ctx,
@@ -716,7 +716,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": -1, "reason": "nope"},
             }))],
             &mut ctx,
@@ -728,7 +728,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": 70000, "reason": "nope"},
             }))],
             &mut ctx,
@@ -740,7 +740,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &MessageFromFrame,
-            &[NonFunctionValue::new(serde_json::json!("not an object"))],
+            &[serde_json::Value::from(serde_json::json!("not an object"))],
             &mut ctx,
         );
     }
@@ -760,7 +760,7 @@ mod module_helpers {
         let c = call_ok(&ClientNew, &[], &mut ctx);
         call_err(
             &ClientConnect,
-            &[c, NonFunctionValue::new(serde_json::json!(123))],
+            &[c, serde_json::Value::from(serde_json::json!(123))],
             &mut ctx,
         );
     }
@@ -770,7 +770,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ClientRecv,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"type": "websocket_client"}),
             )],
             &mut ctx,
@@ -782,7 +782,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ClientRecv,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"client_id": "foo"}),
             )],
             &mut ctx,
@@ -801,17 +801,17 @@ mod module_helpers {
         let mut ctx = ctx();
         let frame = call_ok(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
             }))],
             &mut ctx,
         );
-        assert!(frame.inner().is_string());
+        assert!(frame.is_string());
 
         let round = call_ok(&FrameDecode, &[frame], &mut ctx);
         assert_eq!(
-            round.inner().get("opcode"),
+            round.get("opcode"),
             Some(&serde_json::json!("text"))
         );
     }
@@ -821,7 +821,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_ok(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "mask": "dGVzdA==",
@@ -835,10 +835,10 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"text": "hello"}))],
+            &[serde_json::Value::from(serde_json::json!({"text": "hello"}))],
             &mut ctx,
         );
-        assert!(encoded.inner().is_string());
+        assert!(encoded.is_string());
     }
 
     #[test]
@@ -846,12 +846,12 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"binary": "aGVsbG8="}),
             )],
             &mut ctx,
         );
-        assert!(encoded.inner().is_string());
+        assert!(encoded.is_string());
     }
 
     #[test]
@@ -859,12 +859,12 @@ mod module_helpers {
         let mut ctx = ctx();
         call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"ping": ""}))],
+            &[serde_json::Value::from(serde_json::json!({"ping": ""}))],
             &mut ctx,
         );
         call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"pong": ""}))],
+            &[serde_json::Value::from(serde_json::json!({"pong": ""}))],
             &mut ctx,
         );
     }
@@ -874,10 +874,10 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"close": null}))],
+            &[serde_json::Value::from(serde_json::json!({"close": null}))],
             &mut ctx,
         );
-        assert!(encoded.inner().is_string());
+        assert!(encoded.is_string());
     }
 
     #[test]
@@ -885,7 +885,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": 1000, "reason": "normal"},
             }))],
             &mut ctx,
@@ -897,12 +897,12 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({"text": "hello"}))],
+            &[serde_json::Value::from(serde_json::json!({"text": "hello"}))],
             &mut ctx,
         );
         let frame = call_ok(&FrameDecode, &[encoded], &mut ctx);
         let msg = call_ok(&MessageFromFrame, &[frame], &mut ctx);
-        assert_eq!(msg.inner().get("text"), Some(&serde_json::json!("hello")));
+        assert_eq!(msg.get("text"), Some(&serde_json::json!("hello")));
     }
 
     #[test]
@@ -910,14 +910,14 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(
+            &[serde_json::Value::from(
                 serde_json::json!({"binary": "aGVsbG8="}),
             )],
             &mut ctx,
         );
         let frame = call_ok(&FrameDecode, &[encoded], &mut ctx);
         let msg = call_ok(&MessageFromFrame, &[frame], &mut ctx);
-        assert!(msg.inner().get("binary").is_some());
+        assert!(msg.get("binary").is_some());
     }
 
     #[test]
@@ -928,7 +928,7 @@ mod module_helpers {
             &ClientConnect,
             &[
                 c,
-                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                serde_json::Value::from(serde_json::json!("ws://127.0.0.1:0")),
             ],
             &mut ctx,
         );
@@ -942,7 +942,7 @@ mod module_helpers {
             &ClientSend,
             &[
                 c.clone(),
-                NonFunctionValue::new(serde_json::json!({"text": "hello"})),
+                serde_json::Value::from(serde_json::json!({"text": "hello"})),
             ],
             &mut ctx,
         );
@@ -954,7 +954,7 @@ mod module_helpers {
     fn server_new_listen_stop_no_op() {
         let mut ctx = ctx();
         let s = call_ok(&ServerNew, &[], &mut ctx);
-        let handler = NonFunctionValue::new(serde_json::json!({
+        let handler = serde_json::Value::from(serde_json::json!({
             "params": [{"name": "conn", "schema": null}, {"name": "msg", "schema": null}],
             "body": "msg",
         }));
@@ -962,7 +962,7 @@ mod module_helpers {
             &ServerListen,
             &[
                 s.clone(),
-                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                serde_json::Value::from(serde_json::json!("ws://127.0.0.1:0")),
                 handler,
             ],
             &mut ctx,
@@ -976,7 +976,7 @@ mod module_helpers {
         for opcode in ["close", "ping", "pong"] {
             call_ok(
                 &FrameEncode,
-                &[NonFunctionValue::new(serde_json::json!({
+                &[serde_json::Value::from(serde_json::json!({
                     "opcode": opcode,
                     "payload": "",
                 }))],
@@ -990,7 +990,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_ok(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "fin": false,
@@ -1004,7 +1004,7 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "aGVsbG8=",
                 "mask": "dGVzdA==",
@@ -1012,7 +1012,7 @@ mod module_helpers {
             &mut ctx,
         );
         let decoded = call_ok(&FrameDecode, &[encoded], &mut ctx);
-        assert!(decoded.inner().get("mask").is_some());
+        assert!(decoded.get("mask").is_some());
     }
 
     #[test]
@@ -1021,7 +1021,7 @@ mod module_helpers {
         for opcode in ["ping", "pong"] {
             let encoded = call_ok(
                 &MessageToFrame,
-                &[NonFunctionValue::new(serde_json::json!({
+                &[serde_json::Value::from(serde_json::json!({
                     opcode: "",
                 }))],
                 &mut ctx,
@@ -1036,7 +1036,7 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": null,
             }))],
             &mut ctx,
@@ -1046,7 +1046,7 @@ mod module_helpers {
 
         let encoded2 = call_ok(
             &MessageToFrame,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "close": {"code": 1000, "reason": "normal"},
             }))],
             &mut ctx,
@@ -1060,7 +1060,7 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &FrameEncode,
-            &[NonFunctionValue::new(serde_json::json!({
+            &[serde_json::Value::from(serde_json::json!({
                 "opcode": "text",
                 "payload": "gIE=",
             }))],
@@ -1075,7 +1075,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ClientNew,
-            &[NonFunctionValue::new(serde_json::json!(null))],
+            &[serde_json::Value::from(serde_json::json!(null))],
             &mut ctx,
         );
     }
@@ -1085,7 +1085,7 @@ mod module_helpers {
         let mut ctx = ctx();
         call_err(
             &ServerNew,
-            &[NonFunctionValue::new(serde_json::json!(null))],
+            &[serde_json::Value::from(serde_json::json!(null))],
             &mut ctx,
         );
     }
@@ -1096,8 +1096,8 @@ mod module_helpers {
         call_err(
             &ClientConnect,
             &[
-                NonFunctionValue::new(serde_json::json!(99999)),
-                NonFunctionValue::new(serde_json::json!("ws://127.0.0.1:0")),
+                serde_json::Value::from(serde_json::json!(99999)),
+                serde_json::Value::from(serde_json::json!("ws://127.0.0.1:0")),
             ],
             &mut ctx,
         );

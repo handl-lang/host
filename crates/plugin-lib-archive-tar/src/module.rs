@@ -9,9 +9,8 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_plugin_lib_archive::{Archive, ArchiveEntry};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value as JsonValue;
 
 use crate::TarArchive;
@@ -25,7 +24,7 @@ impl Module for TarModule {
         "tar"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "pack" => Some(&TarPack),
             "unpack" => Some(&TarUnpack),
@@ -37,86 +36,71 @@ impl Module for TarModule {
 #[derive(Clone, Copy)]
 pub struct TarPack;
 
-impl Function<NonFunctionValue> for TarPack {
+impl Function for TarPack {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let arg = args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: args.len(),
-        })?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
 
-        let items = arg.as_array().ok_or(Error::TypeMismatch {
-            expected: "array",
-            got: "non-array",
-        })?;
+        let items = arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))?;
 
         let mut entries = Vec::with_capacity(items.len());
 
         for item in items {
-            let obj = item.as_object().ok_or(Error::TypeMismatch {
-                expected: "object",
-                got: "non-object",
-            })?;
+            let obj = item.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
 
             let path = obj
                 .get("path")
                 .and_then(|v| v.as_str())
-                .ok_or(Error::PrimitiveError(
+                .ok_or(EvalError::Other(
                     "tar.pack entry missing path".to_string(),
                 ))?;
 
             let contents =
                 obj.get("contents")
                     .and_then(|v| v.as_str())
-                    .ok_or(Error::PrimitiveError(
+                    .ok_or(EvalError::Other(
                         "tar.pack entry missing contents".to_string(),
                     ))?;
 
             let bytes = BASE64_STANDARD
                 .decode(contents)
-                .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+                .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
 
             entries.push(ArchiveEntry::new(path, bytes));
         }
 
         let archive = TarArchive
             .pack(&entries)
-            .map_err(|e| Error::PrimitiveError(format!("tar pack error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("tar pack error: {e}")))?;
 
         let encoded = BASE64_STANDARD.encode(&archive);
-        Ok(NonFunctionValue::new(encoded))
+        Ok(serde_json::Value::from(encoded))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct TarUnpack;
 
-impl Function<NonFunctionValue> for TarUnpack {
+impl Function for TarUnpack {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
-        let arg = args.first().ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: args.len(),
-        })?;
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
 
-        let s = arg.as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
 
         let bytes = BASE64_STANDARD
             .decode(s)
-            .map_err(|e| Error::PrimitiveError(format!("base64 decode error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
 
         let entries = TarArchive
             .unpack(&bytes)
-            .map_err(|e| Error::PrimitiveError(format!("tar unpack error: {e}")))?;
+            .map_err(|e| EvalError::Other(format!("tar unpack error: {e}")))?;
 
         let objects: Vec<JsonValue> = entries
             .into_iter()
@@ -128,6 +112,6 @@ impl Function<NonFunctionValue> for TarUnpack {
             })
             .collect();
 
-        Ok(NonFunctionValue::new(JsonValue::Array(objects)))
+        Ok(serde_json::Value::from(JsonValue::Array(objects)))
     }
 }

@@ -1,6 +1,5 @@
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use serde_json::Value as JsonValue;
 
 use crate::shared::{
@@ -9,18 +8,18 @@ use crate::shared::{
 
 #[derive(Clone, Copy)]
 pub struct MoodInd;
-impl Function<NonFunctionValue> for MoodInd {
+impl Function for MoodInd {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
         match project(value, kind) {
             Some(v) => Ok(v),
-            None => Err(Error::PrimitiveError(format!(
+            None => Err(EvalError::Other(format!(
                 "mood.ind: expected {kind}, got {}",
                 type_name(value)
             ))),
@@ -30,27 +29,27 @@ impl Function<NonFunctionValue> for MoodInd {
 
 #[derive(Clone, Copy)]
 pub struct MoodInt;
-impl Function<NonFunctionValue> for MoodInt {
+impl Function for MoodInt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(NonFunctionValue::new(matches(value, kind)))
+        Ok(serde_json::Value::from(matches(value, kind)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MoodNorm;
-impl Function<NonFunctionValue> for MoodNorm {
+impl Function for MoodNorm {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
@@ -63,47 +62,47 @@ impl Function<NonFunctionValue> for MoodNorm {
 
 #[derive(Clone, Copy)]
 pub struct MoodPot;
-impl Function<NonFunctionValue> for MoodPot {
+impl Function for MoodPot {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(project(value, kind).unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)))
+        Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(JsonValue::Null)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MoodNeg;
-impl Function<NonFunctionValue> for MoodNeg {
+impl Function for MoodNeg {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(complement(value, kind).unwrap_or_else(|| NonFunctionValue::new(JsonValue::Null)))
+        Ok(complement(value, kind).unwrap_or_else(|| serde_json::Value::from(JsonValue::Null)))
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct MoodCnd;
-impl Function<NonFunctionValue> for MoodCnd {
+impl Function for MoodCnd {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         require_arg_count(args, 3)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
         let default = &args[2];
-        Ok(project(value, kind).unwrap_or_else(|| NonFunctionValue::new(default.inner().clone())))
+        Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(default.clone())))
     }
 }
 
@@ -114,7 +113,7 @@ impl Module for MoodModule {
         "mood"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "ind" => Some(&MoodInd),
             "int" => Some(&MoodInt),

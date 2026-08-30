@@ -455,11 +455,7 @@ impl ProcessPlugin {
     }
 
     /// Creates a process plugin with a custom run function.
-    pub fn with_run_fn<F>(
-        name: impl Into<String>,
-        capabilities: &[CapabilityId],
-        run_fn: F,
-    ) -> Self
+    pub fn with_run_fn<F>(name: impl Into<String>, capabilities: &[CapabilityId], run_fn: F) -> Self
     where
         F: Fn(&CapabilityRequest, &mut PluginContext) -> Result<CapabilityResponse, PlatformError>
             + Send

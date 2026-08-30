@@ -1,6 +1,5 @@
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use super::array::{
     At, Chunk, Compact, Concat, Contains, Dedupe, DeepFlatten, Drop, DropWhile, Enumerate, Fill,
@@ -143,7 +142,7 @@ impl Module for CollectionsModule {
         "collections"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             // vec
             "vec.new" => Some(&NEW),

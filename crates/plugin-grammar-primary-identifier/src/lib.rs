@@ -7,7 +7,8 @@
 use handl_platform::{AstNode, Behavior, PlatformError};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::LexKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::DynKind;
 use serde_json::json;
 
 /// Token capability required by the primary identifier grammar rule.
@@ -84,11 +85,12 @@ impl<K: IdentToken> ParserBehavior<K> for IdentifierRule {
     }
 }
 
-impl IdentToken for LexKind {
+impl IdentToken for DynKind {
     fn as_ident(&self) -> Option<&str> {
-        match self {
-            LexKind::Identifier(name) => Some(name.as_str()),
-            _ => None,
+        if let Some(IdentKind::Ident(name)) = self.downcast_ref::<IdentKind>() {
+            Some(name.as_str())
+        } else {
+            None
         }
     }
 }

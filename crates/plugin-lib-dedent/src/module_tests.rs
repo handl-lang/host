@@ -1,15 +1,15 @@
 use super::module::{Dedent, DedentModule};
-use handl_plugin_vm::Function;
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::{CanonicalContext, Error, NonFunctionValue};
+use handl_platform::Function;
+use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError};
 
-fn call_dedent(args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
-    let mut ctx = CanonicalContext::new();
+fn call_dedent(args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
+    let mut ctx = EvalContext::new();
     Dedent.call(args, &mut ctx)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
 #[test]
@@ -25,13 +25,6 @@ fn dedent_module_function_lookup() {
 }
 
 #[test]
-fn dedent_module_lazy_function_returns_none() {
-    let module = DedentModule;
-    assert!(module.lazy_function("dedent").is_none());
-    assert!(module.lazy_function("anything").is_none());
-}
-
-#[test]
 fn dedent_call_with_string() {
     let result = call_dedent(&[s("  hello\n  world")]).unwrap();
     assert_eq!(result.as_str().unwrap(), "hello\nworld");
@@ -40,13 +33,13 @@ fn dedent_call_with_string() {
 #[test]
 fn dedent_call_with_zero_args() {
     let result = call_dedent(&[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { expected: 1, got: 0 })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn dedent_call_with_non_string_arg() {
-    let result = call_dedent(&[NonFunctionValue::new(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { expected: "string", .. })));
+    let result = call_dedent(&[serde_json::Value::from(42.0)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(msg)) if msg.contains("string")));
 }
 
 #[test]
@@ -58,14 +51,14 @@ fn dedent_call_with_extra_args() {
 
 #[test]
 fn dedent_call_with_bool_arg() {
-    let result = call_dedent(&[NonFunctionValue::new(true)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { expected: "string", .. })));
+    let result = call_dedent(&[serde_json::Value::from(true)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(msg)) if msg.contains("string")));
 }
 
 #[test]
 fn dedent_call_with_null_arg() {
-    let result = call_dedent(&[NonFunctionValue::new(())]);
-    assert!(matches!(result, Err(Error::TypeMismatch { expected: "string", .. })));
+    let result = call_dedent(&[serde_json::Value::from(())]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(msg)) if msg.contains("string")));
 }
 
 #[test]

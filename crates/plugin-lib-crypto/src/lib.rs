@@ -31,7 +31,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_crypto::CryptoModule;
 //!
 //! let host = ModuleRuntime::new()
@@ -41,6 +41,7 @@
 //! Expressions can then call `crypto.sha256("hello")`,
 //! `crypto.md5("hello")`, etc.
 
+use handl_platform::{Function, Module};
 mod common;
 mod error;
 mod hash;

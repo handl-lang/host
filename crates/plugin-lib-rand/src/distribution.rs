@@ -1,8 +1,6 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::Rng;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{num, require_number};
 use crate::error::RandError;
@@ -20,12 +18,12 @@ use crate::error::RandError;
 #[derive(Clone, Copy)]
 pub struct Gauss;
 
-impl Function<NonFunctionValue> for Gauss {
+impl Function for Gauss {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let mean = require_number(args, 0)?;
         let stddev = require_number(args, 1)?;
         if !stddev.is_finite() || !mean.is_finite() {
@@ -64,12 +62,12 @@ impl Function<NonFunctionValue> for Gauss {
 #[derive(Clone, Copy)]
 pub struct Exponential;
 
-impl Function<NonFunctionValue> for Exponential {
+impl Function for Exponential {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let lambda = require_number(args, 0)?;
         if !lambda.is_finite() || lambda <= 0.0 {
             return Err(RandError::InvalidRange {
@@ -98,12 +96,12 @@ impl Function<NonFunctionValue> for Exponential {
 #[derive(Clone, Copy)]
 pub struct Poisson;
 
-impl Function<NonFunctionValue> for Poisson {
+impl Function for Poisson {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let lambda = require_number(args, 0)?;
         if !lambda.is_finite() || lambda < 0.0 {
             return Err(RandError::InvalidRange {
@@ -147,12 +145,12 @@ impl Function<NonFunctionValue> for Poisson {
 #[derive(Clone, Copy)]
 pub struct Binomial;
 
-impl Function<NonFunctionValue> for Binomial {
+impl Function for Binomial {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let n_trials = require_number(args, 0)?;
         let p = require_number(args, 1)?;
 

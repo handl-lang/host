@@ -9,5 +9,9 @@ handl-plugin-lexer.workspace = true
 handl-plugin-ext-parser.workspace = true
 serde_json = "1"
 handl-plugin-token-kind = { path = "../plugin-token-kind" }
+handl-plugin-token-bool = { path = "../plugin-token-bool" }
+handl-plugin-token-null = { path = "../plugin-token-null" }
+handl-plugin-token-number = { path = "../plugin-token-number" }
+handl-plugin-token-string = { path = "../plugin-token-string" }
 
 [dev-dependencies]

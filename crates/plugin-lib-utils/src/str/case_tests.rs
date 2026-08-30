@@ -1,29 +1,28 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 
-use handl_plugin_vm_values_json::{CanonicalContext, Error};
 
-use handl_plugin_vm_common::Module;
+use handl_platform::Module;
 
 use super::StrModule;
+use handl_platform::{EvalContext, EvalError};
 
-fn call(name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(name: &str, args: &[NonFunctionValue]) -> Result<NonFunctionValue, Error> {
+fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value, EvalError> {
     let func = StrModule.function(name).expect("function exists");
-    let mut ctx = CanonicalContext::new();
+    let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
 }
 
-fn s(v: &str) -> NonFunctionValue {
-    NonFunctionValue::new(v.to_string())
+fn s(v: &str) -> serde_json::Value {
+    serde_json::Value::from(v.to_string())
 }
 
-fn n(v: f64) -> NonFunctionValue {
-    NonFunctionValue::new(serde_json::json!(v))
+fn n(v: f64) -> serde_json::Value {
+    serde_json::Value::from(serde_json::json!(v))
 }
 
 // ── capitalize ──────────────────────────────────────────────────────
@@ -56,13 +55,13 @@ fn capitalize_unicode() {
 #[test]
 fn capitalize_no_args_errors() {
     let result = call_err("capitalize", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn capitalize_non_string_errors() {
     let result = call_err("capitalize", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── title_case ──────────────────────────────────────────────────────
@@ -128,13 +127,13 @@ fn title_case_newline_boundary() {
 #[test]
 fn title_case_no_args_errors() {
     let result = call_err("title_case", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn title_case_non_string_errors() {
     let result = call_err("title_case", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── snake_case ──────────────────────────────────────────────────────
@@ -200,13 +199,13 @@ fn snake_case_consecutive_uppercase() {
 #[test]
 fn snake_case_no_args_errors() {
     let result = call_err("snake_case", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn snake_case_non_string_errors() {
     let result = call_err("snake_case", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // regression: multi-byte uppercase
@@ -265,13 +264,13 @@ fn kebab_case_empty_string() {
 #[test]
 fn kebab_case_no_args_errors() {
     let result = call_err("kebab_case", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn kebab_case_non_string_errors() {
     let result = call_err("kebab_case", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // regression: multi-byte uppercase
@@ -330,13 +329,13 @@ fn camel_case_empty_string() {
 #[test]
 fn camel_case_no_args_errors() {
     let result = call_err("camel_case", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn camel_case_non_string_errors() {
     let result = call_err("camel_case", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // regression: multi-byte uppercase
@@ -395,13 +394,13 @@ fn pascal_case_empty_string() {
 #[test]
 fn pascal_case_no_args_errors() {
     let result = call_err("pascal_case", &[]);
-    assert!(matches!(result, Err(Error::ArgumentCount { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
 #[test]
 fn pascal_case_non_string_errors() {
     let result = call_err("pascal_case", &[n(42.0)]);
-    assert!(matches!(result, Err(Error::TypeMismatch { .. })));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // regression: multi-byte uppercase

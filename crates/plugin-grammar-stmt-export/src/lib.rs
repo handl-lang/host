@@ -7,7 +7,9 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind, LexKeyword};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_keyword::KeywordKind;
 use serde_json::json;
 
 /// Token capability required by the export statement grammar rule.
@@ -79,13 +81,17 @@ impl<K: ExportStmtToken> ParserBehavior<K> for ExportStmtRule {
     }
 }
 
-impl ExportStmtToken for LexKind {
+impl ExportStmtToken for DynKind {
     fn is_export_stmt(&self) -> bool {
-        matches!(self, LexKind::Keyword(LexKeyword::Export))
+        self.downcast_ref::<KeywordKind>()
+            .map(|k| k.name() == "export")
+            .unwrap_or(false)
     }
 
     fn is_export_stmt_semicolon(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Semicolon))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Semicolon)
+            .unwrap_or(false)
     }
 }
 

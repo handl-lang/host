@@ -3,9 +3,8 @@
 //! Strict RFC 3986 URI parser for `handl-lib-parse`.
 
 use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 use iri_string::types::UriString;
 use serde_json::{Value, json};
 
@@ -87,7 +86,7 @@ impl Module for UrlRfcModule {
         "url_rfc"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "url_rfc" => Some(&UrlRfcName),
             _ => None,
@@ -98,20 +97,17 @@ impl Module for UrlRfcModule {
 #[derive(Debug, Clone, Copy)]
 struct UrlRfcName;
 
-impl Function<NonFunctionValue> for UrlRfcName {
+impl Function for UrlRfcName {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, handl_plugin_vm::Error<NonFunctionValue>> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(handl_plugin_vm::Error::ArgumentCount {
-                expected: 0,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
         }
 
-        Ok(NonFunctionValue::new(json!({
+        Ok(serde_json::Value::from(json!({
             "type": "parser",
             "name": "url_rfc",
         })))
@@ -121,7 +117,7 @@ impl Function<NonFunctionValue> for UrlRfcName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_plugin_vm_values_json::CanonicalContext;
+    use handl_platform::EvalContext;
 
     #[test]
     fn parses_http_uri() {
@@ -160,8 +156,8 @@ mod tests {
 
     #[test]
     fn url_rfc_object_is_parser_token() {
-        let mut ctx = CanonicalContext::new();
-        let obj = UrlRfcName.call(&[], &mut ctx).unwrap().into_inner();
+        let mut ctx = EvalContext::new();
+        let obj = UrlRfcName.call(&[], &mut ctx).unwrap();
         assert_eq!(obj["type"], "parser");
         assert_eq!(obj["name"], "url_rfc");
         assert!(obj.get("parse").is_none());

@@ -1,17 +1,15 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use serde_json::Value;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{array, bool_val, num, require_array, require_int, require_number, s};
 use crate::error::RandError;
 
-fn seeded_rng(seed: f64) -> Result<StdRng, Error> {
+fn seeded_rng(seed: f64) -> Result<StdRng, EvalError> {
     if !seed.is_finite() {
         return Err(RandError::InvalidRange {
             min: seed,
@@ -38,12 +36,12 @@ fn seeded_rng(seed: f64) -> Result<StdRng, Error> {
 #[derive(Clone, Copy)]
 pub struct SeededInt;
 
-impl Function<NonFunctionValue> for SeededInt {
+impl Function for SeededInt {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let min = require_int(args, 1)?;
         let max = require_int(args, 2)?;
@@ -69,12 +67,12 @@ impl Function<NonFunctionValue> for SeededInt {
 #[derive(Clone, Copy)]
 pub struct SeededFloat;
 
-impl Function<NonFunctionValue> for SeededFloat {
+impl Function for SeededFloat {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let min = require_number(args, 1)?;
         let max = require_number(args, 2)?;
@@ -102,12 +100,12 @@ impl Function<NonFunctionValue> for SeededFloat {
 #[derive(Clone, Copy)]
 pub struct SeededBool;
 
-impl Function<NonFunctionValue> for SeededBool {
+impl Function for SeededBool {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let mut rng = seeded_rng(seed)?;
         Ok(bool_val(rng.random()))
@@ -123,12 +121,12 @@ impl Function<NonFunctionValue> for SeededBool {
 #[derive(Clone, Copy)]
 pub struct SeededPick;
 
-impl Function<NonFunctionValue> for SeededPick {
+impl Function for SeededPick {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let arr = require_array(args, 1)?;
         if arr.is_empty() {
@@ -136,7 +134,7 @@ impl Function<NonFunctionValue> for SeededPick {
         }
         let mut rng = seeded_rng(seed)?;
         let choice = arr.choose(&mut rng).expect("non-empty array");
-        Ok(NonFunctionValue::new(choice.clone()))
+        Ok(serde_json::Value::from(choice.clone()))
     }
 }
 
@@ -150,12 +148,12 @@ impl Function<NonFunctionValue> for SeededPick {
 #[derive(Clone, Copy)]
 pub struct SeededChoice;
 
-impl Function<NonFunctionValue> for SeededChoice {
+impl Function for SeededChoice {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let arr = require_array(args, 1)?;
         let count = require_int(args, 2)?;
@@ -189,12 +187,12 @@ impl Function<NonFunctionValue> for SeededChoice {
 #[derive(Clone, Copy)]
 pub struct SeededSample;
 
-impl Function<NonFunctionValue> for SeededSample {
+impl Function for SeededSample {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let arr = require_array(args, 1)?;
         let count = require_int(args, 2)?;
@@ -232,12 +230,12 @@ impl Function<NonFunctionValue> for SeededSample {
 #[derive(Clone, Copy)]
 pub struct SeededShuffle;
 
-impl Function<NonFunctionValue> for SeededShuffle {
+impl Function for SeededShuffle {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let arr = require_array(args, 1)?;
         let mut rng = seeded_rng(seed)?;
@@ -256,12 +254,12 @@ impl Function<NonFunctionValue> for SeededShuffle {
 #[derive(Clone, Copy)]
 pub struct SeededString;
 
-impl Function<NonFunctionValue> for SeededString {
+impl Function for SeededString {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let length = require_int(args, 1)?;
         if length < 0 {
@@ -271,20 +269,11 @@ impl Function<NonFunctionValue> for SeededString {
         let charset_name = match args.len() {
             2 => "alphanumeric",
             3 => {
-                let val = args.get(2).ok_or(Error::ArgumentCount {
-                    expected: 3,
-                    got: 2,
-                })?;
-                val.as_str().ok_or(Error::TypeMismatch {
-                    expected: "string",
-                    got: "non-string",
-                })?
+                let val = args.get(2).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, 2,)))?;
+                val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
             }
             n => {
-                return Err(Error::ArgumentCount {
-                    expected: 3,
-                    got: n,
-                });
+                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, n,)));
             }
         };
 
@@ -324,12 +313,12 @@ impl Function<NonFunctionValue> for SeededString {
 #[derive(Clone, Copy)]
 pub struct SeededGauss;
 
-impl Function<NonFunctionValue> for SeededGauss {
+impl Function for SeededGauss {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let seed = require_number(args, 0)?;
         let mean = require_number(args, 1)?;
         let stddev = require_number(args, 2)?;

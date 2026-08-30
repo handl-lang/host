@@ -23,7 +23,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_http_client::{HttpClientModule, http_client_stub::StubHttpClient};
 //!
 //! let host = ModuleRuntime::new()
@@ -32,6 +32,7 @@
 //!
 //! Expressions can then call `http.get("https://...")`, `http.post(url, body)`, etc.
 
+use handl_platform::{Module};
 mod error;
 mod http_client;
 

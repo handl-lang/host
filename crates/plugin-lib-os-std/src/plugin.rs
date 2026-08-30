@@ -8,7 +8,7 @@ use handl_plugin_lib_os::{
     CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule,
     TimeModule, TmpModule,
 };
-use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
+use handl_plugin_module::{ModuleRuntime, ModuleRule};
 
 use crate::{StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp};
 

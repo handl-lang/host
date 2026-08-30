@@ -1,20 +1,15 @@
-use handl_plugin_vm_values_json::{Error, NonFunctionValue};
+use handl_platform::EvalError;
+use handl_platform::{EvalContext, Function};
 
 pub(crate) use crate::shared::{b, num};
 
-pub(super) fn require_number(arg: &NonFunctionValue) -> Result<f64, Error> {
-    arg.as_number().ok_or(Error::TypeMismatch {
-        expected: "number",
-        got: "non-number",
-    })
+pub(super) fn require_number(arg: &serde_json::Value) -> Result<f64, EvalError> {
+    arg.as_f64().ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
 }
 
-pub(super) fn require_two_numbers(args: &[NonFunctionValue]) -> Result<(f64, f64), Error> {
+pub(super) fn require_two_numbers(args: &[serde_json::Value]) -> Result<(f64, f64), EvalError> {
     if args.len() < 2 {
-        return Err(Error::ArgumentCount {
-            expected: 2,
-            got: args.len(),
-        });
+        return Err(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
     }
     let a = require_number(&args[0])?;
     let b = require_number(&args[1])?;
@@ -25,18 +20,15 @@ macro_rules! unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_plugin_vm::Function<handl_plugin_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_platform::Function for $struct_name {
             fn call(
                 &self,
-                args: &[handl_plugin_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_plugin_vm::Context<handl_plugin_vm_values_json::NonFunctionValue>,
-            ) -> Result<handl_plugin_vm_values_json::NonFunctionValue, handl_plugin_vm_values_json::Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
                 let arg = args
                     .first()
-                    .ok_or(handl_plugin_vm_values_json::Error::ArgumentCount {
-                        expected: 1,
-                        got: 0,
-                    })?;
+                    .ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
                 let x = require_number(arg)?;
                 Ok(num($body(x)))
             }
@@ -50,18 +42,15 @@ macro_rules! bool_unary_fn {
     ($struct_name:ident, $body:expr) => {
         #[derive(Clone, Copy)]
         pub struct $struct_name;
-        impl handl_plugin_vm::Function<handl_plugin_vm_values_json::NonFunctionValue> for $struct_name {
+        impl handl_platform::Function for $struct_name {
             fn call(
                 &self,
-                args: &[handl_plugin_vm_values_json::NonFunctionValue],
-                _ctx: &mut dyn handl_plugin_vm::Context<handl_plugin_vm_values_json::NonFunctionValue>,
-            ) -> Result<handl_plugin_vm_values_json::NonFunctionValue, handl_plugin_vm_values_json::Error> {
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
                 let arg = args
                     .first()
-                    .ok_or(handl_plugin_vm_values_json::Error::ArgumentCount {
-                        expected: 1,
-                        got: 0,
-                    })?;
+                    .ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
                 let x = require_number(arg)?;
                 Ok(b($body(x)))
             }

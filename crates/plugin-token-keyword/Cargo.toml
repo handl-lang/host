@@ -1,0 +1,8 @@
+[package]
+name = "handl-plugin-token-keyword"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-plugin-grammar-textmate.workspace = true
+handl-plugin-lexer.workspace = true

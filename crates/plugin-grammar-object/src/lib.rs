@@ -7,7 +7,10 @@
 use handl_platform::{AstNode, Behavior, Operation, PlatformError, Span};
 use handl_plugin_ext_parser::{Parser, ParserBehavior, ParserContext};
 use handl_plugin_lexer::{Token, TokenKind};
-use handl_plugin_token_kind::{LexDelimiter, LexKind};
+use handl_plugin_token_delimiter::DelimiterKind;
+use handl_plugin_token_identifier::IdentKind;
+use handl_plugin_token_kind::DynKind;
+use handl_plugin_token_string::StringKind;
 use serde_json::{Value, json};
 
 /// Token capability required by the object grammar rule.
@@ -116,28 +119,38 @@ impl<K: ObjectToken> ParserBehavior<K> for ObjectRule {
     }
 }
 
-impl ObjectToken for LexKind {
+impl ObjectToken for DynKind {
     fn is_brace_open(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BraceOpen))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BraceOpen)
+            .unwrap_or(false)
     }
 
     fn is_brace_close(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::BraceClose))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::BraceClose)
+            .unwrap_or(false)
     }
 
     fn is_comma(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Comma))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Comma)
+            .unwrap_or(false)
     }
 
     fn is_colon(&self) -> bool {
-        matches!(self, LexKind::Delimiter(LexDelimiter::Colon))
+        self.downcast_ref::<DelimiterKind>()
+            .map(|k| *k == DelimiterKind::Colon)
+            .unwrap_or(false)
     }
 
     fn as_object_key(&self) -> Option<String> {
-        match self {
-            LexKind::Identifier(name) => Some(name.clone()),
-            LexKind::String(s) => Some(s.clone()),
-            _ => None,
+        if let Some(IdentKind::Ident(name)) = self.downcast_ref::<IdentKind>() {
+            Some(name.clone())
+        } else if let Some(StringKind::String(s)) = self.downcast_ref::<StringKind>() {
+            Some(s.clone())
+        } else {
+            None
         }
     }
 }

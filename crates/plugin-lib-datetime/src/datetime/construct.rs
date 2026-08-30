@@ -1,34 +1,26 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{format_iso, s};
 use crate::DatetimeError;
 use chrono::{TimeZone, Utc};
+use handl_platform::{EvalContext, EvalError, Function};
 
-fn get_number(args: &[NonFunctionValue], index: usize, default: f64) -> Result<f64, Error> {
+fn get_number(args: &[serde_json::Value], index: usize, default: f64) -> Result<f64, EvalError> {
     match args.get(index) {
-        Some(v) => v.as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        }),
+        Some(v) => v.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",))),
         None => Ok(default),
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct FromComponents;
-impl Function<NonFunctionValue> for FromComponents {
+impl Function for FromComponents {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(Error::ArgumentCount {
-                expected: 3,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
         }
         let year = get_number(args, 0, 0.0)? as i32;
         let month = get_number(args, 1, 0.0)? as u32;

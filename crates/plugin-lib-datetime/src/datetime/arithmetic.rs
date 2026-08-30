@@ -1,19 +1,17 @@
-use handl_plugin_vm_values_json::Error;
-use handl_plugin_vm_values_json::NonFunctionValue;
-use handl_plugin_vm_values_json::{Context, Function};
 
 use super::common::{format_iso, parse_iso, require_string_and_number, s};
 use crate::DatetimeError;
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
+use handl_platform::{EvalContext, EvalError, Function};
 
 #[derive(Clone, Copy)]
 pub struct AddSeconds;
-impl Function<NonFunctionValue> for AddSeconds {
+impl Function for AddSeconds {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let secs = amount.trunc() as i64;
@@ -25,12 +23,12 @@ impl Function<NonFunctionValue> for AddSeconds {
 
 #[derive(Clone, Copy)]
 pub struct AddMinutes;
-impl Function<NonFunctionValue> for AddMinutes {
+impl Function for AddMinutes {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let total_secs = amount * 60.0;
@@ -43,12 +41,12 @@ impl Function<NonFunctionValue> for AddMinutes {
 
 #[derive(Clone, Copy)]
 pub struct AddHours;
-impl Function<NonFunctionValue> for AddHours {
+impl Function for AddHours {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let total_secs = amount * 3600.0;
@@ -61,12 +59,12 @@ impl Function<NonFunctionValue> for AddHours {
 
 #[derive(Clone, Copy)]
 pub struct AddDays;
-impl Function<NonFunctionValue> for AddDays {
+impl Function for AddDays {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let total_secs = amount * 86400.0;
@@ -79,12 +77,12 @@ impl Function<NonFunctionValue> for AddDays {
 
 #[derive(Clone, Copy)]
 pub struct AddWeeks;
-impl Function<NonFunctionValue> for AddWeeks {
+impl Function for AddWeeks {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let total_secs = amount * 604800.0;
@@ -95,7 +93,7 @@ impl Function<NonFunctionValue> for AddWeeks {
     }
 }
 
-fn add_months_to_date(dt: DateTime<Utc>, months: i64) -> Result<DateTime<Utc>, Error> {
+fn add_months_to_date(dt: DateTime<Utc>, months: i64) -> Result<DateTime<Utc>, EvalError> {
     let year = dt.year();
     let month = dt.month() as i64;
     let day = dt.day() as u32;
@@ -132,12 +130,12 @@ fn add_months_to_date(dt: DateTime<Utc>, months: i64) -> Result<DateTime<Utc>, E
 
 #[derive(Clone, Copy)]
 pub struct AddMonths;
-impl Function<NonFunctionValue> for AddMonths {
+impl Function for AddMonths {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let result = add_months_to_date(dt, amount as i64)?;
@@ -147,12 +145,12 @@ impl Function<NonFunctionValue> for AddMonths {
 
 #[derive(Clone, Copy)]
 pub struct AddYears;
-impl Function<NonFunctionValue> for AddYears {
+impl Function for AddYears {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let (input, amount) = require_string_and_number(args)?;
         let dt = parse_iso(input)?;
         let result = add_months_to_date(dt, (amount as i64) * 12)?;

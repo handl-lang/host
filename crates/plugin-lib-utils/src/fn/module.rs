@@ -1,9 +1,8 @@
-use handl_plugin_vm::{Function, LazyFunction};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::NonFunctionValue;
+use handl_platform::Function;
+use handl_platform::Module;
 
 use crate::r#fn::combinators::{
-    Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, IfLazy, Map, Match,
+    Apply, Choice, Compose, Constantly, Converge, Fanout, Filter, Flip, Flow, Map, Match,
     Partial, Pipe, Reduce, Tap, Unless, When,
 };
 use crate::r#fn::higher_order::{CountBy, Every, Find, FlatMap, GroupBy, Partition, SomeFn};
@@ -20,7 +19,7 @@ impl Module for FnModule {
         "fn"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "pipe" => Some(&Pipe),
             "flow" => Some(&Flow),
@@ -46,13 +45,6 @@ impl Module for FnModule {
             "when" => Some(&When),
             "unless" => Some(&Unless),
             "converge" => Some(&Converge),
-            _ => None,
-        }
-    }
-
-    fn lazy_function(&self, name: &str) -> Option<&dyn LazyFunction<NonFunctionValue>> {
-        match name {
-            "if" => Some(&IfLazy),
             _ => None,
         }
     }

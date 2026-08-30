@@ -35,7 +35,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_rand::RandModule;
 //!
 //! let host = ModuleRuntime::new()
@@ -49,6 +49,7 @@
 //! `rand.perlin_1d(0.5)`, `rand.perlin_2d(1, 2)`, `rand.perlin_3d(0.1, 0.2, 0.3)`,
 //! `rand.seeded_int(42, 1, 6)`, `rand.seeded_shuffle(123, [1,2,3])`, etc.
 
+use handl_platform::{Function, Module};
 mod common;
 mod distribution;
 mod error;

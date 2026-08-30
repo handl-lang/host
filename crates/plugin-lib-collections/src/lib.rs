@@ -31,6 +31,7 @@ mod btree_set;
 mod common;
 mod deque;
 mod error;
+mod function_value;
 mod hash_map;
 mod hash_set;
 mod list;

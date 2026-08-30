@@ -1,9 +1,7 @@
-use handl_plugin_vm_values_json::NonFunctionValue;
 use std::sync::Arc;
 
-use handl_plugin_vm::{Context, Function};
-use handl_plugin_vm_common::Module;
-use handl_plugin_vm_values_json::Error;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::Module;
 
 use crate::error::OsError;
 
@@ -50,7 +48,7 @@ impl Module for SocketModule {
         "socket"
     }
 
-    fn function(&self, name: &str) -> Option<&dyn Function<NonFunctionValue>> {
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "connect" => Some(&self.connect),
             "send" => Some(&self.send),
@@ -61,31 +59,19 @@ impl Module for SocketModule {
     }
 }
 
-fn require_string_arg(args: &[NonFunctionValue]) -> Result<&str, Error> {
+fn require_string_arg(args: &[serde_json::Value]) -> Result<&str, EvalError> {
     args.first()
-        .ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?
         .as_str()
-        .ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
 }
 
-fn require_number_arg(args: &[NonFunctionValue]) -> Result<i64, Error> {
+fn require_number_arg(args: &[serde_json::Value]) -> Result<i64, EvalError> {
     let n = args
         .first()
-        .ok_or(Error::ArgumentCount {
-            expected: 1,
-            got: 0,
-        })?
-        .as_number()
-        .ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })?;
+        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?
+        .as_f64()
+        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
     Ok(n as i64)
 }
 
@@ -93,16 +79,16 @@ struct ConnectFn {
     socket: Arc<dyn Socket>,
 }
 
-impl Function<NonFunctionValue> for ConnectFn {
+impl Function for ConnectFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let address = require_string_arg(args)?;
         self.socket
             .connect(address)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -111,26 +97,20 @@ struct SendFn {
     socket: Arc<dyn Socket>,
 }
 
-impl Function<NonFunctionValue> for SendFn {
+impl Function for SendFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let handle = require_number_arg(args)?;
-        let data = args[1].as_str().ok_or(Error::TypeMismatch {
-            expected: "string",
-            got: "non-string",
-        })?;
+        let data = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
         self.socket
             .send(handle, data)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -139,26 +119,20 @@ struct RecvFn {
     socket: Arc<dyn Socket>,
 }
 
-impl Function<NonFunctionValue> for RecvFn {
+impl Function for RecvFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(Error::ArgumentCount {
-                expected: 2,
-                got: args.len(),
-            });
+            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
         }
         let handle = require_number_arg(args)?;
-        let length = args[1].as_number().ok_or(Error::TypeMismatch {
-            expected: "number",
-            got: "non-number",
-        })? as usize;
+        let length = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as usize;
         self.socket
             .recv(handle, length)
-            .map(NonFunctionValue::new)
+            .map(serde_json::Value::from)
             .map_err(Into::into)
     }
 }
@@ -167,14 +141,14 @@ struct CloseFn {
     socket: Arc<dyn Socket>,
 }
 
-impl Function<NonFunctionValue> for CloseFn {
+impl Function for CloseFn {
     fn call(
         &self,
-        args: &[NonFunctionValue],
-        _ctx: &mut dyn Context<NonFunctionValue>,
-    ) -> Result<NonFunctionValue, Error> {
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         let handle = require_number_arg(args)?;
         self.socket.close(handle)?;
-        Ok(NonFunctionValue::default())
+        Ok(serde_json::Value::Null)
     }
 }
