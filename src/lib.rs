@@ -8,7 +8,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use handl_plugin_vm_common::ModuleRuntime;
+//! use handl_plugin_module::ModuleRuntime;
 //! use handl_plugin_lib_kv::{KeyValueStoreModule};
 //! use handl_plugin_lib_kv_hashmap::HashKeyValueStore;
 //!
@@ -18,6 +18,7 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
+use handl_platform::{EvalContext};
 
 use handl_plugin_lib_kv::{KeyValueStore, KvError};
 
@@ -76,19 +77,18 @@ impl KeyValueStore for HashKeyValueStore {
 #[cfg(test)]
 mod tests {
     use handl_plugin_lib_kv::KeyValueStoreModule;
-    use handl_plugin_vm_common::Module;
-    use handl_plugin_vm_values_json::{CanonicalContext, NonFunctionValue};
-
+    use handl_platform::Module;
+    
     use super::HashKeyValueStore;
 
-    fn call(module: &dyn Module, name: &str, args: &[NonFunctionValue]) -> NonFunctionValue {
+    fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
         let func = module.function(name).expect("function exists");
-        let mut ctx = CanonicalContext::new();
+        let mut ctx = EvalContext::new();
         func.call(args, &mut ctx).expect("call succeeds")
     }
 
-    fn s(v: &str) -> NonFunctionValue {
-        NonFunctionValue::new(v.to_string())
+    fn s(v: &str) -> serde_json::Value {
+        serde_json::Value::from(v.to_string())
     }
 
     #[test]
@@ -125,14 +125,14 @@ mod tests {
         let store = HashKeyValueStore::with("a", "1");
         let module = KeyValueStoreModule::new(store);
         call(&module, "clear", &[]);
-        assert_eq!(call(&module, "size", &[]).as_number(), Some(0.0));
+        assert_eq!(call(&module, "size", &[]).as_f64(), Some(0.0));
     }
 
     #[test]
     fn size() {
         let store = HashKeyValueStore::with("a", "1");
         let module = KeyValueStoreModule::new(store);
-        assert_eq!(call(&module, "size", &[]).as_number(), Some(1.0));
+        assert_eq!(call(&module, "size", &[]).as_f64(), Some(1.0));
     }
 }
 

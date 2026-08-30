@@ -5,7 +5,7 @@ use handl_platform::{
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_lib_kv::KeyValueStoreModule;
-use handl_plugin_vm_common::{ModuleRuntime, ModuleRule};
+use handl_plugin_module::{ModuleRuntime, ModuleRule};
 
 use crate::HashKeyValueStore;
 
