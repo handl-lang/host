@@ -647,12 +647,12 @@ fn into_runtime_unknown_eval_engine_errors() {
     });
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::emitter("tok", "tok"))
-        .with_runtime(RuntimeConfig::new().with_eval("bytecode"));
+        .with_runtime(RuntimeConfig::new().with_eval("nonsense"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     let err = kit.into_runtime(None).unwrap_err();
     assert_eq!(
         err,
-        LangError::Engine("unknown eval engine: bytecode".into())
+        LangError::Engine("unknown eval engine: nonsense".into())
     );
 }
 

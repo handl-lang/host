@@ -23,6 +23,7 @@
 //! |-------|--------------|---------------------------------------|
 //! | parse | `"pratt"`    | `plugin-engine-parse-pratt`          |
 //! | eval  | `"tree-walk"`| `plugin-engine-eval-tree-walk`       |
+//! | eval  | `"bytecode"` | `plugin-engine-eval-bytecode`        |
 //! | lex   | `"data"`     | `plugin-engine-lex-pattern`             |
 //!
 //! Unknown names for any stage return [`LangError::Engine`].
@@ -49,6 +50,7 @@ use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
+use handl_plugin_engine_eval_bytecode::BytecodeEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 
 /// Data-driven engine selection for a [`Runtime`] (ADR-0044 §7).
@@ -296,6 +298,8 @@ impl<'h> Runtime<'h> {
     /// - `parse = "pratt"` → [`PrattEngine`]
     /// - `eval = "tree-walk"` → [`TreeWalkEngine`] (with host if provided,
     ///   plus any globals injected as root-scope variables)
+    /// - `eval = "bytecode"` → [`BytecodeEngine`] (with host if provided;
+    ///   globals are not yet supported by the bytecode engine)
     /// - `lex = "data"` → [`DataLexerEngine`] (data-driven lexer reading
     ///   `LexerRuleDef` fragments)
     ///
@@ -363,6 +367,16 @@ impl<'h> Runtime<'h> {
                             engine = engine.with_global(name, val.clone());
                         }
                     }
+                    Some(Box::new(engine))
+                }
+                "bytecode" => {
+                    // BytecodeEngine supports host functions via `with_host`,
+                    // but does not yet expose a `with_global` builder, so
+                    // globals are not injected into the bytecode engine.
+                    let engine = match host_functions {
+                        Some(host) => BytecodeEngine::with_host(host),
+                        None => BytecodeEngine::new(),
+                    };
                     Some(Box::new(engine))
                 }
                 _ => {
@@ -647,11 +661,13 @@ mod tests {
     }
 
     #[test]
-    fn from_config_eval_bytecode_returns_config_error() {
+    fn from_config_eval_bytecode_binds_bytecode() {
         let lang = Language::new();
         let config = RuntimeConfig::new().with_eval("bytecode");
-        let err = Runtime::from_config(lang, &config, None).unwrap_err();
-        assert_eq!(err, LangError::Engine("unknown eval engine: bytecode".into()));
+        let rt = Runtime::from_config(lang, &config, None).unwrap();
+        // eval should work (not NotImplemented); an empty Ast returns Null.
+        let result = rt.eval(&Ast::new()).unwrap();
+        assert_eq!(result, Value::Null);
     }
 
     #[test]

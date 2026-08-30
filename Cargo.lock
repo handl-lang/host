@@ -2067,6 +2067,7 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-eval",
+ "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex",
  "handl-plugin-engine-lex-pattern",
