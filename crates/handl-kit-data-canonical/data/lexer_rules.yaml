@@ -144,10 +144,20 @@
   pattern: !Literal
     text: match
   priority: 15
+- id: lex.keyword.may
+  token_kind: token.keyword.may
+  pattern: !Literal
+    text: may
+  priority: 15
 - id: lex.keyword.module
   token_kind: token.keyword.module
   pattern: !Literal
     text: module
+  priority: 15
+- id: lex.keyword.must
+  token_kind: token.keyword.must
+  pattern: !Literal
+    text: must
   priority: 15
 - id: lex.keyword.not
   token_kind: token.keyword.not
@@ -158,6 +168,11 @@
   token_kind: token.keyword.typeof
   pattern: !Literal
     text: typeof
+  priority: 15
+- id: lex.keyword.when
+  token_kind: token.keyword.when
+  pattern: !Literal
+    text: when
   priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
@@ -193,11 +208,6 @@
   token_kind: token.minus
   pattern: !Literal
     text: '-'
-  priority: 20
-- id: lex.mood
-  token_kind: token.mood
-  pattern: !Literal
-    text: '!'
   priority: 20
 - id: lex.neq
   token_kind: token.neq

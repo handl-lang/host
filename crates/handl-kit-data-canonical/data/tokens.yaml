@@ -54,12 +54,18 @@
   label: let
 - id: token.keyword.match
   label: match
+- id: token.keyword.may
+  label: may
 - id: token.keyword.module
   label: module
+- id: token.keyword.must
+  label: must
 - id: token.keyword.not
   label: not
 - id: token.keyword.typeof
   label: typeof
+- id: token.keyword.when
+  label: when
 - id: token.lbrace
   label: '{'
 - id: token.lbracket
@@ -74,8 +80,6 @@
   label: <=
 - id: token.minus
   label: '-'
-- id: token.mood
-  label: null
 - id: token.neq
   label: '!='
 - id: token.null

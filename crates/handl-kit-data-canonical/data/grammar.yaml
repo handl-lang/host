@@ -127,6 +127,42 @@
   child_shape:
     node_kind: is
     arity: 2
+- id: grammar.may.infix
+  token: token.keyword.may
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: may
+    arity: 2
+- id: grammar.must.infix
+  token: token.keyword.must
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: must
+    arity: 2
+- id: grammar.not.infix
+  token: token.keyword.not
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: mood.neg
+    arity: 2
+- id: grammar.when.infix
+  token: token.keyword.when
+  position: Infix
+  binding_power:
+  - 15
+  - 16
+  child_shape:
+    node_kind: when
+    arity: 3
 - id: grammar.stmt-const.prefix
   token: token.keyword.const
   position: Prefix
@@ -288,15 +324,6 @@
   - 0
   child_shape:
     node_kind: unary.neg
-    arity: 1
-- id: grammar.mood.postfix
-  token: token.mood
-  position: Infix
-  binding_power:
-  - 90
-  - 0
-  child_shape:
-    node_kind: mood
     arity: 1
 - id: grammar.neq.infix
   token: token.neq

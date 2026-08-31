@@ -177,6 +177,27 @@
     callee: !Child 1
     args:
     - !Child 0
+- id: eval.may
+  node_kind: may
+  scheme: !Foreign
+    name: mood.pot
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.mood.neg
+  node_kind: mood.neg
+  scheme: !Foreign
+    name: mood.neg
+    args:
+    - !Child 0
+    - !Child 1
+- id: eval.must
+  node_kind: must
+  scheme: !Foreign
+    name: mood.norm
+    args:
+    - !Child 0
+    - !Child 1
 - id: eval.json
   node_kind: json
   scheme: !Foreign
@@ -195,9 +216,6 @@
     args:
     - !Child 0
     - !Child 1
-- id: eval.mood
-  node_kind: mood
-  scheme: !Child 0
 - id: eval.object
   node_kind: object
   scheme: !Prim
@@ -271,6 +289,14 @@
     op: typeof
     args:
     - !Child 0
+- id: eval.when
+  node_kind: when
+  scheme: !Foreign
+    name: mood.cnd
+    args:
+    - !Child 0
+    - !Child 1
+    - !Child 2
 - id: eval.unary.neg
   node_kind: unary.neg
   scheme: !Prim
