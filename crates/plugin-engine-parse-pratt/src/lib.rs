@@ -31,7 +31,7 @@
 use std::cell::RefCell;
 
 use handl_language::{
-    Ast, AstNode, AstRef, GrammarPosition, LangError, Language, Token, Value,
+    Ast, AstNode, AstRef, DelimitedShape, GrammarPosition, LangError, Language, Token, Value,
 };
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -320,6 +320,123 @@ impl PrattEngine {
         }
 
         Ok(left)
+    }
+
+    /// Parse a delimited block child (the last child of a prefix shape whose
+    /// `delimited` field is set). Consumes the `open` token, zero or more
+    /// elements separated by `separator`, and the `close` token. Emits a
+    /// container node of `delim.container_kind` whose `children` array holds
+    /// the element node indices.
+    ///
+    /// Each element is either a single expression (`delim.pair` is `None`) or
+    /// a pair `<expr> <pair sep> <expr>` emitted as a node of
+    /// `delim.pair.node_kind` with `children = [lhs, rhs]` (e.g. a match arm
+    /// `pattern : body`). The pair's left operand is parsed with a right
+    /// binding power just above the pair separator's infix left binding power,
+    /// so the separator is left for this loop to consume rather than being
+    /// absorbed by the infix grammar (e.g. `token.colon` is otherwise the
+    /// `type-annot` infix operator).
+    fn parse_delimited_block(
+        &self,
+        lang: &Language,
+        cursor: &mut Cursor<'_>,
+        delim: &DelimitedShape,
+    ) -> Result<AstRef, LangError> {
+        // Consume the opening delimiter.
+        let open = cursor.advance()?;
+        if open.kind != delim.open {
+            return Err(LangError::Engine(format!(
+                "expected opening delimiter {}, got {}",
+                delim.open, open.kind
+            )));
+        }
+
+        // The right binding power for a pair's left operand: one above the
+        // pair separator's infix left binding power (so the separator is not
+        // consumed by the infix loop). Falls back to a high value if the
+        // separator has no infix row.
+        let pair_lhs_rbp = delim.pair.as_ref().map(|p| {
+            Self::lookup_row(lang, &p.separator, GrammarPosition::Infix)
+                .and_then(|r| r.binding_power.map(|(l, _)| l))
+                .map(|lbp| lbp.saturating_add(1))
+                .unwrap_or(u8::MAX)
+        });
+
+        let mut elements: Vec<usize> = Vec::new();
+
+        // Empty block: `open close`.
+        if let Some(next) = cursor.peek() {
+            if next.kind == delim.close {
+                let _ = cursor.advance()?;
+                let node = AstNode::new(&delim.container_kind)
+                    .with_payload(serde_json::json!({ "children": elements }));
+                return Ok(self.ast.borrow_mut().push(node));
+            }
+        }
+
+        loop {
+            // Parse one element.
+            if let (Some(pair), Some(rbp)) = (delim.pair.as_ref(), pair_lhs_rbp) {
+                let lhs = self.expression_inner(lang, cursor, rbp)?;
+                let sep = cursor.advance()?;
+                if sep.kind != pair.separator {
+                    return Err(LangError::Engine(format!(
+                        "expected pair separator {}, got {}",
+                        pair.separator, sep.kind
+                    )));
+                }
+                let rhs = self.expression_inner(lang, cursor, 0)?;
+                let node = AstNode::new(&pair.node_kind)
+                    .with_payload(serde_json::json!({ "children": [lhs.index(), rhs.index()] }));
+                let arm_ref = self.ast.borrow_mut().push(node);
+                elements.push(arm_ref.index());
+            } else {
+                let el = self.expression_inner(lang, cursor, 0)?;
+                elements.push(el.index());
+            }
+
+            // After an element: separator (consume, maybe trailing) or close.
+            let next = cursor.peek();
+            match next {
+                Some(t) if delim.separator.as_deref() == Some(t.kind.as_str()) => {
+                    let _ = cursor.advance()?; // consume separator
+                    // Tolerate a trailing separator immediately before close.
+                    if let Some(t2) = cursor.peek() {
+                        if t2.kind == delim.close {
+                            break;
+                        }
+                    }
+                    continue;
+                }
+                Some(t) if t.kind == delim.close => break,
+                Some(t) => {
+                    return Err(LangError::Engine(format!(
+                        "expected separator {} or closing {}, got {}",
+                        delim.separator.as_deref().unwrap_or("(none)"),
+                        delim.close,
+                        t.kind
+                    )))
+                }
+                None => {
+                    return Err(LangError::Engine(
+                        "unexpected end of input in delimited block".to_string(),
+                    ))
+                }
+            }
+        }
+
+        // Consume the closing delimiter.
+        let close = cursor.advance()?;
+        if close.kind != delim.close {
+            return Err(LangError::Engine(format!(
+                "expected closing delimiter {}, got {}",
+                delim.close, close.kind
+            )));
+        }
+
+        let node = AstNode::new(&delim.container_kind)
+            .with_payload(serde_json::json!({ "children": elements }));
+        Ok(self.ast.borrow_mut().push(node))
     }
 }
 
@@ -867,5 +984,171 @@ mod tests {
         let child = &ast.nodes()[2];
         assert_eq!(child.kind, "binary.add");
         assert_eq!(child.payload, json!({"children": [0, 1]}));
+    }
+
+    /// Build a tiny language with a delimited-block prefix form modelled on
+    /// `match x { p: b, ... }`: numbers, identifiers, a `match` keyword whose
+    /// last child is a `{ }` block of comma-separated `pattern : body` arms.
+    fn match_lang() -> Language {
+        use handl_language::DelimitedShape;
+        let mut lang = Language::new();
+        for k in [
+            "token.number",
+            "token.identifier",
+            "token.keyword.match",
+            "token.lbrace",
+            "token.rbrace",
+            "token.comma",
+            "token.colon",
+        ] {
+            lang.tokens.merge(TokenKindDef::new(k)).unwrap();
+        }
+        // Atoms.
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.num",
+                "token.number",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("value", 0),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.ident",
+                "token.identifier",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("var", 0),
+            ))
+            .unwrap();
+        // `:` is an infix operator (lbp 12) — the delimited-block pair parser
+        // must parse the pattern with rbp 13 so the colon is left for it to
+        // consume, rather than being absorbed as a `type-annot` node.
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.colon",
+                    "token.colon",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("type-annot", 2),
+                )
+                .with_binding_power(12, 13),
+            )
+            .unwrap();
+        // `match` prefix: arity 2 (scrutinee + arms block), last child
+        // delimited.
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.match",
+                    "token.keyword.match",
+                    GrammarPosition::Prefix,
+                    AstShapeRef::new("match", 2).with_delimited(DelimitedShape {
+                        open: "token.lbrace".into(),
+                        close: "token.rbrace".into(),
+                        separator: Some("token.comma".into()),
+                        container_kind: "block".into(),
+                        pair: Some(handl_language::PairShape {
+                            separator: "token.colon".into(),
+                            node_kind: "arm".into(),
+                        }),
+                    }),
+                )
+                .with_binding_power(0, 0),
+            )
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn delimited_block_match_parses_arms() {
+        // `match x { a: 1, b: 2 }`
+        let engine = PrattEngine::new();
+        let lang = match_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.match", "match"),
+            tok("token.identifier", "x"),
+            tok("token.lbrace", "{"),
+            tok("token.identifier", "a"),
+            tok("token.colon", ":"),
+            tok("token.number", "1"),
+            tok("token.comma", ","),
+            tok("token.identifier", "b"),
+            tok("token.colon", ":"),
+            tok("token.number", "2"),
+            tok("token.rbrace", "}"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // Expected (post-order):
+        // 0: var(x), 1: var(a), 2: value(1), 3: arm{[1,2]},
+        // 4: var(b), 5: value(2), 6: arm{[4,5]},
+        // 7: block{[3,6]}, 8: match{[0,7]}
+        assert_eq!(ast.len(), 9);
+        assert_eq!(ast.nodes()[0].kind, "var");
+        assert_eq!(ast.nodes()[0].payload, json!("x"));
+        assert_eq!(ast.nodes()[3].kind, "arm");
+        assert_eq!(ast.nodes()[3].payload, json!({"children": [1, 2]}));
+        assert_eq!(ast.nodes()[6].kind, "arm");
+        assert_eq!(ast.nodes()[6].payload, json!({"children": [4, 5]}));
+        assert_eq!(ast.nodes()[7].kind, "block");
+        assert_eq!(ast.nodes()[7].payload, json!({"children": [3, 6]}));
+        let root = &ast.nodes()[8];
+        assert_eq!(root.kind, "match");
+        assert_eq!(root.payload, json!({"children": [0, 7]}));
+    }
+
+    #[test]
+    fn delimited_block_empty_and_trailing_separator() {
+        let engine = PrattEngine::new();
+        let lang = match_lang();
+        // `match x { }` — empty block.
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.match", "match"),
+            tok("token.identifier", "x"),
+            tok("token.lbrace", "{"),
+            tok("token.rbrace", "}"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // 0: var(x), 1: block{[]}, 2: match{[0,1]}
+        assert_eq!(ast.len(), 3);
+        assert_eq!(ast.nodes()[1].kind, "block");
+        assert_eq!(ast.nodes()[1].payload, json!({"children": []}));
+        assert_eq!(ast.nodes()[2].kind, "match");
+        assert_eq!(ast.nodes()[2].payload, json!({"children": [0, 1]}));
+
+        // `match x { a: 1, }` — trailing separator tolerated.
+        let req2 = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.match", "match"),
+            tok("token.identifier", "x"),
+            tok("token.lbrace", "{"),
+            tok("token.identifier", "a"),
+            tok("token.colon", ":"),
+            tok("token.number", "1"),
+            tok("token.comma", ","),
+            tok("token.rbrace", "}"),
+        ]));
+        let ast2 = engine.parse(&lang, &req2).unwrap();
+        // 0: var(x), 1: var(a), 2: value(1), 3: arm{[1,2]},
+        // 4: block{[3]}, 5: match{[0,4]}
+        assert_eq!(ast2.len(), 6);
+        assert_eq!(ast2.nodes()[4].kind, "block");
+        assert_eq!(ast2.nodes()[4].payload, json!({"children": [3]}));
+    }
+
+    #[test]
+    fn delimited_block_missing_open_errors() {
+        let engine = PrattEngine::new();
+        let lang = match_lang();
+        // `match x a: 1` — scrutinee `x`, then no `{` for the block.
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.keyword.match", "match"),
+            tok("token.identifier", "x"),
+            tok("token.identifier", "a"),
+            tok("token.colon", ":"),
+            tok("token.number", "1"),
+        ]));
+        let err = engine.parse(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine(_)));
+        let msg = format!("{}", err);
+        assert!(msg.contains("opening delimiter"));
     }
 }

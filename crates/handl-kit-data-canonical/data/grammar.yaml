@@ -190,6 +190,14 @@
   child_shape:
     node_kind: handle
     arity: 2
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.comma
+      container_kind: block
+      pair:
+        separator: token.colon
+        node_kind: arm
 - id: grammar.stmt-import.prefix
   token: token.keyword.import
   position: Prefix
@@ -217,6 +225,14 @@
   child_shape:
     node_kind: match
     arity: 2
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.comma
+      container_kind: block
+      pair:
+        separator: token.colon
+        node_kind: arm
 - id: grammar.stmt-module.prefix
   token: token.keyword.module
   position: Prefix

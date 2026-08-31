@@ -23,6 +23,30 @@
     required:
     - elements
     type: object
+- id: ast.arm
+  node_kind: arm
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.block
+  node_kind: block
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.assign
   node_kind: assign
   payload_schema:
