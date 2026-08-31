@@ -215,15 +215,18 @@ impl PrattEngine {
             let payload = self.atom_payload(lang, &token);
             let node = AstNode::new(&kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
-        } else if kind == "array" || kind == "object" {
-            // Array/object literals: the prefix token (`[` / `{`) IS the
-            // opening delimiter. Parse comma-separated elements until the
-            // matching close token (`]` / `}`). For objects, each element is
-            // a `key : value` pair (emitted as an `entry` node).
+        } else if kind == "array" || kind == "object" || kind == "paren" {
+            // Array/object/paren literals: the prefix token (`[` / `{` / `(`)
+            // IS the opening delimiter. Parse comma-separated elements until
+            // the matching close token (`]` / `}` / `)`). For objects, each
+            // element is a `key : value` pair (emitted as an `entry` node).
+            // For paren, elements are single expressions (function params).
             let (close_kind, is_object) = if kind == "array" {
                 ("token.rbracket", false)
-            } else {
+            } else if kind == "object" {
                 ("token.rbrace", true)
+            } else {
+                ("token.rparen", false)
             };
             let mut children: Vec<usize> = Vec::new();
             // Empty literal: `[]` / `{}`.
@@ -1237,5 +1240,131 @@ mod tests {
         assert!(matches!(err, LangError::Engine(_)));
         let msg = format!("{}", err);
         assert!(msg.contains("opening delimiter"));
+    }
+
+    /// Build a language with array, object, paren, function, and call support
+    /// modelled on the canonical kit, for testing delimited-literal parsing.
+    fn literal_lang() -> Language {
+        let mut lang = Language::new();
+        for k in [
+            "token.number", "token.identifier", "token.string",
+            "token.lbracket", "token.rbracket", "token.lbrace", "token.rbrace",
+            "token.lparen", "token.rparen", "token.comma", "token.colon",
+            "token.arrow", "token.plus",
+        ] {
+            lang.tokens.merge(TokenKindDef::new(k)).unwrap();
+        }
+        lang.grammar.merge(GrammarRow::new("g.num", "token.number", GrammarPosition::Prefix, AstShapeRef::new("value", 0))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.str", "token.string", GrammarPosition::Prefix, AstShapeRef::new("value", 0))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.ident", "token.identifier", GrammarPosition::Prefix, AstShapeRef::new("var", 0))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.array", "token.lbracket", GrammarPosition::Prefix, AstShapeRef::new("array", 1))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.object", "token.lbrace", GrammarPosition::Prefix, AstShapeRef::new("object", 1))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.paren", "token.lparen", GrammarPosition::Prefix, AstShapeRef::new("paren", 1))).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.colon", "token.colon", GrammarPosition::Infix, AstShapeRef::new("type-annot", 2)).with_binding_power(12, 13)).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.arrow", "token.arrow", GrammarPosition::Infix, AstShapeRef::new("function", 2)).with_binding_power(31, 32)).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.plus", "token.plus", GrammarPosition::Infix, AstShapeRef::new("binary.add", 2)).with_binding_power(55, 56)).unwrap();
+        lang.grammar.merge(GrammarRow::new("g.call", "token.lparen", GrammarPosition::Infix, AstShapeRef::new("call", 2)).with_binding_power(90, 91)).unwrap();
+        lang
+    }
+
+    #[test]
+    fn array_literal_parses_elements() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lbracket", "["), tok("token.number", "1"),
+            tok("token.comma", ","), tok("token.number", "2"),
+            tok("token.comma", ","), tok("token.number", "3"),
+            tok("token.rbracket", "]"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // 0: value(1), 1: value(2), 2: value(3), 3: array{[0,1,2]}
+        assert_eq!(ast.len(), 4);
+        assert_eq!(ast.nodes()[3].kind, "array");
+        assert_eq!(ast.nodes()[3].payload, json!({"children": [0, 1, 2]}));
+    }
+
+    #[test]
+    fn object_literal_parses_entries() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lbrace", "{"), tok("token.identifier", "a"),
+            tok("token.colon", ":"), tok("token.number", "1"),
+            tok("token.comma", ","), tok("token.identifier", "b"),
+            tok("token.colon", ":"), tok("token.number", "2"),
+            tok("token.rbrace", "}"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // 0: var(a), 1: value(1), 2: entry{[0,1]},
+        // 3: var(b), 4: value(2), 5: entry{[3,4]},
+        // 6: object{[2,5]}
+        assert_eq!(ast.len(), 7);
+        assert_eq!(ast.nodes()[2].kind, "entry");
+        assert_eq!(ast.nodes()[2].payload, json!({"children": [0, 1]}));
+        assert_eq!(ast.nodes()[5].kind, "entry");
+        assert_eq!(ast.nodes()[5].payload, json!({"children": [3, 4]}));
+        assert_eq!(ast.nodes()[6].kind, "object");
+        assert_eq!(ast.nodes()[6].payload, json!({"children": [2, 5]}));
+    }
+
+    #[test]
+    fn paren_parses_multiple_params() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("), tok("token.identifier", "x"),
+            tok("token.comma", ","), tok("token.identifier", "y"),
+            tok("token.rparen", ")"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // 0: var(x), 1: var(y), 2: paren{[0,1]}
+        assert_eq!(ast.len(), 3);
+        assert_eq!(ast.nodes()[2].kind, "paren");
+        assert_eq!(ast.nodes()[2].payload, json!({"children": [0, 1]}));
+    }
+
+    #[test]
+    fn function_with_paren_params_parses() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        // (x, y) -> x + y
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lparen", "("), tok("token.identifier", "x"),
+            tok("token.comma", ","), tok("token.identifier", "y"),
+            tok("token.rparen", ")"), tok("token.arrow", "->"),
+            tok("token.identifier", "x"), tok("token.plus", "+"),
+            tok("token.identifier", "y"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // 0: var(x), 1: var(y), 2: paren{[0,1]},
+        // 3: var(x), 4: var(y), 5: binary.add{[3,4]},
+        // 6: function{[2,5]}
+        assert_eq!(ast.len(), 7);
+        assert_eq!(ast.nodes()[6].kind, "function");
+        let children = ast.nodes()[6].payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+        // children[0] = paren idx, children[1] = body idx
+        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
+        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].kind, "binary.add");
+    }
+
+    #[test]
+    fn empty_array_and_object_parse() {
+        let engine = PrattEngine::new();
+        let lang = literal_lang();
+        let ast = engine.parse(&lang, &ParserRequest::new(Tokens(vec![
+            tok("token.lbracket", "["), tok("token.rbracket", "]"),
+        ]))).unwrap();
+        assert_eq!(ast.len(), 1);
+        assert_eq!(ast.nodes()[0].kind, "array");
+        assert_eq!(ast.nodes()[0].payload, json!({"children": []}));
+
+        let ast = engine.parse(&lang, &ParserRequest::new(Tokens(vec![
+            tok("token.lbrace", "{"), tok("token.rbrace", "}"),
+        ]))).unwrap();
+        assert_eq!(ast.len(), 1);
+        assert_eq!(ast.nodes()[0].kind, "object");
+        assert_eq!(ast.nodes()[0].payload, json!({"children": []}));
     }
 }

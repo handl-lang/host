@@ -62,33 +62,33 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 
 /// The tree-walk eval engine.
 ///
-/// Construct with [`TreeWalkEngine::new`] and optionally pass a host
-/// functions registry via [`TreeWalkEngine::with_host`].
+/// Construct with [`TreeWalkEngine::new`] and optionally pass a module
+/// registry via [`TreeWalkEngine::with_modules`].
 #[derive(Clone)]
 pub struct TreeWalkEngine {
-    /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<Rc<dyn HostFunctions>>,
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// Global variables injected by the host (e.g. `self` → language value).
     /// Pre-populated into the root scope on every eval call.
     globals: HashMap<String, Value>,
 }
 
 impl TreeWalkEngine {
-    /// Create a new tree-walk engine with no host functions.
+    /// Create a new tree-walk engine with no module registry.
     pub fn new() -> Self {
         Self {
-            host: None,
+            modules: None,
             globals: HashMap::new(),
         }
     }
 
-    /// Attach a host functions registry (builder style).
-    pub fn with_host(mut self, host: Rc<dyn HostFunctions>) -> Self {
-        self.host = Some(host);
+    /// Attach a module registry (builder style).
+    pub fn with_modules(mut self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        self.modules = Some(modules);
         self
     }
 
@@ -168,8 +168,8 @@ struct EvalCtx<'a> {
     lang: &'a Language,
     /// The scope stack.
     env: &'a mut ScopeStack,
-    /// The host functions registry.
-    host: Option<&'a dyn HostFunctions>,
+    /// The module registry (for `Foreign` dispatch).
+    modules: Option<&'a Rc<dyn handl_platform::ModuleLookup>>,
 }
 
 impl EvalEngine for TreeWalkEngine {
@@ -194,8 +194,8 @@ impl EvalEngine for TreeWalkEngine {
         Box::new(self.clone())
     }
 
-    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
-        Box::new(self.clone().with_host(host))
+    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_modules(modules))
     }
 
     fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
@@ -226,7 +226,7 @@ impl TreeWalkEngine {
                     current_node: node,
                     lang,
                     env,
-                    host: self.host.as_ref().map(|rc| rc.as_ref()),
+                    modules: self.modules.as_ref(),
                 };
                 self.eval_scheme(&def.scheme, &mut ctx)
             }
@@ -237,13 +237,13 @@ impl TreeWalkEngine {
                 // This makes `eval`/`self`/`compile` handl-callable without
                 // requiring per-function scheme entries in the Language data.
                 if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
-                    let host = self.host.as_ref().ok_or_else(|| {
+                    let modules = self.modules.as_ref().ok_or_else(|| {
                         LangError::Engine(format!(
                             "unregistered foreign: {}",
                             foreign_name
                         ))
                     })?;
-                    let host_fn = host.lookup(foreign_name).ok_or_else(|| {
+                    let func = modules.lookup(foreign_name).ok_or_else(|| {
                         LangError::Engine(format!(
                             "unregistered foreign: {}",
                             foreign_name
@@ -258,7 +258,9 @@ impl TreeWalkEngine {
                             }
                         }
                     }
-                    host_fn.call(&arg_vals)
+                    let mut pctx = handl_platform::EvalContext::new();
+                    func.call(&arg_vals, &mut pctx)
+                        .map_err(|e| LangError::Engine(e.to_string()))
                 } else {
                     Ok(node.payload.clone())
                 }
@@ -365,9 +367,12 @@ impl TreeWalkEngine {
                 // `var("eval")` evaluates to the string "eval", and App
                 // dispatches to the eval host fn.
                 if let Some(name) = closure_val.as_str() {
-                    if let Some(host) = ctx.host {
-                        if let Some(host_fn) = host.lookup(name) {
-                            return host_fn.call(&arg_vals);
+                    if let Some(modules) = ctx.modules {
+                        if let Some(func) = modules.lookup(name) {
+                            let mut pctx = handl_platform::EvalContext::new();
+                            return func
+                                .call(&arg_vals, &mut pctx)
+                                .map_err(|e| LangError::Engine(e.to_string()));
                         }
                     }
                 }
@@ -400,13 +405,15 @@ impl TreeWalkEngine {
                 for arg in args {
                     arg_vals.push(self.eval_scheme(arg, ctx)?);
                 }
-                let host = ctx.host.ok_or_else(|| {
+                let modules = ctx.modules.ok_or_else(|| {
                     LangError::Engine(format!("unregistered foreign: {}", name))
                 })?;
-                let host_fn = host.lookup(name).ok_or_else(|| {
+                let func = modules.lookup(name).ok_or_else(|| {
                     LangError::Engine(format!("unregistered foreign: {}", name))
                 })?;
-                host_fn.call(&arg_vals)
+                let mut pctx = handl_platform::EvalContext::new();
+                func.call(&arg_vals, &mut pctx)
+                    .map_err(|e| LangError::Engine(e.to_string()))
             }
 
             Scheme::Vau { params, body } => {
@@ -453,9 +460,12 @@ impl TreeWalkEngine {
         // parse as `call(var("eval"), ...)` and dispatch to the `eval` host
         // function — no special syntax needed.
         if let Some(name) = closure.as_str() {
-            if let Some(host) = ctx.host {
-                if let Some(host_fn) = host.lookup(name) {
-                    return host_fn.call(args);
+            if let Some(modules) = ctx.modules {
+                if let Some(func) = modules.lookup(name) {
+                    let mut pctx = handl_platform::EvalContext::new();
+                    return func
+                        .call(args, &mut pctx)
+                        .map_err(|e| LangError::Engine(e.to_string()));
                 }
             }
         }
@@ -628,11 +638,15 @@ impl TreeWalkEngine {
             "closure" => {
                 // Create a closure from the current node's payload.
                 //
-                // Two payload shapes are supported:
+                // Three payload shapes are supported:
                 // - **Rich**: `{"params": ["x", ...], "body": <arena_idx>}`
-                // - **Pratt-parsed**: `{"children": [param_idx, body_idx]}`
-                //   where `param_idx` points to a `var` node whose payload
-                //   is the parameter name string.
+                // - **Pratt-parsed (bare param)**: `{"children": [var_idx,
+                //   body_idx]}` where `var_idx` points to a `var` node whose
+                //   payload is the parameter name string.
+                // - **Pratt-parsed (paren params)**: `{"children": [paren_idx,
+                //   body_idx]}` where `paren_idx` points to a `paren` node
+                //   whose children are `var` nodes — supports multi-param
+                //   `(x, y) -> body`.
                 let payload = &ctx.current_node.payload;
                 let (params, body) = if let (Some(p), Some(b)) = (
                     payload.get("params").and_then(|v| v.as_array()),
@@ -642,16 +656,34 @@ impl TreeWalkEngine {
                 } else if let Some(children) =
                     payload.get("children").and_then(|c| c.as_array())
                 {
-                    // Pratt-parsed: children = [param_idx, body_idx].
                     let param_idx = children.get(0).and_then(|v| v.as_u64())
                         .ok_or_else(|| LangError::Engine("closure prim: missing param child".to_string()))? as usize;
                     let body_idx = children.get(1).and_then(|v| v.as_u64())
                         .ok_or_else(|| LangError::Engine("closure prim: missing body child".to_string()))? as usize;
-                    // Extract the parameter name from the var node.
                     let param_node = ctx.ast.at(AstRef::new(param_idx))?;
-                    let param_name = param_node.payload.as_str()
-                        .ok_or_else(|| LangError::Engine("closure prim: param node must be a var with string payload".to_string()))?;
-                    (vec![Value::from(param_name)], body_idx)
+                    // Extract param names: if the param node is a `paren`,
+                    // unwrap its children (multi-param). If it's a `var`,
+                    // use its string payload directly (bare single param).
+                    let param_names: Vec<String> = if param_node.kind == "paren" {
+                        let paren_children = param_node.payload.get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| LangError::Engine("closure prim: paren params missing children".to_string()))?;
+                        let mut names = Vec::with_capacity(paren_children.len());
+                        for pc in paren_children {
+                            let pidx = pc.as_u64()
+                                .ok_or_else(|| LangError::Engine("closure prim: param index must be a number".to_string()))? as usize;
+                            let pnode = ctx.ast.at(AstRef::new(pidx))?;
+                            let pname = pnode.payload.as_str()
+                                .ok_or_else(|| LangError::Engine("closure prim: param must be a var with string payload".to_string()))?;
+                            names.push(pname.to_string());
+                        }
+                        names
+                    } else {
+                        let pname = param_node.payload.as_str()
+                            .ok_or_else(|| LangError::Engine("closure prim: param node must be a var with string payload".to_string()))?;
+                        vec![pname.to_string()]
+                    };
+                    (param_names.into_iter().map(Value::from).collect(), body_idx)
                 } else {
                     return Err(LangError::Engine(
                         "closure prim: missing params/body in payload".to_string(),
@@ -1056,9 +1088,10 @@ fn is_truthy(v: &Value) -> bool {
 mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Scheme};
-    use handl_plugin_engine_eval::{EvalRequest, HostFn, HostFunctions};
+    use handl_plugin_engine_eval::EvalRequest;
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
-    use std::collections::HashMap as StdHashMap;
 
     /// Build a simple AST for testing.
     fn make_ast(nodes: Vec<AstNode>) -> Ast {
@@ -1069,37 +1102,35 @@ mod tests {
         ast
     }
 
-    /// A simple host function registry for tests.
-    struct MapHost {
-        fns: StdHashMap<String, Box<dyn HostFn>>,
-    }
+    /// A module exposing a single `double` function for tests.
+    struct DoubleModule;
 
-    impl MapHost {
-        fn new() -> Self {
-            Self {
-                fns: StdHashMap::new(),
+    impl Module for DoubleModule {
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
+            if name == "double" {
+                Some(&DoubleFn)
+            } else {
+                None
             }
-        }
-
-        fn register(&mut self, name: impl Into<String>, f: Box<dyn HostFn>) {
-            self.fns.insert(name.into(), f);
-        }
-    }
-
-    impl HostFunctions for MapHost {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
-            self.fns.get(name).map(|f| f.as_ref())
         }
     }
 
     /// A host function that doubles its numeric argument.
     struct DoubleFn;
 
-    impl HostFn for DoubleFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for DoubleFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
+    }
+
+    /// Build a module registry with the `double` function registered.
+    fn double_registry() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(DoubleModule))
     }
 
     // --- Scheme combinator tests ---
@@ -1610,9 +1641,7 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
 
-        let mut host = MapHost::new();
-        host.register("double", Box::new(DoubleFn));
-        let engine = engine.with_host(Rc::new(host));
+        let engine = engine.with_modules(double_registry());
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));
     }
@@ -2092,10 +2121,7 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
 
-        let mut host = MapHost::new();
-        // Register "double" but not "triple".
-        host.register("double", Box::new(DoubleFn));
-        let engine = engine.with_host(Rc::new(host));
+        let engine = engine.with_modules(double_registry());
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
@@ -2583,26 +2609,29 @@ mod tests {
         struct EvalHost {
             lang: Language,
         }
-        impl HostFn for EvalHost {
-            fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+        impl Function for EvalHost {
+            fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
                 // eval(self, x): args[0] is the language value (unused —
                 // we use the captured lang), args[1] is the __ast__ value.
                 let ast_val = args
                     .get(1)
-                    .ok_or_else(|| LangError::Engine("eval: expected (self, ast)".into()))?;
+                    .ok_or_else(|| handl_platform::EvalError::Other("eval: expected (self, ast)".into()))?;
                 let ast = handl_language::as_ast(ast_val).ok_or_else(|| {
-                    LangError::Engine("eval: expected an __ast__ value".into())
+                    handl_platform::EvalError::Other("eval: expected an __ast__ value".into())
                 })?;
                 let engine = TreeWalkEngine::new();
                 let req = EvalRequest::new(ast);
-                engine.eval(&self.lang, &req)
+                engine.eval(&self.lang, &req).map_err(|e| handl_platform::EvalError::Other(e.to_string()))
             }
         }
-        struct Host {
+        struct EvalModule {
             eval: EvalHost,
         }
-        impl HostFunctions for Host {
-            fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+        impl Module for EvalModule {
+            fn name(&self) -> &str {
+                "eval"
+            }
+            fn function(&self, name: &str) -> Option<&dyn Function> {
                 if name == "eval" {
                     Some(&self.eval)
                 } else {
@@ -2610,13 +2639,139 @@ mod tests {
                 }
             }
         }
-        let host = Host {
+        let eval_mod = EvalModule {
             eval: EvalHost { lang: lang.clone() },
         };
+        let registry: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(eval_mod));
         let engine = engine
-            .with_host(Rc::new(host))
+            .with_modules(registry)
             .with_global("self", handl_language::language_value(&lang));
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
+    }
+
+    // -----------------------------------------------------------------
+    // Pratt-parsed literal tests (children-based payloads)
+    // -----------------------------------------------------------------
+
+    /// Build a minimal language for Pratt-parsed literal eval tests:
+    /// `value` (lit), `var`, `binary.add`, `array`, `object`, `entry`,
+    /// `function` (closure prim), `call` (App).
+    fn literal_eval_lang() -> Language {
+        let mut lang = Language::new();
+        // `value` nodes have no scheme — the eval fallback returns
+        // `node.payload.clone()`, which is the literal value.
+        lang.eval.merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload"))).unwrap();
+        lang.eval.merge(EvalSchemeDef::new("e.add", "binary.add", Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]))).unwrap();
+        lang.eval.merge(EvalSchemeDef::new("e.array", "array", Scheme::prim("array", vec![]))).unwrap();
+        lang.eval.merge(EvalSchemeDef::new("e.object", "object", Scheme::prim("object", vec![]))).unwrap();
+        lang.eval.merge(EvalSchemeDef::new("e.function", "function", Scheme::prim("closure", vec![]))).unwrap();
+        lang.eval.merge(EvalSchemeDef::new("e.call", "call", Scheme::App {
+            callee: Box::new(Scheme::child(0)),
+            args: vec![Scheme::child(1)],
+        })).unwrap();
+        lang
+    }
+
+    #[test]
+    fn pratt_array_eval() {
+        // [1, 2, 3] → array{children:[0,1,2]}, each child is a value node.
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(1)),
+            AstNode::new("value").with_payload(json!(2)),
+            AstNode::new("value").with_payload(json!(3)),
+            AstNode::new("array").with_payload(json!({"children": [0, 1, 2]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn pratt_empty_array_eval() {
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("array").with_payload(json!({"children": []})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!([]));
+    }
+
+    #[test]
+    fn pratt_object_eval() {
+        // {a: 1, b: 2} → object{children:[entry{[var(a),value(1)]}, entry{[var(b),value(2)]}]}
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("a")),       // 0
+            AstNode::new("value").with_payload(json!(1)),        // 1
+            AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
+            AstNode::new("var").with_payload(json!("b")),        // 3
+            AstNode::new("value").with_payload(json!(2)),        // 4
+            AstNode::new("entry").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("object").with_payload(json!({"children": [2, 5]})), // 6
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!({"a": 1, "b": 2}));
+    }
+
+    #[test]
+    fn pratt_function_paren_params_eval() {
+        // (x, y) -> x + y, called with (3, 4) → 7
+        // AST:
+        // 0: var("x"), 1: var("y"), 2: paren{children:[0,1]}
+        // 3: var("x"), 4: var("y"), 5: binary.add{children:[3,4]}
+        // 6: function{children:[2, 5]}
+        // 7: value(3), 8: value(4)
+        // 9: call{children:[6, 7]}  (only 1 arg slot in App — multi-arg call
+        //    isn't supported by the simple App scheme; test single-param path
+        //    separately below)
+        // Since App only supports 1 arg, test single-param function instead.
+        // (x) -> x + 1, called with 5 → 6
+        // 0: var("x"), 1: value(1), 2: binary.add{children:[0,1]}
+        // 3: function{children:[0, 2]}  (bare param: children[0]=var, children[1]=body)
+        // 4: value(5)
+        // 5: call{children:[3, 4]}
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("x")),         // 0
+            AstNode::new("value").with_payload(json!(1)),          // 1
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})), // 2
+            AstNode::new("function").with_payload(json!({"children": [0, 2]})),   // 3
+            AstNode::new("value").with_payload(json!(5)),          // 4
+            AstNode::new("call").with_payload(json!({"children": [3, 4]})),       // 5
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    #[test]
+    fn pratt_function_paren_multi_param_eval() {
+        // (x, y) -> x + y, called with (10, 20) → 30
+        // The closure prim unwraps the paren node to get [x, y] params.
+        // But App only passes 1 arg. So we test the closure creation itself
+        // (not the call) — verify the closure has 2 params.
+        // 0: var("x"), 1: var("y"), 2: paren{children:[0,1]}
+        // 3: var("x"), 4: var("y"), 5: binary.add{children:[3,4]}
+        // 6: function{children:[2, 5]}
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("x")),         // 0
+            AstNode::new("var").with_payload(json!("y")),         // 1
+            AstNode::new("paren").with_payload(json!({"children": [0, 1]})), // 2
+            AstNode::new("var").with_payload(json!("x")),         // 3
+            AstNode::new("var").with_payload(json!("y")),         // 4
+            AstNode::new("binary.add").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("function").with_payload(json!({"children": [2, 5]})),   // 6
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        // Result is a closure value with 2 params.
+        assert_eq!(result["__closure__"], json!(true));
+        assert_eq!(result["params"], json!(["x", "y"]));
     }
 }
