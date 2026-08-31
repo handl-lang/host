@@ -4,12 +4,12 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_module::{ModuleRuntime, ModuleRule};
+use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 use crate::{
-    Base64Module, BoolModule, EncodingModule, FnModule, HexModule, JsonModule,
-    MathModule, MoodModule, OptionModule, ParseModule, ResultModule, SerializeModule, StrModule,
-    TomlModule, TypeModule, UrlRfcModule, UrlWhatwgModule, YamlModule,
+    Base64Module, BoolModule, EncodingModule, FnModule, HexModule, JsonModule, MathModule,
+    MoodModule, OptionModule, ParseModule, ResultModule, SerializeModule, StrModule, TomlModule,
+    TypeModule, UrlRfcModule, UrlWhatwgModule, YamlModule,
 };
 
 /// A `Library` plugin that registers the `utils` implementation.

@@ -13,7 +13,10 @@ impl Function for Ok {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         std::result::Result::Ok(serde_json::Value::from(json!({
             "_tag": "Ok",
             "value": arg.clone(),
@@ -29,7 +32,10 @@ impl Function for Err {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         std::result::Result::Ok(serde_json::Value::from(json!({
             "_tag": "Err",
             "error": arg.clone(),
@@ -45,7 +51,10 @@ impl Function for IsOk {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         let is_ok = as_result_tag(arg) == Some("Ok");
         std::result::Result::Ok(serde_json::Value::from(json!(is_ok)))
     }
@@ -59,7 +68,10 @@ impl Function for IsErr {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         let is_err = as_result_tag(arg) == Some("Err");
         std::result::Result::Ok(serde_json::Value::from(json!(is_err)))
     }

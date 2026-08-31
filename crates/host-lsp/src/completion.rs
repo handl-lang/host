@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{is_identifier_kind, Kit};
+use handl_kit_canonical::{Kit, is_identifier_kind};
 
 /// The canonical keyword set for the handl language.
 ///

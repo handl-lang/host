@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 
@@ -59,18 +59,30 @@ impl Module for PathModule {
 
 fn collect_string_args(args: &[serde_json::Value]) -> Result<Vec<&str>, EvalError> {
     if args.is_empty() {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )));
     }
     args.iter()
         .map(|v| {
-            v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+            v.as_str().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string", "non-string",
+            )))
         })
         .collect()
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 struct JoinFn {

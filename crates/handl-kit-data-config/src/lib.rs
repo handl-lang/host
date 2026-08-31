@@ -19,9 +19,7 @@
 #![warn(missing_docs)]
 
 use handl_emitters::Emitter;
-use handl_kit_data::{
-    DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry,
-};
+use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_kit_data_canonical;
 use handl_language::{CapabilityDecl, LangError, Language};
 
@@ -126,7 +124,10 @@ mod tests {
     #[test]
     fn manifest_extends_canonical() {
         let m = manifest();
-        assert_eq!(m.extends.as_deref(), Some(handl_kit_data_canonical::KIT_NAME));
+        assert_eq!(
+            m.extends.as_deref(),
+            Some(handl_kit_data_canonical::KIT_NAME)
+        );
         assert_eq!(m.fragments.len(), 1);
         assert_eq!(m.fragments[0].name, "pure-caps");
     }
@@ -197,6 +198,9 @@ mod tests {
     fn registry_resolves_config_kit_manifest() {
         let reg = registry();
         let m = reg.resolve_kit(KIT_NAME).unwrap();
-        assert_eq!(m.extends.as_deref(), Some(handl_kit_data_canonical::KIT_NAME));
+        assert_eq!(
+            m.extends.as_deref(),
+            Some(handl_kit_data_canonical::KIT_NAME)
+        );
     }
 }

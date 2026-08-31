@@ -1,4 +1,3 @@
-
 use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{require_one_string, require_string, require_two_strings, s};
@@ -29,14 +28,24 @@ impl Function for Join {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let sep = require_string(&args[1])?;
-        let arr = args[0].as_array().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))?;
+        let arr = args[0].as_array().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))?;
         let parts: Vec<&str> = arr
             .iter()
             .map(|v| {
-                v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+                v.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(s(parts.join(sep)))
@@ -52,7 +61,11 @@ impl Function for Replace {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
         let from = require_string(&args[1])?;
@@ -70,7 +83,11 @@ impl Function for ReplaceFirst {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
         let from = require_string(&args[1])?;
@@ -88,15 +105,28 @@ impl Function for Repeat {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let count = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let count = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if count < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         if !count.is_finite() || count > 1_000_000.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "finite number <= 1_000_000", "non-finite or excessively large number",
+            )));
         }
         Ok(s(input.repeat(count as usize)))
     }
@@ -111,12 +141,22 @@ impl Function for CharAt {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if index < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let char_count = input.chars().count();
         if (index as usize) >= char_count {
@@ -137,13 +177,26 @@ impl Function for Slice {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
-        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
+        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if start < 0.0 || end < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let chars: Vec<char> = input.chars().collect();
         let end = (end as usize).min(chars.len());
@@ -176,15 +229,28 @@ impl Function for PadLeft {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if target_len < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         if !target_len.is_finite() || target_len > 1_000_000.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "finite number <= 1_000_000", "non-finite or excessively large number",
+            )));
         }
         let pad_char = require_string(&args[2])?;
         Ok(s(pad_to_len(input, target_len as usize, pad_char, true)))
@@ -200,15 +266,28 @@ impl Function for PadRight {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let target_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if target_len < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         if !target_len.is_finite() || target_len > 1_000_000.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "finite number <= 1_000_000", "non-finite or excessively large number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "finite number <= 1_000_000", "non-finite or excessively large number",
+            )));
         }
         let pad_char = require_string(&args[2])?;
         Ok(s(pad_to_len(input, target_len as usize, pad_char, false)))
@@ -271,12 +350,22 @@ impl Function for SplitAt {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if index < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let chars: Vec<char> = input.chars().collect();
         let mid = (index as usize).min(chars.len());
@@ -316,12 +405,22 @@ impl Function for Truncate {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let max_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let max_len = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if max_len < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let max_len = max_len as usize;
         let suffix = if args.len() >= 3 {
@@ -395,12 +494,22 @@ impl Function for WordWrap {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_string(&args[0])?;
-        let width = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let width = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if width < 1.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive number", "non-positive number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "positive number", "non-positive number",
+            )));
         }
         let width = width as usize;
         let mut result = String::new();

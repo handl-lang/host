@@ -66,7 +66,9 @@ fn eval_with_runtime(
 #[test]
 fn self_host_tree_walk_emitter_language() {
     let lang = language();
-    let config = RuntimeConfig::new().with_parse("pratt").with_eval("tree-walk");
+    let config = RuntimeConfig::new()
+        .with_parse("pratt")
+        .with_eval("tree-walk");
     for case in corpus() {
         let result = eval_with_runtime(&lang, &config, &case.ast);
         assert_eq!(

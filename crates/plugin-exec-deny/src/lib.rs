@@ -88,7 +88,7 @@ impl Plugin for ExecDenyPlugin {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
             ctx.contribute_exec_control(
-                Arc::new(DenyControl::new(self.denied.iter().cloned())) as Arc<dyn ExecControl>,
+                Arc::new(DenyControl::new(self.denied.iter().cloned())) as Arc<dyn ExecControl>
             )?;
         }
         Ok(())
@@ -107,8 +107,8 @@ impl Plugin for ExecDenyPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -153,7 +153,9 @@ mod tests {
     #[test]
     fn permits_non_denied_call() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(DenyControl::new(["dangerous"])));
 
         let result = run_eval(&evaluator, call("safe")).unwrap();
@@ -163,7 +165,9 @@ mod tests {
     #[test]
     fn blocks_denied_call() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(DenyControl::new(["dangerous"])));
 
         let err = run_eval(&evaluator, call("dangerous")).unwrap_err();

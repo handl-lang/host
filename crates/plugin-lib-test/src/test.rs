@@ -27,11 +27,7 @@ impl Module for TestModule {
 #[derive(Clone, Copy)]
 struct Run;
 impl Function for Run {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.is_empty() {
             return Err(TestError::ArgumentCount {
                 expected: 1,
@@ -75,10 +71,9 @@ impl Function for Run {
             };
 
             let test_args: Vec<Value> = match case.get("args") {
-                Some(serde_json::Value::Array(arr)) => arr
-                    .iter()
-                    .map(|v| json!(v.clone()))
-                    .collect(),
+                Some(serde_json::Value::Array(arr)) => {
+                    arr.iter().map(|v| json!(v.clone())).collect()
+                }
                 Some(_) => {
                     result_map.insert("pass".to_string(), serde_json::Value::Bool(false));
                     result_map.insert(

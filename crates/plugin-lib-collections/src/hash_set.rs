@@ -7,8 +7,8 @@
 
 use std::collections::HashSet;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use crate::function_value::FunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{arr, b, num, require_array, require_one_array, require_two_arrays};
 
@@ -41,7 +41,10 @@ fn dedup_ordered(items: &[serde_json::Value]) -> Vec<serde_json::Value> {
 }
 
 fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "function value", "non-function",
+    )))
 }
 
 fn bind_param(
@@ -146,7 +149,11 @@ impl Function for Add {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )))?;
         let target = value;
         let mut values = input.to_vec();
         if !has_value(&values, target) {
@@ -167,7 +174,11 @@ impl Function for Remove {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )))?;
         let target = value;
         let mut values = input.to_vec();
         if let Some(pos) = values.iter().position(|item| item == target) {
@@ -188,7 +199,11 @@ impl Function for Has {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )))?;
         Ok(b(has_value(input, value)))
     }
 }
@@ -345,7 +360,11 @@ impl Function for UniqueBy {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array(args, 0)?;
         let fn_val = require_function_value(&args[1])?;

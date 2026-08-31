@@ -1,4 +1,3 @@
-
 use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
@@ -37,7 +36,11 @@ impl Function for Concat {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let mut result = String::new();
         for arg in args {

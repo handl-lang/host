@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 
@@ -69,7 +69,10 @@ fn require_string_arg(args: &[serde_json::Value], expected: usize) -> Result<Vec
     args.iter()
         .take(expected)
         .map(|v| {
-            v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+            v.as_str().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string", "non-string",
+            )))
         })
         .collect()
 }
@@ -103,7 +106,10 @@ impl Function for WriteFileFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let path = require_string_arg(args, 2)?[0];
-        let content = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let content = args[1].as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
         self.fs.write_file(path, content)?;
         Ok(serde_json::Value::Null)
     }

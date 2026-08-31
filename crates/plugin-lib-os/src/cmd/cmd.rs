@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 
@@ -70,14 +70,25 @@ impl Function for RunFn {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let program = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
-        let program = program.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let program = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
+        let program = program.as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
 
         let arg_strings: Vec<String> = args
             .iter()
             .skip(1)
             .map(|v| {
-                v.as_str().map(String::from).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+                v.as_str()
+                    .map(String::from)
+                    .ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "string", "non-string",
+                    )))
             })
             .collect::<Result<_, _>>()?;
 

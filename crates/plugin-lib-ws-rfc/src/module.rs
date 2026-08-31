@@ -91,9 +91,7 @@ fn parse_opcode(s: &str) -> Result<OpCode, EvalError> {
         "close" => Ok(OpCode::Close),
         "ping" => Ok(OpCode::Ping),
         "pong" => Ok(OpCode::Pong),
-        _ => Err(EvalError::Other(format!(
-            "unknown websocket opcode: {s}"
-        ))),
+        _ => Err(EvalError::Other(format!("unknown websocket opcode: {s}"))),
     }
 }
 
@@ -112,7 +110,10 @@ fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, EvalEr
     let opcode = obj
         .get("opcode")
         .and_then(|v| v.as_str())
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
         .and_then(parse_opcode)?;
 
     let payload_b64 = obj.get("payload").and_then(|v| v.as_str()).unwrap_or("");
@@ -123,14 +124,20 @@ fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, EvalEr
     let fin = obj
         .get("fin")
         .map(|v| {
-            v.as_bool().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "bool", "non-bool",)))
+            v.as_bool().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "bool", "non-bool",
+            )))
         })
         .unwrap_or(Ok(true))?;
 
     let mask = match obj.get("mask") {
         Some(v) if v.is_null() => None,
         Some(v) => {
-            let s = v.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+            let s = v.as_str().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string", "non-string",
+            )))?;
             let bytes = BASE64_STANDARD
                 .decode(s)
                 .map_err(|e| EvalError::Other(format!("mask base64 decode error: {e}")))?;
@@ -150,28 +157,62 @@ fn build_frame(obj: &serde_json::Map<String, JsonValue>) -> Result<Frame, EvalEr
 fn require_one_object(
     args: &[serde_json::Value],
 ) -> Result<&serde_json::Map<String, JsonValue>, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
-    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1,
+        args.len(),
+    )))?;
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "object", "non-object",
+    )))
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
-fn require_value_at(args: &[serde_json::Value], idx: usize) -> Result<&serde_json::Value, EvalError> {
-    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
+fn require_value_at(
+    args: &[serde_json::Value],
+    idx: usize,
+) -> Result<&serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))
 }
 
 fn parse_u16(value: &JsonValue) -> Result<u16, EvalError> {
-    let n = value.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+    let n = value.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))?;
     if n < 0.0 || n.fract() != 0.0 || n > u16::MAX as f64 {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "invalid integer",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "u16", "invalid integer",
+        )));
     }
     Ok(n as u16)
 }
@@ -180,11 +221,17 @@ fn parse_id(value: &serde_json::Value, key: &str) -> Result<usize, EvalError> {
     if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number or object", "non-number non-object",)))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number or object", "non-number non-object",
+    )))?;
     let id = obj
         .get(key)
         .ok_or_else(|| EvalError::Other(format!("missing {key}")))?;
-    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))?;
     Ok(n as usize)
 }
 
@@ -198,7 +245,11 @@ impl Function for ClientNew {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         let inner = inner();
@@ -226,7 +277,11 @@ impl Function for ClientConnect {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -235,9 +290,9 @@ impl Function for ClientConnect {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket client: {id}"
-        )))?;
+        let client = clients
+            .get_mut(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
         client.url = url.to_string();
         client.connected = true;
 
@@ -255,7 +310,11 @@ impl Function for ClientSend {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -263,9 +322,9 @@ impl Function for ClientSend {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket client: {id}"
-        )))?;
+        let client = clients
+            .get_mut(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
 
         client.queue.push_back(args[1].clone());
 
@@ -287,9 +346,9 @@ impl Function for ClientRecv {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket client: {id}"
-        )))?;
+        let client = clients
+            .get_mut(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
 
         let value = client.queue.pop_front().unwrap_or(JsonValue::Null);
         Ok(serde_json::Value::from(value))
@@ -325,7 +384,11 @@ impl Function for ServerNew {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         let inner = inner();
@@ -359,7 +422,11 @@ impl Function for ServerListen {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
 
         let id = parse_id(&args[0], "server_id")?;
@@ -368,9 +435,9 @@ impl Function for ServerListen {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut servers = guard.servers.lock().unwrap();
-        let server = servers.get_mut(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket server: {id}"
-        )))?;
+        let server = servers
+            .get_mut(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket server: {id}")))?;
         server.addr = addr.to_string();
         server.handler = Some(args[2].clone());
 
@@ -510,25 +577,37 @@ impl Function for MessageToFrame {
         let value = obj.get(key).unwrap();
         let message = match key.as_str() {
             "text" => {
-                let text = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+                let text = value.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
                 Message::Text(text.to_string())
             }
             "binary" => {
-                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
                     .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
                 Message::Binary(bytes)
             }
             "ping" => {
-                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
                     .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
                 Message::Ping(bytes)
             }
             "pong" => {
-                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+                let s = value.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
                 let bytes = BASE64_STANDARD
                     .decode(s)
                     .map_err(|e| EvalError::Other(format!("base64 decode error: {e}")))?;
@@ -538,8 +617,13 @@ impl Function for MessageToFrame {
                 if value.is_null() {
                     Message::Close(None)
                 } else {
-                    let close_obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
-                    let code = parse_u16(close_obj.get("code").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "missing",)))?)?;
+                    let close_obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "object", "non-object",
+                    )))?;
+                    let code = parse_u16(close_obj.get("code").ok_or(EvalError::TypeMismatch(
+                        format!("expected {}, got {}", "number", "missing",),
+                    ))?)?;
                     let reason = close_obj
                         .get("reason")
                         .and_then(|v| v.as_str())
@@ -549,9 +633,7 @@ impl Function for MessageToFrame {
                 }
             }
             _ => {
-                return Err(EvalError::Other(format!(
-                    "unknown message type: {key}"
-                )));
+                return Err(EvalError::Other(format!("unknown message type: {key}")));
             }
         };
 

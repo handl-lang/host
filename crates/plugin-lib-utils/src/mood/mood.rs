@@ -1,5 +1,5 @@
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 
 use crate::shared::{

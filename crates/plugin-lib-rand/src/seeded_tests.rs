@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 // ── rand.seeded_int ──────────────────────────────────────────────
 
@@ -44,10 +44,7 @@ fn seeded_int_min_greater_than_max_errors() {
 #[test]
 fn seeded_int_no_args_errors() {
     let result = call_err("seeded_int", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.seeded_float ────────────────────────────────────────────
@@ -75,10 +72,7 @@ fn seeded_float_min_equals_max() {
 #[test]
 fn seeded_float_no_args_errors() {
     let result = call_err("seeded_float", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.seeded_bool ─────────────────────────────────────────────

@@ -1,6 +1,6 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
+use handl_platform::Module;
 
 use super::sig::SigModule;
 use super::sig_stub::StubSig;
@@ -11,11 +11,7 @@ fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_js
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(
-    module: &dyn Module,
-    name: &str,
-    args: &[serde_json::Value],
-) -> EvalError {
+fn call_err(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> EvalError {
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -53,10 +49,7 @@ fn send_signal() {
 fn send_unknown_signal() {
     let module = SigModule::new(StubSig::default());
     let err = call_err(&module, "send", &[n(42), s("BOGUS")]);
-    assert!(matches!(
-        err,
-        EvalError::Other(_)
-    ));
+    assert!(matches!(err, EvalError::Other(_)));
 }
 
 #[test]

@@ -18,8 +18,8 @@
 mod assert;
 mod benchmark;
 mod error;
-mod fuzz;
 mod function_value;
+mod fuzz;
 mod property;
 mod shared;
 mod snapshot;

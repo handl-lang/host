@@ -2,8 +2,8 @@
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -55,21 +55,46 @@ impl Inner {
 }
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
-fn require_value_at(args: &[serde_json::Value], idx: usize) -> Result<&serde_json::Value, EvalError> {
-    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
+fn require_value_at(
+    args: &[serde_json::Value],
+    idx: usize,
+) -> Result<&serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))
 }
 
 fn parse_id(value: &serde_json::Value) -> Result<usize, EvalError> {
     if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number or object", "non-number non-object",)))?;
-    let id = obj.get("connection_id").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "connection_id", "missing",)))?;
-    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number or object", "non-number non-object",
+    )))?;
+    let id = obj
+        .get("connection_id")
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "connection_id", "missing",
+        )))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))?;
     Ok(n as usize)
 }
 
@@ -98,7 +123,10 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalErro
     if let Some(text) = value.as_str() {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string or object", "non-string non-object",)))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string or object", "non-string non-object",
+    )))?;
     if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
@@ -124,12 +152,21 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalErro
         if close.is_null() {
             return Ok(TungsteniteMessage::Close(None));
         }
-        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
-        let code = close_obj
-            .get("code")
-            .and_then(|v| v.as_u64())
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "non-number",)))?;
-        let code = u16::try_from(code).map_err(|_| EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "out of range",)))?;
+        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "object", "non-object",
+        )))?;
+        let code =
+            close_obj
+                .get("code")
+                .and_then(|v| v.as_u64())
+                .ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "u16", "non-number",
+                )))?;
+        let code = u16::try_from(code).map_err(|_| {
+            EvalError::TypeMismatch(format!("expected {}, got {}", "u16", "out of range",))
+        })?;
         let reason = close_obj
             .get("reason")
             .and_then(|v| v.as_str())
@@ -156,7 +193,11 @@ impl Function for WebsocketWhatwgName {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         Ok(serde_json::Value::from(serde_json::json!({
@@ -236,7 +277,11 @@ impl Function for ConnectionSend {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
 
         let id = parse_id(&args[0])?;

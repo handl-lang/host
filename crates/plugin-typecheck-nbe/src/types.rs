@@ -305,10 +305,6 @@ pub fn vau_value(name: impl Into<Name>, env: Env, body: Term) -> Value {
     let name = name.into();
     Value::Vau {
         name: name.clone(),
-        closure: Closure {
-            env,
-            name,
-            body,
-        },
+        closure: Closure { env, name, body },
     }
 }

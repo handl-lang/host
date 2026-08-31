@@ -117,11 +117,7 @@ fn literal_len(rule: &LexerRuleDef) -> usize {
 
 /// Try a single rule at `pos`. Returns `(token_kind, consumed_text, next_pos)`
 /// on match.
-fn try_rule<'r>(
-    rule: &'r LexerRuleDef,
-    src: &str,
-    pos: usize,
-) -> Option<(&'r str, String, usize)> {
+fn try_rule<'r>(rule: &'r LexerRuleDef, src: &str, pos: usize) -> Option<(&'r str, String, usize)> {
     match &rule.pattern {
         LexerPattern::Literal { text } => {
             if src[pos..].starts_with(text.as_str()) {
@@ -159,7 +155,16 @@ fn try_rule<'r>(
             interpolation: _,
             close_at_eof,
             nesting_open,
-        } => try_delimited(rule, open, close, *escape, *close_at_eof, nesting_open.as_deref(), src, pos),
+        } => try_delimited(
+            rule,
+            open,
+            close,
+            *escape,
+            *close_at_eof,
+            nesting_open.as_deref(),
+            src,
+            pos,
+        ),
     }
 }
 

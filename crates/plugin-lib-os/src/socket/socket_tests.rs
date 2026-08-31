@@ -1,6 +1,6 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
+use handl_platform::Module;
 
 use super::socket::SocketModule;
 use super::socket_stub::StubSocket;
@@ -11,11 +11,7 @@ fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_js
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(
-    module: &dyn Module,
-    name: &str,
-    args: &[serde_json::Value],
-) -> EvalError {
+fn call_err(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> EvalError {
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -59,10 +55,7 @@ fn send_and_close() {
     assert_eq!(sent, 4);
     call(&module, "close", &[n(handle)]);
     let err = call_err(&module, "recv", &[n(handle), n(1024)]);
-    assert!(matches!(
-        err,
-        EvalError::Other(_)
-    ));
+    assert!(matches!(err, EvalError::Other(_)));
 }
 
 #[test]

@@ -1,5 +1,3 @@
-
-
 use handl_platform::Module;
 
 use super::StrModule;
@@ -550,7 +548,10 @@ fn type_mismatch_on_non_string() {
     let result = call_err("upper", &[n(42.0)]);
     assert_eq!(
         result,
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string")))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string"
+        )))
     );
 }
 
@@ -559,6 +560,9 @@ fn argument_count_on_missing_args() {
     let result = call_err("upper", &[]);
     assert_eq!(
         result,
-        Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0
+        )))
     );
 }

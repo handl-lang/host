@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 // ── rand.gauss ───────────────────────────────────────────────────
 
@@ -44,10 +44,7 @@ fn gauss_negative_stddev_errors() {
 #[test]
 fn gauss_no_args_errors() {
     let result = call_err("gauss", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.exponential ─────────────────────────────────────────────
@@ -102,10 +99,7 @@ fn exponential_negative_lambda_errors() {
 #[test]
 fn exponential_no_args_errors() {
     let result = call_err("exponential", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.poisson ─────────────────────────────────────────────────
@@ -151,10 +145,7 @@ fn poisson_negative_lambda_errors() {
 #[test]
 fn poisson_no_args_errors() {
     let result = call_err("poisson", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.binomial ────────────────────────────────────────────────
@@ -224,8 +215,5 @@ fn binomial_p_out_of_range_errors() {
 #[test]
 fn binomial_no_args_errors() {
     let result = call_err("binomial", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }

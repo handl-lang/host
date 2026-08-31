@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 

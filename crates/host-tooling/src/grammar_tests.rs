@@ -1,4 +1,4 @@
-use crate::{generate_textmate, GrammarRule, GrammarCapture};
+use crate::{GrammarCapture, GrammarRule, generate_textmate};
 
 fn sample_rules() -> Vec<GrammarRule> {
     vec![
@@ -6,7 +6,12 @@ fn sample_rules() -> Vec<GrammarRule> {
         GrammarRule::begin_end_rule("block_comment", "comment.block", r"/\*", r"\*/", 21),
         GrammarRule::match_rule("numbers", "constant.numeric", r"-?\d+(\.\d+)?", 30),
         GrammarRule::match_rule("keywords", "keyword", r"\b(let|const)\b", 50),
-        GrammarRule::match_rule("booleans", "constant.language.boolean", r"\b(true|false)\b", 40),
+        GrammarRule::match_rule(
+            "booleans",
+            "constant.language.boolean",
+            r"\b(true|false)\b",
+            40,
+        ),
         GrammarRule::match_rule("nulls", "constant.language.null", r"\b(null)\b", 41),
         GrammarRule::match_rule("operators", "keyword.operator", r"(\+|->)", 55),
         GrammarRule::match_rule("delimiters", "punctuation", r"[\(\)]", 58),
@@ -49,13 +54,19 @@ fn generate_textmate_patterns_in_priority_order() {
     let rules = sample_rules();
     let grammar = generate_textmate(&rules, "source.test", &["test".to_string()]);
     let patterns = grammar["patterns"].as_array().unwrap();
-    let includes: Vec<&str> = patterns.iter().filter_map(|p| p["include"].as_str()).collect();
+    let includes: Vec<&str> = patterns
+        .iter()
+        .filter_map(|p| p["include"].as_str())
+        .collect();
     // comments (priority 20) should come before keywords (priority 50)
     let comments_pos = includes.iter().position(|s| *s == "#comments").unwrap();
     let keywords_pos = includes.iter().position(|s| *s == "#keywords").unwrap();
     assert!(comments_pos < keywords_pos);
     // function_calls (priority 70) should come before identifiers (priority 100)
-    let fc_pos = includes.iter().position(|s| *s == "#function_calls").unwrap();
+    let fc_pos = includes
+        .iter()
+        .position(|s| *s == "#function_calls")
+        .unwrap();
     let id_pos = includes.iter().position(|s| *s == "#identifiers").unwrap();
     assert!(fc_pos < id_pos);
 }

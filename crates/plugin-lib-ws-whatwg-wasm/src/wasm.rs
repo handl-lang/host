@@ -1,8 +1,8 @@
 //! Browser `WebSocket` implementation for `websocket_whatwg` on `wasm32`.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use js_sys::{ArrayBuffer, Uint8Array};
 use serde_json::Value as JsonValue;
 use std::cell::{Cell, RefCell};
@@ -56,21 +56,46 @@ impl Inner {
 }
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
-fn require_value_at(args: &[serde_json::Value], idx: usize) -> Result<&serde_json::Value, EvalError> {
-    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
+fn require_value_at(
+    args: &[serde_json::Value],
+    idx: usize,
+) -> Result<&serde_json::Value, EvalError> {
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))
 }
 
 fn parse_id(value: &serde_json::Value) -> Result<usize, EvalError> {
     if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number or object", "non-number non-object",)))?;
-    let id = obj.get("connection_id").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "connection_id", "missing",)))?;
-    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number or object", "non-number non-object",
+    )))?;
+    let id = obj
+        .get("connection_id")
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "connection_id", "missing",
+        )))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))?;
     Ok(n as usize)
 }
 
@@ -78,7 +103,10 @@ fn to_js_value(value: &JsonValue) -> Result<JsValue, EvalError> {
     if let Some(text) = value.as_str() {
         return Ok(JsValue::from_str(text));
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string or object", "non-string non-object",)))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string or object", "non-string non-object",
+    )))?;
     if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
         return Ok(JsValue::from_str(text));
     }
@@ -124,7 +152,11 @@ impl Function for WebsocketWhatwgName {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         Ok(serde_json::Value::from(serde_json::json!({
@@ -154,7 +186,8 @@ impl Function for ConnectionConnect {
         ws.set_binary_type(BinaryType::Arraybuffer);
 
         let open = Rc::new(Cell::new(false));
-        let queue: Rc<RefCell<VecDeque<serde_json::Value>>> = Rc::new(RefCell::new(VecDeque::new()));
+        let queue: Rc<RefCell<VecDeque<serde_json::Value>>> =
+            Rc::new(RefCell::new(VecDeque::new()));
 
         let open2 = open.clone();
         let onopen = Closure::new(move || {
@@ -211,7 +244,11 @@ impl Function for ConnectionSend {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
 
         let id = parse_id(&args[0])?;
@@ -236,9 +273,7 @@ impl Function for ConnectionSend {
                     .send_with_array_buffer_view(arr)
                     .map_err(|e| EvalError::Other(format!("send failed: {e:?}")))?;
             } else {
-                return Err(EvalError::Other(
-                    "unsupported message type".to_string(),
-                ));
+                return Err(EvalError::Other("unsupported message type".to_string()));
             }
 
             Ok(serde_json::Value::from(JsonValue::Null))
@@ -327,8 +362,7 @@ pub fn ws_whatwg_wasm_connect(url: &str) -> Result<JsValue, JsValue> {
             &mut ctx,
         )
         .map_err(js_err)?;
-    let json =
-        serde_json::to_string(value).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let json = serde_json::to_string(value).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(JsValue::from_str(&json))
 }
 
@@ -360,8 +394,7 @@ pub fn ws_whatwg_wasm_recv(connection_id: usize) -> Result<JsValue, JsValue> {
             &mut ctx,
         )
         .map_err(js_err)?;
-    let json =
-        serde_json::to_string(value).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let json = serde_json::to_string(value).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(JsValue::from_str(&json))
 }
 

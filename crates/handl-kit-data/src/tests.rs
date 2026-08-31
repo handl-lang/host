@@ -54,9 +54,8 @@ impl Emitter for TokenAprimeEmitter {
     fn emit(&self) -> Result<Language, LangError> {
         let mut lang = Language::new();
         lang.tokens.merge(TokenKindDef::new("token.A"))?;
-        lang.tokens.merge(
-            TokenKindDef::new("token.A2").with_replaces(vec!["token.A".into()]),
-        )?;
+        lang.tokens
+            .merge(TokenKindDef::new("token.A2").with_replaces(vec!["token.A".into()]))?;
         Ok(lang)
     }
 }
@@ -108,7 +107,8 @@ struct AstOptionEmitter;
 impl Emitter for AstOptionEmitter {
     fn emit(&self) -> Result<Language, LangError> {
         let mut lang = Language::new();
-        lang.ast.merge(handl_language::AstShapeDef::new("shape.x", "x"))?;
+        lang.ast
+            .merge(handl_language::AstShapeDef::new("shape.x", "x"))?;
         lang.options
             .merge(handl_language::OptionSchema::new("opt.x"))?;
         Ok(lang)
@@ -234,10 +234,7 @@ fn fragment_source_entry_emitter_constructor() {
 fn fragment_source_entry_data_file_constructor() {
     let e = FragmentSourceEntry::data_file("name", "path.toml");
     assert_eq!(e.name, "name");
-    assert_eq!(
-        e.source,
-        FragmentSourceSerde::DataFile("path.toml".into())
-    );
+    assert_eq!(e.source, FragmentSourceSerde::DataFile("path.toml".into()));
 }
 
 // ---------------------------------------------------------------------------
@@ -351,8 +348,7 @@ fn assemble_construct_emitter_merges_all_three_sets() {
             node_kind: "c",
         })
     });
-    let manifest =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("c", "c"));
+    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("c", "c"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert_eq!(kit.lang().grammar.len(), 1);
@@ -417,8 +413,7 @@ fn include_empty_keeps_all() {
             id: "token.a".into(),
         })
     });
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"));
+    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("a", "a"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
 }
@@ -562,16 +557,13 @@ fn extends_child_overrides_parent_fragment() {
         fn emit(&self) -> Result<Language, LangError> {
             let mut lang = Language::new();
             lang.tokens.merge(TokenKindDef::new("token.X"))?;
-            lang.tokens.merge(
-                TokenKindDef::new("token.Y")
-                    .with_replaces(vec!["token.X".into()]),
-            )?;
+            lang.tokens
+                .merge(TokenKindDef::new("token.Y").with_replaces(vec!["token.X".into()]))?;
             Ok(lang)
         }
     }
     reg.register_emitter("replace-x", || Box::new(ReplaceXEmitter));
-    let parent =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("x", "x"));
+    let parent = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("x", "x"));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
@@ -619,9 +611,9 @@ fn data_file_source_returns_not_implemented_style_error() {
 
 #[test]
 fn into_runtime_binds_pratt_and_tree_walk() {
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
     use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
@@ -650,9 +642,9 @@ fn into_runtime_binds_pratt_and_tree_walk() {
 
 #[test]
 fn into_runtime_unknown_eval_engine_errors() {
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
     use handl_plugin_engine_parse_pratt::PrattEngine;
-    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
     use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
@@ -752,8 +744,7 @@ fn data_kit_debug_formats() {
             id: "token.x".into(),
         })
     });
-    let manifest =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("tok", "tok"));
+    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("tok", "tok"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     let s = format!("{:?}", kit);
     assert!(s.contains("DataKit"));
@@ -765,8 +756,8 @@ fn data_kit_debug_formats() {
 fn assemble_merges_ast_and_options_fragments() {
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("ast-opt", || Box::new(AstOptionEmitter));
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("ast-opt", "ast-opt"));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("ast-opt", "ast-opt"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     assert_eq!(kit.lang().ast.len(), 1);
     assert_eq!(kit.lang().options.len(), 1);
@@ -778,8 +769,7 @@ fn assemble_merges_ast_and_options_fragments() {
 fn assemble_merges_caps_fragment() {
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("cap", || Box::new(CapEmitter { cap_id: "cap.z" }));
-    let manifest =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("cap", "cap"));
+    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("cap", "cap"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     assert_eq!(kit.lang().caps.len(), 1);
     assert!(kit.lang().caps.get_by_id("cap.z").is_some());

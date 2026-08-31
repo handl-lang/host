@@ -1,15 +1,21 @@
-
 use handl_platform::{EvalContext, EvalError, Function};
 
 fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
-    args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
+    args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))
 }
 
 fn require_two_args(
     args: &[serde_json::Value],
 ) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     Ok((&args[0], &args[1]))
 }

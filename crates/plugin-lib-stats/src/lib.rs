@@ -2,8 +2,8 @@
 //!
 //! Statistical aggregate functions for the handl runtime.
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value;
 
 fn num(value: f64) -> serde_json::Value {
@@ -11,8 +11,16 @@ fn num(value: f64) -> serde_json::Value {
 }
 
 fn require_one_array(args: &[serde_json::Value]) -> Result<&[Value], EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
-    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))?;
+    arg.as_array()
+        .map(Vec::as_slice)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))
 }
 
 macro_rules! stats_unary_fn {

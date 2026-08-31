@@ -29,7 +29,10 @@ fn initialize_result_has_semantic_tokens_provider() {
         result["capabilities"]["semanticTokensProvider"]["range"],
         true
     );
-    assert_eq!(result["capabilities"]["textDocumentSync"]["openClose"], true);
+    assert_eq!(
+        result["capabilities"]["textDocumentSync"]["openClose"],
+        true
+    );
     assert_eq!(result["capabilities"]["textDocumentSync"]["change"], 1);
     assert_eq!(
         result["capabilities"]["textDocumentSync"]["save"]["includeText"],
@@ -60,8 +63,7 @@ fn handle_initialize_writes_response() {
     let mut buf = Vec::new();
     handle_initialize(&mut buf, json!(1), &legend);
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&buf)).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 1);
     assert_eq!(parsed["result"]["serverInfo"]["name"], "handl-lsp");
@@ -72,8 +74,7 @@ fn handle_shutdown_writes_null_result() {
     let mut buf = Vec::new();
     handle_shutdown(&mut buf, json!(5));
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&buf)).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 5);
     assert_eq!(parsed["result"], serde_json::Value::Null);
@@ -84,8 +85,7 @@ fn handle_unknown_writes_method_not_found() {
     let mut buf = Vec::new();
     handle_unknown(&mut buf, json!(3));
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&buf)).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 3);
     assert_eq!(parsed["error"]["code"], -32601);
@@ -120,8 +120,7 @@ fn semantic_tokens_full_returns_delta_encoded_data() {
     let store = DocumentStore::new();
     handle_semantic_tokens_full(&mut buf, json!(1), &msg, &provider, &store);
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&buf)).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 1);
     assert!(parsed["result"]["data"].is_array());
@@ -145,12 +144,14 @@ fn semantic_tokens_full_with_actual_source_returns_tokens() {
     let store = DocumentStore::new();
     handle_semantic_tokens_full(&mut buf, json!(2), &msg, &provider, &store);
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&buf)).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 2);
     let data = parsed["result"]["data"].as_array().unwrap();
-    assert!(!data.is_empty(), "should produce tokens for non-empty source");
+    assert!(
+        !data.is_empty(),
+        "should produce tokens for non-empty source"
+    );
 
     // First token should be "x" (identifier/variable, type 6, length 1,
     // declaration modifier bit set because `x = 42` is a binding).
@@ -227,8 +228,7 @@ fn semantic_tokens_range_whole_document_matches_full() {
         id: Some(json!(2)),
     };
     handle_semantic_tokens_range(&mut range_buf, json!(2), &range_msg, &provider, &store);
-    let range_parsed: serde_json::Value =
-        serde_json::from_str(&extract_body(&range_buf)).unwrap();
+    let range_parsed: serde_json::Value = serde_json::from_str(&extract_body(&range_buf)).unwrap();
     let range_data = range_parsed["result"]["data"].as_array().unwrap();
 
     assert_eq!(full_data, range_data);

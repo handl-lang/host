@@ -4,8 +4,8 @@
 //! and verify that all functions produce correct output when using
 //! the buffer provider path instead of compiled data.
 
-use handl_plugin_lib_intl::IntlModule;
 use handl_platform::{EvalContext, Module};
+use handl_plugin_lib_intl::IntlModule;
 use serde_json::Value;
 
 fn blob() -> Vec<u8> {

@@ -7,10 +7,10 @@ use std::sync::mpsc::{Sender, channel};
 use std::thread;
 
 use handl_platform::EvalError;
-use serde_json::Value;
 use mio::net::TcpStream as MioTcpStream;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::Mutex;
+use serde_json::Value;
 
 /// Backend trait for blocking async I/O primitives.
 pub trait IoRuntime {
@@ -18,11 +18,7 @@ pub trait IoRuntime {
     fn tcp_connect(&self, addr: Value) -> Result<Value, EvalError>;
 
     /// Send `data` over `socket`.
-    fn tcp_send(
-        &self,
-        socket: Value,
-        data: Value,
-    ) -> Result<Value, EvalError>;
+    fn tcp_send(&self, socket: Value, data: Value) -> Result<Value, EvalError>;
 
     /// Receive up to 4096 bytes from `socket`.
     fn tcp_recv(&self, socket: Value) -> Result<Value, EvalError>;
@@ -32,7 +28,8 @@ pub trait IoRuntime {
 }
 
 fn socket_id(socket: &Value) -> Result<u64, EvalError> {
-    socket.as_object()
+    socket
+        .as_object()
         .and_then(|o| o.get("id"))
         .and_then(|v| v.as_u64())
         .ok_or_else(|| EvalError::Other("expected a tcp_socket value".to_string()))
@@ -80,11 +77,7 @@ impl IoRuntime for StdNetIoRuntime {
         Ok(tcp_socket_value(id))
     }
 
-    fn tcp_send(
-        &self,
-        socket: Value,
-        data: Value,
-    ) -> Result<Value, EvalError> {
+    fn tcp_send(&self, socket: Value, data: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         let stream = streams
@@ -123,9 +116,7 @@ impl IoRuntime for StdNetIoRuntime {
         let id = socket_id(&socket)?;
         let mut streams = self.streams.lock();
         if streams.remove(&id).is_none() {
-            return Err(EvalError::Other(
-                "tcp_close: unknown socket".to_string(),
-            ));
+            return Err(EvalError::Other("tcp_close: unknown socket".to_string()));
         }
         Ok(serde_json::json!(null))
     }
@@ -407,7 +398,7 @@ impl MioIoRuntime {
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.send.is_some() {
                                     let _ = tx.send(Err(
-                                        "tcp_send: a send is already pending".to_string(),
+                                        "tcp_send: a send is already pending".to_string()
                                     ));
                                 } else {
                                     state.send = Some(Sending {
@@ -421,9 +412,7 @@ impl MioIoRuntime {
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(
-                                    "tcp_send: unknown socket".to_string(),
-                                ));
+                                let _ = tx.send(Err("tcp_send: unknown socket".to_string()));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -435,7 +424,7 @@ impl MioIoRuntime {
                             if let Some(state) = guard.get_mut(&token) {
                                 if state.recv.is_some() {
                                     let _ = tx.send(Err(
-                                        "tcp_recv: a recv is already pending".to_string(),
+                                        "tcp_recv: a recv is already pending".to_string()
                                     ));
                                 } else {
                                     state.recv = Some(tx);
@@ -445,9 +434,7 @@ impl MioIoRuntime {
                                     }
                                 }
                             } else {
-                                let _ = tx.send(Err(
-                                    "tcp_recv: unknown socket".to_string(),
-                                ));
+                                let _ = tx.send(Err("tcp_recv: unknown socket".to_string()));
                             }
                             if remove {
                                 guard.remove(&token);
@@ -459,9 +446,7 @@ impl MioIoRuntime {
                                 let _ = poll.registry().deregister(&mut state.stream);
                                 let _ = tx.send(Ok(()));
                             } else {
-                                let _ = tx.send(Err(
-                                    "tcp_close: unknown socket".to_string(),
-                                ));
+                                let _ = tx.send(Err("tcp_close: unknown socket".to_string()));
                             }
                         }
                         Command::Shutdown(ack) => {
@@ -496,9 +481,9 @@ impl IoRuntime for MioIoRuntime {
         let mut addrs = addr
             .to_socket_addrs()
             .map_err(|e| EvalError::Other(e.to_string()))?;
-        let socket_addr = addrs.next().ok_or_else(|| {
-            EvalError::Other("tcp_connect could not resolve address".to_string())
-        })?;
+        let socket_addr = addrs
+            .next()
+            .ok_or_else(|| EvalError::Other("tcp_connect could not resolve address".to_string()))?;
         let id = self.next_token.fetch_add(1, Ordering::SeqCst) as u64;
         let token = Token(id as usize);
         let (tx, rx) = channel::<Result<u64, String>>();
@@ -519,11 +504,7 @@ impl IoRuntime for MioIoRuntime {
         }
     }
 
-    fn tcp_send(
-        &self,
-        socket: Value,
-        data: Value,
-    ) -> Result<Value, EvalError> {
+    fn tcp_send(&self, socket: Value, data: Value) -> Result<Value, EvalError> {
         let id = socket_id(&socket)?;
         let token = Token(id as usize);
         let payload = data
@@ -687,8 +668,7 @@ mod tests {
         let io = StdNetIoRuntime::new();
         let socket = io.tcp_connect(serde_json::json!(addr)).unwrap();
 
-        io.tcp_send(socket.clone(), serde_json::json!(123))
-            .unwrap();
+        io.tcp_send(socket.clone(), serde_json::json!(123)).unwrap();
 
         let resp = io.tcp_recv(socket).unwrap();
         assert_eq!(resp.as_str(), Some("123"));

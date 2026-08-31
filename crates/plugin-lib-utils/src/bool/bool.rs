@@ -41,11 +41,14 @@ impl Module for BoolModule {
 }
 
 fn require_bool(arg: &serde_json::Value) -> Result<bool, EvalError> {
-    arg.as_bool().ok_or(EvalError::TypeMismatch("expected boolean".to_string()))
+    arg.as_bool()
+        .ok_or(EvalError::TypeMismatch("expected boolean".to_string()))
 }
 
 fn require_one_bool(args: &[serde_json::Value]) -> Result<bool, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch("expected 1 argument, got 0".to_string()))?;
+    let arg = args.first().ok_or(EvalError::TypeMismatch(
+        "expected 1 argument, got 0".to_string(),
+    ))?;
     require_bool(arg)
 }
 

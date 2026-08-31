@@ -250,15 +250,27 @@ impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Inner<F> {
 
 fn require_string_at(args: &[Value], idx: usize) -> Result<&str, EvalError> {
     args.get(idx)
-        .ok_or_else(|| EvalError::Other(format!("expected at least {} args, got {}", idx + 1, args.len())))?
+        .ok_or_else(|| {
+            EvalError::Other(format!(
+                "expected at least {} args, got {}",
+                idx + 1,
+                args.len()
+            ))
+        })?
         .as_str()
         .ok_or_else(|| EvalError::TypeMismatch("expected string".to_string()))
 }
 
 fn require_id_at(args: &[Value], idx: usize) -> Result<usize, EvalError> {
-    let value = args.get(idx)
-        .ok_or_else(|| EvalError::Other(format!("expected at least {} args, got {}", idx + 1, args.len())))?;
-    let n = value.as_f64()
+    let value = args.get(idx).ok_or_else(|| {
+        EvalError::Other(format!(
+            "expected at least {} args, got {}",
+            idx + 1,
+            args.len()
+        ))
+    })?;
+    let n = value
+        .as_f64()
         .ok_or_else(|| EvalError::TypeMismatch("expected number".to_string()))?;
     Ok(n as usize)
 }
@@ -269,14 +281,8 @@ struct NewFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for NewFn<F>
-{
-    fn call(
-        &self,
-        _args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for NewFn<F> {
+    fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = self.inner.create_server();
         Ok(serde_json::json!(id as f64))
     }
@@ -286,14 +292,8 @@ struct StartFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for StartFn<F>
-{
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for StartFn<F> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = require_id_at(args, 0)?;
         let addr = require_string_at(args, 1)?;
         self.inner
@@ -307,14 +307,8 @@ struct StopFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for StopFn<F>
-{
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for StopFn<F> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = require_id_at(args, 0)?;
         self.inner
             .with_server(id, |server| server.stop())
@@ -327,14 +321,8 @@ struct JoinFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for JoinFn<F>
-{
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for JoinFn<F> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = require_id_at(args, 0)?;
         self.inner
             .with_server(id, |server| server.join())
@@ -347,20 +335,15 @@ struct RouteFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for RouteFn<F>
-{
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for RouteFn<F> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = require_id_at(args, 0)?;
         let method_str = require_string_at(args, 1)?;
         let method = HttpMethod::parse(method_str)
             .ok_or_else(|| EvalError::Other(format!("unknown HTTP method: {method_str}")))?;
         let path = require_string_at(args, 2)?;
-        let handler_arg = args.get(3)
+        let handler_arg = args
+            .get(3)
             .ok_or_else(|| EvalError::Other(format!("expected 4 args, got {}", args.len())))?;
 
         if let Some(function_value) = FunctionValue::from_json(handler_arg) {
@@ -370,8 +353,9 @@ impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
                 })
                 .map_err(EvalError::from)?;
         } else {
-            let body = handler_arg.as_str()
-                .ok_or_else(|| EvalError::TypeMismatch("expected string or function".to_string()))?;
+            let body = handler_arg.as_str().ok_or_else(|| {
+                EvalError::TypeMismatch("expected string or function".to_string())
+            })?;
             let body = body.to_string();
             let handler: Handler =
                 Box::new(move |_req: HttpServerRequest| HttpServerResponse::new(200, body.clone()));
@@ -388,14 +372,8 @@ struct ServeStaticFn<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> {
     inner: Arc<Inner<F>>,
 }
 
-impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function
-    for ServeStaticFn<F>
-{
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for ServeStaticFn<F> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = require_id_at(args, 0)?;
         let path = require_string_at(args, 1)?;
         let dir = require_string_at(args, 2)?;

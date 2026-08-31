@@ -269,11 +269,20 @@ impl Function for SeededString {
         let charset_name = match args.len() {
             2 => "alphanumeric",
             3 => {
-                let val = args.get(2).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, 2,)))?;
-                val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
+                let val = args.get(2).ok_or(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    3, 2,
+                )))?;
+                val.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?
             }
             n => {
-                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, n,)));
+                return Err(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    3, n,
+                )));
             }
         };
 

@@ -8,8 +8,8 @@
 //! recorded events are accessible via [`TraceControl::events`].
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     AstNode, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
@@ -55,10 +55,7 @@ impl TraceControl {
 
     /// Returns the number of recorded events.
     pub fn len(&self) -> usize {
-        self.events
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .len()
+        self.events.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
     /// Returns `true` if no events have been recorded.
@@ -175,8 +172,8 @@ impl Plugin for ExecTracePlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -228,8 +225,12 @@ mod tests {
     #[test]
     fn records_one_event_per_dispatch() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         let trace = TraceControl::new();
         evaluator.add_exec_control(Arc::new(trace.clone()));
 

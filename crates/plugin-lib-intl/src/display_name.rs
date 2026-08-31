@@ -1,3 +1,4 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::experimental::dimension::provider::currency::displayname::CurrencyDisplaynameV1;
 use icu::locale::DataLocale;
 use icu::locale::names::{
@@ -9,7 +10,6 @@ use icu_provider::{
     DataIdentifierBorrowed, DataMarkerAttributes, DataProvider, DataRequest, ResultDataError,
 };
 use writeable::Writeable;
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{make_provider, opt_str, optional_locale, optional_object, require_string, s};
 use super::error::IntlError;

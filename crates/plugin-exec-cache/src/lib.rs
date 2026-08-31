@@ -15,8 +15,8 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_platform::{
     AstNode, CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse,
@@ -69,10 +69,7 @@ impl CacheControl {
 
     /// Returns the number of cached entries.
     pub fn len(&self) -> usize {
-        self.entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .len()
+        self.entries.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
     /// Returns `true` if the cache is empty.
@@ -201,8 +198,8 @@ impl Plugin for ExecCachePlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -249,7 +246,9 @@ mod tests {
         let calls = Arc::new(AtomicUsize::new(0));
         let mut evaluator = BasicEvaluator::new();
         evaluator
-            .accept(Arc::new(Compute { calls: calls.clone() }) as Arc<dyn EvalBehavior>)
+            .accept(Arc::new(Compute {
+                calls: calls.clone(),
+            }) as Arc<dyn EvalBehavior>)
             .unwrap();
         let cache = CacheControl::new();
         evaluator.add_exec_control(Arc::new(cache.clone()));
@@ -275,7 +274,9 @@ mod tests {
         let calls = Arc::new(AtomicUsize::new(0));
         let mut evaluator = BasicEvaluator::new();
         evaluator
-            .accept(Arc::new(Compute { calls: calls.clone() }) as Arc<dyn EvalBehavior>)
+            .accept(Arc::new(Compute {
+                calls: calls.clone(),
+            }) as Arc<dyn EvalBehavior>)
             .unwrap();
         evaluator.add_exec_control(Arc::new(CacheControl::new()));
 
@@ -283,6 +284,10 @@ mod tests {
         let r2 = run_eval(&evaluator, compute(2)).unwrap();
         assert_eq!(r1, json!(1));
         assert_eq!(r2, json!(2));
-        assert_eq!(calls.load(Ordering::SeqCst), 2, "distinct payloads both dispatch");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "distinct payloads both dispatch"
+        );
     }
 }

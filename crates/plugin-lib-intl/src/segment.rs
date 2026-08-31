@@ -1,6 +1,6 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::segmenter::options::{LineBreakOptions, LineBreakStrictness, LineBreakWordOption};
 use icu::segmenter::{GraphemeClusterSegmenter, LineSegmenter, SentenceSegmenter, WordSegmenter};
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{make_provider, opt_str, optional_locale, optional_object, require_string};
 use super::error::IntlError;

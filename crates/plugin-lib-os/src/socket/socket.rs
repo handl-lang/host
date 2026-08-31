@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 
@@ -61,17 +61,29 @@ impl Module for SocketModule {
 
 fn require_string_arg(args: &[serde_json::Value]) -> Result<&str, EvalError> {
     args.first()
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?
         .as_str()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn require_number_arg(args: &[serde_json::Value]) -> Result<i64, EvalError> {
     let n = args
         .first()
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?
         .as_f64()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
     Ok(n as i64)
 }
 
@@ -104,10 +116,17 @@ impl Function for SendFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let handle = require_number_arg(args)?;
-        let data = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let data = args[1].as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
         self.socket
             .send(handle, data)
             .map(serde_json::Value::from)
@@ -126,10 +145,17 @@ impl Function for RecvFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let handle = require_number_arg(args)?;
-        let length = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as usize;
+        let length = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))? as usize;
         self.socket
             .recv(handle, length)
             .map(serde_json::Value::from)

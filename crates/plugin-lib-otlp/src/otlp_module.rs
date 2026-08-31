@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value;
 
 use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
@@ -88,16 +88,30 @@ impl Module for OtlpModule {
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
     args.get(idx)
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            idx + 1,
+            args.len(),
+        )))?
         .as_str()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn require_number_at(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
     args.get(idx)
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            idx + 1,
+            args.len(),
+        )))?
         .as_f64()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))
 }
 
 fn require_object_at(
@@ -105,9 +119,16 @@ fn require_object_at(
     idx: usize,
 ) -> Result<&serde_json::Map<String, Value>, EvalError> {
     args.get(idx)
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            idx + 1,
+            args.len(),
+        )))?
         .as_object()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "object", "non-object",
+        )))
 }
 
 fn optional_object_at(
@@ -125,12 +146,17 @@ fn value_map_to_hashmap(map: &serde_json::Map<String, Value>) -> HashMap<String,
     map.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
 }
 
-fn parse_headers(map: &serde_json::Map<String, Value>) -> Result<HashMap<String, String>, EvalError> {
+fn parse_headers(
+    map: &serde_json::Map<String, Value>,
+) -> Result<HashMap<String, String>, EvalError> {
     map.iter()
         .map(|(k, v)| {
             v.as_str()
                 .map(|s| (k.clone(), s.to_string()))
-                .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+                .ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))
         })
         .collect()
 }
@@ -237,8 +263,11 @@ impl Function for SetAttributeFn {
         let key = require_string_at(args, 1)?;
         let value = args
             .get(2)
-            .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)))?
-            
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )))?
             .clone();
         self.state
             .set_attribute(id, key, value)

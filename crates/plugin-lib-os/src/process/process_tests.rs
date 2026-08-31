@@ -1,6 +1,6 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
+use handl_platform::Module;
 
 use super::process::ProcessModule;
 use super::process_stub::StubProcess;
@@ -11,11 +11,7 @@ fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_js
     func.call(args, &mut ctx).expect("call succeeds")
 }
 
-fn call_err(
-    module: &dyn Module,
-    name: &str,
-    args: &[serde_json::Value],
-) -> EvalError {
+fn call_err(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> EvalError {
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).unwrap_err()
@@ -92,30 +88,21 @@ fn status_finished() {
 fn kill_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "kill", &[n(1)]);
-    assert!(matches!(
-        err,
-        EvalError::Other(_)
-    ));
+    assert!(matches!(err, EvalError::Other(_)));
 }
 
 #[test]
 fn wait_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "wait", &[n(1)]);
-    assert!(matches!(
-        err,
-        EvalError::Other(_)
-    ));
+    assert!(matches!(err, EvalError::Other(_)));
 }
 
 #[test]
 fn status_not_found() {
     let module = ProcessModule::new(StubProcess::default());
     let err = call_err(&module, "status", &[n(1)]);
-    assert!(matches!(
-        err,
-        EvalError::Other(_)
-    ));
+    assert!(matches!(err, EvalError::Other(_)));
 }
 
 #[test]

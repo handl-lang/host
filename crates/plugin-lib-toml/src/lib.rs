@@ -44,8 +44,8 @@ impl Serializer for Toml {
     }
 }
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 /// The `toml` module.
 ///
@@ -77,7 +77,11 @@ impl Function for TomlName {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
         Ok(serde_json::Value::from(serde_json::json!({
             "type": "serializer",

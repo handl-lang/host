@@ -1,6 +1,6 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use md5::Md5 as Md5Hasher;
 use sha2::{Digest, Sha256 as Sha256Hasher};
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{extract_bytes, s};
 

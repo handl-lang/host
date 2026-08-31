@@ -6,9 +6,9 @@
 //! - `gzip.decompress(base64_string)` — original string, or base64 if not UTF-8
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_plugin_lib_compress::{Compressor, Decompressor};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_compress::{Compressor, Decompressor};
 use serde_json::Value as JsonValue;
 
 use crate::Gzip;
@@ -32,10 +32,17 @@ impl Module for GzipModule {
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<String, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1,
+        args.len(),
+    )))?;
     arg.as_str()
         .map(|s| s.to_string())
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn string_(value: impl Into<String>) -> serde_json::Value {
@@ -69,9 +76,9 @@ impl Function for Decompress {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let s = require_one_string(args)?;
-        let decoded = BASE64_STANDARD.decode(s).map_err(|e| {
-            EvalError::Other(format!("gzip decompress base64 decode error: {e}"))
-        })?;
+        let decoded = BASE64_STANDARD
+            .decode(s)
+            .map_err(|e| EvalError::Other(format!("gzip decompress base64 decode error: {e}")))?;
         let decompressed = Gzip::new()
             .decompress(&decoded)
             .map_err(|e| EvalError::Other(format!("gzip decompress error: {e}")))?;

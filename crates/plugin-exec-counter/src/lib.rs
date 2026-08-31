@@ -103,8 +103,7 @@ impl Plugin for ExecCounterPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
-            ctx.contribute_exec_control(Arc::new(self.counter.clone())
-                as Arc<dyn ExecControl>)?;
+            ctx.contribute_exec_control(Arc::new(self.counter.clone()) as Arc<dyn ExecControl>)?;
         }
         Ok(())
     }
@@ -122,8 +121,8 @@ impl Plugin for ExecCounterPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -174,8 +173,12 @@ mod tests {
     #[test]
     fn counts_every_dispatch() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         let counter = CounterControl::new();
         evaluator.add_exec_control(Arc::new(counter.clone()));
 

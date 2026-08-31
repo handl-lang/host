@@ -11,9 +11,9 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::function_value::FunctionValue;
 use handl_platform::{EvalContext, EvalError};
 use serde_json::Value;
-use crate::function_value::FunctionValue;
 
 /// A replaceable backend for the synchronization primitives:
 /// `channel`, `send`, `recv`, `mutex`, `lock`, `unlock`, `rwlock`,
@@ -23,18 +23,10 @@ pub trait SyncRuntime {
     fn channel(&self, capacity: Option<Value>) -> Value;
 
     /// Sends `value` on `channel`.
-    fn send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError>;
+    fn send(&self, channel: Value, value: Value) -> Result<Value, EvalError>;
 
     /// Tries to send `value` on `channel` without blocking.
-    fn try_send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError>;
+    fn try_send(&self, channel: Value, value: Value) -> Result<Value, EvalError>;
 
     /// Receives a value from `channel`.
     fn recv(&self, channel: Value) -> Result<Value, EvalError>;
@@ -93,25 +85,13 @@ pub trait SyncRuntime {
     fn semaphore(&self, permits: Value) -> Value;
 
     /// Acquires `n` permits from `semaphore`.
-    fn acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError>;
+    fn acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError>;
 
     /// Tries to acquire `n` permits from `semaphore` without blocking.
-    fn try_acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError>;
+    fn try_acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError>;
 
     /// Releases `n` permits to `semaphore`.
-    fn release(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError>;
+    fn release(&self, semaphore: Value, n: Value) -> Result<Value, EvalError>;
 }
 
 /// Creates a resource value of the form `{"type": <kind>, "id": <id>}`.
@@ -274,11 +254,7 @@ impl SyncRuntime for DefaultSyncRuntime {
         resource_value("channel", id)
     }
 
-    fn send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError> {
+    fn send(&self, channel: Value, value: Value) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock().map_err(poison)?;
         let chan = channels
@@ -288,7 +264,9 @@ impl SyncRuntime for DefaultSyncRuntime {
         drop(channels);
         let mut chan = chan.lock().map_err(poison)?;
         if chan.closed {
-            return Err(EvalError::from(SyncError::NotFound(format!("channel {id} is closed"))));
+            return Err(EvalError::from(SyncError::NotFound(format!(
+                "channel {id} is closed"
+            ))));
         }
         if let Some(cap) = chan.capacity {
             if chan.queue.len() >= cap {
@@ -299,11 +277,7 @@ impl SyncRuntime for DefaultSyncRuntime {
         Ok(Value::default())
     }
 
-    fn try_send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError> {
+    fn try_send(&self, channel: Value, value: Value) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock().map_err(poison)?;
         let chan = channels
@@ -313,7 +287,9 @@ impl SyncRuntime for DefaultSyncRuntime {
         drop(channels);
         let mut chan = chan.lock().map_err(poison)?;
         if chan.closed {
-            return Err(EvalError::from(SyncError::NotFound(format!("channel {id} is closed"))));
+            return Err(EvalError::from(SyncError::NotFound(format!(
+                "channel {id} is closed"
+            ))));
         }
         if let Some(cap) = chan.capacity {
             if chan.queue.len() >= cap {
@@ -337,7 +313,9 @@ impl SyncRuntime for DefaultSyncRuntime {
             return Ok(value);
         }
         if chan.closed {
-            Err(EvalError::from(SyncError::NotFound(format!("channel {id} is closed"))))
+            Err(EvalError::from(SyncError::NotFound(format!(
+                "channel {id} is closed"
+            ))))
         } else {
             Err(EvalError::from(SyncError::WouldBlock))
         }
@@ -374,7 +352,9 @@ impl SyncRuntime for DefaultSyncRuntime {
         drop(mutexes);
         let mut guard = m.lock().map_err(poison)?;
         if *guard {
-            return Err(EvalError::from(SyncError::BadResource("mutex already locked".to_string())));
+            return Err(EvalError::from(SyncError::BadResource(
+                "mutex already locked".to_string(),
+            )));
         }
         *guard = true;
         let result = ctx.eval_expr(&thunk.body, &[])?;
@@ -416,7 +396,9 @@ impl SyncRuntime for DefaultSyncRuntime {
         drop(mutexes);
         let mut guard = m.lock().map_err(poison)?;
         if !*guard {
-            return Err(EvalError::from(SyncError::BadResource("mutex not locked".to_string())));
+            return Err(EvalError::from(SyncError::BadResource(
+                "mutex not locked".to_string(),
+            )));
         }
         *guard = false;
         Ok(Value::default())
@@ -471,11 +453,7 @@ impl SyncRuntime for DefaultSyncRuntime {
         resource_value("semaphore", id)
     }
 
-    fn acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)?;
         let semaphores = self.semaphores.lock().map_err(poison)?;
@@ -492,11 +470,7 @@ impl SyncRuntime for DefaultSyncRuntime {
         Ok(Value::default())
     }
 
-    fn try_acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn try_acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)?;
         let semaphores = self.semaphores.lock().map_err(poison)?;
@@ -513,11 +487,7 @@ impl SyncRuntime for DefaultSyncRuntime {
         Ok(Value::default())
     }
 
-    fn release(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn release(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)?;
         let semaphores = self.semaphores.lock().map_err(poison)?;
@@ -540,8 +510,8 @@ mod tests {
     // test cases; see ADR 0040 migration notes.
     #[allow(unused_imports)]
     use serde_json::json;
-    use std::sync::{Arc, Mutex};
     use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     #[derive(Clone, Default)]
     struct MockEval {
@@ -549,11 +519,7 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
             Ok(serde_json::json!({ "body": expr }))
         }
@@ -583,14 +549,8 @@ mod tests {
         let value = serde_json::json!(1);
         assert!(s.send(ch.clone(), value).is_ok());
 
-        assert_eq!(
-            s.recv(ch.clone()).unwrap(),
-            serde_json::json!(1)
-        );
-        assert_eq!(
-            s.recv(ch),
-            Err(EvalError::from(SyncError::WouldBlock))
-        );
+        assert_eq!(s.recv(ch.clone()).unwrap(), serde_json::json!(1));
+        assert_eq!(s.recv(ch), Err(EvalError::from(SyncError::WouldBlock)));
     }
 
     #[test]
@@ -610,10 +570,7 @@ mod tests {
     fn channel_recv_empty_blocks() {
         let s = DefaultSyncRuntime::new();
         let ch = s.channel(None);
-        assert_eq!(
-            s.recv(ch),
-            Err(EvalError::from(SyncError::WouldBlock))
-        );
+        assert_eq!(s.recv(ch), Err(EvalError::from(SyncError::WouldBlock)));
     }
 
     #[test]
@@ -632,10 +589,7 @@ mod tests {
         assert!(s.send(ch.clone(), serde_json::json!(3)).is_ok());
         assert_eq!(s.recv(ch.clone()).unwrap(), serde_json::json!(2));
         assert_eq!(s.recv(ch.clone()).unwrap(), serde_json::json!(3));
-        assert_eq!(
-            s.recv(ch),
-            Err(EvalError::from(SyncError::WouldBlock))
-        );
+        assert_eq!(s.recv(ch), Err(EvalError::from(SyncError::WouldBlock)));
     }
 
     #[test]
@@ -655,18 +609,9 @@ mod tests {
         let s = DefaultSyncRuntime::new();
         let sem = s.semaphore(serde_json::json!(3));
 
-        assert!(
-            s.acquire(sem.clone(), serde_json::json!(2))
-                .is_ok()
-        );
-        assert!(
-            s.acquire(sem.clone(), serde_json::json!(2))
-                .is_err()
-        );
-        assert!(
-            s.release(sem.clone(), serde_json::json!(2))
-                .is_ok()
-        );
+        assert!(s.acquire(sem.clone(), serde_json::json!(2)).is_ok());
+        assert!(s.acquire(sem.clone(), serde_json::json!(2)).is_err());
+        assert!(s.release(sem.clone(), serde_json::json!(2)).is_ok());
         assert!(s.acquire(sem, serde_json::json!(2)).is_ok());
     }
 
@@ -698,14 +643,8 @@ mod tests {
         let s = DefaultSyncRuntime::new();
         let sem = s.semaphore(serde_json::json!(2));
 
-        assert!(
-            s.try_acquire(sem.clone(), serde_json::json!(1))
-                .is_ok()
-        );
-        assert!(
-            s.try_acquire(sem.clone(), serde_json::json!(1))
-                .is_ok()
-        );
+        assert!(s.try_acquire(sem.clone(), serde_json::json!(1)).is_ok());
+        assert!(s.try_acquire(sem.clone(), serde_json::json!(1)).is_ok());
         assert_eq!(
             s.try_acquire(sem, serde_json::json!(1)),
             Err(EvalError::from(SyncError::WouldBlock))

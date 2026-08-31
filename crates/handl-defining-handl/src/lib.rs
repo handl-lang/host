@@ -183,10 +183,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.add")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(3),
@@ -200,10 +197,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(10)));
                 a.push(AstNode::new("value").with_payload(json!(4)));
-                a.push(
-                    AstNode::new("binary.sub")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.sub").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(6),
@@ -217,10 +211,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(4)));
-                a.push(
-                    AstNode::new("binary.mul")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.mul").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(12),
@@ -234,10 +225,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(20)));
                 a.push(AstNode::new("value").with_payload(json!(4)));
-                a.push(
-                    AstNode::new("binary.div")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(5),
@@ -251,10 +239,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(2)));
                 a.push(AstNode::new("value").with_payload(json!(3)));
-                a.push(
-                    AstNode::new("binary.pow")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.pow").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(8.0),
@@ -268,10 +253,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(3)));
-                a.push(
-                    AstNode::new("binary.eq")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -285,10 +267,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(4)));
-                a.push(
-                    AstNode::new("binary.eq")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.eq").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(false),
@@ -302,10 +281,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.lt")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.lt").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -319,10 +295,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(2)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
-                a.push(
-                    AstNode::new("binary.gt")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.gt").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -335,10 +308,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(false)));
-                a.push(
-                    AstNode::new("unary.not")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("unary.not").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!(true),
@@ -351,10 +321,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(true)));
-                a.push(
-                    AstNode::new("unary.not")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("unary.not").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!(false),
@@ -368,10 +335,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(5)));
                 a.push(AstNode::new("var").with_payload(json!("x")));
-                a.push(
-                    AstNode::new("let")
-                        .with_payload(json!({"name": "x", "children": [0, 1]})),
-                );
+                a.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
                 a
             },
             expected: json!(5),
@@ -386,8 +350,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a.push(AstNode::new("value").with_payload(json!(6)));
                 a.push(AstNode::new("var").with_payload(json!("x")));
                 a.push(
-                    AstNode::new("stmt.let")
-                        .with_payload(json!({"name": "x", "children": [0, 1]})),
+                    AstNode::new("stmt.let").with_payload(json!({"name": "x", "children": [0, 1]})),
                 );
                 a
             },
@@ -420,10 +383,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a.push(AstNode::new("value").with_payload(json!(true)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("if")
-                        .with_payload(json!({"children": [0, 1, 2]})),
-                );
+                a.push(AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})));
                 a
             },
             expected: json!(1),
@@ -438,10 +398,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a.push(AstNode::new("value").with_payload(json!(false)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("if")
-                        .with_payload(json!({"children": [0, 1, 2]})),
-                );
+                a.push(AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})));
                 a
             },
             expected: json!(2),
@@ -456,10 +413,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a.push(AstNode::new("value").with_payload(json!(true)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("ternary")
-                        .with_payload(json!({"children": [0, 1, 2]})),
-                );
+                a.push(AstNode::new("ternary").with_payload(json!({"children": [0, 1, 2]})));
                 a
             },
             expected: json!(1),
@@ -474,10 +428,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a.push(AstNode::new("value").with_payload(json!(false)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("ternary")
-                        .with_payload(json!({"children": [0, 1, 2]})),
-                );
+                a.push(AstNode::new("ternary").with_payload(json!({"children": [0, 1, 2]})));
                 a
             },
             expected: json!(2),
@@ -490,10 +441,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(42)));
-                a.push(
-                    AstNode::new("paren")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("paren").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!(42),
@@ -506,10 +454,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(42)));
-                a.push(
-                    AstNode::new("apply")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("apply").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!(42),
@@ -645,10 +590,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(2)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.gte")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.gte").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -662,10 +604,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(3)));
-                a.push(
-                    AstNode::new("binary.gte")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.gte").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(false),
@@ -679,10 +618,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(2)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.lte")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.lte").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -696,10 +632,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(1)));
-                a.push(
-                    AstNode::new("binary.lte")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.lte").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(false),
@@ -713,10 +646,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(4)));
-                a.push(
-                    AstNode::new("binary.neq")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.neq").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(true),
@@ -730,10 +660,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(3)));
-                a.push(
-                    AstNode::new("binary.neq")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.neq").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(false),
@@ -747,10 +674,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(1)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.compare")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.compare").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(-1),
@@ -764,10 +688,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(2)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.compare")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.compare").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(0),
@@ -781,10 +702,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3)));
                 a.push(AstNode::new("value").with_payload(json!(2)));
-                a.push(
-                    AstNode::new("binary.compare")
-                        .with_payload(json!({"children": [0, 1]})),
-                );
+                a.push(AstNode::new("binary.compare").with_payload(json!({"children": [0, 1]})));
                 a
             },
             expected: json!(1),
@@ -797,10 +715,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(42)));
-                a.push(
-                    AstNode::new("typeof")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("typeof").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!("number"),
@@ -813,10 +728,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!("hi")));
-                a.push(
-                    AstNode::new("typeof")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("typeof").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!("string"),
@@ -829,10 +741,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(true)));
-                a.push(
-                    AstNode::new("typeof")
-                        .with_payload(json!({"children": [0]})),
-                );
+                a.push(AstNode::new("typeof").with_payload(json!({"children": [0]})));
                 a
             },
             expected: json!("bool"),
@@ -845,10 +754,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             source: "[1, 2, 3]",
             ast: {
                 let mut a = Ast::new();
-                a.push(
-                    AstNode::new("array")
-                        .with_payload(json!({"elements": [1, 2, 3]})),
-                );
+                a.push(AstNode::new("array").with_payload(json!({"elements": [1, 2, 3]})));
                 a
             },
             expected: json!([1, 2, 3]),
@@ -862,8 +768,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(
-                    AstNode::new("index")
-                        .with_payload(json!({"target": [10, 20, 30], "index": 1})),
+                    AstNode::new("index").with_payload(json!({"target": [10, 20, 30], "index": 1})),
                 );
                 a
             },
@@ -878,14 +783,12 @@ pub fn corpus() -> Vec<CorpusCase> {
             source: "{\"a\": 1, \"b\": 2}",
             ast: {
                 let mut a = Ast::new();
-                a.push(
-                    AstNode::new("object").with_payload(json!({
-                        "entries": [
-                            {"key": "a", "value": 1},
-                            {"key": "b", "value": 2}
-                        ]
-                    })),
-                );
+                a.push(AstNode::new("object").with_payload(json!({
+                    "entries": [
+                        {"key": "a", "value": 1},
+                        {"key": "b", "value": 2}
+                    ]
+                })));
                 a
             },
             expected: json!({"a": 1, "b": 2}),
@@ -899,8 +802,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             ast: {
                 let mut a = Ast::new();
                 a.push(
-                    AstNode::new("index")
-                        .with_payload(json!({"target": {"x": 5}, "index": "x"})),
+                    AstNode::new("index").with_payload(json!({"target": {"x": 5}, "index": "x"})),
                 );
                 a
             },
@@ -914,10 +816,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             source: "x = 42",
             ast: {
                 let mut a = Ast::new();
-                a.push(
-                    AstNode::new("assign")
-                        .with_payload(json!({"target": "x", "value": 42})),
-                );
+                a.push(AstNode::new("assign").with_payload(json!({"target": "x", "value": 42})));
                 a
             },
             expected: json!(42),

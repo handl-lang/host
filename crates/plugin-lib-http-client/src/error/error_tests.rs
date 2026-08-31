@@ -1,5 +1,5 @@
 use super::HttpError;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 #[test]
 fn network_display() {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::OsError;
 
@@ -87,14 +87,25 @@ impl Function for SpawnFn {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let program = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
-        let program = program.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let program = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
+        let program = program.as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
 
         let arg_strings: Vec<String> = args
             .iter()
             .skip(1)
             .map(|v| {
-                v.as_str().map(String::from).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+                v.as_str()
+                    .map(String::from)
+                    .ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "string", "non-string",
+                    )))
             })
             .collect::<Result<_, _>>()?;
         let arg_refs: Vec<&str> = arg_strings.iter().map(String::as_str).collect();
@@ -117,9 +128,15 @@ impl Function for KillFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                1, 0,
+            )));
         }
-        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))? as i64;
         self.process.kill(process_id)?;
         Ok(serde_json::Value::Null)
     }
@@ -136,9 +153,15 @@ impl Function for WaitFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                1, 0,
+            )));
         }
-        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))? as i64;
         self.process
             .wait(process_id)
             .map(|code| serde_json::Value::from(serde_json::json!(code)))
@@ -157,9 +180,15 @@ impl Function for StatusFn {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                1, 0,
+            )));
         }
-        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))? as i64;
+        let process_id = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))? as i64;
         self.process
             .status(process_id)
             .map(status_to_value)

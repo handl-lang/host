@@ -1,4 +1,3 @@
-
 use super::common::{format_iso, s};
 use crate::DatetimeError;
 use chrono::{TimeZone, Utc};
@@ -6,7 +5,10 @@ use handl_platform::{EvalContext, EvalError, Function};
 
 fn get_number(args: &[serde_json::Value], index: usize, default: f64) -> Result<f64, EvalError> {
     match args.get(index) {
-        Some(v) => v.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",))),
+        Some(v) => v.as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        ))),
         None => Ok(default),
     }
 }
@@ -20,7 +22,11 @@ impl Function for FromComponents {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let year = get_number(args, 0, 0.0)? as i32;
         let month = get_number(args, 1, 0.0)? as u32;

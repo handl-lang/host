@@ -16,12 +16,12 @@
 //! - `ws_rfc.message.from_frame(frame)` — message object
 //! - `ws_rfc.message.to_frame(message)` — `base64` frame bytes
 
+use handl_platform::Function;
+use handl_platform::Module;
 use handl_plugin_lib_ws_rfc::{
     ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
     MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
 };
-use handl_platform::Function;
-use handl_platform::Module;
 
 /// The `ws_rfc` runtime module — WebSocket frame, message and in-process
 /// client/server primitives.

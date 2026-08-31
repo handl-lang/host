@@ -82,13 +82,12 @@ fn corpus_compiles_and_runs_standalone() {
         );
 
         // Parse the output as JSON and compare.
-        let result_value: serde_json::Value =
-            serde_json::from_str(&stdout).unwrap_or_else(|e| {
-                panic!(
-                    "case '{}': stdout is not valid JSON: '{}' (parse error: {})",
-                    case.name, stdout, e
-                )
-            });
+        let result_value: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+            panic!(
+                "case '{}': stdout is not valid JSON: '{}' (parse error: {})",
+                case.name, stdout, e
+            )
+        });
         assert_eq!(
             result_value, case.expected,
             "case '{}': expected {}, got {}",
@@ -118,7 +117,11 @@ fn add_case_standalone() {
         .expect("compile_to_executable must succeed for 'add'");
 
     let (stdout, stderr, code) = run_exe(&exe);
-    assert_eq!(code, 0, "add case exited with code {} (stderr: {})", code, stderr);
+    assert_eq!(
+        code, 0,
+        "add case exited with code {} (stderr: {})",
+        code, stderr
+    );
     assert_eq!(stdout, "5");
 
     let _ = std::fs::remove_file(&exe);

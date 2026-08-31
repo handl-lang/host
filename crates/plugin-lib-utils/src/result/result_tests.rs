@@ -29,20 +29,14 @@ fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value,
 fn ok_wraps_value() {
     let value = n(42.0);
     let result = call("ok", &[value]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Ok", "value": 42.0})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Ok", "value": 42.0}));
 }
 
 #[test]
 fn err_wraps_error() {
     let error = s("nope");
     let result = call("err", &[error]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Err", "error": "nope"})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Err", "error": "nope"}));
 }
 
 #[test]

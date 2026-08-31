@@ -29,7 +29,7 @@ fn work(body: &str) -> FunctionValue {
         return_schema: None,
         body: body.to_string(),
         patterns: Vec::new(),
-            captured: Vec::new(),
+        captured: Vec::new(),
     }
 }
 

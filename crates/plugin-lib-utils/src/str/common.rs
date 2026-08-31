@@ -1,18 +1,30 @@
 use handl_platform::EvalError;
 
-
 pub(super) fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
-    arg.as_str().ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    arg.as_str()
+        .ok_or(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 pub(super) fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
-    let arg = args.first().ok_or(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    let arg = args
+        .first()
+        .ok_or(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
     require_string(arg)
 }
 
 pub(super) fn require_two_strings(args: &[serde_json::Value]) -> Result<(&str, &str), EvalError> {
     if args.len() < 2 {
-        return Err(handl_platform::EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let a = require_string(&args[0])?;
     let b = require_string(&args[1])?;

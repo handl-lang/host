@@ -1,6 +1,6 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::decimal::provider::DecimalSymbolsV1;
 use icu_provider::{DataMarker, IterableDynamicDataProvider};
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::require_string;
 use super::error::IntlError;

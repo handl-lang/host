@@ -32,7 +32,10 @@ pub fn dedent(text: &str) -> String {
         .lines()
         .map(|line| {
             if line.len() >= common_indent
-                && line.chars().take(common_indent).all(|c| c == ' ' || c == '\t')
+                && line
+                    .chars()
+                    .take(common_indent)
+                    .all(|c| c == ' ' || c == '\t')
             {
                 &line[common_indent..]
             } else {

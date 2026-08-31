@@ -2,9 +2,9 @@
 //!
 //! WHATWG URL Standard parser for `handl-lib-parse`.
 
-use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
 use serde_json::{Value, json};
 
 /// Parser for the WHATWG URL Standard.
@@ -107,7 +107,11 @@ impl Function for UrlWhatwgName {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         Ok(serde_json::Value::from(json!({

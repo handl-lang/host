@@ -1,11 +1,11 @@
-use handl_plugin_lib_concurrent::function_value::FunctionValue;
-use handl_plugin_lib_concurrent::ConcurrencyModule;
 use handl_platform::{EvalContext, EvalError, ExprEvaluator, Module};
+use handl_plugin_lib_concurrent::ConcurrencyModule;
+use handl_plugin_lib_concurrent::function_value::FunctionValue;
 use proptest::prelude::*;
-use serde_json::json;
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
+use serde_json::json;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 fn thunk(body: &str) -> Value {
     FunctionValue {
@@ -22,14 +22,10 @@ fn thunk(body: &str) -> Value {
 struct NumberEval;
 
 impl ExprEvaluator for NumberEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
-        let n: u64 = expr.parse().map_err(|_| {
-            EvalError::Other(format!("expected a u64, got {expr:?}"))
-        })?;
+    fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
+        let n: u64 = expr
+            .parse()
+            .map_err(|_| EvalError::Other(format!("expected a u64, got {expr:?}")))?;
         Ok(json!(n))
     }
 }
@@ -40,14 +36,10 @@ struct PushToListEval {
 }
 
 impl ExprEvaluator for PushToListEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
-        let n: u64 = expr.parse().map_err(|_| {
-            EvalError::Other(format!("expected a u64, got {expr:?}"))
-        })?;
+    fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
+        let n: u64 = expr
+            .parse()
+            .map_err(|_| EvalError::Other(format!("expected a u64, got {expr:?}")))?;
         self.list.lock().unwrap().push(n);
         Ok(json!(n))
     }
@@ -61,11 +53,7 @@ struct LockingEval {
 }
 
 impl ExprEvaluator for LockingEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
         let inner = FunctionValue {
             params: Vec::new(),
             return_schema: None,
@@ -77,10 +65,10 @@ impl ExprEvaluator for LockingEval {
         ctx.set_expr_evaluator(Rc::new(PushToListEval {
             list: self.list.clone(),
         }));
-        self.module.function("lock").unwrap().call(
-            &[self.mutex.clone(), inner.to_json()],
-            &mut ctx,
-        )
+        self.module
+            .function("lock")
+            .unwrap()
+            .call(&[self.mutex.clone(), inner.to_json()], &mut ctx)
     }
 }
 

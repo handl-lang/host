@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::error::HttpError;
 
@@ -217,9 +217,16 @@ impl Module for HttpClientModule {
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
     args.get(idx)
-        .ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            idx + 1,
+            args.len(),
+        )))?
         .as_str()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn extract_headers(
@@ -230,10 +237,16 @@ fn extract_headers(
         None => Ok(HashMap::new()),
         Some(v) if v.is_null() => Ok(HashMap::new()),
         Some(v) => {
-            let obj = v.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
+            let obj = v.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "object", "non-object",
+            )))?;
             let mut headers = HashMap::new();
             for (key, val) in obj {
-                let value = val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+                let value = val.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?;
                 headers.insert(key.clone(), value.to_string());
             }
             Ok(headers)
@@ -347,7 +360,10 @@ impl Function for RequestFn {
             Some(v) if v.is_null() => None,
             Some(v) => Some(
                 v.as_str()
-                    .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
+                    .ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "string", "non-string",
+                    )))?
                     .to_string(),
             ),
         };

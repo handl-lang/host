@@ -1,4 +1,8 @@
-use handl_kit_canonical::{is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind, is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind, is_string_kind, is_template_kind, Kit, SpannedToken};
+use handl_kit_canonical::{
+    Kit, SpannedToken, is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind,
+    is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind,
+    is_string_kind, is_template_kind,
+};
 use handl_platform::PlatformError;
 
 /// LSP semantic token type names and modifier names, in protocol order.
@@ -80,10 +84,8 @@ pub trait SemanticTokensPlugin: Send + Sync {
     /// Returns the legend describing token types and modifiers.
     fn legend(&self) -> SemanticTokenLegend;
 
-    fn run(
-        &self,
-        request: &SemanticTokensRequest,
-    ) -> Result<SemanticTokensResponse, PlatformError>;
+    fn run(&self, request: &SemanticTokensRequest)
+    -> Result<SemanticTokensResponse, PlatformError>;
 }
 
 /// Trait that maps a token kind string to a semantic token type index and
@@ -185,9 +187,8 @@ impl ContextClassifier for CanonicalTokenClassifier {
         let ident = token.text.as_str();
 
         // Helper: check if token at index has a specific kind.
-        let is_kind = |i: usize, k: &str| -> bool {
-            tokens.get(i).map(|t| t.kind == k).unwrap_or(false)
-        };
+        let is_kind =
+            |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
 
         // Type reference: the identifier `type` followed by a dot (e.g.
         // `type.str`, `type.string`). The lexer splits `type.str` into
@@ -252,8 +253,7 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Binding declaration: at the start of a line and followed by `:` or `=`
         // (and not inside a paren/brace list, which is handled above).
         if is_at_line_start(tokens, index, source)
-            && (is_kind(index + 1, "token.colon")
-                || is_kind(index + 1, "token.equal"))
+            && (is_kind(index + 1, "token.colon") || is_kind(index + 1, "token.equal"))
         {
             let ty = legend.token_type_index("variable")?;
             let mods = legend.modifier_bit("declaration").unwrap_or(0);
@@ -351,11 +351,16 @@ impl SemanticTokensPlugin for BasicSemanticTokens {
         let mut prev_start: u32 = 0;
 
         for (i, token) in tokens.iter().enumerate() {
-            let (token_type, modifiers) =
-                match ContextClassifier::classify(&self.classifier, &tokens, i, &request.source, &self.legend) {
-                    Some(v) => v,
-                    None => continue,
-                };
+            let (token_type, modifiers) = match ContextClassifier::classify(
+                &self.classifier,
+                &tokens,
+                i,
+                &request.source,
+                &self.legend,
+            ) {
+                Some(v) => v,
+                None => continue,
+            };
 
             let length = (token.span.end - token.span.start) as u32;
             let (line, start_char) = line_starts.lookup(token.span.start);

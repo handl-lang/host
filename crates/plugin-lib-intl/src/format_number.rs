@@ -1,7 +1,7 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use handl_platform::{EvalContext, EvalError, Function};
 
 use icu::decimal::options::{DecimalFormatterOptions, GroupingStrategy};
 use icu::decimal::{CompactDecimalFormatter, DecimalFormatter};

@@ -29,7 +29,10 @@ impl Function for Int {
             1 => (0, require_int(args, 0)?),
             2 => (require_int(args, 0)?, require_int(args, 1)?),
             n => {
-                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,)));
+                return Err(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    2, n,
+                )));
             }
         };
         if min > max {
@@ -94,7 +97,10 @@ impl Function for Float {
                 let result = rand::rng().random_range(min..max);
                 Ok(num(result))
             }
-            n => Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,))),
+            n => Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2, n,
+            ))),
         }
     }
 }

@@ -1,6 +1,8 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{is_comment_kind, is_identifier_kind, is_operator_kind, Kit, SpannedToken};
+use handl_kit_canonical::{
+    Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind,
+};
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;

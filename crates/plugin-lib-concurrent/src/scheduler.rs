@@ -20,34 +20,25 @@ use std::time::Duration;
 use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
 use crate::cancel::{CancelRuntime, DefaultCancelRuntime};
+use crate::function_value::FunctionValue;
 use crate::timer::{ThreadTimerRuntime, TimerRuntime};
-use handl_platform::{EvalContext, EvalError};
 #[cfg(test)]
 use handl_platform::ExprEvaluator;
+use handl_platform::{EvalContext, EvalError};
 use serde_json::Value;
-use crate::function_value::FunctionValue;
 use serde_json::json;
 
 /// A replaceable backend for the `concurrent.spawn`, `concurrent.await`,
 /// and `concurrent.yield` primitives.
 pub trait Scheduler {
     /// Spawn `work` as a new task and return a `Task` value.
-    fn spawn(
-        &self,
-        work: FunctionValue,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError>;
+    fn spawn(&self, work: FunctionValue, ctx: &mut EvalContext) -> Result<Value, EvalError>;
 
     /// Wait for `task` to finish, running it via `ctx.eval_expr` if needed.
-    fn await_task(
-        &self,
-        task: Value,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError>;
+    fn await_task(&self, task: Value, ctx: &mut EvalContext) -> Result<Value, EvalError>;
 
     /// Yield control to the scheduler and run one pending task if any.
-    fn yield_now(&self, ctx: &mut EvalContext)
-    -> Result<Value, EvalError>;
+    fn yield_now(&self, ctx: &mut EvalContext) -> Result<Value, EvalError>;
 
     /// Cancel any pending or running tasks associated with `token`.
     fn cancel(&self, token: Value) -> Result<Value, EvalError> {
@@ -67,22 +58,13 @@ pub trait Scheduler {
     }
 
     /// Pause execution for `ms` milliseconds.
-    fn sleep(
-        &self,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn sleep(&self, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let _ = ms;
         Ok(Value::default())
     }
 
     /// Wait for `task` to finish or `ms` milliseconds to elapse.
-    fn timeout(
-        &self,
-        task: Value,
-        _ms: u64,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn timeout(&self, task: Value, _ms: u64, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.await_task(task, ctx)
     }
 
@@ -215,11 +197,7 @@ impl Default for DefaultScheduler {
 }
 
 impl Scheduler for DefaultScheduler {
-    fn spawn(
-        &self,
-        work: FunctionValue,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn spawn(&self, work: FunctionValue, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let mut tasks = self.lock_tasks()?;
         tasks.push(TaskRecord {
@@ -282,11 +260,7 @@ impl Scheduler for DefaultScheduler {
         Ok(Value::Null)
     }
 
-    fn await_task(
-        &self,
-        task: Value,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn await_task(&self, task: Value, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         let (id, body, cancel_flag) = {
@@ -304,9 +278,7 @@ impl Scheduler for DefaultScheduler {
                     return Err(EvalError::Other(rec.error.clone().unwrap_or_default()));
                 }
                 TaskStatus::Running => {
-                    return Err(EvalError::Other(format!(
-                        "task {id} is already running"
-                    )));
+                    return Err(EvalError::Other(format!("task {id} is already running")));
                 }
                 TaskStatus::Pending => {
                     rec.status = TaskStatus::Running;
@@ -376,10 +348,7 @@ impl Scheduler for DefaultScheduler {
         }
     }
 
-    fn yield_now(
-        &self,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn yield_now(&self, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let maybe = {
             let mut tasks = self.lock_tasks()?;
             if let Some(rec) = tasks.iter_mut().find(|t| t.status == TaskStatus::Pending) {
@@ -454,21 +423,12 @@ impl Scheduler for DefaultScheduler {
         Ok(Value::default())
     }
 
-    fn sleep(
-        &self,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn sleep(&self, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.timer.sleep(ms)?;
         Ok(Value::default())
     }
 
-    fn timeout(
-        &self,
-        task: Value,
-        ms: u64,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn timeout(&self, task: Value, ms: u64, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         let token = {
@@ -547,7 +507,8 @@ fn worker_thread(jobs: Arc<Mutex<mpsc::Receiver<Job>>>, results: mpsc::Sender<(u
                 // For now, tasks in ThreadPoolScheduler cannot be evaluated.
                 let _ = cancel_flag;
                 let res = Err(
-                    "ThreadPoolScheduler does not support task evaluation after ADR 0040 migration".to_string(),
+                    "ThreadPoolScheduler does not support task evaluation after ADR 0040 migration"
+                        .to_string(),
                 );
 
                 // The receiver may have been dropped; ignore send errors.
@@ -760,14 +721,13 @@ impl Scheduler for ThreadPoolScheduler {
     // restoration of Send + Sync evaluation after the ADR 0040 migration; the
     // implementation is retained for that future work.
     #[allow(unreachable_code, unused_variables)]
-    fn spawn(
-        &self,
-        work: FunctionValue,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn spawn(&self, work: FunctionValue, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let _ = ctx; // TODO: eval_arc not available after ADR 0040
-        return Err(EvalError::Other("ThreadPoolScheduler requires a Send + Sync eval callback; \
-                 set one with CanonicalContext::set_sync_eval".to_string()));
+        return Err(EvalError::Other(
+            "ThreadPoolScheduler requires a Send + Sync eval callback; \
+                 set one with CanonicalContext::set_sync_eval"
+                .to_string(),
+        ));
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let body = work.body.clone();
@@ -818,8 +778,11 @@ impl Scheduler for ThreadPoolScheduler {
         ctx: &mut EvalContext,
     ) -> Result<Value, EvalError> {
         let _ = ctx; // TODO: eval_arc not available after ADR 0040
-        return Err(EvalError::Other("ThreadPoolScheduler requires a Send + Sync eval callback; \
-                 set one with CanonicalContext::set_sync_eval".to_string()));
+        return Err(EvalError::Other(
+            "ThreadPoolScheduler requires a Send + Sync eval callback; \
+                 set one with CanonicalContext::set_sync_eval"
+                .to_string(),
+        ));
 
         let token_id = cancel_token_id(&token)?;
 
@@ -889,11 +852,7 @@ impl Scheduler for ThreadPoolScheduler {
         Ok(Value::Null)
     }
 
-    fn await_task(
-        &self,
-        task: Value,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn await_task(&self, task: Value, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         loop {
@@ -907,9 +866,7 @@ impl Scheduler for ThreadPoolScheduler {
                             return Ok(rec.result.clone().unwrap_or_default());
                         }
                         TaskStatus::Failed => {
-                            return Err(EvalError::Other(
-                                rec.error.clone().unwrap_or_default(),
-                            ));
+                            return Err(EvalError::Other(rec.error.clone().unwrap_or_default()));
                         }
                         TaskStatus::Running | TaskStatus::Pending => {
                             rec.status = TaskStatus::Running;
@@ -949,29 +906,17 @@ impl Scheduler for ThreadPoolScheduler {
         }
     }
 
-    fn yield_now(
-        &self,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn yield_now(&self, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.process_results()?;
         Ok(Value::default())
     }
 
-    fn sleep(
-        &self,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn sleep(&self, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.timer.sleep(ms)?;
         Ok(Value::default())
     }
 
-    fn timeout(
-        &self,
-        task: Value,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn timeout(&self, task: Value, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         let token = {
@@ -1020,9 +965,7 @@ impl Scheduler for ThreadPoolScheduler {
                             return Ok(rec.result.clone().unwrap_or_default());
                         }
                         TaskStatus::Failed => {
-                            return Err(EvalError::Other(
-                                rec.error.clone().unwrap_or_default(),
-                            ));
+                            return Err(EvalError::Other(rec.error.clone().unwrap_or_default()));
                         }
                         TaskStatus::Running | TaskStatus::Pending => {
                             rec.status = TaskStatus::Running;
@@ -1354,14 +1297,13 @@ impl Scheduler for WorkStealingScheduler {
     // restoration of Send + Sync evaluation after the ADR 0040 migration; the
     // implementation is retained for that future work.
     #[allow(unreachable_code, unused_variables)]
-    fn spawn(
-        &self,
-        work: FunctionValue,
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn spawn(&self, work: FunctionValue, ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let _ = ctx; // TODO: eval_arc not available after ADR 0040
-        return Err(EvalError::Other("WorkStealingScheduler requires a Send + Sync eval callback; \
-                     set one with CanonicalContext::set_sync_eval".to_string()));
+        return Err(EvalError::Other(
+            "WorkStealingScheduler requires a Send + Sync eval callback; \
+                     set one with CanonicalContext::set_sync_eval"
+                .to_string(),
+        ));
 
         if self.shutdown.load(Ordering::SeqCst) {
             return Err(EvalError::Other("scheduler shut down".to_string()));
@@ -1401,8 +1343,11 @@ impl Scheduler for WorkStealingScheduler {
         ctx: &mut EvalContext,
     ) -> Result<Value, EvalError> {
         let _ = ctx; // TODO: eval_arc not available after ADR 0040
-        return Err(EvalError::Other("WorkStealingScheduler requires a Send + Sync eval callback; \
-                     set one with CanonicalContext::set_sync_eval".to_string()));
+        return Err(EvalError::Other(
+            "WorkStealingScheduler requires a Send + Sync eval callback; \
+                     set one with CanonicalContext::set_sync_eval"
+                .to_string(),
+        ));
 
         let token_id = cancel_token_id(&token)?;
 
@@ -1456,11 +1401,7 @@ impl Scheduler for WorkStealingScheduler {
         Ok(Value::Null)
     }
 
-    fn await_task(
-        &self,
-        task: Value,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn await_task(&self, task: Value, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         loop {
@@ -1474,9 +1415,7 @@ impl Scheduler for WorkStealingScheduler {
                             return Ok(state.result.clone().unwrap_or_default());
                         }
                         TaskStatus::Failed => {
-                            return Err(EvalError::Other(
-                                state.error.clone().unwrap_or_default(),
-                            ));
+                            return Err(EvalError::Other(state.error.clone().unwrap_or_default()));
                         }
                         TaskStatus::Running | TaskStatus::Pending => {
                             state.status = TaskStatus::Running;
@@ -1519,10 +1458,7 @@ impl Scheduler for WorkStealingScheduler {
         }
     }
 
-    fn yield_now(
-        &self,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn yield_now(&self, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.process_results()?;
 
         let job = match self.injector.steal() {
@@ -1551,21 +1487,12 @@ impl Scheduler for WorkStealingScheduler {
         Ok(Value::default())
     }
 
-    fn sleep(
-        &self,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn sleep(&self, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.timer.sleep(ms)?;
         Ok(Value::default())
     }
 
-    fn timeout(
-        &self,
-        task: Value,
-        ms: u64,
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn timeout(&self, task: Value, ms: u64, _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = task_id(&task)?;
 
         let token = {
@@ -1614,9 +1541,7 @@ impl Scheduler for WorkStealingScheduler {
                             return Ok(state.result.clone().unwrap_or_default());
                         }
                         TaskStatus::Failed => {
-                            return Err(EvalError::Other(
-                                state.error.clone().unwrap_or_default(),
-                            ));
+                            return Err(EvalError::Other(state.error.clone().unwrap_or_default()));
                         }
                         TaskStatus::Running | TaskStatus::Pending => {
                             state.status = TaskStatus::Running;
@@ -1677,11 +1602,11 @@ impl Scheduler for WorkStealingScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cancel::CancelableEval;
     use handl_platform::EvalContext;
     use serde_json::json;
-    use std::sync::{Arc, Mutex};
     use std::rc::Rc;
-    use crate::cancel::CancelableEval;
+    use std::sync::{Arc, Mutex};
 
     #[derive(Clone, Default)]
     struct MockEval {
@@ -1690,11 +1615,7 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             if let Some(flag) = &self.cancel {
                 if flag.load(Ordering::SeqCst) {
                     return Err(EvalError::Other("cancelled".to_string()));
@@ -1871,7 +1792,10 @@ mod tests {
         let joined = s.shutdown().unwrap();
         let joined_arr = joined.as_array().unwrap();
         assert_eq!(joined_arr.len(), 2);
-        assert!(joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)), "all workers should join");
+        assert!(
+            joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)),
+            "all workers should join"
+        );
     }
 
     #[test]
@@ -2025,11 +1949,7 @@ mod tests {
     }
 
     impl ExprEvaluator for NestedMockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
             let call = self.calls.lock().unwrap().len();
 
@@ -2078,11 +1998,7 @@ mod tests {
     }
 
     impl ExprEvaluator for SlowEval {
-        fn eval_expr(
-            &self,
-            _expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             std::thread::sleep(std::time::Duration::from_millis(self.sleep_ms));
             Ok(serde_json::json!(json!("done")))
         }

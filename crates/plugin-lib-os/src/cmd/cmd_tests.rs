@@ -1,6 +1,6 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
+use handl_platform::Module;
 
 use super::cmd::{CmdModule, CmdOutput};
 use super::cmd_stub::StubCmd;

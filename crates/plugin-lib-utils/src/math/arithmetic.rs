@@ -52,7 +52,10 @@ impl Function for Div {
     ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if b == 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero divisor", "zero",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-zero divisor", "zero",
+            )));
         }
         Ok(num(a / b))
     }
@@ -97,7 +100,11 @@ impl Function for Clamp {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let value = require_number(&args[0])?;
         let min = require_number(&args[1])?;
@@ -129,7 +136,10 @@ impl Function for FloorDiv {
     ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if b == 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero divisor", "zero",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-zero divisor", "zero",
+            )));
         }
         Ok(num((a / b).floor()))
     }
@@ -149,7 +159,10 @@ impl Function for Gcd {
     ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if a < 0.0 || b < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         Ok(num(gcd_u64(a as u64, b as u64) as f64))
     }
@@ -165,7 +178,10 @@ impl Function for Lcm {
     ) -> Result<serde_json::Value, EvalError> {
         let (a, b) = require_two_numbers(args)?;
         if a < 0.0 || b < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let a_u = a as u64;
         let b_u = b as u64;
@@ -184,13 +200,22 @@ impl Function for Factorial {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         let x = require_number(arg)?;
         if x < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         if x.fract() != 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "integer", "non-integer",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "integer", "non-integer",
+            )));
         }
         let n = x as u64;
         let mut result: f64 = 1.0;
@@ -210,7 +235,11 @@ impl Function for Lerp {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let start = require_number(&args[0])?;
         let end = require_number(&args[1])?;
@@ -228,7 +257,11 @@ impl Function for MapRange {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 5 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 5, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                5,
+                args.len(),
+            )));
         }
         let value = require_number(&args[0])?;
         let in_min = require_number(&args[1])?;

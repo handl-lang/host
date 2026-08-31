@@ -105,7 +105,11 @@ impl Function for Push {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_array(args, 0)?;
-        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)))?;
+        let value = args.get(1).ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )))?;
         let mut values = input.to_vec();
         match self.end {
             End::Back => values.push(value.clone()),

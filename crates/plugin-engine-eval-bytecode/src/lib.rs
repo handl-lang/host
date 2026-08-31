@@ -192,7 +192,9 @@ impl BytecodeVm {
 
     /// Create a new VM with a module registry.
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
-        Self { modules: Some(modules) }
+        Self {
+            modules: Some(modules),
+        }
     }
 
     /// Execute a pre-compiled instruction program.
@@ -252,7 +254,10 @@ pub struct BytecodeArtifact {
 }
 
 impl handl_runtime::CompiledArtifact for BytecodeArtifact {
-    fn run(&self, modules: Option<Rc<dyn handl_platform::ModuleLookup>>) -> Result<Value, LangError> {
+    fn run(
+        &self,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    ) -> Result<Value, LangError> {
         let vm = match modules {
             Some(m) => BytecodeVm::with_modules(m),
             None => BytecodeVm::new(),
@@ -342,7 +347,11 @@ mod tests {
     struct DoubleHostFn;
 
     impl Function for DoubleHostFn {
-        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
@@ -395,7 +404,11 @@ mod tests {
         let engine = BytecodeEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.const", "const", Scheme::lit(json!(99))))
+            .merge(EvalSchemeDef::new(
+                "e.const",
+                "const",
+                Scheme::lit(json!(99)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("const")]);
         let req = EvalRequest::new(ast);
@@ -724,7 +737,9 @@ mod tests {
         let vm = BytecodeVm::new();
         let lang = Language::new();
         let instrs = vec![Instr::Return];
-        let result = vm.execute(&lang, &handl_language::Ast::new(), &instrs, &HashMap::new()).unwrap();
+        let result = vm
+            .execute(&lang, &handl_language::Ast::new(), &instrs, &HashMap::new())
+            .unwrap();
         assert_eq!(result, Value::Null);
     }
 

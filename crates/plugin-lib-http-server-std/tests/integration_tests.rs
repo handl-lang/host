@@ -4,8 +4,8 @@ use std::thread;
 use std::time::Duration;
 
 use bytes::Bytes;
-use handl_plugin_lib_http_server::{HttpMethod, HttpServer, HttpServerRequest, HttpServerResponse};
 use handl_plugin_lib_http_server::function_value::FunctionValue;
+use handl_plugin_lib_http_server::{HttpMethod, HttpServer, HttpServerRequest, HttpServerResponse};
 use handl_plugin_lib_http_server_std::{ServerConfig, StdHttpServer};
 use http_body_util::{BodyExt, Empty};
 use hyper::Request;
@@ -265,7 +265,7 @@ fn function_value_handler_returns_string() {
         return_schema: None,
         body: "\"hello\"".to_string(),
         patterns: Vec::new(),
-            captured: Vec::new(),
+        captured: Vec::new(),
     };
     let server = StdHttpServer::new();
     server
@@ -293,7 +293,7 @@ fn function_value_handler_uses_path_param() {
         return_schema: None,
         body: "name".to_string(),
         patterns: Vec::new(),
-            captured: Vec::new(),
+        captured: Vec::new(),
     };
     let server = StdHttpServer::new();
     server

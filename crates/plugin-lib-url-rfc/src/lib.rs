@@ -2,9 +2,9 @@
 //!
 //! Strict RFC 3986 URI parser for `handl-lib-parse`.
 
-use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_parse::{DynParser, ParseError, Parser};
 use iri_string::types::UriString;
 use serde_json::{Value, json};
 
@@ -104,7 +104,11 @@ impl Function for UrlRfcName {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
 
         Ok(serde_json::Value::from(json!({

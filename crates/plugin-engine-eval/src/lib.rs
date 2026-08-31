@@ -163,7 +163,11 @@ mod tests {
     struct AddHostFn;
 
     impl Function for AddHostFn {
-        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let sum: i64 = args.iter().filter_map(|v| v.as_i64()).sum();
             Ok(Value::from(sum))
         }

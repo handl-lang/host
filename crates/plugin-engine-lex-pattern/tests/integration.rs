@@ -4,8 +4,8 @@
 
 use handl_kit_data_canonical::assemble;
 use handl_language::{Source, Token};
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
+use handl_plugin_engine_lex_pattern::DataLexerEngine;
 
 fn lex(src: &str) -> Vec<Token> {
     let kit = assemble().unwrap();
@@ -21,9 +21,18 @@ fn lex_simple_expression() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.number".into(), text: "1".into() },
-            Token { kind: "token.plus".into(), text: "+".into() },
-            Token { kind: "token.number".into(), text: "2".into() },
+            Token {
+                kind: "token.number".into(),
+                text: "1".into()
+            },
+            Token {
+                kind: "token.plus".into(),
+                text: "+".into()
+            },
+            Token {
+                kind: "token.number".into(),
+                text: "2".into()
+            },
         ]
     );
 }
@@ -34,10 +43,22 @@ fn lex_let_binding() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.keyword.let".into(), text: "let".into() },
-            Token { kind: "token.identifier".into(), text: "x".into() },
-            Token { kind: "token.equal".into(), text: "=".into() },
-            Token { kind: "token.number".into(), text: "42".into() },
+            Token {
+                kind: "token.keyword.let".into(),
+                text: "let".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "x".into()
+            },
+            Token {
+                kind: "token.equal".into(),
+                text: "=".into()
+            },
+            Token {
+                kind: "token.number".into(),
+                text: "42".into()
+            },
         ]
     );
 }
@@ -60,11 +81,26 @@ fn lex_delimiters() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.lparen".into(), text: "(".into() },
-            Token { kind: "token.identifier".into(), text: "a".into() },
-            Token { kind: "token.comma".into(), text: ",".into() },
-            Token { kind: "token.identifier".into(), text: "b".into() },
-            Token { kind: "token.rparen".into(), text: ")".into() },
+            Token {
+                kind: "token.lparen".into(),
+                text: "(".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "a".into()
+            },
+            Token {
+                kind: "token.comma".into(),
+                text: ",".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "b".into()
+            },
+            Token {
+                kind: "token.rparen".into(),
+                text: ")".into()
+            },
         ]
     );
 }
@@ -75,9 +111,18 @@ fn lex_bool_and_null() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.bool".into(), text: "true".into() },
-            Token { kind: "token.bool".into(), text: "false".into() },
-            Token { kind: "token.null".into(), text: "null".into() },
+            Token {
+                kind: "token.bool".into(),
+                text: "true".into()
+            },
+            Token {
+                kind: "token.bool".into(),
+                text: "false".into()
+            },
+            Token {
+                kind: "token.null".into(),
+                text: "null".into()
+            },
         ]
     );
 }
@@ -88,9 +133,18 @@ fn lex_longest_match_operators() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.identifier".into(), text: "a".into() },
-            Token { kind: "token.eqeq".into(), text: "==".into() },
-            Token { kind: "token.identifier".into(), text: "b".into() },
+            Token {
+                kind: "token.identifier".into(),
+                text: "a".into()
+            },
+            Token {
+                kind: "token.eqeq".into(),
+                text: "==".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "b".into()
+            },
         ]
     );
     // `<=>` (spaceship) is the longest `<`-leading operator.
@@ -98,9 +152,18 @@ fn lex_longest_match_operators() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.identifier".into(), text: "a".into() },
-            Token { kind: "token.spaceship".into(), text: "<=>".into() },
-            Token { kind: "token.identifier".into(), text: "b".into() },
+            Token {
+                kind: "token.identifier".into(),
+                text: "a".into()
+            },
+            Token {
+                kind: "token.spaceship".into(),
+                text: "<=>".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "b".into()
+            },
         ]
     );
 }
@@ -124,9 +187,18 @@ fn lex_decimal_and_minus() {
     assert_eq!(
         toks,
         vec![
-            Token { kind: "token.number".into(), text: "3.14".into() },
-            Token { kind: "token.minus".into(), text: "-".into() },
-            Token { kind: "token.number".into(), text: "5".into() },
+            Token {
+                kind: "token.number".into(),
+                text: "3.14".into()
+            },
+            Token {
+                kind: "token.minus".into(),
+                text: "-".into()
+            },
+            Token {
+                kind: "token.number".into(),
+                text: "5".into()
+            },
         ]
     );
 }

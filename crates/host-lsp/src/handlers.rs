@@ -6,11 +6,15 @@ use crate::completion;
 use crate::diagnostics::collect_diagnostics;
 use crate::document::{self, DocumentStore, resolve_document_text};
 use crate::hover;
-use crate::symbols;
 use crate::protocol::{Message, send_error, send_log_message, send_notification, send_response};
+use crate::symbols;
 use std::io::Write;
 
-pub fn handle_initialize(writer: &mut impl Write, id: serde_json::Value, legend: &SemanticTokenLegend) {
+pub fn handle_initialize(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    legend: &SemanticTokenLegend,
+) {
     let result = build_initialize_result(legend);
     send_response(writer, id, result);
 }
@@ -93,13 +97,18 @@ pub fn handle_semantic_tokens_range(
                 } else {
                     current_start = t.delta_start;
                 }
-                let in_range =
-                    (current_line > start_line
-                        || (current_line == start_line && current_start >= start_char))
-                        && (current_line < end_line
-                            || (current_line == end_line && current_start < end_char));
+                let in_range = (current_line > start_line
+                    || (current_line == start_line && current_start >= start_char))
+                    && (current_line < end_line
+                        || (current_line == end_line && current_start < end_char));
                 if in_range {
-                    abs.push((current_line, current_start, t.length, t.token_type, t.token_modifiers));
+                    abs.push((
+                        current_line,
+                        current_start,
+                        t.length,
+                        t.token_type,
+                        t.token_modifiers,
+                    ));
                 }
             }
             let mut prev_line: u32 = 0;
@@ -107,7 +116,11 @@ pub fn handle_semantic_tokens_range(
             let mut data: Vec<u32> = Vec::new();
             for (line, start, length, token_type, token_modifiers) in abs {
                 let delta_line = line - prev_line;
-                let delta_start = if delta_line == 0 { start - prev_start } else { start };
+                let delta_start = if delta_line == 0 {
+                    start - prev_start
+                } else {
+                    start
+                };
                 data.push(delta_line);
                 data.push(delta_start);
                 data.push(length);

@@ -3,9 +3,9 @@
 //! Base64 encoding for the handl runtime.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_plugin_lib_encoding::{Encoding, EncodingError};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_encoding::{Encoding, EncodingError};
 use serde_json::Value;
 
 /// Base64 encoding.
@@ -65,7 +65,11 @@ impl Function for Base64Name {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 0, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                0,
+                args.len(),
+            )));
         }
         Ok(serde_json::Value::from(serde_json::json!({
             "type": "encoding",

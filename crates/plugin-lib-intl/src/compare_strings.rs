@@ -1,10 +1,10 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::collator::{
     Collator, CollatorPreferences,
     options::{AlternateHandling, CaseLevel, CollatorOptions, MaxVariable, Strength},
     preferences::{CollationCaseFirst, CollationNumericOrdering},
 };
 use std::cmp::Ordering;
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     make_provider, opt_bool, opt_str, optional_locale, optional_object, require_string,

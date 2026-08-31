@@ -88,8 +88,7 @@ fn futamura_first_projection_specializes_language_once() {
         assert_eq!(
             cl_result, tw_result,
             "futamura: case '{}' ({}) — specialized cranelift diverged from tree-walk",
-            case.name,
-            case.source
+            case.name, case.source
         );
         assert_eq!(
             cl_result.unwrap(),
@@ -120,7 +119,12 @@ fn futamura_specialization_persists_across_calls() {
             continue;
         }
         let req = EvalRequest::new(case.ast.clone());
-        pass1.push((case.name, case.source, case.expected.clone(), cranelift.eval(&lang, &req).unwrap()));
+        pass1.push((
+            case.name,
+            case.source,
+            case.expected.clone(),
+            cranelift.eval(&lang, &req).unwrap(),
+        ));
     }
     // Second pass: the same compiled module handles the same inputs again.
     let mut idx = 0;

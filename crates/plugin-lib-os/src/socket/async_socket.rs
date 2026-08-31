@@ -2,7 +2,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-
 use handl_platform::{EvalError, Function, Module};
 
 use crate::error::OsError;
@@ -105,7 +104,11 @@ impl AsyncConnectFn {
     ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             let address = require_string_arg(args)?;
-            let handle = self.socket.connect(address).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            let handle = self
+                .socket
+                .connect(address)
+                .await
+                .map_err(|e| EvalError::Other(e.to_string()))?;
             Ok(serde_json::Value::from(handle))
         })
     }
@@ -132,9 +135,15 @@ impl AsyncSendFn {
             let handle = require_number_arg(args)?;
             let data = args[1]
                 .as_str()
-                .ok_or_else(|| EvalError::TypeMismatch("socket.send: expected string argument".to_string()))?
+                .ok_or_else(|| {
+                    EvalError::TypeMismatch("socket.send: expected string argument".to_string())
+                })?
                 .to_string();
-            let sent = self.socket.send(handle, &data).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            let sent = self
+                .socket
+                .send(handle, &data)
+                .await
+                .map_err(|e| EvalError::Other(e.to_string()))?;
             Ok(serde_json::Value::from(sent))
         })
     }
@@ -159,10 +168,14 @@ impl AsyncRecvFn {
                 )));
             }
             let handle = require_number_arg(args)?;
-            let length = args[1].as_f64()
-                .ok_or_else(|| EvalError::TypeMismatch("socket.recv: expected number argument".to_string()))?
-                as usize;
-            let data = self.socket.recv(handle, length).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            let length = args[1].as_f64().ok_or_else(|| {
+                EvalError::TypeMismatch("socket.recv: expected number argument".to_string())
+            })? as usize;
+            let data = self
+                .socket
+                .recv(handle, length)
+                .await
+                .map_err(|e| EvalError::Other(e.to_string()))?;
             Ok(serde_json::Value::from(data))
         })
     }
@@ -181,7 +194,10 @@ impl AsyncCloseFn {
     ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, EvalError>> + 'a>> {
         Box::pin(async move {
             let handle = require_number_arg(args)?;
-            self.socket.close(handle).await.map_err(|e| EvalError::Other(e.to_string()))?;
+            self.socket
+                .close(handle)
+                .await
+                .map_err(|e| EvalError::Other(e.to_string()))?;
             Ok(serde_json::Value::Null)
         })
     }

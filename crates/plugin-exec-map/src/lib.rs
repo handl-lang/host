@@ -86,7 +86,10 @@ impl ExecControl for MapControl {
         }
         // Write the rewritten callee back into the call payload.
         if let Some(obj) = ast.payload.as_object_mut() {
-            obj.insert("callee".to_string(), serde_json::to_value(&callee_ast).unwrap_or(Value::Null));
+            obj.insert(
+                "callee".to_string(),
+                serde_json::to_value(&callee_ast).unwrap_or(Value::Null),
+            );
         }
         Ok(ControlFlow::Continue)
     }
@@ -156,8 +159,8 @@ impl Plugin for ExecMapPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -169,7 +172,12 @@ mod tests {
             "call"
         }
         fn apply(&self, req: &mut EvalRequest) -> Result<(), PlatformError> {
-            let callee = req.ast.payload.get("callee").cloned().unwrap_or(Value::Null);
+            let callee = req
+                .ast
+                .payload
+                .get("callee")
+                .cloned()
+                .unwrap_or(Value::Null);
             let callee_ast: AstNode =
                 serde_json::from_value(callee).map_err(|e| PlatformError::Plugin(e.to_string()))?;
             let name = callee_ast
@@ -211,7 +219,9 @@ mod tests {
     #[test]
     fn prefixes_callee_name() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(MapControl::with_prefix("math.")));
 
         let result = run_eval(&evaluator, call("add")).unwrap();
@@ -221,7 +231,9 @@ mod tests {
     #[test]
     fn strips_callee_prefix() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(MapControl::strip_prefix("math.")));
 
         let result = run_eval(&evaluator, call("math.add")).unwrap();

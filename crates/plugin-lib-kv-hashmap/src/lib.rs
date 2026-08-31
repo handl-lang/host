@@ -75,9 +75,9 @@ impl KeyValueStore for HashKeyValueStore {
 
 #[cfg(test)]
 mod tests {
-    use handl_plugin_lib_kv::KeyValueStoreModule;
     use handl_platform::{EvalContext, Module};
-    
+    use handl_plugin_lib_kv::KeyValueStoreModule;
+
     use super::HashKeyValueStore;
 
     fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {

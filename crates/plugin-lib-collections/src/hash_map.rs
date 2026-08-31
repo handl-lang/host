@@ -2,8 +2,8 @@
 //!
 //! Currently implemented as a wrapper around `serde_json::Value::Object`.
 
-use handl_platform::{EvalContext, EvalError, Function};
 use crate::function_value::FunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 
@@ -15,19 +15,33 @@ use super::common::{
 // ── shared helpers ────────────────────────────────────────────────
 
 fn require_key(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
-    args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
+    args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))
 }
 
 fn require_two_args(
     args: &[serde_json::Value],
 ) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     Ok((&args[0], &args[1]))
 }
@@ -36,21 +50,34 @@ fn require_three_args(
     args: &[serde_json::Value],
 ) -> Result<(&serde_json::Value, &serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 3 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            3,
+            args.len(),
+        )));
     }
     Ok((&args[0], &args[1], &args[2]))
 }
 
 fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 fn require_object_value(arg: &serde_json::Value) -> Result<&Map<String, Value>, EvalError> {
-    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "object", "non-object",
+    )))
 }
 
 fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "function value", "non-function",
+    )))
 }
 
 fn bind_param(fn_val: &FunctionValue, value: &Value) -> Vec<(String, serde_json::Value)> {
@@ -407,9 +434,16 @@ impl Function for DeepGet {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
-        let path = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let path = args[1].as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
         let mut current = args[0].clone();
         for segment in path.split('.') {
             if segment.is_empty() {
@@ -488,7 +522,11 @@ impl Function for Set {
     ) -> Result<serde_json::Value, EvalError> {
         let input = require_object(args, 0)?;
         let key = require_key(args, 1)?;
-        let value = args.get(2).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)))?;
+        let value = args.get(2).ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            3,
+            args.len(),
+        )))?;
 
         let mut map = input.clone();
         map.insert(key.to_string(), value.clone());
@@ -549,11 +587,7 @@ impl Function for SetPath {
         let (obj_arg, path_arg, value_arg) = require_three_args(args)?;
         let path = require_string(path_arg)?;
         let segments: Vec<&str> = path.split('.').filter(|s| !s.is_empty()).collect();
-        let result = set_path_recursive(
-            obj_arg.clone(),
-            &segments,
-            value_arg.clone(),
-        );
+        let result = set_path_recursive(obj_arg.clone(), &segments, value_arg.clone());
         Ok(serde_json::Value::from(result))
     }
 }
@@ -719,7 +753,11 @@ impl Function for Pick {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let obj = require_object_value(&args[0])?;
         let keys = require_array(args, 1)?;
@@ -746,7 +784,11 @@ impl Function for Omit {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let obj = require_object_value(&args[0])?;
         let keys = require_array(args, 1)?;
@@ -815,11 +857,23 @@ impl Function for FromEntries {
         let entries = require_one_array(args)?;
         let mut result = Map::new();
         for entry in entries {
-            let pair = entry.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array pair [key, value]", "non-array",)))?;
+            let pair = entry
+                .as_array()
+                .map(Vec::as_slice)
+                .ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "array pair [key, value]", "non-array",
+                )))?;
             if pair.len() < 2 {
-                return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "pair with at least 2 elements", "short pair",)));
+                return Err(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "pair with at least 2 elements", "short pair",
+                )));
             }
-            let key = pair[0].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string key", "non-string",)))?;
+            let key = pair[0].as_str().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string key", "non-string",
+            )))?;
             result.insert(key.to_string(), pair[1].clone());
         }
         Ok(object_value(result))

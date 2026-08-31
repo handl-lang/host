@@ -20,7 +20,10 @@ fn require_option(arg: &serde_json::Value) -> Result<(), EvalError> {
     if as_option_tag(inner).is_some() {
         Ok(())
     } else {
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "option", "non-option",)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "option", "non-option",
+        )))
     }
 }
 
@@ -36,7 +39,10 @@ impl Function for SomeFn {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         Ok(serde_json::Value::from(json!({
             "_tag": "Some",
             "value": arg.clone(),
@@ -64,7 +70,10 @@ impl Function for IsSome {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         Ok(serde_json::Value::from(json!(is_some(arg))))
     }
 }
@@ -77,7 +86,10 @@ impl Function for IsNone {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         Ok(serde_json::Value::from(json!(is_none(arg))))
     }
 }
@@ -90,7 +102,10 @@ impl Function for Unwrap {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         require_option(arg)?;
         if let Some(value) = get_value(arg) {
             Ok(serde_json::Value::from(value.clone()))
@@ -109,7 +124,11 @@ impl Function for UnwrapOr {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         if let Some(value) = get_value(&args[0]) {
@@ -129,7 +148,11 @@ impl Function for UnwrapOrElse {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         if let Some(value) = get_value(&args[0]) {
@@ -150,7 +173,11 @@ impl Function for Map {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -176,7 +203,11 @@ impl Function for FlatMap {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -198,7 +229,11 @@ impl Function for Filter {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -225,7 +260,11 @@ impl Function for MapOr {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         require_option(&args[0])?;
         let fn_val = require_function_value(&args[2])?;
@@ -247,7 +286,11 @@ impl Function for Or {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         if as_option_tag(&args[0]) == Some("Some") {
             Ok(args[0].clone())
@@ -266,7 +309,11 @@ impl Function for OrElse {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         if as_option_tag(&args[0]) == Some("Some") {
             Ok(args[0].clone())
@@ -286,7 +333,11 @@ impl Function for And {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         if as_option_tag(&args[0]) == Some("Some") {
             Ok(args[1].clone())
@@ -305,7 +356,11 @@ impl Function for Xor {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let a_is_some = is_some(&args[0]);
         let b_is_some = is_some(&args[1]);

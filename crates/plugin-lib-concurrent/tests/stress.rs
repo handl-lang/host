@@ -1,3 +1,4 @@
+use handl_platform::{EvalContext, EvalError, ExprEvaluator, Module};
 use handl_plugin_lib_concurrent::atomic::DefaultAtomicRuntime;
 use handl_plugin_lib_concurrent::cancel::DefaultCancelRuntime;
 use handl_plugin_lib_concurrent::function_value::FunctionValue;
@@ -6,12 +7,11 @@ use handl_plugin_lib_concurrent::sync::{DefaultSyncRuntime, SyncRuntime};
 use handl_plugin_lib_concurrent::{
     ConcurrencyModule, ParkingLotSyncRuntime, StdNetIoRuntime, ThreadTimerRuntime,
 };
-use handl_platform::{EvalContext, EvalError, ExprEvaluator, Module};
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::rc::Rc;
 // `thread` and `Duration` are currently only referenced by the placeholder
 // thread-contended stress tests, which are `#[ignore]`d pending Send + Sync
 // EvalContext support (ADR 0040 migration); retained for that future work.
@@ -51,11 +51,7 @@ impl Default for MockEval {
 }
 
 impl ExprEvaluator for MockEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
         if let Ok(mut calls) = self.calls.lock() {
             calls.push(expr.to_string());
         }
@@ -259,7 +255,10 @@ fn thread_pool_spawn_await_many() {
 
     let joined = scheduler.shutdown().unwrap();
     let joined_arr = joined.as_array().unwrap();
-    assert!(joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)), "all workers should join");
+    assert!(
+        joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)),
+        "all workers should join"
+    );
 }
 
 #[test]
@@ -293,5 +292,8 @@ fn thread_pool_cancel_stress() {
 
     let joined = scheduler.shutdown().unwrap();
     let joined_arr = joined.as_array().unwrap();
-    assert!(joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)), "all workers should join");
+    assert!(
+        joined_arr.iter().all(|j| j.as_bool().unwrap_or(false)),
+        "all workers should join"
+    );
 }

@@ -1,26 +1,36 @@
 use std::sync::Arc;
 
-use handl_plugin_lib_serialize::SerializerRegistry;
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_serialize::SerializerRegistry;
 
-fn format_name(
-    value: &serde_json::Value,
-) -> Result<String, EvalError> {
+fn format_name(value: &serde_json::Value) -> Result<String, EvalError> {
     if let Some(s) = value.as_str() {
         return Ok(s.to_string());
     }
-    let obj = value
-        .as_object()
-        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "string or serializer object", "non-string, non-object",)))?;
+    let obj = value.as_object().ok_or_else(|| {
+        EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string or serializer object", "non-string, non-object",
+        ))
+    })?;
     let ty = obj.get("type").and_then(|v| v.as_str()).ok_or_else(|| {
-        EvalError::TypeMismatch(format!("expected {}, got {}", "serializer object with type", "object without type",))
+        EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "serializer object with type", "object without type",
+        ))
     })?;
     if ty != "serializer" {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "type: serializer", "non-serializer",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "type: serializer", "non-serializer",
+        )));
     }
     let name = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-        EvalError::TypeMismatch(format!("expected {}, got {}", "serializer object with name", "object without name",))
+        EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "serializer object with name", "object without name",
+        ))
     })?;
     Ok(name.to_string())
 }
@@ -86,12 +96,17 @@ impl Function for Serialize {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let name = format_name(&args[1])?;
-        let serializer = self.registry.get(&name).ok_or_else(|| {
-            EvalError::Other(format!("unknown serializer: {name}"))
-        })?;
+        let serializer = self
+            .registry
+            .get(&name)
+            .ok_or_else(|| EvalError::Other(format!("unknown serializer: {name}")))?;
         let output = serializer
             .serialize(&args[0])
             .map_err(|e| EvalError::Other(e.to_string()))?;
@@ -110,12 +125,17 @@ impl Function for Deserialize {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let name = format_name(&args[1])?;
-        let serializer = self.registry.get(&name).ok_or_else(|| {
-            EvalError::Other(format!("unknown serializer: {name}"))
-        })?;
+        let serializer = self
+            .registry
+            .get(&name)
+            .ok_or_else(|| EvalError::Other(format!("unknown serializer: {name}")))?;
         let input = value_as_string(&args[0])?;
         let output = serializer
             .deserialize(&input)
@@ -124,11 +144,8 @@ impl Function for Deserialize {
     }
 }
 
-fn value_as_string(
-    value: &serde_json::Value,
-) -> Result<String, EvalError> {
-    value
-        .as_str()
-        .map(String::from)
-        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+fn value_as_string(value: &serde_json::Value) -> Result<String, EvalError> {
+    value.as_str().map(String::from).ok_or_else(|| {
+        EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",))
+    })
 }

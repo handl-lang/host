@@ -1,5 +1,5 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
+use handl_platform::Module;
 
 use super::path::PathModule;
 use super::path_stub::StubPath;

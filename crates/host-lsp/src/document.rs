@@ -30,11 +30,7 @@ impl DocumentStore {
         self.docs.insert(uri.to_string(), text.to_string());
     }
 
-    pub fn apply_incremental(
-        &mut self,
-        uri: &str,
-        change: TextContentChange,
-    ) -> Option<&str> {
+    pub fn apply_incremental(&mut self, uri: &str, change: TextContentChange) -> Option<&str> {
         let sync = BasicIncrementalSync::new();
         let current = self.docs.get(uri)?.clone();
         let resp = sync

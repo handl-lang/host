@@ -77,7 +77,10 @@ impl Function for TypeMay {
         require_arg_count(args, 2)?;
         let value = &args[0];
         let kind = as_kind(&args[1])?;
-        Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(serde_json::Value::Null)))
+        Ok(
+            project(value, kind)
+                .unwrap_or_else(|| serde_json::Value::from(serde_json::Value::Null)),
+        )
     }
 }
 

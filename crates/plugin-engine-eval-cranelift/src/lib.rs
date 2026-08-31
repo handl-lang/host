@@ -99,8 +99,8 @@ mod compile;
 mod standalone;
 
 pub use compile::{
-    compile_all_nodes, compile_all_nodes_jit, compile_all_nodes_object, CompileMode,
-    CompiledBackend, CompiledFn, CompiledResult, ObjectResult,
+    CompileMode, CompiledBackend, CompiledFn, CompiledResult, ObjectResult, compile_all_nodes,
+    compile_all_nodes_jit, compile_all_nodes_object,
 };
 
 use std::collections::HashMap;
@@ -136,7 +136,9 @@ impl CraneliftEngine {
 
     /// Attach a module registry (builder style).
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
-        Self { modules: Some(modules) }
+        Self {
+            modules: Some(modules),
+        }
     }
 
     /// Compile the language + AST to an on-disk object file.
@@ -632,9 +634,9 @@ unsafe fn box_value(value: Value) -> *mut Value {
 ///
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`).
-unsafe fn take_value(ptr: *mut Value) -> Value { unsafe {
-    std::mem::take(&mut *Box::from_raw(ptr))
-}}
+unsafe fn take_value(ptr: *mut Value) -> Value {
+    unsafe { std::mem::take(&mut *Box::from_raw(ptr)) }
+}
 
 // ---------------------------------------------------------------------------
 // Helper functions (extern "C", called from native code)
@@ -642,191 +644,204 @@ unsafe fn take_value(ptr: *mut Value) -> Value { unsafe {
 
 /// Push a literal value (from the constant pool) as a boxed clone.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    if lit_idx >= ctx.literals.len() {
-        return ctx.set_error(LangError::Engine(format!(
-            "literal index {} out of bounds",
-            lit_idx
-        )));
+pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if lit_idx >= ctx.literals.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "literal index {} out of bounds",
+                lit_idx
+            )));
+        }
+        box_value(ctx.literals[lit_idx].clone())
     }
-    box_value(ctx.literals[lit_idx].clone())
-}}
+}
 
 /// Load a variable by name index from the scope stack.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    if name_idx >= ctx.names.len() {
-        return ctx.set_error(LangError::Engine(format!(
-            "name index {} out of bounds",
-            name_idx
-        )));
+pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "name index {} out of bounds",
+                name_idx
+            )));
+        }
+        let name = &ctx.names[name_idx];
+        match ctx.env.lookup(name) {
+            Some(v) => box_value(v.clone()),
+            None => ctx.set_error(LangError::UnknownVariable { name: name.clone() }),
+        }
     }
-    let name = &ctx.names[name_idx];
-    match ctx.env.lookup(name) {
-        Some(v) => box_value(v.clone()),
-        None => ctx.set_error(LangError::UnknownVariable {
-            name: name.clone(),
-        }),
-    }
-}}
+}
 
 /// Load the payload variable: reads `node.payload` as a string (the variable
 /// name) and looks it up in the scope.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    match ctx.current_node() {
-        Ok(node) => match node.payload.as_str() {
-            Some(var_name) => match ctx.env.lookup(var_name) {
-                Some(v) => box_value(v.clone()),
-                None => ctx.set_error(LangError::UnknownVariable {
-                    name: var_name.to_string(),
-                }),
+pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        match ctx.current_node() {
+            Ok(node) => match node.payload.as_str() {
+                Some(var_name) => match ctx.env.lookup(var_name) {
+                    Some(v) => box_value(v.clone()),
+                    None => ctx.set_error(LangError::UnknownVariable {
+                        name: var_name.to_string(),
+                    }),
+                },
+                None => ctx.set_error(LangError::Engine(
+                    "expected string payload for $payload var".to_string(),
+                )),
             },
-            None => ctx.set_error(LangError::Engine(
-                "expected string payload for $payload var".to_string(),
-            )),
-        },
-        Err(e) => ctx.set_error(e),
+            Err(e) => ctx.set_error(e),
+        }
     }
-}}
+}
 
 /// Load the current node's payload directly (no-scheme fallback).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    match ctx.current_node() {
-        Ok(node) => box_value(node.payload.clone()),
-        Err(e) => ctx.set_error(e),
+pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        match ctx.current_node() {
+            Ok(node) => box_value(node.payload.clone()),
+            Err(e) => ctx.set_error(e),
+        }
     }
-}}
+}
 
 /// Evaluate the nth child of the current node.
 ///
 /// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
 /// calls the child's pre-compiled native function.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    let node = match ctx.current_node() {
-        Ok(n) => n,
-        Err(e) => return ctx.set_error(e),
-    };
-    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
-        Some(arr) => arr,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "expected children array in payload".to_string(),
-            ))
-        }
-    };
-    let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
-        Some(idx) => idx as usize,
-        None => {
-            return ctx.set_error(LangError::Engine(format!(
-                "child {} not found",
-                child_n
-            )))
-        }
-    };
-    // Look up the compiled function for the child.
-    let func = match ctx.compiled.get(&arena_idx).copied() {
-        Some(f) => f,
-        None => {
-            return ctx.set_error(LangError::Engine(format!(
-                "no compiled function for node {}",
-                arena_idx
-            )))
-        }
-    };
-    // Save and set current_ref for the child evaluation.
-    let saved_ref = ctx.current_ref;
-    ctx.current_ref = arena_idx;
-    let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
-    // Restore current_ref.
-    ctx.current_ref = saved_ref;
-    result
-}}
+pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        let node = match ctx.current_node() {
+            Ok(n) => n,
+            Err(e) => return ctx.set_error(e),
+        };
+        let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(arr) => arr,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "expected children array in payload".to_string(),
+                ));
+            }
+        };
+        let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(format!("child {} not found", child_n)));
+            }
+        };
+        // Look up the compiled function for the child.
+        let func = match ctx.compiled.get(&arena_idx).copied() {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::Engine(format!(
+                    "no compiled function for node {}",
+                    arena_idx
+                )));
+            }
+        };
+        // Save and set current_ref for the child evaluation.
+        let saved_ref = ctx.current_ref;
+        ctx.current_ref = arena_idx;
+        let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
+        // Restore current_ref.
+        ctx.current_ref = saved_ref;
+        result
+    }
+}
 
 /// Store a value in a new scope under the given name (by index).
 ///
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut Value) { unsafe {
-    let ctx = &mut *ctx;
-    if name_idx >= ctx.names.len() {
-        ctx.set_error(LangError::Engine(format!(
-            "name index {} out of bounds",
-            name_idx
-        )));
-        if !val.is_null() {
-            let _ = take_value(val);
+pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut Value) {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
+            ctx.set_error(LangError::Engine(format!(
+                "name index {} out of bounds",
+                name_idx
+            )));
+            if !val.is_null() {
+                let _ = take_value(val);
+            }
+            return;
         }
-        return;
+        let name = ctx.names[name_idx].clone();
+        let value = if val.is_null() {
+            return;
+        } else {
+            take_value(val)
+        };
+        ctx.env.push_scope();
+        ctx.env.define(&name, value);
     }
-    let name = ctx.names[name_idx].clone();
-    let value = if val.is_null() {
-        return;
-    } else {
-        take_value(val)
-    };
-    ctx.env.push_scope();
-    ctx.env.define(&name, value);
-}}
+}
 
 /// Store a value in a new scope under the name from `node.payload["name"]`.
 ///
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut Value) { unsafe {
-    let ctx = &mut *ctx;
-    let node = match ctx.current_node() {
-        Ok(n) => n,
-        Err(e) => {
-            ctx.set_error(e);
-            if !val.is_null() {
-                let _ = take_value(val);
+pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut Value) {
+    unsafe {
+        let ctx = &mut *ctx;
+        let node = match ctx.current_node() {
+            Ok(n) => n,
+            Err(e) => {
+                ctx.set_error(e);
+                if !val.is_null() {
+                    let _ = take_value(val);
+                }
+                return;
             }
+        };
+        let bind_name = match node.payload.get("name").and_then(|v| v.as_str()) {
+            Some(s) => s.to_string(),
+            None => {
+                ctx.set_error(LangError::Engine(
+                    "expected name in payload for $payload bind".to_string(),
+                ));
+                if !val.is_null() {
+                    let _ = take_value(val);
+                }
+                return;
+            }
+        };
+        if val.is_null() {
             return;
         }
-    };
-    let bind_name = match node.payload.get("name").and_then(|v| v.as_str()) {
-        Some(s) => s.to_string(),
-        None => {
-            ctx.set_error(LangError::Engine(
-                "expected name in payload for $payload bind".to_string(),
-            ));
-            if !val.is_null() {
-                let _ = take_value(val);
-            }
-            return;
-        }
-    };
-    if val.is_null() {
-        return;
+        let value = take_value(val);
+        ctx.env.push_scope();
+        ctx.env.define(&bind_name, value);
     }
-    let value = take_value(val);
-    ctx.env.push_scope();
-    ctx.env.define(&bind_name, value);
-}}
+}
 
 /// Pop the innermost scope.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx) { unsafe {
-    let ctx = &mut *ctx;
-    ctx.env.pop_scope();
-}}
+pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx) {
+    unsafe {
+        let ctx = &mut *ctx;
+        ctx.env.pop_scope();
+    }
+}
 
 /// Push a new empty scope for the `vau` parameter bindings (ADR-0041 §6).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx) { unsafe {
-    let ctx = &mut *ctx;
-    ctx.env.push_scope();
-}}
+pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx) {
+    unsafe {
+        let ctx = &mut *ctx;
+        ctx.env.push_scope();
+    }
+}
 
 /// Bind the `n`-th child of the current node — unevaluated — to the name
 /// (by index) in the current scope (the `vau` escape, ADR-0041 §6).
@@ -836,57 +851,55 @@ pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx) { unsafe {
 /// tagged `__ast__` value, and binds it to the name in the current
 /// (innermost) scope. The child is **not** evaluated.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_vau_bind(
-    ctx: *mut EvalCtx,
-    name_idx: usize,
-    child_n: usize,
-) { unsafe {
-    let ctx = &mut *ctx;
-    if name_idx >= ctx.names.len() {
-        ctx.set_error(LangError::Engine(format!(
-            "name index {} out of bounds",
-            name_idx
-        )));
-        return;
-    }
-    let name = ctx.names[name_idx].clone();
-    let node = match ctx.current_node() {
-        Ok(n) => n,
-        Err(e) => {
-            ctx.set_error(e);
-            return;
-        }
-    };
-    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
-        Some(arr) => arr,
-        None => {
-            ctx.set_error(LangError::Engine(
-                "expected children array in payload".to_string(),
-            ));
-            return;
-        }
-    };
-    let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
-        Some(idx) => idx as usize,
-        None => {
+pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, child_n: usize) {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
             ctx.set_error(LangError::Engine(format!(
-                "vau: child {} not found",
-                child_n
+                "name index {} out of bounds",
+                name_idx
             )));
             return;
         }
-    };
-    let ast_ref = &*ctx.ast;
-    let sub = match ast_ref.subtree(AstRef::new(arena_idx)) {
-        Ok(s) => s,
-        Err(e) => {
-            ctx.set_error(e);
-            return;
-        }
-    };
-    let val = handl_language::ast_value(&sub);
-    ctx.env.define(&name, val);
-}}
+        let name = ctx.names[name_idx].clone();
+        let node = match ctx.current_node() {
+            Ok(n) => n,
+            Err(e) => {
+                ctx.set_error(e);
+                return;
+            }
+        };
+        let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(arr) => arr,
+            None => {
+                ctx.set_error(LangError::Engine(
+                    "expected children array in payload".to_string(),
+                ));
+                return;
+            }
+        };
+        let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => {
+                ctx.set_error(LangError::Engine(format!(
+                    "vau: child {} not found",
+                    child_n
+                )));
+                return;
+            }
+        };
+        let ast_ref = &*ctx.ast;
+        let sub = match ast_ref.subtree(AstRef::new(arena_idx)) {
+            Ok(s) => s,
+            Err(e) => {
+                ctx.set_error(e);
+                return;
+            }
+        };
+        let val = handl_language::ast_value(&sub);
+        ctx.env.define(&name, val);
+    }
+}
 
 /// Reclaim a boxed [`Value`] pointer, freeing the allocation.
 ///
@@ -898,28 +911,28 @@ pub unsafe extern "C" fn helper_vau_bind(
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`), or null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_drop_value(val: *mut Value) { unsafe {
-    if !val.is_null() {
-        let _ = take_value(val);
+pub unsafe extern "C" fn helper_drop_value(val: *mut Value) {
+    unsafe {
+        if !val.is_null() {
+            let _ = take_value(val);
+        }
     }
-}}
+}
 
 /// Check if a value is truthy.
 ///
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
 /// Returns 1 for truthy, 0 for falsy.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 { unsafe {
-    if val.is_null() {
-        return 0;
+pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 {
+    unsafe {
+        if val.is_null() {
+            return 0;
+        }
+        let v = &*val;
+        if is_truthy(v) { 1 } else { 0 }
     }
-    let v = &*val;
-    if is_truthy(v) {
-        1
-    } else {
-        0
-    }
-}}
+}
 
 /// Apply a closure value to argument values.
 ///
@@ -930,127 +943,113 @@ pub unsafe extern "C" fn helper_apply_closure(
     callee: *mut Value,
     args: *const *mut Value,
     n: usize,
-) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    if callee.is_null() {
-        return ctx.set_error(LangError::Engine(
-            "closure callee is null".to_string(),
-        ));
-    }
-    let closure_val = take_value(callee);
-
-    // Collect arg values.
-    let mut arg_vals = Vec::with_capacity(n);
-    for i in 0..n {
-        let arg_ptr = *args.add(i);
-        if arg_ptr.is_null() {
-            // Error already set; consume remaining args.
-            for j in (i + 1)..n {
-                let p = *args.add(j);
-                if !p.is_null() {
-                    let _ = take_value(p);
-                }
-            }
-            return std::ptr::null_mut();
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if callee.is_null() {
+            return ctx.set_error(LangError::Engine("closure callee is null".to_string()));
         }
-        arg_vals.push(take_value(arg_ptr));
-    }
+        let closure_val = take_value(callee);
 
-    // Parse closure.
-    let obj = match closure_val.as_object() {
-        Some(o) => o,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "callee is not a closure".to_string(),
-            ))
-        }
-    };
-    if !obj
-        .get("__closure__")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
-        return ctx.set_error(LangError::Engine(
-            "callee is not a closure".to_string(),
-        ));
-    }
-
-    let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
-        Some(arr) => {
-            let mut params = Vec::with_capacity(arr.len());
-            for v in arr {
-                match v.as_str() {
-                    Some(s) => params.push(s.to_string()),
-                    None => {
-                        return ctx.set_error(LangError::Engine(
-                            "closure param is not a string".to_string(),
-                        ))
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                // Error already set; consume remaining args.
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
                     }
                 }
+                return std::ptr::null_mut();
             }
-            params
+            arg_vals.push(take_value(arg_ptr));
         }
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "closure missing params".to_string(),
-            ))
+
+        // Parse closure.
+        let obj = match closure_val.as_object() {
+            Some(o) => o,
+            None => return ctx.set_error(LangError::Engine("callee is not a closure".to_string())),
+        };
+        if !obj
+            .get("__closure__")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return ctx.set_error(LangError::Engine("callee is not a closure".to_string()));
         }
-    };
 
-    let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
-        Some(idx) => idx as usize,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "closure missing body".to_string(),
-            ))
-        }
-    };
+        let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
+            Some(arr) => {
+                let mut params = Vec::with_capacity(arr.len());
+                for v in arr {
+                    match v.as_str() {
+                        Some(s) => params.push(s.to_string()),
+                        None => {
+                            return ctx.set_error(LangError::Engine(
+                                "closure param is not a string".to_string(),
+                            ));
+                        }
+                    }
+                }
+                params
+            }
+            None => return ctx.set_error(LangError::Engine("closure missing params".to_string())),
+        };
 
-    let captured_env: HashMap<String, Value> = obj
-        .get("env")
-        .and_then(|v| v.as_object())
-        .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-        .unwrap_or_default();
+        let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return ctx.set_error(LangError::Engine("closure missing body".to_string())),
+        };
 
-    if params.len() != arg_vals.len() {
-        return ctx.set_error(LangError::Engine(format!(
-            "closure expects {} args, got {}",
-            params.len(),
-            arg_vals.len()
-        )));
-    }
+        let captured_env: HashMap<String, Value> = obj
+            .get("env")
+            .and_then(|v| v.as_object())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
 
-    // Look up the compiled function for the body node.
-    let func = match ctx.compiled.get(&body_idx).copied() {
-        Some(f) => f,
-        None => {
+        if params.len() != arg_vals.len() {
             return ctx.set_error(LangError::Engine(format!(
-                "no compiled function for closure body {}",
-                body_idx
-            )))
+                "closure expects {} args, got {}",
+                params.len(),
+                arg_vals.len()
+            )));
         }
-    };
 
-    // Swap in the captured env + new scope with params.
-    let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
-    ctx.env.scopes[0] = captured_env;
-    ctx.env.push_scope();
-    for (param, arg) in params.iter().zip(arg_vals.iter()) {
-        ctx.env.define(param, arg.clone());
+        // Look up the compiled function for the body node.
+        let func = match ctx.compiled.get(&body_idx).copied() {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::Engine(format!(
+                    "no compiled function for closure body {}",
+                    body_idx
+                )));
+            }
+        };
+
+        // Swap in the captured env + new scope with params.
+        let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
+        ctx.env.scopes[0] = captured_env;
+        ctx.env.push_scope();
+        for (param, arg) in params.iter().zip(arg_vals.iter()) {
+            ctx.env.define(param, arg.clone());
+        }
+
+        // Save and set current_ref for the body.
+        let saved_ref = ctx.current_ref;
+        ctx.current_ref = body_idx;
+
+        let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
+
+        // Restore the original scope stack and current_ref.
+        ctx.current_ref = saved_ref;
+        ctx.env = saved_env;
+
+        result
     }
-
-    // Save and set current_ref for the body.
-    let saved_ref = ctx.current_ref;
-    ctx.current_ref = body_idx;
-
-    let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
-
-    // Restore the original scope stack and current_ref.
-    ctx.current_ref = saved_ref;
-    ctx.env = saved_env;
-
-    result
-}}
+}
 
 /// Apply a primitive operation (by name index).
 ///
@@ -1061,41 +1060,43 @@ pub unsafe extern "C" fn helper_apply_prim(
     op_idx: usize,
     args: *const *mut Value,
     n: usize,
-) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    if op_idx >= ctx.names.len() {
-        // Consume args.
-        for i in 0..n {
-            let p = *args.add(i);
-            if !p.is_null() {
-                let _ = take_value(p);
-            }
-        }
-        return ctx.set_error(LangError::Engine(format!(
-            "op index {} out of bounds",
-            op_idx
-        )));
-    }
-    let op = ctx.names[op_idx].clone();
-
-    // Collect arg values.
-    let mut arg_vals = Vec::with_capacity(n);
-    for i in 0..n {
-        let arg_ptr = *args.add(i);
-        if arg_ptr.is_null() {
-            for j in (i + 1)..n {
-                let p = *args.add(j);
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if op_idx >= ctx.names.len() {
+            // Consume args.
+            for i in 0..n {
+                let p = *args.add(i);
                 if !p.is_null() {
                     let _ = take_value(p);
                 }
             }
-            return std::ptr::null_mut();
+            return ctx.set_error(LangError::Engine(format!(
+                "op index {} out of bounds",
+                op_idx
+            )));
         }
-        arg_vals.push(take_value(arg_ptr));
-    }
+        let op = ctx.names[op_idx].clone();
 
-    apply_prim(ctx, &op, &arg_vals)
-}}
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(arg_ptr));
+        }
+
+        apply_prim(ctx, &op, &arg_vals)
+    }
+}
 
 /// Call a foreign (host) function (by name index).
 ///
@@ -1106,67 +1107,63 @@ pub unsafe extern "C" fn helper_call_foreign(
     name_idx: usize,
     args: *const *mut Value,
     n: usize,
-) -> *mut Value { unsafe {
-    let ctx = &mut *ctx;
-    if name_idx >= ctx.names.len() {
-        for i in 0..n {
-            let p = *args.add(i);
-            if !p.is_null() {
-                let _ = take_value(p);
-            }
-        }
-        return ctx.set_error(LangError::Engine(format!(
-            "name index {} out of bounds",
-            name_idx
-        )));
-    }
-    let name = ctx.names[name_idx].clone();
-
-    // Collect arg values.
-    let mut arg_vals = Vec::with_capacity(n);
-    for i in 0..n {
-        let arg_ptr = *args.add(i);
-        if arg_ptr.is_null() {
-            for j in (i + 1)..n {
-                let p = *args.add(j);
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
+            for i in 0..n {
+                let p = *args.add(i);
                 if !p.is_null() {
                     let _ = take_value(p);
                 }
             }
-            return std::ptr::null_mut();
-        }
-        arg_vals.push(take_value(arg_ptr));
-    }
-
-    // Look up the module function.
-    let modules_ptr = match ctx.modules {
-        Some(ptr) => ptr,
-        None => {
             return ctx.set_error(LangError::Engine(format!(
-                "unregistered foreign: {}",
-                name
-            )))
+                "name index {} out of bounds",
+                name_idx
+            )));
         }
-    };
-    // SAFETY: modules_ptr is a valid trait-object pointer set by the engine.
-    let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
-    let func = match modules.lookup(&name) {
-        Some(f) => f,
-        None => {
-            return ctx.set_error(LangError::Engine(format!(
-                "unregistered foreign: {}",
-                name
-            )))
-        }
-    };
+        let name = ctx.names[name_idx].clone();
 
-    // Call the module function.
-    let mut pctx = handl_platform::EvalContext::new();
-    match func.call(&arg_vals, &mut pctx) {
-        Ok(v) => box_value(v),
-        Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(arg_ptr));
+        }
+
+        // Look up the module function.
+        let modules_ptr = match ctx.modules {
+            Some(ptr) => ptr,
+            None => {
+                return ctx.set_error(LangError::Engine(format!("unregistered foreign: {}", name)));
+            }
+        };
+        // SAFETY: modules_ptr is a valid trait-object pointer set by the engine.
+        let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
+        let func = match modules.lookup(&name) {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::Engine(format!("unregistered foreign: {}", name)));
+            }
+        };
+
+        // Call the module function.
+        let mut pctx = handl_platform::EvalContext::new();
+        match func.call(&arg_vals, &mut pctx) {
+            Ok(v) => box_value(v),
+            Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
+        }
     }
-}}
+}
 
 /// Apply a primitive operation (shared logic).
 fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
@@ -1206,9 +1203,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             // Match tree-walk: if b.to_f64() == 0.0, return error.
             if let Ok(bn) = &b_num {
                 if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::Engine(
-                        "division by zero".to_string(),
-                    ));
+                    return ctx.set_error(LangError::Engine("division by zero".to_string()));
                 }
             }
             match as_num(&args[0]).and_then(|a| b_num.map(|b| a / b)) {
@@ -1223,9 +1218,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             let b_num = as_num(&args[1]);
             if let Ok(bn) = &b_num {
                 if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::Engine(
-                        "modulo by zero".to_string(),
-                    ));
+                    return ctx.set_error(LangError::Engine("modulo by zero".to_string()));
                 }
             }
             match as_num(&args[0]).and_then(|a| b_num.map(|b| a % b)) {
@@ -1256,9 +1249,9 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             if args.len() < 2 {
                 return ctx.set_error(LangError::Engine("pow: expected 2 args".to_string()));
             }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| {
-                num_value(Num::Float(a.to_f64().powf(b.to_f64())))
-            })) {
+            match as_num(&args[0]).and_then(|a| {
+                as_num(&args[1]).map(|b| num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
+            }) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
@@ -1286,13 +1279,19 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             if args.len() < 2 {
                 return ctx.set_error(LangError::Engine("compare: expected 2 args".to_string()));
             }
-            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| {
-                let af = a.to_f64();
-                let bf = b.to_f64();
-                if af < bf { num_value(Num::Int(-1)) }
-                else if af > bf { num_value(Num::Int(1)) }
-                else { num_value(Num::Int(0)) }
-            })) {
+            match as_num(&args[0]).and_then(|a| {
+                as_num(&args[1]).map(|b| {
+                    let af = a.to_f64();
+                    let bf = b.to_f64();
+                    if af < bf {
+                        num_value(Num::Int(-1))
+                    } else if af > bf {
+                        num_value(Num::Int(1))
+                    } else {
+                        num_value(Num::Int(0))
+                    }
+                })
+            }) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
@@ -1335,7 +1334,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "closure prim: missing params in payload".to_string(),
-                    ))
+                    ));
                 }
             };
             let body = match payload.get("body").and_then(|v| v.as_u64()) {
@@ -1343,7 +1342,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "closure prim: missing body in payload".to_string(),
-                    ))
+                    ));
                 }
             };
             let env = ctx.env.capture();
@@ -1365,7 +1364,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "array: missing elements in payload".to_string(),
-                    ))
+                    ));
                 }
             }
         }
@@ -1379,7 +1378,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "object: missing entries in payload".to_string(),
-                    ))
+                    ));
                 }
             };
             let mut obj = serde_json::Map::new();
@@ -1387,9 +1386,8 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 let key = match entry.get("key").and_then(|v| v.as_str()) {
                     Some(k) => k,
                     None => {
-                        return ctx.set_error(LangError::Engine(
-                            "object: entry missing key".to_string(),
-                        ))
+                        return ctx
+                            .set_error(LangError::Engine("object: entry missing key".to_string()));
                     }
                 };
                 let value = match entry.get("value") {
@@ -1397,7 +1395,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                     None => {
                         return ctx.set_error(LangError::Engine(
                             "object: entry missing value".to_string(),
-                        ))
+                        ));
                     }
                 };
                 obj.insert(key.to_string(), value.clone());
@@ -1414,7 +1412,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "index: missing target in payload".to_string(),
-                    ))
+                    ));
                 }
             };
             let index = match node.payload.get("index") {
@@ -1422,7 +1420,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "index: missing index in payload".to_string(),
-                    ))
+                    ));
                 }
             };
             match (target, index) {
@@ -1432,7 +1430,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                         None => {
                             return ctx.set_error(LangError::Engine(
                                 "index: index must be a non-negative integer".to_string(),
-                            ))
+                            ));
                         }
                     };
                     match arr.get(i) {
@@ -1441,7 +1439,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                             return ctx.set_error(LangError::Engine(format!(
                                 "index: index {} out of bounds",
                                 i
-                            )))
+                            )));
                         }
                     }
                 }
@@ -1451,14 +1449,14 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                         return ctx.set_error(LangError::Engine(format!(
                             "index: key '{}' not found",
                             key
-                        )))
+                        )));
                     }
                 },
                 _ => {
                     return ctx.set_error(LangError::Engine(
                         "index: target must be array/object and index must be number/string"
                             .to_string(),
-                    ))
+                    ));
                 }
             }
         }
@@ -1472,7 +1470,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "assign: missing value in payload".to_string(),
-                    ))
+                    ));
                 }
             }
         }
@@ -1500,13 +1498,17 @@ pub struct CraneliftArtifact {
 }
 
 impl handl_runtime::CompiledArtifact for CraneliftArtifact {
-    fn run(&self, modules: Option<Rc<dyn handl_platform::ModuleLookup>>) -> Result<Value, LangError> {
+    fn run(
+        &self,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    ) -> Result<Value, LangError> {
         if self.ast.is_empty() {
             return Ok(Value::Null);
         }
-        let result = self.result.as_ref().ok_or_else(|| {
-            LangError::Engine("run: no compiled result (empty program)".into())
-        })?;
+        let result = self
+            .result
+            .as_ref()
+            .ok_or_else(|| LangError::Engine("run: no compiled result (empty program)".into()))?;
         let engine = match modules {
             Some(m) => CraneliftEngine::with_modules(m),
             None => CraneliftEngine::new(),
@@ -1589,7 +1591,11 @@ mod tests {
     struct DoubleHostFn;
 
     impl Function for DoubleHostFn {
-        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
@@ -1642,7 +1648,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.const", "const", Scheme::lit(json!(99))))
+            .merge(EvalSchemeDef::new(
+                "e.const",
+                "const",
+                Scheme::lit(json!(99)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("const")]);
         let req = EvalRequest::new(ast);

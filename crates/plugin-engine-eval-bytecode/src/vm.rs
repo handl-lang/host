@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value, ast_value};
 
 use crate::compile;
 use crate::instr::Instr;
@@ -46,10 +46,7 @@ impl ScopeStack {
 
     /// Define a variable in the current (innermost) scope.
     fn define(&mut self, name: &str, value: Value) {
-        let last = self
-            .scopes
-            .last_mut()
-            .expect("scope stack is never empty");
+        let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(name.to_string(), value);
     }
 
@@ -206,7 +203,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     ///
     /// Uses a fresh operand stack. The scope stack (`self.scopes`) is shared
     /// across recursive `exec_node` calls.
-    pub(crate) fn exec_instrs(&mut self, instrs: &[Instr], node: &AstNode) -> Result<Value, LangError> {
+    pub(crate) fn exec_instrs(
+        &mut self,
+        instrs: &[Instr],
+        node: &AstNode,
+    ) -> Result<Value, LangError> {
         let mut stack: Vec<Value> = Vec::new();
         let mut ip = 0;
         while ip < instrs.len() {
@@ -219,9 +220,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .scopes
                         .lookup(name)
                         .cloned()
-                        .ok_or_else(|| LangError::UnknownVariable {
-                            name: name.clone(),
-                        })?;
+                        .ok_or_else(|| LangError::UnknownVariable { name: name.clone() })?;
                     stack.push(val);
                 }
                 Instr::LoadPayloadVar => {
@@ -238,9 +237,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .scopes
                         .lookup(&var_name)
                         .cloned()
-                        .ok_or(LangError::UnknownVariable {
-                            name: var_name,
-                        })?;
+                        .ok_or(LangError::UnknownVariable { name: var_name })?;
                     stack.push(val);
                 }
                 Instr::LoadPayload => {
@@ -257,9 +254,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let arena_idx = children
                         .get(*n)
                         .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::Engine(format!("child {} not found", n))
-                        })?;
+                        .ok_or_else(|| LangError::Engine(format!("child {} not found", n)))?;
                     let child_ref = AstRef::new(arena_idx as usize);
                     let result = self.exec_node(child_ref)?;
                     stack.push(result);
@@ -294,11 +289,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Call(n) => {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
-                        args.push(
-                            stack
-                                .pop()
-                                .ok_or_else(|| LangError::Engine("stack underflow on Call".to_string()))?,
-                        );
+                        args.push(stack.pop().ok_or_else(|| {
+                            LangError::Engine("stack underflow on Call".to_string())
+                        })?);
                     }
                     args.reverse();
                     let callee = stack
@@ -308,11 +301,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     stack.push(result);
                 }
                 Instr::JumpIfFalse(target) => {
-                    let cond = stack
-                        .pop()
-                        .ok_or_else(|| {
-                            LangError::Engine("stack underflow on JumpIfFalse".to_string())
-                        })?;
+                    let cond = stack.pop().ok_or_else(|| {
+                        LangError::Engine("stack underflow on JumpIfFalse".to_string())
+                    })?;
                     if !is_truthy(&cond) {
                         ip = *target;
                         continue;
@@ -325,11 +316,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Prim(op, n) => {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
-                        args.push(
-                            stack
-                                .pop()
-                                .ok_or_else(|| LangError::Engine("stack underflow on Prim".to_string()))?,
-                        );
+                        args.push(stack.pop().ok_or_else(|| {
+                            LangError::Engine("stack underflow on Prim".to_string())
+                        })?);
                     }
                     args.reverse();
                     let result = self.apply_prim(op, &args, node)?;
@@ -338,13 +327,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Foreign(name, n) => {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
-                        args.push(
-                            stack
-                                .pop()
-                                .ok_or_else(|| {
-                                    LangError::Engine("stack underflow on Foreign".to_string())
-                                })?,
-                        );
+                        args.push(stack.pop().ok_or_else(|| {
+                            LangError::Engine("stack underflow on Foreign".to_string())
+                        })?);
                     }
                     args.reverse();
                     let modules = self.modules.ok_or_else(|| {
@@ -354,7 +339,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         LangError::Engine(format!("unregistered foreign: {}", name))
                     })?;
                     let mut pctx = handl_platform::EvalContext::new();
-                    let result = func.call(&args, &mut pctx)
+                    let result = func
+                        .call(&args, &mut pctx)
                         .map_err(|e| LangError::Engine(e.to_string()))?;
                     stack.push(result);
                 }
@@ -366,10 +352,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // Bind the unevaluated child subtree to `name` in the
                     // current scope (the vau escape, ADR-0041 §6). The child
                     // is NOT evaluated.
-                    let children = node
-                        .payload
-                        .get("children")
-                        .and_then(|c| c.as_array());
+                    let children = node.payload.get("children").and_then(|c| c.as_array());
                     let arena_idx = children
                         .and_then(|arr| arr.get(*child_n))
                         .and_then(|v| v.as_u64())
@@ -399,11 +382,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// the closure object, save the current scope stack, swap in the captured
     /// env with a new scope for params, evaluate the body node, then restore
     /// the original scope stack.
-    fn apply_closure(
-        &mut self,
-        closure: &Value,
-        args: &[Value],
-    ) -> Result<Value, LangError> {
+    fn apply_closure(&mut self, closure: &Value, args: &[Value]) -> Result<Value, LangError> {
         let obj = closure
             .as_object()
             .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
@@ -467,12 +446,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// Replicates the tree-walk's primitive semantics exactly: `add`, `sub`,
     /// `mul`, `div`, `mod`, `eq`, `lt`, `gt`, `not`, `and`, `or`, `neg`,
     /// `closure`.
-    fn apply_prim(
-        &mut self,
-        op: &str,
-        args: &[Value],
-        node: &AstNode,
-    ) -> Result<Value, LangError> {
+    fn apply_prim(&mut self, op: &str, args: &[Value], node: &AstNode) -> Result<Value, LangError> {
         match op {
             "add" => {
                 let a = as_num(&args[0])?;
@@ -604,43 +578,64 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }))
             }
             "array" => {
-                let elements = node.payload.get("elements")
-                    .ok_or_else(|| LangError::Engine("array: missing elements in payload".to_string()))?;
+                let elements = node.payload.get("elements").ok_or_else(|| {
+                    LangError::Engine("array: missing elements in payload".to_string())
+                })?;
                 Ok(elements.clone())
             }
             "object" => {
-                let entries = node.payload.get("entries")
+                let entries = node
+                    .payload
+                    .get("entries")
                     .and_then(|v| v.as_array())
-                    .ok_or_else(|| LangError::Engine("object: missing entries in payload".to_string()))?;
+                    .ok_or_else(|| {
+                        LangError::Engine("object: missing entries in payload".to_string())
+                    })?;
                 let mut obj = serde_json::Map::new();
                 for entry in entries {
-                    let key = entry.get("key").and_then(|v| v.as_str())
-                        .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
-                    let value = entry.get("value")
-                        .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
+                    let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
+                        LangError::Engine("object: entry missing key".to_string())
+                    })?;
+                    let value = entry.get("value").ok_or_else(|| {
+                        LangError::Engine("object: entry missing value".to_string())
+                    })?;
                     obj.insert(key.to_string(), value.clone());
                 }
                 Ok(Value::Object(obj))
             }
             "index" => {
-                let target = node.payload.get("target")
-                    .ok_or_else(|| LangError::Engine("index: missing target in payload".to_string()))?;
-                let index = node.payload.get("index")
-                    .ok_or_else(|| LangError::Engine("index: missing index in payload".to_string()))?;
+                let target = node.payload.get("target").ok_or_else(|| {
+                    LangError::Engine("index: missing target in payload".to_string())
+                })?;
+                let index = node.payload.get("index").ok_or_else(|| {
+                    LangError::Engine("index: missing index in payload".to_string())
+                })?;
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
-                        let i = n.as_u64().ok_or_else(|| LangError::Engine("index: index must be a non-negative integer".to_string()))? as usize;
-                        arr.get(i).cloned().ok_or_else(|| LangError::Engine(format!("index: index {} out of bounds", i)))
+                        let i = n.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "index: index must be a non-negative integer".to_string(),
+                            )
+                        })? as usize;
+                        arr.get(i).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: index {} out of bounds", i))
+                        })
                     }
                     (Value::Object(obj), Value::String(key)) => {
-                        obj.get(key).cloned().ok_or_else(|| LangError::Engine(format!("index: key '{}' not found", key)))
+                        obj.get(key).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: key '{}' not found", key))
+                        })
                     }
-                    _ => Err(LangError::Engine("index: target must be array/object and index must be number/string".to_string())),
+                    _ => Err(LangError::Engine(
+                        "index: target must be array/object and index must be number/string"
+                            .to_string(),
+                    )),
                 }
             }
             "assign" => {
-                let value = node.payload.get("value")
-                    .ok_or_else(|| LangError::Engine("assign: missing value in payload".to_string()))?;
+                let value = node.payload.get("value").ok_or_else(|| {
+                    LangError::Engine("assign: missing value in payload".to_string())
+                })?;
                 Ok(value.clone())
             }
             _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
@@ -938,9 +933,7 @@ mod tests {
     #[test]
     fn vm_store_payload_name() {
         let lang = Language::new();
-        let ast = make_ast(vec![
-            AstNode::new("let").with_payload(json!({"name": "x"})),
-        ]);
+        let ast = make_ast(vec![AstNode::new("let").with_payload(json!({"name": "x"}))]);
         let instrs = vec![
             Instr::Push(json!(42)),
             Instr::StorePayloadName,
@@ -1206,7 +1199,9 @@ mod tests {
     #[test]
     fn vm_prim_closure_missing_params_errors() {
         let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("function").with_payload(json!({"body": 0}))]);
+        let ast = make_ast(vec![
+            AstNode::new("function").with_payload(json!({"body": 0})),
+        ]);
         let instrs = vec![Instr::Prim("closure".into(), 0), Instr::Return];
         let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
         assert!(matches!(err, LangError::Engine(_)));
@@ -1215,8 +1210,9 @@ mod tests {
     #[test]
     fn vm_prim_closure_missing_body_errors() {
         let lang = Language::new();
-        let ast =
-            make_ast(vec![AstNode::new("function").with_payload(json!({"params": ["x"]}))]);
+        let ast = make_ast(vec![
+            AstNode::new("function").with_payload(json!({"params": ["x"]})),
+        ]);
         let instrs = vec![Instr::Prim("closure".into(), 0), Instr::Return];
         let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
         assert!(matches!(err, LangError::Engine(_)));
@@ -1228,7 +1224,11 @@ mod tests {
     struct DoubleHostFn;
 
     impl Function for DoubleHostFn {
-        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
@@ -1910,7 +1910,11 @@ mod tests {
         // Prim("add", 2) with only 1 value on the stack.
         let lang = Language::new();
         let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Push(json!(1)), Instr::Prim("add".into(), 2), Instr::Return];
+        let instrs = vec![
+            Instr::Push(json!(1)),
+            Instr::Prim("add".into(), 2),
+            Instr::Return,
+        ];
         let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
         assert!(matches!(err, LangError::Engine(_)));
     }

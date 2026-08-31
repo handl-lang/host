@@ -32,11 +32,7 @@ fn manifest_with_eval(eval: &str) -> DataKitManifest {
             "canonical-yaml",
             "canonical-yaml",
         ))
-        .with_runtime(
-            RuntimeConfig::new()
-                .with_parse("pratt")
-                .with_eval(eval),
-        )
+        .with_runtime(RuntimeConfig::new().with_parse("pratt").with_eval(eval))
 }
 
 #[test]
@@ -48,7 +44,9 @@ fn swap_eval_to_bytecode_succeeds() {
     // Assembly succeeds — the Language is built regardless of engine choice.
     assert!(kit.lang().tokens.len() > 0);
     // Building the runtime succeeds: bytecode is now available.
-    let rt = kit.into_runtime(&registry, None).expect("bytecode should bind");
+    let rt = kit
+        .into_runtime(&registry, None)
+        .expect("bytecode should bind");
     assert!(rt.lang().tokens.len() > 0);
     // The runtime works: evaluating an empty Ast returns Null.
     let result = rt.eval(&handl_language::Ast::new()).unwrap();
@@ -61,7 +59,9 @@ fn swap_eval_to_tree_walk_succeeds() {
     let registry = test_registry();
     let manifest = manifest_with_eval("tree-walk");
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    let rt = kit.into_runtime(&registry, None).expect("tree-walk should bind");
+    let rt = kit
+        .into_runtime(&registry, None)
+        .expect("tree-walk should bind");
     assert!(rt.lang().tokens.len() > 0);
 }
 
@@ -100,7 +100,9 @@ fn no_eval_engine_leaves_eval_unbound() {
         ))
         .with_runtime(RuntimeConfig::new().with_parse("pratt"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    let rt = kit.into_runtime(&registry, None).expect("runtime with no eval should build");
+    let rt = kit
+        .into_runtime(&registry, None)
+        .expect("runtime with no eval should build");
     // eval is unbound -> NotImplemented on eval.
     let ast = handl_language::Ast::new();
     assert_eq!(rt.eval(&ast).unwrap_err(), LangError::NotImplemented);

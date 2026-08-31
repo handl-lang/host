@@ -1,5 +1,5 @@
-use icu::plurals::{PluralCategory, PluralRuleType, PluralRules, PluralRulesOptions};
 use handl_platform::{EvalContext, EvalError, Function};
+use icu::plurals::{PluralCategory, PluralRuleType, PluralRules, PluralRulesOptions};
 
 use super::common::{
     apply_fraction_digits, apply_minimum_integer_digits, apply_significant_digits,

@@ -1,6 +1,6 @@
 use super::WsRfcModule;
-use handl_platform::Module;
 use handl_platform::EvalContext;
+use handl_platform::Module;
 
 fn ctx() -> EvalContext {
     EvalContext::new()
@@ -22,10 +22,7 @@ fn call_err(name: &str, args: &[serde_json::Value], ctx: &mut EvalContext) {
 fn client_create_connect_close() {
     let mut ctx = ctx();
     let c = call("client", &[], &mut ctx);
-    assert_eq!(
-        c.get("type"),
-        Some(&serde_json::json!("websocket_client"))
-    );
+    assert_eq!(c.get("type"), Some(&serde_json::json!("websocket_client")));
 
     let connected = call(
         "connect",
@@ -55,7 +52,10 @@ fn client_send_recv_roundtrip() {
     );
     call(
         "send",
-        &[c.clone(), serde_json::Value::from(serde_json::json!("hello"))],
+        &[
+            c.clone(),
+            serde_json::Value::from(serde_json::json!("hello")),
+        ],
         &mut ctx,
     );
 
@@ -72,10 +72,7 @@ fn client_send_recv_roundtrip() {
 fn server_listen_stop() {
     let mut ctx = ctx();
     let s = call("server", &[], &mut ctx);
-    assert_eq!(
-        s.get("type"),
-        Some(&serde_json::json!("websocket_server"))
-    );
+    assert_eq!(s.get("type"), Some(&serde_json::json!("websocket_server")));
 
     let handler = serde_json::Value::from(serde_json::json!({
         "params": [
@@ -110,10 +107,7 @@ fn frame_encode_decode_roundtrip() {
     assert!(encoded.is_string());
 
     let decoded = call("frame.decode", &[encoded], &mut ctx);
-    assert_eq!(
-        decoded.get("opcode"),
-        Some(&serde_json::json!("text"))
-    );
+    assert_eq!(decoded.get("opcode"), Some(&serde_json::json!("text")));
 }
 
 #[test]

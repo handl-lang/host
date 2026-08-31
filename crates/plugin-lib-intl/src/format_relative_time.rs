@@ -1,6 +1,6 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::experimental::relativetime::{RelativeTimeFormatter, RelativeTimeFormatterOptions};
 use writeable::Writeable;
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     DataProvider, decimal_from_f64, make_provider, opt_str, optional_locale, optional_object,

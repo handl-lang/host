@@ -9,8 +9,8 @@
 //! - `unicode.code_point_at(string, index)` — number or `null`
 //! - `unicode.decode(string)` — array of `[byte_offset, code_point]` pairs
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 
 use super::decode::Utf8Iterator;
@@ -39,23 +39,43 @@ impl Module for UnicodeModule {
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<String, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1,
+        args.len(),
+    )))?;
     arg.as_str()
         .map(|s| s.to_string())
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn require_string_and_index(args: &[serde_json::Value]) -> Result<(String, usize), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let s = args[0]
         .as_str()
         .map(|s| s.to_string())
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
-    let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
+    let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))?;
     if n < 0.0 || n.fract() != 0.0 {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer", "invalid index",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "non-negative integer", "invalid index",
+        )));
     }
     Ok((s, n as usize))
 }

@@ -1,9 +1,9 @@
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use serde_json::Value;
-use serde_json::json;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
+use serde_json::Value;
+use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{call_function, require_function, require_integer};
@@ -30,11 +30,7 @@ impl Module for FuzzModule {
 #[derive(Clone, Copy)]
 struct Run;
 impl Function for Run {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {
             return Err(TestError::ArgumentCount {
                 expected: 2,

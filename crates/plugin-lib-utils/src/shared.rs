@@ -11,7 +11,6 @@ use serde_json::{Map, Value as JsonValue};
 use crate::function_value::FunctionValue;
 use handl_platform::{EvalContext, EvalError};
 
-
 // ════════════════════════════════════════════════════════════════════
 // Tier 0: Shared helpers (replaces duplicated copies across modules)
 // ════════════════════════════════════════════════════════════════════
@@ -19,22 +18,38 @@ use handl_platform::{EvalContext, EvalError};
 // ── type requirements ──────────────────────────────────────────────
 
 pub fn require_array(arg: &serde_json::Value) -> Result<&[serde_json::Value], EvalError> {
-    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
+    arg.as_array()
+        .map(Vec::as_slice)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))
 }
 
 pub(crate) fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "function value", "non-function",
+    )))
 }
 
 // ── argument count requirements ────────────────────────────────────
 
 pub fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
-    args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
+    args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))
 }
 
 #[allow(dead_code)]
-pub(crate) fn require_one_array(args: &[serde_json::Value]) -> Result<&[serde_json::Value], EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+pub(crate) fn require_one_array(
+    args: &[serde_json::Value],
+) -> Result<&[serde_json::Value], EvalError> {
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))?;
     require_array(arg)
 }
 
@@ -43,7 +58,11 @@ pub(crate) fn require_two_arrays(
     args: &[serde_json::Value],
 ) -> Result<(&[serde_json::Value], &[serde_json::Value]), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let a = require_array(&args[0])?;
     let b = require_array(&args[1])?;
@@ -54,16 +73,25 @@ pub fn require_function_and_array(
     args: &[serde_json::Value],
 ) -> Result<(FunctionValue, &[serde_json::Value]), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let fn_val = require_function_value(&args[0])?;
     let array = require_array(&args[1])?;
     Ok((fn_val, array))
 }
 
-pub(crate) fn require_functions(args: &[serde_json::Value]) -> Result<Vec<FunctionValue>, EvalError> {
+pub(crate) fn require_functions(
+    args: &[serde_json::Value],
+) -> Result<Vec<FunctionValue>, EvalError> {
     if args.is_empty() {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )));
     }
     args.iter().map(require_function_value).collect()
 }
@@ -116,31 +144,35 @@ fn destructure_pattern(
                 .get("patterns")
                 .and_then(|v| v.as_array())
                 .ok_or(EvalError::Other("invalid array pattern".to_string()))?;
-            let arr = value.as_array().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))?;
+            let arr = value.as_array().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "array", "non-array",
+            )))?;
             for (i, child_pattern) in patterns.iter().enumerate() {
                 let child = arr.get(i).unwrap_or(&JsonValue::Null);
                 destructure_pattern(child_pattern, child, out)?;
             }
         }
         Some("object") => {
-            let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
+            let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "object", "non-object",
+            )))?;
             let entries = pattern
                 .get("entries")
                 .and_then(|v| v.as_array())
                 .ok_or(EvalError::Other("invalid object pattern".to_string()))?;
             for entry in entries {
-                let arr = entry.as_array().ok_or(EvalError::Other(
-                    "invalid object pattern entry".to_string(),
-                ))?;
+                let arr = entry
+                    .as_array()
+                    .ok_or(EvalError::Other("invalid object pattern entry".to_string()))?;
                 let key = arr
                     .get(0)
                     .and_then(|v| v.as_str())
-                    .ok_or(EvalError::Other(
-                        "invalid object pattern key".to_string(),
-                    ))?;
-                let child_pattern = arr.get(1).ok_or(EvalError::Other(
-                    "invalid object pattern entry".to_string(),
-                ))?;
+                    .ok_or(EvalError::Other("invalid object pattern key".to_string()))?;
+                let child_pattern = arr
+                    .get(1)
+                    .ok_or(EvalError::Other("invalid object pattern entry".to_string()))?;
                 let child = obj.get(key).unwrap_or(&JsonValue::Null);
                 destructure_pattern(child_pattern, child, out)?;
             }
@@ -163,7 +195,10 @@ pub(crate) fn bind_function_params(
             if pattern.get("type").is_some() {
                 let mut raw = Vec::new();
                 destructure_pattern(pattern, arg, &mut raw)?;
-                bindings.extend(raw.into_iter().map(|(n, v)| (n, serde_json::Value::from(v))));
+                bindings.extend(
+                    raw.into_iter()
+                        .map(|(n, v)| (n, serde_json::Value::from(v))),
+                );
                 continue;
             }
         }
@@ -264,7 +299,10 @@ pub fn find_extremum_by<'a, T>(
 
 // ── type predicates (mood / type.*) ─────────────────────────────────
 
-pub(crate) fn require_arg_count(args: &[serde_json::Value], expected: usize) -> Result<(), EvalError> {
+pub(crate) fn require_arg_count(
+    args: &[serde_json::Value],
+    expected: usize,
+) -> Result<(), EvalError> {
     if args.len() != expected {
         return Err(EvalError::TypeMismatch(format!(
             "expected {} args, got {}",

@@ -57,8 +57,7 @@ fn bootstrap_cranelift_matches_tree_walk_emitter_language() {
         assert_eq!(
             cl_result, tw_result,
             "bootstrap: case '{}' ({}) — cranelift diverged from tree-walk",
-            case.name,
-            case.source
+            case.name, case.source
         );
         // And both match the expected value.
         assert_eq!(
@@ -84,7 +83,9 @@ fn bootstrap_self_describing_language_binds_to_runtime() {
     use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
     use std::rc::Rc;
     let lang = language();
-    let config = RuntimeConfig::new().with_parse("pratt").with_eval("tree-walk");
+    let config = RuntimeConfig::new()
+        .with_parse("pratt")
+        .with_eval("tree-walk");
     let mut reg = EngineRegistry::new();
     reg.register_parse("pratt", PrattEngine::new());
     reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
@@ -104,8 +105,7 @@ fn bootstrap_self_describing_language_binds_to_runtime() {
         assert_eq!(
             cl_result, rt_result,
             "bootstrap (runtime): case '{}' ({}) — cranelift diverged from runtime tree-walk",
-            case.name,
-            case.source
+            case.name, case.source
         );
     }
 }

@@ -1,23 +1,30 @@
 use std::sync::Arc;
 
-use handl_plugin_lib_encoding::EncodingRegistry;
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_encoding::EncodingRegistry;
 
-fn codec_name(
-    value: &serde_json::Value,
-) -> Result<String, EvalError> {
-    let obj = value
-        .as_object()
-        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "codec object", "non-object",)))?;
+fn codec_name(value: &serde_json::Value) -> Result<String, EvalError> {
+    let obj = value.as_object().ok_or_else(|| {
+        EvalError::TypeMismatch(format!("expected {}, got {}", "codec object", "non-object",))
+    })?;
     let ty = obj.get("type").and_then(|v| v.as_str()).ok_or_else(|| {
-        EvalError::TypeMismatch(format!("expected {}, got {}", "codec object with type", "object without type",))
+        EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "codec object with type", "object without type",
+        ))
     })?;
     if ty != "encoding" {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "type: encoding", "non-encoding",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "type: encoding", "non-encoding",
+        )));
     }
     let name = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-        EvalError::TypeMismatch(format!("expected {}, got {}", "codec object with name", "object without name",))
+        EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "codec object with name", "object without name",
+        ))
     })?;
     Ok(name.to_string())
 }
@@ -82,12 +89,17 @@ impl Function for Encode {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let name = codec_name(&args[1])?;
-        let encoding = self.registry.get(&name).ok_or_else(|| {
-            EvalError::Other(format!("unknown encoding: {name}"))
-        })?;
+        let encoding = self
+            .registry
+            .get(&name)
+            .ok_or_else(|| EvalError::Other(format!("unknown encoding: {name}")))?;
         let output = encoding
             .encode(&args[0])
             .map_err(|e| EvalError::Other(e.to_string()))?;
@@ -106,12 +118,17 @@ impl Function for Decode {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let name = codec_name(&args[1])?;
-        let encoding = self.registry.get(&name).ok_or_else(|| {
-            EvalError::Other(format!("unknown encoding: {name}"))
-        })?;
+        let encoding = self
+            .registry
+            .get(&name)
+            .ok_or_else(|| EvalError::Other(format!("unknown encoding: {name}")))?;
         let output = encoding
             .decode(&args[0])
             .map_err(|e| EvalError::Other(e.to_string()))?;

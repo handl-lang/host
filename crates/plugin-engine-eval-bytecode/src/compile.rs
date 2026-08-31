@@ -84,11 +84,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<(), LangError> 
             }
             out.push(Instr::Call(args.len()));
         }
-        Scheme::Branch {
-            cond,
-            then_,
-            else_,
-        } => {
+        Scheme::Branch { cond, then_, else_ } => {
             compile_into(cond, out)?;
             let jf_pos = out.len();
             out.push(Instr::JumpIfFalse(0)); // placeholder
@@ -252,21 +248,18 @@ mod tests {
             instrs,
             vec![
                 Instr::Load("c".into()), // 0: cond
-                Instr::JumpIfFalse(4),    // 1: jump to else (index 4)
-                Instr::Push(json!(1)),    // 2: then
-                Instr::Jump(5),           // 3: jump to end (index 5)
-                Instr::Push(json!(2)),    // 4: else
-                Instr::Return,            // 5: end
+                Instr::JumpIfFalse(4),   // 1: jump to else (index 4)
+                Instr::Push(json!(1)),   // 2: then
+                Instr::Jump(5),          // 3: jump to end (index 5)
+                Instr::Push(json!(2)),   // 4: else
+                Instr::Return,           // 5: end
             ]
         );
     }
 
     #[test]
     fn compile_prim() {
-        let scheme = Scheme::prim(
-            "add",
-            vec![Scheme::child(0), Scheme::child(1)],
-        );
+        let scheme = Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]);
         let instrs = compile(&scheme, &dummy_node()).unwrap();
         assert_eq!(
             instrs,
@@ -319,15 +312,15 @@ mod tests {
         assert_eq!(
             instrs,
             vec![
-                Instr::EvalChild(0),        // 0: cond
-                Instr::JumpIfFalse(7),       // 1: jump to else (index 7)
-                Instr::EvalChild(1),         // 2: value
-                Instr::Store("x".into()),    // 3: store
-                Instr::Load("x".into()),     // 4: body
-                Instr::PopScope,             // 5: pop scope
-                Instr::Jump(8),              // 6: jump to end (index 8)
-                Instr::Push(json!(0)),       // 7: else
-                Instr::Return,               // 8: end
+                Instr::EvalChild(0),      // 0: cond
+                Instr::JumpIfFalse(7),    // 1: jump to else (index 7)
+                Instr::EvalChild(1),      // 2: value
+                Instr::Store("x".into()), // 3: store
+                Instr::Load("x".into()),  // 4: body
+                Instr::PopScope,          // 5: pop scope
+                Instr::Jump(8),           // 6: jump to end (index 8)
+                Instr::Push(json!(0)),    // 7: else
+                Instr::Return,            // 8: end
             ]
         );
     }
@@ -366,10 +359,7 @@ mod tests {
 
     #[test]
     fn compile_vau() {
-        let scheme = Scheme::vau(
-            vec!["a".into(), "b".into()],
-            Scheme::lit(json!(42)),
-        );
+        let scheme = Scheme::vau(vec!["a".into(), "b".into()], Scheme::lit(json!(42)));
         let instrs = compile(&scheme, &dummy_node()).unwrap();
         assert_eq!(
             instrs,

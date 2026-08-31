@@ -1,5 +1,3 @@
-
-
 use handl_platform::Module;
 
 use super::MathModule;
@@ -96,10 +94,7 @@ fn sign_positive() {
 
 #[test]
 fn sign_negative() {
-    assert_eq!(
-        call(&MathModule, "sign", &[n(-5.0)]).as_f64(),
-        Some(-1.0)
-    );
+    assert_eq!(call(&MathModule, "sign", &[n(-5.0)]).as_f64(), Some(-1.0));
 }
 
 #[test]
@@ -110,10 +105,7 @@ fn sign_zero() {
 #[test]
 fn trunc() {
     assert_eq!(call(&MathModule, "trunc", &[n(3.7)]).as_f64(), Some(3.0));
-    assert_eq!(
-        call(&MathModule, "trunc", &[n(-3.7)]).as_f64(),
-        Some(-3.0)
-    );
+    assert_eq!(call(&MathModule, "trunc", &[n(-3.7)]).as_f64(), Some(-3.0));
 }
 
 #[test]
@@ -149,10 +141,7 @@ fn log() {
 
 #[test]
 fn log10() {
-    assert_eq!(
-        call(&MathModule, "log10", &[n(100.0)]).as_f64(),
-        Some(2.0)
-    );
+    assert_eq!(call(&MathModule, "log10", &[n(100.0)]).as_f64(), Some(2.0));
 }
 
 #[test]
@@ -304,7 +293,10 @@ fn type_mismatch_on_non_number() {
     let result = func.call(&[serde_json::Value::from("not a number")], &mut ctx);
     assert_eq!(
         result,
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number")))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number"
+        )))
     );
 }
 
@@ -315,7 +307,10 @@ fn argument_count_on_missing_args() {
     let result = func.call(&[], &mut ctx);
     assert_eq!(
         result,
-        Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0
+        )))
     );
 }
 
@@ -385,10 +380,7 @@ fn sign_non_number_errors() {
 
 #[test]
 fn sign_negative_edge() {
-    assert_eq!(
-        call(&MathModule, "sign", &[n(-5.0)]).as_f64(),
-        Some(-1.0)
-    );
+    assert_eq!(call(&MathModule, "sign", &[n(-5.0)]).as_f64(), Some(-1.0));
 }
 
 #[test]
@@ -542,10 +534,7 @@ fn cbrt_non_number_errors() {
 
 #[test]
 fn cbrt_negative() {
-    assert_eq!(
-        call(&MathModule, "cbrt", &[n(-27.0)]).as_f64(),
-        Some(-3.0)
-    );
+    assert_eq!(call(&MathModule, "cbrt", &[n(-27.0)]).as_f64(), Some(-3.0));
 }
 
 #[test]
@@ -890,10 +879,7 @@ fn trunc_positive() {
 
 #[test]
 fn trunc_negative() {
-    assert_eq!(
-        call(&MathModule, "trunc", &[n(-2.7)]).as_f64(),
-        Some(-2.0)
-    );
+    assert_eq!(call(&MathModule, "trunc", &[n(-2.7)]).as_f64(), Some(-2.0));
 }
 
 #[test]
@@ -919,18 +905,12 @@ fn mod_op_normal() {
 
 #[test]
 fn degrees_zero() {
-    assert_eq!(
-        call(&MathModule, "degrees", &[n(0.0)]).as_f64(),
-        Some(0.0)
-    );
+    assert_eq!(call(&MathModule, "degrees", &[n(0.0)]).as_f64(), Some(0.0));
 }
 
 #[test]
 fn radians_zero() {
-    assert_eq!(
-        call(&MathModule, "radians", &[n(0.0)]).as_f64(),
-        Some(0.0)
-    );
+    assert_eq!(call(&MathModule, "radians", &[n(0.0)]).as_f64(), Some(0.0));
 }
 
 // ── is_nan / is_finite / is_infinite ───────────────────────────────

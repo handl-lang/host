@@ -19,5 +19,10 @@ handl-plugin-engine-eval-cranelift = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-lex-pattern = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-lib-lang-lex = { workspace = true }
+handl-plugin-lib-lang-parse = { workspace = true }
+handl-plugin-lib-lang-eval = { workspace = true }
+handl-plugin-lib-lang-compile = { workspace = true }
+handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-test-utils = { workspace = true }

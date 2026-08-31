@@ -48,8 +48,8 @@ use std::path::PathBuf;
 use handl_emitters::Emitter;
 use handl_language::{Fragment, LangError, Language};
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
-use std::rc::Rc;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 /// A resolved source of `Language` fragments (runtime form).
 ///
@@ -233,11 +233,7 @@ impl EmitterRegistry {
     ///
     /// The constructor is called each time the emitter is resolved, producing
     /// a fresh `Box<dyn Emitter>`.
-    pub fn register_emitter(
-        &mut self,
-        name: &str,
-        ctor: impl Fn() -> Box<dyn Emitter> + 'static,
-    ) {
+    pub fn register_emitter(&mut self, name: &str, ctor: impl Fn() -> Box<dyn Emitter> + 'static) {
         self.emitters.insert(name.to_string(), Box::new(ctor));
     }
 
@@ -266,21 +262,13 @@ impl EmitterRegistry {
     ///
     /// Returns [`LangError::Engine`] if an emitter name is not registered
     /// (surfaced as a clear config-style error).
-    pub fn resolve_source(
-        &self,
-        serde: &FragmentSourceSerde,
-    ) -> Result<FragmentSource, LangError> {
+    pub fn resolve_source(&self, serde: &FragmentSourceSerde) -> Result<FragmentSource, LangError> {
         match serde {
-            FragmentSourceSerde::Emitter(name) => {
-                self.resolve_emitter(name)
-                    .map(FragmentSource::Emitter)
-                    .ok_or_else(|| {
-                        LangError::Engine(format!("unknown emitter: {}", name))
-                    })
-            }
-            FragmentSourceSerde::DataFile(path) => {
-                Ok(FragmentSource::DataFile(path.clone()))
-            }
+            FragmentSourceSerde::Emitter(name) => self
+                .resolve_emitter(name)
+                .map(FragmentSource::Emitter)
+                .ok_or_else(|| LangError::Engine(format!("unknown emitter: {}", name))),
+            FragmentSourceSerde::DataFile(path) => Ok(FragmentSource::DataFile(path.clone())),
         }
     }
 }
@@ -345,9 +333,9 @@ impl DataKit {
         // 1. Resolve the `extends` chain: assemble the parent first (one level
         //    supported in Phase 5).
         let mut lang = if let Some(parent_name) = &manifest.extends {
-            let parent_manifest = registry.resolve_kit(parent_name).ok_or_else(|| {
-                LangError::Engine(format!("unknown parent kit: {}", parent_name))
-            })?;
+            let parent_manifest = registry
+                .resolve_kit(parent_name)
+                .ok_or_else(|| LangError::Engine(format!("unknown parent kit: {}", parent_name)))?;
             let parent = DataKit::assemble(parent_manifest, registry)?;
             parent.lang
         } else {

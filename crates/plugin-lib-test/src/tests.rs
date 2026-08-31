@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use handl_platform::{EvalContext, EvalError, Module};
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 
 use crate::function_value::FunctionValue;
 use crate::test_helpers::{ErrorEval, TrueEval};
@@ -49,11 +49,7 @@ fn fn_value(body: &str, params: &[&str]) -> Value {
     value.to_json()
 }
 
-fn call(
-    module: &dyn Module,
-    name: &str,
-    args: &[Value],
-) -> Value {
+fn call(module: &dyn Module, name: &str, args: &[Value]) -> Value {
     module
         .function(name)
         .expect("function exists")

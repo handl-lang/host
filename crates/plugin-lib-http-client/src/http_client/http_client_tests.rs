@@ -1,6 +1,6 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
+use handl_platform::Module;
 
 use super::http_client::{HttpClientModule, HttpResponse};
 use super::http_client_stub::StubHttpClient;

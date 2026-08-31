@@ -29,7 +29,7 @@ use std::os::raw::{c_char, c_void};
 use handl_language::{Ast, LangError, Value};
 
 use crate::compile::CompiledFn;
-use crate::{take_value, EvalCtx};
+use crate::{EvalCtx, take_value};
 
 /// Opaque standalone context.
 ///
@@ -84,7 +84,14 @@ pub extern "C" fn handl_standalone_init(
     fn_indices: *const u64,
     n_fns: usize,
 ) -> *mut c_void {
-    match standalone_init_inner(ast_json, literals_json, names_json, fn_ptrs, fn_indices, n_fns) {
+    match standalone_init_inner(
+        ast_json,
+        literals_json,
+        names_json,
+        fn_ptrs,
+        fn_indices,
+        n_fns,
+    ) {
         Ok(ctx) => Box::into_raw(Box::new(ctx)) as *mut c_void,
         Err(e) => {
             eprintln!("handl_standalone_init error: {}", e);
@@ -130,9 +137,7 @@ fn standalone_init_inner(
         let idx = unsafe { *fn_indices.add(i) } as usize;
         // SAFETY: the caller guarantees ptr is the address of a node_N
         // function with signature fn(*mut u8) -> *mut u8.
-        let fn_ptr = unsafe {
-            std::mem::transmute::<*const c_void, CompiledFn>(ptr)
-        };
+        let fn_ptr = unsafe { std::mem::transmute::<*const c_void, CompiledFn>(ptr) };
         compiled.insert(idx, fn_ptr);
     }
 
@@ -187,24 +192,24 @@ fn standalone_run_inner(
     let ctx = &mut standalone.ctx;
 
     // Look up the root function.
-    let root_fn = ctx
-        .compiled
-        .get(&root_idx)
-        .copied()
-        .ok_or_else(|| LangError::Engine(format!("no compiled function for root {}", root_idx)))?;
+    let root_fn =
+        ctx.compiled.get(&root_idx).copied().ok_or_else(|| {
+            LangError::Engine(format!("no compiled function for root {}", root_idx))
+        })?;
 
     // Set current_ref to the root (matches run_native).
     ctx.current_ref = root_idx;
 
     // Call the root native function.
-    let result_ptr: *mut Value =
-        unsafe { root_fn(ctx as *mut EvalCtx as *mut u8) as *mut Value };
+    let result_ptr: *mut Value = unsafe { root_fn(ctx as *mut EvalCtx as *mut u8) as *mut Value };
 
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {
         // Reclaim the result pointer if non-null (avoid leak).
         if !result_ptr.is_null() {
-            unsafe { let _ = take_value(result_ptr); }
+            unsafe {
+                let _ = take_value(result_ptr);
+            }
         }
         return Err(err);
     }
@@ -231,7 +236,9 @@ fn standalone_run_inner(
 pub extern "C" fn handl_standalone_free_string(ptr: *mut c_char) {
     if !ptr.is_null() {
         // SAFETY: caller guarantees ptr was returned by CString::into_raw.
-        unsafe { let _ = CString::from_raw(ptr); }
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
     }
 }
 
@@ -246,7 +253,9 @@ pub extern "C" fn handl_standalone_free_string(ptr: *mut c_char) {
 pub extern "C" fn handl_standalone_destroy(ctx: *mut c_void) {
     if !ctx.is_null() {
         // SAFETY: caller guarantees ctx is a valid StandaloneCtx pointer.
-        unsafe { let _ = Box::from_raw(ctx as *mut StandaloneCtx); }
+        unsafe {
+            let _ = Box::from_raw(ctx as *mut StandaloneCtx);
+        }
     }
 }
 
@@ -371,10 +380,7 @@ pub(crate) fn generate_c_driver(
     }
     c.push_str(" };\n");
 
-    c.push_str(&format!(
-        "    size_t n_fns = {};\n",
-        indices.len()
-    ));
+    c.push_str(&format!("    size_t n_fns = {};\n", indices.len()));
     c.push_str(&format!("    uint64_t root_idx = {}ULL;\n\n", root_idx));
 
     c.push_str("    void* ctx = handl_standalone_init(\n");
@@ -443,7 +449,9 @@ pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
         .status()
         .map_err(|e| LangError::Engine(format!("cargo build failed: {}", e)))?;
     if !build_status.success() {
-        return Err(LangError::Engine("cargo build for staticlib failed".to_string()));
+        return Err(LangError::Engine(
+            "cargo build for staticlib failed".to_string(),
+        ));
     }
 
     // Try again.
@@ -531,7 +539,8 @@ pub(crate) fn compile_to_executable(
     // "null".
     if ast.is_empty() {
         let main_c_path = output_path.with_extension("c");
-        let driver = "/* empty AST */\n#include <stdio.h>\nint main(void){printf(\"null\\n\");return 0;}\n";
+        let driver =
+            "/* empty AST */\n#include <stdio.h>\nint main(void){printf(\"null\\n\");return 0;}\n";
         std::fs::write(&main_c_path, driver)
             .map_err(|e| LangError::Engine(format!("write main.c: {}", e)))?;
         let result = Command::new("cc")

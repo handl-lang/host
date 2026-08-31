@@ -5,10 +5,10 @@ use handl_platform::{
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_lib_os::{
-    CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule,
-    TimeModule, TmpModule,
+    CmdModule, EnvModule, FsModule, PathModule, ProcessModule, SigModule, SocketModule, TimeModule,
+    TmpModule,
 };
-use handl_plugin_module::{ModuleRuntime, ModuleRule};
+use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 use crate::{StdCmd, StdEnv, StdFs, StdPath, StdProcess, StdSig, StdSocket, StdTime, StdTmp};
 
@@ -39,13 +39,11 @@ impl Plugin for LibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(PathModule::new(StdPath)))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TimeModule::new(StdTime)))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(CmdModule::new(StdCmd)))?;
-        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ProcessModule::new(
-            StdProcess::default(),
-        )))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(
+            ProcessModule::new(StdProcess::default()),
+        ))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TmpModule::new(StdTmp)))?;
-        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SocketModule::new(
-            StdSocket::default(),
-        )))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SocketModule::new(StdSocket::default())))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(SigModule::new(StdSig)))?;
         Ok(())
     }

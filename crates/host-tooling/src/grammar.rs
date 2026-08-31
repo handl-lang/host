@@ -106,7 +106,11 @@ impl GrammarCapture {
 ///
 /// Rules are already sorted by priority (lower = earlier in patterns).
 /// The output is a `.tmLanguage.json`-compatible JSON value.
-pub fn generate_textmate(rules: &[GrammarRule], scope_name: &str, file_extensions: &[String]) -> Value {
+pub fn generate_textmate(
+    rules: &[GrammarRule],
+    scope_name: &str,
+    file_extensions: &[String],
+) -> Value {
     let _ = file_extensions;
     let mut repository = Map::new();
     let mut patterns: Vec<Value> = Vec::new();

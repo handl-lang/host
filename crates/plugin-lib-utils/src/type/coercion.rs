@@ -1,8 +1,10 @@
-
 use handl_platform::{EvalContext, EvalError, Function};
 
 fn require_one_arg(args: &[serde_json::Value]) -> Result<&serde_json::Value, EvalError> {
-    args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))
+    args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))
 }
 
 fn number_to_string(n: f64) -> String {

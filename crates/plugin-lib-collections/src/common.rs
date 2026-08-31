@@ -5,14 +5,28 @@ pub(super) fn require_array(
     args: &[serde_json::Value],
     idx: usize,
 ) -> Result<&[serde_json::Value], EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_array()
+        .map(Vec::as_slice)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))
 }
 
 /// Require a single array argument.
-pub(super) fn require_one_array(args: &[serde_json::Value]) -> Result<&[serde_json::Value], EvalError> {
+pub(super) fn require_one_array(
+    args: &[serde_json::Value],
+) -> Result<&[serde_json::Value], EvalError> {
     if args.is_empty() {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )));
     }
     require_array(args, 0)
 }
@@ -22,8 +36,15 @@ pub(super) fn require_object(
     args: &[serde_json::Value],
     idx: usize,
 ) -> Result<&serde_json::Map<String, serde_json::Value>, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "object", "non-object",
+    )))
 }
 
 /// Require two array arguments.
@@ -31,7 +52,11 @@ pub(super) fn require_two_arrays(
     args: &[serde_json::Value],
 ) -> Result<(&[serde_json::Value], &[serde_json::Value]), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     Ok((require_array(args, 0)?, require_array(args, 1)?))
 }
@@ -41,7 +66,10 @@ pub(super) fn require_one_object(
     args: &[serde_json::Value],
 ) -> Result<&serde_json::Map<String, serde_json::Value>, EvalError> {
     if args.is_empty() {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )));
     }
     require_object(args, 0)
 }

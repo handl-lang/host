@@ -29,11 +29,7 @@ impl Module for BenchmarkModule {
 #[derive(Clone, Copy)]
 struct Run;
 impl Function for Run {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {
             return Err(TestError::ArgumentCount {
                 expected: 2,
@@ -53,10 +49,7 @@ impl Function for Run {
 
         let bench_args: Vec<Value> = if args.len() >= 3 {
             match args[2].as_array() {
-                Some(arr) => arr
-                    .iter()
-                    .map(|v| json!(v.clone()))
-                    .collect(),
+                Some(arr) => arr.iter().map(|v| json!(v.clone())).collect(),
                 None => {
                     return Err(TestError::TypeMismatch {
                         expected: "array",
@@ -85,9 +78,7 @@ impl Function for Run {
             ),
             (
                 "result",
-                last_result
-                    .map(|v| v)
-                    .unwrap_or(serde_json::Value::Null),
+                last_result.map(|v| v).unwrap_or(serde_json::Value::Null),
             ),
         ]))
     }

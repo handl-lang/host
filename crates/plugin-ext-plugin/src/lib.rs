@@ -305,8 +305,8 @@ mod tests {
 
     #[test]
     fn add_with_path_delegates_to_load() {
-        use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
         use handl_platform::RuleAcceptor;
+        use handl_plugin_load::{LoaderHostPlugin, LoaderRule, PluginLoader};
 
         struct MockLoader;
         impl PluginLoader for MockLoader {

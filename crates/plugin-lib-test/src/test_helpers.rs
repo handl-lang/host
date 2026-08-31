@@ -5,11 +5,7 @@ use serde_json::Value;
 pub struct TrueEval;
 
 impl ExprEvaluator for TrueEval {
-    fn eval_expr(
-        &self,
-        _expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
         Ok(Value::Bool(true))
     }
 }
@@ -18,11 +14,7 @@ impl ExprEvaluator for TrueEval {
 pub struct ErrorEval;
 
 impl ExprEvaluator for ErrorEval {
-    fn eval_expr(
-        &self,
-        _expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
         Err(EvalError::Other("eval error".to_string()))
     }
 }
@@ -31,11 +23,7 @@ impl ExprEvaluator for ErrorEval {
 pub struct VarEval;
 
 impl ExprEvaluator for VarEval {
-    fn eval_expr(
-        &self,
-        _expr: &str,
-        vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, _expr: &str, vars: &[(String, Value)]) -> Result<Value, EvalError> {
         Ok(vars
             .first()
             .map(|(_, v)| v.clone())

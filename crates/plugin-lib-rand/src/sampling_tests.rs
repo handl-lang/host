@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 // ── rand.pick ────────────────────────────────────────────────────
 
@@ -26,10 +26,7 @@ fn pick_empty_array_errors() {
 #[test]
 fn pick_no_args_errors() {
     let result = call_err("pick", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.choice ─────────────────────────────────────────────────
@@ -80,10 +77,7 @@ fn choice_negative_count_errors() {
 #[test]
 fn choice_no_args_errors() {
     let result = call_err("choice", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.sample ──────────────────────────────────────────────────

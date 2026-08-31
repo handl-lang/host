@@ -7,6 +7,8 @@ mod protocol;
 mod symbols;
 
 #[cfg(test)]
+mod cancellation_tests;
+#[cfg(test)]
 mod completion_tests;
 #[cfg(test)]
 mod diagnostics_tests;
@@ -20,8 +22,6 @@ mod hover_tests;
 mod protocol_tests;
 #[cfg(test)]
 mod symbols_tests;
-#[cfg(test)]
-mod cancellation_tests;
 
 use std::collections::HashSet;
 use std::io::{self, BufRead};
@@ -136,7 +136,8 @@ fn main() {
                         for change in changes {
                             if let Some(text) = change.get("text").and_then(|t| t.as_str()) {
                                 if let Some(range) = change.get("range") {
-                                    let current = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
+                                    let current =
+                                        store.get(uri).map(|s| s.to_string()).unwrap_or_default();
                                     let start = position_from(range.get("start"), &current);
                                     let end = position_from(range.get("end"), &current);
                                     let _ = store.apply_incremental(

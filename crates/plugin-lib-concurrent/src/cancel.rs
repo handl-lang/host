@@ -9,13 +9,13 @@
 //! `Arc<dyn CancelRuntime + Send + Sync>`.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::rc::Rc;
 
+use crate::function_value::FunctionValue;
 use handl_platform::{EvalContext, EvalError, ExprEvaluator};
 use serde_json::Value;
-use crate::function_value::FunctionValue;
 use serde_json::json;
 
 /// A replaceable backend for the cancellation primitives:
@@ -173,11 +173,7 @@ pub struct CancelableEval {
 }
 
 impl ExprEvaluator for CancelableEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, expr: &str, vars: &[(String, Value)]) -> Result<Value, EvalError> {
         if self.flag.load(Ordering::SeqCst) {
             return Err(EvalError::Other("cancelled".to_string()));
         }
@@ -187,10 +183,7 @@ impl ExprEvaluator for CancelableEval {
 
 impl CancelableEval {
     /// Creates a new `CancelableEval` that aborts when `flag` is `true`.
-    pub fn new(
-        inner: Rc<dyn ExprEvaluator>,
-        flag: Arc<AtomicBool>,
-    ) -> Self {
+    pub fn new(inner: Rc<dyn ExprEvaluator>, flag: Arc<AtomicBool>) -> Self {
         Self { inner, flag }
     }
 }
@@ -200,8 +193,8 @@ mod tests {
     use super::*;
     use handl_platform::EvalContext;
     use serde_json::json;
-    use std::sync::{Arc, Mutex};
     use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     #[derive(Clone, Default)]
     struct MockEval {
@@ -209,11 +202,7 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
             Ok(serde_json::json!(json!({ "body": expr })))
         }
@@ -258,11 +247,7 @@ mod tests {
     struct PanicEval;
 
     impl ExprEvaluator for PanicEval {
-        fn eval_expr(
-            &self,
-            _expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             panic!("inner eval should not be called");
         }
     }
@@ -273,11 +258,7 @@ mod tests {
     }
 
     impl ExprEvaluator for SeqMockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             let mut calls = self.calls.lock().unwrap();
             calls.push(expr.to_string());
             let call = calls.len();

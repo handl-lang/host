@@ -28,8 +28,8 @@ pub use format_parse::{Format, Parse};
 pub use timezone::{ToTimezone, ToUtc};
 pub use validate::IsValid;
 
-use handl_platform::Module;
 use handl_platform::Function;
+use handl_platform::Module;
 
 /// The `datetime` module — date and time utility functions.
 ///

@@ -3,11 +3,11 @@
 //! Provides real TCP/TLS WebSocket clients and servers plus the frame and
 //! message helpers from `handl-lib-ws-rfc`.
 
+use crate::function_value::FunctionValue;
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
-use handl_plugin_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use crate::function_value::FunctionValue;
+use handl_plugin_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
 use serde_json::Value;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -142,23 +142,35 @@ impl Module for WsRfcNativeModule {
 }
 
 fn require_string_at(args: &[Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::Other(format!("expected idx + 1 arguments, got {}", args.len())))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected string, got non-string")))
+    let arg = args.get(idx).ok_or(EvalError::Other(format!(
+        "expected idx + 1 arguments, got {}",
+        args.len()
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected string, got non-string"
+    )))
 }
 
 fn require_value_at(args: &[Value], idx: usize) -> Result<&Value, EvalError> {
-    args.get(idx).ok_or(EvalError::Other(format!("expected idx + 1 arguments, got {}", args.len())))
+    args.get(idx).ok_or(EvalError::Other(format!(
+        "expected idx + 1 arguments, got {}",
+        args.len()
+    )))
 }
 
 fn parse_id(value: &Value, key: &str) -> Result<usize, EvalError> {
     if let Some(n) = value.as_f64() {
         return Ok(n as usize);
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected number or object, got non-number non-object")))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected number or object, got non-number non-object"
+    )))?;
     let id = obj
         .get(key)
         .ok_or_else(|| EvalError::Other(format!("missing {key}")))?;
-    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!("expected number, got non-number")))?;
+    let n = id.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected number, got non-number"
+    )))?;
     Ok(n as usize)
 }
 
@@ -193,7 +205,9 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalErro
     if let Some(text) = value.as_str() {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
-    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!("expected string or object, got non-string non-object")))?;
+    let obj = value.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected string or object, got non-string non-object"
+    )))?;
     if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
         return Ok(TungsteniteMessage::Text(text.to_string()));
     }
@@ -219,12 +233,18 @@ fn json_to_tungstenite(value: &JsonValue) -> Result<TungsteniteMessage, EvalErro
         if close.is_null() {
             return Ok(TungsteniteMessage::Close(None));
         }
-        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!("expected object, got non-object")))?;
-        let code = close_obj
-            .get("code")
-            .and_then(|v| v.as_u64())
-            .ok_or(EvalError::TypeMismatch(format!("expected u16, got non-number")))?;
-        let code = u16::try_from(code).map_err(|_| EvalError::TypeMismatch(format!("expected u16, got out of range")))?;
+        let close_obj = close.as_object().ok_or(EvalError::TypeMismatch(format!(
+            "expected object, got non-object"
+        )))?;
+        let code =
+            close_obj
+                .get("code")
+                .and_then(|v| v.as_u64())
+                .ok_or(EvalError::TypeMismatch(format!(
+                    "expected u16, got non-number"
+                )))?;
+        let code = u16::try_from(code)
+            .map_err(|_| EvalError::TypeMismatch(format!("expected u16, got out of range")))?;
         let reason = close_obj
             .get("reason")
             .and_then(|v| v.as_str())
@@ -245,8 +265,7 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, EvalError> {
     if let Ok(sa) = addr.parse::<SocketAddr>() {
         return Ok(sa);
     }
-    let url =
-        url::Url::parse(addr).map_err(|e| EvalError::Other(format!("url parse: {e}")))?;
+    let url = url::Url::parse(addr).map_err(|e| EvalError::Other(format!("url parse: {e}")))?;
     let host = url
         .host_str()
         .ok_or(EvalError::Other("missing host".to_string()))?;
@@ -262,9 +281,7 @@ fn socket_addr(addr: &str) -> Result<SocketAddr, EvalError> {
         .to_socket_addrs()
         .map_err(|e| EvalError::Other(format!("dns lookup: {e}")))?
         .next()
-        .ok_or(EvalError::Other(
-            "could not resolve address".to_string(),
-        ))?;
+        .ok_or(EvalError::Other("could not resolve address".to_string()))?;
     Ok(ip)
 }
 
@@ -299,13 +316,12 @@ struct ClientNew;
 
 #[cfg(feature = "client")]
 impl Function for ClientNew {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 0 arguments, got {}",
+                args.len()
+            )));
         }
 
         let inner = inner();
@@ -336,13 +352,12 @@ struct ClientConnect;
 
 #[cfg(feature = "client")]
 impl Function for ClientConnect {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 2 arguments, got {}",
+                args.len()
+            )));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -382,9 +397,9 @@ impl Function for ClientConnect {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let mut clients = guard.clients.lock().unwrap();
-        let client = clients.get_mut(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket client: {id}"
-        )))?;
+        let client = clients
+            .get_mut(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
         client.url = url_string;
         client.tx = cmd_tx;
         client.rx = Arc::new(Mutex::new(std_rx));
@@ -399,13 +414,12 @@ struct ClientSend;
 
 #[cfg(feature = "client")]
 impl Function for ClientSend {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 2 arguments, got {}",
+                args.len()
+            )));
         }
 
         let id = parse_id(&args[0], "client_id")?;
@@ -414,9 +428,9 @@ impl Function for ClientSend {
         let inner = inner();
         let guard = inner.lock().unwrap();
         let clients = guard.clients.lock().unwrap();
-        let client = clients.get(&id).ok_or(EvalError::Other(format!(
-            "unknown websocket client: {id}"
-        )))?;
+        let client = clients
+            .get(&id)
+            .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
         client
             .tx
             .send(msg)
@@ -432,11 +446,7 @@ struct ClientRecv;
 
 #[cfg(feature = "client")]
 impl Function for ClientRecv {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
         let timeout = args.get(1).and_then(|v| v.as_f64());
 
@@ -444,21 +454,16 @@ impl Function for ClientRecv {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let clients = guard.clients.lock().unwrap();
-            let client = clients.get(&id).ok_or(EvalError::Other(format!(
-                "unknown websocket client: {id}"
-            )))?;
+            let client = clients
+                .get(&id)
+                .ok_or(EvalError::Other(format!("unknown websocket client: {id}")))?;
             client.rx.clone()
         };
 
         let rx = rx.lock().unwrap();
         let value = match timeout {
-            None => rx
-                .recv()
-                .ok()
-                .unwrap_or_else(|| Value::Null),
-            Some(t) if t <= 0.0 => rx
-                .try_recv()
-                .unwrap_or_else(|_| Value::Null),
+            None => rx.recv().ok().unwrap_or_else(|| Value::Null),
+            Some(t) if t <= 0.0 => rx.try_recv().unwrap_or_else(|_| Value::Null),
             Some(t) => match rx.recv_timeout(std::time::Duration::from_secs_f64(t)) {
                 Ok(v) => v,
                 Err(_) => Value::Null,
@@ -474,11 +479,7 @@ struct ClientClose;
 
 #[cfg(feature = "client")]
 impl Function for ClientClose {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "client_id")?;
 
         let inner = inner();
@@ -498,13 +499,12 @@ struct ServerNew;
 
 #[cfg(feature = "server")]
 impl Function for ServerNew {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 0 arguments, got {}",
+                args.len()
+            )));
         }
 
         let inner = inner();
@@ -539,23 +539,26 @@ struct ServerListen;
 
 #[cfg(feature = "server")]
 impl Function for ServerListen {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::Other(format!("expected 3 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 3 arguments, got {}",
+                args.len()
+            )));
         }
 
         let id = parse_id(&args[0], "server_id")?;
         let addr = require_string_at(args, 1)?;
-        let handler = FunctionValue::from_json(&args[2]).ok_or(EvalError::TypeMismatch(format!("expected function, got non-function")))?;
+        let handler = FunctionValue::from_json(&args[2]).ok_or(EvalError::TypeMismatch(
+            format!("expected function, got non-function"),
+        ))?;
         let is_wss = addr.starts_with("wss://");
         let bind_addr = socket_addr(addr)?;
 
         let (tls, max_connections) = if let Some(arg) = args.get(3) {
-            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected object, got non-object")))?;
+            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected object, got non-object"
+            )))?;
             let cert = obj.get("cert").and_then(|v| v.as_str());
             let key = obj.get("key").and_then(|v| v.as_str());
             let tls = match (cert, key, is_wss) {
@@ -594,9 +597,9 @@ impl Function for ServerListen {
             let inner = inner();
             let guard = inner.lock().unwrap();
             let mut servers = guard.servers.lock().unwrap();
-            let server = servers.get_mut(&id).ok_or(EvalError::Other(format!(
-                "unknown websocket server: {id}"
-            )))?;
+            let server = servers
+                .get_mut(&id)
+                .ok_or(EvalError::Other(format!("unknown websocket server: {id}")))?;
             server.handler = Some(handler);
             server.tls = tls.clone();
             server.max_connections = max_connections;
@@ -663,11 +666,7 @@ struct ServerStop;
 
 #[cfg(feature = "server")]
 impl Function for ServerStop {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let id = parse_id(require_value_at(args, 0)?, "server_id")?;
 
         let inner = inner();
@@ -723,7 +722,7 @@ async fn run_server(
                     };
                     let std_tx = std_tx.clone();
                     let handler = handler.clone();
-                    
+
                     let next_conn_id = next_conn_id.clone();
                     if let Some(acceptor) = acceptor.clone() {
                         match acceptor.accept(stream).await {
@@ -851,11 +850,7 @@ mod tests {
             .function("listen")
             .unwrap()
             .call(
-                &[
-                    server_id.clone(),
-                    serde_json::json!("127.0.0.1:0"),
-                    handler,
-                ],
+                &[server_id.clone(), serde_json::json!("127.0.0.1:0"), handler],
                 &mut ctx,
             )
             .unwrap();
@@ -869,13 +864,7 @@ mod tests {
 
         m.function("send")
             .unwrap()
-            .call(
-                &[
-                    client.clone(),
-                    serde_json::json!("hello"),
-                ],
-                &mut ctx,
-            )
+            .call(&[client.clone(), serde_json::json!("hello")], &mut ctx)
             .unwrap();
 
         let msg = m
@@ -948,11 +937,7 @@ mod tests {
         });
 
         let result = m.function("listen").unwrap().call(
-            &[
-                server_id,
-                serde_json::json!("not-an-address"),
-                handler,
-            ],
+            &[server_id, serde_json::json!("not-an-address"), handler],
             &mut ctx,
         );
 
@@ -978,11 +963,7 @@ mod tests {
             .function("listen")
             .unwrap()
             .call(
-                &[
-                    server_id.clone(),
-                    serde_json::json!("127.0.0.1:0"),
-                    handler,
-                ],
+                &[server_id.clone(), serde_json::json!("127.0.0.1:0"), handler],
                 &mut ctx,
             )
             .unwrap();
@@ -997,10 +978,7 @@ mod tests {
         m.function("send")
             .unwrap()
             .call(
-                &[
-                    client.clone(),
-                    serde_json::json!({"binary": payload}),
-                ],
+                &[client.clone(), serde_json::json!({"binary": payload})],
                 &mut ctx,
             )
             .unwrap();
@@ -1031,13 +1009,10 @@ mod tests {
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
-        let result = m.function("connect").unwrap().call(
-            &[
-                client,
-                serde_json::json!("ws://127.0.0.1:1"),
-            ],
-            &mut ctx,
-        );
+        let result = m
+            .function("connect")
+            .unwrap()
+            .call(&[client, serde_json::json!("ws://127.0.0.1:1")], &mut ctx);
 
         assert!(result.is_err());
     }
@@ -1054,10 +1029,7 @@ mod tests {
         let msg = m
             .function("recv")
             .unwrap()
-            .call(
-                &[client, serde_json::json!(0)],
-                &mut ctx,
-            )
+            .call(&[client, serde_json::json!(0)], &mut ctx)
             .unwrap();
 
         assert!(msg.is_null());
@@ -1105,7 +1077,6 @@ mod tests {
                 &mut ctx,
             )
             .unwrap()
-            
             .as_str()
             .unwrap()
             .to_string();
@@ -1203,13 +1174,10 @@ mod tests {
         let m = WsRfcNativeModule;
 
         let client = m.function("client").unwrap().call(&[], &mut ctx).unwrap();
-        let result = m.function("connect").unwrap().call(
-            &[
-                client,
-                serde_json::json!("not-a-url"),
-            ],
-            &mut ctx,
-        );
+        let result = m
+            .function("connect")
+            .unwrap()
+            .call(&[client, serde_json::json!("not-a-url")], &mut ctx);
 
         assert!(result.is_err());
     }
@@ -1241,10 +1209,10 @@ mod tests {
         let mut ctx = EvalContext::new();
         let m = WsRfcNativeModule;
 
-        let result = m.function("recv").unwrap().call(
-            &[serde_json::json!({"client_id": 99999})],
-            &mut ctx,
-        );
+        let result = m
+            .function("recv")
+            .unwrap()
+            .call(&[serde_json::json!({"client_id": 99999})], &mut ctx);
 
         assert!(result.is_err());
     }
@@ -1276,11 +1244,7 @@ mod tests {
         });
 
         let result = m.function("listen").unwrap().call(
-            &[
-                server_id,
-                serde_json::json!("wss://127.0.0.1:0"),
-                handler,
-            ],
+            &[server_id, serde_json::json!("wss://127.0.0.1:0"), handler],
             &mut ctx,
         );
 

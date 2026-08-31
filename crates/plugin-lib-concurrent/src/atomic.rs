@@ -27,20 +27,11 @@ pub trait AtomicRuntime {
     fn atomic_read(&self, r: Value) -> Result<Value, EvalError>;
 
     /// Writes `value` to an atomic cell and returns the previous value.
-    fn atomic_write(
-        &self,
-        r: Value,
-        value: Value,
-    ) -> Result<Value, EvalError>;
+    fn atomic_write(&self, r: Value, value: Value) -> Result<Value, EvalError>;
 
     /// Compares-and-swaps `new` into the cell if it currently equals `expected`.
     /// Returns a JSON boolean (`true` for success, `false` for failure).
-    fn atomic_cas(
-        &self,
-        r: Value,
-        expected: Value,
-        new: Value,
-    ) -> Result<Value, EvalError>;
+    fn atomic_cas(&self, r: Value, expected: Value, new: Value) -> Result<Value, EvalError>;
 }
 
 fn resource_value(kind: &str, id: u64) -> Value {
@@ -108,11 +99,7 @@ impl AtomicRuntime for DefaultAtomicRuntime {
             .ok_or_else(|| EvalError::Other(format!("atomic {id} not found")))
     }
 
-    fn atomic_write(
-        &self,
-        r: Value,
-        value: Value,
-    ) -> Result<Value, EvalError> {
+    fn atomic_write(&self, r: Value, value: Value) -> Result<Value, EvalError> {
         let id = resource_id(&r, "atomic")?;
         let mut cells = self.cells.lock().map_err(poison)?;
         let old = cells.get(&id).cloned().unwrap_or_default();
@@ -120,12 +107,7 @@ impl AtomicRuntime for DefaultAtomicRuntime {
         Ok(old)
     }
 
-    fn atomic_cas(
-        &self,
-        r: Value,
-        expected: Value,
-        new: Value,
-    ) -> Result<Value, EvalError> {
+    fn atomic_cas(&self, r: Value, expected: Value, new: Value) -> Result<Value, EvalError> {
         let id = resource_id(&r, "atomic")?;
         let mut cells = self.cells.lock().map_err(poison)?;
         let entry = cells
@@ -181,11 +163,7 @@ mod tests {
         );
 
         let failed = a
-            .atomic_cas(
-                r,
-                serde_json::json!(json!(42)),
-                serde_json::json!(json!(9)),
-            )
+            .atomic_cas(r, serde_json::json!(json!(42)), serde_json::json!(json!(9)))
             .unwrap();
         assert_eq!(failed, serde_json::json!(json!(false)));
     }

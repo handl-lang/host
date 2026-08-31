@@ -3,13 +3,13 @@
 //! Re-exports the public APIs of `handl-plugin-typecheck-nbe` and `handl-kit-type-schema-json`,
 //! plus a convenience `typecheck_schema` entry point.
 
-pub use handl_plugin_typecheck_nbe;
 pub use handl_kit_type_schema_json;
+pub use handl_plugin_typecheck_nbe;
 
-pub use handl_plugin_typecheck_nbe::*;
 pub use handl_kit_type_schema_json::{
     AliasEntry, AliasTable, SchemaError, SchemaInterpreter, default_tctx, interpret,
 };
+pub use handl_plugin_typecheck_nbe::*;
 
 /// Re-export the prelude environment and typing context constructors.
 pub use handl_plugin_typecheck_nbe::primitives::{prelude_env, prelude_tctx};

@@ -1,5 +1,5 @@
 use super::OsError;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 #[test]
 fn not_found_display() {

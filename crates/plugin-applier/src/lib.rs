@@ -188,7 +188,7 @@ impl Plugin for BootstrapPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_platform::{DefaultHost, CallableLookup};
+    use handl_platform::{CallableLookup, DefaultHost};
     use handl_plugin_load::LoaderHostPlugin;
     use std::fs;
 

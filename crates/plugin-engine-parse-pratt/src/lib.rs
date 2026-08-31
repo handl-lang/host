@@ -135,10 +135,7 @@ impl ParserEngine for PrattEngine {
         // Drive the Pratt loop from a local cursor. We do not use
         // ParserContext here because the engine owns the recursion; the
         // context is for external callers. We call expression directly.
-        let mut cursor = Cursor {
-            tokens,
-            pos: 0,
-        };
+        let mut cursor = Cursor { tokens, pos: 0 };
         let _root = self.expression_inner(lang, &mut cursor, 0)?;
 
         // Return the built arena. Root = last node pushed.
@@ -184,9 +181,7 @@ impl<'a> Cursor<'a> {
                 self.pos += 1;
                 Ok(t.clone())
             }
-            None => Err(LangError::Engine(
-                "unexpected end of input".to_string(),
-            )),
+            None => Err(LangError::Engine("unexpected end of input".to_string())),
         }
     }
 }
@@ -300,10 +295,14 @@ impl PrattEngine {
                                     // Parse `key : value` pair → entry node.
                                     // Key is parsed with rbp above `:` infix lbp so
                                     // the colon is left for this loop.
-                                    let key_rbp = Self::lookup_row(lang, "token.colon", GrammarPosition::Infix)
-                                        .and_then(|r| r.binding_power.map(|(l, _)| l))
-                                        .map(|lbp| lbp.saturating_add(1))
-                                        .unwrap_or(u8::MAX);
+                                    let key_rbp = Self::lookup_row(
+                                        lang,
+                                        "token.colon",
+                                        GrammarPosition::Infix,
+                                    )
+                                    .and_then(|r| r.binding_power.map(|(l, _)| l))
+                                    .map(|lbp| lbp.saturating_add(1))
+                                    .unwrap_or(u8::MAX);
                                     let key = self.expression_inner(lang, cursor, key_rbp)?;
                                     let sep = cursor.advance()?;
                                     if sep.kind != "token.colon" {
@@ -314,7 +313,8 @@ impl PrattEngine {
                                     }
                                     let val = self.expression_inner(lang, cursor, 0)?;
                                     let entry_payload = serde_json::json!({ "children": [key.index(), val.index()] });
-                                    let entry_node = AstNode::new("entry").with_payload(entry_payload);
+                                    let entry_node =
+                                        AstNode::new("entry").with_payload(entry_payload);
                                     let entry_ref = self.ast.borrow_mut().push(entry_node);
                                     children.push(entry_ref.index());
                                 }
@@ -328,7 +328,9 @@ impl PrattEngine {
                             Some(t) if t.kind == "token.comma" => {
                                 let _ = cursor.advance()?;
                                 if let Some(t2) = cursor.peek() {
-                                    if t2.kind == close_kind { break; }
+                                    if t2.kind == close_kind {
+                                        break;
+                                    }
                                 }
                                 continue;
                             }
@@ -337,13 +339,13 @@ impl PrattEngine {
                                 return Err(LangError::Engine(format!(
                                     "expected ',' or '{}' in {} literal, got {}",
                                     close_kind, kind, t.kind
-                                )))
+                                )));
                             }
                             None => {
                                 return Err(LangError::Engine(format!(
                                     "unexpected end of input in {} literal",
                                     kind
-                                )))
+                                )));
                             }
                         }
                     }
@@ -367,10 +369,7 @@ impl PrattEngine {
             }
         } else {
             // Prefix operator: parse `arity` operands.
-            let prefix_rbp = prefix_row
-                .binding_power
-                .map(|(l, _)| l)
-                .unwrap_or(0);
+            let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
             let mut children: Vec<usize> = Vec::with_capacity(arity);
             // When the shape carries a `delimited` descriptor, the **last**
             // child is a delimited block (e.g. `match x { ... }`); the first
@@ -402,10 +401,7 @@ impl PrattEngine {
             };
 
             let (lbp, rbp_right) = infix_row.binding_power.ok_or_else(|| {
-                LangError::Engine(format!(
-                    "infix row {} has no binding power",
-                    infix_row.id
-                ))
+                LangError::Engine(format!("infix row {} has no binding power", infix_row.id))
             })?;
 
             if lbp < rbp {
@@ -565,12 +561,12 @@ impl PrattEngine {
                         delim.separator.as_deref().unwrap_or("(none)"),
                         delim.close,
                         t.kind
-                    )))
+                    )));
                 }
                 None => {
                     return Err(LangError::Engine(
                         "unexpected end of input in delimited block".to_string(),
-                    ))
+                    ));
                 }
             }
         }
@@ -593,10 +589,7 @@ impl PrattEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{
-        AstShapeRef, GrammarPosition, GrammarRow, TokenKindDef,
-        Tokens,
-    };
+    use handl_language::{AstShapeRef, GrammarPosition, GrammarRow, TokenKindDef, Tokens};
     use handl_plugin_engine_parse::{ParserContext, ParserRequest};
     use serde_json::json;
 
@@ -605,7 +598,9 @@ mod tests {
     fn arith_lang() -> Language {
         let mut lang = Language::new();
         // Token kinds
-        lang.tokens.merge(TokenKindDef::new("token.number")).unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("token.number"))
+            .unwrap();
         lang.tokens.merge(TokenKindDef::new("token.plus")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.star")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.minus")).unwrap();
@@ -936,7 +931,11 @@ mod tests {
 
     #[test]
     fn trait_dispatch_via_generic() {
-        fn run_parse<E: ParserEngine>(engine: &E, lang: &Language, req: &ParserRequest) -> Result<Ast, LangError> {
+        fn run_parse<E: ParserEngine>(
+            engine: &E,
+            lang: &Language,
+            req: &ParserRequest,
+        ) -> Result<Ast, LangError> {
             engine.parse(lang, req)
         }
         let engine = PrattEngine::new();
@@ -1052,10 +1051,7 @@ mod tests {
             .unwrap();
         // Tokens: number(1) x — after parsing number(1), the next token
         // is "x" which has no infix rule, so parsing stops.
-        let req = ParserRequest::new(Tokens(vec![
-            tok("token.number", "1"),
-            tok("token.x", "x"),
-        ]));
+        let req = ParserRequest::new(Tokens(vec![tok("token.number", "1"), tok("token.x", "x")]));
         let ast = engine.parse(&lang, &req).unwrap();
         // Only the number atom is parsed; "x" is left unconsumed.
         assert_eq!(ast.len(), 1);
@@ -1067,7 +1063,9 @@ mod tests {
         // An infix operator with arity 3 parses left + right + one extra.
         let engine = PrattEngine::new();
         let mut lang = arith_lang();
-        lang.tokens.merge(TokenKindDef::new("token.ternary")).unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("token.ternary"))
+            .unwrap();
         lang.grammar
             .merge(
                 GrammarRow::new(
@@ -1307,23 +1305,114 @@ mod tests {
     fn literal_lang() -> Language {
         let mut lang = Language::new();
         for k in [
-            "token.number", "token.identifier", "token.string",
-            "token.lbracket", "token.rbracket", "token.lbrace", "token.rbrace",
-            "token.lparen", "token.rparen", "token.comma", "token.colon",
-            "token.arrow", "token.plus",
+            "token.number",
+            "token.identifier",
+            "token.string",
+            "token.lbracket",
+            "token.rbracket",
+            "token.lbrace",
+            "token.rbrace",
+            "token.lparen",
+            "token.rparen",
+            "token.comma",
+            "token.colon",
+            "token.arrow",
+            "token.plus",
         ] {
             lang.tokens.merge(TokenKindDef::new(k)).unwrap();
         }
-        lang.grammar.merge(GrammarRow::new("g.num", "token.number", GrammarPosition::Prefix, AstShapeRef::new("value", 0))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.str", "token.string", GrammarPosition::Prefix, AstShapeRef::new("value", 0))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.ident", "token.identifier", GrammarPosition::Prefix, AstShapeRef::new("var", 0))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.array", "token.lbracket", GrammarPosition::Prefix, AstShapeRef::new("array", 1))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.object", "token.lbrace", GrammarPosition::Prefix, AstShapeRef::new("object", 1))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.paren", "token.lparen", GrammarPosition::Prefix, AstShapeRef::new("paren", 1))).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.colon", "token.colon", GrammarPosition::Infix, AstShapeRef::new("type-annot", 2)).with_binding_power(12, 13)).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.arrow", "token.arrow", GrammarPosition::Infix, AstShapeRef::new("function", 2)).with_binding_power(31, 32)).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.plus", "token.plus", GrammarPosition::Infix, AstShapeRef::new("binary.add", 2)).with_binding_power(55, 56)).unwrap();
-        lang.grammar.merge(GrammarRow::new("g.call", "token.lparen", GrammarPosition::Infix, AstShapeRef::new("call", 2)).with_binding_power(90, 91)).unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.num",
+                "token.number",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("value", 0),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.str",
+                "token.string",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("value", 0),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.ident",
+                "token.identifier",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("var", 0),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.array",
+                "token.lbracket",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("array", 1),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.object",
+                "token.lbrace",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("object", 1),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.paren",
+                "token.lparen",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("paren", 1),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.colon",
+                    "token.colon",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("type-annot", 2),
+                )
+                .with_binding_power(12, 13),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.arrow",
+                    "token.arrow",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("function", 2),
+                )
+                .with_binding_power(31, 32),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.plus",
+                    "token.plus",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("binary.add", 2),
+                )
+                .with_binding_power(55, 56),
+            )
+            .unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "g.call",
+                    "token.lparen",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("call", 2),
+                )
+                .with_binding_power(90, 91),
+            )
+            .unwrap();
         lang
     }
 
@@ -1332,9 +1421,12 @@ mod tests {
         let engine = PrattEngine::new();
         let lang = literal_lang();
         let req = ParserRequest::new(Tokens(vec![
-            tok("token.lbracket", "["), tok("token.number", "1"),
-            tok("token.comma", ","), tok("token.number", "2"),
-            tok("token.comma", ","), tok("token.number", "3"),
+            tok("token.lbracket", "["),
+            tok("token.number", "1"),
+            tok("token.comma", ","),
+            tok("token.number", "2"),
+            tok("token.comma", ","),
+            tok("token.number", "3"),
             tok("token.rbracket", "]"),
         ]));
         let ast = engine.parse(&lang, &req).unwrap();
@@ -1349,10 +1441,14 @@ mod tests {
         let engine = PrattEngine::new();
         let lang = literal_lang();
         let req = ParserRequest::new(Tokens(vec![
-            tok("token.lbrace", "{"), tok("token.identifier", "a"),
-            tok("token.colon", ":"), tok("token.number", "1"),
-            tok("token.comma", ","), tok("token.identifier", "b"),
-            tok("token.colon", ":"), tok("token.number", "2"),
+            tok("token.lbrace", "{"),
+            tok("token.identifier", "a"),
+            tok("token.colon", ":"),
+            tok("token.number", "1"),
+            tok("token.comma", ","),
+            tok("token.identifier", "b"),
+            tok("token.colon", ":"),
+            tok("token.number", "2"),
             tok("token.rbrace", "}"),
         ]));
         let ast = engine.parse(&lang, &req).unwrap();
@@ -1373,8 +1469,10 @@ mod tests {
         let engine = PrattEngine::new();
         let lang = literal_lang();
         let req = ParserRequest::new(Tokens(vec![
-            tok("token.lparen", "("), tok("token.identifier", "x"),
-            tok("token.comma", ","), tok("token.identifier", "y"),
+            tok("token.lparen", "("),
+            tok("token.identifier", "x"),
+            tok("token.comma", ","),
+            tok("token.identifier", "y"),
             tok("token.rparen", ")"),
         ]));
         let ast = engine.parse(&lang, &req).unwrap();
@@ -1390,10 +1488,14 @@ mod tests {
         let lang = literal_lang();
         // (x, y) -> x + y
         let req = ParserRequest::new(Tokens(vec![
-            tok("token.lparen", "("), tok("token.identifier", "x"),
-            tok("token.comma", ","), tok("token.identifier", "y"),
-            tok("token.rparen", ")"), tok("token.arrow", "->"),
-            tok("token.identifier", "x"), tok("token.plus", "+"),
+            tok("token.lparen", "("),
+            tok("token.identifier", "x"),
+            tok("token.comma", ","),
+            tok("token.identifier", "y"),
+            tok("token.rparen", ")"),
+            tok("token.arrow", "->"),
+            tok("token.identifier", "x"),
+            tok("token.plus", "+"),
             tok("token.identifier", "y"),
         ]));
         let ast = engine.parse(&lang, &req).unwrap();
@@ -1402,27 +1504,50 @@ mod tests {
         // 6: function{[2,5]}
         assert_eq!(ast.len(), 7);
         assert_eq!(ast.nodes()[6].kind, "function");
-        let children = ast.nodes()[6].payload.get("children").unwrap().as_array().unwrap();
+        let children = ast.nodes()[6]
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(children.len(), 2);
         // children[0] = paren idx, children[1] = body idx
-        assert_eq!(ast.nodes()[children[0].as_u64().unwrap() as usize].kind, "paren");
-        assert_eq!(ast.nodes()[children[1].as_u64().unwrap() as usize].kind, "binary.add");
+        assert_eq!(
+            ast.nodes()[children[0].as_u64().unwrap() as usize].kind,
+            "paren"
+        );
+        assert_eq!(
+            ast.nodes()[children[1].as_u64().unwrap() as usize].kind,
+            "binary.add"
+        );
     }
 
     #[test]
     fn empty_array_and_object_parse() {
         let engine = PrattEngine::new();
         let lang = literal_lang();
-        let ast = engine.parse(&lang, &ParserRequest::new(Tokens(vec![
-            tok("token.lbracket", "["), tok("token.rbracket", "]"),
-        ]))).unwrap();
+        let ast = engine
+            .parse(
+                &lang,
+                &ParserRequest::new(Tokens(vec![
+                    tok("token.lbracket", "["),
+                    tok("token.rbracket", "]"),
+                ])),
+            )
+            .unwrap();
         assert_eq!(ast.len(), 1);
         assert_eq!(ast.nodes()[0].kind, "array");
         assert_eq!(ast.nodes()[0].payload, json!({"children": []}));
 
-        let ast = engine.parse(&lang, &ParserRequest::new(Tokens(vec![
-            tok("token.lbrace", "{"), tok("token.rbrace", "}"),
-        ]))).unwrap();
+        let ast = engine
+            .parse(
+                &lang,
+                &ParserRequest::new(Tokens(vec![
+                    tok("token.lbrace", "{"),
+                    tok("token.rbrace", "}"),
+                ])),
+            )
+            .unwrap();
         assert_eq!(ast.len(), 1);
         assert_eq!(ast.nodes()[0].kind, "object");
         assert_eq!(ast.nodes()[0].payload, json!({"children": []}));

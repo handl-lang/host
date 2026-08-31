@@ -14,8 +14,13 @@
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
-use handl_runtime::meta::MetaHostFunctions;
-use handl_runtime::{EngineRegistry, Runtime};
+use handl_plugin_lib_lang_compile::CompileModule;
+use handl_plugin_lib_lang_eval::EvalModule;
+use handl_plugin_lib_lang_lex::LexModule;
+use handl_plugin_lib_lang_parse::ParseModule;
+use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
+use handl_runtime::RuntimeFactory;
+use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::rc::Rc;
 
 // ---------------------------------------------------------------------------
@@ -40,9 +45,9 @@ impl Function for HelloGreetHostFn {
                 args.len()
             )));
         }
-        let name = args[0].as_str().ok_or_else(|| {
-            EvalError::Other("hello.greet: expected string argument".to_string())
-        })?;
+        let name = args[0]
+            .as_str()
+            .ok_or_else(|| EvalError::Other("hello.greet: expected string argument".to_string()))?;
         Ok(Value::String(format!("Hello, {name}!")))
     }
 }
@@ -85,7 +90,7 @@ impl ModuleLookup for HelloHostFunctions {
 
 /// Kit manifest loading and the default canonical manifest.
 pub mod kit_manifest;
-pub use kit_manifest::{canonical_manifest, KitManifest};
+pub use kit_manifest::{KitManifest, canonical_manifest};
 
 /// A token annotated with its source span.
 ///
@@ -107,10 +112,11 @@ pub struct SpannedToken {
 ///
 /// [`Kit::new`] assembles the data-driven canonical language
 /// (`handl_kit_data_canonical::assemble`) and binds it to the Pratt parse
-/// engine and tree-walk eval engine via [`Runtime::from_config`]. It also
-/// wires the meta host functions (`eval`/`self`/`compile`) so a running
-/// handl program can call `eval(lang, src)`, `runtime.self()`, and
-/// `compile(lang, target)` (ADR-0041 Phase 2–3).
+/// engine and tree-walk eval engine via [`Runtime::from_registry`]. It also
+/// wires the meta host functions from the five `plugin-lib-lang-*` crates
+/// (`lex`/`parse`/`eval`/`compile`/`run_compiled`) so a running handl program
+/// can call `eval(lang, ast)`, `compile(lang, ast, target)`, etc.
+/// (ADR-0041 Phase 2–3, ADR-0047).
 ///
 /// All staged methods (`lex`, `parse`, `eval`, `run`) delegate to the
 /// underlying [`Runtime`].
@@ -133,9 +139,10 @@ impl Kit {
     /// Assembles all Phase 4 data fragments via
     /// `handl_kit_data_canonical::assemble` and binds the resulting
     /// [`Language`](handl_language::Language) to the data-driven lexer,
-    /// Pratt parser, and tree-walk evaluator. Wires meta host functions
-    /// (`eval`/`self`/`compile`) so a running handl program can call them
-    /// (ADR-0041 Phase 2–3).
+    /// Pratt parser, and tree-walk evaluator. Wires the meta host functions
+    /// from the five `plugin-lib-lang-*` crates
+    /// (`lex`/`parse`/`eval`/`compile`/`run_compiled`) so a running handl
+    /// program can call them (ADR-0041 Phase 2–3, ADR-0047).
     ///
     /// # Errors
     ///
@@ -149,32 +156,78 @@ impl Kit {
         // (ADR-0047 §2). The host (this crate) registers the engines;
         // handl-runtime names none.
         let mut registry = EngineRegistry::new();
-        registry.register_lex("data", Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()));
+        registry.register_lex(
+            "data",
+            Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+        );
         registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
-        registry.register_eval("tree-walk", Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()));
-        registry.register_eval("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()));
-        registry.register_eval("cranelift", Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()));
-        registry.register_compile("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()));
-        registry.register_compile("native", Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()));
+        registry.register_eval(
+            "tree-walk",
+            Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+        );
+        registry.register_eval(
+            "bytecode",
+            Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()),
+        );
+        registry.register_eval(
+            "cranelift",
+            Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()),
+        );
+        registry.register_compile(
+            "bytecode",
+            Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()),
+        );
+        registry.register_compile(
+            "native",
+            Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
+        );
         let registry = Rc::new(registry);
 
         // Build the module-registry chain (outermost first):
-        //   meta (eval/lex/parse/run/compile) → hello (hello.greet) → fp
-        //   (fn.fanout_fn, field_access) → None
+        //   meta (lex/parse/eval/compile/run_compiled) → hello (hello.greet)
+        //   → fp (fn.fanout_fn, field_access) → None
         // Meta is outermost so its names win; hello and fp are delegates so
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
         let fp = handl_runtime::fp::canonical_fp_host_functions(None);
-        let hello = Rc::new(HelloHostFunctions::new(Some(Rc::clone(&fp)
-            as Rc<dyn handl_platform::ModuleLookup>)));
-        let meta = MetaHostFunctions::new(
-            lang.clone(),
-            config.clone(),
+        let hello = Rc::new(HelloHostFunctions::new(Some(
+            Rc::clone(&fp) as Rc<dyn handl_platform::ModuleLookup>
+        )));
+
+        // Build the meta chain from the 5 plugin-lib-lang-* crates
+        // (ADR-0047 §1). Each module holds Rc<dyn RuntimeFactory> (the
+        // RuntimeFactoryImpl) and chains via delegate. The factory's
+        // meta_chain is set after construction, breaking the chicken-and-egg.
+        let factory = Rc::new(RuntimeFactoryImpl::new(
             Rc::clone(&registry),
+            config.clone(),
+        ));
+        let factory_dyn: Rc<dyn RuntimeFactory> = Rc::clone(&factory) as Rc<dyn RuntimeFactory>;
+
+        // Chain: lex → parse → eval → compile → run_compiled → hello → fp → None
+        let run_compiled_mod = Rc::new(RunCompiledModule::new(
+            Rc::clone(&factory_dyn),
             Some(Rc::clone(&hello) as Rc<dyn handl_platform::ModuleLookup>),
-        );
-        let meta_rc: Rc<dyn handl_platform::ModuleLookup> = Rc::new(meta);
+        ));
+        let compile_mod = Rc::new(CompileModule::new(
+            Rc::clone(&factory_dyn),
+            Some(Rc::clone(&run_compiled_mod) as Rc<dyn handl_platform::ModuleLookup>),
+        ));
+        let eval_mod = Rc::new(EvalModule::new(
+            Rc::clone(&factory_dyn),
+            Some(Rc::clone(&compile_mod) as Rc<dyn handl_platform::ModuleLookup>),
+        ));
+        let parse_mod = Rc::new(ParseModule::new(
+            Rc::clone(&factory_dyn),
+            Some(Rc::clone(&eval_mod) as Rc<dyn handl_platform::ModuleLookup>),
+        ));
+        let lex_mod = Rc::new(LexModule::new(
+            Rc::clone(&factory_dyn),
+            Some(Rc::clone(&parse_mod) as Rc<dyn handl_platform::ModuleLookup>),
+        ));
+        let meta_chain: Rc<dyn handl_platform::ModuleLookup> = lex_mod;
+        factory.set_meta_chain(Rc::clone(&meta_chain));
 
         // Inject `self` as a global variable bound to the canonical
         // `Language` value (ADR-0041 Phase 3: `self` is an ambient variable,
@@ -193,7 +246,7 @@ impl Kit {
             lang,
             &registry,
             &config,
-            Some(meta_rc),
+            Some(meta_chain),
             Some(&globals),
         )?;
         Ok(Kit { runtime })
@@ -331,6 +384,94 @@ impl Default for Kit {
     fn default() -> Self {
         Self::new().expect("canonical kit assembly should not fail")
     }
+}
+
+// ---------------------------------------------------------------------------
+// runtime_for_lang — build a Runtime for an arbitrary Language with the
+// canonical engine registry + meta chain (for tests / custom-language hosts)
+// ---------------------------------------------------------------------------
+
+/// Build a [`Runtime`] for an arbitrary [`Language`](handl_language::Language)
+/// using the canonical engine registry + meta chain (the 5
+/// `plugin-lib-lang-*` modules). This is the same wiring as [`Kit::new`] but
+/// with a caller-supplied language instead of the assembled canonical one —
+/// useful for tests that override eval schemes (e.g. `vau` escape tests).
+///
+/// Injects `self` as a global bound to the `Language` value
+/// (ADR-0041 Phase 3).
+///
+/// # Errors
+///
+/// Returns [`LangError`] if engine binding fails.
+pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangError> {
+    let config = RuntimeConfig::new()
+        .with_lex("data")
+        .with_parse("pratt")
+        .with_eval("tree-walk");
+
+    // Build the engine registry with all available engine impls
+    // (ADR-0047 §2).
+    let mut registry = EngineRegistry::new();
+    registry.register_lex(
+        "data",
+        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+    );
+    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    registry.register_eval(
+        "tree-walk",
+        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+    );
+    registry.register_eval(
+        "bytecode",
+        Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()),
+    );
+    registry.register_eval(
+        "cranelift",
+        Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()),
+    );
+    registry.register_compile(
+        "bytecode",
+        Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()),
+    );
+    registry.register_compile(
+        "native",
+        Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
+    );
+    let registry = Rc::new(registry);
+
+    // Build the meta chain from the 5 plugin-lib-lang-* crates
+    // (ADR-0047 §1). Delegate is None (no user host fns).
+    let factory = Rc::new(RuntimeFactoryImpl::new(
+        Rc::clone(&registry),
+        config.clone(),
+    ));
+    let factory_dyn: Rc<dyn RuntimeFactory> = Rc::clone(&factory) as Rc<dyn RuntimeFactory>;
+    let run_compiled_mod = Rc::new(RunCompiledModule::new(Rc::clone(&factory_dyn), None));
+    let compile_mod = Rc::new(CompileModule::new(
+        Rc::clone(&factory_dyn),
+        Some(Rc::clone(&run_compiled_mod) as Rc<dyn handl_platform::ModuleLookup>),
+    ));
+    let eval_mod = Rc::new(EvalModule::new(
+        Rc::clone(&factory_dyn),
+        Some(Rc::clone(&compile_mod) as Rc<dyn handl_platform::ModuleLookup>),
+    ));
+    let parse_mod = Rc::new(ParseModule::new(
+        Rc::clone(&factory_dyn),
+        Some(Rc::clone(&eval_mod) as Rc<dyn handl_platform::ModuleLookup>),
+    ));
+    let lex_mod = Rc::new(LexModule::new(
+        Rc::clone(&factory_dyn),
+        Some(Rc::clone(&parse_mod) as Rc<dyn handl_platform::ModuleLookup>),
+    ));
+    let meta_chain: Rc<dyn handl_platform::ModuleLookup> = lex_mod;
+    factory.set_meta_chain(Rc::clone(&meta_chain));
+
+    // Inject `self` as a global variable bound to the Language value
+    // (ADR-0041 Phase 3).
+    let self_val = handl_language::language_value(&lang);
+    let mut globals = std::collections::HashMap::new();
+    globals.insert("self".to_string(), self_val);
+    Runtime::from_registry_with_globals(lang, &registry, &config, Some(meta_chain), Some(&globals))
 }
 
 // ---------------------------------------------------------------------------
@@ -589,7 +730,10 @@ mod tests {
         // `handle x` is incomplete (missing the `{ clauses }` block).
         let kit = Kit::new().unwrap();
         let result = kit.parse("handle x");
-        assert!(result.is_err(), "expected parse error for incomplete handle");
+        assert!(
+            result.is_err(),
+            "expected parse error for incomplete handle"
+        );
     }
 
     #[test]
@@ -724,7 +868,6 @@ mod tests {
         assert_eq!(tokens.as_slice()[0].kind, "token.number");
     }
 
-
     #[test]
     fn scope_name_and_extensions() {
         let kit = Kit::new().unwrap();
@@ -739,7 +882,10 @@ mod tests {
             .with_payload(serde_json::json!({ "value": 42 }));
         let platform_node = to_platform_ast_node(&node);
         assert_eq!(platform_node.kind, "value");
-        assert_eq!(platform_node.span, Some(handl_platform::Span { start: 0, end: 2 }));
+        assert_eq!(
+            platform_node.span,
+            Some(handl_platform::Span { start: 0, end: 2 })
+        );
         assert_eq!(platform_node.payload, serde_json::json!({ "value": 42 }));
     }
 

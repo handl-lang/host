@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 // ── rand.string ──────────────────────────────────────────────────
 
@@ -95,10 +95,7 @@ fn string_invalid_charset_errors() {
 #[test]
 fn string_non_string_charset_errors() {
     let result = call_err("string", &[n(10.0), n(42.0)]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.bytes ───────────────────────────────────────────────────

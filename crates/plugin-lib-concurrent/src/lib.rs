@@ -81,7 +81,11 @@ pub use timer::{ThreadTimerRuntime, TimerRuntime};
 
 fn expect_args(args: &[Value], expected: usize) -> Result<(), EvalError> {
     if args.len() != expected {
-        Err(EvalError::Other(format!("expected {} arguments, got {}", expected, args.len())))
+        Err(EvalError::Other(format!(
+            "expected {} arguments, got {}",
+            expected,
+            args.len()
+        )))
     } else {
         Ok(())
     }
@@ -93,13 +97,12 @@ pub struct SpawnFn {
 }
 
 impl Function for SpawnFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 1 arguments, got {}",
+                args.len()
+            )));
         }
         let work = FunctionValue::from_json(&args[0])
             .ok_or_else(|| EvalError::Other("spawn expected a function value".to_string()))?;
@@ -113,13 +116,12 @@ pub struct AwaitFn {
 }
 
 impl Function for AwaitFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 1 arguments, got {}",
+                args.len()
+            )));
         }
         self.scheduler.await_task(args[0].clone(), ctx)
     }
@@ -131,13 +133,12 @@ pub struct YieldFn {
 }
 
 impl Function for YieldFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if !args.is_empty() {
-            return Err(EvalError::Other(format!("expected 0 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 0 arguments, got {}",
+                args.len()
+            )));
         }
         self.scheduler.yield_now(ctx)
     }
@@ -149,13 +150,12 @@ pub struct SleepFn {
 }
 
 impl Function for SleepFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(EvalError::Other(format!("expected 1 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 1 arguments, got {}",
+                args.len()
+            )));
         }
         let ms = if args[0].is_null() {
             0
@@ -177,13 +177,12 @@ pub struct TimeoutFn {
 }
 
 impl Function for TimeoutFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::Other(format!("expected 2 arguments, got {}", args.len())));
+            return Err(EvalError::Other(format!(
+                "expected 2 arguments, got {}",
+                args.len()
+            )));
         }
         let ms = if args[1].is_null() {
             0
@@ -207,11 +206,7 @@ pub struct MayFn {
 }
 
 impl Function for MayFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.spawn.call(args, ctx)
     }
 }
@@ -224,11 +219,7 @@ pub struct MustFn {
 }
 
 impl Function for MustFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.timeout.call(args, ctx)
     }
 }
@@ -241,11 +232,7 @@ pub struct WhenFn {
 }
 
 impl Function for WhenFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         self.select.call(args, ctx)
     }
 }
@@ -270,11 +257,7 @@ impl SyncFn {
 }
 
 impl Function for SyncFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "channel" => {
                 expect_args(args, 1)?;
@@ -302,10 +285,8 @@ impl Function for SyncFn {
                 let arr = args[0].as_array().ok_or_else(|| {
                     EvalError::Other("select expected an array of channels".to_string())
                 })?;
-                let channels: Vec<Value> = arr
-                    .iter()
-                    .map(|v| serde_json::json!(v.clone()))
-                    .collect();
+                let channels: Vec<Value> =
+                    arr.iter().map(|v| serde_json::json!(v.clone())).collect();
                 self.translate(args, self.sync.select(&channels))
             }
             "mutex" => {
@@ -367,7 +348,7 @@ impl Function for SyncFn {
                 expect_args(args, 2)?;
                 self.translate(args, self.sync.release(args[0].clone(), args[1].clone()))
             }
-            _ => Err(EvalError::UnknownFunction(self.name.clone()))
+            _ => Err(EvalError::UnknownFunction(self.name.clone())),
         }
     }
 }
@@ -379,11 +360,7 @@ pub struct AtomicFn {
 }
 
 impl Function for AtomicFn {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "atomic" => {
                 expect_args(args, 1)?;
@@ -402,7 +379,7 @@ impl Function for AtomicFn {
                 self.atomic
                     .atomic_cas(args[0].clone(), args[1].clone(), args[2].clone())
             }
-            _ => Err(EvalError::UnknownFunction(self.name.clone()))
+            _ => Err(EvalError::UnknownFunction(self.name.clone())),
         }
     }
 }
@@ -415,11 +392,7 @@ pub struct CancelFn {
 }
 
 impl Function for CancelFn {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "cancel_token" => {
                 expect_args(args, 0)?;
@@ -443,7 +416,7 @@ impl Function for CancelFn {
                 })?;
                 self.scheduler.spawn_cancelable(args[0].clone(), thunk, ctx)
             }
-            _ => Err(EvalError::UnknownFunction(self.name.clone()))
+            _ => Err(EvalError::UnknownFunction(self.name.clone())),
         }
     }
 }
@@ -455,11 +428,7 @@ pub struct IoFn {
 }
 
 impl Function for IoFn {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         match self.name.as_str() {
             "tcp_connect" => {
                 expect_args(args, 1)?;
@@ -477,7 +446,7 @@ impl Function for IoFn {
                 expect_args(args, 1)?;
                 self.io.tcp_close(args[0].clone())
             }
-            _ => Err(EvalError::UnknownFunction(self.name.clone()))
+            _ => Err(EvalError::UnknownFunction(self.name.clone())),
         }
     }
 }
@@ -685,21 +654,9 @@ impl Module for ConcurrencyModule {
                 .sync_fns
                 .get(name)
                 .map(|f| f as &dyn Function)
-                .or_else(|| {
-                    self.atomic_fns
-                        .get(name)
-                        .map(|f| f as &dyn Function)
-                })
-                .or_else(|| {
-                    self.cancel_fns
-                        .get(name)
-                        .map(|f| f as &dyn Function)
-                })
-                .or_else(|| {
-                    self.io_fns
-                        .get(name)
-                        .map(|f| f as &dyn Function)
-                }),
+                .or_else(|| self.atomic_fns.get(name).map(|f| f as &dyn Function))
+                .or_else(|| self.cancel_fns.get(name).map(|f| f as &dyn Function))
+                .or_else(|| self.io_fns.get(name).map(|f| f as &dyn Function)),
         }
     }
 }
@@ -735,9 +692,9 @@ mod tests {
     use handl_platform::EvalContext;
     use handl_platform::ExprEvaluator;
     use serde_json::json;
+    use std::rc::Rc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::rc::Rc;
     use std::thread;
     use std::time::Duration;
 
@@ -747,11 +704,7 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
             Ok(serde_json::json!(json!({ "body": expr })))
         }
@@ -869,10 +822,7 @@ mod tests {
         module
             .function("send")
             .unwrap()
-            .call(
-                &[ch.clone(), serde_json::json!(json!(42))],
-                &mut sync_ctx,
-            )
+            .call(&[ch.clone(), serde_json::json!(json!(42))], &mut sync_ctx)
             .unwrap();
         let arg = serde_json::json!(json!([ch.clone()]));
         let got = module
@@ -919,10 +869,7 @@ mod tests {
             .function("recv")
             .unwrap()
             .call(&[arg.clone()], &mut ctx);
-        assert_eq!(
-            empty,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(empty, Err(EvalError::Other("would block".to_string())));
     }
 
     #[test]
@@ -959,10 +906,7 @@ mod tests {
             .function("send")
             .unwrap()
             .call(&[ch.clone(), three.clone()], &mut ctx);
-        assert_eq!(
-            err,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(err, Err(EvalError::Other("would block".to_string())));
     }
 
     #[test]
@@ -981,10 +925,7 @@ mod tests {
             .function("recv")
             .unwrap()
             .call(&[arg.clone()], &mut ctx);
-        assert_eq!(
-            err,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(err, Err(EvalError::Other("would block".to_string())));
     }
 
     #[test]
@@ -1039,10 +980,7 @@ mod tests {
             .function("select")
             .unwrap()
             .call(&[arg.clone()], &mut ctx);
-        assert_eq!(
-            err,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(err, Err(EvalError::Other("would block".to_string())));
     }
 
     #[test]
@@ -1273,11 +1211,7 @@ mod tests {
             .function("atomic_cas")
             .unwrap()
             .call(
-                &[
-                    r,
-                    serde_json::json!(json!(42)),
-                    serde_json::json!(json!(9)),
-                ],
+                &[r, serde_json::json!(json!(42)), serde_json::json!(json!(9))],
                 &mut ctx,
             )
             .unwrap();
@@ -1447,10 +1381,7 @@ mod tests {
             .function("try_send")
             .unwrap()
             .call(&[ch.clone(), three.clone()], &mut ctx);
-        assert_eq!(
-            err,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(err, Err(EvalError::Other("would block".to_string())));
     }
 
     #[test]
@@ -1469,21 +1400,14 @@ mod tests {
             .function("try_acquire")
             .unwrap()
             .call(&[sem.clone(), three.clone()], &mut ctx);
-        assert_eq!(
-            err,
-            Err(EvalError::Other("would block".to_string()))
-        );
+        assert_eq!(err, Err(EvalError::Other("would block".to_string())));
     }
 
     #[derive(Clone)]
     struct FastEval;
 
     impl ExprEvaluator for FastEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             if expr == "fast" {
                 Ok(serde_json::json!(json!(42)))
             } else {
@@ -1498,11 +1422,7 @@ mod tests {
     }
 
     impl ExprEvaluator for SlowEval {
-        fn eval_expr(
-            &self,
-            _expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             for _ in 0..200 {
                 if self.flag.load(Ordering::SeqCst) {
                     return Err(EvalError::Other("cancelled".to_string()));

@@ -1,5 +1,5 @@
 use super::test_helpers::*;
-use handl_platform::{EvalError};
+use handl_platform::EvalError;
 
 // ── rand.int ─────────────────────────────────────────────────────
 
@@ -36,19 +36,13 @@ fn int_min_greater_than_max_errors() {
 #[test]
 fn int_no_args_errors() {
     let result = call_err("int", &[]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
 fn int_non_integer_errors() {
     let result = call_err("int", &[n(1.5), n(6.0)]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -69,10 +63,7 @@ fn int_single_arg_zero() {
 #[test]
 fn int_three_args_errors() {
     let result = call_err("int", &[n(1.0), n(2.0), n(3.0)]);
-    assert!(matches!(
-        result,
-        Err(EvalError::TypeMismatch { .. })
-    ));
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
 
 // ── rand.float ───────────────────────────────────────────────────

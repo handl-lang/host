@@ -1,3 +1,4 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::datetime::fieldsets::builder::{DateFields, FieldSetBuilder, ZoneStyle};
 use icu::datetime::input::{Date, DateTime, Time, ZonedDateTime};
 use icu::datetime::options::{Length, SubsecondDigits, TimePrecision, YearStyle};
@@ -8,7 +9,6 @@ use icu::datetime::{
 };
 use icu::time::zone::{TimeZone, UtcOffset};
 use writeable::Writeable;
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{
     DataProvider, apply_numbering_system, make_provider, opt_bool, opt_int, opt_str,

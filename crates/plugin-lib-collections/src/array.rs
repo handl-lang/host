@@ -1,5 +1,5 @@
-use handl_platform::{EvalContext, EvalError, Function};
 use crate::function_value::FunctionValue;
+use handl_platform::{EvalContext, EvalError, Function};
 
 use crate::common::{arr, b, num, require_one_array, require_two_arrays};
 
@@ -8,11 +8,19 @@ use crate::common::{arr, b, num, require_one_array, require_two_arrays};
 // ════════════════════════════════════════════════════════════════════
 
 fn require_array_value(arg: &serde_json::Value) -> Result<&[serde_json::Value], EvalError> {
-    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
+    arg.as_array()
+        .map(Vec::as_slice)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))
 }
 
 fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function",)))
+    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "function value", "non-function",
+    )))
 }
 
 fn is_truthy_value(value: &serde_json::Value) -> bool {
@@ -216,7 +224,11 @@ impl Function for Contains {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let needle = &args[1];
@@ -234,7 +246,11 @@ impl Function for IndexOf {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let needle = &args[1];
@@ -256,13 +272,26 @@ impl Function for Slice {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
-        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let start = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
+        let end = args[2].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if start < 0.0 || end < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let start = start as usize;
         let end = end as usize;
@@ -281,12 +310,22 @@ impl Function for At {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if index < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         match array.get(index as usize) {
             Some(v) => Ok(serde_json::Value::from(v.clone())),
@@ -304,7 +343,11 @@ impl Function for Push {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let mut result = array.to_vec();
@@ -356,11 +399,21 @@ impl Function for Fill {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
-        let count = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let count = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if count < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let value = args[1].clone();
         let result: Vec<serde_json::Value> = (0..count as usize).map(|_| value.clone()).collect();
@@ -381,12 +434,22 @@ impl Function for Take {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if n < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let n = (n as usize).min(array.len());
         Ok(arr(&array[..n]))
@@ -402,12 +465,22 @@ impl Function for Drop {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let n = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if n < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let n = (n as usize).min(array.len());
         Ok(arr(&array[n..]))
@@ -449,7 +522,11 @@ impl Function for Intersperse {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let sep = args[1].clone();
@@ -473,7 +550,11 @@ impl Function for Intercalate {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let sep = require_array_value(&args[1])?;
@@ -511,7 +592,11 @@ impl Function for Prepend {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let mut result = Vec::with_capacity(array.len() + 1);
@@ -530,7 +615,11 @@ impl Function for TakeWhile {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -555,7 +644,11 @@ impl Function for DropWhile {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -580,7 +673,11 @@ impl Function for Scan {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -604,7 +701,11 @@ impl Function for Foldr {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -625,7 +726,11 @@ impl Function for FindIndex {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -643,7 +748,11 @@ impl Function for FindLast {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -664,7 +773,11 @@ impl Function for FindLastIndex {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
         let fn_val = require_function_value(&args[1])?;
@@ -684,12 +797,22 @@ impl Function for Windows {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if size < 1.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive number", "non-positive number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "positive number", "non-positive number",
+            )));
         }
         let size = size as usize;
         if size > array.len() {
@@ -711,7 +834,10 @@ impl Function for Transpose {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let array = require_array_value(args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?)?;
+        let array = require_array_value(args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?)?;
         if array.is_empty() {
             return Ok(arr(&[]));
         }
@@ -746,12 +872,22 @@ impl Function for InsertAt {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if index < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let index = (index as usize).min(array.len());
         let value = args[2].clone();
@@ -772,12 +908,22 @@ impl Function for RemoveAt {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let index = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if index < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let index = index as usize;
         if index >= array.len() {
@@ -803,17 +949,33 @@ impl Function for Range {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
-        let start = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
-        let end = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let start = args[0].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
+        let end = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         let step = if args.len() >= 3 {
-            args[2].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?
+            args[2].as_f64().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "number", "non-number",
+            )))?
         } else {
             1.0
         };
         if step == 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-zero step", "zero step",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-zero step", "zero step",
+            )));
         }
         let mut values = Vec::new();
         let mut current = start;
@@ -841,7 +1003,11 @@ impl Function for Zip {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let a = require_array_value(&args[0])?;
         let b = require_array_value(&args[1])?;
@@ -862,12 +1028,22 @@ impl Function for Chunk {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let input = require_array_value(&args[0])?;
-        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let size = args[1].as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         if size <= 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "positive chunk size", "non-positive chunk size",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "positive chunk size", "non-positive chunk size",
+            )));
         }
         let size = size as usize;
         let chunks: Vec<serde_json::Value> = input
@@ -902,10 +1078,17 @@ impl Function for Pluck {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let array = require_array_value(&args[0])?;
-        let key = args[1].as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let key = args[1].as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
         let result: Vec<serde_json::Value> = array
             .iter()
             .map(|item| {

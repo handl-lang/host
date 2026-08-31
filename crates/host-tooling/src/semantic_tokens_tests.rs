@@ -27,9 +27,11 @@ fn legend_default_has_standard_token_types() {
 fn legend_default_has_standard_modifiers() {
     let legend = SemanticTokenLegend::default();
     assert!(legend.token_modifiers.contains(&"declaration".to_string()));
-    assert!(legend
-        .token_modifiers
-        .contains(&"documentation".to_string()));
+    assert!(
+        legend
+            .token_modifiers
+            .contains(&"documentation".to_string())
+    );
 }
 
 #[test]
@@ -71,9 +73,7 @@ fn classifier_maps_string_to_string_type() {
 fn classifier_maps_keyword_to_keyword_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
-    let (ty, mods) = classifier
-        .classify("token.keyword.let", &legend)
-        .unwrap();
+    let (ty, mods) = classifier.classify("token.keyword.let", &legend).unwrap();
     assert_eq!(ty, legend.token_type_index("keyword").unwrap());
     assert_eq!(mods, 0);
 }
@@ -247,7 +247,11 @@ fn classify_first_identifier(source: &str) -> (u32, u32) {
     for (i, token) in tokens.iter().enumerate() {
         if token.kind == "token.identifier" {
             return crate::semantic_tokens::ContextClassifier::classify(
-                &classifier, &tokens, i, source, &legend,
+                &classifier,
+                &tokens,
+                i,
+                source,
+                &legend,
             )
             .unwrap();
         }
@@ -265,7 +269,11 @@ fn classify_all_identifiers(source: &str) -> Vec<(String, u32, u32)> {
     for (i, token) in tokens.iter().enumerate() {
         if token.kind == "token.identifier" {
             let (ty, mods) = crate::semantic_tokens::ContextClassifier::classify(
-                &classifier, &tokens, i, source, &legend,
+                &classifier,
+                &tokens,
+                i,
+                source,
+                &legend,
             )
             .unwrap();
             out.push((token.text.clone(), ty, mods));
@@ -432,16 +440,8 @@ fn context_classifier_function_definition_binding() {
         .iter()
         .filter(|(s, ty, _)| s == "name" && *ty == prop_idx)
         .count();
-    assert_eq!(
-        name_params,
-        1,
-        "expected one parameter 'name', got {all:?}"
-    );
-    assert_eq!(
-        name_props,
-        1,
-        "expected one property 'name', got {all:?}"
-    );
+    assert_eq!(name_params, 1, "expected one parameter 'name', got {all:?}");
+    assert_eq!(name_props, 1, "expected one property 'name', got {all:?}");
 }
 
 // ---------------------------------------------------------------------------

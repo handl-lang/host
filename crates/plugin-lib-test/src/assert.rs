@@ -32,11 +32,7 @@ impl Module for AssertModule {
 #[derive(Clone, Copy)]
 struct Equal;
 impl Function for Equal {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
         if args[0] != args[1] {
             return Err(TestError::AssertionFailed {
@@ -55,11 +51,7 @@ impl Function for Equal {
 #[derive(Clone, Copy)]
 struct NotEqual;
 impl Function for NotEqual {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
         if args[0] == args[1] {
             return Err(TestError::AssertionFailed {
@@ -78,11 +70,7 @@ impl Function for NotEqual {
 #[derive(Clone, Copy)]
 struct True;
 impl Function for True {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if !value {
@@ -98,11 +86,7 @@ impl Function for True {
 #[derive(Clone, Copy)]
 struct False;
 impl Function for False {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if value {
@@ -118,11 +102,7 @@ impl Function for False {
 #[derive(Clone, Copy)]
 struct Contains;
 impl Function for Contains {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
         let haystack = &args[0];
         let needle = &args[1];
@@ -132,7 +112,9 @@ impl Function for Contains {
             (serde_json::Value::Object(map), serde_json::Value::String(key)) => {
                 map.contains_key(key)
             }
-            (serde_json::Value::String(s), serde_json::Value::String(part)) => s.contains(part.as_str()),
+            (serde_json::Value::String(s), serde_json::Value::String(part)) => {
+                s.contains(part.as_str())
+            }
             _ => false,
         };
 
@@ -149,11 +131,7 @@ impl Function for Contains {
 #[derive(Clone, Copy)]
 struct Throws;
 impl Function for Throws {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let func = require_function(&args[0])?;
         if call_function(ctx, &func, &[]).is_err() {

@@ -70,7 +70,10 @@ fn is_ident_char(b: u8) -> bool {
 
 fn inline_chain(fns: &[FunctionValue]) -> Result<FunctionValue, EvalError> {
     if fns.is_empty() {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )));
     }
     let first_fn = &fns[0];
     let input_param = first_fn
@@ -109,7 +112,11 @@ impl Function for Pipe {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let mut value = args[0].clone();
         for fn_arg in &args[1..] {
@@ -162,7 +169,11 @@ impl Function for Fanout {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let value = args[0].clone();
         let inner = value;
@@ -223,7 +234,11 @@ impl Function for Choice {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 4 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 4, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                4,
+                args.len(),
+            )));
         }
         let value = &args[0];
         let predicate = require_function_value(&args[1])?;
@@ -248,7 +263,11 @@ impl Function for Apply {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let fn_val = require_function_value(&args[0])?;
         let call_args = require_array(&args[1])?;
@@ -273,7 +292,6 @@ impl Function for Map {
     }
 }
 
-
 // ── filter ─────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
@@ -290,7 +308,6 @@ impl Function for Filter {
     }
 }
 
-
 // ── reduce ─────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
@@ -302,7 +319,11 @@ impl Function for Reduce {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let fn_val = require_function_value(&args[0])?;
         let array = require_array(&args[1])?;
@@ -311,7 +332,6 @@ impl Function for Reduce {
         Ok(serde_json::Value::from(result))
     }
 }
-
 
 // ── tap ────────────────────────────────────────────────────────────
 
@@ -324,7 +344,11 @@ impl Function for Tap {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let fn_val = require_function_value(&args[0])?;
         let value = &args[1];
@@ -344,7 +368,10 @@ impl Function for Constantly {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let value = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let value = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         let captured = value.clone();
         let fn_val = FunctionValue {
             params: vec![("_".to_string(), serde_json::Value::Null)],
@@ -367,9 +394,14 @@ impl Function for Flip {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let fn_val = require_function_value(args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?)?;
+        let fn_val = require_function_value(args.first().ok_or(EvalError::TypeMismatch(
+            format!("expected {} args, got {}", 1, 0,),
+        ))?)?;
         if fn_val.params.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "function with at least 2 parameters", "function with fewer than 2 parameters",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "function with at least 2 parameters", "function with fewer than 2 parameters",
+            )));
         }
         let mut swapped_params = fn_val.params.clone();
         swapped_params.swap(0, 1);
@@ -395,7 +427,11 @@ impl Function for Partial {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let fn_val = require_function_value(&args[0])?;
         let bound_args = require_array(&args[1])?;
@@ -436,7 +472,11 @@ impl Function for When {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let value = &args[0];
         let predicate = require_function_value(&args[1])?;
@@ -459,7 +499,11 @@ impl Function for Unless {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let value = &args[0];
         let predicate = require_function_value(&args[1])?;
@@ -484,7 +528,11 @@ impl Function for Converge {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 3 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                3,
+                args.len(),
+            )));
         }
         let value = &args[0];
         let combiner = require_function_value(&args[1])?;
@@ -572,9 +620,10 @@ fn match_pattern(
                         let arr = entry.as_array().ok_or_else(|| {
                             EvalError::Other("invalid object pattern entry".into())
                         })?;
-                        let key = arr.get(0).and_then(|v| v.as_str()).ok_or_else(|| {
-                            EvalError::Other("invalid object pattern key".into())
-                        })?;
+                        let key = arr
+                            .get(0)
+                            .and_then(|v| v.as_str())
+                            .ok_or_else(|| EvalError::Other("invalid object pattern key".into()))?;
                         let child_pattern = arr.get(1).ok_or_else(|| {
                             EvalError::Other("invalid object pattern entry".into())
                         })?;
@@ -607,19 +656,36 @@ impl Function for Match {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let value = &args[0];
         for branch_arg in &args[1..] {
-            let branch = branch_arg.as_array().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array [pattern, handler]", "non-array branch",)))?;
+            let branch = branch_arg
+                .as_array()
+                .ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "array [pattern, handler]", "non-array branch",
+                )))?;
             if branch.len() < 2 {
-                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, branch.len(),)));
+                return Err(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    2,
+                    branch.len(),
+                )));
             }
             let pattern = &branch[0];
             let handler = &branch[1];
             let mut bindings = Vec::new();
             if match_pattern(pattern, value, &mut bindings)? {
-                let fn_val = FunctionValue::from_json(handler).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "function value", "non-function branch handler",)))?;
+                let fn_val =
+                    FunctionValue::from_json(handler).ok_or(EvalError::TypeMismatch(format!(
+                        "expected {}, got {}",
+                        "function value", "non-function branch handler",
+                    )))?;
                 let vars: Vec<(String, serde_json::Value)> = bindings
                     .into_iter()
                     .map(|(name, val)| (name, serde_json::Value::from(val)))

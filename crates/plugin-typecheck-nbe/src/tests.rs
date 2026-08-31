@@ -230,19 +230,23 @@ fn language_value_synth_and_round_trip() {
 fn language_values_unify_by_handle() {
     let mut ctx = MetaContext::new();
     // Equal handles unify.
-    assert!(unify(
-        &mut ctx,
-        &Value::Language(Name::new("handl")),
-        &Value::Language(Name::new("handl"))
-    )
-    .is_ok());
+    assert!(
+        unify(
+            &mut ctx,
+            &Value::Language(Name::new("handl")),
+            &Value::Language(Name::new("handl"))
+        )
+        .is_ok()
+    );
     // Distinct handles do not unify.
-    assert!(unify(
-        &mut ctx,
-        &Value::Language(Name::new("handl")),
-        &Value::Language(Name::new("json"))
-    )
-    .is_err());
+    assert!(
+        unify(
+            &mut ctx,
+            &Value::Language(Name::new("handl")),
+            &Value::Language(Name::new("json"))
+        )
+        .is_err()
+    );
 }
 
 #[test]

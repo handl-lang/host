@@ -80,10 +80,7 @@ fn call_err(name: &str, args: &[serde_json::Value]) -> Result<serde_json::Value,
 #[test]
 fn some_wraps_value() {
     let result = call("some", &[n(42.0)]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Some", "value": 42.0})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Some", "value": 42.0}));
 }
 
 #[test]
@@ -218,19 +215,13 @@ fn unwrap_or_else_none_calls_function() {
 #[test]
 fn map_some() {
     let result = call("map", &[some(n(5.0)), fn_value("42", &[])]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Some", "value": 42.0})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Some", "value": 42.0}));
 }
 
 #[test]
 fn map_some_identity() {
     let result = call("map", &[some(n(5.0)), fn_value("x", &["x"])]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Some", "value": 5.0})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Some", "value": 5.0}));
 }
 
 #[test]
@@ -270,10 +261,7 @@ fn map_requires_function() {
 #[test]
 fn filter_truthy_keeps_some() {
     let result = call("filter", &[some(n(5.0)), fn_value("x", &["x"])]);
-    assert_eq!(
-        result,
-        serde_json::json!({"_tag": "Some", "value": 5.0})
-    );
+    assert_eq!(result, serde_json::json!({"_tag": "Some", "value": 5.0}));
 }
 
 #[test]

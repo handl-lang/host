@@ -1,5 +1,5 @@
-use handl_platform::Module;
 use handl_platform::EvalContext;
+use handl_platform::Module;
 
 use super::time::TimeModule;
 use super::time_stub::StubTime;

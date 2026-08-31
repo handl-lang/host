@@ -1,9 +1,9 @@
 use fixed_decimal::{
     Decimal, FloatPrecision, SignDisplay, SignedRoundingMode, UnsignedRoundingMode,
 };
+use handl_platform::EvalError;
 use icu::locale::Locale;
 use icu_provider_blob::BlobDataProvider;
-use handl_platform::{EvalError};
 
 use super::error::IntlError;
 use super::provider::IntlProvider;
@@ -49,14 +49,28 @@ pub(super) fn make_provider(provider: &Option<IntlProvider>) -> Result<DataProvi
 
 /// Require a number argument at `idx`.
 pub(super) fn require_number(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))
 }
 
 /// Require a string argument at `idx`.
 pub(super) fn require_string(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 /// Require an array argument at `idx`.
@@ -64,8 +78,17 @@ pub(super) fn require_array(
     args: &[serde_json::Value],
     idx: usize,
 ) -> Result<&[serde_json::Value], EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_array()
+        .map(Vec::as_slice)
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array",
+        )))
 }
 
 /// Require an object argument at `idx`.
@@ -73,8 +96,15 @@ pub(super) fn require_object(
     args: &[serde_json::Value],
     idx: usize,
 ) -> Result<&serde_json::Map<String, serde_json::Value>, EvalError> {
-    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))?;
-    arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))
+    let arg = args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))?;
+    arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "object", "non-object",
+    )))
 }
 
 /// Extract an optional locale argument at the given index.
@@ -82,7 +112,10 @@ pub(super) fn require_object(
 pub(super) fn optional_locale(args: &[serde_json::Value], idx: usize) -> Result<Locale, EvalError> {
     match args.get(idx) {
         Some(arg) => {
-            let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+            let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string", "non-string",
+            )))?;
             Locale::try_from_str(s).map_err(|_| {
                 IntlError::InvalidLocale {
                     input: s.to_string(),
@@ -101,7 +134,10 @@ pub(super) fn optional_object(
 ) -> Result<Option<&serde_json::Map<String, serde_json::Value>>, EvalError> {
     match args.get(idx) {
         Some(arg) => {
-            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
+            let obj = arg.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "object", "non-object",
+            )))?;
             Ok(Some(obj))
         }
         None => Ok(None),

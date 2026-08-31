@@ -94,9 +94,7 @@ impl<'a, 'e, E: ParserEngine + ?Sized> ParserContext<'a, 'e, E> {
                 self.pos += 1;
                 Ok(token.clone())
             }
-            None => Err(LangError::Engine(
-                "unexpected end of input".to_string(),
-            )),
+            None => Err(LangError::Engine("unexpected end of input".to_string())),
         }
     }
 
@@ -146,7 +144,11 @@ pub trait ParserEngine {
     /// # Errors
     ///
     /// Returns [`LangError`] on parse failure.
-    fn expression(&self, ctx: &mut ParserContext<'_, '_, Self>, rbp: u8) -> Result<AstRef, LangError>;
+    fn expression(
+        &self,
+        ctx: &mut ParserContext<'_, '_, Self>,
+        rbp: u8,
+    ) -> Result<AstRef, LangError>;
 
     /// Parse a full token stream into an [`Ast`].
     ///
@@ -226,7 +228,9 @@ mod tests {
             if req.tokens.as_slice().is_empty() {
                 return Ok(ast);
             }
-            ast.push(AstNode::new("stub").with_payload(json!(req.tokens.as_slice()[0].text.clone())));
+            ast.push(
+                AstNode::new("stub").with_payload(json!(req.tokens.as_slice()[0].text.clone())),
+            );
             Ok(ast)
         }
     }
@@ -235,8 +239,14 @@ mod tests {
     fn parser_context_peek_and_advance() {
         let lang = Language::new();
         let toks = vec![
-            Token { kind: "token.a".into(), text: "a".into() },
-            Token { kind: "token.b".into(), text: "b".into() },
+            Token {
+                kind: "token.a".into(),
+                text: "a".into(),
+            },
+            Token {
+                kind: "token.b".into(),
+                text: "b".into(),
+            },
         ];
         let engine = StubParser;
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
@@ -251,7 +261,10 @@ mod tests {
     #[test]
     fn parser_context_advance_at_eof_errors() {
         let lang = Language::new();
-        let toks = vec![Token { kind: "token.a".into(), text: "a".into() }];
+        let toks = vec![Token {
+            kind: "token.a".into(),
+            text: "a".into(),
+        }];
         let engine = StubParser;
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
         ctx.advance().unwrap();
@@ -271,7 +284,10 @@ mod tests {
     #[test]
     fn parser_context_tokens_and_lang_accessors() {
         let lang = Language::new();
-        let toks = vec![Token { kind: "token.x".into(), text: "x".into() }];
+        let toks = vec![Token {
+            kind: "token.x".into(),
+            text: "x".into(),
+        }];
         let engine = StubParser;
         let ctx = ParserContext::new(&engine, &lang, &toks);
         assert_eq!(ctx.tokens().len(), 1);
@@ -281,7 +297,10 @@ mod tests {
     #[test]
     fn parser_context_expression_delegates_to_engine() {
         let lang = Language::new();
-        let toks = vec![Token { kind: "token.a".into(), text: "a".into() }];
+        let toks = vec![Token {
+            kind: "token.a".into(),
+            text: "a".into(),
+        }];
         let engine = StubParser;
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
         let r = ctx.expression(0).unwrap();
@@ -313,7 +332,11 @@ mod tests {
 
     #[test]
     fn trait_dispatch_via_generic() {
-        fn run_parse<E: ParserEngine>(engine: &E, lang: &Language, req: &ParserRequest) -> Result<Ast, LangError> {
+        fn run_parse<E: ParserEngine>(
+            engine: &E,
+            lang: &Language,
+            req: &ParserRequest,
+        ) -> Result<Ast, LangError> {
             engine.parse(lang, req)
         }
         let engine = StubParser;

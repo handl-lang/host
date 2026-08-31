@@ -44,10 +44,7 @@ impl ExecControl for AllowControl {
     ) -> Result<ControlFlow, PlatformError> {
         if let Some(name) = callee_name(ast) {
             if !self.allowed.contains(&name) {
-                return Err(EvalError::ResourceLimit(format!(
-                    "call not allowed: {name}"
-                ))
-                .into());
+                return Err(EvalError::ResourceLimit(format!("call not allowed: {name}")).into());
             }
         }
         Ok(ControlFlow::Continue)
@@ -91,8 +88,7 @@ impl Plugin for ExecAllowPlugin {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
             ctx.contribute_exec_control(
-                Arc::new(AllowControl::new(self.allowed.iter().cloned()))
-                    as Arc<dyn ExecControl>,
+                Arc::new(AllowControl::new(self.allowed.iter().cloned())) as Arc<dyn ExecControl>
             )?;
         }
         Ok(())
@@ -111,8 +107,8 @@ impl Plugin for ExecAllowPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -158,7 +154,9 @@ mod tests {
     #[test]
     fn permits_allowlisted_call() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(AllowControl::new(["math.add"])));
 
         let result = run_eval(&evaluator, call("math.add")).unwrap();
@@ -168,7 +166,9 @@ mod tests {
     #[test]
     fn blocks_non_allowlisted_call() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(CallEcho) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(AllowControl::new(["math.add"])));
 
         let err = run_eval(&evaluator, call("dangerous")).unwrap_err();

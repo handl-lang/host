@@ -27,11 +27,7 @@ impl Module for SnapshotModule {
 #[derive(Clone, Copy)]
 struct Format;
 impl Function for Format {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
         let serialized =
             serde_json::to_string_pretty(&args[0]).unwrap_or_else(|_| "null".to_string());
@@ -42,11 +38,7 @@ impl Function for Format {
 #[derive(Clone, Copy)]
 struct Match;
 impl Function for Match {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 3)?;
         let name = require_string(&args[0])?;
         let actual = &args[1];

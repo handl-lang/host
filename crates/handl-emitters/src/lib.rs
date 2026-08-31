@@ -225,13 +225,7 @@ mod tests {
     #[test]
     fn eval_scheme_adds_eval_def() {
         let mut lang = Language::new();
-        eval_scheme(
-            &mut lang,
-            "e.add",
-            "binary.add",
-            prim_binary("add"),
-        )
-        .unwrap();
+        eval_scheme(&mut lang, "e.add", "binary.add", prim_binary("add")).unwrap();
         assert_eq!(lang.eval.len(), 1);
     }
 

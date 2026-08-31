@@ -47,7 +47,10 @@ fn child_count(node: &AstNode) -> Option<usize> {
 fn eq_sugar_parses() {
     let ast = parse_ast("1 == 1");
     let root = parse_root("1 == 1");
-    assert!(child_count(&root).unwrap_or(0) >= 2, "eq should have 2 children");
+    assert!(
+        child_count(&root).unwrap_or(0) >= 2,
+        "eq should have 2 children"
+    );
     let _ = ast;
 }
 

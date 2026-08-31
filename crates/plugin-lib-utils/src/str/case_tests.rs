@@ -1,5 +1,3 @@
-
-
 use handl_platform::Module;
 
 use super::StrModule;

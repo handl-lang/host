@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_parse::DynParser;
 use handl_plugin_lib_url_rfc::Rfc;
 use handl_plugin_lib_url_whatwg::Whatwg;
-use handl_platform::{EvalContext, EvalError, Function};
-use handl_platform::Module;
 
 /// The `parse` runtime module.
 ///
@@ -56,14 +56,19 @@ impl Function for Parse {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() != 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
 
         let input = value_as_string(&args[0])?;
         let name = parser_name(&args[1])?;
-        let parser = self.parsers.get(&name).ok_or_else(|| {
-            EvalError::Other(format!("unknown parser: {name}"))
-        })?;
+        let parser = self
+            .parsers
+            .get(&name)
+            .ok_or_else(|| EvalError::Other(format!("unknown parser: {name}")))?;
 
         let value = parser
             .parse(&input)
@@ -73,33 +78,40 @@ impl Function for Parse {
     }
 }
 
-fn parser_name(
-    value: &serde_json::Value,
-) -> Result<String, EvalError> {
+fn parser_name(value: &serde_json::Value) -> Result<String, EvalError> {
     let Some(obj) = value.as_object() else {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object", "non-object",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "parser object", "non-object",
+        )));
     };
 
     let Some(ty) = obj.get("type").and_then(|v| v.as_str()) else {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object with type", "object without type",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "parser object with type", "object without type",
+        )));
     };
 
     if ty != "parser" {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "type: parser", "non-parser",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "type: parser", "non-parser",
+        )));
     }
 
     let Some(name) = obj.get("name").and_then(|v| v.as_str()) else {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "parser object with name", "parser object without name",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "parser object with name", "parser object without name",
+        )));
     };
 
     Ok(name.to_string())
 }
 
-fn value_as_string(
-    value: &serde_json::Value,
-) -> Result<String, EvalError> {
-    value
-        .as_str()
-        .map(String::from)
-        .ok_or_else(|| EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+fn value_as_string(value: &serde_json::Value) -> Result<String, EvalError> {
+    value.as_str().map(String::from).ok_or_else(|| {
+        EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",))
+    })
 }

@@ -42,11 +42,20 @@ impl Function for String_ {
         let charset_name = match args.len() {
             1 => "alphanumeric",
             2 => {
-                let val = args.get(1).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, 1,)))?;
-                val.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?
+                let val = args.get(1).ok_or(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    2, 1,
+                )))?;
+                val.as_str().ok_or(EvalError::TypeMismatch(format!(
+                    "expected {}, got {}",
+                    "string", "non-string",
+                )))?
             }
             n => {
-                return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, n,)));
+                return Err(EvalError::TypeMismatch(format!(
+                    "expected {} args, got {}",
+                    2, n,
+                )));
             }
         };
 

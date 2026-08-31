@@ -1,4 +1,3 @@
-
 use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{num, require_two_strings, string_predicate_fn};

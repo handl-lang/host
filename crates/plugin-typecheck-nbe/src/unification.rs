@@ -747,16 +747,7 @@ fn unify_neutral(
             unify(ctx, l1, l2)?;
             unify(ctx, r1, r2)
         }
-        (
-            Neutral::VauApp {
-                fun: f1,
-                arg: a1,
-            },
-            Neutral::VauApp {
-                fun: f2,
-                arg: a2,
-            },
-        ) => {
+        (Neutral::VauApp { fun: f1, arg: a1 }, Neutral::VauApp { fun: f2, arg: a2 }) => {
             unify_neutral(ctx, f1, f2)?;
             let a1 = walk(ctx, a1);
             let a2 = walk(ctx, a2);
@@ -968,9 +959,7 @@ fn occurs_check_term(ctx: &MetaContext, m: MetaVar, term: &Term) -> bool {
         }
         Term::TVar(_) | Term::TRef(_) => false,
         Term::Pi { param, body, .. }
-        | Term::VauType {
-            param, body, ..
-        }
+        | Term::VauType { param, body, .. }
         | Term::Sigma {
             fst: param,
             snd: body,
@@ -1041,9 +1030,7 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
             }
         }
         Term::Pi { param, body, .. }
-        | Term::VauType {
-            param, body, ..
-        }
+        | Term::VauType { param, body, .. }
         | Term::Sigma {
             fst: param,
             snd: body,

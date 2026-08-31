@@ -1,7 +1,7 @@
+use handl_platform::{EvalContext, EvalError, Function};
 use icu::locale::Locale;
 use icu::locale::extensions::unicode::{Key, Value};
 use icu::locale::subtags::{Language, Region, Script};
-use handl_platform::{EvalContext, EvalError, Function};
 
 use super::common::{optional_object, require_string};
 use super::error::IntlError;

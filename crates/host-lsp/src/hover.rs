@@ -1,9 +1,9 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{
-    is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind, is_identifier_kind,
-    is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind, is_string_kind,
-    is_template_kind, Kit, SpannedToken,
+    Kit, SpannedToken, is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind,
+    is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind,
+    is_string_kind, is_template_kind,
 };
 
 use crate::diagnostics::offset_to_position;

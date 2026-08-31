@@ -28,7 +28,6 @@ impl Function for FlatMap {
     }
 }
 
-
 // ── find ───────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
@@ -47,7 +46,6 @@ impl Function for Find {
         }
     }
 }
-
 
 // ── some / every ───────────────────────────────────────────────────
 
@@ -69,7 +67,6 @@ impl Function for SomeFn {
     }
 }
 
-
 #[derive(Clone, Copy)]
 pub struct Every;
 impl Function for Every {
@@ -87,7 +84,6 @@ impl Function for Every {
         Ok(b(true))
     }
 }
-
 
 // ── group_by ───────────────────────────────────────────────────────
 
@@ -114,7 +110,6 @@ impl Function for GroupBy {
         Ok(serde_json::Value::from(serde_json::Value::Object(result)))
     }
 }
-
 
 // ── partition ──────────────────────────────────────────────────────
 
@@ -143,7 +138,6 @@ impl Function for Partition {
     }
 }
 
-
 // ── count_by ───────────────────────────────────────────────────────
 
 #[derive(Clone, Copy)]
@@ -168,4 +162,3 @@ impl Function for CountBy {
         Ok(serde_json::Value::from(serde_json::Value::Object(result)))
     }
 }
-

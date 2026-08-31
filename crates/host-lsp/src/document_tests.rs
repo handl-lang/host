@@ -68,10 +68,7 @@ fn document_store_update_full_replaces_text() {
 fn document_store_apply_incremental_inserts() {
     let mut store = DocumentStore::new();
     store.open("file:///foo.hnl", "x = 42");
-    let result = store.apply_incremental(
-        "file:///foo.hnl",
-        TextContentChange::insert(0, "let "),
-    );
+    let result = store.apply_incremental("file:///foo.hnl", TextContentChange::insert(0, "let "));
     assert_eq!(result, Some("let x = 42"));
     assert_eq!(store.get("file:///foo.hnl"), Some("let x = 42"));
 }
@@ -80,20 +77,14 @@ fn document_store_apply_incremental_inserts() {
 fn document_store_apply_incremental_replaces_range() {
     let mut store = DocumentStore::new();
     store.open("file:///foo.hnl", "x = 42");
-    let result = store.apply_incremental(
-        "file:///foo.hnl",
-        TextContentChange::replace(0, 1, "y"),
-    );
+    let result = store.apply_incremental("file:///foo.hnl", TextContentChange::replace(0, 1, "y"));
     assert_eq!(result, Some("y = 42"));
 }
 
 #[test]
 fn document_store_apply_incremental_unknown_uri_returns_none() {
     let mut store = DocumentStore::new();
-    let result = store.apply_incremental(
-        "file:///missing.hnl",
-        TextContentChange::insert(0, "x"),
-    );
+    let result = store.apply_incremental("file:///missing.hnl", TextContentChange::insert(0, "x"));
     assert_eq!(result, None);
 }
 

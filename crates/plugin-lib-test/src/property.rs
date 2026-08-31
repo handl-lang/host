@@ -1,9 +1,9 @@
 use handl_platform::{EvalContext, EvalError, Function, Module};
-use serde_json::Value;
-use serde_json::json;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
+use serde_json::Value;
+use serde_json::json;
 
 use crate::error::TestError;
 use crate::shared::{b, call_function, require_function, require_integer};
@@ -30,11 +30,7 @@ impl Module for PropertyModule {
 #[derive(Clone, Copy)]
 struct ForAll;
 impl Function for ForAll {
-    fn call(
-        &self,
-        args: &[Value],
-        ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {
             return Err(TestError::ArgumentCount {
                 expected: 2,
@@ -69,8 +65,7 @@ impl Function for ForAll {
             match call_function(ctx, &func, &inputs) {
                 Ok(result) => {
                     if !result.as_bool().unwrap_or(false) {
-                        let counterexample: Vec<_> =
-                            inputs.iter().map(|v| v.clone()).collect();
+                        let counterexample: Vec<_> = inputs.iter().map(|v| v.clone()).collect();
                         return Err(TestError::PropertyFailed {
                             counterexample: serde_json::Value::Array(counterexample),
                             message: "property returned false".to_string(),

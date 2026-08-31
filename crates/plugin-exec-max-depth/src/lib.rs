@@ -92,8 +92,9 @@ impl Plugin for ExecMaxDepthPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
-            ctx.contribute_exec_control(Arc::new(MaxDepthControl::new(self.max_depth))
-                as Arc<dyn ExecControl>)?;
+            ctx.contribute_exec_control(
+                Arc::new(MaxDepthControl::new(self.max_depth)) as Arc<dyn ExecControl>
+            )?;
         }
         Ok(())
     }
@@ -111,8 +112,8 @@ impl Plugin for ExecMaxDepthPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -176,8 +177,12 @@ mod tests {
     #[test]
     fn allows_evaluation_within_limit() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Nest) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Nest) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         evaluator.add_exec_control(Arc::new(MaxDepthControl::new(5)));
 
         // nest(value(1)) -> depth goes 1 -> 2 (push) -> eval value. Within limit 5.
@@ -188,8 +193,12 @@ mod tests {
     #[test]
     fn aborts_when_depth_exceeds_limit() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Nest) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Nest) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         // Limit of 1: the root dispatch is at depth 1, which is allowed, but
         // any nesting pushes to depth 2 > 1.
         evaluator.add_exec_control(Arc::new(MaxDepthControl::new(1)));

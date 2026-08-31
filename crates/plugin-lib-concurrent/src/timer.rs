@@ -164,9 +164,7 @@ mod tests {
     use super::*;
     use crate::function_value::FunctionValue;
     use crate::scheduler::Scheduler;
-    use handl_platform::{
-        EvalContext, EvalError, ExprEvaluator,
-    };
+    use handl_platform::{EvalContext, EvalError, ExprEvaluator};
     use serde_json::json;
     use std::rc::Rc;
     use std::sync::{
@@ -190,11 +188,7 @@ mod tests {
     struct FastEval;
 
     impl ExprEvaluator for FastEval {
-        fn eval_expr(
-            &self,
-            _expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             Ok(serde_json::json!(json!("done")))
         }
     }
@@ -205,11 +199,7 @@ mod tests {
     }
 
     impl ExprEvaluator for SlowEval {
-        fn eval_expr(
-            &self,
-            _expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, _expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             for _ in 0..200 {
                 if self.flag.load(Ordering::SeqCst) {
                     return Err(EvalError::Other("cancelled".to_string()));

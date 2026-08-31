@@ -1,4 +1,3 @@
-
 use super::common::{b, require_one_string};
 use handl_platform::{EvalContext, EvalError, Function};
 

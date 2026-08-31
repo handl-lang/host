@@ -9,10 +9,10 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use handl_platform::{EvalContext, EvalError};
-use serde_json::Value;
 use crate::function_value::FunctionValue;
+use handl_platform::{EvalContext, EvalError};
 use parking_lot::{Condvar, FairMutex, Mutex, RwLock};
+use serde_json::Value;
 use serde_json::json;
 
 use crate::sync::{SyncError, SyncRuntime, as_u64, resource_id, resource_value};
@@ -84,11 +84,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         resource_value("channel", id)
     }
 
-    fn send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError> {
+    fn send(&self, channel: Value, value: Value) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -108,11 +104,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         Ok(Value::default())
     }
 
-    fn try_send(
-        &self,
-        channel: Value,
-        value: Value,
-    ) -> Result<Value, EvalError> {
+    fn try_send(&self, channel: Value, value: Value) -> Result<Value, EvalError> {
         let id = resource_id(&channel, "channel")?;
         let channels = self.channels.lock();
         let chan = channels
@@ -287,11 +279,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         resource_value("semaphore", id)
     }
 
-    fn acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -309,11 +297,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         Ok(Value::default())
     }
 
-    fn try_acquire(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn try_acquire(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -331,11 +315,7 @@ impl SyncRuntime for ParkingLotSyncRuntime {
         Ok(Value::default())
     }
 
-    fn release(
-        &self,
-        semaphore: Value,
-        n: Value,
-    ) -> Result<Value, EvalError> {
+    fn release(&self, semaphore: Value, n: Value) -> Result<Value, EvalError> {
         let id = resource_id(&semaphore, "semaphore")?;
         let n = as_u64(&n)? as usize;
         let semaphores = self.semaphores.lock();
@@ -356,8 +336,8 @@ impl SyncRuntime for ParkingLotSyncRuntime {
 mod tests {
     use super::*;
     use handl_platform::{EvalContext, EvalError, ExprEvaluator};
-    use std::sync::{Arc, Mutex};
     use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     use serde_json::json;
 
@@ -367,11 +347,7 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEval {
-        fn eval_expr(
-            &self,
-            expr: &str,
-            _vars: &[(String, Value)],
-        ) -> Result<Value, EvalError> {
+        fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
             self.calls.lock().unwrap().push(expr.to_string());
             Ok(serde_json::json!(json!({ "body": expr })))
         }
@@ -425,18 +401,9 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let sem = s.semaphore(serde_json::json!(json!(2)));
 
-        assert!(
-            s.acquire(sem.clone(), serde_json::json!(json!(1)))
-                .is_ok()
-        );
-        assert!(
-            s.acquire(sem.clone(), serde_json::json!(json!(1)))
-                .is_ok()
-        );
-        assert!(
-            s.release(sem.clone(), serde_json::json!(json!(1)))
-                .is_ok()
-        );
+        assert!(s.acquire(sem.clone(), serde_json::json!(json!(1))).is_ok());
+        assert!(s.acquire(sem.clone(), serde_json::json!(json!(1))).is_ok());
+        assert!(s.release(sem.clone(), serde_json::json!(json!(1))).is_ok());
         assert!(s.acquire(sem, serde_json::json!(json!(1))).is_ok());
     }
 
@@ -445,8 +412,7 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let ch = s.channel(None);
 
-        s.send(ch.clone(), serde_json::json!(json!(42)))
-            .unwrap();
+        s.send(ch.clone(), serde_json::json!(json!(42))).unwrap();
         assert_eq!(s.recv(ch).unwrap(), serde_json::json!(json!(42)));
     }
 
@@ -493,10 +459,8 @@ mod tests {
         let s = ParkingLotSyncRuntime::new();
         let sem = s.semaphore(serde_json::json!(json!(2)));
 
-        s.acquire(sem.clone(), serde_json::json!(json!(1)))
-            .unwrap();
-        s.acquire(sem.clone(), serde_json::json!(json!(1)))
-            .unwrap();
+        s.acquire(sem.clone(), serde_json::json!(json!(1))).unwrap();
+        s.acquire(sem.clone(), serde_json::json!(json!(1))).unwrap();
         assert_eq!(
             s.try_acquire(sem, serde_json::json!(json!(1))),
             Err(EvalError::from(SyncError::WouldBlock))

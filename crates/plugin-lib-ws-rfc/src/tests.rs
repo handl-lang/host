@@ -484,11 +484,7 @@ mod module_helpers {
         EvalContext::new()
     }
 
-    fn call_err<F: Function>(
-        f: &F,
-        args: &[serde_json::Value],
-        ctx: &mut EvalContext,
-    ) {
+    fn call_err<F: Function>(f: &F, args: &[serde_json::Value], ctx: &mut EvalContext) {
         assert!(f.call(args, ctx).is_err());
     }
 
@@ -809,10 +805,7 @@ mod module_helpers {
         assert!(frame.is_string());
 
         let round = call_ok(&FrameDecode, &[frame], &mut ctx);
-        assert_eq!(
-            round.get("opcode"),
-            Some(&serde_json::json!("text"))
-        );
+        assert_eq!(round.get("opcode"), Some(&serde_json::json!("text")));
     }
 
     #[test]
@@ -834,7 +827,9 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[serde_json::Value::from(serde_json::json!({"text": "hello"}))],
+            &[serde_json::Value::from(
+                serde_json::json!({"text": "hello"}),
+            )],
             &mut ctx,
         );
         assert!(encoded.is_string());
@@ -896,7 +891,9 @@ mod module_helpers {
         let mut ctx = ctx();
         let encoded = call_ok(
             &MessageToFrame,
-            &[serde_json::Value::from(serde_json::json!({"text": "hello"}))],
+            &[serde_json::Value::from(
+                serde_json::json!({"text": "hello"}),
+            )],
             &mut ctx,
         );
         let frame = call_ok(&FrameDecode, &[encoded], &mut ctx);

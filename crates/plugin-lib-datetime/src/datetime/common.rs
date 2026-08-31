@@ -1,34 +1,53 @@
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
+use handl_platform::EvalError;
 use std::str::FromStr;
-use handl_platform::{EvalError};
 
 use crate::DatetimeError;
 
 pub(super) fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
-    arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "string", "non-string",
+    )))
 }
 
 pub(super) fn require_number(arg: &serde_json::Value) -> Result<f64, EvalError> {
-    arg.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
+    arg.as_f64().ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "number", "non-number",
+    )))
 }
 
 pub(super) fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1, 0,
+    )))?;
     require_string(arg)
 }
 
 pub(super) fn require_two_strings(args: &[serde_json::Value]) -> Result<(&str, &str), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let a = require_string(&args[0])?;
     let b = require_string(&args[1])?;
     Ok((a, b))
 }
 
-pub(super) fn require_string_and_number(args: &[serde_json::Value]) -> Result<(&str, f64), EvalError> {
+pub(super) fn require_string_and_number(
+    args: &[serde_json::Value],
+) -> Result<(&str, f64), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     let s = require_string(&args[0])?;
     let n = require_number(&args[1])?;
@@ -39,7 +58,11 @@ pub(super) fn require_three_strings(
     args: &[serde_json::Value],
 ) -> Result<(&str, &str, &str), EvalError> {
     if args.len() < 3 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            3,
+            args.len(),
+        )));
     }
     let a = require_string(&args[0])?;
     let b = require_string(&args[1])?;

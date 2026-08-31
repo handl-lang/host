@@ -88,8 +88,9 @@ impl Plugin for ExecMaxCallsPlugin {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
         if !self.registered.load(Ordering::SeqCst) {
             self.registered.store(true, Ordering::SeqCst);
-            ctx.contribute_exec_control(Arc::new(MaxCallsControl::new(self.max_calls))
-                as Arc<dyn ExecControl>)?;
+            ctx.contribute_exec_control(
+                Arc::new(MaxCallsControl::new(self.max_calls)) as Arc<dyn ExecControl>
+            )?;
         }
         Ok(())
     }
@@ -107,8 +108,8 @@ impl Plugin for ExecMaxCallsPlugin {
 mod tests {
     use super::*;
     use handl_platform::{
-        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior,
-        EvalRequest, KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
+        BasicEvaluator, Behavior, CapabilityId, CapabilityRequest, Eval, EvalBehavior, EvalRequest,
+        KitRegistry, PluginContext, PluginRegistry, RuleAcceptor,
     };
     use serde_json::{Value, json};
 
@@ -169,8 +170,12 @@ mod tests {
     #[test]
     fn allows_calls_within_limit() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         // 2 calls: root recurse + child value.
         evaluator.add_exec_control(Arc::new(MaxCallsControl::new(2)));
 
@@ -181,8 +186,12 @@ mod tests {
     #[test]
     fn aborts_when_call_count_exceeds_limit() {
         let mut evaluator = BasicEvaluator::new();
-        evaluator.accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>).unwrap();
-        evaluator.accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>).unwrap();
+        evaluator
+            .accept(Arc::new(Recurse) as Arc<dyn EvalBehavior>)
+            .unwrap();
+        evaluator
+            .accept(Arc::new(ValueLit) as Arc<dyn EvalBehavior>)
+            .unwrap();
         // Limit of 1: root recurse is call 1 (ok), child value is call 2 > 1.
         evaluator.add_exec_control(Arc::new(MaxCallsControl::new(1)));
 

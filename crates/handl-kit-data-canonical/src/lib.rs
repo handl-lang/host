@@ -42,12 +42,10 @@
 #![warn(missing_docs)]
 
 use handl_emitters::Emitter;
-use handl_kit_data::{
-    DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry,
-};
+use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_language::{
-    AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError,
-    Language, LexerRuleDef, OptionSchema, TokenKindDef,
+    AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
+    OptionSchema, TokenKindDef,
 };
 use handl_runtime::RuntimeConfig;
 
@@ -200,9 +198,7 @@ pub fn manifest() -> DataKitManifest {
 /// emitter and this kit's manifest registered under [`KIT_NAME`].
 pub fn registry() -> EmitterRegistry {
     let mut reg = EmitterRegistry::new();
-    reg.register_emitter("canonical-yaml", || {
-        Box::new(YamlDataEmitter::new())
-    });
+    reg.register_emitter("canonical-yaml", || Box::new(YamlDataEmitter::new()));
     reg.register_kit(KIT_NAME, manifest());
     reg
 }

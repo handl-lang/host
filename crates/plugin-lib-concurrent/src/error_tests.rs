@@ -2,15 +2,15 @@
 
 use crate::ConcurrencyModule;
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
+use crate::function_value::FunctionValue;
 use crate::scheduler::{DefaultScheduler, Scheduler};
 use crate::sync::{DefaultSyncRuntime, SyncRuntime};
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, ExprEvaluator};
-use serde_json::json;
 use serde_json::Value;
-use crate::function_value::FunctionValue;
-use std::sync::{Arc, Mutex};
+use serde_json::json;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 struct MockEval {
@@ -18,11 +18,7 @@ struct MockEval {
 }
 
 impl ExprEvaluator for MockEval {
-    fn eval_expr(
-        &self,
-        expr: &str,
-        _vars: &[(String, Value)],
-    ) -> Result<Value, EvalError> {
+    fn eval_expr(&self, expr: &str, _vars: &[(String, Value)]) -> Result<Value, EvalError> {
         self.calls.lock().unwrap().push(expr.to_string());
         Ok(serde_json::json!(json!({ "body": expr })))
     }
@@ -34,7 +30,7 @@ fn thunk(body: &str) -> FunctionValue {
         return_schema: None,
         body: body.to_string(),
         patterns: Vec::new(),
-            captured: Vec::new(),
+        captured: Vec::new(),
     }
 }
 

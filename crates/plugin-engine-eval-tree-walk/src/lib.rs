@@ -61,7 +61,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language, Scheme, Value, ast_value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 
 /// The tree-walk eval engine.
@@ -238,19 +238,14 @@ impl TreeWalkEngine {
                 // requiring per-function scheme entries in the Language data.
                 if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
                     let modules = self.modules.as_ref().ok_or_else(|| {
-                        LangError::Engine(format!(
-                            "unregistered foreign: {}",
-                            foreign_name
-                        ))
+                        LangError::Engine(format!("unregistered foreign: {}", foreign_name))
                     })?;
                     let func = modules.lookup(foreign_name).ok_or_else(|| {
-                        LangError::Engine(format!(
-                            "unregistered foreign: {}",
-                            foreign_name
-                        ))
+                        LangError::Engine(format!("unregistered foreign: {}", foreign_name))
                     })?;
                     let mut arg_vals = Vec::new();
-                    if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                    if let Some(children) = node.payload.get("children").and_then(|c| c.as_array())
+                    {
                         for child_ref in children {
                             if let Some(idx) = child_ref.as_u64() {
                                 let child_ref = AstRef::new(idx as usize);
@@ -379,11 +374,7 @@ impl TreeWalkEngine {
                 self.apply_closure(&closure_val, &arg_vals, ctx)
             }
 
-            Scheme::Branch {
-                cond,
-                then_,
-                else_,
-            } => {
+            Scheme::Branch { cond, then_, else_ } => {
                 let cond_val = self.eval_scheme(cond, ctx)?;
                 if is_truthy(&cond_val) {
                     self.eval_scheme(then_, ctx)
@@ -405,12 +396,12 @@ impl TreeWalkEngine {
                 for arg in args {
                     arg_vals.push(self.eval_scheme(arg, ctx)?);
                 }
-                let modules = ctx.modules.ok_or_else(|| {
-                    LangError::Engine(format!("unregistered foreign: {}", name))
-                })?;
-                let func = modules.lookup(name).ok_or_else(|| {
-                    LangError::Engine(format!("unregistered foreign: {}", name))
-                })?;
+                let modules = ctx
+                    .modules
+                    .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
+                let func = modules
+                    .lookup(name)
+                    .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
                 let mut pctx = handl_platform::EvalContext::new();
                 func.call(&arg_vals, &mut pctx)
                     .map_err(|e| LangError::Engine(e.to_string()))
@@ -432,12 +423,7 @@ impl TreeWalkEngine {
                     let arena_idx = children
                         .and_then(|arr| arr.get(i))
                         .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::Engine(format!(
-                                "vau: child {} not found",
-                                i
-                            ))
-                        })?;
+                        .ok_or_else(|| LangError::Engine(format!("vau: child {} not found", i)))?;
                     let sub = ctx.ast.subtree(AstRef::new(arena_idx as usize))?;
                     ctx.env.define(param, ast_value(&sub));
                 }
@@ -502,11 +488,7 @@ impl TreeWalkEngine {
         let captured_env: HashMap<String, Value> = obj
             .get("env")
             .and_then(|v| v.as_object())
-            .map(|m| {
-                m.iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
-            })
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default();
 
         if params.len() != args.len() {
@@ -605,9 +587,9 @@ impl TreeWalkEngine {
             "compare" => {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
-                let cmp = a.partial_cmp(&b).ok_or_else(|| {
-                    LangError::Engine("compare: incomparable values".to_string())
-                })?;
+                let cmp = a
+                    .partial_cmp(&b)
+                    .ok_or_else(|| LangError::Engine("compare: incomparable values".to_string()))?;
                 Ok(num_value(Num::Int(match cmp {
                     std::cmp::Ordering::Less => -1,
                     std::cmp::Ordering::Equal => 0,
@@ -653,34 +635,51 @@ impl TreeWalkEngine {
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
                     (p.clone(), b as usize)
-                } else if let Some(children) =
-                    payload.get("children").and_then(|c| c.as_array())
-                {
-                    let param_idx = children.get(0).and_then(|v| v.as_u64())
-                        .ok_or_else(|| LangError::Engine("closure prim: missing param child".to_string()))? as usize;
-                    let body_idx = children.get(1).and_then(|v| v.as_u64())
-                        .ok_or_else(|| LangError::Engine("closure prim: missing body child".to_string()))? as usize;
+                } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
+                    let param_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
+                        LangError::Engine("closure prim: missing param child".to_string())
+                    })? as usize;
+                    let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+                        LangError::Engine("closure prim: missing body child".to_string())
+                    })? as usize;
                     let param_node = ctx.ast.at(AstRef::new(param_idx))?;
                     // Extract param names: if the param node is a `paren`,
                     // unwrap its children (multi-param). If it's a `var`,
                     // use its string payload directly (bare single param).
                     let param_names: Vec<String> = if param_node.kind == "paren" {
-                        let paren_children = param_node.payload.get("children")
+                        let paren_children = param_node
+                            .payload
+                            .get("children")
                             .and_then(|c| c.as_array())
-                            .ok_or_else(|| LangError::Engine("closure prim: paren params missing children".to_string()))?;
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure prim: paren params missing children".to_string(),
+                                )
+                            })?;
                         let mut names = Vec::with_capacity(paren_children.len());
                         for pc in paren_children {
-                            let pidx = pc.as_u64()
-                                .ok_or_else(|| LangError::Engine("closure prim: param index must be a number".to_string()))? as usize;
+                            let pidx = pc.as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure prim: param index must be a number".to_string(),
+                                )
+                            })? as usize;
                             let pnode = ctx.ast.at(AstRef::new(pidx))?;
-                            let pname = pnode.payload.as_str()
-                                .ok_or_else(|| LangError::Engine("closure prim: param must be a var with string payload".to_string()))?;
+                            let pname = pnode.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure prim: param must be a var with string payload"
+                                        .to_string(),
+                                )
+                            })?;
                             names.push(pname.to_string());
                         }
                         names
                     } else {
-                        let pname = param_node.payload.as_str()
-                            .ok_or_else(|| LangError::Engine("closure prim: param node must be a var with string payload".to_string()))?;
+                        let pname = param_node.payload.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "closure prim: param node must be a var with string payload"
+                                    .to_string(),
+                            )
+                        })?;
                         vec![pname.to_string()]
                     };
                     (param_names.into_iter().map(Value::from).collect(), body_idx)
@@ -705,18 +704,29 @@ impl TreeWalkEngine {
                 //   element is an arena index to evaluate.
                 if let Some(elements) = ctx.current_node.payload.get("elements") {
                     Ok(elements.clone())
-                } else if let Some(children) =
-                    ctx.current_node.payload.get("children").and_then(|c| c.as_array())
+                } else if let Some(children) = ctx
+                    .current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
                 {
                     let mut result = Vec::with_capacity(children.len());
                     for entry in children {
-                        let idx = entry.as_u64()
-                            .ok_or_else(|| LangError::Engine("array: element index must be a number".to_string()))? as usize;
-                        result.push(self.eval_node(ctx.ast, AstRef::new(idx), ctx.lang, ctx.env)?);
+                        let idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine("array: element index must be a number".to_string())
+                        })? as usize;
+                        result.push(self.eval_node(
+                            ctx.ast,
+                            AstRef::new(idx),
+                            ctx.lang,
+                            ctx.env,
+                        )?);
                     }
                     Ok(Value::Array(result))
                 } else {
-                    Err(LangError::Engine("array: missing elements/children in payload".to_string()))
+                    Err(LangError::Engine(
+                        "array: missing elements/children in payload".to_string(),
+                    ))
                 }
             }
             "object" => {
@@ -724,61 +734,109 @@ impl TreeWalkEngine {
                 // - **Rich**: `{"entries": [{"key": "k", "value": v}, ...]}`.
                 // - **Pratt-parsed**: `{"children": [entry_idx, ...]}` where
                 //   each entry node has `{"children": [key_idx, value_idx]}`.
-                if let Some(entries) = ctx.current_node.payload.get("entries").and_then(|v| v.as_array()) {
+                if let Some(entries) = ctx
+                    .current_node
+                    .payload
+                    .get("entries")
+                    .and_then(|v| v.as_array())
+                {
                     let mut obj = serde_json::Map::new();
                     for entry in entries {
-                        let key = entry.get("key").and_then(|v| v.as_str())
-                            .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
-                        let value = entry.get("value")
-                            .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
+                        let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
+                            LangError::Engine("object: entry missing key".to_string())
+                        })?;
+                        let value = entry.get("value").ok_or_else(|| {
+                            LangError::Engine("object: entry missing value".to_string())
+                        })?;
                         obj.insert(key.to_string(), value.clone());
                     }
                     Ok(Value::Object(obj))
-                } else if let Some(children) =
-                    ctx.current_node.payload.get("children").and_then(|c| c.as_array())
+                } else if let Some(children) = ctx
+                    .current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
                 {
                     let mut obj = serde_json::Map::new();
                     for entry in children {
-                        let entry_idx = entry.as_u64()
-                            .ok_or_else(|| LangError::Engine("object: entry index must be a number".to_string()))? as usize;
+                        let entry_idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine("object: entry index must be a number".to_string())
+                        })? as usize;
                         let entry_node = ctx.ast.at(AstRef::new(entry_idx))?;
-                        let entry_children = entry_node.payload.get("children")
+                        let entry_children = entry_node
+                            .payload
+                            .get("children")
                             .and_then(|c| c.as_array())
-                            .ok_or_else(|| LangError::Engine("object: entry node missing children".to_string()))?;
-                        let key_idx = entry_children.get(0).and_then(|v| v.as_u64())
-                            .ok_or_else(|| LangError::Engine("object: entry missing key child".to_string()))? as usize;
-                        let val_idx = entry_children.get(1).and_then(|v| v.as_u64())
-                            .ok_or_else(|| LangError::Engine("object: entry missing value child".to_string()))? as usize;
-                        let key_val = self.eval_node(ctx.ast, AstRef::new(key_idx), ctx.lang, ctx.env)?;
-                        let key = key_val.as_str()
-                            .ok_or_else(|| LangError::Engine("object: entry key must evaluate to a string".to_string()))?;
-                        let value = self.eval_node(ctx.ast, AstRef::new(val_idx), ctx.lang, ctx.env)?;
+                            .ok_or_else(|| {
+                                LangError::Engine("object: entry node missing children".to_string())
+                            })?;
+                        let key_idx =
+                            entry_children
+                                .get(0)
+                                .and_then(|v| v.as_u64())
+                                .ok_or_else(|| {
+                                    LangError::Engine("object: entry missing key child".to_string())
+                                })? as usize;
+                        let val_idx =
+                            entry_children
+                                .get(1)
+                                .and_then(|v| v.as_u64())
+                                .ok_or_else(|| {
+                                    LangError::Engine(
+                                        "object: entry missing value child".to_string(),
+                                    )
+                                })? as usize;
+                        let key_val =
+                            self.eval_node(ctx.ast, AstRef::new(key_idx), ctx.lang, ctx.env)?;
+                        let key = key_val.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "object: entry key must evaluate to a string".to_string(),
+                            )
+                        })?;
+                        let value =
+                            self.eval_node(ctx.ast, AstRef::new(val_idx), ctx.lang, ctx.env)?;
                         obj.insert(key.to_string(), value);
                     }
                     Ok(Value::Object(obj))
                 } else {
-                    Err(LangError::Engine("object: missing entries/children in payload".to_string()))
+                    Err(LangError::Engine(
+                        "object: missing entries/children in payload".to_string(),
+                    ))
                 }
             }
             "index" => {
-                let target = ctx.current_node.payload.get("target")
-                    .ok_or_else(|| LangError::Engine("index: missing target in payload".to_string()))?;
-                let index = ctx.current_node.payload.get("index")
-                    .ok_or_else(|| LangError::Engine("index: missing index in payload".to_string()))?;
+                let target = ctx.current_node.payload.get("target").ok_or_else(|| {
+                    LangError::Engine("index: missing target in payload".to_string())
+                })?;
+                let index = ctx.current_node.payload.get("index").ok_or_else(|| {
+                    LangError::Engine("index: missing index in payload".to_string())
+                })?;
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
-                        let i = n.as_u64().ok_or_else(|| LangError::Engine("index: index must be a non-negative integer".to_string()))? as usize;
-                        arr.get(i).cloned().ok_or_else(|| LangError::Engine(format!("index: index {} out of bounds", i)))
+                        let i = n.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "index: index must be a non-negative integer".to_string(),
+                            )
+                        })? as usize;
+                        arr.get(i).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: index {} out of bounds", i))
+                        })
                     }
                     (Value::Object(obj), Value::String(key)) => {
-                        obj.get(key).cloned().ok_or_else(|| LangError::Engine(format!("index: key '{}' not found", key)))
+                        obj.get(key).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: key '{}' not found", key))
+                        })
                     }
-                    _ => Err(LangError::Engine("index: target must be array/object and index must be number/string".to_string())),
+                    _ => Err(LangError::Engine(
+                        "index: target must be array/object and index must be number/string"
+                            .to_string(),
+                    )),
                 }
             }
             "assign" => {
-                let value = ctx.current_node.payload.get("value")
-                    .ok_or_else(|| LangError::Engine("assign: missing value in payload".to_string()))?;
+                let value = ctx.current_node.payload.get("value").ok_or_else(|| {
+                    LangError::Engine("assign: missing value in payload".to_string())
+                })?;
                 Ok(value.clone())
             }
             "match" => self.prim_match(ctx),
@@ -805,39 +863,66 @@ impl TreeWalkEngine {
     /// The first matching arm's body is evaluated lazily; non-matching arms
     /// are never evaluated.
     fn prim_match(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        let children = ctx.current_node.payload.get("children")
+        let children = ctx
+            .current_node
+            .payload
+            .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| LangError::Engine("match: missing children in payload".to_string()))?;
-        let scrut_idx = children.get(0).and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing scrutinee child".to_string()))? as usize;
-        let block_idx = children.get(1).and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing block child".to_string()))? as usize;
+        let scrut_idx = children
+            .get(0)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("match: missing scrutinee child".to_string()))?
+            as usize;
+        let block_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("match: missing block child".to_string()))?
+            as usize;
 
         // Evaluate the scrutinee.
         let scrut_val = self.eval_node(ctx.ast, AstRef::new(scrut_idx), ctx.lang, ctx.env)?;
 
         // Get the block node's children (the arm indices).
         let block_node = ctx.ast.at(AstRef::new(block_idx))?;
-        let arm_indices = block_node.payload.get("children")
+        let arm_indices = block_node
+            .payload
+            .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| LangError::Engine("match: block node missing children".to_string()))?;
 
         // Try each arm.
         for arm_entry in arm_indices {
-            let arm_idx = arm_entry.as_u64()
-                .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))? as usize;
+            let arm_idx = arm_entry
+                .as_u64()
+                .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))?
+                as usize;
             let arm_node = ctx.ast.at(AstRef::new(arm_idx))?;
-            let arm_children = arm_node.payload.get("children")
+            let arm_children = arm_node
+                .payload
+                .get("children")
                 .and_then(|c| c.as_array())
                 .ok_or_else(|| LangError::Engine("match: arm node missing children".to_string()))?;
-            let pattern_idx = arm_children.get(0).and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing pattern child".to_string()))? as usize;
-            let body_idx = arm_children.get(1).and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))? as usize;
+            let pattern_idx = arm_children
+                .get(0)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("match: arm missing pattern child".to_string()))?
+                as usize;
+            let body_idx = arm_children
+                .get(1)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))?
+                as usize;
 
             // Interpret the pattern node structurally.
             ctx.env.push_scope();
-            let matched = self.try_pattern(ctx.ast, AstRef::new(pattern_idx), &scrut_val, ctx.lang, ctx.env)?;
+            let matched = self.try_pattern(
+                ctx.ast,
+                AstRef::new(pattern_idx),
+                &scrut_val,
+                ctx.lang,
+                ctx.env,
+            )?;
             if matched {
                 let result = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env);
                 ctx.env.pop_scope();
@@ -857,38 +942,68 @@ impl TreeWalkEngine {
     /// is evaluated first; its result is matched against clause patterns. If
     /// no clause matches, the body value is returned as-is.
     fn prim_handle(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        let children = ctx.current_node.payload.get("children")
+        let children = ctx
+            .current_node
+            .payload
+            .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| LangError::Engine("handle: missing children in payload".to_string()))?;
-        let body_idx = children.get(0).and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing body child".to_string()))? as usize;
-        let block_idx = children.get(1).and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing block child".to_string()))? as usize;
+        let body_idx = children
+            .get(0)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("handle: missing body child".to_string()))?
+            as usize;
+        let block_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("handle: missing block child".to_string()))?
+            as usize;
 
         // Evaluate the body.
         let body_val = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env)?;
 
         // Get the block node's children (the clause indices).
         let block_node = ctx.ast.at(AstRef::new(block_idx))?;
-        let clause_indices = block_node.payload.get("children")
+        let clause_indices = block_node
+            .payload
+            .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| LangError::Engine("handle: block node missing children".to_string()))?;
 
         // Try each clause.
         for clause_entry in clause_indices {
-            let clause_idx = clause_entry.as_u64()
-                .ok_or_else(|| LangError::Engine("handle: clause index must be a number".to_string()))? as usize;
+            let clause_idx = clause_entry.as_u64().ok_or_else(|| {
+                LangError::Engine("handle: clause index must be a number".to_string())
+            })? as usize;
             let clause_node = ctx.ast.at(AstRef::new(clause_idx))?;
-            let clause_children = clause_node.payload.get("children")
+            let clause_children = clause_node
+                .payload
+                .get("children")
                 .and_then(|c| c.as_array())
-                .ok_or_else(|| LangError::Engine("handle: clause node missing children".to_string()))?;
-            let pattern_idx = clause_children.get(0).and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("handle: clause missing pattern child".to_string()))? as usize;
-            let handler_idx = clause_children.get(1).and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("handle: clause missing handler child".to_string()))? as usize;
+                .ok_or_else(|| {
+                    LangError::Engine("handle: clause node missing children".to_string())
+                })?;
+            let pattern_idx = clause_children
+                .get(0)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::Engine("handle: clause missing pattern child".to_string())
+                })? as usize;
+            let handler_idx = clause_children
+                .get(1)
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    LangError::Engine("handle: clause missing handler child".to_string())
+                })? as usize;
 
             ctx.env.push_scope();
-            let matched = self.try_pattern(ctx.ast, AstRef::new(pattern_idx), &body_val, ctx.lang, ctx.env)?;
+            let matched = self.try_pattern(
+                ctx.ast,
+                AstRef::new(pattern_idx),
+                &body_val,
+                ctx.lang,
+                ctx.env,
+            )?;
             if matched {
                 let result = self.eval_node(ctx.ast, AstRef::new(handler_idx), ctx.lang, ctx.env);
                 ctx.env.pop_scope();
@@ -909,7 +1024,8 @@ impl TreeWalkEngine {
     /// `args` are present, `expr` is parsed directly.
     fn prim_json(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
         let payload = &ctx.current_node.payload;
-        let expr = payload.get("expr")
+        let expr = payload
+            .get("expr")
             .and_then(|v| v.as_str())
             .ok_or_else(|| LangError::Engine("json: missing expr string in payload".to_string()))?;
 
@@ -920,7 +1036,8 @@ impl TreeWalkEngine {
             for (i, arg_entry) in args_arr.iter().enumerate() {
                 // Each arg entry is an arena index referencing a child node.
                 let replacement = if let Some(idx) = arg_entry.as_u64() {
-                    let val = self.eval_node(ctx.ast, AstRef::new(idx as usize), ctx.lang, ctx.env)?;
+                    let val =
+                        self.eval_node(ctx.ast, AstRef::new(idx as usize), ctx.lang, ctx.env)?;
                     serde_json::to_string(&val)
                         .map_err(|e| LangError::Engine(format!("json: {}", e)))?
                 } else {
@@ -992,11 +1109,7 @@ impl TreeWalkEngine {
     /// Returns `Some(name)` if the rest node binds a name, or `None` if it's
     /// a wildcard rest (`..._` or `..._*`). Returns `Err` if the rest node is
     /// malformed.
-    fn rest_binder_name(
-        &self,
-        ast: &Ast,
-        rest_ref: AstRef,
-    ) -> Result<Option<String>, LangError> {
+    fn rest_binder_name(&self, ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangError> {
         let rest_node = ast.at(rest_ref)?;
         let children = rest_node
             .payload
@@ -1016,7 +1129,9 @@ impl TreeWalkEngine {
                 return Ok(Some(name.to_string()));
             }
         }
-        Err(LangError::Engine("rest pattern: binder is not a var".to_string()))
+        Err(LangError::Engine(
+            "rest pattern: binder is not a var".to_string(),
+        ))
     }
 
     /// Array destructuring: `[a, b, ...rest]`.
@@ -1138,26 +1253,16 @@ impl TreeWalkEngine {
                     .ok_or_else(|| {
                         LangError::Engine("object pattern: malformed entry".to_string())
                     })?;
-                let key_idx = entry_children[0]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry key index".to_string())
-                    })?
-                    as usize;
-                let val_idx = entry_children[1]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry val index".to_string())
-                    })?
-                    as usize;
+                let key_idx = entry_children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("object pattern: bad entry key index".to_string())
+                })? as usize;
+                let val_idx = entry_children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("object pattern: bad entry val index".to_string())
+                })? as usize;
                 let key_node = ast.at(AstRef::new(key_idx))?;
                 // Key can be a `var` (identifier) or a `value` (string literal).
                 let key = if key_node.kind == "var" {
-                    key_node
-                        .payload
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string()
+                    key_node.payload.as_str().unwrap_or("").to_string()
                 } else {
                     // Evaluate the key expression to get the field name.
                     let key_val = self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
@@ -1309,8 +1414,8 @@ fn is_truthy(v: &Value) -> bool {
 mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Scheme};
-    use handl_plugin_engine_eval::EvalRequest;
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_engine_eval::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 
@@ -1343,7 +1448,11 @@ mod tests {
     struct DoubleFn;
 
     impl Function for DoubleFn {
-        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
@@ -1374,11 +1483,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -1413,11 +1518,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("unknown"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("unknown")))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var")]);
         let req = EvalRequest::new(ast);
@@ -1433,10 +1534,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim(
-                    "add",
-                    vec![Scheme::child(0), Scheme::child(1)],
-                ),
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
             ))
             .unwrap();
         // Ast:
@@ -1456,11 +1554,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -1490,11 +1584,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -1924,11 +2014,7 @@ mod tests {
             .unwrap();
         // "var" node: looks up a variable.
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         // "binary.add": adds two children.
         lang.eval
@@ -2019,11 +2105,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -2159,11 +2241,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -2285,11 +2363,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var").with_payload(json!(42))]);
         let req = EvalRequest::new(ast);
@@ -2518,11 +2592,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("x"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -2785,11 +2855,7 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -2831,18 +2897,24 @@ mod tests {
             lang: Language,
         }
         impl Function for EvalHost {
-            fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+            fn call(
+                &self,
+                args: &[Value],
+                _ctx: &mut EvalContext,
+            ) -> Result<Value, handl_platform::EvalError> {
                 // eval(self, x): args[0] is the language value (unused —
                 // we use the captured lang), args[1] is the __ast__ value.
-                let ast_val = args
-                    .get(1)
-                    .ok_or_else(|| handl_platform::EvalError::Other("eval: expected (self, ast)".into()))?;
+                let ast_val = args.get(1).ok_or_else(|| {
+                    handl_platform::EvalError::Other("eval: expected (self, ast)".into())
+                })?;
                 let ast = handl_language::as_ast(ast_val).ok_or_else(|| {
                     handl_platform::EvalError::Other("eval: expected an __ast__ value".into())
                 })?;
                 let engine = TreeWalkEngine::new();
                 let req = EvalRequest::new(ast);
-                engine.eval(&self.lang, &req).map_err(|e| handl_platform::EvalError::Other(e.to_string()))
+                engine
+                    .eval(&self.lang, &req)
+                    .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
             }
         }
         struct EvalModule {
@@ -2882,15 +2954,47 @@ mod tests {
         let mut lang = Language::new();
         // `value` nodes have no scheme — the eval fallback returns
         // `node.payload.clone()`, which is the literal value.
-        lang.eval.merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload"))).unwrap();
-        lang.eval.merge(EvalSchemeDef::new("e.add", "binary.add", Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]))).unwrap();
-        lang.eval.merge(EvalSchemeDef::new("e.array", "array", Scheme::prim("array", vec![]))).unwrap();
-        lang.eval.merge(EvalSchemeDef::new("e.object", "object", Scheme::prim("object", vec![]))).unwrap();
-        lang.eval.merge(EvalSchemeDef::new("e.function", "function", Scheme::prim("closure", vec![]))).unwrap();
-        lang.eval.merge(EvalSchemeDef::new("e.call", "call", Scheme::App {
-            callee: Box::new(Scheme::child(0)),
-            args: vec![Scheme::child(1)],
-        })).unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.array",
+                "array",
+                Scheme::prim("array", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.object",
+                "object",
+                Scheme::prim("object", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.function",
+                "function",
+                Scheme::prim("closure", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.call",
+                "call",
+                Scheme::App {
+                    callee: Box::new(Scheme::child(0)),
+                    args: vec![Scheme::child(1)],
+                },
+            ))
+            .unwrap();
         lang
     }
 
@@ -2926,11 +3030,11 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let lang = literal_eval_lang();
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("a")),       // 0
-            AstNode::new("value").with_payload(json!(1)),        // 1
+            AstNode::new("var").with_payload(json!("a")), // 0
+            AstNode::new("value").with_payload(json!(1)), // 1
             AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
-            AstNode::new("var").with_payload(json!("b")),        // 3
-            AstNode::new("value").with_payload(json!(2)),        // 4
+            AstNode::new("var").with_payload(json!("b")), // 3
+            AstNode::new("value").with_payload(json!(2)), // 4
             AstNode::new("entry").with_payload(json!({"children": [3, 4]})), // 5
             AstNode::new("object").with_payload(json!({"children": [2, 5]})), // 6
         ]);
@@ -2958,12 +3062,12 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let lang = literal_eval_lang();
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),         // 0
-            AstNode::new("value").with_payload(json!(1)),          // 1
+            AstNode::new("var").with_payload(json!("x")), // 0
+            AstNode::new("value").with_payload(json!(1)), // 1
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})), // 2
-            AstNode::new("function").with_payload(json!({"children": [0, 2]})),   // 3
-            AstNode::new("value").with_payload(json!(5)),          // 4
-            AstNode::new("call").with_payload(json!({"children": [3, 4]})),       // 5
+            AstNode::new("function").with_payload(json!({"children": [0, 2]})), // 3
+            AstNode::new("value").with_payload(json!(5)), // 4
+            AstNode::new("call").with_payload(json!({"children": [3, 4]})), // 5
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
@@ -2981,13 +3085,13 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let lang = literal_eval_lang();
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),         // 0
-            AstNode::new("var").with_payload(json!("y")),         // 1
+            AstNode::new("var").with_payload(json!("x")), // 0
+            AstNode::new("var").with_payload(json!("y")), // 1
             AstNode::new("paren").with_payload(json!({"children": [0, 1]})), // 2
-            AstNode::new("var").with_payload(json!("x")),         // 3
-            AstNode::new("var").with_payload(json!("y")),         // 4
+            AstNode::new("var").with_payload(json!("x")), // 3
+            AstNode::new("var").with_payload(json!("y")), // 4
             AstNode::new("binary.add").with_payload(json!({"children": [3, 4]})), // 5
-            AstNode::new("function").with_payload(json!({"children": [2, 5]})),   // 6
+            AstNode::new("function").with_payload(json!({"children": [2, 5]})), // 6
         ]);
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();

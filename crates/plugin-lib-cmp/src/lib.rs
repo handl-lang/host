@@ -126,9 +126,15 @@ fn compare_nfv(a: &serde_json::Value, b: &serde_json::Value) -> Ordering {
     compare_values(a, b)
 }
 
-fn require_two(args: &[serde_json::Value]) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
+fn require_two(
+    args: &[serde_json::Value],
+) -> Result<(&serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 2 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
     }
     Ok((&args[0], &args[1]))
 }
@@ -137,7 +143,11 @@ fn require_three(
     args: &[serde_json::Value],
 ) -> Result<(&serde_json::Value, &serde_json::Value, &serde_json::Value), EvalError> {
     if args.len() < 3 {
-        return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 3, args.len(),)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            3,
+            args.len(),
+        )));
     }
     Ok((&args[0], &args[1], &args[2]))
 }
@@ -277,9 +287,7 @@ impl Function for Clamp {
     ) -> Result<serde_json::Value, EvalError> {
         let (value, lo, hi) = require_three(args)?;
         if compare_nfv(lo, hi) == Ordering::Greater {
-            return Err(EvalError::Other(
-                "clamp bounds are inverted".to_string(),
-            ));
+            return Err(EvalError::Other("clamp bounds are inverted".to_string()));
         }
         if compare_nfv(value, lo) == Ordering::Less {
             return Ok(lo.clone());
@@ -322,7 +330,10 @@ impl Function for InRange {
     }
 }
 
-fn is_sorted_impl(args: &[serde_json::Value], descending: bool) -> Result<serde_json::Value, EvalError> {
+fn is_sorted_impl(
+    args: &[serde_json::Value],
+    descending: bool,
+) -> Result<serde_json::Value, EvalError> {
     let input = require_one_arg(args)?;
     let arr_val = require_array(input)?;
     for window in arr_val.windows(2) {
@@ -408,7 +419,10 @@ fn sort_by_impl(
     let mut keyed: Vec<(f64, JsonValue)> = Vec::with_capacity(array.len());
     for item in array {
         let key = apply_fn(ctx, &fn_val, item)?;
-        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         keyed.push((num, item.clone()));
     }
     if descending {
@@ -432,8 +446,6 @@ impl Function for SortBy {
     }
 }
 
-
-
 #[derive(Clone, Copy)]
 pub struct SortByDesc;
 impl Function for SortByDesc {
@@ -446,8 +458,6 @@ impl Function for SortByDesc {
     }
 }
 
-
-
 // ── min_by / max_by ────────────────────────────────────────────────
 
 fn extremum_by_impl(
@@ -459,7 +469,10 @@ fn extremum_by_impl(
     let mut best: Option<(f64, &JsonValue)> = None;
     for item in array {
         let key = apply_fn(ctx, &fn_val, item)?;
-        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))?;
+        let num = key.as_f64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))?;
         match &best {
             None => best = Some((num, item)),
             Some((bn, _)) if pick_max && num > *bn => best = Some((num, item)),
@@ -484,8 +497,6 @@ impl Function for MinBy {
         extremum_by_impl(args, ctx, false)
     }
 }
-
-
 
 #[derive(Clone, Copy)]
 pub struct MaxBy;

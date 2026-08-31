@@ -1,11 +1,11 @@
 use handl_host_tooling::{Location, TextContentChange, ToolingHost};
-use handl_plugin_lsp_completion::BasicCompletion;
-use handl_plugin_lsp_goto::BasicGotoDef;
-use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
+use handl_plugin_lsp_completion::BasicCompletion;
+use handl_plugin_lsp_goto::BasicGotoDef;
+use handl_plugin_lsp_symbol::BasicDocumentSymbols;
 
 /// Minimal stub kit plugin (replaces the removed `CanonicalKit`).
 struct StubKit;
@@ -89,9 +89,7 @@ fn document_symbols_for_let_and_const() {
 fn incremental_change_appends_text() {
     let mut h = host();
     let src = "a = 1; a";
-    let new = h
-        .change(src, TextContentChange::insert(8, " + 2"))
-        .unwrap();
+    let new = h.change(src, TextContentChange::insert(8, " + 2")).unwrap();
     assert_eq!(new, "a = 1; a + 2");
 }
 

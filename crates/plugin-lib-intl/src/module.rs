@@ -1,5 +1,5 @@
-use handl_platform::Module;
 use handl_platform::Function;
+use handl_platform::Module;
 
 use super::compare_strings::CompareStrings;
 use super::display_name::DisplayName;

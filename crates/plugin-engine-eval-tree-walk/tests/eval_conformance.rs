@@ -19,7 +19,11 @@ use handl_test_utils::conformance::{eval_corpus, run_eval_conformance};
 struct DoubleHostFn;
 
 impl Function for DoubleHostFn {
-    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
+    fn call(
+        &self,
+        args: &[Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<Value, handl_platform::EvalError> {
         let n = args[0].as_i64().unwrap();
         Ok(Value::from(n * 2))
     }

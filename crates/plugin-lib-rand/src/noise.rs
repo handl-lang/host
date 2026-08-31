@@ -1,6 +1,5 @@
-
-use handl_platform::{EvalContext, EvalError, Function};
 use super::common::{num, require_number};
+use handl_platform::{EvalContext, EvalError, Function};
 
 const PERM: [u8; 256] = [
     151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69,

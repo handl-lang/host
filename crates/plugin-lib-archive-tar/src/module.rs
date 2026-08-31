@@ -8,9 +8,9 @@
 //!   an array of `{path, contents}` objects where `contents` is base64.
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-use handl_plugin_lib_archive::{Archive, ArchiveEntry};
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_archive::{Archive, ArchiveEntry};
 use serde_json::Value as JsonValue;
 
 use crate::TarArchive;
@@ -42,28 +42,39 @@ impl Function for TarPack {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1,
+            args.len(),
+        )))?;
 
-        let items = arg.as_array().map(Vec::as_slice).ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "array", "non-array",)))?;
+        let items = arg
+            .as_array()
+            .map(Vec::as_slice)
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "array", "non-array",
+            )))?;
 
         let mut entries = Vec::with_capacity(items.len());
 
         for item in items {
-            let obj = item.as_object().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "object", "non-object",)))?;
+            let obj = item.as_object().ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "object", "non-object",
+            )))?;
 
             let path = obj
                 .get("path")
                 .and_then(|v| v.as_str())
-                .ok_or(EvalError::Other(
-                    "tar.pack entry missing path".to_string(),
-                ))?;
+                .ok_or(EvalError::Other("tar.pack entry missing path".to_string()))?;
 
-            let contents =
-                obj.get("contents")
-                    .and_then(|v| v.as_str())
-                    .ok_or(EvalError::Other(
-                        "tar.pack entry missing contents".to_string(),
-                    ))?;
+            let contents = obj
+                .get("contents")
+                .and_then(|v| v.as_str())
+                .ok_or(EvalError::Other(
+                    "tar.pack entry missing contents".to_string(),
+                ))?;
 
             let bytes = BASE64_STANDARD
                 .decode(contents)
@@ -90,9 +101,16 @@ impl Function for TarUnpack {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1,
+            args.len(),
+        )))?;
 
-        let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))?;
+        let s = arg.as_str().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))?;
 
         let bytes = BASE64_STANDARD
             .decode(s)

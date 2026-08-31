@@ -44,14 +44,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use cranelift::prelude::*;
 use cranelift::codegen::ir::{FuncRef, UserFuncName};
 use cranelift::codegen::isa::TargetIsa;
+use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{default_libcall_names, FuncId, Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use cranelift_object::{ObjectBuilder, ObjectModule};
-use handl_language::{Ast, LangError, Language, Scheme, SchemeVersion};
 use handl_language::Value as JsonValue;
+use handl_language::{Ast, LangError, Language, Scheme, SchemeVersion};
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -274,19 +274,37 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     // `extern "C"` helper functions defined in `crate`.
     let mut builder = JITBuilder::new(default_libcall_names())
         .map_err(|e| LangError::Engine(format!("JIT setup error: {}", e)))?;
-    builder.symbol("helper_push_literal", crate::helper_push_literal as *const u8);
+    builder.symbol(
+        "helper_push_literal",
+        crate::helper_push_literal as *const u8,
+    );
     builder.symbol("helper_load_var", crate::helper_load_var as *const u8);
-    builder.symbol("helper_load_payload_var", crate::helper_load_payload_var as *const u8);
-    builder.symbol("helper_load_payload", crate::helper_load_payload as *const u8);
+    builder.symbol(
+        "helper_load_payload_var",
+        crate::helper_load_payload_var as *const u8,
+    );
+    builder.symbol(
+        "helper_load_payload",
+        crate::helper_load_payload as *const u8,
+    );
     builder.symbol("helper_eval_child", crate::helper_eval_child as *const u8);
     builder.symbol("helper_store", crate::helper_store as *const u8);
-    builder.symbol("helper_store_payload", crate::helper_store_payload as *const u8);
+    builder.symbol(
+        "helper_store_payload",
+        crate::helper_store_payload as *const u8,
+    );
     builder.symbol("helper_pop_scope", crate::helper_pop_scope as *const u8);
     builder.symbol("helper_drop_value", crate::helper_drop_value as *const u8);
     builder.symbol("helper_is_truthy", crate::helper_is_truthy as *const u8);
-    builder.symbol("helper_apply_closure", crate::helper_apply_closure as *const u8);
+    builder.symbol(
+        "helper_apply_closure",
+        crate::helper_apply_closure as *const u8,
+    );
     builder.symbol("helper_apply_prim", crate::helper_apply_prim as *const u8);
-    builder.symbol("helper_call_foreign", crate::helper_call_foreign as *const u8);
+    builder.symbol(
+        "helper_call_foreign",
+        crate::helper_call_foreign as *const u8,
+    );
     builder.symbol("helper_vau_enter", crate::helper_vau_enter as *const u8);
     builder.symbol("helper_vau_bind", crate::helper_vau_bind as *const u8);
 
@@ -307,10 +325,9 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     let mut compiled = HashMap::new();
     for (i, func_id) in &func_ids {
         let ptr = module.get_finalized_function(*func_id);
-        compiled.insert(
-            *i,
-            unsafe { std::mem::transmute::<*const u8, CompiledFn>(ptr) },
-        );
+        compiled.insert(*i, unsafe {
+            std::mem::transmute::<*const u8, CompiledFn>(ptr)
+        });
     }
 
     Ok(CompiledResult {
@@ -590,7 +607,8 @@ fn compile_node<M: Module>(
         let helpers = HelperRefs {
             push_literal: module.declare_func_in_func(helper_ids.push_literal, &mut builder.func),
             load_var: module.declare_func_in_func(helper_ids.load_var, &mut builder.func),
-            load_payload_var: module.declare_func_in_func(helper_ids.load_payload_var, &mut builder.func),
+            load_payload_var: module
+                .declare_func_in_func(helper_ids.load_payload_var, &mut builder.func),
             load_payload: module.declare_func_in_func(helper_ids.load_payload, &mut builder.func),
             eval_child: module.declare_func_in_func(helper_ids.eval_child, &mut builder.func),
             store: module.declare_func_in_func(helper_ids.store, &mut builder.func),
@@ -618,14 +636,7 @@ fn compile_node<M: Module>(
         // gracefully (returning null, setting ctx.error). The engine checks
         // ctx.error after native execution returns.
         let result = match scheme {
-            Some(s) => compile_scheme(
-                &mut builder,
-                s,
-                ctx_param,
-                &helpers,
-                pools,
-                ptr_type,
-            ),
+            Some(s) => compile_scheme(&mut builder, s, ctx_param, &helpers, pools, ptr_type),
             None => {
                 // No-scheme fallback: return node.payload directly.
                 let call = builder.ins().call(helpers.load_payload, &[ctx_param]);
@@ -674,7 +685,9 @@ fn compile_scheme(
         Scheme::Lit(v) => {
             let lit_idx = pools.add_literal(v.clone());
             let lit_idx_val = builder.ins().iconst(types::I64, lit_idx as i64);
-            let call = builder.ins().call(helpers.push_literal, &[ctx_param, lit_idx_val]);
+            let call = builder
+                .ins()
+                .call(helpers.push_literal, &[ctx_param, lit_idx_val]);
             builder.inst_results(call)[0]
         }
 
@@ -685,22 +698,24 @@ fn compile_scheme(
             } else {
                 let name_idx = pools.add_name(name);
                 let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
-                let call = builder.ins().call(helpers.load_var, &[ctx_param, name_idx_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.load_var, &[ctx_param, name_idx_val]);
                 builder.inst_results(call)[0]
             }
         }
 
         Scheme::Child(child_ref) => {
             let child_idx_val = builder.ins().iconst(types::I64, child_ref.0 as i64);
-            let call = builder.ins().call(helpers.eval_child, &[ctx_param, child_idx_val]);
+            let call = builder
+                .ins()
+                .call(helpers.eval_child, &[ctx_param, child_idx_val]);
             builder.inst_results(call)[0]
         }
 
         Scheme::Bind { name, value, body } => {
             // Compile the value scheme.
-            let val_ptr = compile_scheme(
-                builder, value, ctx_param, helpers, pools, ptr_type,
-            );
+            let val_ptr = compile_scheme(builder, value, ctx_param, helpers, pools, ptr_type);
 
             // Store the value (pushes scope + defines variable).
             // Helpers handle null val_ptr gracefully.
@@ -717,9 +732,7 @@ fn compile_scheme(
             }
 
             // Compile the body scheme.
-            let body_ptr = compile_scheme(
-                builder, body, ctx_param, helpers, pools, ptr_type,
-            );
+            let body_ptr = compile_scheme(builder, body, ctx_param, helpers, pools, ptr_type);
 
             // Pop the scope (always, even if body failed — matches tree-walk).
             builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -730,18 +743,14 @@ fn compile_scheme(
 
         Scheme::Branch { cond, then_, else_ } => {
             // Compile the condition.
-            let cond_ptr = compile_scheme(
-                builder, cond, ctx_param, helpers, pools, ptr_type,
-            );
+            let cond_ptr = compile_scheme(builder, cond, ctx_param, helpers, pools, ptr_type);
 
             // Check truthiness (helper handles null cond_ptr → returns 0/falsy).
             let truthy = builder.ins().call(helpers.is_truthy, &[cond_ptr]);
             let truthy_val = builder.inst_results(truthy)[0];
 
             // Free the condition value (helper handles null).
-            builder
-                .ins()
-                .call(helpers.drop_value, &[cond_ptr]);
+            builder.ins().call(helpers.drop_value, &[cond_ptr]);
 
             // Create blocks for then, else, and merge.
             let then_block = builder.create_block();
@@ -757,17 +766,13 @@ fn compile_scheme(
             // Compile then_ branch.
             builder.switch_to_block(then_block);
             builder.seal_block(then_block);
-            let then_ptr = compile_scheme(
-                builder, then_, ctx_param, helpers, pools, ptr_type,
-            );
+            let then_ptr = compile_scheme(builder, then_, ctx_param, helpers, pools, ptr_type);
             builder.ins().jump(merge_block, &[then_ptr]);
 
             // Compile else_ branch.
             builder.switch_to_block(else_block);
             builder.seal_block(else_block);
-            let else_ptr = compile_scheme(
-                builder, else_, ctx_param, helpers, pools, ptr_type,
-            );
+            let else_ptr = compile_scheme(builder, else_, ctx_param, helpers, pools, ptr_type);
             builder.ins().jump(merge_block, &[else_ptr]);
 
             // Seal merge block (both predecessors added) and switch to it.
@@ -778,14 +783,10 @@ fn compile_scheme(
 
         Scheme::App { callee, args } => {
             // Compile the callee.
-            let callee_ptr = compile_scheme(
-                builder, callee, ctx_param, helpers, pools, ptr_type,
-            );
+            let callee_ptr = compile_scheme(builder, callee, ctx_param, helpers, pools, ptr_type);
 
             // Compile args and pack into a stack array.
-            let arg_ptrs = compile_args(
-                builder, args, ctx_param, helpers, pools, ptr_type,
-            );
+            let arg_ptrs = compile_args(builder, args, ctx_param, helpers, pools, ptr_type);
 
             // Call helper_apply_closure.
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
@@ -798,25 +799,22 @@ fn compile_scheme(
 
         Scheme::Prim { op, args } => {
             // Compile args and pack into a stack array.
-            let arg_ptrs = compile_args(
-                builder, args, ctx_param, helpers, pools, ptr_type,
-            );
+            let arg_ptrs = compile_args(builder, args, ctx_param, helpers, pools, ptr_type);
 
             // Call helper_apply_prim.
             let op_idx = pools.add_name(op);
             let op_idx_val = builder.ins().iconst(types::I64, op_idx as i64);
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
-            let call = builder
-                .ins()
-                .call(helpers.apply_prim, &[ctx_param, op_idx_val, arg_ptrs, n_val]);
+            let call = builder.ins().call(
+                helpers.apply_prim,
+                &[ctx_param, op_idx_val, arg_ptrs, n_val],
+            );
             builder.inst_results(call)[0]
         }
 
         Scheme::Foreign { name, args } => {
             // Compile args and pack into a stack array.
-            let arg_ptrs = compile_args(
-                builder, args, ctx_param, helpers, pools, ptr_type,
-            );
+            let arg_ptrs = compile_args(builder, args, ctx_param, helpers, pools, ptr_type);
 
             // Call helper_call_foreign.
             let name_idx = pools.add_name(name);
@@ -844,9 +842,7 @@ fn compile_scheme(
             }
 
             // Compile the body scheme.
-            let body_ptr = compile_scheme(
-                builder, body, ctx_param, helpers, pools, ptr_type,
-            );
+            let body_ptr = compile_scheme(builder, body, ctx_param, helpers, pools, ptr_type);
 
             // Pop the scope (always, even if body failed — matches tree-walk).
             builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -896,14 +892,7 @@ fn compile_args(
 
     // Compile each arg and store its pointer in the stack slot.
     for i in 0..n {
-        let arg_ptr = compile_scheme(
-            builder,
-            &args[i],
-            ctx_param,
-            helpers,
-            pools,
-            ptr_type,
-        );
+        let arg_ptr = compile_scheme(builder, &args[i], ctx_param, helpers, pools, ptr_type);
         let offset = (i * ptr_type.bytes() as usize) as i32;
         builder
             .ins()
@@ -1171,13 +1160,14 @@ mod tests {
         let path = std::env::temp_dir().join("handl_object_compile_literal.o");
         let _ = std::fs::remove_file(&path);
         let result = compile_all_nodes_object(&lang, &ast, &path);
-        assert!(result.is_ok(), "object compilation failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "object compilation failed: {:?}",
+            result.err()
+        );
         assert!(path.exists(), "object file was not created");
         let metadata = std::fs::metadata(&path).unwrap();
-        assert!(
-            metadata.len() > 0,
-            "object file is empty"
-        );
+        assert!(metadata.len() > 0, "object file is empty");
         let _ = std::fs::remove_file(&path);
     }
 
@@ -1188,7 +1178,11 @@ mod tests {
         let path = std::env::temp_dir().join("handl_object_compile_noscheme.o");
         let _ = std::fs::remove_file(&path);
         let result = compile_all_nodes_object(&lang, &ast, &path);
-        assert!(result.is_ok(), "object compilation failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "object compilation failed: {:?}",
+            result.err()
+        );
         assert!(path.exists());
         let metadata = std::fs::metadata(&path).unwrap();
         assert!(metadata.len() > 0);
@@ -1218,7 +1212,11 @@ mod tests {
         let path = std::env::temp_dir().join("handl_object_compile_branch.o");
         let _ = std::fs::remove_file(&path);
         let result = compile_all_nodes_object(&lang, &ast, &path);
-        assert!(result.is_ok(), "object compilation failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "object compilation failed: {:?}",
+            result.err()
+        );
         assert!(path.exists());
         let metadata = std::fs::metadata(&path).unwrap();
         assert!(metadata.len() > 0);
@@ -1274,8 +1272,7 @@ mod tests {
         // portable across host platforms.
         let is_elf = bytes.len() >= 4 && &bytes[0..4] == b"\x7fELF";
         let is_macho = bytes.len() >= 4
-            && (bytes[0..4] == [0xcf, 0xfa, 0xed, 0xfe]
-                || bytes[0..4] == [0xce, 0xfa, 0xed, 0xfe]);
+            && (bytes[0..4] == [0xcf, 0xfa, 0xed, 0xfe] || bytes[0..4] == [0xce, 0xfa, 0xed, 0xfe]);
         assert!(
             is_elf || is_macho,
             "emitted file is not a recognized relocatable object (first 4 bytes: {:?})",

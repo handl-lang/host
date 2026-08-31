@@ -1,1 +1,1 @@
-run(self, "1 + 2")
+eval(self, parse(self, lex(self, "1 + 2")))

@@ -1,5 +1,5 @@
+use handl_platform::EvalContext;
 use std::sync::Arc;
-use handl_platform::{EvalContext};
 
 use handl_platform::Module;
 use serde_json::Value;

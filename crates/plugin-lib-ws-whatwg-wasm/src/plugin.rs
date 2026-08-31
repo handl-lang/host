@@ -4,7 +4,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_module::{ModuleRuntime, ModuleRule};
+use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 use crate::WsWhatwgWasmModule;
 

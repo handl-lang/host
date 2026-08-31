@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value;
 
 use super::error::TlsError;
@@ -105,23 +105,38 @@ fn require_arg<'a>(
     args: &'a [serde_json::Value],
     idx: usize,
 ) -> Result<&'a serde_json::Value, EvalError> {
-    args.get(idx).ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", idx + 1, args.len(),)))
+    args.get(idx).ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        idx + 1,
+        args.len(),
+    )))
 }
 
 fn require_string_at(args: &[serde_json::Value], idx: usize) -> Result<&str, EvalError> {
-    require_arg(args, idx)?.as_str().ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+    require_arg(args, idx)?
+        .as_str()
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn require_number_at(args: &[serde_json::Value], idx: usize) -> Result<f64, EvalError> {
     require_arg(args, idx)?
         .as_f64()
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "number", "non-number",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "number", "non-number",
+        )))
 }
 
 fn require_usize_at(args: &[serde_json::Value], idx: usize) -> Result<usize, EvalError> {
     let n = require_number_at(args, idx)?;
     if n < 0.0 || n.trunc() != n {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer", "non-integer number",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "non-negative integer", "non-integer number",
+        )));
     }
     Ok(n as usize)
 }
@@ -129,7 +144,10 @@ fn require_usize_at(args: &[serde_json::Value], idx: usize) -> Result<usize, Eva
 fn require_u16_at(args: &[serde_json::Value], idx: usize) -> Result<u16, EvalError> {
     let n = require_number_at(args, idx)?;
     if n < 0.0 || n > u16::MAX as f64 || n.trunc() != n {
-        return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "port number (0-65535)", "invalid port",)));
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "port number (0-65535)", "invalid port",
+        )));
     }
     Ok(n as u16)
 }
@@ -173,7 +191,10 @@ fn optional_string_at(args: &[serde_json::Value], idx: usize) -> Result<Option<&
         Some(v) if v.is_null() => Ok(None),
         Some(v) => v
             .as_str()
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string or null", "non-string non-null",)))
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "string or null", "non-string non-null",
+            )))
             .map(Some),
     }
 }

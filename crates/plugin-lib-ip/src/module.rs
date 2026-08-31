@@ -11,8 +11,8 @@
 //!   `cidr.network(cidr)`, `cidr.broadcast(cidr)`
 //! - `socket.parse(string)`, `socket.format(sock)`
 
-use handl_platform::{EvalContext, EvalError, Function};
 use handl_platform::Module;
+use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 
 use crate::{Cidr, IpAddr, IpError, SocketAddr};
@@ -64,10 +64,17 @@ fn require_arg_count(args: &[serde_json::Value], expected: usize) -> Result<(), 
 }
 
 fn require_one_string(args: &[serde_json::Value]) -> Result<String, EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, args.len(),)))?;
+    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+        "expected {} args, got {}",
+        1,
+        args.len(),
+    )))?;
     arg.as_str()
         .map(|s| s.to_string())
-        .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "string", "non-string",)))
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
 }
 
 fn bool_(value: bool) -> serde_json::Value {
@@ -97,10 +104,16 @@ fn as_ip(value: &serde_json::Value) -> Result<IpAddr, EvalError> {
         let s = obj
             .get("address")
             .and_then(|v| v.as_str())
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "ip object with address", "object without address",)))?;
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "ip object with address", "object without address",
+            )))?;
         IpAddr::parse(s).map_err(ip_err)
     } else {
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or ip object", "non-string/non-object",)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string or ip object", "non-string/non-object",
+        )))
     }
 }
 
@@ -111,17 +124,29 @@ fn as_cidr(value: &serde_json::Value) -> Result<Cidr, EvalError> {
         let s = obj
             .get("address")
             .and_then(|v| v.as_str())
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "cidr object with address", "object without address",)))?;
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "cidr object with address", "object without address",
+            )))?;
         let prefix = obj
             .get("prefix")
             .and_then(|v| v.as_f64())
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "cidr object with prefix", "object without numeric prefix",)))?;
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "cidr object with prefix", "object without numeric prefix",
+            )))?;
         if prefix < 0.0 || prefix.fract() != 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative integer prefix", "invalid prefix",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative integer prefix", "invalid prefix",
+            )));
         }
         Cidr::parse(&format!("{}/{}", s, prefix as u8)).map_err(ip_err)
     } else {
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or cidr object", "non-string/non-object",)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string or cidr object", "non-string/non-object",
+        )))
     }
 }
 
@@ -129,21 +154,33 @@ fn as_socket(value: &serde_json::Value) -> Result<SocketAddr, EvalError> {
     if let Some(s) = value.as_str() {
         SocketAddr::parse(s).map_err(ip_err)
     } else if let Some(obj) = value.as_object() {
-        let ip_value = obj.get("ip").ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "socket object with ip", "object without ip",)))?;
+        let ip_value = obj.get("ip").ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "socket object with ip", "object without ip",
+        )))?;
         let ip = as_ip(&serde_json::Value::from(ip_value.clone()))?;
         let port = obj
             .get("port")
             .and_then(|v| v.as_f64())
-            .ok_or(EvalError::TypeMismatch(format!("expected {}, got {}", "socket object with numeric port", "object without port",)))?;
+            .ok_or(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "socket object with numeric port", "object without port",
+            )))?;
         if port < 0.0 || port.fract() != 0.0 || port > u16::MAX as f64 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "valid port number", "invalid port",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "valid port number", "invalid port",
+            )));
         }
         Ok(SocketAddr {
             ip,
             port: port as u16,
         })
     } else {
-        Err(EvalError::TypeMismatch(format!("expected {}, got {}", "string or socket object", "non-string/non-object",)))
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string or socket object", "non-string/non-object",
+        )))
     }
 }
 

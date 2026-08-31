@@ -1,4 +1,3 @@
-
 use super::common::{format_iso, n, parse_iso, require_number, require_one_string, s};
 use crate::DatetimeError;
 use handl_platform::{EvalContext, EvalError, Function};
@@ -11,7 +10,10 @@ impl Function for FromUnix {
         args: &[serde_json::Value],
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let arg = args.first().ok_or(EvalError::TypeMismatch(format!("expected {} args, got {}", 1, 0,)))?;
+        let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
         let ts = require_number(arg)?;
         let secs = ts.floor() as i64;
         let nanos = ((ts - ts.floor()) * 1e9) as u32;

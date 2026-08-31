@@ -2,7 +2,7 @@ use handl_platform::Function;
 use serde_json::Value as JsonValue;
 
 use crate::mood::{MoodCnd, MoodInd, MoodInt, MoodNeg, MoodNorm, MoodPot};
-use handl_platform::{EvalContext};
+use handl_platform::EvalContext;
 
 fn ctx() -> EvalContext {
     EvalContext::new()

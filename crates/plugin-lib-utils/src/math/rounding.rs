@@ -19,12 +19,19 @@ impl Function for RoundTo {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         if args.len() < 2 {
-            return Err(EvalError::TypeMismatch(format!("expected {} args, got {}", 2, args.len(),)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
         }
         let value = require_number(&args[0])?;
         let decimals = require_number(&args[1])?;
         if decimals < 0.0 {
-            return Err(EvalError::TypeMismatch(format!("expected {}, got {}", "non-negative number", "negative number",)));
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {}, got {}",
+                "non-negative number", "negative number",
+            )));
         }
         let multiplier = 10f64.powi(decimals as i32);
         Ok(num((value * multiplier).round() / multiplier))

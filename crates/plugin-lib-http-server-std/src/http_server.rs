@@ -16,10 +16,10 @@ use hyper_util::server::conn::auto;
 use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 
+use handl_plugin_lib_http_server::function_value::FunctionValue;
 use handl_plugin_lib_http_server::{
     Handler, HttpMethod, HttpServer, HttpServerError, HttpServerRequest, HttpServerResponse,
 };
-use handl_plugin_lib_http_server::function_value::FunctionValue;
 
 /// Runtime configuration for [`StdHttpServer`].
 #[derive(Clone, Debug)]

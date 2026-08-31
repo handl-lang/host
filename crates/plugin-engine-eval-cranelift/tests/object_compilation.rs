@@ -18,9 +18,7 @@
 
 use std::path::PathBuf;
 
-use handl_plugin_engine_eval_cranelift::{
-    compile_all_nodes_object, CompileMode, CraneliftEngine,
-};
+use handl_plugin_engine_eval_cranelift::{CompileMode, CraneliftEngine, compile_all_nodes_object};
 use handl_test_utils::conformance::eval_corpus;
 
 /// A unique temp path for a test object file, derived from the case name.
@@ -54,8 +52,7 @@ fn corpus_compiles_to_nonempty_object_files() {
             path.display()
         );
 
-        let metadata =
-            std::fs::metadata(&path).expect("object file metadata must be readable");
+        let metadata = std::fs::metadata(&path).expect("object file metadata must be readable");
         assert!(
             metadata.len() > 0,
             "case '{}': object file is empty",
@@ -93,8 +90,7 @@ fn corpus_emits_valid_object_magic_bytes() {
     // the respective host platform.
     let is_elf = bytes.len() >= 4 && &bytes[0..4] == b"\x7fELF";
     let is_macho = bytes.len() >= 4
-        && (bytes[0..4] == [0xcf, 0xfa, 0xed, 0xfe]
-            || bytes[0..4] == [0xce, 0xfa, 0xed, 0xfe]);
+        && (bytes[0..4] == [0xcf, 0xfa, 0xed, 0xfe] || bytes[0..4] == [0xce, 0xfa, 0xed, 0xfe]);
     assert!(
         is_elf || is_macho,
         "emitted file is not a recognized relocatable object (first 4 bytes: {:?})",
@@ -161,7 +157,10 @@ fn engine_compile_to_object_emits_file() {
         "engine.compile_to_object failed: {:?}",
         result.err()
     );
-    assert!(path.exists(), "object file should exist after engine compile");
+    assert!(
+        path.exists(),
+        "object file should exist after engine compile"
+    );
     let metadata = std::fs::metadata(&path).expect("metadata readable");
     assert!(metadata.len() > 0, "object file should be non-empty");
 

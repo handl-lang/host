@@ -1,5 +1,3 @@
-
-
 use handl_platform::Module;
 
 use super::StrModule;
@@ -199,10 +197,7 @@ fn find_found() {
 
 #[test]
 fn find_not_found() {
-    assert_eq!(
-        call("find", &[s("hello"), s("xyz")]).as_f64(),
-        Some(-1.0)
-    );
+    assert_eq!(call("find", &[s("hello"), s("xyz")]).as_f64(), Some(-1.0));
 }
 
 #[test]
@@ -259,18 +254,12 @@ fn rfind_found() {
 
 #[test]
 fn rfind_single_match() {
-    assert_eq!(
-        call("rfind", &[s("hello"), s("ell")]).as_f64(),
-        Some(1.0)
-    );
+    assert_eq!(call("rfind", &[s("hello"), s("ell")]).as_f64(), Some(1.0));
 }
 
 #[test]
 fn rfind_not_found() {
-    assert_eq!(
-        call("rfind", &[s("hello"), s("xyz")]).as_f64(),
-        Some(-1.0)
-    );
+    assert_eq!(call("rfind", &[s("hello"), s("xyz")]).as_f64(), Some(-1.0));
 }
 
 #[test]
@@ -400,10 +389,7 @@ fn similarity_partial() {
 
 #[test]
 fn similarity_empty_to_nonempty() {
-    assert_eq!(
-        call("similarity", &[s(""), s("hello")]).as_f64(),
-        Some(0.0)
-    );
+    assert_eq!(call("similarity", &[s(""), s("hello")]).as_f64(), Some(0.0));
 }
 
 #[test]

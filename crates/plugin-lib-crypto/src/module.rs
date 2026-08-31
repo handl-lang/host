@@ -1,5 +1,5 @@
-use handl_platform::Module;
 use handl_platform::Function;
+use handl_platform::Module;
 
 use super::hash::{Md5, Sha256};
 

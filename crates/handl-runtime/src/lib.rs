@@ -58,7 +58,6 @@
 #![warn(missing_docs)]
 
 pub mod fp;
-pub mod meta;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -205,7 +204,7 @@ impl<E: ParserEngine + Clone + 'static> ParseEngineDyn for E {
 /// The host builds an `EngineRegistry`, registers the engines it wants
 /// available, and passes it to [`Runtime::from_registry`] /
 /// [`Runtime::from_registry_with_globals`] (and to
-/// [`meta::MetaHostFunctions::new`]). The registry is the indirection that
+/// [`RuntimeFactoryImpl::new`]). The registry is the indirection that
 /// makes name-based engine selection composable without `handl-runtime`
 /// hardcoding any match.
 pub struct EngineRegistry {
@@ -891,20 +890,14 @@ impl RuntimeFactory for Runtime {
     fn build(
         &self,
         lang: Language,
-        delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
+        _delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Box<dyn RuntimeHandle>, LangError> {
         let registry = self.registry.as_ref().ok_or_else(|| {
             LangError::Engine("RuntimeFactory::build: runtime has no registry".into())
         })?;
-        // Re-attach the meta host functions so the sub-runtime can recurse,
-        // layered on top of the caller's delegate (user host functions).
-        let sub_meta = meta::MetaHostFunctions::new(
-            lang.clone(),
-            self.config.clone(),
-            Rc::clone(registry),
-            delegate,
-        );
-        let sub_meta_rc: Rc<dyn handl_platform::ModuleLookup> = Rc::new(sub_meta);
+        // Re-attach this runtime's module chain (which includes the meta
+        // functions) so the sub-runtime can recurse via Foreign dispatch.
+        let modules = self.modules.clone();
         // Inject `self` as a global variable bound to the Language value
         // (ADR-0041 Phase 3).
         let self_val = handl_language::language_value(&lang);
@@ -914,7 +907,7 @@ impl RuntimeFactory for Runtime {
             lang,
             registry,
             &self.config,
-            Some(sub_meta_rc),
+            modules,
             Some(&globals),
         )?;
         Ok(Box::new(rt))
