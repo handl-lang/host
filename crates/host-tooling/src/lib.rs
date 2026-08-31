@@ -1,7 +1,6 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
 use handl_platform::{PlatformError, Plugin};
-use handl_plugin_fmt_stmt::StatementFormatter;
 
 /// A diagnostic message with severity and optional source span.
 ///
@@ -51,7 +50,6 @@ mod semantic_tokens_tests;
 #[allow(dead_code)]
 pub struct ToolingHost<K: Plugin> {
     kit: K,
-    statement_formatter: StatementFormatter,
     completion: Option<Box<dyn CompletionPlugin>>,
     goto_def: Option<Box<dyn GotoDefPlugin>>,
     document_symbols: Option<Box<dyn DocumentSymbolsPlugin>>,
@@ -64,7 +62,6 @@ impl<K: Plugin> ToolingHost<K> {
     pub fn new(kit: K) -> Self {
         Self {
             kit,
-            statement_formatter: StatementFormatter::new(),
             completion: None,
             goto_def: None,
             document_symbols: None,

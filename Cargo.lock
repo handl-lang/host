@@ -975,7 +975,6 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-diag-expression",
- "handl-plugin-fmt-stmt",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
@@ -1411,22 +1410,6 @@ dependencies = [
 
 [[package]]
 name = "handl-plugin-ext-typecheck"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-fmt-expression"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-fmt-stmt"
 version = "0.1.0"
 dependencies = [
  "handl-platform",

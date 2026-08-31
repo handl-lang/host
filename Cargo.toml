@@ -73,8 +73,6 @@ members = [
   "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-diag-expression",
-  "crates/plugin-fmt-expression",
-  "crates/plugin-fmt-stmt",
   "crates/plugin-lsp-completion",
   "crates/plugin-lsp-goto",
   "crates/plugin-lsp-symbol",
@@ -213,8 +211,6 @@ handl-plugin-lib-ws-whatwg-wasm = { path = "crates/plugin-lib-ws-whatwg-wasm" }
 handl-plugin-lib-yaml = { path = "crates/plugin-lib-yaml" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
-handl-plugin-fmt-expression = { path = "crates/plugin-fmt-expression" }
-handl-plugin-fmt-stmt = { path = "crates/plugin-fmt-stmt" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
