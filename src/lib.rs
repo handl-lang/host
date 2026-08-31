@@ -118,7 +118,7 @@ impl Function for CompileFn {
             .get(1)
             .ok_or_else(|| EvalError::Other("compile: expected (lang, ast, target)".into()))?;
         // Accept either a raw serialized `Ast` value or a tagged `__ast__`
-        // value (the form bound by `Scheme::Vau` — ADR-0041 §6, ADR-0045).
+        // value (the form bound to an unevaluated expression (ADR-0041 §6)).
         let ast: Ast = if let Some(tagged) = as_ast(ast_val) {
             tagged
         } else {

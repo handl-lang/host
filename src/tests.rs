@@ -38,7 +38,7 @@ fn raw_ast_arg() -> Value {
     serde_json::to_value(sample_ast()).expect("Ast serializes")
 }
 
-/// A tagged `__ast__` value (the form bound by `Scheme::Vau`).
+/// A tagged `__ast__` value (the form bound to an unevaluated expression).
 fn tagged_ast_arg() -> Value {
     ast_value(&sample_ast())
 }
