@@ -166,6 +166,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         }
     }
 
+    /// Define a global variable in the root scope (used by the host to inject
+    /// `self` and other ambient values before execution).
+    pub(crate) fn define_global(&mut self, name: &str, value: Value) {
+        self.scopes.define(name, value);
+    }
+
     /// Compile (if not cached) and execute a single node.
     ///
     /// Looks up `lang.eval[node.kind]` to find the node's [`Scheme`], compiles
@@ -523,6 +529,46 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let b = as_num(&args[1])?;
                 Ok(Value::Bool(a.to_f64() > b.to_f64()))
             }
+            "pow" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(Value::from(a.to_f64().powf(b.to_f64())))
+            }
+            "gte" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(Value::Bool(a.to_f64() >= b.to_f64()))
+            }
+            "lte" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(Value::Bool(a.to_f64() <= b.to_f64()))
+            }
+            "neq" => Ok(Value::Bool(args[0] != args[1])),
+            "compare" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                let af = a.to_f64();
+                let bf = b.to_f64();
+                if af < bf {
+                    Ok(Value::from(-1i64))
+                } else if af > bf {
+                    Ok(Value::from(1i64))
+                } else {
+                    Ok(Value::from(0i64))
+                }
+            }
+            "typeof" => {
+                let type_name = match &args[0] {
+                    Value::Null => "null",
+                    Value::Bool(_) => "bool",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                };
+                Ok(Value::from(type_name))
+            }
             "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
             "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
             "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
@@ -554,6 +600,46 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     "body": body,
                     "env": env,
                 }))
+            }
+            "array" => {
+                let elements = node.payload.get("elements")
+                    .ok_or_else(|| LangError::Engine("array: missing elements in payload".to_string()))?;
+                Ok(elements.clone())
+            }
+            "object" => {
+                let entries = node.payload.get("entries")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| LangError::Engine("object: missing entries in payload".to_string()))?;
+                let mut obj = serde_json::Map::new();
+                for entry in entries {
+                    let key = entry.get("key").and_then(|v| v.as_str())
+                        .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
+                    let value = entry.get("value")
+                        .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
+                    obj.insert(key.to_string(), value.clone());
+                }
+                Ok(Value::Object(obj))
+            }
+            "index" => {
+                let target = node.payload.get("target")
+                    .ok_or_else(|| LangError::Engine("index: missing target in payload".to_string()))?;
+                let index = node.payload.get("index")
+                    .ok_or_else(|| LangError::Engine("index: missing index in payload".to_string()))?;
+                match (target, index) {
+                    (Value::Array(arr), Value::Number(n)) => {
+                        let i = n.as_u64().ok_or_else(|| LangError::Engine("index: index must be a non-negative integer".to_string()))? as usize;
+                        arr.get(i).cloned().ok_or_else(|| LangError::Engine(format!("index: index {} out of bounds", i)))
+                    }
+                    (Value::Object(obj), Value::String(key)) => {
+                        obj.get(key).cloned().ok_or_else(|| LangError::Engine(format!("index: key '{}' not found", key)))
+                    }
+                    _ => Err(LangError::Engine("index: target must be array/object and index must be number/string".to_string())),
+                }
+            }
+            "assign" => {
+                let value = node.payload.get("value")
+                    .ok_or_else(|| LangError::Engine("assign: missing value in payload".to_string()))?;
+                Ok(value.clone())
             }
             _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
         }

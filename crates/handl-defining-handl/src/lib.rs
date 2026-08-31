@@ -22,8 +22,8 @@
 //! `Foreign` host functions (match, handle, flow, fanout, field-access,
 //! import, export, module, template, resolve, json, hello.greet) are not
 //! compilable by the bytecode/cranelift engines, and several `Prim` ops
-//! (array, object, index, typeof, assign, compare, gte, lte, neq) are not yet
-//! implemented in any engine. The `type-annot` construct uses a `Bind` with
+//! (array, object, index, assign) are not yet implemented in any engine. The
+//! `type-annot` construct uses a `Bind` with
 //! `$payload` (reads `payload["name"]`) but a type annotation has no natural
 //! bind name, so it is blocked until the payload convention is clarified.
 //! This crate does **not** attempt to describe the full handl language as
@@ -168,7 +168,8 @@ pub struct CorpusCase {
 /// The corpus covers the following constructs. Cases marked **(tw-only)** use
 /// a `Prim` op implemented in the tree-walk engine but not yet in the
 /// bytecode or cranelift engines — they set [`CorpusCase::tree_walk_only`]
-/// and are skipped by the compiled-engine tests.
+/// and are skipped by the compiled-engine tests. Currently no case is
+/// tree-walk-only; the flag is retained for future engine-coverage gaps.
 ///
 /// | Case                 | Source model                          | Constructs used                     |
 /// |----------------------|---------------------------------------|-------------------------------------|
@@ -177,11 +178,23 @@ pub struct CorpusCase {
 /// | `arith_sub`          | `10 - 4`                              | value, binary.sub                   |
 /// | `arith_mul`          | `3 * 4`                               | value, binary.mul                   |
 /// | `arith_div`          | `20 / 4`                              | value, binary.div                   |
-/// | `arith_pow` (tw-only)| `2 ^ 3`                               | value, binary.pow                   |
+/// | `arith_pow`          | `2 ^ 3`                               | value, binary.pow                   |
 /// | `eq_true`            | `3 == 3`                              | value, binary.eq                    |
 /// | `eq_false`           | `3 == 4`                              | value, binary.eq                    |
 /// | `lt_true`            | `1 < 2`                               | value, binary.lt                    |
 /// | `gt_true`            | `2 > 1`                               | value, binary.gt                    |
+/// | `gte_true`           | `2 >= 2`                              | value, binary.gte                   |
+/// | `gte_false`          | `1 >= 3`                              | value, binary.gte                   |
+/// | `lte_true`           | `2 <= 2`                              | value, binary.lte                   |
+/// | `lte_false`          | `3 <= 1`                              | value, binary.lte                   |
+/// | `neq_true`           | `3 != 4`                              | value, binary.neq                   |
+/// | `neq_false`          | `3 != 3`                              | value, binary.neq                   |
+/// | `compare_less`       | `1 <=> 2`                             | value, binary.compare               |
+/// | `compare_equal`      | `2 <=> 2`                             | value, binary.compare               |
+/// | `compare_greater`    | `3 <=> 2`                             | value, binary.compare               |
+/// | `typeof_number`      | `typeof 42`                           | value, typeof                       |
+/// | `typeof_string`      | `typeof "hi"`                         | value, typeof                       |
+/// | `typeof_bool`        | `typeof true`                         | value, typeof                       |
 /// | `not_true`           | `!false`                              | value, unary.not                    |
 /// | `not_false`          | `!true`                               | value, unary.not                    |
 /// | `let_var`            | `let x = 5; x`                        | value, let, var                     |
@@ -198,6 +211,11 @@ pub struct CorpusCase {
 /// | `pipe_call`          | `let f = (x) -> x + 1; 5 | f`         | function, pipe, let, var, binary.add|
 /// | `nested_let`         | `let x = 3; let y = 4; x + y`         | let, var, binary.add                |
 /// | `if_with_let`        | `if (true) (let x = 1; x) else 0`     | if, let, var, value                 |
+/// | `array_literal`      | `[1, 2, 3]`                           | array                               |
+/// | `array_index`        | `[10, 20, 30][1]`                     | index                               |
+/// | `object_literal`     | `{"a": 1, "b": 2}`                    | object                              |
+/// | `object_index`       | `{"x": 5}["x"]`                       | index                               |
+/// | `assign_value`       | `x = 42`                              | assign                              |
 ///
 /// Note: the `call` construct targets **2-argument calls** (the canonical
 /// emitter's fixed arity), so the function-call case uses a 2-arg function
@@ -287,7 +305,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(5),
             tree_walk_only: false,
         },
-        // 6. Power: 2 ^ 3 (tree-walk only — `pow` prim not in bytecode/cranelift)
+        // 6. Power: 2 ^ 3 (`pow` prim now in all engines)
         CorpusCase {
             name: "arith_pow",
             source: "2 ^ 3",
@@ -302,7 +320,7 @@ pub fn corpus() -> Vec<CorpusCase> {
                 a
             },
             expected: json!(8.0),
-            tree_walk_only: true,
+            tree_walk_only: false,
         },
         // 7. Equality true: 3 == 3
         CorpusCase {
@@ -692,6 +710,292 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(1),
             tree_walk_only: false,
         },
+        // 27. Greater-than-or-equal true: 2 >= 2
+        CorpusCase {
+            name: "gte_true",
+            source: "2 >= 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.gte")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 28. Greater-than-or-equal false: 1 >= 3
+        CorpusCase {
+            name: "gte_false",
+            source: "1 >= 3",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(
+                    AstNode::new("binary.gte")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(false),
+            tree_walk_only: false,
+        },
+        // 29. Less-than-or-equal true: 2 <= 2
+        CorpusCase {
+            name: "lte_true",
+            source: "2 <= 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.lte")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 30. Less-than-or-equal false: 3 <= 1
+        CorpusCase {
+            name: "lte_false",
+            source: "3 <= 1",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(
+                    AstNode::new("binary.lte")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(false),
+            tree_walk_only: false,
+        },
+        // 31. Not-equal true: 3 != 4
+        CorpusCase {
+            name: "neq_true",
+            source: "3 != 4",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(4)));
+                a.push(
+                    AstNode::new("binary.neq")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(true),
+            tree_walk_only: false,
+        },
+        // 32. Not-equal false: 3 != 3
+        CorpusCase {
+            name: "neq_false",
+            source: "3 != 3",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(
+                    AstNode::new("binary.neq")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(false),
+            tree_walk_only: false,
+        },
+        // 33. Compare less: 1 <=> 2 → -1
+        CorpusCase {
+            name: "compare_less",
+            source: "1 <=> 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(1)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.compare")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(-1),
+            tree_walk_only: false,
+        },
+        // 34. Compare equal: 2 <=> 2 → 0
+        CorpusCase {
+            name: "compare_equal",
+            source: "2 <=> 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.compare")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(0),
+            tree_walk_only: false,
+        },
+        // 35. Compare greater: 3 <=> 2 → 1
+        CorpusCase {
+            name: "compare_greater",
+            source: "3 <=> 2",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(3)));
+                a.push(AstNode::new("value").with_payload(json!(2)));
+                a.push(
+                    AstNode::new("binary.compare")
+                        .with_payload(json!({"children": [0, 1]})),
+                );
+                a
+            },
+            expected: json!(1),
+            tree_walk_only: false,
+        },
+        // 36. typeof number: typeof 42 → "number"
+        CorpusCase {
+            name: "typeof_number",
+            source: "typeof 42",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(42)));
+                a.push(
+                    AstNode::new("typeof")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!("number"),
+            tree_walk_only: false,
+        },
+        // 37. typeof string: typeof "hi" → "string"
+        CorpusCase {
+            name: "typeof_string",
+            source: "typeof \"hi\"",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!("hi")));
+                a.push(
+                    AstNode::new("typeof")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!("string"),
+            tree_walk_only: false,
+        },
+        // 38. typeof bool: typeof true → "bool"
+        CorpusCase {
+            name: "typeof_bool",
+            source: "typeof true",
+            ast: {
+                let mut a = Ast::new();
+                a.push(AstNode::new("value").with_payload(json!(true)));
+                a.push(
+                    AstNode::new("typeof")
+                        .with_payload(json!({"children": [0]})),
+                );
+                a
+            },
+            expected: json!("bool"),
+            tree_walk_only: false,
+        },
+        // 39. Array literal: [1, 2, 3] → [1, 2, 3]
+        //     The `array` prim reads `elements` directly from the payload.
+        CorpusCase {
+            name: "array_literal",
+            source: "[1, 2, 3]",
+            ast: {
+                let mut a = Ast::new();
+                a.push(
+                    AstNode::new("array")
+                        .with_payload(json!({"elements": [1, 2, 3]})),
+                );
+                a
+            },
+            expected: json!([1, 2, 3]),
+            tree_walk_only: false,
+        },
+        // 40. Array index: [10, 20, 30][1] → 20
+        //     The `index` prim reads `target` and `index` from the payload.
+        CorpusCase {
+            name: "array_index",
+            source: "[10, 20, 30][1]",
+            ast: {
+                let mut a = Ast::new();
+                a.push(
+                    AstNode::new("index")
+                        .with_payload(json!({"target": [10, 20, 30], "index": 1})),
+                );
+                a
+            },
+            expected: json!(20),
+            tree_walk_only: false,
+        },
+        // 41. Object literal: {"a": 1, "b": 2} → {"a": 1, "b": 2}
+        //     The `object` prim reads `entries` (array of {key, value}) from
+        //     the payload and builds a JSON object.
+        CorpusCase {
+            name: "object_literal",
+            source: "{\"a\": 1, \"b\": 2}",
+            ast: {
+                let mut a = Ast::new();
+                a.push(
+                    AstNode::new("object").with_payload(json!({
+                        "entries": [
+                            {"key": "a", "value": 1},
+                            {"key": "b", "value": 2}
+                        ]
+                    })),
+                );
+                a
+            },
+            expected: json!({"a": 1, "b": 2}),
+            tree_walk_only: false,
+        },
+        // 42. Object index: {"x": 5}["x"] → 5
+        //     The `index` prim with an object target and string key.
+        CorpusCase {
+            name: "object_index",
+            source: "{\"x\": 5}[\"x\"]",
+            ast: {
+                let mut a = Ast::new();
+                a.push(
+                    AstNode::new("index")
+                        .with_payload(json!({"target": {"x": 5}, "index": "x"})),
+                );
+                a
+            },
+            expected: json!(5),
+            tree_walk_only: false,
+        },
+        // 43. Assign: x = 42 → 42
+        //     The `assign` prim reads `value` from the payload and returns it.
+        CorpusCase {
+            name: "assign_value",
+            source: "x = 42",
+            ast: {
+                let mut a = Ast::new();
+                a.push(
+                    AstNode::new("assign")
+                        .with_payload(json!({"target": "x", "value": 42})),
+                );
+                a
+            },
+            expected: json!(42),
+            tree_walk_only: false,
+        },
     ]
 }
 
@@ -744,7 +1048,7 @@ mod tests {
     #[test]
     fn corpus_is_nonempty() {
         let c = corpus();
-        assert!(c.len() >= 26, "corpus should have at least 26 cases");
+        assert!(c.len() >= 38, "corpus should have at least 38 cases");
         for case in &c {
             assert!(!case.ast.is_empty(), "case '{}' has empty ast", case.name);
         }

@@ -224,6 +224,10 @@
       "token.template": {
         "id": "token.template",
         "label": null
+      },
+      "token.vau": {
+        "id": "token.vau",
+        "label": null
       }
     },
     "id_index": {
@@ -282,7 +286,8 @@
       "token.spaceship": "token.spaceship",
       "token.star": "token.star",
       "token.string": "token.string",
-      "token.template": "token.template"
+      "token.template": "token.template",
+      "token.vau": "token.vau"
     },
     "override_chain": []
   },
@@ -874,6 +879,19 @@
           "node_kind": "template",
           "arity": 0
         }
+      },
+      "token.vau@prefix": {
+        "id": "grammar.vau.prefix",
+        "token": "token.vau",
+        "position": "Prefix",
+        "binding_power": [
+          0,
+          0
+        ],
+        "child_shape": {
+          "node_kind": "vau",
+          "arity": 1
+        }
       }
     },
     "id_index": {
@@ -923,7 +941,8 @@
       "grammar.value.bool": "token.bool@prefix",
       "grammar.value.null": "token.null@prefix",
       "grammar.value.number": "token.number@prefix",
-      "grammar.value.string": "token.string@prefix"
+      "grammar.value.string": "token.string@prefix",
+      "grammar.vau.prefix": "token.vau@prefix"
     },
     "override_chain": []
   },
@@ -942,11 +961,7 @@
         "scheme": {
           "Prim": {
             "op": "array",
-            "args": [
-              {
-                "Child": 0
-              }
-            ]
+            "args": []
           }
         }
       },
@@ -956,14 +971,7 @@
         "scheme": {
           "Prim": {
             "op": "assign",
-            "args": [
-              {
-                "Child": 0
-              },
-              {
-                "Child": 1
-              }
-            ]
+            "args": []
           }
         }
       },
@@ -1349,14 +1357,7 @@
         "scheme": {
           "Prim": {
             "op": "index",
-            "args": [
-              {
-                "Child": 0
-              },
-              {
-                "Child": 1
-              }
-            ]
+            "args": []
           }
         }
       },
@@ -1415,11 +1416,7 @@
         "scheme": {
           "Prim": {
             "op": "object",
-            "args": [
-              {
-                "Child": 0
-              }
-            ]
+            "args": []
           }
         }
       },
@@ -3195,6 +3192,16 @@
           }
         },
         "priority": 40
+      },
+      "lex.vau": {
+        "id": "lex.vau",
+        "token_kind": "token.vau",
+        "pattern": {
+          "Literal": {
+            "text": "vau"
+          }
+        },
+        "priority": 15
       }
     },
     "id_index": {
@@ -3252,7 +3259,8 @@
       "lex.spaceship": "lex.spaceship",
       "lex.star": "lex.star",
       "lex.string": "lex.string",
-      "lex.template": "lex.template"
+      "lex.template": "lex.template",
+      "lex.vau": "lex.vau"
     },
     "override_chain": []
   },

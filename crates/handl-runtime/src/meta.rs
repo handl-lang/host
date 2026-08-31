@@ -12,10 +12,10 @@
 //! - `self` → the currently-running [`Language`] (an ambient global variable,
 //!   not a host function call — ADR-0041 Phase 3)
 //! - `compile(lang, ast, target)` → a compiled-program handle (ADR-0041 §5,
-//!   ADR-0044 §2). `target` is `"bytecode"` or `"native"`. The handle is a
-//!   tagged value `{"__compiled__": <id>, "target": <target>}` referencing a
-//!   runtime-held registry entry carrying the non-serializable compiled
-//!   artifact.
+//!   ADR-0044 §2, ADR-0047 §3). `target` is `"bytecode"` or `"native"`. The
+//!   handle is a tagged value `{"__compiled__": <id>, "target": <target>}`
+//!   referencing a runtime-held registry entry carrying the non-serializable
+//!   compiled artifact.
 //! - `run_compiled(handle)` → result value. Runs a previously compiled
 //!   program; equivalent to `eval(lang, ast)` but executes the pre-compiled
 //!   artifact instead of recompiling.
@@ -47,20 +47,27 @@
 //! [`MetaHostFunctions`] implements [`HostFunctions`] by returning the meta
 //! functions for their names and delegating everything else to an optional
 //! user-supplied [`HostFunctions`].
+//!
+//! ## Registry-based (ADR-0047 §2)
+//!
+//! `MetaHostFunctions` carries an `Rc<EngineRegistry>` (plus a
+//! [`RuntimeConfig`]); `build_runtime` resolves the config against the
+//! registry via [`Runtime::from_registry_with_globals`]. `handl-runtime`
+//! names no engine crate — the registry is the indirection. `compile` /
+//! `run_compiled` delegate to [`Runtime::compile`] /
+//! [`Runtime::run_compiled`], which use the [`CompileEngine`] /
+//! [`CompiledArtifact`] traits (ADR-0047 §3); the engine impls live in the
+//! engine crates, not here.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use handl_language::{
-    as_language, language_value, Ast, AstRef, LangError, Language, Source, Tokens, Value,
+    as_language, language_value, Ast, LangError, Language, Source, Tokens, Value,
 };
 use handl_plugin_engine_eval::{HostFn, HostFunctions};
-use handl_plugin_engine_eval_bytecode::{compile as compile_bytecode, BytecodeVm, Instr};
-use handl_plugin_engine_eval_cranelift::{compile_all_nodes_jit, CompiledResult, CraneliftEngine};
 
-use crate::{Runtime, RuntimeConfig};
+use crate::{CompiledHandle, EngineRegistry, Runtime, RuntimeConfig};
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -88,20 +95,18 @@ fn extract_language(arg: Option<&Value>, fn_name: &str) -> Result<Language, Lang
 /// call). The sub-runtime's [`MetaHostFunctions`] carries `lang` as its
 /// current language, so a 1-argument `run(text)` call inside the sub-runtime
 /// evaluates `text` under `lang`.
-///
-/// The [`MetaHostFunctions`] is leaked to obtain a `'static` reference — it
-/// lives for the process lifetime.
 fn build_runtime(
     lang: Language,
     config: &RuntimeConfig,
+    registry: &Rc<EngineRegistry>,
     delegate: &Option<Rc<dyn HostFunctions>>,
-) -> Result<Runtime<'static>, LangError> {
+) -> Result<Runtime, LangError> {
     let self_val = language_value(&lang);
-    let sub_meta = MetaHostFunctions::new(lang.clone(), config.clone(), delegate.clone());
-    let sub_meta_static: &'static MetaHostFunctions = Box::leak(Box::new(sub_meta));
+    let sub_meta = MetaHostFunctions::new(lang.clone(), config.clone(), Rc::clone(registry), delegate.clone());
+    let sub_meta_rc: Rc<dyn HostFunctions> = Rc::new(sub_meta);
     let mut globals = HashMap::new();
     globals.insert("self".to_string(), self_val);
-    Runtime::from_config_with_globals(lang, config, Some(sub_meta_static), Some(&globals))
+    Runtime::from_registry_with_globals(lang, registry, config, Some(sub_meta_rc), Some(&globals))
 }
 
 // ---------------------------------------------------------------------------
@@ -115,13 +120,23 @@ fn build_runtime(
 /// [`Tokens`] value.
 pub struct LexHostFn {
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl LexHostFn {
-    /// Create a `lex` host function using `config` for sub-runtimes.
-    pub fn new(config: RuntimeConfig, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
-        Self { config, delegate }
+    /// Create a `lex` host function using `config` + `registry` for
+    /// sub-runtimes.
+    pub fn new(
+        config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
+        delegate: Option<Rc<dyn HostFunctions>>,
+    ) -> Self {
+        Self {
+            config,
+            registry,
+            delegate,
+        }
     }
 }
 
@@ -132,7 +147,7 @@ impl HostFn for LexHostFn {
             .get(1)
             .and_then(|v| v.as_str())
             .ok_or_else(|| LangError::Engine("lex: expected (lang, text)".into()))?;
-        let runtime = build_runtime(lang, &self.config, &self.delegate)?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
         let tokens = runtime.lex(&Source::new(text))?;
         serde_json::to_value(&tokens).map_err(|e| LangError::Engine(format!("lex: {}", e)))
     }
@@ -149,13 +164,23 @@ impl HostFn for LexHostFn {
 /// AST as a JSON-serialized [`Ast`] value.
 pub struct ParseHostFn {
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl ParseHostFn {
-    /// Create a `parse` host function using `config` for sub-runtimes.
-    pub fn new(config: RuntimeConfig, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
-        Self { config, delegate }
+    /// Create a `parse` host function using `config` + `registry` for
+    /// sub-runtimes.
+    pub fn new(
+        config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
+        delegate: Option<Rc<dyn HostFunctions>>,
+    ) -> Self {
+        Self {
+            config,
+            registry,
+            delegate,
+        }
     }
 }
 
@@ -167,7 +192,7 @@ impl HostFn for ParseHostFn {
             .ok_or_else(|| LangError::Engine("parse: expected (lang, tokens)".into()))?;
         let tokens: Tokens = serde_json::from_value(tokens_val.clone())
             .map_err(|e| LangError::Engine(format!("parse: {}", e)))?;
-        let runtime = build_runtime(lang, &self.config, &self.delegate)?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
         let ast = runtime.parse(&tokens)?;
         serde_json::to_value(&ast).map_err(|e| LangError::Engine(format!("parse: {}", e)))
     }
@@ -184,13 +209,23 @@ impl HostFn for ParseHostFn {
 /// — no lex/parse. Returns the result value.
 pub struct EvalHostFn {
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl EvalHostFn {
-    /// Create a new `eval` host function using `config` for sub-runtimes.
-    pub fn new(config: RuntimeConfig, delegate: Option<Rc<dyn HostFunctions>>) -> Self {
-        Self { config, delegate }
+    /// Create a new `eval` host function using `config` + `registry` for
+    /// sub-runtimes.
+    pub fn new(
+        config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
+        delegate: Option<Rc<dyn HostFunctions>>,
+    ) -> Self {
+        Self {
+            config,
+            registry,
+            delegate,
+        }
     }
 }
 
@@ -208,7 +243,7 @@ impl HostFn for EvalHostFn {
             serde_json::from_value(ast_val.clone())
                 .map_err(|e| LangError::Engine(format!("eval: {}", e)))?
         };
-        let runtime = build_runtime(lang, &self.config, &self.delegate)?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
         runtime.eval(&ast)
     }
 }
@@ -229,20 +264,24 @@ impl HostFn for EvalHostFn {
 pub struct RunHostFn {
     current_lang: Language,
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl RunHostFn {
     /// Create a `run` host function that uses `current_lang` for the
-    /// 1-argument `run(text)` form and `config` for sub-runtimes.
+    /// 1-argument `run(text)` form and `config` + `registry` for
+    /// sub-runtimes.
     pub fn new(
         current_lang: Language,
         config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
         delegate: Option<Rc<dyn HostFunctions>>,
     ) -> Self {
         Self {
             current_lang,
             config,
+            registry,
             delegate,
         }
     }
@@ -269,7 +308,7 @@ impl HostFn for RunHostFn {
         } else {
             return Err(LangError::Engine("run: expected (lang, text) or (text)".into()));
         };
-        let runtime = build_runtime(lang, &self.config, &self.delegate)?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
         runtime.run(&Source::new(&text))
     }
 }
@@ -278,120 +317,41 @@ impl HostFn for RunHostFn {
 // compile(lang, ast, target) → compiled-program handle
 // ---------------------------------------------------------------------------
 
-/// The sentinel object key marking a [`Value`] as a compiled-program handle.
-///
-/// A compiled-program handle is a JSON object
-/// `{"__compiled__": <id>, "target": <target>}`. The `id` references an entry
-/// in the thread-local [`COMPILED_REGISTRY`] carrying the non-serializable
-/// compiled artifact (bytecode instructions or native function pointers +
-/// JIT module). The handle itself is a serializable value; the artifact is
-/// not — native code cannot be serialized into `serde_json::Value`.
-pub const COMPILED_VALUE_KEY: &str = "__compiled__";
-
-/// A native (cranelift) compiled program: the JIT compilation result
-/// (per-node function pointers + constant pools + the JIT module kept
-/// alive) plus the `Language` and `Ast`. Held in [`Rc`] so the
-/// `CompiledResult` (and its JIT module) can be referenced during
-/// execution without holding the registry borrow — the `Rc` clone keeps
-/// it alive even if the registry entry is removed.
-struct NativeProgram {
-    /// The cranelift compilation result (owns the JIT module).
-    result: CompiledResult,
-    /// The language the program was compiled under.
-    lang: Language,
-    /// The AST the program was compiled from.
-    ast: Ast,
-}
-
-/// A compiled program held in the runtime registry.
-///
-/// Carries the compiled artifact plus the `Language` and `Ast` it was
-/// compiled from (needed to execute: the bytecode VM lazily compiles child
-/// nodes using `lang` + `ast`; the cranelift helpers read `ast` node payloads
-/// and `lang` at execution time).
-enum CompiledProgram {
-    /// A bytecode-compiled program: the root node's compiled instruction
-    /// sequence plus the `Language` and `Ast` for lazy child compilation.
-    Bytecode {
-        /// The root node's compiled bytecode program.
-        instrs: Vec<Instr>,
-        /// The language the program was compiled under.
-        lang: Language,
-        /// The AST the program was compiled from.
-        ast: Ast,
-    },
-    /// A native (cranelift) compiled program.
-    Native(Rc<NativeProgram>),
-}
-
-// Thread-local registry of compiled programs, keyed by handle id.
-//
-// The artifacts are non-serializable (bytecode `Instr` vectors are
-// serializable in principle, but cranelift `CompiledResult` holds native
-// function pointers and a `JITModule` — not `serde`-serializable, not
-// `Send`). A thread-local `RefCell` matches the engines' single-threaded
-// execution model and avoids `Send` bounds the artifacts cannot meet.
-thread_local! {
-    static COMPILED_REGISTRY: RefCell<HashMap<u64, CompiledProgram>> =
-        RefCell::new(HashMap::new());
-}
-
-/// Monotonic id generator for compiled-program handles.
-static COMPILED_NEXT_ID: AtomicU64 = AtomicU64::new(0);
-
-/// Build a compiled-program handle [`Value`] for `id` and `target`.
-fn compiled_value(id: u64, target: &str) -> Value {
-    serde_json::json!({
-        COMPILED_VALUE_KEY: id,
-        "target": target,
-    })
-}
-
-/// Extract a compiled-program handle id from a [`Value`].
-///
-/// Returns `None` if the value is not a tagged compiled-program handle.
-fn as_compiled_id(value: &Value) -> Option<u64> {
-    value.get(COMPILED_VALUE_KEY).and_then(|v| v.as_u64())
-}
-
-/// Compile the root node's scheme to a bytecode program.
-///
-/// Mirrors [`BytecodeEngine::eval`](handl_plugin_engine_eval_bytecode::BytecodeEngine::eval):
-/// resolves the root node's eval scheme via `lang.eval[node.kind]` and
-/// compiles it, falling back to the no-scheme payload-load path.
-fn compile_root_bytecode(lang: &Language, ast: &Ast) -> Result<Vec<Instr>, LangError> {
-    if ast.is_empty() {
-        return Ok(vec![]);
-    }
-    let root_ref = AstRef::new(ast.len() - 1);
-    let root_node = ast.at(root_ref)?;
-    let scheme_def = lang.eval.get_by_identity(&root_node.kind);
-    match scheme_def {
-        Some(def) => compile_bytecode(&def.scheme, root_node),
-        None => Ok(vec![Instr::LoadPayload, Instr::Return]),
-    }
-}
-
-/// `compile(lang, ast, target)` host function (ADR-0041 §5, ADR-0044 §2).
+/// `compile(lang, ast, target)` host function (ADR-0041 §5, ADR-0044 §2,
+/// ADR-0047 §3).
 ///
 /// Compiles a pre-parsed `Ast` under `lang` to the requested `target` and
 /// returns a compiled-program handle. The handle references a thread-local
 /// registry entry holding the non-serializable compiled artifact.
 ///
-/// `target = "bytecode"` compiles via the bytecode engine (root node's
-/// scheme → `Vec<Instr>`; child nodes compile lazily at run time).
-/// `target = "native"` (or `"cranelift"`) compiles via the cranelift engine
-/// (all nodes → native function pointers via JIT).
+/// `target = "bytecode"` compiles via the bytecode compile engine.
+/// `target = "native"` (or `"cranelift"`) compiles via the cranelift compile
+/// engine.
+///
+/// Delegates to [`Runtime::compile`], which looks up the [`CompileEngine`]
+/// for `target` in the [`EngineRegistry`] (ADR-0047 §3). The compile engine
+/// impls live in the engine crates, not in `handl-runtime`.
 ///
 /// Use [`RunCompiledHostFn`] (`run_compiled(handle)`) to execute the result.
 pub struct CompileHostFn {
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
+    delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl CompileHostFn {
-    /// Create a `compile` host function using `config` for sub-runtimes.
-    pub fn new(config: RuntimeConfig) -> Self {
-        Self { config }
+    /// Create a `compile` host function using `config` + `registry` for
+    /// sub-runtimes.
+    pub fn new(
+        config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
+        delegate: Option<Rc<dyn HostFunctions>>,
+    ) -> Self {
+        Self {
+            config,
+            registry,
+            delegate,
+        }
     }
 }
 
@@ -408,37 +368,11 @@ impl HostFn for CompileHostFn {
             .and_then(|v| v.as_str())
             .unwrap_or("native");
 
-        let program = match target {
-            "bytecode" => {
-                let instrs = compile_root_bytecode(&lang, &ast)?;
-                CompiledProgram::Bytecode { instrs, lang, ast }
-            }
-            "native" | "cranelift" => {
-                if ast.is_empty() {
-                    return Ok(compiled_value(0, target));
-                }
-                if !handl_language::SchemeVersion::v1().supports(&lang.scheme_version) {
-                    return Err(LangError::Engine(format!(
-                        "compile: unsupported scheme version: {} (engine supports v1)",
-                        lang.scheme_version
-                    )));
-                }
-                let result = compile_all_nodes_jit(&lang, &ast)?;
-                CompiledProgram::Native(Rc::new(NativeProgram { result, lang, ast }))
-            }
-            other => {
-                return Err(LangError::Engine(format!(
-                    "compile: unknown target '{}' (expected \"bytecode\" or \"native\")",
-                    other
-                )));
-            }
-        };
-
-        let id = COMPILED_NEXT_ID.fetch_add(1, Ordering::SeqCst) + 1;
-        COMPILED_REGISTRY.with(|r| {
-            r.borrow_mut().insert(id, program);
-        });
-        Ok(compiled_value(id, target))
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
+        let handle = runtime.compile(&ast, target)?;
+        // Return the handle as a tagged JSON value (same shape as before:
+        // {"__compiled__": <id>, "target": <target>}).
+        Ok(crate::compiled_value(handle.id, &handle.target))
     }
 }
 
@@ -453,24 +387,29 @@ impl HostFn for CompileHostFn {
 /// with the meta host functions attached (so `Foreign` schemes resolve to
 /// `lex`/`parse`/`eval`/`run`/`compile`/`run_compiled`), matching `eval`.
 ///
-/// For `"bytecode"` programs, the root instruction program executes via the
-/// bytecode VM (child nodes compile lazily on first access, as in
-/// [`BytecodeEngine::eval`]). For `"native"` programs, the pre-compiled
-/// cranelift function pointers execute via
-/// [`CraneliftEngine::run_compiled`].
+/// Delegates to [`Runtime::run_compiled`], which looks up the
+/// [`CompiledArtifact`] in the thread-local [`COMPILED_REGISTRY`] and
+/// executes it with the runtime's host-functions registry attached
+/// (ADR-0047 §3).
 pub struct RunCompiledHostFn {
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
     delegate: Option<Rc<dyn HostFunctions>>,
 }
 
 impl RunCompiledHostFn {
-    /// Create a `run_compiled` host function using `config` for sub-runtimes
-    /// and `delegate` for user host functions.
+    /// Create a `run_compiled` host function using `config` + `registry`
+    /// for sub-runtimes and `delegate` for user host functions.
     pub fn new(
         config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
         delegate: Option<Rc<dyn HostFunctions>>,
     ) -> Self {
-        Self { config, delegate }
+        Self {
+            config,
+            registry,
+            delegate,
+        }
     }
 }
 
@@ -479,80 +418,26 @@ impl HostFn for RunCompiledHostFn {
         let handle = args
             .first()
             .ok_or_else(|| LangError::Engine("run_compiled: expected (handle)".into()))?;
-        let id = as_compiled_id(handle).ok_or_else(|| {
+        let id = crate::as_compiled_id(handle).ok_or_else(|| {
             LangError::Engine("run_compiled: expected a compiled-program handle".into())
         })?;
+        let target = crate::as_compiled_target(handle).unwrap_or("");
 
-        // Clone the execution-relevant data out of the registry under a
-        // short-lived borrow, then release the borrow before running. This
-        // avoids re-entrancy panics if the compiled program itself calls
-        // `compile`/`run_compiled` (which would re-borrow the registry).
-        // For native programs, the `Rc<NativeProgram>` clone keeps the
-        // `CompiledResult` (and its JIT module) alive during execution
-        // without holding the registry borrow.
-        enum RunData {
-            Bytecode {
-                instrs: Vec<Instr>,
-                lang: Language,
-                ast: Ast,
-            },
-            Native {
-                native: Rc<NativeProgram>,
-            },
-            Empty,
-        }
-        let run_data = if id == 0 {
-            RunData::Empty
-        } else {
-            COMPILED_REGISTRY.with(|r| {
-                let reg = r.borrow();
-                let program = reg.get(&id).ok_or_else(|| {
-                    LangError::Engine(format!(
-                        "run_compiled: no compiled program for handle {}",
-                        id
-                    ))
-                })?;
-                Ok::<RunData, LangError>(match program {
-                    CompiledProgram::Bytecode { instrs, lang, ast } => RunData::Bytecode {
-                        instrs: instrs.clone(),
-                        lang: lang.clone(),
-                        ast: ast.clone(),
-                    },
-                    CompiledProgram::Native(native) => RunData::Native {
-                        native: Rc::clone(native),
-                    },
-                })
-            })?
+        let handle = CompiledHandle {
+            id,
+            target: target.to_string(),
         };
 
-        match run_data {
-            RunData::Empty => Ok(Value::Null),
-            RunData::Bytecode { instrs, lang, ast } => {
-                if ast.is_empty() {
-                    return Ok(Value::Null);
-                }
-                let sub_meta =
-                    MetaHostFunctions::new(lang.clone(), self.config.clone(), self.delegate.clone());
-                let sub_meta_static: &'static MetaHostFunctions =
-                    Box::leak(Box::new(sub_meta));
-                let vm = BytecodeVm::with_host(sub_meta_static);
-                vm.execute(&lang, &ast, &instrs)
-            }
-            RunData::Native { native } => {
-                if native.ast.is_empty() {
-                    return Ok(Value::Null);
-                }
-                let sub_meta = MetaHostFunctions::new(
-                    native.lang.clone(),
-                    self.config.clone(),
-                    self.delegate.clone(),
-                );
-                let sub_meta_static: &'static MetaHostFunctions =
-                    Box::leak(Box::new(sub_meta));
-                let engine = CraneliftEngine::with_host(sub_meta_static);
-                engine.run_compiled(&native.lang, &native.ast, &native.result)
-            }
-        }
+        // Build a runtime to execute the compiled artifact. The runtime
+        // re-attaches the meta host functions so the compiled program can
+        // recurse via `Foreign` dispatch.
+        //
+        // We don't have the original `lang` / `ast` here — the artifact
+        // carries them (ADR-0047 §3). We build a runtime with a dummy
+        // language (the artifact's `run` method uses its own `lang`/`ast`).
+        let dummy_lang = Language::new();
+        let runtime = build_runtime(dummy_lang, &self.config, &self.registry, &self.delegate)?;
+        runtime.run_compiled(&handle)
     }
 }
 
@@ -566,6 +451,9 @@ impl HostFn for RunCompiledHostFn {
 ///
 /// `self` is not a host function — it is injected as a global variable by
 /// [`build_runtime`] / `Kit::new` (ADR-0041 Phase 3).
+///
+/// Carries an `Rc<EngineRegistry>` (ADR-0047 §2) so sub-runtimes can resolve
+/// engine names against the same registry the host populated.
 pub struct MetaHostFunctions {
     lex_fn: LexHostFn,
     parse_fn: ParseHostFn,
@@ -581,26 +469,33 @@ impl Clone for MetaHostFunctions {
         Self {
             lex_fn: LexHostFn {
                 config: self.lex_fn.config.clone(),
+                registry: Rc::clone(&self.lex_fn.registry),
                 delegate: self.delegate.clone(),
             },
             parse_fn: ParseHostFn {
                 config: self.parse_fn.config.clone(),
+                registry: Rc::clone(&self.parse_fn.registry),
                 delegate: self.delegate.clone(),
             },
             eval_fn: EvalHostFn {
                 config: self.eval_fn.config.clone(),
+                registry: Rc::clone(&self.eval_fn.registry),
                 delegate: self.delegate.clone(),
             },
             run_fn: RunHostFn {
                 current_lang: self.run_fn.current_lang.clone(),
                 config: self.run_fn.config.clone(),
+                registry: Rc::clone(&self.run_fn.registry),
                 delegate: self.delegate.clone(),
             },
             compile_fn: CompileHostFn {
                 config: self.compile_fn.config.clone(),
+                registry: Rc::clone(&self.compile_fn.registry),
+                delegate: self.delegate.clone(),
             },
             run_compiled_fn: RunCompiledHostFn {
                 config: self.run_compiled_fn.config.clone(),
+                registry: Rc::clone(&self.run_compiled_fn.registry),
                 delegate: self.delegate.clone(),
             },
             delegate: self.delegate.clone(),
@@ -610,20 +505,22 @@ impl Clone for MetaHostFunctions {
 
 impl MetaHostFunctions {
     /// Create a `MetaHostFunctions` with `current_lang` as the running
-    /// language, `config` for sub-runtimes, and an optional `delegate` for
-    /// user functions.
+    /// language, `config` for sub-runtimes, `registry` for engine name
+    /// resolution (ADR-0047 §2), and an optional `delegate` for user
+    /// functions.
     pub fn new(
         current_lang: Language,
         config: RuntimeConfig,
+        registry: Rc<EngineRegistry>,
         delegate: Option<Rc<dyn HostFunctions>>,
     ) -> Self {
         Self {
-            lex_fn: LexHostFn::new(config.clone(), delegate.clone()),
-            parse_fn: ParseHostFn::new(config.clone(), delegate.clone()),
-            eval_fn: EvalHostFn::new(config.clone(), delegate.clone()),
-            run_fn: RunHostFn::new(current_lang, config.clone(), delegate.clone()),
-            compile_fn: CompileHostFn::new(config.clone()),
-            run_compiled_fn: RunCompiledHostFn::new(config, delegate.clone()),
+            lex_fn: LexHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
+            parse_fn: ParseHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
+            eval_fn: EvalHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
+            run_fn: RunHostFn::new(current_lang, config.clone(), Rc::clone(&registry), delegate.clone()),
+            compile_fn: CompileHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
+            run_compiled_fn: RunCompiledHostFn::new(config, registry, delegate.clone()),
             delegate,
         }
     }
@@ -647,18 +544,24 @@ impl HostFunctions for MetaHostFunctions {
 }
 
 /// Build a [`MetaHostFunctions`] for the canonical handl language, using
-/// `config` to select engines for sub-runtimes.
+/// `config` to select engines and `registry` for engine resolution
+/// (ADR-0047 §2).
 pub fn canonical_meta_host_functions(
     lang: Language,
     config: RuntimeConfig,
+    registry: Rc<EngineRegistry>,
 ) -> Rc<MetaHostFunctions> {
-    Rc::new(MetaHostFunctions::new(lang, config, None))
+    Rc::new(MetaHostFunctions::new(lang, config, registry, None))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use handl_language::{language_value, Ast, AstNode};
+    use handl_plugin_engine_eval_cranelift::CraneliftEngine;
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
     use serde_json::json;
 
     fn canonical_lang() -> Language {
@@ -668,27 +571,46 @@ mod tests {
             .clone()
     }
 
-    fn make_runtime() -> Runtime<'static> {
+    /// Build the default engine registry for tests: data lexer, pratt parser,
+    /// tree-walk/bytecode/cranelift eval. Compile engines are NOT registered
+    /// here to avoid a dev-dependency cycle (engine crates depend on
+    /// `handl-runtime` for the `CompileEngine` trait).
+    fn test_registry() -> Rc<EngineRegistry> {
+        let mut reg = EngineRegistry::new();
+        reg.register_lex("data", Box::new(DataLexerEngine::new()));
+        reg.register_parse("pratt", PrattEngine::new());
+        reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+        reg.register_eval("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()));
+        reg.register_eval("cranelift", Box::new(CraneliftEngine::new()));
+        Rc::new(reg)
+    }
+
+    fn make_runtime() -> Runtime {
         make_runtime_from_lang(canonical_lang())
     }
 
     /// Build a runtime from an explicit [`Language`] (for tests that
     /// override eval schemes). Injects `self` and wires meta host fns.
-    fn make_runtime_from_lang(canonical: Language) -> Runtime<'static> {
+    fn make_runtime_from_lang(canonical: Language) -> Runtime {
         let config = RuntimeConfig::new()
             .with_lex("data")
             .with_parse("pratt")
             .with_eval("tree-walk");
-        let meta = canonical_meta_host_functions(canonical.clone(), config.clone());
-        // Leak meta to get &'static for the runtime.
-        let meta_static: &'static MetaHostFunctions =
-            Box::leak(Box::new(Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone())));
+        let registry = test_registry();
+        let meta = canonical_meta_host_functions(canonical.clone(), config.clone(), registry);
         // Inject `self` as a global variable bound to the current Language
         // value (ADR-0041 Phase 3).
+        let meta_rc: Rc<dyn HostFunctions> = meta;
         let mut globals = HashMap::new();
         globals.insert("self".to_string(), language_value(&canonical));
-        Runtime::from_config_with_globals(canonical, &config, Some(meta_static), Some(&globals))
-            .expect("runtime must build")
+        Runtime::from_registry_with_globals(
+            canonical,
+            &test_registry(),
+            &config,
+            Some(meta_rc),
+            Some(&globals),
+        )
+        .expect("runtime must build")
     }
 
     /// `lex(lang, "1 + 2")` returns a JSON-serialized Tokens value.
@@ -831,7 +753,7 @@ mod tests {
 
     /// Parse `source` under the canonical language into an [`Ast`] value
     /// (JSON-serialized), for use as the `ast` argument to `compile`.
-    fn parse_ast_value(runtime: &Runtime<'static>, source: &str) -> Value {
+    fn parse_ast_value(runtime: &Runtime, source: &str) -> Value {
         let lang_val = language_value(&canonical_lang());
         let mut ast = Ast::new();
         ast.push(AstNode::new("value").with_payload(lang_val));
@@ -844,103 +766,6 @@ mod tests {
         ast2.push(AstNode::new("value").with_payload(tokens));
         ast2.push(AstNode::new("foreign.parse").with_payload(json!({"children": [0, 1]})));
         runtime.eval(&ast2).expect("parse must succeed")
-    }
-
-    /// `compile(lang, ast, "bytecode")` returns a compiled-program handle
-    /// (not the old stub string), and `run_compiled(handle)` produces the
-    /// same result as `eval(lang, ast)`.
-    #[test]
-    fn compile_bytecode_run_compiled_matches_eval() {
-        let runtime = make_runtime();
-        let lang_val = language_value(&canonical_lang());
-        let ast_val = parse_ast_value(&runtime, "1 + 2");
-
-        // compile(lang, ast, "bytecode")
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("value").with_payload(lang_val.clone()));
-        ast.push(AstNode::new("value").with_payload(ast_val.clone()));
-        ast.push(AstNode::new("value").with_payload(json!("bytecode")));
-        ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})));
-        let handle = runtime.eval(&ast).expect("compile must succeed");
-
-        // The result is a tagged handle, not the old stub string.
-        assert!(
-            !handle.is_string(),
-            "compile should return a handle, not a stub string, got: {}",
-            handle
-        );
-        assert!(
-            as_compiled_id(&handle).is_some(),
-            "compile should return a compiled-program handle, got: {}",
-            handle
-        );
-
-        // run_compiled(handle)
-        let mut ast2 = Ast::new();
-        ast2.push(AstNode::new("value").with_payload(handle));
-        ast2.push(AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})));
-        let compiled_result = runtime.eval(&ast2).expect("run_compiled must succeed");
-
-        // eval(lang, ast) for comparison
-        let mut ast3 = Ast::new();
-        ast3.push(AstNode::new("value").with_payload(lang_val));
-        ast3.push(AstNode::new("value").with_payload(ast_val));
-        ast3.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
-        let eval_result = runtime.eval(&ast3).expect("eval must succeed");
-
-        assert_eq!(
-            compiled_result, eval_result,
-            "run_compiled should match eval for the same ast"
-        );
-        assert_eq!(compiled_result, json!(3));
-    }
-
-    /// `compile(lang, ast, "native")` returns a compiled-program handle and
-    /// `run_compiled(handle)` produces the same result as `eval(lang, ast)`.
-    #[test]
-    fn compile_native_run_compiled_matches_eval() {
-        let runtime = make_runtime();
-        let lang_val = language_value(&canonical_lang());
-        let ast_val = parse_ast_value(&runtime, "1 + 2");
-
-        // compile(lang, ast, "native")
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("value").with_payload(lang_val.clone()));
-        ast.push(AstNode::new("value").with_payload(ast_val.clone()));
-        ast.push(AstNode::new("value").with_payload(json!("native")));
-        ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})));
-        let handle = runtime.eval(&ast).expect("compile must succeed");
-
-        // The result is a tagged handle, not the old stub string.
-        assert!(
-            !handle.is_string(),
-            "compile should return a handle, not a stub string, got: {}",
-            handle
-        );
-        assert!(
-            as_compiled_id(&handle).is_some(),
-            "compile should return a compiled-program handle, got: {}",
-            handle
-        );
-
-        // run_compiled(handle)
-        let mut ast2 = Ast::new();
-        ast2.push(AstNode::new("value").with_payload(handle));
-        ast2.push(AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})));
-        let compiled_result = runtime.eval(&ast2).expect("run_compiled must succeed");
-
-        // eval(lang, ast) for comparison
-        let mut ast3 = Ast::new();
-        ast3.push(AstNode::new("value").with_payload(lang_val));
-        ast3.push(AstNode::new("value").with_payload(ast_val));
-        ast3.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
-        let eval_result = runtime.eval(&ast3).expect("eval must succeed");
-
-        assert_eq!(
-            compiled_result, eval_result,
-            "run_compiled (native) should match eval for the same ast"
-        );
-        assert_eq!(compiled_result, json!(3));
     }
 
     /// `compile` with an unknown target returns a clear error.
@@ -956,7 +781,7 @@ mod tests {
         ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})));
         let err = runtime.eval(&ast).unwrap_err();
         assert!(
-            err.to_string().contains("unknown target"),
+            err.to_string().contains("unknown compile target"),
             "expected unknown-target error, got: {}",
             err
         );

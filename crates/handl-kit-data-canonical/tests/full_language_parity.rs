@@ -282,10 +282,22 @@ fn language_has_core_capabilities() {
 fn full_kit_runtime_binds_engines() {
     // The full language must bind to the Pratt parse engine and tree-walk
     // eval engine without error.
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_runtime::EngineRegistry;
+    use std::rc::Rc;
     let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");
     let eval_len = kit.lang().eval.len();
     let grammar_len = kit.lang().grammar.len();
-    let rt = kit.into_runtime(None).expect("runtime binds engines");
+    let mut reg = EngineRegistry::new();
+    reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let registry = Rc::new(reg);
+    let rt = kit
+        .into_runtime(&registry, None)
+        .expect("runtime binds engines");
     assert_eq!(rt.lang().eval.len(), eval_len);
     assert_eq!(rt.lang().grammar.len(), grammar_len);
 }

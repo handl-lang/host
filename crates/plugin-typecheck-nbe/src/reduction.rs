@@ -124,6 +124,24 @@ pub fn eval(term: &Term, env: &Env) -> Value {
         Term::Object(xs) => {
             Value::Object(xs.iter().map(|(n, x)| (n.clone(), eval(x, env))).collect())
         }
+        Term::VauType { name, param, body } => Value::VauType {
+            param_name: name.clone(),
+            param: Box::new(eval(param, env)),
+            closure: Closure {
+                env: env.clone(),
+                name: name.clone(),
+                body: *body.clone(),
+            },
+        },
+        Term::Vau { name, body } => Value::Vau {
+            name: name.clone(),
+            closure: Closure {
+                env: env.clone(),
+                name: name.clone(),
+                body: *body.clone(),
+            },
+        },
+        Term::VauApp { fun, arg } => apply_vau(eval(fun, env), eval(arg, env)),
     }
 }
 
@@ -136,6 +154,18 @@ pub fn apply(fun: Value, arg: Value) -> Value {
         }),
         Value::Collection(name) => eval_membership(arg, Value::Collection(name.clone())),
         _ => panic!("application of non-function"),
+    }
+}
+
+/// Apply a vau (fexpr) to an argument. Like `apply` but for `Value::Vau`.
+pub fn apply_vau(fun: Value, arg: Value) -> Value {
+    match fun {
+        Value::Vau { closure, .. } => closure.apply(arg),
+        Value::Neutral(n) => Value::Neutral(Neutral::VauApp {
+            fun: Box::new(n),
+            arg: Box::new(arg),
+        }),
+        _ => panic!("vau application of non-vau"),
     }
 }
 
@@ -310,6 +340,33 @@ pub fn instantiate_tvar_value(value: &Value, name: &Name, replacement: &Value) -
                 .map(|(n, v)| (n.clone(), instantiate_tvar_value(v, name, replacement)))
                 .collect(),
         ),
+        Value::VauType {
+            param_name,
+            param,
+            closure,
+        } => {
+            let names = vec![param_name.clone()];
+            Value::VauType {
+                param_name: param_name.clone(),
+                param: Box::new(instantiate_tvar_value(param, name, replacement)),
+                closure: Closure {
+                    env: instantiate_tvar_env(&closure.env, name, replacement, &names),
+                    name: closure.name.clone(),
+                    body: instantiate_tvar_term(&closure.body, name, replacement, &names),
+                },
+            }
+        }
+        Value::Vau { name, closure } => {
+            let names = vec![name.clone()];
+            Value::Vau {
+                name: name.clone(),
+                closure: Closure {
+                    env: instantiate_tvar_env(&closure.env, name, replacement, &names),
+                    name: closure.name.clone(),
+                    body: instantiate_tvar_term(&closure.body, name, replacement, &names),
+                },
+            }
+        }
     }
 }
 
@@ -350,6 +407,10 @@ fn instantiate_tvar_neutral(neutral: &Neutral, name: &Name, replacement: &Value)
         Neutral::Eq { lhs, rhs } => Neutral::Eq {
             lhs: Box::new(instantiate_tvar_value(lhs, name, replacement)),
             rhs: Box::new(instantiate_tvar_value(rhs, name, replacement)),
+        },
+        Neutral::VauApp { fun, arg } => Neutral::VauApp {
+            fun: Box::new(instantiate_tvar_neutral(fun, name, replacement)),
+            arg: Box::new(instantiate_tvar_value(arg, name, replacement)),
         },
     }
 }
@@ -502,6 +563,31 @@ fn instantiate_tvar_term(term: &Term, name: &Name, replacement: &Value, names: &
                 })
                 .collect(),
         ),
+        Term::VauType {
+            name: n,
+            param,
+            body,
+        } => {
+            let mut names2 = names.to_vec();
+            names2.insert(0, n.clone());
+            Term::VauType {
+                name: n.clone(),
+                param: Box::new(instantiate_tvar_term(param, name, replacement, names)),
+                body: Box::new(instantiate_tvar_term(body, name, replacement, &names2)),
+            }
+        }
+        Term::Vau { name: n, body } => {
+            let mut names2 = names.to_vec();
+            names2.insert(0, n.clone());
+            Term::Vau {
+                name: n.clone(),
+                body: Box::new(instantiate_tvar_term(body, name, replacement, &names2)),
+            }
+        }
+        Term::VauApp { fun, arg } => Term::VauApp {
+            fun: Box::new(instantiate_tvar_term(fun, name, replacement, names)),
+            arg: Box::new(instantiate_tvar_term(arg, name, replacement, names)),
+        },
     }
 }
 
@@ -598,6 +684,31 @@ pub fn quote(value: &Value, names: &[Name]) -> Term {
                 .map(|(n, v)| (n.clone(), quote(v, names)))
                 .collect(),
         ),
+        Value::VauType {
+            param_name,
+            param,
+            closure,
+        } => {
+            let arg = Value::Neutral(Neutral::Var(Var::Named(param_name.clone())));
+            let body_val = closure.apply(arg);
+            let mut names2 = names.to_vec();
+            names2.insert(0, param_name.clone());
+            Term::VauType {
+                name: param_name.clone(),
+                param: Box::new(quote(param, names)),
+                body: Box::new(quote(&body_val, &names2)),
+            }
+        }
+        Value::Vau { name, closure } => {
+            let arg = Value::Neutral(Neutral::Var(Var::Named(name.clone())));
+            let body_val = closure.apply(arg);
+            let mut names2 = names.to_vec();
+            names2.insert(0, name.clone());
+            Term::Vau {
+                name: name.clone(),
+                body: Box::new(quote(&body_val, &names2)),
+            }
+        }
     }
 }
 
@@ -641,6 +752,10 @@ fn quote_neutral(n: &Neutral, names: &[Name]) -> Term {
         Neutral::Eq { lhs, rhs } => Term::Eq {
             lhs: Box::new(quote(lhs, names)),
             rhs: Box::new(quote(rhs, names)),
+        },
+        Neutral::VauApp { fun, arg } => Term::VauApp {
+            fun: Box::new(quote_neutral(fun, names)),
+            arg: Box::new(quote(arg, names)),
         },
     }
 }

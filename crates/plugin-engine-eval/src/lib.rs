@@ -16,6 +16,8 @@
 
 #![warn(missing_docs)]
 
+use std::rc::Rc;
+
 use handl_language::{Ast, LangError, Language, Value};
 
 /// The eval operation marker.
@@ -73,6 +75,21 @@ pub trait EvalEngine {
     ///
     /// Returns [`LangError`] on failure.
     fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError>;
+
+    /// Produce an owned boxed clone of this engine (ADR-0047 §2).
+    fn box_clone(&self) -> Box<dyn EvalEngine>;
+
+    /// Produce a fresh owned engine with the given host-functions registry
+    /// wired in. Default: clone + ignore. ADR-0047 §2.
+    fn with_host_fns(&self, _host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+        self.box_clone()
+    }
+
+    /// Produce a fresh owned engine with an additional global variable
+    /// injected into the root scope. Default: clone + ignore. ADR-0047 §2.
+    fn with_global(&self, _name: &str, _val: Value) -> Box<dyn EvalEngine> {
+        self.box_clone()
+    }
 }
 
 /// A registry of host functions, looked up by name.
@@ -137,11 +154,16 @@ mod tests {
 
     /// A stub engine that returns `NotImplemented`, used to verify trait
     /// dispatch shape.
+    #[derive(Clone)]
     struct StubEval;
 
     impl EvalEngine for StubEval {
         fn eval(&self, _lang: &Language, _req: &EvalRequest) -> Result<Value, LangError> {
             Err(LangError::NotImplemented)
+        }
+
+        fn box_clone(&self) -> Box<dyn EvalEngine> {
+            Box::new(self.clone())
         }
     }
 

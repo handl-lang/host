@@ -403,3 +403,12 @@
   child_shape:
     node_kind: template
     arity: 0
+- id: grammar.vau.prefix
+  token: token.vau
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: vau
+    arity: 1

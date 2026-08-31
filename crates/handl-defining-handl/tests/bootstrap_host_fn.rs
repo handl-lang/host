@@ -24,30 +24,50 @@
 
 use handl_defining_handl::{corpus, language};
 use handl_language::{language_value, Ast, AstNode, Language, Value};
+use handl_plugin_engine_eval::HostFunctions;
+use handl_plugin_engine_eval_bytecode::BytecodeCompileEngine;
+use handl_plugin_engine_eval_cranelift::CraneliftCompileEngine;
+use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_engine_lex_pattern::DataLexerEngine;
+use handl_plugin_engine_parse_pratt::PrattEngine;
 use handl_runtime::meta::MetaHostFunctions;
-use handl_runtime::{Runtime, RuntimeConfig};
+use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde_json::json;
 use std::collections::HashMap;
+use std::rc::Rc;
+
+/// Build the default engine registry for tests: data lexer, pratt parser,
+/// tree-walk eval, bytecode/cranelift compile engines.
+fn test_registry() -> Rc<EngineRegistry> {
+    let mut reg = EngineRegistry::new();
+    reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    reg.register_compile("bytecode", Box::new(BytecodeCompileEngine::new()));
+    reg.register_compile("native", Box::new(CraneliftCompileEngine::new()));
+    Rc::new(reg)
+}
 
 /// Build a `Runtime` for the self-describing `Language` with
 /// [`MetaHostFunctions`] attached and `self` injected as a global.
-fn make_runtime(lang: Language) -> Runtime<'static> {
+fn make_runtime(lang: Language) -> Runtime {
     let config = RuntimeConfig::new()
         .with_lex("data")
         .with_parse("pratt")
         .with_eval("tree-walk");
+    let registry = test_registry();
     let self_val = language_value(&lang);
-    let meta = MetaHostFunctions::new(lang.clone(), config.clone(), None);
-    let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(meta));
+    let meta = MetaHostFunctions::new(lang.clone(), config.clone(), Rc::clone(&registry), None);
+    let meta_rc: Rc<dyn HostFunctions> = Rc::new(meta);
     let mut globals = HashMap::new();
     globals.insert("self".to_string(), self_val);
-    Runtime::from_config_with_globals(lang, &config, Some(meta_static), Some(&globals))
+    Runtime::from_registry_with_globals(lang, &registry, &config, Some(meta_rc), Some(&globals))
         .expect("runtime must build")
 }
 
 /// `compile(lang, ast, target)` via the `foreign.compile` host fn.
 fn compile_via_host_fn(
-    runtime: &Runtime<'_>,
+    runtime: &Runtime,
     lang_val: &Value,
     ast_val: &Value,
     target: &str,
@@ -63,7 +83,7 @@ fn compile_via_host_fn(
 }
 
 /// `run_compiled(handle)` via the `foreign.run_compiled` host fn.
-fn run_compiled_via_host_fn(runtime: &Runtime<'_>, handle: &Value) -> Value {
+fn run_compiled_via_host_fn(runtime: &Runtime, handle: &Value) -> Value {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(handle.clone()));
     ast.push(
@@ -73,7 +93,7 @@ fn run_compiled_via_host_fn(runtime: &Runtime<'_>, handle: &Value) -> Value {
 }
 
 /// `eval(lang, ast)` via the `foreign.eval` host fn (tree-walk reference).
-fn eval_via_host_fn(runtime: &Runtime<'_>, lang_val: &Value, ast_val: &Value) -> Value {
+fn eval_via_host_fn(runtime: &Runtime, lang_val: &Value, ast_val: &Value) -> Value {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(lang_val.clone()));
     ast.push(AstNode::new("value").with_payload(ast_val.clone()));

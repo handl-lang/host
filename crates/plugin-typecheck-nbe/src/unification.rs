@@ -131,6 +131,19 @@ impl Substitution {
                     .map(|(n, v)| (n.clone(), self.apply_value(v)))
                     .collect(),
             ),
+            Value::VauType {
+                param_name,
+                param,
+                closure,
+            } => Value::VauType {
+                param_name: param_name.clone(),
+                param: Box::new(self.apply_value(param)),
+                closure: self.apply_closure(closure),
+            },
+            Value::Vau { name, closure } => Value::Vau {
+                name: name.clone(),
+                closure: self.apply_closure(closure),
+            },
         }
     }
 
@@ -208,6 +221,17 @@ impl Substitution {
                 lhs: Box::new(self.apply_value(lhs)),
                 rhs: Box::new(self.apply_value(rhs)),
             }),
+            Neutral::VauApp { fun, arg } => {
+                let f = self.apply_neutral(fun);
+                let a = self.apply_value(arg);
+                match f {
+                    Value::Neutral(nf) => Value::Neutral(Neutral::VauApp {
+                        fun: Box::new(nf),
+                        arg: Box::new(a),
+                    }),
+                    other => crate::reduction::apply_vau(other, a),
+                }
+            }
         }
     }
 
@@ -354,6 +378,27 @@ impl Substitution {
                     .map(|(n, x)| (n.clone(), self.apply_term(x, names)))
                     .collect(),
             ),
+            Term::VauType { name, param, body } => {
+                let mut names2 = names.to_vec();
+                names2.insert(0, name.clone());
+                Term::VauType {
+                    name: name.clone(),
+                    param: Box::new(self.apply_term(param, names)),
+                    body: Box::new(self.apply_term(body, &names2)),
+                }
+            }
+            Term::Vau { name, body } => {
+                let mut names2 = names.to_vec();
+                names2.insert(0, name.clone());
+                Term::Vau {
+                    name: name.clone(),
+                    body: Box::new(self.apply_term(body, &names2)),
+                }
+            }
+            Term::VauApp { fun, arg } => Term::VauApp {
+                fun: Box::new(self.apply_term(fun, names)),
+                arg: Box::new(self.apply_term(arg, names)),
+            },
         }
     }
 
@@ -464,6 +509,30 @@ pub fn unify(ctx: &mut MetaContext, lhs: &Value, rhs: &Value) -> Result<(), Unif
             unify(ctx, &b1, &b2)
         }
         (Value::Lambda { closure: c1, .. }, Value::Lambda { closure: c2, .. }) => {
+            let arg = fresh_var(&c1.name);
+            let b1 = c1.apply(arg.clone());
+            let b2 = c2.apply(arg);
+            unify(ctx, &b1, &b2)
+        }
+        (
+            Value::VauType {
+                param: p1,
+                closure: c1,
+                ..
+            },
+            Value::VauType {
+                param: p2,
+                closure: c2,
+                ..
+            },
+        ) => {
+            unify(ctx, p1, p2)?;
+            let arg = fresh_var(&c1.name);
+            let b1 = c1.apply(arg.clone());
+            let b2 = c2.apply(arg);
+            unify(ctx, &b1, &b2)
+        }
+        (Value::Vau { closure: c1, .. }, Value::Vau { closure: c2, .. }) => {
             let arg = fresh_var(&c1.name);
             let b1 = c1.apply(arg.clone());
             let b2 = c2.apply(arg);
@@ -678,6 +747,21 @@ fn unify_neutral(
             unify(ctx, l1, l2)?;
             unify(ctx, r1, r2)
         }
+        (
+            Neutral::VauApp {
+                fun: f1,
+                arg: a1,
+            },
+            Neutral::VauApp {
+                fun: f2,
+                arg: a2,
+            },
+        ) => {
+            unify_neutral(ctx, f1, f2)?;
+            let a1 = walk(ctx, a1);
+            let a2 = walk(ctx, a2);
+            unify(ctx, &a1, &a2)
+        }
         _ => Err(UnificationError::Mismatch(
             format!("{:?}", n1),
             format!("{:?}", n2),
@@ -719,6 +803,14 @@ fn occurs_check(ctx: &MetaContext, m: MetaVar, value: &Value) -> bool {
         Value::Null => false,
         Value::Array(xs) => xs.iter().any(|x| occurs_check(ctx, m, x)),
         Value::Object(xs) => xs.iter().any(|(_, v)| occurs_check(ctx, m, v)),
+        Value::VauType { param, closure, .. } => {
+            occurs_check(ctx, m, param)
+                || occurs_check_env(ctx, m, &closure.env)
+                || occurs_check_term(ctx, m, &closure.body)
+        }
+        Value::Vau { closure, .. } => {
+            occurs_check_env(ctx, m, &closure.env) || occurs_check_term(ctx, m, &closure.body)
+        }
     }
 }
 
@@ -770,6 +862,15 @@ fn occurs_check_tvar(ctx: &MetaContext, name: &Name, value: &Value) -> bool {
         Value::Null => false,
         Value::Array(xs) => xs.iter().any(|x| occurs_check_tvar(ctx, name, x)),
         Value::Object(xs) => xs.iter().any(|(_, v)| occurs_check_tvar(ctx, name, v)),
+        Value::VauType { param, closure, .. } => {
+            occurs_check_tvar(ctx, name, param)
+                || occurs_check_env_tvar(ctx, name, &closure.env)
+                || occurs_check_term_tvar(ctx, name, &closure.body)
+        }
+        Value::Vau { closure, .. } => {
+            occurs_check_env_tvar(ctx, name, &closure.env)
+                || occurs_check_term_tvar(ctx, name, &closure.body)
+        }
     }
 }
 
@@ -809,6 +910,9 @@ fn occurs_check_neutral(ctx: &MetaContext, m: MetaVar, neutral: &Neutral) -> boo
             occurs_check(ctx, m, value) || occurs_check(ctx, m, collection)
         }
         Neutral::Eq { lhs, rhs } => occurs_check(ctx, m, lhs) || occurs_check(ctx, m, rhs),
+        Neutral::VauApp { fun, arg } => {
+            occurs_check_neutral(ctx, m, fun) || occurs_check(ctx, m, arg)
+        }
     }
 }
 
@@ -842,6 +946,9 @@ fn occurs_check_neutral_tvar(ctx: &MetaContext, name: &Name, neutral: &Neutral) 
         Neutral::Eq { lhs, rhs } => {
             occurs_check_tvar(ctx, name, lhs) || occurs_check_tvar(ctx, name, rhs)
         }
+        Neutral::VauApp { fun, arg } => {
+            occurs_check_neutral_tvar(ctx, name, fun) || occurs_check_tvar(ctx, name, arg)
+        }
     }
 }
 
@@ -850,13 +957,20 @@ fn occurs_check_term(ctx: &MetaContext, m: MetaVar, term: &Term) -> bool {
         Term::Var(_) | Term::Universe(_) | Term::Literal(_) | Term::Hole(_) => false,
         Term::TypeLam { body, .. }
         | Term::Lambda { body, .. }
+        | Term::Vau { body, .. }
         | Term::Proj1(body)
         | Term::Proj2(body) => occurs_check_term(ctx, m, body),
-        Term::TypeApp { fun, arg } | Term::App { fun, arg } | Term::Pair { fst: fun, snd: arg } => {
+        Term::TypeApp { fun, arg }
+        | Term::App { fun, arg }
+        | Term::Pair { fst: fun, snd: arg }
+        | Term::VauApp { fun, arg } => {
             occurs_check_term(ctx, m, fun) || occurs_check_term(ctx, m, arg)
         }
         Term::TVar(_) | Term::TRef(_) => false,
         Term::Pi { param, body, .. }
+        | Term::VauType {
+            param, body, ..
+        }
         | Term::Sigma {
             fst: param,
             snd: body,
@@ -911,10 +1025,10 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
         Term::Var(_) | Term::Universe(_) | Term::Literal(_) | Term::Hole(_) | Term::Meta(_) => {
             false
         }
-        Term::TypeLam { body, .. } | Term::Lambda { body, .. } => {
+        Term::TypeLam { body, .. } | Term::Lambda { body, .. } | Term::Vau { body, .. } => {
             occurs_check_term_tvar(ctx, name, body)
         }
-        Term::TypeApp { fun, arg } => {
+        Term::TypeApp { fun, arg } | Term::VauApp { fun, arg } => {
             occurs_check_term_tvar(ctx, name, fun) || occurs_check_term_tvar(ctx, name, arg)
         }
         Term::TVar(n) | Term::TRef(n) => {
@@ -927,6 +1041,9 @@ fn occurs_check_term_tvar(ctx: &MetaContext, name: &Name, term: &Term) -> bool {
             }
         }
         Term::Pi { param, body, .. }
+        | Term::VauType {
+            param, body, ..
+        }
         | Term::Sigma {
             fst: param,
             snd: body,

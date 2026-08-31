@@ -72,6 +72,13 @@ pub trait LexerEngine {
     ///
     /// Returns [`LangError`] on failure.
     fn lex(&self, lang: &Language, req: &LexerRequest) -> Result<Tokens, LangError>;
+
+    /// Produce an owned boxed clone of this engine.
+    ///
+    /// Used by the registry-based runtime (`handl-runtime`) to obtain an
+    /// owned engine from a `&dyn LexerEngine` lent by the `EngineRegistry`
+    /// (ADR-0047 §2).
+    fn box_clone(&self) -> Box<dyn LexerEngine>;
 }
 
 #[cfg(test)]
@@ -112,11 +119,16 @@ mod tests {
 
     /// A stub engine that returns `NotImplemented`, used to verify trait
     /// dispatch shape.
+    #[derive(Clone)]
     struct StubLexer;
 
     impl LexerEngine for StubLexer {
         fn lex(&self, _lang: &Language, _req: &LexerRequest) -> Result<Tokens, LangError> {
             Err(LangError::NotImplemented)
+        }
+
+        fn box_clone(&self) -> Box<dyn LexerEngine> {
+            Box::new(self.clone())
         }
     }
 

@@ -13,8 +13,8 @@
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
-use handl_runtime::meta::{canonical_meta_host_functions, MetaHostFunctions};
-use handl_runtime::Runtime;
+use handl_runtime::meta::canonical_meta_host_functions;
+use handl_runtime::{EngineRegistry, Runtime};
 use std::rc::Rc;
 
 /// Kit manifest loading and the default canonical manifest.
@@ -49,8 +49,8 @@ pub struct SpannedToken {
 /// All staged methods (`lex`, `parse`, `eval`, `run`) delegate to the
 /// underlying [`Runtime`].
 pub struct Kit {
-    /// The runtime, borrowing the leaked meta host functions for dispatch.
-    runtime: Runtime<'static>,
+    /// The runtime (no lifetime — engines own `Rc<dyn HostFunctions>`).
+    runtime: Runtime,
 }
 
 impl std::fmt::Debug for Kit {
@@ -78,27 +78,34 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone();
-        let meta = canonical_meta_host_functions(lang.clone(), config.clone());
-        // Leak the MetaHostFunctions to obtain a &'static reference. It lives
-        // for the process lifetime — acceptable for a Kit that is typically
-        // created once at startup. This avoids self-referential borrow issues:
-        // the `Runtime<'static>` borrows the meta registry, and the `Kit`
-        // owns the runtime, so the meta cannot also be owned by the `Kit`
-        // without a self-referential struct.
-        let meta_static: &'static MetaHostFunctions = Box::leak(Box::new(
-            Rc::try_unwrap(meta).unwrap_or_else(|rc| (*rc).clone()),
-        ));
+
+        // Build the engine registry with all available engine impls
+        // (ADR-0047 §2). The host (this crate) registers the engines;
+        // handl-runtime names none.
+        let mut registry = EngineRegistry::new();
+        registry.register_lex("data", Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()));
+        registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+        registry.register_eval("tree-walk", Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()));
+        registry.register_eval("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()));
+        registry.register_eval("cranelift", Box::new(handl_plugin_engine_eval_cranelift::CraneliftEngine::new()));
+        registry.register_compile("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeCompileEngine::new()));
+        registry.register_compile("native", Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()));
+        let registry = Rc::new(registry);
+
+        let meta = canonical_meta_host_functions(lang.clone(), config.clone(), Rc::clone(&registry));
+        let meta_rc: Rc<dyn handl_plugin_engine_eval::HostFunctions> = meta;
+
         // Inject `self` as a global variable bound to the canonical
         // `Language` value (ADR-0041 Phase 3: `self` is an ambient variable,
-        // not a function call). A `Language` is now a first-class value
-        // carrying the actual `handl_language::Language` data.
+        // not a function call).
         let self_val = handl_language::language_value(&lang);
         let mut globals = std::collections::HashMap::new();
         globals.insert("self".to_string(), self_val);
-        let runtime = Runtime::from_config_with_globals(
+        let runtime = Runtime::from_registry_with_globals(
             lang,
+            &registry,
             &config,
-            Some(meta_static),
+            Some(meta_rc),
             Some(&globals),
         )?;
         Ok(Kit { runtime })
@@ -227,7 +234,7 @@ impl Kit {
     /// Returns the underlying [`Runtime`], giving callers direct access to
     /// the staged `lex`/`parse`/`eval` methods with [`Source`]/[`Tokens`]/
     /// [`Ast`] inputs.
-    pub fn runtime(&self) -> &Runtime<'static> {
+    pub fn runtime(&self) -> &Runtime {
         &self.runtime
     }
 }

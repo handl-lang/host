@@ -9,6 +9,8 @@
 //! bytecode engine for every conformance case and asserts their outputs are
 //! identical — the cross-engine conformance gate.
 
+use std::rc::Rc;
+
 use handl_language::{LangError, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFn, HostFunctions};
 use handl_plugin_engine_eval_bytecode::BytecodeEngine;
@@ -52,7 +54,7 @@ fn bytecode_engine_passes_eval_conformance() {
 #[test]
 fn bytecode_engine_passes_foreign_conformance() {
     let host = ConformanceHost;
-    let engine = BytecodeEngine::with_host(&host);
+    let engine = BytecodeEngine::with_host(Rc::new(host));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()
@@ -97,9 +99,9 @@ fn cross_engine_non_foreign_results_match() {
 /// host registry produce identical results.
 #[test]
 fn cross_engine_foreign_results_match() {
-    let host = ConformanceHost;
-    let bytecode = BytecodeEngine::with_host(&host);
-    let tree_walk = TreeWalkEngine::new().with_host(&host);
+    let host = Rc::new(ConformanceHost) as Rc<dyn HostFunctions>;
+    let bytecode = BytecodeEngine::with_host(Rc::clone(&host));
+    let tree_walk = TreeWalkEngine::new().with_host(Rc::clone(&host));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()

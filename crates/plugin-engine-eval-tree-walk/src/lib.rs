@@ -59,6 +59,7 @@
 #![warn(missing_docs)]
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
@@ -67,15 +68,16 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 ///
 /// Construct with [`TreeWalkEngine::new`] and optionally pass a host
 /// functions registry via [`TreeWalkEngine::with_host`].
-pub struct TreeWalkEngine<'h> {
+#[derive(Clone)]
+pub struct TreeWalkEngine {
     /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<&'h dyn HostFunctions>,
+    host: Option<Rc<dyn HostFunctions>>,
     /// Global variables injected by the host (e.g. `self` → language value).
     /// Pre-populated into the root scope on every eval call.
     globals: HashMap<String, Value>,
 }
 
-impl<'h> TreeWalkEngine<'h> {
+impl TreeWalkEngine {
     /// Create a new tree-walk engine with no host functions.
     pub fn new() -> Self {
         Self {
@@ -85,7 +87,7 @@ impl<'h> TreeWalkEngine<'h> {
     }
 
     /// Attach a host functions registry (builder style).
-    pub fn with_host(mut self, host: &'h dyn HostFunctions) -> Self {
+    pub fn with_host(mut self, host: Rc<dyn HostFunctions>) -> Self {
         self.host = Some(host);
         self
     }
@@ -99,7 +101,7 @@ impl<'h> TreeWalkEngine<'h> {
     }
 }
 
-impl<'h> Default for TreeWalkEngine<'h> {
+impl Default for TreeWalkEngine {
     fn default() -> Self {
         Self::new()
     }
@@ -153,7 +155,7 @@ impl ScopeStack {
 }
 
 /// Evaluation context passed through the recursive interpreter.
-struct EvalCtx<'a, 'h> {
+struct EvalCtx<'a> {
     /// The AST being evaluated.
     ast: &'a Ast,
     /// The current node's arena reference (retained for debugging and
@@ -167,10 +169,10 @@ struct EvalCtx<'a, 'h> {
     /// The scope stack.
     env: &'a mut ScopeStack,
     /// The host functions registry.
-    host: Option<&'h dyn HostFunctions>,
+    host: Option<&'a dyn HostFunctions>,
 }
 
-impl<'h> EvalEngine for TreeWalkEngine<'h> {
+impl EvalEngine for TreeWalkEngine {
     fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
         let ast = &req.ast;
         if ast.is_empty() {
@@ -187,9 +189,21 @@ impl<'h> EvalEngine for TreeWalkEngine<'h> {
         let root_ref = AstRef::new(ast.len() - 1);
         self.eval_node(ast, root_ref, lang, &mut env)
     }
+
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_host(host))
+    }
+
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_global(name, val))
+    }
 }
 
-impl<'h> TreeWalkEngine<'h> {
+impl TreeWalkEngine {
     /// Evaluate a single node by looking up its eval scheme and interpreting
     /// it. If no scheme exists for the node kind:
     /// - `foreign.<name>` kinds dispatch to host function `<name>` (ADR-0041
@@ -212,7 +226,7 @@ impl<'h> TreeWalkEngine<'h> {
                     current_node: node,
                     lang,
                     env,
-                    host: self.host,
+                    host: self.host.as_ref().map(|rc| rc.as_ref()),
                 };
                 self.eval_scheme(&def.scheme, &mut ctx)
             }
@@ -223,7 +237,7 @@ impl<'h> TreeWalkEngine<'h> {
                 // This makes `eval`/`self`/`compile` handl-callable without
                 // requiring per-function scheme entries in the Language data.
                 if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
-                    let host = self.host.ok_or_else(|| {
+                    let host = self.host.as_ref().ok_or_else(|| {
                         LangError::Engine(format!(
                             "unregistered foreign: {}",
                             foreign_name
@@ -253,7 +267,7 @@ impl<'h> TreeWalkEngine<'h> {
     }
 
     /// Interpret a [`Scheme`] combinator in the given context.
-    fn eval_scheme(&self, scheme: &Scheme, ctx: &mut EvalCtx<'_, 'h>) -> Result<Value, LangError> {
+    fn eval_scheme(&self, scheme: &Scheme, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
         match scheme {
             Scheme::Lit(v) => Ok(v.clone()),
 
@@ -432,7 +446,7 @@ impl<'h> TreeWalkEngine<'h> {
         &self,
         closure: &Value,
         args: &[Value],
-        ctx: &mut EvalCtx<'_, 'h>,
+        ctx: &mut EvalCtx<'_>,
     ) -> Result<Value, LangError> {
         // ADR-0041 Phase 2: if the callee is a string that names a registered
         // host function, dispatch to it. This makes `eval(self, "1 + 2")`
@@ -513,7 +527,7 @@ impl<'h> TreeWalkEngine<'h> {
         &self,
         op: &str,
         args: &[Value],
-        ctx: &mut EvalCtx<'_, 'h>,
+        ctx: &mut EvalCtx<'_>,
     ) -> Result<Value, LangError> {
         match op {
             "add" => {
@@ -567,6 +581,40 @@ impl<'h> TreeWalkEngine<'h> {
                 let b = as_num(&args[1])?;
                 Ok(Value::Bool(a > b))
             }
+            "gte" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(Value::Bool(a >= b))
+            }
+            "lte" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(Value::Bool(a <= b))
+            }
+            "neq" => Ok(Value::Bool(args[0] != args[1])),
+            "compare" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                let cmp = a.partial_cmp(&b).ok_or_else(|| {
+                    LangError::Engine("compare: incomparable values".to_string())
+                })?;
+                Ok(num_value(Num::Int(match cmp {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
+                })))
+            }
+            "typeof" => {
+                let type_name = match &args[0] {
+                    Value::Null => "null",
+                    Value::Bool(_) => "bool",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                };
+                Ok(Value::from(type_name))
+            }
             "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
             "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
             "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
@@ -600,6 +648,46 @@ impl<'h> TreeWalkEngine<'h> {
                     "env": env,
                 });
                 Ok(closure)
+            }
+            "array" => {
+                let elements = ctx.current_node.payload.get("elements")
+                    .ok_or_else(|| LangError::Engine("array: missing elements in payload".to_string()))?;
+                Ok(elements.clone())
+            }
+            "object" => {
+                let entries = ctx.current_node.payload.get("entries")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| LangError::Engine("object: missing entries in payload".to_string()))?;
+                let mut obj = serde_json::Map::new();
+                for entry in entries {
+                    let key = entry.get("key").and_then(|v| v.as_str())
+                        .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
+                    let value = entry.get("value")
+                        .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
+                    obj.insert(key.to_string(), value.clone());
+                }
+                Ok(Value::Object(obj))
+            }
+            "index" => {
+                let target = ctx.current_node.payload.get("target")
+                    .ok_or_else(|| LangError::Engine("index: missing target in payload".to_string()))?;
+                let index = ctx.current_node.payload.get("index")
+                    .ok_or_else(|| LangError::Engine("index: missing index in payload".to_string()))?;
+                match (target, index) {
+                    (Value::Array(arr), Value::Number(n)) => {
+                        let i = n.as_u64().ok_or_else(|| LangError::Engine("index: index must be a non-negative integer".to_string()))? as usize;
+                        arr.get(i).cloned().ok_or_else(|| LangError::Engine(format!("index: index {} out of bounds", i)))
+                    }
+                    (Value::Object(obj), Value::String(key)) => {
+                        obj.get(key).cloned().ok_or_else(|| LangError::Engine(format!("index: key '{}' not found", key)))
+                    }
+                    _ => Err(LangError::Engine("index: target must be array/object and index must be number/string".to_string())),
+                }
+            }
+            "assign" => {
+                let value = ctx.current_node.payload.get("value")
+                    .ok_or_else(|| LangError::Engine("assign: missing value in payload".to_string()))?;
+                Ok(value.clone())
             }
             _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
         }
@@ -1274,7 +1362,7 @@ mod tests {
 
         let mut host = MapHost::new();
         host.register("double", Box::new(DoubleFn));
-        let engine = engine.with_host(&host);
+        let engine = engine.with_host(Rc::new(host));
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));
     }
@@ -1757,7 +1845,7 @@ mod tests {
         let mut host = MapHost::new();
         // Register "double" but not "triple".
         host.register("double", Box::new(DoubleFn));
-        let engine = engine.with_host(&host);
+        let engine = engine.with_host(Rc::new(host));
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
@@ -2276,7 +2364,7 @@ mod tests {
             eval: EvalHost { lang: lang.clone() },
         };
         let engine = engine
-            .with_host(&host)
+            .with_host(Rc::new(host))
             .with_global("self", handl_language::language_value(&lang));
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));

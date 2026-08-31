@@ -44,6 +44,7 @@ use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 ///
 /// Construct with [`PrattEngine::new`] and pass to any consumer of
 /// `&dyn ParserEngine`.
+#[derive(Clone)]
 pub struct PrattEngine {
     /// The arena being built during the current parse.
     ast: RefCell<Ast>,
@@ -812,5 +813,47 @@ mod tests {
         assert_eq!(ast.len(), 4);
         assert_eq!(ast.nodes()[3].kind, "ternary");
         assert_eq!(ast.nodes()[3].payload, json!({"children": [0, 1, 2]}));
+    }
+
+    #[test]
+    fn vau_prefix_parses_child_expression() {
+        // `vau 1 + 2` — the `vau` keyword is a Prefix operator with arity 1
+        // and binding_power [0, 0]. With rbp 0, the single child parses the
+        // entire remaining expression (`1 + 2`) as a `binary.add` node.
+        // (ADR-0045: vau is a typed fexpr/ArrowApply escape.)
+        let engine = PrattEngine::new();
+        let mut lang = arith_lang();
+        // Register the vau token kind and grammar row (mirrors the canonical
+        // `grammar.vau.prefix` row in handl-kit-data-canonical).
+        lang.tokens.merge(TokenKindDef::new("token.vau")).unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.vau.prefix",
+                    "token.vau",
+                    GrammarPosition::Prefix,
+                    AstShapeRef::new("vau", 1),
+                )
+                .with_binding_power(0, 0),
+            )
+            .unwrap();
+        // Tokens: vau 1 + 2
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.vau", "vau"),
+            tok("token.number", "1"),
+            tok("token.plus", "+"),
+            tok("token.number", "2"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // Node 0: lit(1), Node 1: lit(2), Node 2: binary.add([0,1]),
+        // Node 3: vau([2]) — root is the last node pushed.
+        assert_eq!(ast.len(), 4);
+        let root = &ast.nodes()[3];
+        assert_eq!(root.kind, "vau");
+        assert_eq!(root.payload, json!({"children": [2]}));
+        // The single child is the binary.add node.
+        let child = &ast.nodes()[2];
+        assert_eq!(child.kind, "binary.add");
+        assert_eq!(child.payload, json!({"children": [0, 1]}));
     }
 }

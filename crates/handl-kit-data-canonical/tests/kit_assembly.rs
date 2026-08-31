@@ -12,15 +12,16 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // Token kinds: 47 from the `tokens` foundation + 6 declared only by
     // grammar/eval emitters (token.let, token.if, token.bang, token.question,
     // token.template, token.mood) + 3 operator tokens (token.and, token.or,
-    // token.percent). All other re-declarations are union (idempotent)
-    // duplicates.
-    assert_eq!(lang.tokens.len(), 56);
+    // token.percent) + 1 vau keyword token (token.vau). All other
+    // re-declarations are union (idempotent) duplicates.
+    assert_eq!(lang.tokens.len(), 57);
 
-    // Grammar rows: 47 — one per construct (after excluding the duplicate
+    // Grammar rows: 48 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
-    // value literal rules (string, bool, null), 1 pow rule, and 4 new operator
-    // rules (and.infix, or.infix, mod.infix, neg.prefix).
-    assert_eq!(lang.grammar.len(), 47);
+    // value literal rules (string, bool, null), 1 pow rule, 4 new operator
+    // rules (and.infix, or.infix, mod.infix, neg.prefix), and 1 vau prefix
+    // rule.
+    assert_eq!(lang.grammar.len(), 48);
 
     // Eval schemes: 48 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
@@ -45,17 +46,29 @@ fn assemble_canonical_has_expected_fragment_counts() {
 #[test]
 fn assemble_canonical_runtime_config_is_pratt_tree_walk() {
     let kit = handl_kit_data_canonical::assemble().unwrap();
-    assert_eq!(kit.runtime_config().parse.as_deref(), Some("pratt"));
-    assert_eq!(kit.runtime_config().eval.as_deref(), Some("tree-walk"));
+    assert_eq!(kit.runtime_config().parse, "pratt");
+    assert_eq!(kit.runtime_config().eval, "tree-walk");
 }
 
 #[test]
 fn assemble_canonical_into_runtime_binds_engines() {
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_runtime::EngineRegistry;
+    use std::rc::Rc;
     let kit = handl_kit_data_canonical::assemble().unwrap();
-    let rt = kit.into_runtime(None).expect("runtime should build");
+    let mut reg = EngineRegistry::new();
+    reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let registry = Rc::new(reg);
+    let rt = kit
+        .into_runtime(&registry, None)
+        .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 56);
-    assert_eq!(rt.lang().grammar.len(), 47);
+    assert_eq!(rt.lang().tokens.len(), 57);
+    assert_eq!(rt.lang().grammar.len(), 48);
 }
 
 #[test]
@@ -74,6 +87,7 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.tokens.get_by_id("token.keyword.match").is_some());
     assert!(lang.tokens.get_by_id("token.bang").is_some());
     assert!(lang.tokens.get_by_id("token.question").is_some());
+    assert!(lang.tokens.get_by_id("token.vau").is_some());
 
     // --- Grammar rows ---
     assert!(lang.grammar.get_by_id("grammar.identifier.prefix").is_some());
@@ -85,6 +99,7 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.grammar.get_by_id("grammar.object.prefix").is_some());
     assert!(lang.grammar.get_by_id("grammar.match.prefix").is_some());
     assert!(lang.grammar.get_by_id("grammar.paren.prefix").is_some());
+    assert!(lang.grammar.get_by_id("grammar.vau.prefix").is_some());
     // The excluded duplicate grammar rows are absent.
     assert!(lang.grammar.get_by_id("grammar.call.postfix").is_none());
     assert!(lang.grammar.get_by_id("grammar.apply.prefix").is_none());

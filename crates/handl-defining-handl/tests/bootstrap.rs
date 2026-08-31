@@ -112,10 +112,17 @@ fn bootstrap_cranelift_matches_tree_walk_data_file_language() {
 /// them.
 #[test]
 fn bootstrap_self_describing_language_binds_to_runtime() {
-    use handl_runtime::{Runtime, RuntimeConfig};
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+    use std::rc::Rc;
     let lang = language();
     let config = RuntimeConfig::new().with_parse("pratt").with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("runtime must bind");
+    let mut reg = EngineRegistry::new();
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let registry = Rc::new(reg);
+    let rt = Runtime::from_registry(lang, &registry, &config).expect("runtime must bind");
     // The runtime-bound tree-walk is the reference; cranelift must match it.
     let cranelift = CraneliftEngine::new();
     // Re-create lang for cranelift (Runtime consumed it).

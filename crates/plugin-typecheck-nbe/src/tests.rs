@@ -2775,3 +2775,143 @@ fn synth_prelude_collection() {
     let ty = synth(&mut ctx, &Env::new(), &prelude_tctx(), &var("type.number")).unwrap();
     assert_eq!(ty, Value::Collection(Name::new("type.number")));
 }
+
+// ---------------------------------------------------------------------------
+// Vau support (ADR-0045 §3)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn vau_type_synth_and_round_trip() {
+    // ADR-0045 §3: `type.vau<a, b>` synthesizes to a Universe, evals to a
+    // `Value::VauType`, and quotes back to a `Term::VauType`.
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = TCtx::new();
+
+    // `vau_type("A", u0(), u0())` — vau from U0 to U0.
+    let t = vau_type("A", u0(), u0());
+
+    // synth: Term::VauType : Universe (succ of max of param/body levels)
+    let ty = synth(&mut ctx, &env, &tctx, &t).unwrap();
+    assert_eq!(
+        quote(&ty, &[]),
+        universe(Level::zero().succ()),
+        "a VauType synthesizes to a universe"
+    );
+
+    // eval: Term::VauType -> Value::VauType
+    let v = eval(&t, &env);
+    assert!(
+        matches!(v, Value::VauType { .. }),
+        "eval of VauType produces a Value::VauType"
+    );
+
+    // quote: Value::VauType -> Term::VauType (round-trips)
+    assert_eq!(quote(&v, &[]), t);
+
+    // normalize is identity on the closed type
+    assert_eq!(normalize(&t), t);
+}
+
+#[test]
+fn vau_checks_against_vau_type() {
+    // ADR-0045 §3: A `Term::Vau` checks against a `Value::VauType` (like
+    // Lambda checks against Pi).
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = TCtx::new();
+
+    // Build a vau type: `type.vau<Int, Int>` (vau from Int to Int).
+    let vt = vau_type("x", var("Int"), var("Int"));
+    let vty = eval(&vt, &env);
+
+    // A vau abstraction `vau x. x` should check against it.
+    let body = vau("x", bvar(0));
+    assert!(
+        check(&mut ctx, &env, &tctx, &body, &vty).is_ok(),
+        "a Vau checks against a VauType"
+    );
+}
+
+#[test]
+fn vau_app_synth() {
+    // ADR-0045 §3: `Term::VauApp` of a vau against an arg synthesizes the
+    // correct result type.
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+
+    // Build a vau type: `type.vau<Int, Int>` and put a vau in context.
+    let vt = vau_type("x", var("Int"), var("Int"));
+    let vty = eval(&vt, &env);
+
+    // Put a vau variable `f` of type `type.vau<Int, Int>` in context.
+    let tctx = TCtx::new().extend(Name::new("f"), vty);
+
+    // `vau_app(f, lit_int(5))` should synthesize to `Int`.
+    let ty = synth(&mut ctx, &env, &tctx, &vau_app(bvar(0), lit_int(5))).unwrap();
+    assert_eq!(ty, named_ty("Int"));
+}
+
+#[test]
+fn vau_types_unify() {
+    // ADR-0045 §3: Two equal VauType values unify; different ones don't.
+    let mut ctx = MetaContext::new();
+
+    // vau_type<Int, Int> — two identical instances
+    let v1 = eval(&vau_type("x", var("Int"), var("Int")), &Env::new());
+    let v2 = eval(&vau_type("x", var("Int"), var("Int")), &Env::new());
+    assert!(unify(&mut ctx, &v1, &v2).is_ok(), "equal VauTypes unify");
+
+    // vau_type<Int, Int> vs vau_type<Int, String> — different bodies
+    let v3 = eval(&vau_type("x", var("Int"), var("String")), &Env::new());
+    assert!(
+        unify(&mut ctx, &v1, &v3).is_err(),
+        "VauTypes with different bodies do not unify"
+    );
+}
+
+#[test]
+fn vau_values_unify() {
+    // ADR-0045 §3: Two Vau values with the same body unify.
+    let mut ctx = MetaContext::new();
+
+    // vau x. x — two identical instances
+    let v1 = eval(&vau("x", bvar(0)), &Env::new());
+    let v2 = eval(&vau("x", bvar(0)), &Env::new());
+    assert!(unify(&mut ctx, &v1, &v2).is_ok(), "equal Vau values unify");
+
+    // vau x. x vs vau x. lit_int(0) — different bodies
+    let v3 = eval(&vau("x", lit_int(0)), &Env::new());
+    assert!(
+        unify(&mut ctx, &v1, &v3).is_err(),
+        "Vau values with different bodies do not unify"
+    );
+}
+
+#[test]
+fn vau_does_not_check_against_pi() {
+    // ADR-0045 §3 key type-safety property: A `Term::Vau` does NOT check
+    // against a `Value::Pi` — vau is ArrowApply, Pi is structured. They are
+    // distinct type formers.
+    let mut ctx = MetaContext::new();
+    let env = Env::new();
+    let tctx = TCtx::new();
+
+    // Build a Pi type: `Pi x:Int. Int`
+    let pi_ty = Value::Pi {
+        param_name: Name::new("x"),
+        param: Box::new(named_ty("Int")),
+        closure: Closure {
+            env: Env::new(),
+            name: Name::new("x"),
+            body: var("Int"),
+        },
+    };
+
+    // A vau abstraction `vau x. x` should NOT check against a Pi type.
+    let body = vau("x", bvar(0));
+    assert!(
+        check(&mut ctx, &env, &tctx, &body, &pi_ty).is_err(),
+        "a Vau does not check against a Pi (distinct type formers)"
+    );
+}

@@ -5,6 +5,8 @@
 //! produces the expected `Value` for each case. The "foreign" case is
 //! handled by constructing the engine with the conformance host registry.
 
+use std::rc::Rc;
+
 use handl_language::{LangError, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFn, HostFunctions};
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -45,7 +47,7 @@ fn tree_walk_engine_passes_eval_conformance() {
 fn tree_walk_engine_passes_foreign_conformance() {
     // Run the "foreign" case with the host registry.
     let host = ConformanceHost;
-    let engine = TreeWalkEngine::new().with_host(&host);
+    let engine = TreeWalkEngine::new().with_host(Rc::new(host));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()

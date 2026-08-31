@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Data-driven runtime path.
 handl-kit-data-canonical = { workspace = true }
 handl-runtime = { workspace = true }
 handl-language = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
-
-# Platform types (AstNode, Span, PlatformError).
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-plugin-engine-eval-cranelift = { workspace = true }
 handl-platform = { workspace = true }
-
-# Serialization.
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.8"

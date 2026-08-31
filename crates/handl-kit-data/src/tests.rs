@@ -336,8 +336,8 @@ fn assemble_produces_language_and_runtime_config() {
         );
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
-    assert_eq!(kit.runtime_config().parse.as_deref(), Some("pratt"));
-    assert_eq!(kit.runtime_config().eval.as_deref(), Some("tree-walk"));
+    assert_eq!(kit.runtime_config().parse, "pratt");
+    assert_eq!(kit.runtime_config().eval, "tree-walk");
 }
 
 #[test]
@@ -619,6 +619,12 @@ fn data_file_source_returns_not_implemented_style_error() {
 
 #[test]
 fn into_runtime_binds_pratt_and_tree_walk() {
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_runtime::EngineRegistry;
+    use std::rc::Rc;
+
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("tok", || {
         Box::new(TokenEmitter {
@@ -633,12 +639,23 @@ fn into_runtime_binds_pratt_and_tree_walk() {
                 .with_eval("tree-walk"),
         );
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    let rt = kit.into_runtime(None).unwrap();
+    let mut engine_reg = EngineRegistry::new();
+    engine_reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    engine_reg.register_parse("pratt", PrattEngine::new());
+    engine_reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let engine_reg = Rc::new(engine_reg);
+    let rt = kit.into_runtime(&engine_reg, None).unwrap();
     assert_eq!(rt.lang().tokens.len(), 1);
 }
 
 #[test]
 fn into_runtime_unknown_eval_engine_errors() {
+    use handl_plugin_engine_lex_pattern::DataLexerEngine;
+    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+    use handl_runtime::EngineRegistry;
+    use std::rc::Rc;
+
     let mut reg = EmitterRegistry::new();
     reg.register_emitter("tok", || {
         Box::new(TokenEmitter {
@@ -649,7 +666,12 @@ fn into_runtime_unknown_eval_engine_errors() {
         .with_fragment(FragmentSourceEntry::emitter("tok", "tok"))
         .with_runtime(RuntimeConfig::new().with_eval("nonsense"));
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    let err = kit.into_runtime(None).unwrap_err();
+    let mut engine_reg = EngineRegistry::new();
+    engine_reg.register_lex("data", Box::new(DataLexerEngine::new()));
+    engine_reg.register_parse("pratt", PrattEngine::new());
+    engine_reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    let engine_reg = Rc::new(engine_reg);
+    let err = kit.into_runtime(&engine_reg, None).unwrap_err();
     assert_eq!(
         err,
         LangError::Engine("unknown eval engine: nonsense".into())

@@ -255,3 +255,60 @@ pub fn refl_value() -> Value {
 pub fn empty_value() -> Value {
     Value::Empty
 }
+
+/// Construct a vau type term: `type.vau<a, b>` (ADR-0045 §3).
+pub fn vau_type(name: impl Into<Name>, param: Term, body: Term) -> Term {
+    Term::VauType {
+        name: name.into(),
+        param: Box::new(param),
+        body: Box::new(body),
+    }
+}
+
+/// Construct a vau abstraction term (ADR-0045 §3).
+pub fn vau(name: impl Into<Name>, body: Term) -> Term {
+    Term::Vau {
+        name: name.into(),
+        body: Box::new(body),
+    }
+}
+
+/// Construct a vau application term (ADR-0045 §3).
+pub fn vau_app(fun: Term, arg: Term) -> Term {
+    Term::VauApp {
+        fun: Box::new(fun),
+        arg: Box::new(arg),
+    }
+}
+
+/// Construct a vau type value (ADR-0045 §3).
+pub fn vau_type_value(
+    name: impl Into<Name>,
+    param: Value,
+    env: Env,
+    closure_name: Name,
+    body: Term,
+) -> Value {
+    Value::VauType {
+        param_name: name.into(),
+        param: Box::new(param),
+        closure: Closure {
+            env,
+            name: closure_name,
+            body,
+        },
+    }
+}
+
+/// Construct a vau value (ADR-0045 §3).
+pub fn vau_value(name: impl Into<Name>, env: Env, body: Term) -> Value {
+    let name = name.into();
+    Value::Vau {
+        name: name.clone(),
+        closure: Closure {
+            env,
+            name,
+            body,
+        },
+    }
+}

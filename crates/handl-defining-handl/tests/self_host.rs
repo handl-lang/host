@@ -14,22 +14,20 @@
 //!
 //! The corpus covers the data-driven constructs that all three engines can
 //! evaluate: value, var, the binary arithmetic / comparison ops (add, sub,
-//! mul, div, eq, lt, gt), unary not, let / stmt.let / stmt.const, if,
-//! ternary, function, call, pipe, paren, apply, mood, type-annot. A small
-//! number of cases are **tree-walk-only** (flagged via
-//! [`CorpusCase::tree_walk_only`]): they use a `Prim` op implemented in the
-//! tree-walk engine but not yet in the bytecode or cranelift engines
-//! (currently `binary.pow`). Those cases are run under tree-walk only and
-//! skipped by the compiled-engine tests.
+//! mul, div, pow, eq, neq, lt, gt, lte, gte, compare), typeof, unary not,
+//! let / stmt.let / stmt.const, if, ternary, function, call, pipe, paren,
+//! apply, mood, type-annot, array, object, index, assign. Cases flagged via
+//! [`CorpusCase::tree_walk_only`] (if any) use a `Prim` op implemented in
+//! the tree-walk engine but not yet in the bytecode or cranelift engines;
+//! they are run under tree-walk only and skipped by the compiled-engine
+//! tests. Currently no corpus case is tree-walk-only.
 //!
 //! Constructs that dispatch to `Foreign` host functions (match, handle, flow,
 //! fanout, field-access, import, export, module, template, resolve, json,
-//! hello.greet) and `Prim` ops not yet implemented in any engine (array,
-//! object, index, typeof, assign, compare, gte, lte, neq) are **not** in the
-//! corpus — they remain blocked until the engines gain support. This test
-//! proves the **mechanism** with honest coverage: a `Language` value can
-//! describe a language and be evaluated under itself across all three
-//! engines.
+//! hello.greet) are **not** in the corpus — they remain blocked until the
+//! engines gain support. This test proves the **mechanism** with honest
+//! coverage: a `Language` value can describe a language and be evaluated
+//! under itself across all three engines.
 
 use handl_defining_handl::{corpus, language, language_from_data_file};
 use handl_language::LangError;
@@ -37,7 +35,18 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_bytecode::BytecodeEngine;
 use handl_plugin_engine_eval_cranelift::CraneliftEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
-use handl_runtime::{Runtime, RuntimeConfig};
+use handl_plugin_engine_parse_pratt::PrattEngine;
+use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+use std::rc::Rc;
+
+/// Build a registry with the pratt parser + tree-walk eval engine (the
+/// engines needed by the `Runtime`-based tests).
+fn test_registry() -> Rc<EngineRegistry> {
+    let mut reg = EngineRegistry::new();
+    reg.register_parse("pratt", PrattEngine::new());
+    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
+    Rc::new(reg)
+}
 
 /// Evaluate a corpus case under a `Runtime` (tree-walk or bytecode, selected
 /// via `RuntimeConfig`) and return the result.
@@ -46,7 +55,8 @@ fn eval_with_runtime(
     config: &RuntimeConfig,
     ast: &handl_language::Ast,
 ) -> Result<handl_language::Value, LangError> {
-    let rt = Runtime::from_config(lang.clone(), config, None)?;
+    let registry = test_registry();
+    let rt = Runtime::from_registry(lang.clone(), &registry, config)?;
     rt.eval(ast)
 }
 
@@ -96,8 +106,8 @@ fn self_host_tree_walk_data_file_language() {
 /// The self-describing language evaluates the corpus correctly under the
 /// bytecode engine.
 ///
-/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — the `pow` prim is
-/// not yet implemented in the bytecode engine.
+/// Tree-walk-only cases (if any) are skipped — their `Prim` op is not yet
+/// implemented in the bytecode engine.
 #[test]
 fn self_host_bytecode_emitter_language() {
     let lang = language();
@@ -121,8 +131,8 @@ fn self_host_bytecode_emitter_language() {
 /// The self-describing language evaluates the corpus correctly under the
 /// cranelift (native) engine.
 ///
-/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — the `pow` prim is
-/// not yet implemented in the cranelift engine.
+/// Tree-walk-only cases (if any) are skipped — their `Prim` op is not yet
+/// implemented in the cranelift engine.
 #[test]
 fn self_host_cranelift_emitter_language() {
     let lang = language();
@@ -240,10 +250,12 @@ fn all_three_engines_agree_data_file_language() {
     }
 }
 
-/// The tree-walk-only corpus cases produce correct results under the
-/// tree-walk engine. These cases use `Prim` ops not yet implemented in the
-/// bytecode or cranelift engines (e.g. `binary.pow`); they are excluded from
-/// the compiled-engine conformance gates above.
+/// The tree-walk-only corpus cases (if any) produce correct results under
+/// the tree-walk engine. These cases use `Prim` ops not yet implemented in
+/// the bytecode or cranelift engines; they are excluded from the
+/// compiled-engine conformance gates above. When no tree-walk-only cases
+/// remain (all `Prim` ops are implemented in every engine), this test is a
+/// no-op.
 #[test]
 fn self_host_tree_walk_only_cases() {
     let lang = language();
@@ -264,5 +276,7 @@ fn self_host_tree_walk_only_cases() {
         );
         ran += 1;
     }
-    assert!(ran > 0, "expected at least one tree-walk-only case");
+    // No assertion on `ran`: the corpus may legitimately have zero
+    // tree-walk-only cases once every `Prim` op is implemented in all engines.
+    let _ = ran;
 }

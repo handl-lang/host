@@ -924,6 +924,8 @@ dependencies = [
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-cranelift",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse-pratt",
  "handl-runtime",
  "handl-test-utils",
  "serde",
@@ -992,6 +994,11 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-eval",
+ "handl-plugin-engine-eval-bytecode",
+ "handl-plugin-engine-eval-cranelift",
+ "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse-pratt",
  "handl-runtime",
  "serde",
  "serde_json",
@@ -1044,6 +1051,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-runtime",
  "serde",
@@ -1059,7 +1067,9 @@ dependencies = [
  "handl-kit-data",
  "handl-language",
  "handl-plugin-engine-eval",
+ "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-runtime",
  "serde",
@@ -1170,6 +1180,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-runtime",
  "handl-test-utils",
  "serde_json",
 ]
@@ -1186,6 +1197,7 @@ dependencies = [
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-runtime",
  "handl-test-utils",
  "serde_json",
 ]
@@ -2053,6 +2065,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-eval",

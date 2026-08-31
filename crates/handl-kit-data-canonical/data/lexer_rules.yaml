@@ -291,3 +291,8 @@
     interpolation: true
     close_at_eof: false
   priority: 40
+- id: lex.vau
+  token_kind: token.vau
+  pattern: !Literal
+    text: vau
+  priority: 15

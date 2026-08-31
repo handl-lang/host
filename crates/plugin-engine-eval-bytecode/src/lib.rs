@@ -71,6 +71,8 @@ pub use instr::Instr;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use vm::VmFrame;
 
@@ -82,34 +84,49 @@ use vm::VmFrame;
 ///
 /// The engine checks `lang.scheme_version` against `SchemeVersion::v1()` and
 /// rejects mismatched versions.
-pub struct BytecodeEngine<'h> {
+#[derive(Clone)]
+pub struct BytecodeEngine {
     /// The underlying VM (carries the host functions registry).
-    vm: BytecodeVm<'h>,
+    vm: BytecodeVm,
+    /// Global variables injected by the host (e.g. `self` → language value).
+    globals: HashMap<String, Value>,
 }
 
-impl<'h> BytecodeEngine<'h> {
+impl BytecodeEngine {
     /// Create a new bytecode engine with no host functions.
     pub fn new() -> Self {
         Self {
             vm: BytecodeVm::new(),
+            globals: HashMap::new(),
         }
     }
 
-    /// Attach a host functions registry (builder style).
-    pub fn with_host(host: &'h dyn HostFunctions) -> Self {
+    /// Create a bytecode engine with a host functions registry attached.
+    ///
+    /// The host registry is used for [`handl_language::Scheme::Foreign`]
+    /// dispatch (ADR-0044 §7).
+    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
         Self {
             vm: BytecodeVm::with_host(host),
+            globals: HashMap::new(),
         }
+    }
+
+    /// Inject a global variable into the root scope (builder style).
+    /// ADR-0041 Phase 3: `self` is an ambient variable, not a function call.
+    pub fn with_global(mut self, name: &str, value: Value) -> Self {
+        self.globals.insert(name.to_string(), value);
+        self
     }
 }
 
-impl<'h> Default for BytecodeEngine<'h> {
+impl Default for BytecodeEngine {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'h> EvalEngine for BytecodeEngine<'h> {
+impl EvalEngine for BytecodeEngine {
     fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
         let ast = &req.ast;
         if ast.is_empty() {
@@ -130,7 +147,26 @@ impl<'h> EvalEngine for BytecodeEngine<'h> {
             Some(def) => compile(&def.scheme, root_node)?,
             None => vec![Instr::LoadPayload, Instr::Return],
         };
-        self.vm.execute(lang, ast, &instrs)
+        self.vm.execute(lang, ast, &instrs, &self.globals)
+    }
+
+    /// Produce an owned boxed clone (ADR-0047 §2).
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    /// Produce a fresh owned engine with the given host-functions registry
+    /// wired in, preserving any previously-injected globals (ADR-0047 §2).
+    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+        let mut engine = self.clone();
+        engine.vm = BytecodeVm::with_host(host);
+        Box::new(engine)
+    }
+
+    /// Produce a fresh owned engine with an additional global variable
+    /// injected into the root scope (ADR-0047 §2).
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_global(name, val))
     }
 }
 
@@ -142,22 +178,21 @@ impl<'h> EvalEngine for BytecodeEngine<'h> {
 ///
 /// Construct with [`BytecodeVm::new`] and optionally pass a host functions
 /// registry via [`BytecodeVm::with_host`].
-pub struct BytecodeVm<'h> {
+#[derive(Clone)]
+pub struct BytecodeVm {
     /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<&'h dyn HostFunctions>,
+    host: Option<Rc<dyn HostFunctions>>,
 }
 
-impl<'h> BytecodeVm<'h> {
+impl BytecodeVm {
     /// Create a new VM with no host functions.
     pub fn new() -> Self {
         Self { host: None }
     }
 
     /// Create a new VM with a host functions registry.
-    pub fn with_host(host: &'h dyn HostFunctions) -> Self {
-        Self {
-            host: Some(host),
-        }
+    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
+        Self { host: Some(host) }
     }
 
     /// Execute a pre-compiled instruction program.
@@ -177,20 +212,111 @@ impl<'h> BytecodeVm<'h> {
         lang: &Language,
         ast: &Ast,
         instrs: &[Instr],
+        globals: &HashMap<String, Value>,
     ) -> Result<Value, LangError> {
         if ast.is_empty() {
             return Ok(Value::Null);
         }
         let root_ref = AstRef::new(ast.len() - 1);
         let root_node = ast.at(root_ref)?;
-        let mut frame = VmFrame::new(ast, lang, self.host);
+        let mut frame = VmFrame::new(ast, lang, self.host.as_deref());
+        for (name, val) in globals {
+            frame.define_global(name, val.clone());
+        }
         frame.exec_instrs(instrs, root_node)
     }
 }
 
-impl<'h> Default for BytecodeVm<'h> {
+impl Default for BytecodeVm {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CompileEngine / CompiledArtifact impls (ADR-0047 §3)
+// ---------------------------------------------------------------------------
+
+/// A compiled bytecode artifact. Holds the root node's compiled instruction
+/// program plus the [`Language`] and [`Ast`] it was compiled from (needed
+/// because [`Instr::EvalChild`] lazily compiles child nodes using `lang` +
+/// `ast` at execution time via the per-node cache).
+#[derive(Clone)]
+pub struct BytecodeArtifact {
+    /// The language the program was compiled under.
+    lang: Language,
+    /// The AST the program was compiled from.
+    ast: Ast,
+    /// The compiled instruction program for the root node.
+    root_instrs: Vec<Instr>,
+}
+
+impl handl_runtime::CompiledArtifact for BytecodeArtifact {
+    fn run(&self, host: Option<Rc<dyn HostFunctions>>) -> Result<Value, LangError> {
+        let vm = match host {
+            Some(h) => BytecodeVm::with_host(h),
+            None => BytecodeVm::new(),
+        };
+        let globals = HashMap::new();
+        vm.execute(&self.lang, &self.ast, &self.root_instrs, &globals)
+    }
+
+    fn box_clone(&self) -> Box<dyn handl_runtime::CompiledArtifact> {
+        Box::new(self.clone())
+    }
+}
+
+/// The bytecode compile engine. Produces [`BytecodeArtifact`] impls from an
+/// [`Ast`] (ADR-0047 §3). Registered under the target name `"bytecode"`.
+#[derive(Clone, Default)]
+pub struct BytecodeCompileEngine;
+
+impl BytecodeCompileEngine {
+    /// Create a new bytecode compile engine.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl handl_runtime::CompileEngine for BytecodeCompileEngine {
+    fn compile(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        _target: &str,
+    ) -> Result<Box<dyn handl_runtime::CompiledArtifact>, LangError> {
+        if ast.is_empty() {
+            return Ok(Box::new(BytecodeArtifact {
+                lang: lang.clone(),
+                ast: ast.clone(),
+                root_instrs: Vec::new(),
+            }));
+        }
+        if !SchemeVersion::v1().supports(&lang.scheme_version) {
+            return Err(LangError::Engine(format!(
+                "compile: unsupported scheme version: {} (engine supports v1)",
+                lang.scheme_version
+            )));
+        }
+        let root_ref = AstRef::new(ast.len() - 1);
+        let root_node = ast.at(root_ref)?;
+        // Compile the root node's scheme (or use the no-scheme fallback).
+        // Child nodes are compiled lazily at execution time via the VM's
+        // per-node cache.
+        let scheme_def = lang.eval.get_by_identity(&root_node.kind);
+        let root_instrs = match scheme_def {
+            Some(def) => compile(&def.scheme, root_node)?,
+            None => vec![Instr::LoadPayload, Instr::Return],
+        };
+        Ok(Box::new(BytecodeArtifact {
+            lang: lang.clone(),
+            ast: ast.clone(),
+            root_instrs,
+        }))
+    }
+
+    fn box_clone(&self) -> Box<dyn handl_runtime::CompileEngine> {
+        Box::new(self.clone())
     }
 }
 
@@ -366,7 +492,7 @@ mod tests {
     #[test]
     fn engine_foreign() {
         let host = ConformanceHost;
-        let engine = BytecodeEngine::with_host(&host);
+        let engine = BytecodeEngine::with_host(Rc::new(host));
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -580,7 +706,7 @@ mod tests {
         let lang = Language::new();
         let ast = make_ast(vec![AstNode::new("test")]);
         let instrs = vec![Instr::Push(json!(42)), Instr::Return];
-        let result = vm.execute(&lang, &ast, &instrs).unwrap();
+        let result = vm.execute(&lang, &ast, &instrs, &HashMap::new()).unwrap();
         assert_eq!(result, json!(42));
     }
 
@@ -589,7 +715,7 @@ mod tests {
         let vm = BytecodeVm::new();
         let lang = Language::new();
         let instrs = vec![Instr::Return];
-        let result = vm.execute(&lang, &handl_language::Ast::new(), &instrs).unwrap();
+        let result = vm.execute(&lang, &handl_language::Ast::new(), &instrs, &HashMap::new()).unwrap();
         assert_eq!(result, Value::Null);
     }
 
@@ -604,7 +730,7 @@ mod tests {
             Instr::Prim("add".into(), 2),
             Instr::Return,
         ];
-        let result = vm.execute(&lang, &ast, &instrs).unwrap();
+        let result = vm.execute(&lang, &ast, &instrs, &HashMap::new()).unwrap();
         assert_eq!(result, json!(30));
     }
 
@@ -612,7 +738,7 @@ mod tests {
     fn engine_foreign_host_present_but_fn_not_found_errors() {
         // Host is registered but doesn't have the requested function.
         let host = ConformanceHost;
-        let engine = BytecodeEngine::with_host(&host);
+        let engine = BytecodeEngine::with_host(Rc::new(host));
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(

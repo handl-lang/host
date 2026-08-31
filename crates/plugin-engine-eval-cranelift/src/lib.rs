@@ -105,6 +105,7 @@ pub use compile::{
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
@@ -121,19 +122,20 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 ///
 /// The engine checks `lang.scheme_version` against `SchemeVersion::v1()` and
 /// rejects mismatched versions.
-pub struct CraneliftEngine<'h> {
+#[derive(Clone)]
+pub struct CraneliftEngine {
     /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<&'h dyn HostFunctions>,
+    host: Option<Rc<dyn HostFunctions>>,
 }
 
-impl<'h> CraneliftEngine<'h> {
+impl CraneliftEngine {
     /// Create a new cranelift engine with no host functions.
     pub fn new() -> Self {
         Self { host: None }
     }
 
     /// Attach a host functions registry (builder style).
-    pub fn with_host(host: &'h dyn HostFunctions) -> Self {
+    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
         Self { host: Some(host) }
     }
 
@@ -228,18 +230,18 @@ impl<'h> CraneliftEngine<'h> {
             &result.compiled,
             &result.literals,
             &result.names,
-            self.host,
+            self.host.as_deref(),
         )
     }
 }
 
-impl<'h> Default for CraneliftEngine<'h> {
+impl Default for CraneliftEngine {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'h> EvalEngine for CraneliftEngine<'h> {
+impl EvalEngine for CraneliftEngine {
     fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
         let ast = &req.ast;
         if ast.is_empty() {
@@ -264,8 +266,16 @@ impl<'h> EvalEngine for CraneliftEngine<'h> {
             &compile_result.compiled,
             &compile_result.literals,
             &compile_result.names,
-            self.host,
+            self.host.as_deref(),
         )
+    }
+
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+        Box::new(CraneliftEngine::with_host(host))
     }
 }
 
@@ -348,7 +358,7 @@ fn run_native(
 /// parameters). The `compiled` map holds function pointers into JIT-allocated
 /// memory that remains valid as long as the `JITModule` is alive — the
 /// compile module keeps the module alive via the `CompiledResult`.
-pub struct EvalCtx<'h> {
+pub struct EvalCtx<'a> {
     /// The language definition (raw pointer; valid for the eval call).
     #[allow(dead_code)]
     lang: *const Language,
@@ -359,7 +369,7 @@ pub struct EvalCtx<'h> {
     /// The arena index of the node currently being evaluated.
     current_ref: usize,
     /// The host functions registry (raw trait-object pointer; may be null).
-    host: Option<*const (dyn HostFunctions + 'h)>,
+    host: Option<*const (dyn HostFunctions + 'a)>,
     /// Per-node compiled function pointers, keyed by arena index.
     compiled: HashMap<usize, compile::CompiledFn>,
     /// Literal constant pool: values referenced by `Scheme::Lit`.
@@ -1241,6 +1251,62 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 Err(e) => Err(e),
             }
         }
+        "pow" => {
+            if args.len() < 2 {
+                return ctx.set_error(LangError::Engine("pow: expected 2 args".to_string()));
+            }
+            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| {
+                num_value(Num::Float(a.to_f64().powf(b.to_f64())))
+            })) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "gte" => {
+            if args.len() < 2 {
+                return ctx.set_error(LangError::Engine("gte: expected 2 args".to_string()));
+            }
+            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a >= b)) {
+                Ok(b) => Ok(Value::Bool(b)),
+                Err(e) => Err(e),
+            }
+        }
+        "lte" => {
+            if args.len() < 2 {
+                return ctx.set_error(LangError::Engine("lte: expected 2 args".to_string()));
+            }
+            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a <= b)) {
+                Ok(b) => Ok(Value::Bool(b)),
+                Err(e) => Err(e),
+            }
+        }
+        "neq" => Ok(Value::Bool(args[0] != args[1])),
+        "compare" => {
+            if args.len() < 2 {
+                return ctx.set_error(LangError::Engine("compare: expected 2 args".to_string()));
+            }
+            match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| {
+                let af = a.to_f64();
+                let bf = b.to_f64();
+                if af < bf { num_value(Num::Int(-1)) }
+                else if af > bf { num_value(Num::Int(1)) }
+                else { num_value(Num::Int(0)) }
+            })) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "typeof" => {
+            let type_name = match &args[0] {
+                Value::Null => "null",
+                Value::Bool(_) => "bool",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            };
+            Ok(Value::from(type_name))
+        }
         "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
         "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
         "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
@@ -1288,12 +1354,211 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             });
             Ok(closure)
         }
+        "array" => {
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            match node.payload.get("elements") {
+                Some(elements) => Ok(elements.clone()),
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "array: missing elements in payload".to_string(),
+                    ))
+                }
+            }
+        }
+        "object" => {
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            let entries = match node.payload.get("entries").and_then(|v| v.as_array()) {
+                Some(arr) => arr,
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "object: missing entries in payload".to_string(),
+                    ))
+                }
+            };
+            let mut obj = serde_json::Map::new();
+            for entry in entries {
+                let key = match entry.get("key").and_then(|v| v.as_str()) {
+                    Some(k) => k,
+                    None => {
+                        return ctx.set_error(LangError::Engine(
+                            "object: entry missing key".to_string(),
+                        ))
+                    }
+                };
+                let value = match entry.get("value") {
+                    Some(v) => v,
+                    None => {
+                        return ctx.set_error(LangError::Engine(
+                            "object: entry missing value".to_string(),
+                        ))
+                    }
+                };
+                obj.insert(key.to_string(), value.clone());
+            }
+            Ok(Value::Object(obj))
+        }
+        "index" => {
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            let target = match node.payload.get("target") {
+                Some(t) => t,
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "index: missing target in payload".to_string(),
+                    ))
+                }
+            };
+            let index = match node.payload.get("index") {
+                Some(i) => i,
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "index: missing index in payload".to_string(),
+                    ))
+                }
+            };
+            match (target, index) {
+                (Value::Array(arr), Value::Number(n)) => {
+                    let i = match n.as_u64() {
+                        Some(i) => i as usize,
+                        None => {
+                            return ctx.set_error(LangError::Engine(
+                                "index: index must be a non-negative integer".to_string(),
+                            ))
+                        }
+                    };
+                    match arr.get(i) {
+                        Some(v) => Ok(v.clone()),
+                        None => {
+                            return ctx.set_error(LangError::Engine(format!(
+                                "index: index {} out of bounds",
+                                i
+                            )))
+                        }
+                    }
+                }
+                (Value::Object(obj), Value::String(key)) => match obj.get(key) {
+                    Some(v) => Ok(v.clone()),
+                    None => {
+                        return ctx.set_error(LangError::Engine(format!(
+                            "index: key '{}' not found",
+                            key
+                        )))
+                    }
+                },
+                _ => {
+                    return ctx.set_error(LangError::Engine(
+                        "index: target must be array/object and index must be number/string"
+                            .to_string(),
+                    ))
+                }
+            }
+        }
+        "assign" => {
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            match node.payload.get("value") {
+                Some(value) => Ok(value.clone()),
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "assign: missing value in payload".to_string(),
+                    ))
+                }
+            }
+        }
         _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
     };
 
     match result {
         Ok(v) => unsafe { box_value(v) },
         Err(e) => ctx.set_error(e),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CompileEngine / CompiledArtifact impls (ADR-0047 §3)
+// ---------------------------------------------------------------------------
+
+/// A compiled native (cranelift) artifact. Held in [`Rc`] so the
+/// `CompiledResult` (and its JIT module) can be referenced during
+/// execution without cloning (JITModule is not Clone).
+#[derive(Clone)]
+pub struct CraneliftArtifact {
+    result: Option<Rc<CompiledResult>>,
+    lang: Language,
+    ast: Ast,
+}
+
+impl handl_runtime::CompiledArtifact for CraneliftArtifact {
+    fn run(&self, host: Option<Rc<dyn HostFunctions>>) -> Result<Value, LangError> {
+        if self.ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        let result = self.result.as_ref().ok_or_else(|| {
+            LangError::Engine("run: no compiled result (empty program)".into())
+        })?;
+        let engine = match host {
+            Some(h) => CraneliftEngine::with_host(h),
+            None => CraneliftEngine::new(),
+        };
+        engine.run_compiled(&self.lang, &self.ast, result)
+    }
+
+    fn box_clone(&self) -> Box<dyn handl_runtime::CompiledArtifact> {
+        Box::new(self.clone())
+    }
+}
+
+/// The cranelift compile engine.
+#[derive(Clone, Default)]
+pub struct CraneliftCompileEngine;
+
+impl CraneliftCompileEngine {
+    /// Create a new cranelift compile engine.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl handl_runtime::CompileEngine for CraneliftCompileEngine {
+    fn compile(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        _target: &str,
+    ) -> Result<Box<dyn handl_runtime::CompiledArtifact>, LangError> {
+        if ast.is_empty() {
+            return Ok(Box::new(CraneliftArtifact {
+                result: None,
+                lang: lang.clone(),
+                ast: ast.clone(),
+            }));
+        }
+        if !handl_language::SchemeVersion::v1().supports(&lang.scheme_version) {
+            return Err(LangError::Engine(format!(
+                "compile: unsupported scheme version: {} (engine supports v1)",
+                lang.scheme_version
+            )));
+        }
+        let result = compile_all_nodes_jit(lang, ast)?;
+        Ok(Box::new(CraneliftArtifact {
+            result: Some(Rc::new(result)),
+            lang: lang.clone(),
+            ast: ast.clone(),
+        }))
+    }
+
+    fn box_clone(&self) -> Box<dyn handl_runtime::CompileEngine> {
+        Box::new(self.clone())
     }
 }
 
@@ -1858,7 +2123,7 @@ mod tests {
     #[test]
     fn engine_foreign_dispatches_to_registered_host() {
         let host = ConformanceHost;
-        let engine = CraneliftEngine::with_host(&host);
+        let engine = CraneliftEngine::with_host(Rc::new(host));
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(

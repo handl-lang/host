@@ -5,15 +5,12 @@
   node_kind: array
   scheme: !Prim
     op: array
-    args:
-    - !Child 0
+    args: []
 - id: eval.assign
   node_kind: assign
   scheme: !Prim
     op: assign
-    args:
-    - !Child 0
-    - !Child 1
+    args: []
 - id: eval.binary.add
   node_kind: binary.add
   scheme: !Prim
@@ -173,9 +170,7 @@
   node_kind: index
   scheme: !Prim
     op: index
-    args:
-    - !Child 0
-    - !Child 1
+    args: []
 - id: eval.json
   node_kind: json
   scheme: !Foreign
@@ -201,8 +196,7 @@
   node_kind: object
   scheme: !Prim
     op: object
-    args:
-    - !Child 0
+    args: []
 - id: eval.paren
   node_kind: paren
   scheme: !Child 0

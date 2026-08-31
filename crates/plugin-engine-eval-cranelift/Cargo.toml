@@ -9,6 +9,7 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 handl-language = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
+handl-runtime = { workspace = true }
 cranelift = { workspace = true }
 cranelift-module = { workspace = true }
 cranelift-jit = { workspace = true }

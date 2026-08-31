@@ -9,6 +9,8 @@
 //! cranelift engines for every conformance case and asserts their outputs are
 //! identical — the three-way cross-engine conformance gate.
 
+use std::rc::Rc;
+
 use handl_language::{LangError, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFn, HostFunctions};
 use handl_plugin_engine_eval_bytecode::BytecodeEngine;
@@ -53,7 +55,7 @@ fn cranelift_engine_passes_eval_conformance() {
 #[test]
 fn cranelift_engine_passes_foreign_conformance() {
     let host = ConformanceHost;
-    let engine = CraneliftEngine::with_host(&host);
+    let engine = CraneliftEngine::with_host(Rc::new(host));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()
@@ -105,10 +107,10 @@ fn three_way_non_foreign_results_match() {
 /// engines with the host registry produce identical results.
 #[test]
 fn three_way_foreign_results_match() {
-    let host = ConformanceHost;
-    let cranelift = CraneliftEngine::with_host(&host);
-    let bytecode = BytecodeEngine::with_host(&host);
-    let tree_walk = TreeWalkEngine::new().with_host(&host);
+    let host = Rc::new(ConformanceHost) as Rc<dyn HostFunctions>;
+    let cranelift = CraneliftEngine::with_host(Rc::clone(&host));
+    let bytecode = BytecodeEngine::with_host(Rc::clone(&host));
+    let tree_walk = TreeWalkEngine::new().with_host(Rc::clone(&host));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()

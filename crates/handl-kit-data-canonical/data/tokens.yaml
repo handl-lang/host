@@ -110,3 +110,5 @@
   label: string
 - id: token.template
   label: null
+- id: token.vau
+  label: null

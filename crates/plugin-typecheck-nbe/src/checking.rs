@@ -214,6 +214,35 @@ pub fn synth(
         Term::Empty => Ok(Value::Universe(Level::zero())),
         Term::Null => Ok(Value::Collection(Name::new("type.null"))),
         Term::Array(_) | Term::Object(_) => Err(TypeError::CannotSynthesize("array/object".into())),
+        Term::VauType { name, param, body } => {
+            let pval = synth_type(ctx, env, tctx, param)?;
+            let pl = value_universe(&pval)?;
+            let arg = Value::Neutral(Neutral::Var(Var::Named(name.clone())));
+            let bval = synth_type(
+                ctx,
+                &env.extend(arg),
+                &tctx.extend_with_kind(name.clone(), pval, Kind::Type),
+                body,
+            )?;
+            let bl = value_universe(&bval)?;
+            Ok(Value::Universe(Level::max(pl, bl)))
+        }
+        Term::Vau { .. } => Err(TypeError::CannotSynthesize("vau".into())),
+        Term::VauApp { fun, arg } => {
+            let fty = synth(ctx, env, tctx, fun)?;
+            let fty = ctx.subst.apply_value(&fty);
+            match fty {
+                Value::VauType { param, closure, .. } => {
+                    check(ctx, env, tctx, arg, &param)?;
+                    let varg = eval(arg, env);
+                    Ok(closure.apply(varg))
+                }
+                _ => Err(TypeError::ExpectedFunction(format!(
+                    "{:?}",
+                    quote(&fty, &tctx.names())
+                ))),
+            }
+        }
     }
 }
 
@@ -380,6 +409,13 @@ fn value_universe(value: &Value) -> Result<Level, TypeError> {
         | Value::Eq { .. }
         | Value::Refl
         | Value::Empty => Ok(Level::zero()),
+        Value::VauType { param, closure, .. } => {
+            let pl = value_universe(param)?;
+            let arg = Value::Neutral(Neutral::Var(Var::Named(closure.name.clone())));
+            let b = closure.apply(arg);
+            let bl = value_universe(&b)?;
+            Ok(Level::max(pl, bl))
+        }
         Value::IsEvidence => Err(TypeError::UniverseMismatch(
             "expected a universe, found is-evidence".into(),
         )),
@@ -536,6 +572,28 @@ pub fn check(
                 expected,
             )
         }
+        (
+            Term::Vau { name, body },
+            Value::VauType {
+                ref param,
+                ref closure,
+                ..
+            },
+        ) => {
+            let arg = Value::Neutral(Neutral::Var(Var::Named(name.clone())));
+            let body_ty = closure.apply(arg.clone());
+            check(
+                ctx,
+                &env.extend(arg),
+                &tctx.extend(name.clone(), param.as_ref().clone()),
+                body.as_ref(),
+                &body_ty,
+            )
+        }
+        (Term::Vau { .. }, Value::Empty) => Err(TypeError::TypeMismatch {
+            expected: "vau type".into(),
+            found: "vau".into(),
+        }),
         (_, ty) => {
             let inferred = synth(ctx, env, tctx, term)?;
             if convertible(ctx, &inferred, &ty)? {
@@ -629,7 +687,7 @@ pub fn synth_kind(
                 other => Err(TypeError::ExpectedFunctionKind(format!("{:?}", other))),
             }
         }
-        Term::Pi { .. } | Term::Sigma { .. } => Ok(Kind::Type),
+        Term::Pi { .. } | Term::Sigma { .. } | Term::VauType { .. } => Ok(Kind::Type),
         _ => Err(TypeError::CannotSynthesize("kind".into())),
     }
 }

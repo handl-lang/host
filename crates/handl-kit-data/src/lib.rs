@@ -48,7 +48,8 @@ use std::path::PathBuf;
 use handl_emitters::Emitter;
 use handl_language::{Fragment, LangError, Language};
 use handl_plugin_engine_eval::HostFunctions;
-use handl_runtime::{Runtime, RuntimeConfig};
+use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
+use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 /// A resolved source of `Language` fragments (runtime form).
@@ -383,20 +384,28 @@ impl DataKit {
     }
 
     /// Consume the kit and build a [`Runtime`] bound to its language and
-    /// engine selection via [`Runtime::from_config`] (ADR §7).
+    /// engine selection via [`Runtime::from_registry`] (ADR-0047 §2).
     ///
+    /// The caller supplies an [`EngineRegistry`] populated with the available
+    /// engine impls; `into_runtime` resolves `self.runtime_config` against it.
     /// If `host` is `Some`, it is passed to the eval engine for
     /// [`handl_language::Scheme::Foreign`] dispatch.
     ///
     /// # Errors
     ///
-    /// Returns [`LangError::Engine`] for any unknown engine name (e.g.
-    /// `eval = "bytecode"` before Phase 6 lands).
-    pub fn into_runtime<'h>(
+    /// Returns [`LangError::Engine`] for any unknown engine name.
+    pub fn into_runtime(
         self,
-        host: Option<&'h dyn HostFunctions>,
-    ) -> Result<Runtime<'h>, LangError> {
-        Runtime::from_config(self.lang, &self.runtime_config, host)
+        registry: &Rc<EngineRegistry>,
+        host: Option<Rc<dyn HostFunctions>>,
+    ) -> Result<Runtime, LangError> {
+        Runtime::from_registry_with_globals(
+            self.lang,
+            registry,
+            &self.runtime_config,
+            host,
+            None,
+        )
     }
 }
 

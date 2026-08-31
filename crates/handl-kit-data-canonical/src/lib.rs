@@ -229,9 +229,9 @@ mod tests {
         assert_eq!(m.fragments.len(), 1);
         assert_eq!(m.fragments[0].name, "canonical-yaml");
         assert_eq!(m.extends, None);
-        assert_eq!(m.runtime.lex.as_deref(), Some("data"));
-        assert_eq!(m.runtime.parse.as_deref(), Some("pratt"));
-        assert_eq!(m.runtime.eval.as_deref(), Some("tree-walk"));
+        assert_eq!(m.runtime.lex, "data");
+        assert_eq!(m.runtime.parse, "pratt");
+        assert_eq!(m.runtime.eval, "tree-walk");
     }
 
     #[test]

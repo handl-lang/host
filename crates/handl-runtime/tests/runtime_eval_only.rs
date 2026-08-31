@@ -9,8 +9,20 @@
 use handl_language::{
     Ast, AstNode, EvalSchemeDef, LangError, Language, Scheme, Source, Tokens, Value,
 };
-use handl_runtime::{Runtime, RuntimeConfig};
+use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde_json::json;
+use std::rc::Rc;
+
+/// Build a registry with the tree-walk eval engine registered under
+/// `"tree-walk"`.
+fn test_registry() -> Rc<EngineRegistry> {
+    let mut reg = EngineRegistry::new();
+    reg.register_eval(
+        "tree-walk",
+        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+    );
+    Rc::new(reg)
+}
 
 /// Build a language with eval schemes for `lit` (no scheme → payload),
 /// `binary.add` (Prim add), and a `let`/`var` pair for scope testing.
@@ -52,7 +64,7 @@ fn eval_only_runtime_evaluates_pre_parsed_ast() {
     let lang = eval_lang();
     // Only an eval engine is bound — no lex or parse engine.
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("config should resolve");
+    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // Ast: 0: lit(2), 1: lit(3), 2: binary.add {children: [0, 1]}
     let mut ast = Ast::new();
@@ -70,7 +82,7 @@ fn eval_only_runtime_evaluates_pre_parsed_ast() {
 fn eval_only_runtime_lex_returns_not_implemented() {
     let lang = eval_lang();
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("config should resolve");
+    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     let err = rt.lex(&Source::new("1 + 2")).unwrap_err();
     assert_eq!(err, LangError::NotImplemented);
@@ -80,7 +92,7 @@ fn eval_only_runtime_lex_returns_not_implemented() {
 fn eval_only_runtime_parse_returns_not_implemented() {
     let lang = eval_lang();
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("config should resolve");
+    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     let err = rt.parse(&Tokens::new()).unwrap_err();
     assert_eq!(err, LangError::NotImplemented);
@@ -90,7 +102,7 @@ fn eval_only_runtime_parse_returns_not_implemented() {
 fn eval_only_runtime_run_returns_not_implemented_from_lex() {
     let lang = eval_lang();
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("config should resolve");
+    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // run() tries lex first, which is NotImplemented.
     let err = rt.run(&Source::new("1 + 2")).unwrap_err();
@@ -101,7 +113,7 @@ fn eval_only_runtime_run_returns_not_implemented_from_lex() {
 fn eval_only_runtime_with_let_binding() {
     let lang = eval_lang();
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_config(lang, &config, None).expect("config should resolve");
+    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // Ast: 0: lit(42), 1: var("x"), 2: let {name: "x", children: [0, 1]}
     let mut ast = Ast::new();

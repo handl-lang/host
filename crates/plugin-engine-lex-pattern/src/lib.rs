@@ -42,6 +42,10 @@ impl LexerEngine for DataLexerEngine {
     fn lex(&self, lang: &Language, req: &LexerRequest) -> Result<Tokens, LangError> {
         lex(lang, req.source.as_str())
     }
+
+    fn box_clone(&self) -> Box<dyn LexerEngine> {
+        Box::new(*self)
+    }
 }
 
 /// Lex `src` using the [`LexerRuleDef`] fragments in `lang`.

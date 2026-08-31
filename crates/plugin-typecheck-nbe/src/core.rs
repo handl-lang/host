@@ -381,6 +381,26 @@ pub enum Term {
     Array(Vec<Term>),
     /// JSON object literal (sorted by key).
     Object(std::collections::BTreeMap<Name, Term>),
+    /// Vau type: `type.vau<a, b>` — a vau (fexpr) from unevaluated `a` to `b`.
+    /// Like `Pi` but marks the parameter as unevaluated (ArrowApply escape,
+    /// ADR-0045 §3).
+    VauType {
+        name: Name,
+        param: Box<Term>,
+        body: Box<Term>,
+    },
+    /// Vau abstraction: a fexpr that binds an unevaluated expression.
+    /// Like `Lambda` but the parameter is received unevaluated.
+    Vau {
+        name: Name,
+        body: Box<Term>,
+    },
+    /// Vau application: apply a vau to an unevaluated argument.
+    /// Like `App` but the argument is NOT evaluated before passing.
+    VauApp {
+        fun: Box<Term>,
+        arg: Box<Term>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -415,6 +435,11 @@ pub enum Neutral {
     Eq {
         lhs: Box<Value>,
         rhs: Box<Value>,
+    },
+    /// Stuck vau application on a neutral head.
+    VauApp {
+        fun: Box<Neutral>,
+        arg: Box<Value>,
     },
 }
 
@@ -481,4 +506,15 @@ pub enum Value {
     Array(Vec<Value>),
     /// JSON object value (sorted by key).
     Object(std::collections::BTreeMap<Name, Value>),
+    /// Vau type value: `type.vau<a, b>`.
+    VauType {
+        param_name: Name,
+        param: Box<Value>,
+        closure: Closure,
+    },
+    /// Vau value: a fexpr closure (receives unevaluated arg).
+    Vau {
+        name: Name,
+        closure: Closure,
+    },
 }
