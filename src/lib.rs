@@ -125,3 +125,6 @@ impl Function for ParseFn {
 
 pub mod plugin;
 pub use plugin::LibraryPlugin;
+
+#[cfg(test)]
+mod tests;
