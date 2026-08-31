@@ -48,7 +48,7 @@
 //! 2nd and 3rd projections (specializing the compiler / specializer) are
 //! future work, enabled by keeping `compile` a function on data.
 
-use handl_defining_handl::{corpus, language, language_from_data_file};
+use handl_defining_handl::{corpus, language};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_cranelift::CraneliftEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -95,42 +95,6 @@ fn futamura_first_projection_specializes_language_once() {
             cl_result.unwrap(),
             case.expected,
             "futamura: case '{}' ({}) — result does not match expected",
-            case.name,
-            case.source
-        );
-    }
-}
-
-/// The specialization works with the data-file-loaded language too: the
-/// authored `data/handl.json`, compiled once, handles dynamic `ast` inputs.
-///
-/// Tree-walk-only cases (e.g. `binary.pow`) are skipped — their `Prim` op is
-/// not yet implemented in the cranelift engine.
-#[test]
-fn futamura_first_projection_data_file_language() {
-    let lang = language_from_data_file().expect("data file must load");
-    let cranelift = CraneliftEngine::new();
-    let tree_walk = TreeWalkEngine::new();
-
-    // Evaluate the entire corpus against the one compiled module — every
-    // non-tree-walk-only case is a distinct dynamic input.
-    for case in corpus() {
-        if case.tree_walk_only {
-            continue;
-        }
-        let req = EvalRequest::new(case.ast.clone());
-        let cl_result = cranelift.eval(&lang, &req);
-        let tw_result = tree_walk.eval(&lang, &req);
-        assert_eq!(
-            cl_result, tw_result,
-            "futamura (data-file): case '{}' ({}) — specialized cranelift diverged from tree-walk",
-            case.name,
-            case.source
-        );
-        assert_eq!(
-            cl_result.unwrap(),
-            case.expected,
-            "futamura (data-file): case '{}' ({}) — result does not match expected",
             case.name,
             case.source
         );

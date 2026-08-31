@@ -30,13 +30,9 @@
 //! data. Instead it:
 //!
 //! 1. Builds the **self-hosting infrastructure**: a [`Language`] value
-//!    describing the subset, loadable both from the canonical YAML data files
-//!    ([`language`]) and from an authored **JSON data file**
-//!    ([`language_from_data_file`]).
-//! 2. Ships the **data file** (`data/handl.json`) — the ADR §6 end state:
-//!    "authored data files are canonical." The file is the serialized
-//!    [`Language`]; loading it requires no Rust code.
-//! 3. Provides a **self-hosting corpus** ([`corpus`]) of subset programs used
+//!    describing the subset, assembled from the canonical YAML data files
+//!    via [`language`].
+//! 2. Provides a **self-hosting corpus** ([`corpus`]) of subset programs used
 //!    by the integration tests (`self_host.rs`, `bootstrap.rs`,
 //!    `futamura.rs`) to prove the self-hosting *mechanism*.
 //!
@@ -50,28 +46,11 @@
 //! unimplemented `Prim` ops), and a standalone-binary bootstrap (writing an
 //! executable to disk). Phase 8 proves the *mechanism*, not the
 //! standalone-binary artifact.
-//!
-//! ## Two load paths
-//!
-//! - [`language`] — assembles the `Language` from the canonical YAML data
-//!   files via [`handl_kit_data_canonical::assemble`]. This is the
-//!   data-driven path (ADR §6 end state).
-//! - [`language_from_data_file`] — loads the `Language` from the authored
-//!   `data/handl.json` file (embedded via `include_str!` for portability,
-//!   deserialized at runtime). This is the standalone data-file path.
-//!
-//! Both paths produce an equal `Language` (asserted in tests).
 
 #![warn(missing_docs)]
 
-use handl_language::{Ast, AstNode, LangError, Language, Value};
+use handl_language::{Ast, AstNode, Language, Value};
 use serde_json::json;
-
-/// The path (relative to the crate root) of the authored data file.
-///
-/// The file is embedded via `include_str!` in [`language_from_data_file`] so
-/// the canonical language definition ships as data, not as Rust.
-pub const DATA_FILE: &str = "data/handl.json";
 
 /// The self-describing `Language` assembled from the canonical YAML data
 /// files.
@@ -81,9 +60,6 @@ pub const DATA_FILE: &str = "data/handl.json";
 /// eval, AST shapes, capabilities) merged into one `Language` value from the
 /// 7 YAML files in `handl-kit-data-canonical/data/`. It is "handl defining
 /// handl" for the subset.
-///
-/// This is the data-driven path (ADR §6 end state). The standalone data-file
-/// path is [`language_from_data_file`]; both produce an equal `Language`.
 pub fn language() -> Language {
     // Delegate to the canonical data-driven kit assembly. This is the same
     // merged Language used by the data-driven runtime path — the single
@@ -92,43 +68,6 @@ pub fn language() -> Language {
         .expect("canonical data-driven kit must assemble")
         .lang()
         .clone()
-}
-
-/// Load the self-describing `Language` from the authored data file
-/// (`data/handl.json`).
-///
-/// This is the ADR §6 end state: "authored data files are canonical." The
-/// file is the serialized [`language`] value; loading it requires no Rust
-/// emitters — only `serde_json` deserialization. The file is embedded via
-/// `include_str!` for portability (so the data ships with the binary), but
-/// the `Language` is reconstructed purely from data at runtime via
-/// [`parse_language_from_json`].
-///
-/// The data file round-trips: `language_from_data_file() == language()`
-/// (asserted in tests).
-///
-/// # Errors
-///
-/// Returns [`LangError::Engine`] if the embedded JSON fails to deserialize
-/// into a `Language` (should not happen for a committed, generated file).
-pub fn language_from_data_file() -> Result<Language, LangError> {
-    parse_language_from_json(include_str!("../data/handl.json"))
-}
-
-/// Parse a `Language` from a JSON string (the data-file format).
-///
-/// This is the pure deserialization step used by [`language_from_data_file`];
-/// factoring it out makes the error path testable independently of the
-/// compile-time-embedded file contents.
-///
-/// # Errors
-///
-/// Returns [`LangError::Engine`] if `text` is not valid JSON or does not
-/// deserialize into a [`Language`].
-pub fn parse_language_from_json(text: &str) -> Result<Language, LangError> {
-    serde_json::from_str::<Language>(text).map_err(|e| {
-        LangError::Engine(format!("failed to deserialize handl.json: {}", e))
-    })
 }
 
 // ---------------------------------------------------------------------------
@@ -990,47 +929,6 @@ pub fn corpus() -> Vec<CorpusCase> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-
-    /// The emitter-based and data-file-based languages are equal (round-trip).
-    #[test]
-    fn language_from_data_file_equals_language() {
-        let from_emitters = language();
-        let from_file = language_from_data_file().expect("data file must load");
-        assert_eq!(
-            from_emitters, from_file,
-            "the data-file language must equal the emitter-assembled language"
-        );
-    }
-
-    /// The data file deserializes successfully and is non-empty.
-    #[test]
-    fn data_file_loads_nonempty_language() {
-        let lang = language_from_data_file().expect("data file must load");
-        assert!(!lang.tokens.is_empty(), "tokens must be non-empty");
-        assert!(!lang.grammar.is_empty(), "grammar must be non-empty");
-        assert!(!lang.eval.is_empty(), "eval must be non-empty");
-    }
-
-    /// `parse_language_from_json` returns an error for invalid JSON,
-    /// exercising the deserialization error path.
-    #[test]
-    fn parse_language_from_json_errors_on_invalid_input() {
-        let err = parse_language_from_json("not valid json").unwrap_err();
-        assert!(
-            matches!(err, LangError::Engine(ref msg) if msg.contains("deserialize")),
-            "expected an Engine error mentioning deserialize, got {:?}",
-            err
-        );
-    }
-
-    /// `parse_language_from_json` round-trips the data file text.
-    #[test]
-    fn parse_language_from_json_round_trips_data_file() {
-        let text = include_str!("../data/handl.json");
-        let from_text = parse_language_from_json(text).expect("must parse");
-        assert_eq!(from_text, language());
-    }
 
     /// The corpus is non-empty and every case has a non-empty AST.
     #[test]
@@ -1040,21 +938,5 @@ mod tests {
         for case in &c {
             assert!(!case.ast.is_empty(), "case '{}' has empty ast", case.name);
         }
-    }
-
-    /// Generate (or regenerate) `data/handl.json` from [`language`].
-    ///
-    /// This runs on every test pass: it serializes the emitter-assembled
-    /// `Language` to the committed data file. The write is idempotent (the
-    /// file content is deterministic), so this keeps the data file fresh
-    /// without side effects. The file is also loaded via `include_str!` at
-    /// compile time, so the runtime write does not affect the already-compiled
-    /// embedded copy — but it ensures the committed file matches `language()`.
-    #[test]
-    fn generate_data_file() {
-        let lang = language();
-        let pretty = serde_json::to_string_pretty(&lang).expect("serialize");
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DATA_FILE);
-        std::fs::write(&path, pretty).expect("write data file");
     }
 }

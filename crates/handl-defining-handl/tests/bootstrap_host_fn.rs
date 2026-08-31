@@ -24,7 +24,7 @@
 
 use handl_defining_handl::{corpus, language};
 use handl_language::{language_value, Ast, AstNode, Language, Value};
-use handl_plugin_engine_eval::HostFunctions;
+use handl_platform::ModuleLookup;
 use handl_plugin_engine_eval_bytecode::BytecodeCompileEngine;
 use handl_plugin_engine_eval_cranelift::CraneliftCompileEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -58,7 +58,7 @@ fn make_runtime(lang: Language) -> Runtime {
     let registry = test_registry();
     let self_val = language_value(&lang);
     let meta = MetaHostFunctions::new(lang.clone(), config.clone(), Rc::clone(&registry), None);
-    let meta_rc: Rc<dyn HostFunctions> = Rc::new(meta);
+    let meta_rc: Rc<dyn ModuleLookup> = Rc::new(meta);
     let mut globals = HashMap::new();
     globals.insert("self".to_string(), self_val);
     Runtime::from_registry_with_globals(lang, &registry, &config, Some(meta_rc), Some(&globals))
@@ -173,40 +173,6 @@ fn bootstrap_host_fn_bytecode_matches_eval() {
         assert_eq!(
             compiled_result, case.expected,
             "bootstrap host-fn (bytecode): case '{}' ({}) — result does not match expected",
-            case.name,
-            case.source
-        );
-    }
-}
-
-/// The bootstrap host-fn path works with the data-file-loaded language too:
-/// `compile` / `run_compiled` via host fns under the `data/handl.json`
-/// language produce results matching `eval`.
-#[test]
-fn bootstrap_host_fn_native_data_file_language() {
-    let lang = handl_defining_handl::language_from_data_file().expect("data file must load");
-    let lang_val = language_value(&lang);
-    let runtime = make_runtime(lang.clone());
-
-    for case in corpus() {
-        if case.tree_walk_only {
-            continue;
-        }
-        let ast_val = serde_json::to_value(&case.ast).expect("serialize ast");
-
-        let handle = compile_via_host_fn(&runtime, &lang_val, &ast_val, "native");
-        let compiled_result = run_compiled_via_host_fn(&runtime, &handle);
-        let eval_result = eval_via_host_fn(&runtime, &lang_val, &ast_val);
-
-        assert_eq!(
-            compiled_result, eval_result,
-            "bootstrap host-fn (native, data-file): case '{}' ({}) — diverged",
-            case.name,
-            case.source
-        );
-        assert_eq!(
-            compiled_result, case.expected,
-            "bootstrap host-fn (native, data-file): case '{}' ({}) — wrong result",
             case.name,
             case.source
         );

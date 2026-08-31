@@ -30,7 +30,7 @@
 //! demonstrates the same compilation pipeline (`Scheme` → native code with
 //! erased data dispatch) that a standalone-binary bootstrap would use.
 
-use handl_defining_handl::{corpus, language, language_from_data_file};
+use handl_defining_handl::{corpus, language};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_cranelift::CraneliftEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
@@ -65,39 +65,6 @@ fn bootstrap_cranelift_matches_tree_walk_emitter_language() {
             cl_result.as_ref().unwrap(),
             &case.expected,
             "bootstrap: case '{}' ({}) — result does not match expected",
-            case.name,
-            case.source
-        );
-    }
-}
-
-/// The bootstrap path works with the data-file-loaded language too: the
-/// authored `data/handl.json`, compiled to native, matches the reference.
-///
-/// Tree-walk-only cases are skipped (see
-/// [`bootstrap_cranelift_matches_tree_walk_emitter_language`]).
-#[test]
-fn bootstrap_cranelift_matches_tree_walk_data_file_language() {
-    let lang = language_from_data_file().expect("data file must load");
-    let tree_walk = TreeWalkEngine::new();
-    let cranelift = CraneliftEngine::new();
-    for case in corpus() {
-        if case.tree_walk_only {
-            continue;
-        }
-        let req = EvalRequest::new(case.ast.clone());
-        let tw_result = tree_walk.eval(&lang, &req);
-        let cl_result = cranelift.eval(&lang, &req);
-        assert_eq!(
-            cl_result, tw_result,
-            "bootstrap (data-file): case '{}' ({}) — cranelift diverged from tree-walk",
-            case.name,
-            case.source
-        );
-        assert_eq!(
-            cl_result.as_ref().unwrap(),
-            &case.expected,
-            "bootstrap (data-file): case '{}' ({}) — result does not match expected",
             case.name,
             case.source
         );
