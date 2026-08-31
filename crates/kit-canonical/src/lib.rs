@@ -13,9 +13,75 @@
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
-use handl_runtime::meta::canonical_meta_host_functions;
+use handl_plugin_engine_eval::{HostFn, HostFunctions};
+use handl_runtime::meta::MetaHostFunctions;
 use handl_runtime::{EngineRegistry, Runtime};
 use std::rc::Rc;
+
+// ---------------------------------------------------------------------------
+// hello.greet host function + registry
+// ---------------------------------------------------------------------------
+
+/// `hello.greet(name)` host function — the canonical handl greeting.
+///
+/// The canonical kit data declares `eval.hello.greet` as a `Foreign` scheme
+/// (name `hello.greet`) and `ast.hello.greet`. Source syntax `hello.greet(x)`
+/// parses as `call(field-access(hello, greet), x)`: the `hello` global (injected
+/// by [`Kit::new`]) is `{"greet": "hello.greet"}`, so `field-access` yields the
+/// string `"hello.greet"`, and the tree-walk engine's `apply_closure` dispatches
+/// a string-named host function to this impl.
+pub struct HelloGreetHostFn;
+
+impl HostFn for HelloGreetHostFn {
+    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+        if args.len() != 1 {
+            return Err(LangError::Engine(format!(
+                "hello.greet: expected 1 argument, got {}",
+                args.len()
+            )));
+        }
+        let name = args[0].as_str().ok_or_else(|| {
+            LangError::Engine("hello.greet: expected string argument".to_string())
+        })?;
+        Ok(Value::String(format!("Hello, {name}!")))
+    }
+}
+
+/// A [`HostFunctions`] registry exposing `hello.greet`, with an optional
+/// delegate for further lookup.
+pub struct HelloHostFunctions {
+    greet: HelloGreetHostFn,
+    delegate: Option<Rc<dyn HostFunctions>>,
+}
+
+impl Clone for HelloHostFunctions {
+    fn clone(&self) -> Self {
+        Self {
+            greet: HelloGreetHostFn,
+            delegate: self.delegate.clone(),
+        }
+    }
+}
+
+impl HelloHostFunctions {
+    /// Create a `HelloHostFunctions` with an optional delegate for
+    /// unknown-name lookup.
+    pub fn new(delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+        Self {
+            greet: HelloGreetHostFn,
+            delegate,
+        }
+    }
+}
+
+impl HostFunctions for HelloHostFunctions {
+    fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+        match name {
+            "hello.greet" => Some(&self.greet),
+            _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
+        }
+    }
+}
 
 /// Kit manifest loading and the default canonical manifest.
 pub mod kit_manifest;
@@ -92,15 +158,37 @@ impl Kit {
         registry.register_compile("native", Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()));
         let registry = Rc::new(registry);
 
-        let meta = canonical_meta_host_functions(lang.clone(), config.clone(), Rc::clone(&registry));
-        let meta_rc: Rc<dyn handl_plugin_engine_eval::HostFunctions> = meta;
+        // Build the host-functions chain (outermost first):
+        //   meta (eval/lex/parse/run/compile) → hello (hello.greet) → fp
+        //   (fn.fanout_fn, field_access) → None
+        // Meta is outermost so its names win; hello and fp are delegates so
+        // both the demo greeting and the FP Foreign schemes resolve at eval
+        // time, and sub-runtimes created by meta functions (e.g. eval) inherit
+        // them via the delegate chain.
+        let fp = handl_runtime::fp::canonical_fp_host_functions(None);
+        let hello = Rc::new(HelloHostFunctions::new(Some(Rc::clone(&fp)
+            as Rc<dyn handl_plugin_engine_eval::HostFunctions>)));
+        let meta = MetaHostFunctions::new(
+            lang.clone(),
+            config.clone(),
+            Rc::clone(&registry),
+            Some(Rc::clone(&hello) as Rc<dyn handl_plugin_engine_eval::HostFunctions>),
+        );
+        let meta_rc: Rc<dyn handl_plugin_engine_eval::HostFunctions> = Rc::new(meta);
 
         // Inject `self` as a global variable bound to the canonical
         // `Language` value (ADR-0041 Phase 3: `self` is an ambient variable,
-        // not a function call).
+        // not a function call). Inject `hello` as a module object so
+        // `hello.greet(x)` parses to `call(field-access(hello, greet), x)`,
+        // resolves `hello.greet` to the host-function name string, and
+        // dispatches via `apply_closure`'s string-named host-fn path.
         let self_val = handl_language::language_value(&lang);
         let mut globals = std::collections::HashMap::new();
         globals.insert("self".to_string(), self_val);
+        globals.insert(
+            "hello".to_string(),
+            serde_json::json!({ "greet": "hello.greet" }),
+        );
         let runtime = Runtime::from_registry_with_globals(
             lang,
             &registry,

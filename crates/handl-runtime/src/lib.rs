@@ -58,6 +58,7 @@
 #![warn(missing_docs)]
 
 pub mod meta;
+pub mod fp;
 
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -627,19 +627,36 @@ impl TreeWalkEngine {
             }
             "closure" => {
                 // Create a closure from the current node's payload.
+                //
+                // Two payload shapes are supported:
+                // - **Rich**: `{"params": ["x", ...], "body": <arena_idx>}`
+                // - **Pratt-parsed**: `{"children": [param_idx, body_idx]}`
+                //   where `param_idx` points to a `var` node whose payload
+                //   is the parameter name string.
                 let payload = &ctx.current_node.payload;
-                let params = payload
-                    .get("params")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine("closure prim: missing params in payload".to_string())
-                    })?;
-                let body = payload
-                    .get("body")
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::Engine("closure prim: missing body in payload".to_string())
-                    })?;
+                let (params, body) = if let (Some(p), Some(b)) = (
+                    payload.get("params").and_then(|v| v.as_array()),
+                    payload.get("body").and_then(|v| v.as_u64()),
+                ) {
+                    (p.clone(), b as usize)
+                } else if let Some(children) =
+                    payload.get("children").and_then(|c| c.as_array())
+                {
+                    // Pratt-parsed: children = [param_idx, body_idx].
+                    let param_idx = children.get(0).and_then(|v| v.as_u64())
+                        .ok_or_else(|| LangError::Engine("closure prim: missing param child".to_string()))? as usize;
+                    let body_idx = children.get(1).and_then(|v| v.as_u64())
+                        .ok_or_else(|| LangError::Engine("closure prim: missing body child".to_string()))? as usize;
+                    // Extract the parameter name from the var node.
+                    let param_node = ctx.ast.at(AstRef::new(param_idx))?;
+                    let param_name = param_node.payload.as_str()
+                        .ok_or_else(|| LangError::Engine("closure prim: param node must be a var with string payload".to_string()))?;
+                    (vec![Value::from(param_name)], body_idx)
+                } else {
+                    return Err(LangError::Engine(
+                        "closure prim: missing params/body in payload".to_string(),
+                    ));
+                };
                 let env = ctx.env.capture();
                 let closure = serde_json::json!({
                     "__closure__": true,
@@ -689,8 +706,198 @@ impl TreeWalkEngine {
                     .ok_or_else(|| LangError::Engine("assign: missing value in payload".to_string()))?;
                 Ok(value.clone())
             }
+            "match" => self.prim_match(ctx),
+            "handle" => self.prim_handle(ctx),
+            "json" => self.prim_json(ctx),
             _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
         }
+    }
+
+    /// `match` prim: pattern-match a scrutinee against a list of arms.
+    ///
+    /// The `match` node's payload has `children: [scrut_idx, block_idx]`. The
+    /// block node (kind `block`) has `children: [arm_idx, ...]`. Each arm
+    /// node (kind `arm`) has `children: [pattern_idx, body_idx]`.
+    ///
+    /// Pattern matching interprets the pattern AST node structurally:
+    /// - A `var` node named `_` or starting with `_` → **wildcard** (always
+    ///   matches, binds nothing).
+    /// - A `var` node with any other name → **binder** (always matches, binds
+    ///   the name to the scrutinee value in the current scope).
+    /// - Any other node → **literal**: the pattern is evaluated as a value
+    ///   and compared by equality (`==`) to the scrutinee.
+    ///
+    /// The first matching arm's body is evaluated lazily; non-matching arms
+    /// are never evaluated.
+    fn prim_match(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
+        let children = ctx.current_node.payload.get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| LangError::Engine("match: missing children in payload".to_string()))?;
+        let scrut_idx = children.get(0).and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("match: missing scrutinee child".to_string()))? as usize;
+        let block_idx = children.get(1).and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("match: missing block child".to_string()))? as usize;
+
+        // Evaluate the scrutinee.
+        let scrut_val = self.eval_node(ctx.ast, AstRef::new(scrut_idx), ctx.lang, ctx.env)?;
+
+        // Get the block node's children (the arm indices).
+        let block_node = ctx.ast.at(AstRef::new(block_idx))?;
+        let arm_indices = block_node.payload.get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| LangError::Engine("match: block node missing children".to_string()))?;
+
+        // Try each arm.
+        for arm_entry in arm_indices {
+            let arm_idx = arm_entry.as_u64()
+                .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))? as usize;
+            let arm_node = ctx.ast.at(AstRef::new(arm_idx))?;
+            let arm_children = arm_node.payload.get("children")
+                .and_then(|c| c.as_array())
+                .ok_or_else(|| LangError::Engine("match: arm node missing children".to_string()))?;
+            let pattern_idx = arm_children.get(0).and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("match: arm missing pattern child".to_string()))? as usize;
+            let body_idx = arm_children.get(1).and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))? as usize;
+
+            // Interpret the pattern node structurally.
+            ctx.env.push_scope();
+            let matched = self.try_pattern(ctx.ast, AstRef::new(pattern_idx), &scrut_val, ctx.lang, ctx.env)?;
+            if matched {
+                let result = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env);
+                ctx.env.pop_scope();
+                return result;
+            }
+            ctx.env.pop_scope();
+        }
+
+        Err(LangError::Engine("match: no arm matched".to_string()))
+    }
+
+    /// `handle` prim: evaluate a body, then dispatch the result to the first
+    /// matching handler clause.
+    ///
+    /// Structurally identical to `match` (children = [body_idx, block_idx],
+    /// block contains `arm` nodes with [pattern_idx, handler_idx]). The body
+    /// is evaluated first; its result is matched against clause patterns. If
+    /// no clause matches, the body value is returned as-is.
+    fn prim_handle(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
+        let children = ctx.current_node.payload.get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| LangError::Engine("handle: missing children in payload".to_string()))?;
+        let body_idx = children.get(0).and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("handle: missing body child".to_string()))? as usize;
+        let block_idx = children.get(1).and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("handle: missing block child".to_string()))? as usize;
+
+        // Evaluate the body.
+        let body_val = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env)?;
+
+        // Get the block node's children (the clause indices).
+        let block_node = ctx.ast.at(AstRef::new(block_idx))?;
+        let clause_indices = block_node.payload.get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| LangError::Engine("handle: block node missing children".to_string()))?;
+
+        // Try each clause.
+        for clause_entry in clause_indices {
+            let clause_idx = clause_entry.as_u64()
+                .ok_or_else(|| LangError::Engine("handle: clause index must be a number".to_string()))? as usize;
+            let clause_node = ctx.ast.at(AstRef::new(clause_idx))?;
+            let clause_children = clause_node.payload.get("children")
+                .and_then(|c| c.as_array())
+                .ok_or_else(|| LangError::Engine("handle: clause node missing children".to_string()))?;
+            let pattern_idx = clause_children.get(0).and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("handle: clause missing pattern child".to_string()))? as usize;
+            let handler_idx = clause_children.get(1).and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::Engine("handle: clause missing handler child".to_string()))? as usize;
+
+            ctx.env.push_scope();
+            let matched = self.try_pattern(ctx.ast, AstRef::new(pattern_idx), &body_val, ctx.lang, ctx.env)?;
+            if matched {
+                let result = self.eval_node(ctx.ast, AstRef::new(handler_idx), ctx.lang, ctx.env);
+                ctx.env.pop_scope();
+                return result;
+            }
+            ctx.env.pop_scope();
+        }
+
+        // No clause matched — return the body value as-is.
+        Ok(body_val)
+    }
+
+    /// `json` prim: parse a JSON template string from the node payload.
+    ///
+    /// The payload carries `expr` (a JSON string, optionally with `$0`, `$1`,
+    /// … placeholders) and `args` (an array of arena indices whose evaluated
+    /// values are substituted into the placeholders before parsing). If no
+    /// `args` are present, `expr` is parsed directly.
+    fn prim_json(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
+        let payload = &ctx.current_node.payload;
+        let expr = payload.get("expr")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("json: missing expr string in payload".to_string()))?;
+
+        // If there are args, substitute placeholders $0, $1, … with their
+        // evaluated JSON representations.
+        let final_expr = if let Some(args_arr) = payload.get("args").and_then(|v| v.as_array()) {
+            let mut s = expr.to_string();
+            for (i, arg_entry) in args_arr.iter().enumerate() {
+                // Each arg entry is an arena index referencing a child node.
+                let replacement = if let Some(idx) = arg_entry.as_u64() {
+                    let val = self.eval_node(ctx.ast, AstRef::new(idx as usize), ctx.lang, ctx.env)?;
+                    serde_json::to_string(&val)
+                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?
+                } else {
+                    // Already a literal value — serialize directly.
+                    serde_json::to_string(arg_entry)
+                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?
+                };
+                s = s.replace(&format!("${}", i), &replacement);
+            }
+            s
+        } else {
+            expr.to_string()
+        };
+
+        serde_json::from_str(&final_expr)
+            .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+    }
+
+    /// Interpret a pattern AST node structurally against a scrutinee value.
+    ///
+    /// - `var` node named `_` or `_*` → wildcard (always matches).
+    /// - `var` node with another name → binder (binds name → scrut, always
+    ///   matches).
+    /// - Any other node → literal: evaluate the pattern as a value and
+    ///   compare by equality.
+    ///
+    /// Returns `true` if the pattern matches. Bindings are inserted into
+    /// `env` (the caller is responsible for push/pop scope).
+    fn try_pattern(
+        &self,
+        ast: &Ast,
+        pattern_ref: AstRef,
+        scrut: &Value,
+        lang: &Language,
+        env: &mut ScopeStack,
+    ) -> Result<bool, LangError> {
+        let pattern_node = ast.at(pattern_ref)?;
+        // Check if it's a `var` node (identifier pattern).
+        if pattern_node.kind == "var" {
+            if let Some(name) = pattern_node.payload.as_str() {
+                if name == "_" || name.starts_with('_') {
+                    // Wildcard — always matches, binds nothing.
+                    return Ok(true);
+                }
+                // Binder — always matches, binds name → scrutinee.
+                env.define(name, scrut.clone());
+                return Ok(true);
+            }
+        }
+        // Literal pattern — evaluate and compare by equality.
+        let pat_val = self.eval_node(ast, pattern_ref, lang, env)?;
+        Ok(pat_val == *scrut)
     }
 }
 
