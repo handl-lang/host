@@ -14,35 +14,39 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // token.template) + 3 operator tokens (token.and, token.or,
     // token.percent) + 1 vau keyword token (token.vau) + 3 mood keyword
     // tokens (token.keyword.may, token.keyword.must, token.keyword.when)
-    // + 2 new tokens (token.json, token.ellipsis).
+    // + 2 new tokens (token.json, token.ellipsis) + 1 proc keyword token
+    // (token.keyword.proc).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 62);
+    assert_eq!(lang.tokens.len(), 63);
 
-    // Grammar rows: 54 — one per construct (after excluding the duplicate
+    // Grammar rows: 55 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
     // value literal rules (string, bool, null), 1 pow rule, 4 new operator
     // rules (and.infix, or.infix, mod.infix, neg.prefix), 1 vau prefix
     // rule, 1 is infix rule, 4 mood infix rules (may, must, not.infix,
-    // when), and 2 new rules (json.prefix, ellipsis.prefix).
+    // when), 2 new rules (json.prefix, ellipsis.prefix), and 1 proc prefix
+    // rule (grammar.proc.prefix).
     // grammar.mood.postfix removed (stale placeholder).
-    assert_eq!(lang.grammar.len(), 54);
+    assert_eq!(lang.grammar.len(), 55);
 
-    // Eval schemes: 52 — one per node kind (after excluding the duplicate
+    // Eval schemes: 53 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
     // primitive), plus the `binary.pow` eval scheme, the `vau` eval scheme,
     // 4 new operator eval schemes (binary.and, binary.or, binary.mod,
-    // unary.neg), 1 is eval scheme, and 4 mood eval schemes (may, mood.neg,
-    // must, when). eval.mood removed (stale placeholder).
-    assert_eq!(lang.eval.len(), 52);
+    // unary.neg), 1 is eval scheme, 4 mood eval schemes (may, mood.neg,
+    // must, when), and 1 proc eval scheme (eval.proc).
+    // eval.mood removed (stale placeholder).
+    assert_eq!(lang.eval.len(), 53);
 
-    // AST shapes: 51 — 36 from the `tokens` foundation + 3 unique shapes from
+    // AST shapes: 52 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
     // shape + 4 new operator shapes (binary.and, binary.or, binary.mod,
     // unary.neg) + 1 is shape + 4 mood shapes (may, mood.neg, must, when)
-    // + 2 delimited-block shapes (arm, block) from match/handle parsing.
+    // + 2 delimited-block shapes (arm, block) from match/handle parsing
+    // + 1 proc shape (ast.proc).
     // Duplicates are union (idempotent).
-    assert_eq!(lang.ast.len(), 51);
+    assert_eq!(lang.ast.len(), 52);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -75,8 +79,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 62);
-    assert_eq!(rt.lang().grammar.len(), 54);
+    assert_eq!(rt.lang().tokens.len(), 63);
+    assert_eq!(rt.lang().grammar.len(), 55);
 }
 
 #[test]

@@ -66,6 +66,8 @@
   label: must
 - id: token.keyword.not
   label: not
+- id: token.keyword.proc
+  label: proc
 - id: token.keyword.typeof
   label: typeof
 - id: token.keyword.when

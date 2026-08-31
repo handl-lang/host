@@ -58,6 +58,8 @@
 
 #![warn(missing_docs)]
 
+pub mod v2;
+
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -108,42 +110,55 @@ impl Default for TreeWalkEngine {
 }
 
 /// A scope stack: `Vec<HashMap<String, Value>>` searched innermost-first.
-struct ScopeStack {
-    scopes: Vec<HashMap<String, Value>>,
+///
+/// This type is `pub` so the v2 arrow-calculus handler ([`v2`] module,
+/// ADR-0052) can reuse the *same* scope discipline as the v1 interpreter
+/// rather than duplicating it. This is a visibility-only change — no v1
+/// logic is altered. The `scopes` field stays private; access goes through
+/// the methods below. The v2 handler needs `new`, `lookup`, `define`,
+/// `push_scope`, `pop_scope`, and `capture`, plus direct indexed access to
+/// `scopes[0]` for closure-env swap-in (mirroring v1 `apply_closure`), so
+/// `scopes` is `pub(crate)`.
+pub struct ScopeStack {
+    /// The stack of scopes, innermost last. `pub(crate)` so the v2 handler
+    /// can perform the closure-env swap-in that v1 `apply_closure` does.
+    pub(crate) scopes: Vec<HashMap<String, Value>>,
 }
 
+#[allow(clippy::new_without_default)]
 impl ScopeStack {
-    fn new() -> Self {
+    /// Create a new scope stack with a single empty root scope.
+    pub fn new() -> Self {
         Self {
             scopes: vec![HashMap::new()],
         }
     }
 
     /// Look up a variable, searching innermost scope first.
-    fn lookup(&self, name: &str) -> Option<&Value> {
+    pub fn lookup(&self, name: &str) -> Option<&Value> {
         self.scopes.iter().rev().find_map(|s| s.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
-    fn define(&mut self, name: &str, value: Value) {
+    pub fn define(&mut self, name: &str, value: Value) {
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(name.to_string(), value);
     }
 
     /// Push a new empty scope.
-    fn push_scope(&mut self) {
+    pub fn push_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
 
     /// Pop the innermost scope.
-    fn pop_scope(&mut self) {
+    pub fn pop_scope(&mut self) {
         if self.scopes.len() > 1 {
             self.scopes.pop();
         }
     }
 
     /// Capture all visible variables into a single flat map.
-    fn capture(&self) -> HashMap<String, Value> {
+    pub fn capture(&self) -> HashMap<String, Value> {
         let mut captured = HashMap::new();
         for scope in &self.scopes {
             for (k, v) in scope {

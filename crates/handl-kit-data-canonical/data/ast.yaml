@@ -527,6 +527,19 @@
     required:
     - stages
     type: object
+- id: ast.proc
+  node_kind: proc
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.resolve
   node_kind: resolve
   payload_schema:

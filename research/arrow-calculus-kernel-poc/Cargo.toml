@@ -1,0 +1,48 @@
+[workspace]
+
+[package]
+name = "arrow-calculus-poc"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "recursion"
+path = "src/recursion_tests.rs"
+
+[[bin]]
+name = "higher_order"
+path = "src/higher_order_tests.rs"
+
+[[bin]]
+name = "polymorphic"
+path = "src/polymorphic_tests.rs"
+
+[[bin]]
+name = "type_inference"
+path = "src/type_inference_tests.rs"
+
+[[bin]]
+name = "effects_handlers"
+path = "src/effects_handlers_tests.rs"
+
+[[bin]]
+name = "language_protocol"
+path = "src/language_protocol_tests.rs"
+
+[[bin]]
+name = "effect_typing"
+path = "src/effect_typing_tests.rs"
+
+[[bin]]
+name = "structural_preservation"
+path = "src/structural_preservation_tests.rs"
+
+[[bin]]
+name = "arrow_apply"
+path = "src/arrow_apply_tests.rs"
+
+[dependencies]

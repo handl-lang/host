@@ -44,8 +44,8 @@
 use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_language::{
-    AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
-    OptionSchema, TokenKindDef,
+    AstShapeDef, CapabilityDecl, EvalSchemeDef, EvalSchemeDefV2, GrammarRow, LangError, Language,
+    LexerRuleDef, OptionSchema, TokenKindDef,
 };
 use handl_runtime::RuntimeConfig;
 
@@ -77,6 +77,7 @@ pub const EXCLUDED_FRAGMENT_IDS: &[&str] = &[
 const TOKENS_YAML: &str = include_str!("../data/tokens.yaml");
 const GRAMMAR_YAML: &str = include_str!("../data/grammar.yaml");
 const EVAL_YAML: &str = include_str!("../data/eval.yaml");
+const EVAL_V2_YAML: &str = include_str!("../data/eval_v2.yaml");
 const AST_YAML: &str = include_str!("../data/ast.yaml");
 const CAPS_YAML: &str = include_str!("../data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../data/options.yaml");
@@ -113,6 +114,14 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         .map_err(|e| LangError::Engine(format!("eval.yaml: {}", e)))?;
     for frag in eval {
         lang.eval.merge(frag)?;
+    }
+
+    // v2 eval schemes (ADR-0052, additive — the v2 lowering of eval.yaml,
+    // available for v2 engines without runtime v1->v2 lowering).
+    let eval_v2: Vec<EvalSchemeDefV2> = serde_yaml::from_str(EVAL_V2_YAML)
+        .map_err(|e| LangError::Engine(format!("eval_v2.yaml: {}", e)))?;
+    for frag in eval_v2 {
+        lang.eval_v2.merge(frag)?;
     }
 
     // AST shapes (union — idempotent merge).

@@ -96,11 +96,16 @@
 #![warn(missing_docs)]
 
 mod compile;
+mod compile_v2;
 mod standalone;
 
 pub use compile::{
     CompileMode, CompiledBackend, CompiledFn, CompiledResult, ObjectResult, compile_all_nodes,
     compile_all_nodes_jit, compile_all_nodes_object,
+};
+pub use compile_v2::{
+    CompileModeV2, CompiledFnV2, CompiledResultV2, compile_all_nodes_jit_v2,
+    compile_all_nodes_object_v2, compile_all_nodes_v2,
 };
 
 use std::collections::HashMap;
@@ -309,6 +314,7 @@ fn run_native(
         current_ref: ast.len() - 1,
         modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
         compiled: compiled.clone(),
+        compiled_v2: HashMap::new(),
         literals: literals.to_vec(),
         names: names.to_vec(),
         error: None,
@@ -372,9 +378,16 @@ pub struct EvalCtx {
     current_ref: usize,
     /// The module registry (raw trait-object pointer; may be null).
     modules: Option<*const dyn handl_platform::ModuleLookup>,
-    /// Per-node compiled function pointers, keyed by arena index.
+    /// Per-node compiled v1 function pointers, keyed by arena index.
+    /// Used by v1 helpers ([`helper_eval_child`], [`helper_apply_closure`]).
     compiled: HashMap<usize, compile::CompiledFn>,
-    /// Literal constant pool: values referenced by `Scheme::Lit`.
+    /// Per-node compiled v2 function pointers, keyed by arena index.
+    /// Used by v2 helpers ([`helper_v2_eval_child`],
+    /// [`helper_v2_apply_closure`]). Empty for v1-only evaluation; populated
+    /// by [`CraneliftEngineV2`]. This is an additive field — v1 helpers do
+    /// not read it.
+    compiled_v2: HashMap<usize, compile_v2::CompiledFnV2>,
+    /// Literal constant pool: values referenced by `Scheme::Lit` / `const`.
     literals: Vec<Value>,
     /// Name constant pool: variable names, primitive ops, foreign names.
     names: Vec<String>,
@@ -431,6 +444,7 @@ impl EvalCtx {
             current_ref: if ast.is_empty() { 0 } else { ast.len() - 1 },
             modules: None,
             compiled,
+            compiled_v2: HashMap::new(),
             literals,
             names,
             error: None,
@@ -1190,6 +1204,42 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangErr
             .error
             .take()
             .unwrap_or_else(|| LangError::Engine("eval_child_node: null result".to_string())));
+    }
+    Ok(unsafe { take_value(result_ptr) })
+}
+
+/// Evaluate a child node by arena index from within a v2 Rust helper (e.g.
+/// `apply_native_v2` for the `array`/`object` node-aware ops).
+///
+/// Looks up the pre-compiled v2 native function for the node, saves/restores
+/// `current_ref`, calls the function with a boxed `Null` incoming (fresh
+/// computation — these ops do not feed an incoming value to children), and
+/// reclaims the boxed result. Returns the evaluated [`Value`] or sets
+/// `ctx.error` and returns `Err`.
+fn eval_child_node_v2(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangError> {
+    let func = match ctx.compiled_v2.get(&arena_idx).copied() {
+        Some(f) => f,
+        None => {
+            return Err(LangError::Engine(format!(
+                "no compiled v2 function for node {}",
+                arena_idx
+            )))
+        }
+    };
+    let saved_ref = ctx.current_ref;
+    ctx.current_ref = arena_idx;
+    let null_incoming = unsafe { box_value(Value::Null) };
+    let result_ptr = unsafe {
+        func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value
+    };
+    ctx.current_ref = saved_ref;
+    if result_ptr.is_null() {
+        return Err(ctx
+            .error
+            .take()
+            .unwrap_or_else(|| {
+                LangError::Engine("eval_child_node_v2: null result".to_string())
+            }));
     }
     Ok(unsafe { take_value(result_ptr) })
 }
@@ -2029,6 +2079,1352 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
     fn box_clone(&self) -> Box<dyn handl_runtime::CompileEngine> {
         Box::new(self.clone())
     }
+}
+
+// ---------------------------------------------------------------------------
+// V2 helpers (extern "C", called from v2 native code)
+// ---------------------------------------------------------------------------
+//
+// These are separate from the v1 helpers (`helper_*`) to keep v1 completely
+// untouched. Where a v2 helper is identical to a v1 helper, it delegates to
+// the v1 implementation internally. V2-specific behavior (load_var returning
+// the name as a string when unbound, eval_child passing the incoming value,
+// apply_native with the v2 op set, pair/Either construction) is implemented
+// fresh.
+
+/// Push a literal value (from the constant pool) as a boxed clone.
+///
+/// Delegates to the v1 [`helper_push_literal`] (identical behavior).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_push_literal(
+    ctx: *mut EvalCtx,
+    lit_idx: usize,
+) -> *mut Value {
+    unsafe { helper_push_literal(ctx, lit_idx) }
+}
+
+/// Load a variable by name index from the scope stack.
+///
+/// Unlike the v1 [`helper_load_var`], an unbound variable returns the name as
+/// a string value (matching the v2 tree-walk convention), not an error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_load_var(
+    ctx: *mut EvalCtx,
+    name_idx: usize,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "name index {} out of bounds",
+                name_idx
+            )));
+        }
+        let name = &ctx.names[name_idx];
+        match ctx.env.lookup(name) {
+            Some(v) => box_value(v.clone()),
+            None => box_value(Value::from(name.as_str())),
+        }
+    }
+}
+
+/// Load the payload variable: reads `node.payload` as a string (the variable
+/// name) and looks it up in the scope.
+///
+/// Unlike the v1 [`helper_load_payload_var`], an unbound variable returns the
+/// name as a string value (matching the v2 tree-walk convention).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        match ctx.current_node() {
+            Ok(node) => match node.payload.as_str() {
+                Some(var_name) => match ctx.env.lookup(var_name) {
+                    Some(v) => box_value(v.clone()),
+                    None => box_value(Value::from(var_name)),
+                },
+                None => ctx.set_error(LangError::Engine(
+                    "expected string payload for $payload var".to_string(),
+                )),
+            },
+            Err(e) => ctx.set_error(e),
+        }
+    }
+}
+
+/// Load the current node's payload directly (no-scheme fallback).
+///
+/// Delegates to the v1 [`helper_load_payload`] (identical behavior).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_load_payload(ctx: *mut EvalCtx) -> *mut Value {
+    unsafe { helper_load_payload(ctx) }
+}
+
+/// Evaluate the nth child of the current node, passing the incoming value.
+///
+/// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
+/// calls the child's pre-compiled v2 native function with `incoming` as the
+/// second parameter. This is the v2 counterpart of [`helper_eval_child`]: the
+/// child's v2 function receives the incoming value flowing through the arrow.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_eval_child(
+    ctx: *mut EvalCtx,
+    child_n: usize,
+    incoming: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        let node = match ctx.current_node() {
+            Ok(n) => n,
+            Err(e) => return ctx.set_error(e),
+        };
+        let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(arr) => arr,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "expected children array in payload".to_string(),
+                ));
+            }
+        };
+        let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(format!("child {} not found", child_n)));
+            }
+        };
+        let func = match ctx.compiled_v2.get(&arena_idx).copied() {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::Engine(format!(
+                    "no compiled v2 function for node {}",
+                    arena_idx
+                )));
+            }
+        };
+        let saved_ref = ctx.current_ref;
+        ctx.current_ref = arena_idx;
+        let result = func(
+            ctx as *mut EvalCtx as *mut u8,
+            incoming as *mut u8,
+        ) as *mut Value;
+        ctx.current_ref = saved_ref;
+        result
+    }
+}
+
+/// Extend the environment: push a new scope, bind the name (by index) to the
+/// incoming value, and return a boxed clone of the incoming value so it flows
+/// through to the next combinator in a `Seq`.
+///
+/// This is the v2 `extend_env` op. The scope is popped by the enclosing `Seq`
+/// (or by the top-level eval if bare).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_extend_env(
+    ctx: *mut EvalCtx,
+    name_idx: usize,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if name_idx >= ctx.names.len() {
+            if !val.is_null() {
+                let _ = take_value(val);
+            }
+            return ctx.set_error(LangError::Engine(format!(
+                "name index {} out of bounds",
+                name_idx
+            )));
+        }
+        let name = ctx.names[name_idx].clone();
+        if val.is_null() {
+            return ctx.set_error(LangError::Engine(
+                "extend_env: incoming value is null".to_string(),
+            ));
+        }
+        let value = take_value(val);
+        ctx.env.push_scope();
+        ctx.env.define(&name, value.clone());
+        box_value(value)
+    }
+}
+
+/// Extend the environment with a `$payload` name: reads
+/// `node.payload["name"]` as the bind name, pushes a scope, binds the incoming
+/// value, and returns a boxed clone of the incoming value.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_extend_env_payload(
+    ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        let node = match ctx.current_node() {
+            Ok(n) => n,
+            Err(e) => {
+                if !val.is_null() {
+                    let _ = take_value(val);
+                }
+                return ctx.set_error(e);
+            }
+        };
+        let bind_name = match node.payload.get("name").and_then(|v| v.as_str()) {
+            Some(s) => s.to_string(),
+            None => {
+                if !val.is_null() {
+                    let _ = take_value(val);
+                }
+                return ctx.set_error(LangError::Engine(
+                    "expected name in payload for $payload extend_env".to_string(),
+                ));
+            }
+        };
+        if val.is_null() {
+            return ctx.set_error(LangError::Engine(
+                "extend_env: incoming value is null".to_string(),
+            ));
+        }
+        let value = take_value(val);
+        ctx.env.push_scope();
+        ctx.env.define(&bind_name, value.clone());
+        box_value(value)
+    }
+}
+
+/// Pop the innermost scope.
+///
+/// Delegates to the v1 [`helper_pop_scope`] (identical behavior).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_pop_scope(ctx: *mut EvalCtx) {
+    unsafe { helper_pop_scope(ctx) }
+}
+
+/// Reclaim a boxed [`Value`] pointer, freeing the allocation.
+///
+/// Delegates to the v1 [`helper_drop_value`] (identical behavior).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_drop_value(val: *mut Value) {
+    unsafe { helper_drop_value(val) }
+}
+
+/// Apply a closure value (or host function) to argument values.
+///
+/// The callee and all argument value pointers are consumed (reclaimed). This
+/// mirrors the v1 [`helper_apply_closure`] but calls the child's v2 compiled
+/// function (which takes an incoming value parameter). For closure bodies, the
+/// incoming value is a boxed `Null` (closure bodies are evaluated as fresh
+/// computations). For host-function string callees, dispatches to the module
+/// registry.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_apply_closure(
+    ctx: *mut EvalCtx,
+    callee: *mut Value,
+    args: *const *mut Value,
+    n: usize,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if callee.is_null() {
+            return ctx.set_error(LangError::Engine("closure callee is null".to_string()));
+        }
+        let closure_val = take_value(callee);
+
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(arg_ptr));
+        }
+
+        // Host-function dispatch: a string callee naming a registered host fn.
+        if let Some(name) = closure_val.as_str()
+            && let Some(modules_ptr) = ctx.modules
+        {
+            let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
+            if let Some(func) = modules.lookup(name) {
+                let mut pctx = handl_platform::EvalContext::new();
+                return match func.call(&arg_vals, &mut pctx) {
+                    Ok(v) => box_value(v),
+                    Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
+                };
+            }
+        }
+
+        // Closure application.
+        let obj = match closure_val.as_object() {
+            Some(o) => o,
+            None => return ctx.set_error(LangError::Engine("callee is not a closure".to_string())),
+        };
+        if !obj
+            .get("__closure__")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return ctx.set_error(LangError::Engine("callee is not a closure".to_string()));
+        }
+
+        let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
+            Some(arr) => {
+                let mut params = Vec::with_capacity(arr.len());
+                for v in arr {
+                    match v.as_str() {
+                        Some(s) => params.push(s.to_string()),
+                        None => {
+                            return ctx.set_error(LangError::Engine(
+                                "closure param is not a string".to_string(),
+                            ));
+                        }
+                    }
+                }
+                params
+            }
+            None => return ctx.set_error(LangError::Engine("closure missing params".to_string())),
+        };
+
+        let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return ctx.set_error(LangError::Engine("closure missing body".to_string())),
+        };
+
+        let captured_env: HashMap<String, Value> = obj
+            .get("env")
+            .and_then(|v| v.as_object())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+
+        if params.len() != arg_vals.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "closure expects {} args, got {}",
+                params.len(),
+                arg_vals.len()
+            )));
+        }
+
+        let func = match ctx.compiled_v2.get(&body_idx).copied() {
+            Some(f) => f,
+            None => {
+                return ctx.set_error(LangError::Engine(format!(
+                    "no compiled v2 function for closure body {}",
+                    body_idx
+                )));
+            }
+        };
+
+        // Swap in the captured env + new scope with params.
+        let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
+        ctx.env.scopes[0] = captured_env;
+        ctx.env.push_scope();
+        for (param, arg) in params.iter().zip(arg_vals.iter()) {
+            ctx.env.define(param, arg.clone());
+        }
+
+        let saved_ref = ctx.current_ref;
+        ctx.current_ref = body_idx;
+
+        // Closure bodies receive a boxed Null as incoming (fresh computation).
+        let null_incoming = box_value(Value::Null);
+        let result = func(
+            ctx as *mut EvalCtx as *mut u8,
+            null_incoming as *mut u8,
+        ) as *mut Value;
+        // Reclaim the null incoming if it wasn't consumed.
+        // The body function returns a boxed result; the null incoming leaks
+        // if not consumed — acceptable per the v1 safety model.
+
+        ctx.current_ref = saved_ref;
+        ctx.env = saved_env;
+
+        result
+    }
+}
+
+/// Call a foreign (host) function (by name index).
+///
+/// Delegates to the v1 [`helper_call_foreign`] logic (identical behavior —
+/// foreign dispatch does not use the incoming value).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_call_foreign(
+    ctx: *mut EvalCtx,
+    name_idx: usize,
+    args: *const *mut Value,
+    n: usize,
+) -> *mut Value {
+    unsafe { helper_call_foreign(ctx, name_idx, args, n) }
+}
+
+/// Construct a pair value `{"__pair__": [a, b]}` from two value pointers.
+///
+/// Both input pointers are consumed (reclaimed).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_pair(
+    _ctx: *mut EvalCtx,
+    a: *mut Value,
+    b: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let a_val = if a.is_null() { Value::Null } else { take_value(a) };
+        let b_val = if b.is_null() { Value::Null } else { take_value(b) };
+        box_value(serde_json::json!({"__pair__": [a_val, b_val]}))
+    }
+}
+
+/// Extract the first component of a pair value.
+///
+/// The input pointer is consumed (reclaimed). Returns a boxed clone of the
+/// first component. If the input is not a pair, sets an error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_unpair_fst(
+    ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if val.is_null() {
+            return ctx.set_error(LangError::Engine("unpair_fst: null input".to_string()));
+        }
+        let v = take_value(val);
+        match v.get("__pair__").and_then(|p| p.as_array()).and_then(|arr| arr.first()) {
+            Some(fst) => box_value(fst.clone()),
+            None => ctx.set_error(LangError::Engine("unpair_fst: input is not a pair".to_string())),
+        }
+    }
+}
+
+/// Extract the second component of a pair value.
+///
+/// The input pointer is consumed (reclaimed). Returns a boxed clone of the
+/// second component. If the input is not a pair, sets an error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_unpair_snd(
+    ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if val.is_null() {
+            return ctx.set_error(LangError::Engine("unpair_snd: null input".to_string()));
+        }
+        let v = take_value(val);
+        match v.get("__pair__").and_then(|p| p.as_array()).and_then(|arr| arr.get(1)) {
+            Some(snd) => box_value(snd.clone()),
+            None => ctx.set_error(LangError::Engine("unpair_snd: input is not a pair".to_string())),
+        }
+    }
+}
+
+/// Construct a `left` Either value `{"__either__": "left", "value": v}`.
+///
+/// The input pointer is consumed (reclaimed).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_either_left(
+    _ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let v = if val.is_null() { Value::Null } else { take_value(val) };
+        box_value(serde_json::json!({"__either__": "left", "value": v}))
+    }
+}
+
+/// Construct a `right` Either value `{"__either__": "right", "value": v}`.
+///
+/// The input pointer is consumed (reclaimed).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_either_right(
+    _ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let v = if val.is_null() { Value::Null } else { take_value(val) };
+        box_value(serde_json::json!({"__either__": "right", "value": v}))
+    }
+}
+
+/// Check whether a value is a `left` Either.
+///
+/// Returns 1 if the value is `{"__either__": "left", ...}`, 0 otherwise. The
+/// input pointer is NOT consumed (it is read-only).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_either_is_left(
+    _ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> u8 {
+    unsafe {
+        if val.is_null() {
+            return 0;
+        }
+        let v = &*val;
+        if v.get("__either__").and_then(|s| s.as_str()) == Some("left") {
+            1
+        } else {
+            0
+        }
+    }
+}
+
+/// Extract the carried value from an Either.
+///
+/// The input pointer is consumed (reclaimed). Returns a boxed clone of the
+/// carried value. If the input is not an Either, sets an error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_either_value(
+    ctx: *mut EvalCtx,
+    val: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if val.is_null() {
+            return ctx.set_error(LangError::Engine("either_value: null input".to_string()));
+        }
+        let v = take_value(val);
+        match v.get("value") {
+            Some(inner) => box_value(inner.clone()),
+            None => ctx.set_error(LangError::Engine(
+                "either_value: input is not an Either".to_string(),
+            )),
+        }
+    }
+}
+
+/// Apply a v2 native op (by name index) to argument values, with the incoming
+/// value as a separate parameter.
+///
+/// All argument value pointers are consumed (reclaimed). The incoming pointer
+/// is NOT consumed (it is cloned by the ops that use it). The native op set
+/// matches the v2 tree-walk exactly: arithmetic, comparison, logic, `id`,
+/// `tag`, `closure`, and utility ops (`is_pos`/`dec`/`inc`/`half_floor`/
+/// `inc_fst`/`countdown_step`/`infinite_step`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_apply_native(
+    ctx: *mut EvalCtx,
+    op_idx: usize,
+    args: *const *mut Value,
+    n: usize,
+    incoming: *mut Value,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if op_idx >= ctx.names.len() {
+            for i in 0..n {
+                let p = *args.add(i);
+                if !p.is_null() {
+                    let _ = take_value(p);
+                }
+            }
+            return ctx.set_error(LangError::Engine(format!(
+                "op index {} out of bounds",
+                op_idx
+            )));
+        }
+        let op = ctx.names[op_idx].clone();
+
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(arg_ptr));
+        }
+
+        // Read the incoming value (read-only — do not consume the pointer).
+        let incoming_val = if incoming.is_null() {
+            None
+        } else {
+            Some((*incoming).clone())
+        };
+
+        apply_native_v2(ctx, &op, &arg_vals, incoming_val)
+    }
+}
+
+/// Inspect a `Loop` body result and return a tag indicating the loop action.
+///
+/// Returns:
+/// - `0` if the result is an Either **left** (terminate with the carried
+///   value).
+/// - `1` if the result is an Either **right** (loop back with the new state).
+/// - `2` if the result is a pair (single-step mode — terminate with `fst`).
+///
+/// The input pointer is NOT consumed (the caller uses it to extract the
+/// carried value / new state / fst after the tag is checked).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_loop_check(
+    ctx: *mut EvalCtx,
+    result: *mut Value,
+) -> u8 {
+    unsafe {
+        let ctx = &mut *ctx;
+        if result.is_null() {
+            ctx.set_error(LangError::Engine("loop_check: null result".to_string()));
+            return 2; // arbitrary — error is set
+        }
+        let v = &*result;
+        if v.get("__either__").and_then(|s| s.as_str()) == Some("left") {
+            0
+        } else if v.get("__either__").and_then(|s| s.as_str()) == Some("right") {
+            1
+        } else if v.get("__pair__").is_some() {
+            2
+        } else {
+            ctx.set_error(LangError::Engine(
+                "Loop: body did not return a pair or Either".to_string(),
+            ));
+            2
+        }
+    }
+}
+
+/// Resolve closure params and body from the current node's payload.
+///
+/// Mirrors the v2 tree-walk's `closure` op: reads `params`/`body` from the
+/// payload (rich shape), or falls back to the `children` array (Pratt-parsed
+/// shape). Returns `(params_as_values, body_arena_index)`.
+fn resolve_closure_params_body(
+    ctx: &mut EvalCtx,
+) -> Result<(Vec<Value>, usize), LangError> {
+    let node = ctx.current_node()?;
+    let payload = &node.payload;
+    if let (Some(p), Some(b)) = (
+        payload.get("params").and_then(|v| v.as_array()),
+        payload.get("body").and_then(|v| v.as_u64()),
+    ) {
+        return Ok((p.clone(), b as usize));
+    }
+    let children = payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .ok_or_else(|| LangError::Engine("closure: missing params/body in payload".to_string()))?;
+    let param_idx = children
+        .first()
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| LangError::Engine("closure: missing param child".to_string()))?
+        as usize;
+    let body_idx = children
+        .get(1)
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| LangError::Engine("closure: missing body child".to_string()))?
+        as usize;
+    let ast = unsafe { &*ctx.ast };
+    let param_node = ast.at(AstRef::new(param_idx))?;
+    let param_names: Vec<String> = if param_node.kind == "paren" {
+        let paren_children = param_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("closure: paren params missing children".to_string())
+            })?;
+        let mut names = Vec::with_capacity(paren_children.len());
+        for pc in paren_children {
+            let pidx = pc
+                .as_u64()
+                .ok_or_else(|| {
+                    LangError::Engine("closure: param index must be a number".to_string())
+                })?
+                as usize;
+            let pnode = ast.at(AstRef::new(pidx))?;
+            let pname = pnode.payload.as_str().ok_or_else(|| {
+                LangError::Engine(
+                    "closure: param must be a var with string payload".to_string(),
+                )
+            })?;
+            names.push(pname.to_string());
+        }
+        names
+    } else {
+        let pname = param_node.payload.as_str().ok_or_else(|| {
+            LangError::Engine(
+                "closure: param node must be a var with string payload".to_string(),
+            )
+        })?;
+        vec![pname.to_string()]
+    };
+    Ok((
+        param_names.into_iter().map(Value::from).collect(),
+        body_idx,
+    ))
+}
+
+/// v2 `array` prim: construct an array value from the current node's payload.
+///
+/// Two payload shapes (mirrors v1 `array` prim):
+/// - Rich: `{"elements": [v1, v2, ...]}` — literal values, returned as-is.
+/// - Pratt-parsed: `{"children": [elem_idx, ...]}` — each element is an arena
+///   index evaluated via [`eval_child_node_v2`].
+fn prim_v2_array(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    if let Some(elements) = node.payload.get("elements") {
+        return unsafe { box_value(elements.clone()) };
+    }
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "array: missing elements/children in payload".to_string(),
+            ))
+        }
+    };
+    // Collect indices first to release the immutable borrow of `ctx` before
+    // the mutable `eval_child_node_v2` calls.
+    let indices: Vec<usize> = match children
+        .iter()
+        .map(|c| c.as_u64().map(|i| i as usize))
+        .collect::<Option<Vec<_>>>()
+    {
+        Some(v) => v,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "array: element index must be a number".to_string(),
+            ))
+        }
+    };
+    let mut result = Vec::with_capacity(indices.len());
+    for idx in indices {
+        match eval_child_node_v2(ctx, idx) {
+            Ok(v) => result.push(v),
+            Err(e) => return ctx.set_error(e),
+        }
+    }
+    unsafe { box_value(Value::Array(result)) }
+}
+
+/// v2 `object` prim: construct an object value from the current node's payload.
+///
+/// Two payload shapes (mirrors v1 `object` prim):
+/// - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
+/// - Pratt-parsed: `{"children": [entry_idx, ...]}` where each entry node has
+///   `{"children": [key_idx, value_idx]}`.
+fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    if let Some(entries) = node.payload.get("entries").and_then(|v| v.as_array()) {
+        let mut obj = serde_json::Map::new();
+        for entry in entries {
+            let key = match entry.get("key").and_then(|v| v.as_str()) {
+                Some(k) => k.to_string(),
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "object: entry missing key".to_string(),
+                    ))
+                }
+            };
+            let value = match entry.get("value") {
+                Some(v) => v.clone(),
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "object: entry missing value".to_string(),
+                    ))
+                }
+            };
+            obj.insert(key, value);
+        }
+        return unsafe { box_value(Value::Object(obj)) };
+    }
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "object: missing entries/children in payload".to_string(),
+            ))
+        }
+    };
+    // Collect entry indices, then for each entry collect (key_idx, val_idx),
+    // releasing borrows before evaluating children.
+    let entry_indices: Vec<usize> = match children
+        .iter()
+        .map(|c| c.as_u64().map(|i| i as usize))
+        .collect::<Option<Vec<_>>>()
+    {
+        Some(v) => v,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "object: entry index must be a number".to_string(),
+            ))
+        }
+    };
+    let ast = unsafe { &*ctx.ast };
+    let mut pairs: Vec<(usize, usize)> = Vec::with_capacity(entry_indices.len());
+    for entry_idx in &entry_indices {
+        let entry_node = match ast.at(AstRef::new(*entry_idx)) {
+            Ok(n) => n,
+            Err(e) => return ctx.set_error(e),
+        };
+        let entry_children = match entry_node.payload.get("children").and_then(|c| c.as_array())
+        {
+            Some(c) => c,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "object: entry node missing children".to_string(),
+                ))
+            }
+        };
+        let key_idx = match entry_children.first().and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "object: entry missing key child".to_string(),
+                ))
+            }
+        };
+        let val_idx = match entry_children.get(1).and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "object: entry missing value child".to_string(),
+                ))
+            }
+        };
+        pairs.push((key_idx, val_idx));
+    }
+    let mut obj = serde_json::Map::new();
+    for (key_idx, val_idx) in pairs {
+        let key_val = match eval_child_node_v2(ctx, key_idx) {
+            Ok(v) => v,
+            Err(e) => return ctx.set_error(e),
+        };
+        let key = match key_val.as_str() {
+            Some(k) => k.to_string(),
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "object: entry key must evaluate to a string".to_string(),
+                ))
+            }
+        };
+        let value = match eval_child_node_v2(ctx, val_idx) {
+            Ok(v) => v,
+            Err(e) => return ctx.set_error(e),
+        };
+        obj.insert(key, value);
+    }
+    unsafe { box_value(Value::Object(obj)) }
+}
+
+/// v2 `index` prim: index into an array or object using pre-evaluated
+/// `target` and `index` values from the current node's payload.
+///
+/// - `(Array, Number)` → `arr[i]`.
+/// - `(Object, String)` → `obj[key]`.
+fn prim_v2_index(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    let target = match node.payload.get("target") {
+        Some(t) => t,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "index: missing target in payload".to_string(),
+            ))
+        }
+    };
+    let index = match node.payload.get("index") {
+        Some(i) => i,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "index: missing index in payload".to_string(),
+            ))
+        }
+    };
+    let result = match (target, index) {
+        (Value::Array(arr), Value::Number(n)) => {
+            let i = match n.as_u64() {
+                Some(i) => i as usize,
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "index: index must be a non-negative integer".to_string(),
+                    ))
+                }
+            };
+            match arr.get(i).cloned() {
+                Some(v) => Ok(v),
+                None => Err(LangError::Engine(format!(
+                    "index: index {} out of bounds",
+                    i
+                ))),
+            }
+        }
+        (Value::Object(obj), Value::String(key)) => match obj.get(key).cloned() {
+            Some(v) => Ok(v),
+            None => Err(LangError::Engine(format!(
+                "index: key '{}' not found",
+                key
+            ))),
+        },
+        _ => Err(LangError::Engine(
+            "index: target must be array/object and index must be number/string".to_string(),
+        )),
+    };
+    match result {
+        Ok(v) => unsafe { box_value(v) },
+        Err(e) => ctx.set_error(e),
+    }
+}
+
+/// v2 `assign` prim: return the assigned value from the current node's payload.
+fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    match node.payload.get("value") {
+        Some(v) => unsafe { box_value(v.clone()) },
+        None => ctx.set_error(LangError::Engine(
+            "assign: missing value in payload".to_string(),
+        )),
+    }
+}
+
+/// Apply a v2 native op (shared logic). Mirrors the v2 tree-walk's
+/// `apply_native` exactly.
+fn apply_native_v2(
+    ctx: &mut EvalCtx,
+    op: &str,
+    args: &[Value],
+    incoming: Option<Value>,
+) -> *mut Value {
+    let result = match op {
+        "id" => Ok(incoming
+            .or_else(|| args.first().cloned())
+            .unwrap_or(Value::Null)),
+        "tag" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(Value::Null);
+            if is_truthy(&v) {
+                Ok(serde_json::json!({"__either__": "left", "value": v}))
+            } else {
+                Ok(serde_json::json!({"__either__": "right", "value": v}))
+            }
+        }
+        "closure" => {
+            match resolve_closure_params_body(ctx) {
+                Ok((params, body)) => {
+                    let captured = ctx.env.capture();
+                    Ok(serde_json::json!({
+                        "__closure__": true,
+                        "params": params,
+                        "body": body,
+                        "env": captured,
+                    }))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "array" => {
+            // Two payload shapes (mirrors v1 `array` prim):
+            // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
+            // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
+            //   element is an arena index to evaluate.
+            return prim_v2_array(ctx);
+        }
+        "object" => {
+            // Two payload shapes (mirrors v1 `object` prim):
+            // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
+            // - Pratt-parsed: `{"children": [entry_idx, ...]}` where each
+            //   entry node has `{"children": [key_idx, value_idx]}`.
+            return prim_v2_object(ctx);
+        }
+        "index" => {
+            return prim_v2_index(ctx);
+        }
+        "assign" => {
+            return prim_v2_assign(ctx);
+        }
+        "add" => bin_num_v2(args, |a, b| a + b),
+        "sub" => bin_num_v2(args, |a, b| a - b),
+        "mul" => bin_num_v2(args, |a, b| a * b),
+        "div" => {
+            let a = as_num(&args[0]);
+            let b = as_num(&args[1]);
+            match (a, b) {
+                (Ok(a), Ok(b)) => {
+                    if b.to_f64() == 0.0 {
+                        Err(LangError::Engine("division by zero".to_string()))
+                    } else {
+                        Ok(num_value(a / b))
+                    }
+                }
+                (Err(e), _) | (_, Err(e)) => Err(e),
+            }
+        }
+        "mod" => {
+            let a = as_num(&args[0]);
+            let b = as_num(&args[1]);
+            match (a, b) {
+                (Ok(a), Ok(b)) => {
+                    if b.to_f64() == 0.0 {
+                        Err(LangError::Engine("modulo by zero".to_string()))
+                    } else {
+                        Ok(num_value(match (a, b) {
+                            (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
+                            (a, b) => Num::Float(a.to_f64() % b.to_f64()),
+                        }))
+                    }
+                }
+                (Err(e), _) | (_, Err(e)) => Err(e),
+            }
+        }
+        "neg" => {
+            match as_num(&args[0]).map(|a| match a {
+                Num::Int(i) => num_value(Num::Int(-i)),
+                Num::Float(f) => num_value(Num::Float(-f)),
+            }) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "eq" => Ok(Value::Bool(args[0] == args[1])),
+        "neq" => Ok(Value::Bool(args[0] != args[1])),
+        "lt" => cmp_num_v2(args, |a, b| a < b),
+        "gt" => cmp_num_v2(args, |a, b| a > b),
+        "lte" => cmp_num_v2(args, |a, b| a <= b),
+        "gte" => cmp_num_v2(args, |a, b| a >= b),
+        "pow" => {
+            let a = match as_num(&args[0]) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            let b = match as_num(&args[1]) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            Ok(num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
+        }
+        "compare" => {
+            let a = match as_num(&args[0]) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            let b = match as_num(&args[1]) {
+                Ok(v) => v,
+                Err(e) => return ctx.set_error(e),
+            };
+            match a.to_f64().partial_cmp(&b.to_f64()) {
+                Some(cmp) => Ok(num_value(Num::Int(match cmp {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
+                }))),
+                None => Err(LangError::Engine(
+                    "compare: incomparable values".to_string(),
+                )),
+            }
+        }
+        "typeof" => {
+            let type_name = match &args[0] {
+                Value::Null => "null",
+                Value::Bool(_) => "bool",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            };
+            Ok(Value::from(type_name))
+        }
+        "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
+        "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
+        "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "is_pos" => {
+            let v = incoming.unwrap_or(Value::Null);
+            match as_num(&v).map(|n| Value::Bool(n > Num::Int(0))) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "dec" => {
+            let v = incoming.unwrap_or(Value::Null);
+            match as_num(&v).map(|n| num_value(n - Num::Int(1))) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "inc" => {
+            let v = incoming.unwrap_or(Value::Null);
+            match as_num(&v).map(|n| num_value(n + Num::Int(1))) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "half_floor" => {
+            let v = incoming.unwrap_or(Value::Null);
+            match as_num(&v).map(|n| match n {
+                Num::Int(i) => num_value(Num::Int(i / 2)),
+                Num::Float(f) => num_value(Num::Float((f / 2.0).floor())),
+            }) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
+            }
+        }
+        "inc_fst" => {
+            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+            let pair_arr = inc.get("__pair__").and_then(|p| p.as_array());
+            let a = pair_arr.and_then(|arr| arr.first()).cloned();
+            let b = pair_arr.and_then(|arr| arr.get(1)).cloned();
+            match (a, b) {
+                (Some(a), Some(b)) => match as_num(&a).map(|a_n| {
+                    let new_a = num_value(a_n + Num::Int(1));
+                    serde_json::json!({"__pair__": [new_a, b]})
+                }) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(e),
+                },
+                _ => Err(LangError::Engine("inc_fst: input is not a pair".to_string())),
+            }
+        }
+        "countdown_step" => {
+            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+            let outer_arr = inc.get("__pair__").and_then(|p| p.as_array());
+            let a = outer_arr.and_then(|arr| arr.first()).cloned();
+            let b = outer_arr.and_then(|arr| arr.get(1)).cloned().unwrap_or(Value::Null);
+            let inner_arr = a.as_ref().and_then(|v| v.get("__pair__")).and_then(|p| p.as_array());
+            let result_val = inner_arr.and_then(|arr| arr.first()).cloned();
+            let initial = inner_arr.and_then(|arr| arr.get(1)).cloned().unwrap_or(Value::Null);
+            match result_val {
+                Some(result_val) => {
+                    let state = if b.is_null() { initial } else { b };
+                    match as_num(&state).map(|n| {
+                        if n > Num::Int(0) {
+                            serde_json::json!({"__either__": "right", "value": num_value(n - Num::Int(1))})
+                        } else {
+                            serde_json::json!({"__either__": "left", "value": result_val})
+                        }
+                    }) {
+                        Ok(v) => Ok(v),
+                        Err(e) => Err(e),
+                    }
+                }
+                None => Err(LangError::Engine(
+                    "countdown_step: in must be pair(result, initial)".to_string(),
+                )),
+            }
+        }
+        "infinite_step" => {
+            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+            let b = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|arr| arr.get(1))
+                .cloned()
+                .unwrap_or(Value::Null);
+            Ok(serde_json::json!({"__either__": "right", "value": b}))
+        }
+        _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
+    };
+
+    match result {
+        Ok(v) => unsafe { box_value(v) },
+        Err(e) => ctx.set_error(e),
+    }
+}
+
+/// Binary numeric op helper (v2). Preserves int-int arithmetic.
+fn bin_num_v2<F>(args: &[Value], f: F) -> Result<Value, LangError>
+where
+    F: FnOnce(Num, Num) -> Num,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    Ok(num_value(f(a, b)))
+}
+
+/// Numeric comparison helper (v2).
+fn cmp_num_v2<F>(args: &[Value], f: F) -> Result<Value, LangError>
+where
+    F: FnOnce(Num, Num) -> bool,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    Ok(Value::Bool(f(a, b)))
+}
+
+// ---------------------------------------------------------------------------
+// CraneliftEngineV2
+// ---------------------------------------------------------------------------
+
+/// The v2 cranelift eval engine (ADR-0052 Phase B).
+///
+/// Compiles `SchemeV2` data (lowered from v1 `Scheme` at compile time) to
+/// native code via cranelift and executes via an in-memory JIT. This is the v2
+/// counterpart of [`CraneliftEngine`]. Construct with
+/// [`CraneliftEngineV2::new`] and optionally pass a module registry via
+/// [`CraneliftEngineV2::with_modules`].
+///
+/// The engine checks `lang.scheme_version` against [`SchemeVersion::v2()`]
+/// and accepts both v1 and v2 languages (v2 is backward-compatible with v1).
+#[derive(Clone)]
+pub struct CraneliftEngineV2 {
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+}
+
+impl CraneliftEngineV2 {
+    /// Create a new v2 cranelift engine with no module registry.
+    pub fn new() -> Self {
+        Self { modules: None }
+    }
+
+    /// Attach a module registry (builder style).
+    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        Self {
+            modules: Some(modules),
+        }
+    }
+
+    /// Run a pre-compiled v2 [`CompiledResultV2`] against `lang` and `ast`.
+    ///
+    /// This is the execution half of `compile` + `run`: a [`CompiledResultV2`]
+    /// produced by [`compile_all_nodes_jit_v2`] is executed without
+    /// recompiling. The `lang` and `ast` must be the same values used to
+    /// produce `result`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on evaluation failure (deferred native error,
+    /// null return, missing root function).
+    pub fn run_compiled(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        result: &CompiledResultV2,
+    ) -> Result<Value, LangError> {
+        if ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        run_native_v2(
+            lang,
+            ast,
+            &result.compiled,
+            &result.literals,
+            &result.names,
+            self.modules.as_ref(),
+        )
+    }
+}
+
+impl Default for CraneliftEngineV2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EvalEngine for CraneliftEngineV2 {
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
+        let ast = &req.ast;
+        if ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        // Scheme version check — v2 engine supports v1 and v2.
+        if !SchemeVersion::v2().supports(&lang.scheme_version) {
+            return Err(LangError::Engine(format!(
+                "unsupported scheme version: {} (v2 engine supports v1 and v2)",
+                lang.scheme_version
+            )));
+        }
+
+        let compile_result = compile_all_nodes_jit_v2(lang, ast)?;
+        run_native_v2(
+            lang,
+            ast,
+            &compile_result.compiled,
+            &compile_result.literals,
+            &compile_result.names,
+            self.modules.as_ref(),
+        )
+    }
+
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
+        Box::new(CraneliftEngineV2::with_modules(modules))
+    }
+}
+
+/// Execute pre-compiled v2 native functions against `lang` and `ast`.
+///
+/// Builds an [`EvalCtx`] from the compiled v2 function-pointer map and
+/// constant pools, then calls the root node's v2 native function with a boxed
+/// `Null` as the incoming value. Shared by [`CraneliftEngineV2::eval`] (after
+/// compilation) and [`CraneliftEngineV2::run_compiled`].
+///
+/// # Safety
+///
+/// The function pointers in `compiled` must point to valid v2 native code that
+/// remains alive for the duration of this call.
+fn run_native_v2(
+    lang: &Language,
+    ast: &Ast,
+    compiled: &HashMap<usize, CompiledFnV2>,
+    literals: &[Value],
+    names: &[String],
+    modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
+) -> Result<Value, LangError> {
+    let mut ctx = EvalCtx {
+        lang: lang as *const Language,
+        ast: ast as *const Ast,
+        env: ScopeStack::new(),
+        current_ref: ast.len() - 1,
+        modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
+        compiled: HashMap::new(),
+        compiled_v2: compiled.clone(),
+        literals: literals.to_vec(),
+        names: names.to_vec(),
+        error: None,
+    };
+
+    let root_idx = ast.len() - 1;
+    let root_fn = ctx
+        .compiled_v2
+        .get(&root_idx)
+        .copied()
+        .ok_or_else(|| LangError::Engine("no compiled v2 function for root".to_string()))?;
+
+    // Top-level incoming is a boxed Null.
+    let null_incoming = unsafe { box_value(Value::Null) };
+    let result_ptr: *mut Value = unsafe {
+        root_fn(
+            &mut ctx as *mut EvalCtx as *mut u8,
+            null_incoming as *mut u8,
+        ) as *mut Value
+    };
+
+    if let Some(err) = ctx.error.take() {
+        // Reclaim the result if non-null (it may be a partial result on error).
+        if !result_ptr.is_null() {
+            unsafe { let _ = take_value(result_ptr); }
+        }
+        return Err(err);
+    }
+
+    if result_ptr.is_null() {
+        return Err(LangError::Engine(
+            "native v2 evaluation returned null without error".to_string(),
+        ));
+    }
+    let value = unsafe { take_value(result_ptr) };
+    Ok(value)
 }
 
 // ---------------------------------------------------------------------------
@@ -3265,5 +4661,533 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    // ===================================================================
+    // V2 engine tests (CraneliftEngineV2)
+    // ===================================================================
+
+    // 1. arr const
+
+    #[test]
+    fn v2_arr_const_returns_literal() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.c", "c", Scheme::lit(json!(42))))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("c")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn v2_arr_const_null_when_no_literal() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.c", "c", Scheme::lit(Value::Null)))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("c")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), Value::Null);
+    }
+
+    // 2. arr proj_env
+
+    #[test]
+    fn v2_arr_proj_env_bound_lookup() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.let",
+                "let",
+                Scheme::Bind {
+                    name: "x".into(),
+                    value: Box::new(Scheme::lit(json!(7))),
+                    body: Box::new(Scheme::var("x")),
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("let")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(7));
+    }
+
+    #[test]
+    fn v2_arr_proj_env_unbound_returns_name() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.v", "v", Scheme::var("unknown")))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("v")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!("unknown"));
+    }
+
+    // 3. Seq const >>> id
+
+    #[test]
+    fn v2_seq_const_then_id() {
+        // let x = 5 in id(x) — lowered to Seq(const 5, id)
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.let",
+                "let",
+                Scheme::Bind {
+                    name: "x".into(),
+                    value: Box::new(Scheme::lit(json!(5))),
+                    body: Box::new(Scheme::var("x")),
+                },
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.id",
+                "id",
+                Scheme::prim("id", vec![Scheme::child(0)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    // 4. Bind shape (extend_env + proj_env)
+
+    #[test]
+    fn v2_bind_shape_extend_env_then_proj_env() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.let",
+                "let",
+                Scheme::Bind {
+                    name: "x".into(),
+                    value: Box::new(Scheme::lit(json!(5))),
+                    body: Box::new(Scheme::var("x")),
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("let")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    // 5. Branch (Choice + tag)
+
+    #[test]
+    fn v2_branch_true() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::Branch {
+                    cond: Box::new(Scheme::lit(json!(true))),
+                    then_: Box::new(Scheme::lit(json!(1))),
+                    else_: Box::new(Scheme::lit(json!(2))),
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("if")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn v2_branch_false() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::Branch {
+                    cond: Box::new(Scheme::lit(json!(false))),
+                    then_: Box::new(Scheme::lit(json!(1))),
+                    else_: Box::new(Scheme::lit(json!(2))),
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("if")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(2));
+    }
+
+    // 6. Arithmetic parity
+
+    #[test]
+    fn v2_native_add() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    #[test]
+    fn v2_native_eq() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.eq",
+                "binary.eq",
+                Scheme::prim("eq", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("binary.eq").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(true));
+    }
+
+    // 7. Child recursion (proj_child)
+
+    #[test]
+    fn v2_child_recurses() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    // 8. No-scheme fallback
+
+    #[test]
+    fn v2_no_scheme_returns_payload() {
+        let lang = Language::new();
+        let ast = make_ast(vec![AstNode::new("custom").with_payload(json!("hello"))]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!("hello"));
+    }
+
+    // 9. Version checks
+
+    #[test]
+    fn v2_engine_accepts_v1_lang() {
+        let mut lang = Language::new();
+        lang.scheme_version = SchemeVersion::v1();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.c", "c", Scheme::lit(json!(42))))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("c")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn v2_engine_accepts_v2_lang() {
+        let mut lang = Language::new();
+        lang.scheme_version = SchemeVersion::v2();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.c", "c", Scheme::lit(json!(42))))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("c")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn v2_engine_rejects_v3_lang() {
+        let mut lang = Language::new();
+        lang.scheme_version = SchemeVersion::new("v3");
+        let ast = make_ast(vec![AstNode::new("c")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine(_)));
+    }
+
+    // 10. Foreign dispatch
+
+    #[test]
+    fn v2_foreign_arr_dispatches_to_module() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.double",
+                "double",
+                Scheme::Foreign {
+                    name: "double".into(),
+                    args: vec![Scheme::child(0)],
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(21)),
+            AstNode::new("double").with_payload(json!({"children": [0]})),
+        ]);
+        let reg = conformance_registry();
+        let engine = CraneliftEngineV2::with_modules(reg);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    // 11. App with a closure value
+
+    #[test]
+    fn v2_app_closure_applies_body() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.fn",
+                "function",
+                Scheme::prim("closure", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.call",
+                "call",
+                Scheme::App {
+                    callee: Box::new(Scheme::child(0)),
+                    args: vec![Scheme::child(1)],
+                },
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 2})),
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("call").with_payload(json!({"children": [3, 4]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    // 12. Empty AST
+
+    #[test]
+    fn v2_empty_ast_returns_null() {
+        let lang = Language::new();
+        let ast = Ast::new();
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), Value::Null);
+    }
+
+    // 13. Run pre-compiled (compile + run_compiled separation)
+
+    #[test]
+    fn v2_run_compiled_matches_eval() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let compile_result = compile_all_nodes_jit_v2(&lang, &ast).unwrap();
+        let engine = CraneliftEngineV2::new();
+        let result = engine
+            .run_compiled(&lang, &ast, &compile_result)
+            .unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    // 14. Object compilation (v2)
+
+    #[test]
+    fn v2_object_compilation_emits_file() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let tmp = std::env::temp_dir().join("handl_v2_test.o");
+        let mode = CompileModeV2::Object {
+            output_path: tmp.clone(),
+        };
+        let result = compile_all_nodes_v2(&lang, &ast, &mode).unwrap();
+        assert!(tmp.exists());
+        assert!(std::fs::metadata(&tmp).map(|m| m.len() > 0).unwrap_or(false));
+        // compiled map is empty for Object mode.
+        assert!(result.compiled.is_empty());
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    // 15. Three-way conformance: v2 cranelift vs v2 tree-walk vs v2 bytecode
+
+    #[test]
+    fn v2_three_way_results_match() {
+        let cases: Vec<(&str, Language, Ast)> = vec![
+            // lit
+            {
+                let mut lang = Language::new();
+                lang.eval
+                    .merge(EvalSchemeDef::new("e.c", "c", Scheme::lit(json!(42))))
+                    .unwrap();
+                ("lit", lang, make_ast(vec![AstNode::new("c")]))
+            },
+            // add
+            {
+                let mut lang = Language::new();
+                lang.eval
+                    .merge(EvalSchemeDef::new(
+                        "e.add",
+                        "binary.add",
+                        Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                    ))
+                    .unwrap();
+                (
+                    "add",
+                    lang,
+                    make_ast(vec![
+                        AstNode::new("lit").with_payload(json!(2)),
+                        AstNode::new("lit").with_payload(json!(3)),
+                        AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+                    ]),
+                )
+            },
+            // branch true
+            {
+                let mut lang = Language::new();
+                lang.eval
+                    .merge(EvalSchemeDef::new(
+                        "e.if",
+                        "if",
+                        Scheme::Branch {
+                            cond: Box::new(Scheme::lit(json!(true))),
+                            then_: Box::new(Scheme::lit(json!(1))),
+                            else_: Box::new(Scheme::lit(json!(2))),
+                        },
+                    ))
+                    .unwrap();
+                ("branch_true", lang, make_ast(vec![AstNode::new("if")]))
+            },
+            // branch false
+            {
+                let mut lang = Language::new();
+                lang.eval
+                    .merge(EvalSchemeDef::new(
+                        "e.if",
+                        "if",
+                        Scheme::Branch {
+                            cond: Box::new(Scheme::lit(json!(false))),
+                            then_: Box::new(Scheme::lit(json!(1))),
+                            else_: Box::new(Scheme::lit(json!(2))),
+                        },
+                    ))
+                    .unwrap();
+                ("branch_false", lang, make_ast(vec![AstNode::new("if")]))
+            },
+            // bind
+            {
+                let mut lang = Language::new();
+                lang.eval
+                    .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
+                    .unwrap();
+                lang.eval
+                    .merge(EvalSchemeDef::new(
+                        "e.let",
+                        "let",
+                        Scheme::Bind {
+                            name: "x".into(),
+                            value: Box::new(Scheme::lit(json!(10))),
+                            body: Box::new(Scheme::var("x")),
+                        },
+                    ))
+                    .unwrap();
+                ("bind", lang, make_ast(vec![AstNode::new("let")]))
+            },
+        ];
+
+        let tw = handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new();
+        let bc = handl_plugin_engine_eval_bytecode::BytecodeEngineV2::new();
+        let cl = CraneliftEngineV2::new();
+
+        for (name, lang, ast) in cases {
+            let req = EvalRequest::new(ast.clone());
+            let tw_result = tw.eval(&lang, &req).unwrap();
+            let bc_result = bc.eval(&lang, &req).unwrap();
+            let cl_result = cl.eval(&lang, &req).unwrap();
+            assert_eq!(
+                tw_result, cl_result,
+                "case {}: tree-walk != cranelift (tw={}, cl={})",
+                name, tw_result, cl_result
+            );
+            assert_eq!(
+                bc_result, cl_result,
+                "case {}: bytecode != cranelift (bc={}, cl={})",
+                name, bc_result, cl_result
+            );
+        }
     }
 }

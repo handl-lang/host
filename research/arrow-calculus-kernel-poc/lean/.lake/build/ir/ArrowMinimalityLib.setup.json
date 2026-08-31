@@ -1,0 +1,9 @@
+{"plugins": [],
+ "package": "arrow_minimality_lib",
+ "options": {},
+ "name": "ArrowMinimalityLib",
+ "isModule": false,
+ "importArts":
+ {"ArrowMinimalityLib.Basic":
+  [["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Basic.olean"]]},
+ "dynlibs": []}

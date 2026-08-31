@@ -226,6 +226,9 @@
     callee: !Child 1
     args:
     - !Child 0
+- id: eval.proc
+  node_kind: proc
+  scheme: !Child 0
 - id: eval.resolve
   node_kind: resolve
   scheme: !Foreign

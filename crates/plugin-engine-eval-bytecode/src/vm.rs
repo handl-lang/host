@@ -27,9 +27,15 @@ use crate::instr::Instr;
 /// lookup searches innermost-first; closure calls swap in the captured
 /// environment, bind params, evaluate the body, then restore the original
 /// scope stack.
+///
+/// This type is `pub(crate)` so the v2 VM ([`crate::vm_v2`], ADR-0052) can
+/// reuse the same scope discipline. This is a visibility-only change — no
+/// v1 logic is altered. The `scopes` field is `pub(crate)` for the
+/// closure-env swap-in that `apply_closure` performs.
 pub(crate) struct ScopeStack {
-    /// The stack of scopes, innermost last.
-    scopes: Vec<HashMap<String, Value>>,
+    /// The stack of scopes, innermost last. `pub(crate)` so the v2 VM can
+    /// perform the closure-env swap-in.
+    pub(crate) scopes: Vec<HashMap<String, Value>>,
 }
 
 impl ScopeStack {
@@ -40,23 +46,23 @@ impl ScopeStack {
     }
 
     /// Look up a variable, searching innermost scope first.
-    fn lookup(&self, name: &str) -> Option<&Value> {
+    pub(crate) fn lookup(&self, name: &str) -> Option<&Value> {
         self.scopes.iter().rev().find_map(|s| s.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
-    fn define(&mut self, name: &str, value: Value) {
+    pub(crate) fn define(&mut self, name: &str, value: Value) {
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(name.to_string(), value);
     }
 
     /// Push a new empty scope.
-    fn push_scope(&mut self) {
+    pub(crate) fn push_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
 
     /// Pop the innermost scope (never pops the last scope).
-    fn pop_scope(&mut self) {
+    pub(crate) fn pop_scope(&mut self) {
         if self.scopes.len() > 1 {
             self.scopes.pop();
         }
@@ -66,7 +72,7 @@ impl ScopeStack {
     ///
     /// Used by the `closure` primitive to snapshot the current environment.
     /// Inner scopes shadow outer ones (later entries overwrite earlier).
-    fn capture(&self) -> HashMap<String, Value> {
+    pub(crate) fn capture(&self) -> HashMap<String, Value> {
         let mut captured = HashMap::new();
         for scope in &self.scopes {
             for (k, v) in scope {
@@ -82,8 +88,11 @@ impl ScopeStack {
 // ---------------------------------------------------------------------------
 
 /// A number that can be either integer or float.
+///
+/// `pub(crate)` so the v2 VM ([`crate::vm_v2`]) can reuse the same
+/// numeric semantics. This is a visibility-only change.
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Num {
+pub(crate) enum Num {
     /// Integer value.
     Int(i64),
     /// Float value.
@@ -92,7 +101,7 @@ enum Num {
 
 impl Num {
     /// Convert to `f64`.
-    fn to_f64(self) -> f64 {
+    pub(crate) fn to_f64(self) -> f64 {
         match self {
             Num::Int(i) => i as f64,
             Num::Float(f) => f,
@@ -101,7 +110,7 @@ impl Num {
 }
 
 /// Extract a number from a [`Value`].
-fn as_num(v: &Value) -> Result<Num, LangError> {
+pub(crate) fn as_num(v: &Value) -> Result<Num, LangError> {
     if let Some(i) = v.as_i64() {
         return Ok(Num::Int(i));
     }
@@ -111,10 +120,18 @@ fn as_num(v: &Value) -> Result<Num, LangError> {
     Err(LangError::Engine(format!("expected number, got {}", v)))
 }
 
+/// Convert a [`Num`] back to a [`Value`].
+pub(crate) fn num_value(n: Num) -> Value {
+    match n {
+        Num::Int(i) => Value::from(i),
+        Num::Float(f) => Value::from(f),
+    }
+}
+
 /// Whether a [`Value`] is truthy.
 ///
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
-fn is_truthy(v: &Value) -> bool {
+pub(crate) fn is_truthy(v: &Value) -> bool {
     match v {
         Value::Bool(b) => *b,
         Value::Null => false,

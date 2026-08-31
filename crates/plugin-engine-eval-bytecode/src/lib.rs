@@ -63,11 +63,16 @@
 #![warn(missing_docs)]
 
 pub mod compile;
+pub mod compile_v2;
 pub mod instr;
+pub mod instr_v2;
 mod vm;
+mod vm_v2;
 
 pub use compile::compile;
+pub use compile_v2::compile_v2;
 pub use instr::Instr;
+pub use instr_v2::InstrV2;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
@@ -75,6 +80,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use vm::VmFrame;
+use vm_v2::VmFrameV2;
 
 /// The bytecode eval engine.
 ///
@@ -232,6 +238,99 @@ impl BytecodeVm {
 impl Default for BytecodeVm {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BytecodeEngineV2 (ADR-0052 Phase B)
+// ---------------------------------------------------------------------------
+
+/// The v2 bytecode eval engine.
+///
+/// Compiles [`SchemeV2`](handl_language::scheme_v2::SchemeV2) data to v2
+/// bytecode and executes via a stack-based VM. This is **additive**: the v1
+/// [`BytecodeEngine`] is untouched. The v2 engine reuses the v1
+/// [`ScopeStack`](crate::vm::ScopeStack) and numeric helpers via
+/// `pub(crate)` visibility.
+///
+/// The engine checks `lang.scheme_version` against [`SchemeVersion::v2()`]
+/// and rejects mismatched versions.
+#[derive(Clone)]
+pub struct BytecodeEngineV2 {
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// Global variables injected by the host (e.g. `self` -> language value).
+    globals: HashMap<String, Value>,
+}
+
+impl BytecodeEngineV2 {
+    /// Create a new v2 bytecode engine with no module registry.
+    pub fn new() -> Self {
+        Self {
+            modules: None,
+            globals: HashMap::new(),
+        }
+    }
+
+    /// Create a v2 bytecode engine with a module registry attached.
+    ///
+    /// The module registry is used for
+    /// [`SchemeV2::Arr`](handl_language::scheme_v2::SchemeV2::Arr) with
+    /// [`ArrSource::Foreign`](handl_language::scheme_v2::ArrSource::Foreign)
+    /// dispatch.
+    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        Self {
+            modules: Some(modules),
+            globals: HashMap::new(),
+        }
+    }
+
+    /// Inject a global variable into the root scope (builder style).
+    pub fn with_global(mut self, name: &str, value: Value) -> Self {
+        self.globals.insert(name.to_string(), value);
+        self
+    }
+}
+
+impl Default for BytecodeEngineV2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EvalEngine for BytecodeEngineV2 {
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
+        let ast = &req.ast;
+        if ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        // Scheme version check -- v2 engine supports v1 and v2.
+        if !SchemeVersion::v2().supports(&lang.scheme_version) {
+            return Err(LangError::Engine(format!(
+                "unsupported scheme version: {} (engine supports v2: v1 and v2)",
+                lang.scheme_version
+            )));
+        }
+        let root_ref = AstRef::new(ast.len() - 1);
+        let mut frame = VmFrameV2::new(ast, lang, self.modules.as_ref());
+        for (name, val) in &self.globals {
+            frame.define_global(name, val.clone());
+        }
+        frame.exec_node_v2(root_ref)
+    }
+
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
+        let mut engine = self.clone();
+        engine.modules = Some(modules);
+        Box::new(engine)
+    }
+
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_global(name, val))
     }
 }
 

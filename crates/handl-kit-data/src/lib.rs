@@ -463,6 +463,11 @@ fn merge_filtered(
             lang.eval.merge(frag.clone())?;
         }
     }
+    for frag in fragment_lang.eval_v2.fragments() {
+        if passes(frag.id()) {
+            lang.eval_v2.merge(frag.clone())?;
+        }
+    }
     for frag in fragment_lang.ast.fragments() {
         if passes(frag.id()) {
             lang.ast.merge(frag.clone())?;

@@ -1458,6 +1458,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-arrow-iter"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-engine-eval-tree-walk",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-base64"
 version = "0.1.0"
 dependencies = [
