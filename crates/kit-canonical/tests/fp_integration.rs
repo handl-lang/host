@@ -63,49 +63,16 @@ fn fanout_with_expressions() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn field_access_object_from_manual_ast() {
-    // The object/array literal parsers have limitations with comma-separated
-    // entries, so test field-access via a manual AST.
+fn field_access_object_from_source() {
     let kit = kit();
-    let mut ast = Ast::new();
-    // Node 0: object { "a": 1, "b": 2 }.
-    let obj_node = AstNode::new("object").with_payload(json!({
-        "entries": [
-            {"key": "a", "value": 1},
-            {"key": "b", "value": 2}
-        ]
-    }));
-    let obj_idx = ast.push(obj_node).index();
-    // Node 1: var "a" (the field name).
-    let var_node = AstNode::new("var").with_payload(json!("a"));
-    let var_idx = ast.push(var_node).index();
-    // Node 2: field-access { children: [obj_idx, var_idx] }.
-    let fa_node = AstNode::new("field-access").with_payload(json!({
-        "children": [obj_idx, var_idx]
-    }));
-    ast.push(fa_node);
-    let result = kit.runtime().eval(&ast).expect("field-access must eval");
+    let result = kit.run("{ \"a\": 1, \"b\": 2 }.a").expect("field-access must eval");
     assert_eq!(result, json!(1));
 }
 
 #[test]
-fn field_access_array_from_manual_ast() {
+fn field_access_array_from_source() {
     let kit = kit();
-    let mut ast = Ast::new();
-    // Node 0: array [10, 20, 30].
-    let arr_node = AstNode::new("array").with_payload(json!({
-        "elements": [10, 20, 30]
-    }));
-    let arr_idx = ast.push(arr_node).index();
-    // Node 1: literal 1 (the index).
-    let lit_node = AstNode::new("lit").with_payload(json!(1));
-    let lit_idx = ast.push(lit_node).index();
-    // Node 2: field-access { children: [arr_idx, lit_idx] }.
-    let fa_node = AstNode::new("field-access").with_payload(json!({
-        "children": [arr_idx, lit_idx]
-    }));
-    ast.push(fa_node);
-    let result = kit.runtime().eval(&ast).expect("field-access must eval");
+    let result = kit.run("[10, 20, 30].1").expect("field-access must eval");
     assert_eq!(result, json!(20));
 }
 

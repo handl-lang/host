@@ -667,23 +667,66 @@ impl TreeWalkEngine {
                 Ok(closure)
             }
             "array" => {
-                let elements = ctx.current_node.payload.get("elements")
-                    .ok_or_else(|| LangError::Engine("array: missing elements in payload".to_string()))?;
-                Ok(elements.clone())
+                // Two payload shapes:
+                // - **Rich**: `{"elements": [v1, v2, ...]}` — literal values.
+                // - **Pratt-parsed**: `{"children": [elem_idx, ...]}` — each
+                //   element is an arena index to evaluate.
+                if let Some(elements) = ctx.current_node.payload.get("elements") {
+                    Ok(elements.clone())
+                } else if let Some(children) =
+                    ctx.current_node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    let mut result = Vec::with_capacity(children.len());
+                    for entry in children {
+                        let idx = entry.as_u64()
+                            .ok_or_else(|| LangError::Engine("array: element index must be a number".to_string()))? as usize;
+                        result.push(self.eval_node(ctx.ast, AstRef::new(idx), ctx.lang, ctx.env)?);
+                    }
+                    Ok(Value::Array(result))
+                } else {
+                    Err(LangError::Engine("array: missing elements/children in payload".to_string()))
+                }
             }
             "object" => {
-                let entries = ctx.current_node.payload.get("entries")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| LangError::Engine("object: missing entries in payload".to_string()))?;
-                let mut obj = serde_json::Map::new();
-                for entry in entries {
-                    let key = entry.get("key").and_then(|v| v.as_str())
-                        .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
-                    let value = entry.get("value")
-                        .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
-                    obj.insert(key.to_string(), value.clone());
+                // Two payload shapes:
+                // - **Rich**: `{"entries": [{"key": "k", "value": v}, ...]}`.
+                // - **Pratt-parsed**: `{"children": [entry_idx, ...]}` where
+                //   each entry node has `{"children": [key_idx, value_idx]}`.
+                if let Some(entries) = ctx.current_node.payload.get("entries").and_then(|v| v.as_array()) {
+                    let mut obj = serde_json::Map::new();
+                    for entry in entries {
+                        let key = entry.get("key").and_then(|v| v.as_str())
+                            .ok_or_else(|| LangError::Engine("object: entry missing key".to_string()))?;
+                        let value = entry.get("value")
+                            .ok_or_else(|| LangError::Engine("object: entry missing value".to_string()))?;
+                        obj.insert(key.to_string(), value.clone());
+                    }
+                    Ok(Value::Object(obj))
+                } else if let Some(children) =
+                    ctx.current_node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    let mut obj = serde_json::Map::new();
+                    for entry in children {
+                        let entry_idx = entry.as_u64()
+                            .ok_or_else(|| LangError::Engine("object: entry index must be a number".to_string()))? as usize;
+                        let entry_node = ctx.ast.at(AstRef::new(entry_idx))?;
+                        let entry_children = entry_node.payload.get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| LangError::Engine("object: entry node missing children".to_string()))?;
+                        let key_idx = entry_children.get(0).and_then(|v| v.as_u64())
+                            .ok_or_else(|| LangError::Engine("object: entry missing key child".to_string()))? as usize;
+                        let val_idx = entry_children.get(1).and_then(|v| v.as_u64())
+                            .ok_or_else(|| LangError::Engine("object: entry missing value child".to_string()))? as usize;
+                        let key_val = self.eval_node(ctx.ast, AstRef::new(key_idx), ctx.lang, ctx.env)?;
+                        let key = key_val.as_str()
+                            .ok_or_else(|| LangError::Engine("object: entry key must evaluate to a string".to_string()))?;
+                        let value = self.eval_node(ctx.ast, AstRef::new(val_idx), ctx.lang, ctx.env)?;
+                        obj.insert(key.to_string(), value);
+                    }
+                    Ok(Value::Object(obj))
+                } else {
+                    Err(LangError::Engine("object: missing entries/children in payload".to_string()))
                 }
-                Ok(Value::Object(obj))
             }
             "index" => {
                 let target = ctx.current_node.payload.get("target")

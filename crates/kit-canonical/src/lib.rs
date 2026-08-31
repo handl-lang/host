@@ -635,6 +635,42 @@ mod tests {
     }
 
     #[test]
+    fn eval_match_literal_arm() {
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"match 1 { 1: "a", 2: "b" }"#).unwrap();
+        assert_eq!(val, serde_json::json!("a"));
+    }
+
+    #[test]
+    fn eval_match_second_arm() {
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"match 2 { 1: "a", 2: "b" }"#).unwrap();
+        assert_eq!(val, serde_json::json!("b"));
+    }
+
+    #[test]
+    fn eval_match_wildcard_arm() {
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"match 99 { 1: "a", _: "default" }"#).unwrap();
+        assert_eq!(val, serde_json::json!("default"));
+    }
+
+    #[test]
+    fn eval_match_binder_arm() {
+        // A binder arm (`x`) binds the scrutinee and the body references it.
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"match 7 { 1: "a", x: x }"#).unwrap();
+        assert_eq!(val, serde_json::json!(7));
+    }
+
+    #[test]
+    fn eval_match_no_arm_errors() {
+        let kit = Kit::new().unwrap();
+        let res = kit.eval(r#"match 5 { 1: "a", 2: "b" }"#);
+        assert!(res.is_err());
+    }
+
+    #[test]
     fn run_full_pipeline() {
         let kit = Kit::new().unwrap();
         let val = kit.run("1 + 2 * 3").unwrap();

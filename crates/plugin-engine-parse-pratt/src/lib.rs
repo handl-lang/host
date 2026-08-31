@@ -215,6 +215,93 @@ impl PrattEngine {
             let payload = self.atom_payload(lang, &token);
             let node = AstNode::new(&kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
+        } else if kind == "array" || kind == "object" {
+            // Array/object literals: the prefix token (`[` / `{`) IS the
+            // opening delimiter. Parse comma-separated elements until the
+            // matching close token (`]` / `}`). For objects, each element is
+            // a `key : value` pair (emitted as an `entry` node).
+            let (close_kind, is_object) = if kind == "array" {
+                ("token.rbracket", false)
+            } else {
+                ("token.rbrace", true)
+            };
+            let mut children: Vec<usize> = Vec::new();
+            // Empty literal: `[]` / `{}`.
+            if let Some(next) = cursor.peek() {
+                if next.kind == close_kind {
+                    let _ = cursor.advance()?;
+                    let payload = serde_json::json!({ "children": children });
+                    let node = AstNode::new(&kind).with_payload(payload);
+                    self.ast.borrow_mut().push(node)
+                } else {
+                    loop {
+                        if is_object {
+                            // Parse `key : value` pair → entry node.
+                            // Key is parsed with rbp above `:` infix lbp so
+                            // the colon is left for this loop.
+                            let key_rbp = Self::lookup_row(lang, "token.colon", GrammarPosition::Infix)
+                                .and_then(|r| r.binding_power.map(|(l, _)| l))
+                                .map(|lbp| lbp.saturating_add(1))
+                                .unwrap_or(u8::MAX);
+                            let key = self.expression_inner(lang, cursor, key_rbp)?;
+                            let sep = cursor.advance()?;
+                            if sep.kind != "token.colon" {
+                                return Err(LangError::Engine(format!(
+                                    "expected ':' in object entry, got {}",
+                                    sep.kind
+                                )));
+                            }
+                            let val = self.expression_inner(lang, cursor, 0)?;
+                            let entry_payload = serde_json::json!({ "children": [key.index(), val.index()] });
+                            let entry_node = AstNode::new("entry").with_payload(entry_payload);
+                            let entry_ref = self.ast.borrow_mut().push(entry_node);
+                            children.push(entry_ref.index());
+                        } else {
+                            let el = self.expression_inner(lang, cursor, 0)?;
+                            children.push(el.index());
+                        }
+                        // After an element: comma (consume, maybe trailing) or close.
+                        match cursor.peek() {
+                            Some(t) if t.kind == "token.comma" => {
+                                let _ = cursor.advance()?;
+                                if let Some(t2) = cursor.peek() {
+                                    if t2.kind == close_kind { break; }
+                                }
+                                continue;
+                            }
+                            Some(t) if t.kind == close_kind => break,
+                            Some(t) => {
+                                return Err(LangError::Engine(format!(
+                                    "expected ',' or '{}' in {} literal, got {}",
+                                    close_kind, kind, t.kind
+                                )))
+                            }
+                            None => {
+                                return Err(LangError::Engine(format!(
+                                    "unexpected end of input in {} literal",
+                                    kind
+                                )))
+                            }
+                        }
+                    }
+                    // Consume the closing delimiter.
+                    let close = cursor.advance()?;
+                    if close.kind != close_kind {
+                        return Err(LangError::Engine(format!(
+                            "expected '{}' to close {} literal, got {}",
+                            close_kind, kind, close.kind
+                        )));
+                    }
+                    let payload = serde_json::json!({ "children": children });
+                    let node = AstNode::new(&kind).with_payload(payload);
+                    self.ast.borrow_mut().push(node)
+                }
+            } else {
+                return Err(LangError::Engine(format!(
+                    "unexpected end of input in {} literal",
+                    kind
+                )));
+            }
         } else {
             // Prefix operator: parse `arity` operands.
             let prefix_rbp = prefix_row

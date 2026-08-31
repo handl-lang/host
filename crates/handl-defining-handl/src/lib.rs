@@ -11,7 +11,7 @@
 //! handl the data-driven engines can evaluate — the constructs migrated to
 //! the data-driven model in Phases 4–5 (value, var, the binary arithmetic /
 //! comparison ops, unary not, let / stmt.let / stmt.const, if, ternary,
-//! function, call, pipe, paren, apply, mood). It is the "handl defining
+//! function, call, pipe, paren, apply). It is the "handl defining
 //! handl": the language spec as data.
 //!
 //! ## Scope (honest deliverable)
@@ -206,7 +206,6 @@ pub struct CorpusCase {
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `mood`               | `42!`                                 | value, mood                         |
 /// | `function_call`      | `let f = (x, y) -> x + y; f(3, 4)`    | function, call, let, var, binary.add|
 /// | `pipe_call`          | `let f = (x) -> x + 1; 5 | f`         | function, pipe, let, var, binary.add|
 /// | `nested_let`         | `let x = 3; let y = 4; x + y`         | let, var, binary.add                |
@@ -577,22 +576,11 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 22. Mood: 42!  (mood is a Child 0 passthrough — a postfix marker)
-        CorpusCase {
-            name: "mood",
-            source: "42!",
-            ast: {
-                let mut a = Ast::new();
-                a.push(AstNode::new("value").with_payload(json!(42)));
-                a.push(
-                    AstNode::new("mood")
-                        .with_payload(json!({"children": [0]})),
-                );
-                a
-            },
-            expected: json!(42),
-            tree_walk_only: false,
-        },
+        // 22. Mood (stale — removed in ADR-0026): the `42!` postfix mood
+        // marker was replaced by infix keyword syntax (`is`, `must`, `may`,
+        // `not`, `when`). The `mood` node kind no longer exists; only
+        // `mood.int`, `mood.pot`, `mood.norm`, `mood.neg`, `mood.cnd` remain.
+        // This case is intentionally omitted from the corpus.
         // 23. Function + call: let f = (x, y) -> x + y; f(3, 4)
         //     The canonical call emitter targets 2-arg calls, so the function
         //     takes two params.

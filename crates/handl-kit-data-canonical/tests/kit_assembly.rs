@@ -34,12 +34,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // must, when). eval.mood removed (stale placeholder).
     assert_eq!(lang.eval.len(), 52);
 
-    // AST shapes: 49 — 36 from the `tokens` foundation + 3 unique shapes from
+    // AST shapes: 51 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
     // shape + 4 new operator shapes (binary.and, binary.or, binary.mod,
-    // unary.neg) + 1 is shape + 4 mood shapes (may, mood.neg, must, when).
+    // unary.neg) + 1 is shape + 4 mood shapes (may, mood.neg, must, when)
+    // + 2 delimited-block shapes (arm, block) from match/handle parsing.
     // Duplicates are union (idempotent).
-    assert_eq!(lang.ast.len(), 49);
+    assert_eq!(lang.ast.len(), 51);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
