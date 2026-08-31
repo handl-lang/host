@@ -559,23 +559,62 @@ mod tests {
 
     #[test]
     fn parse_match() {
-        // The Pratt engine's grammar row for `match` is a prefix compound
-        // with arity 2 (scrutinee + arms). `match x` provides only the
-        // scrutinee, so the parser errors on the missing arms. This is
-        // expected: the full `match x { ... }` syntax requires a grammar
-        // engine that supports delimited, variable-arity forms.
+        // `match x` is incomplete (missing the `{ arms }` block) and errors.
         let kit = Kit::new().unwrap();
         let result = kit.parse("match x");
         assert!(result.is_err(), "expected parse error for incomplete match");
     }
 
     #[test]
+    fn parse_match_full() {
+        // The full `match x { a: 1, b: 2 }` form parses via the Pratt
+        // engine's delimited-block support into match{[scrut, block{[arm,
+        // arm]}]}.
+        let kit = Kit::new().unwrap();
+        let ast = kit.parse("match x { a: 1, b: 2 }").unwrap();
+        let root = &ast.nodes()[ast.len() - 1];
+        assert_eq!(root.kind, "match");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+        let block = &ast.nodes()[children[1].as_u64().unwrap() as usize];
+        assert_eq!(block.kind, "block");
+        let arms = block.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(arms.len(), 2);
+        assert_eq!(ast.nodes()[arms[0].as_u64().unwrap() as usize].kind, "arm");
+        assert_eq!(ast.nodes()[arms[1].as_u64().unwrap() as usize].kind, "arm");
+    }
+
+    #[test]
     fn parse_handle() {
-        // Similar to match: `handle` is a prefix compound that expects
-        // additional operands. `handle x` alone is incomplete.
+        // `handle x` is incomplete (missing the `{ clauses }` block).
         let kit = Kit::new().unwrap();
         let result = kit.parse("handle x");
         assert!(result.is_err(), "expected parse error for incomplete handle");
+    }
+
+    #[test]
+    fn parse_handle_full() {
+        let kit = Kit::new().unwrap();
+        let ast = kit.parse("handle x { a: 1, b: 2 }").unwrap();
+        let root = &ast.nodes()[ast.len() - 1];
+        assert_eq!(root.kind, "handle");
+    }
+
+    #[test]
+    fn eval_handle_dispatches_matching_clause() {
+        // `handle` evaluates the body, then matches its result against
+        // clause patterns. Here body = 2, which matches the second clause.
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"handle 2 { 1: "a", 2: "b" }"#).unwrap();
+        assert_eq!(val, serde_json::json!("b"));
+    }
+
+    #[test]
+    fn eval_handle_no_match_returns_body() {
+        // No clause matches → the body value is returned as-is.
+        let kit = Kit::new().unwrap();
+        let val = kit.eval(r#"handle 5 { 1: "a", 2: "b" }"#).unwrap();
+        assert_eq!(val, serde_json::json!(5));
     }
 
     #[test]
