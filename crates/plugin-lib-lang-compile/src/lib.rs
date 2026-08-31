@@ -139,3 +139,6 @@ impl Function for CompileFn {
 
 pub mod plugin;
 pub use plugin::LibraryPlugin;
+
+#[cfg(test)]
+mod tests;
