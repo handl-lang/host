@@ -5,8 +5,8 @@
 //!
 //! Exposes the `eval` module with one callable: `eval.eval(lang, ast)`. It
 //! extracts the [`handl_language::Language`] from the first argument, accepts
-//! the second argument as either a tagged `__ast__` value (the
-//! [`handl_language::Scheme::Vau`] form) or a raw JSON-serialized
+//! the second argument as either a tagged `__ast__` value (the form bound
+//! to an unevaluated expression) or a raw JSON-serialized
 //! [`handl_language::Ast`], builds a sub-runtime via
 //! [`handl_runtime::RuntimeFactory`], evaluates the AST, and returns the
 //! result value directly (no serialization).
@@ -113,7 +113,7 @@ impl Function for EvalFn {
             .get(1)
             .ok_or_else(|| EvalError::Other("eval: expected (lang, ast)".into()))?;
         // Accept either a raw serialized `Ast` value or a tagged `__ast__`
-        // value (the form bound by `Scheme::Vau` — ADR-0041 §6, ADR-0045).
+        // value (the form bound to an unevaluated expression (ADR-0041 §6)).
         let ast: Ast = if let Some(tagged) = as_ast(ast_val) {
             tagged
         } else {
