@@ -7,7 +7,7 @@
 //! correctly evaluated by the tree-walk engine.
 
 use handl_kit_canonical::Kit;
-use handl_language::{Ast, AstNode, Value};
+use handl_language::{Ast, AstNode};
 use serde_json::json;
 
 /// Build a `Kit` for testing.
@@ -90,6 +90,25 @@ fn flow_applies_closure_to_left() {
     assert_eq!(result, json!(2));
 }
 
+#[test]
+fn flow_chains_left_associative() {
+    let kit = kit();
+    // `>>>` is left-associative (bp [20, 21]), so this parses as
+    // `(1 >>> (x -> x + 1)) >>> (y -> y * 2)` == `2 >>> (y -> y * 2)` == 4.
+    let result = kit.run("1 >>> x -> x + 1 >>> y -> y * 2")
+        .expect("chained flow must eval");
+    assert_eq!(result, json!(4));
+}
+
+#[test]
+fn flow_three_step_chain() {
+    let kit = kit();
+    // `1 >>> inc >>> double >>> inc` == `inc(1)=2 → double(2)=4 → inc(4)=5`.
+    let result = kit.run("1 >>> x -> x + 1 >>> y -> y * 2 >>> z -> z + 1")
+        .expect("three-step flow must eval");
+    assert_eq!(result, json!(5));
+}
+
 // ---------------------------------------------------------------------------
 // match — Prim op: pattern matching with arms
 // ---------------------------------------------------------------------------
@@ -133,6 +152,75 @@ fn match_no_arm_matched_errors() {
     let err = kit.run("match 99 { 1: 100, 2: 200 }")
         .expect_err("match with no matching arm should error");
     assert!(err.to_string().contains("no arm matched"));
+}
+
+// --- Array destructuring patterns ---
+
+#[test]
+fn match_array_destructuring() {
+    let kit = kit();
+    let result = kit.run("match [1, 2] { [a, b]: a + b }")
+        .expect("array destructuring must eval");
+    assert_eq!(result, json!(3));
+}
+
+#[test]
+fn match_array_destructuring_with_rest() {
+    let kit = kit();
+    let result = kit.run("match [1, 2, 3, 4] { [a, ...rest]: rest }")
+        .expect("array rest must eval");
+    assert_eq!(result, json!([2, 3, 4]));
+}
+
+#[test]
+fn match_array_destructuring_exact_length() {
+    let kit = kit();
+    // Without rest, lengths must match exactly.
+    let err = kit.run("match [1, 2, 3] { [a, b]: a + b }")
+        .expect_err("length mismatch should not match");
+    assert!(err.to_string().contains("no arm matched"));
+}
+
+#[test]
+fn match_array_destructuring_nested_binder() {
+    let kit = kit();
+    let result = kit.run("match [1, 2] { [a, _]: a }")
+        .expect("array with wildcard must eval");
+    assert_eq!(result, json!(1));
+}
+
+// --- Object destructuring patterns ---
+
+#[test]
+fn match_object_destructuring() {
+    let kit = kit();
+    let result = kit.run("match { \"x\": 1, \"y\": 2 } { {x: a, y: b}: a + b }")
+        .expect("object destructuring must eval");
+    assert_eq!(result, json!(3));
+}
+
+#[test]
+fn match_object_destructuring_with_rest() {
+    let kit = kit();
+    let result = kit.run("match { \"x\": 1, \"y\": 2, \"z\": 3 } { {x: a, ...rest}: rest }")
+        .expect("object rest must eval");
+    assert_eq!(result, json!({"y": 2, "z": 3}));
+}
+
+#[test]
+fn match_object_destructuring_missing_key() {
+    let kit = kit();
+    let err = kit.run("match { \"x\": 1 } { {x: a, y: b}: a + b }")
+        .expect_err("missing key should not match");
+    assert!(err.to_string().contains("no arm matched"));
+}
+
+#[test]
+fn match_object_destructuring_partial() {
+    let kit = kit();
+    let result = kit.run("match { \"x\": 1, \"y\": 2, \"z\": 3 } { {x: a}: a }")
+        .expect("partial object destructuring must eval");
+    assert_eq!(result, json!(1));
 }
 
 // ---------------------------------------------------------------------------
@@ -201,4 +289,34 @@ fn json_prim_with_placeholder_substitution() {
     ast.push(json_node);
     let result = kit.runtime().eval(&ast).expect("json prim with args must eval");
     assert_eq!(result, json!({"value": 42}));
+}
+
+// --- json source syntax: json{...} and json{...}(args) ---
+
+#[test]
+fn json_source_syntax_literal() {
+    let kit = kit();
+    let result = kit.run("json{\"a\": 1}").expect("json source must eval");
+    assert_eq!(result, json!({"a": 1}));
+}
+
+#[test]
+fn json_source_syntax_nested() {
+    let kit = kit();
+    let result = kit.run("json{\"a\": {\"b\": 1}}").expect("nested json must eval");
+    assert_eq!(result, json!({"a": {"b": 1}}));
+}
+
+#[test]
+fn json_source_syntax_with_placeholder() {
+    let kit = kit();
+    let result = kit.run("json{\"value\": $0}(42)").expect("json with args must eval");
+    assert_eq!(result, json!({"value": 42}));
+}
+
+#[test]
+fn json_source_syntax_with_expr_arg() {
+    let kit = kit();
+    let result = kit.run("json{\"sum\": $0}(1 + 2)").expect("json with expr arg must eval");
+    assert_eq!(result, json!({"sum": 3}));
 }

@@ -13,18 +13,20 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // grammar/eval emitters (token.let, token.if, token.bang, token.question,
     // token.template) + 3 operator tokens (token.and, token.or,
     // token.percent) + 1 vau keyword token (token.vau) + 3 mood keyword
-    // tokens (token.keyword.may, token.keyword.must, token.keyword.when).
+    // tokens (token.keyword.may, token.keyword.must, token.keyword.when)
+    // + 2 new tokens (token.json, token.ellipsis).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 60);
+    assert_eq!(lang.tokens.len(), 62);
 
-    // Grammar rows: 52 — one per construct (after excluding the duplicate
+    // Grammar rows: 54 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
     // value literal rules (string, bool, null), 1 pow rule, 4 new operator
     // rules (and.infix, or.infix, mod.infix, neg.prefix), 1 vau prefix
-    // rule, 1 is infix rule, and 4 mood infix rules (may, must, not.infix,
-    // when). grammar.mood.postfix removed (stale placeholder).
-    assert_eq!(lang.grammar.len(), 52);
+    // rule, 1 is infix rule, 4 mood infix rules (may, must, not.infix,
+    // when), and 2 new rules (json.prefix, ellipsis.prefix).
+    // grammar.mood.postfix removed (stale placeholder).
+    assert_eq!(lang.grammar.len(), 54);
 
     // Eval schemes: 52 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
@@ -73,8 +75,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 60);
-    assert_eq!(rt.lang().grammar.len(), 52);
+    assert_eq!(rt.lang().tokens.len(), 62);
+    assert_eq!(rt.lang().grammar.len(), 54);
 }
 
 #[test]

@@ -210,7 +210,58 @@ impl PrattEngine {
         let kind = prefix_row.child_shape.node_kind.clone();
 
         // 2. Build the prefix (null-denotation) node.
-        let left = if arity == 0 {
+        let left = if kind == "json" {
+            // `json` prim source syntax: the token text is `json{...}` (a
+            // brace-balanced block captured by the lexer's nesting-aware
+            // delimited rule). Strip the `json{` prefix and `}` suffix to
+            // get the JSON template string. Optionally parse a `(arg1, …)`
+            // clause whose evaluated values fill `$0`, `$1`, … placeholders.
+            let text = token.text.as_str();
+            const JSON_OPEN: &str = "json{";
+            if !text.starts_with(JSON_OPEN) || !text.ends_with('}') {
+                return Err(LangError::Engine(format!(
+                    "json: malformed token text {:?}",
+                    text
+                )));
+            }
+            // The lexer's open delimiter `json{` consumes the opening brace,
+            // and the close `}` consumes the closing brace. Reconstruct the
+            // full JSON string by wrapping the content in braces.
+            let content = &text[JSON_OPEN.len()..text.len() - 1];
+            let expr = format!("{{{}}}", content);
+
+            let mut args: Vec<usize> = Vec::new();
+            // Optional `(arg1, arg2, …)` clause for placeholder substitution.
+            if let Some(next) = cursor.peek() {
+                if next.kind == "token.lparen" {
+                    let _ = cursor.advance()?; // consume `(`
+                    if let Some(t) = cursor.peek() {
+                        if t.kind != "token.rparen" {
+                            loop {
+                                let arg = self.expression_inner(lang, cursor, 0)?;
+                                args.push(arg.index());
+                                match cursor.peek() {
+                                    Some(t) if t.kind == "token.comma" => {
+                                        let _ = cursor.advance()?;
+                                    }
+                                    Some(t) if t.kind == "token.rparen" => {
+                                        let _ = cursor.advance()?;
+                                        break;
+                                    }
+                                    _ => break,
+                                }
+                            }
+                        } else {
+                            let _ = cursor.advance()?; // consume empty `()`
+                        }
+                    }
+                }
+            }
+
+            let payload = serde_json::json!({ "expr": expr, "args": args });
+            let node = AstNode::new("json").with_payload(payload);
+            self.ast.borrow_mut().push(node)
+        } else if arity == 0 {
             // Atom: payload is the token's interpreted value.
             let payload = self.atom_payload(lang, &token);
             let node = AstNode::new(&kind).with_payload(payload);
@@ -239,26 +290,35 @@ impl PrattEngine {
                 } else {
                     loop {
                         if is_object {
-                            // Parse `key : value` pair → entry node.
-                            // Key is parsed with rbp above `:` infix lbp so
-                            // the colon is left for this loop.
-                            let key_rbp = Self::lookup_row(lang, "token.colon", GrammarPosition::Infix)
-                                .and_then(|r| r.binding_power.map(|(l, _)| l))
-                                .map(|lbp| lbp.saturating_add(1))
-                                .unwrap_or(u8::MAX);
-                            let key = self.expression_inner(lang, cursor, key_rbp)?;
-                            let sep = cursor.advance()?;
-                            if sep.kind != "token.colon" {
-                                return Err(LangError::Engine(format!(
-                                    "expected ':' in object entry, got {}",
-                                    sep.kind
-                                )));
+                            // Check for rest pattern `...rest` (no key:value
+                            // pair — captures remaining keys in destructuring).
+                            if let Some(t) = cursor.peek() {
+                                if t.kind == "token.ellipsis" {
+                                    let rest = self.expression_inner(lang, cursor, 0)?;
+                                    children.push(rest.index());
+                                } else {
+                                    // Parse `key : value` pair → entry node.
+                                    // Key is parsed with rbp above `:` infix lbp so
+                                    // the colon is left for this loop.
+                                    let key_rbp = Self::lookup_row(lang, "token.colon", GrammarPosition::Infix)
+                                        .and_then(|r| r.binding_power.map(|(l, _)| l))
+                                        .map(|lbp| lbp.saturating_add(1))
+                                        .unwrap_or(u8::MAX);
+                                    let key = self.expression_inner(lang, cursor, key_rbp)?;
+                                    let sep = cursor.advance()?;
+                                    if sep.kind != "token.colon" {
+                                        return Err(LangError::Engine(format!(
+                                            "expected ':' in object entry, got {}",
+                                            sep.kind
+                                        )));
+                                    }
+                                    let val = self.expression_inner(lang, cursor, 0)?;
+                                    let entry_payload = serde_json::json!({ "children": [key.index(), val.index()] });
+                                    let entry_node = AstNode::new("entry").with_payload(entry_payload);
+                                    let entry_ref = self.ast.borrow_mut().push(entry_node);
+                                    children.push(entry_ref.index());
+                                }
                             }
-                            let val = self.expression_inner(lang, cursor, 0)?;
-                            let entry_payload = serde_json::json!({ "children": [key.index(), val.index()] });
-                            let entry_node = AstNode::new("entry").with_payload(entry_payload);
-                            let entry_ref = self.ast.borrow_mut().push(entry_node);
-                            children.push(entry_ref.index());
                         } else {
                             let el = self.expression_inner(lang, cursor, 0)?;
                             children.push(el.index());

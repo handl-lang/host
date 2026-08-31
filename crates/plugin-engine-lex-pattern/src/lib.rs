@@ -158,7 +158,8 @@ fn try_rule<'r>(
             escape,
             interpolation: _,
             close_at_eof,
-        } => try_delimited(rule, open, close, *escape, *close_at_eof, src, pos),
+            nesting_open,
+        } => try_delimited(rule, open, close, *escape, *close_at_eof, nesting_open.as_deref(), src, pos),
     }
 }
 
@@ -214,12 +215,19 @@ fn try_number<'r>(
 }
 
 /// Try to match a delimited block (string, comment, template).
+///
+/// When `nesting_open` is `Some`, the scanner tracks nesting depth: each
+/// occurrence of `nesting_open` increments the depth, and the `close`
+/// delimiter only terminates the block when depth returns to zero. This
+/// allows brace-balanced blocks (e.g. `json{...}`) where inner `{` / `}`
+/// pairs must not prematurely close the token.
 fn try_delimited<'r>(
     rule: &'r LexerRuleDef,
     open: &str,
     close: &str,
     escape: bool,
     close_at_eof: bool,
+    nesting_open: Option<&str>,
     src: &str,
     pos: usize,
 ) -> Option<(&'r str, String, usize)> {
@@ -227,12 +235,25 @@ fn try_delimited<'r>(
         return None;
     }
     let mut cur = pos + open.len();
+    let mut depth: usize = 1;
     while cur < src.len() {
+        // Check for nesting-open (increments depth before checking close).
+        if let Some(nest) = nesting_open {
+            if src[cur..].starts_with(nest) {
+                depth += 1;
+                cur += nest.len();
+                continue;
+            }
+        }
         // Check for close delimiter.
         if src[cur..].starts_with(close) {
+            depth -= 1;
             cur += close.len();
-            let text = src[pos..cur].to_string();
-            return Some((rule.token_kind.as_str(), text, cur));
+            if depth == 0 {
+                let text = src[pos..cur].to_string();
+                return Some((rule.token_kind.as_str(), text, cur));
+            }
+            continue;
         }
         // Escape sequence: skip the next char.
         if escape && peek_char(src, cur) == Some('\\') {
@@ -250,7 +271,7 @@ fn try_delimited<'r>(
         }
     }
     // Reached EOF.
-    if close_at_eof {
+    if close_at_eof && depth <= 1 {
         let text = src[pos..cur].to_string();
         Some((rule.token_kind.as_str(), text, cur))
     } else {
@@ -385,6 +406,7 @@ mod tests {
                     escape: true,
                     interpolation: false,
                     close_at_eof: false,
+                    nesting_open: None,
                 },
                 40,
             ))

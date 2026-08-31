@@ -58,6 +58,11 @@
   pattern: !Literal
     text: .
   priority: 30
+- id: lex.ellipsis
+  token_kind: token.ellipsis
+  pattern: !Literal
+    text: '...'
+  priority: 10
 - id: lex.eqeq
   token_kind: token.eqeq
   pattern: !Literal
@@ -94,6 +99,16 @@
     start_chars: a-zA-Z_
     continue_chars: a-zA-Z0-9_
   priority: 50
+- id: lex.json
+  token_kind: token.json
+  pattern: !Delimited
+    open: 'json{'
+    close: '}'
+    escape: false
+    interpolation: false
+    close_at_eof: false
+    nesting_open: '{'
+  priority: 5
 - id: lex.keyword.as
   token_kind: token.keyword.as
   pattern: !Literal

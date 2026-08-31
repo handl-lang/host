@@ -130,6 +130,8 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.object.prefix",
         "grammar.match.prefix",
         "grammar.handle.prefix",
+        "grammar.json.prefix",
+        "grammar.ellipsis.prefix",
         "grammar.field-access.postfix",
         "grammar.index.postfix",
         "grammar.may.infix",
@@ -219,6 +221,8 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.bang",
         "token.question",
         "token.template",
+        "token.json",
+        "token.ellipsis",
         // Comments + EOF.
         "token.comment",
         "token.doc_comment",

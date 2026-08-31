@@ -16,6 +16,8 @@
   label: doc_comment
 - id: token.dot
   label: .
+- id: token.ellipsis
+  label: '...'
 - id: token.eof
   label: eof
 - id: token.eqeq
@@ -32,6 +34,8 @@
   label: '>='
 - id: token.identifier
   label: identifier
+- id: token.json
+  label: json
 - id: token.if
   label: null
 - id: token.keyword.as

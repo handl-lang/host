@@ -58,6 +58,15 @@
   child_shape:
     node_kind: binary.eq
     arity: 2
+- id: grammar.ellipsis.prefix
+  token: token.ellipsis
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: rest
+    arity: 1
 - id: grammar.assign.infix
   token: token.equal
   position: Infix
@@ -81,7 +90,7 @@
   position: Infix
   binding_power:
   - 20
-  - 20
+  - 21
   child_shape:
     node_kind: flow
     arity: 2
@@ -108,6 +117,12 @@
   position: Prefix
   child_shape:
     node_kind: var
+    arity: 0
+- id: grammar.json.prefix
+  token: token.json
+  position: Prefix
+  child_shape:
+    node_kind: json
     arity: 0
 - id: grammar.if.prefix
   token: token.keyword.if
