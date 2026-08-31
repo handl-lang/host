@@ -100,7 +100,7 @@ pub struct CompiledHandle {
 /// (needed to execute: the bytecode VM lazily compiles child nodes using
 /// `lang` + `ast`; the cranelift helpers read `ast` node payloads and `lang`
 /// at execution time). `run` executes the artifact using the supplied
-/// module registry (for [`handl_language::Scheme::Foreign`] dispatch,
+/// module registry (for `Foreign` dispatch,
 /// re-attached by the runtime so the compiled program can recurse via the
 /// meta host functions).
 pub trait CompiledArtifact {
@@ -801,7 +801,7 @@ impl Runtime {
     /// in the eval engine (e.g. `self` → language value). ADR-0041 Phase 3.
     ///
     /// If `modules` is `Some`, it is passed to the eval engine (via
-    /// `EvalEngine::with_modules`) for [`handl_language::Scheme::Foreign`]
+    /// `EvalEngine::with_modules`) for `Foreign`
     /// dispatch; if `None`, no module registry is wired.
     ///
     /// # Errors
@@ -947,7 +947,7 @@ mod tests {
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
     // Stub engines for independent dispatch testing
@@ -1099,12 +1099,15 @@ mod tests {
                 .with_binding_power(10, 11),
             )
             .unwrap();
-        // Eval scheme: binary.add → Prim { op: "add", args: [Child(0), Child(1)] }
+        // Eval scheme: binary.add → arr(add, [proj_child 0, proj_child 1])
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native("add", vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ]),
             ))
             .unwrap();
         lang
@@ -1371,9 +1374,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "foreign.double",
-                Scheme::foreign(
+                Scheme::arr_foreign(
                     "double",
-                    vec![Scheme::Child(handl_language::AstRef::new(0))],
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
                 ),
             ))
             .unwrap();

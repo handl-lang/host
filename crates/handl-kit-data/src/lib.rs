@@ -376,7 +376,7 @@ impl DataKit {
     /// The caller supplies an [`EngineRegistry`] populated with the available
     /// engine impls; `into_runtime` resolves `self.runtime_config` against it.
     /// If `modules` is `Some`, it is passed to the eval engine for
-    /// [`handl_language::Scheme::Foreign`] dispatch.
+    /// foreign (`ArrSource::Foreign`) dispatch.
     ///
     /// # Errors
     ///
@@ -461,11 +461,6 @@ fn merge_filtered(
     for frag in fragment_lang.eval.fragments() {
         if passes(frag.id()) {
             lang.eval.merge(frag.clone())?;
-        }
-    }
-    for frag in fragment_lang.eval_v2.fragments() {
-        if passes(frag.id()) {
-            lang.eval_v2.merge(frag.clone())?;
         }
     }
     for frag in fragment_lang.ast.fragments() {

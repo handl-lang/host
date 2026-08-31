@@ -81,7 +81,7 @@ impl Emitter for ConstructEmitter {
         lang.eval.merge(EvalSchemeDef::new(
             self.eval_id,
             self.node_kind,
-            Scheme::lit(Value::Null),
+            Scheme::arr_native_lit("const", vec![], Value::Null),
         ))?;
         Ok(lang)
     }

@@ -6,9 +6,14 @@
 //! extend this corpus.
 
 use handl_language::{
-    Ast, AstNode, AstRef, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language,
+    Ast, AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language,
     Scheme, Token, TokenKindDef, Tokens, Value,
 };
+
+/// `arr(proj_child, lit: i)` — reference the i-th child node.
+fn pc(i: u64) -> Scheme {
+    Scheme::arr_native_lit("proj_child", vec![], Value::from(i))
+}
 
 /// An eval conformance case: a `(Language, Ast, expected Value)` triple.
 #[derive(Debug, Clone)]
@@ -53,14 +58,14 @@ pub fn eval_corpus() -> Vec<EvalCase> {
             },
             expected: Value::from(42),
         },
-        // 2. Add: binary.add with Prim("add", [Child(0), Child(1)]).
+        // 2. Add: binary.add with arr("add", [proj_child 0, proj_child 1]).
         {
             let mut lang = Language::new();
             lang.eval
                 .merge(EvalSchemeDef::new(
                     "e.add",
                     "binary.add",
-                    Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                    Scheme::arr_native("add", vec![pc(0), pc(1)]),
                 ))
                 .unwrap();
             EvalCase {
@@ -83,17 +88,28 @@ pub fn eval_corpus() -> Vec<EvalCase> {
         {
             let mut lang = Language::new();
             lang.eval
-                .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+                .merge(EvalSchemeDef::new(
+                    "e.var",
+                    "var",
+                    Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+                ))
                 .unwrap();
             lang.eval
                 .merge(EvalSchemeDef::new(
                     "e.let",
                     "let",
-                    Scheme::Bind {
-                        name: "$payload".into(),
-                        value: Box::new(Scheme::Child(AstRef::new(0))),
-                        body: Box::new(Scheme::Child(AstRef::new(1))),
-                    },
+                    // value >>> arr(extend_env "$payload") >>> body
+                    Scheme::seq(
+                        Scheme::seq(
+                            pc(0),
+                            Scheme::arr_native_lit(
+                                "extend_env",
+                                vec![],
+                                Value::String("$payload".into()),
+                            ),
+                        ),
+                        pc(1),
+                    ),
                 ))
                 .unwrap();
             EvalCase {
@@ -112,18 +128,17 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 expected: Value::from(42),
             }
         },
-        // 4. If (true branch): Branch with cond=true.
+        // 4. If (true branch): cond >>> arr(tag) >>> Choice(then, else).
         {
             let mut lang = Language::new();
             lang.eval
                 .merge(EvalSchemeDef::new(
                     "e.if",
                     "if",
-                    Scheme::Branch {
-                        cond: Box::new(Scheme::child(0)),
-                        then_: Box::new(Scheme::child(1)),
-                        else_: Box::new(Scheme::child(2)),
-                    },
+                    Scheme::seq(
+                        Scheme::seq(pc(0), Scheme::arr_native("tag", vec![])),
+                        Scheme::choice(pc(1), pc(2)),
+                    ),
                 ))
                 .unwrap();
             EvalCase {
@@ -152,7 +167,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 .merge(EvalSchemeDef::new(
                     "e.dbl",
                     "dbl",
-                    Scheme::foreign("double", vec![Scheme::child(0)]),
+                    Scheme::arr_foreign("double", vec![pc(0)]),
                 ))
                 .unwrap();
             EvalCase {
@@ -171,24 +186,35 @@ pub fn eval_corpus() -> Vec<EvalCase> {
         {
             let mut lang = Language::new();
             lang.eval
-                .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+                .merge(EvalSchemeDef::new(
+                    "e.var",
+                    "var",
+                    Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+                ))
                 .unwrap();
             lang.eval
                 .merge(EvalSchemeDef::new(
                     "e.let",
                     "let",
-                    Scheme::Bind {
-                        name: "$payload".into(),
-                        value: Box::new(Scheme::Child(AstRef::new(0))),
-                        body: Box::new(Scheme::Child(AstRef::new(1))),
-                    },
+                    // value >>> arr(extend_env "$payload") >>> body
+                    Scheme::seq(
+                        Scheme::seq(
+                            pc(0),
+                            Scheme::arr_native_lit(
+                                "extend_env",
+                                vec![],
+                                Value::String("$payload".into()),
+                            ),
+                        ),
+                        pc(1),
+                    ),
                 ))
                 .unwrap();
             lang.eval
                 .merge(EvalSchemeDef::new(
                     "e.add",
                     "binary.add",
-                    Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                    Scheme::arr_native("add", vec![pc(0), pc(1)]),
                 ))
                 .unwrap();
             EvalCase {

@@ -16,7 +16,7 @@
 //! ## Scope & limitations
 //!
 //! - The `foreign` corpus case is **skipped** — standalone mode has no host
-//!   functions registry at runtime, so `Scheme::Foreign` dispatch cannot
+//!   functions registry at runtime, so foreign `Arr` op dispatch cannot
 //!   resolve. This is a documented Phase 8 limitation.
 //! - The executable is linked with `cc` against the crate's static library;
 //!   the test requires `cc` and `cargo` on `PATH`.

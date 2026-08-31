@@ -2,9 +2,9 @@
 //!
 //! The **bytecode eval engine** for the eval operation (ADR-0044 §4, §7).
 //!
-//! This engine compiles [`handl_language::Scheme`] data to a bytecode
-//! representation and executes it via a stack-based VM. It shares the same
-//! `Scheme` vocabulary as the
+//! This engine compiles [`handl_language::Scheme`] (the v2 arrow-calculus
+//! kernel, ADR-0052) data to a bytecode representation and executes it via a
+//! stack-based VM. It shares the same `Scheme` vocabulary as the
 //! [`handl_plugin_engine_eval_tree_walk`](handl_plugin_engine_eval_tree_walk)
 //! reference interpreter; conformance tests verify both produce **identical
 //! results**.
@@ -28,51 +28,36 @@
 //! ## Bytecode ISA
 //!
 //! See the [`instr`] module for the full instruction set documentation. The
-//! ISA covers all 8 `Scheme` combinators:
-//!
-//! | Scheme combinator | Compiled instructions |
-//! |---|---|
-//! | `Lit(v)` | `Push(v)` |
-//! | `Var("x")` | `Load("x")` |
-//! | `Var("$payload")` | `LoadPayloadVar` |
-//! | `Child(n)` | `EvalChild(n)` |
-//! | `Bind{name, value, body}` | `compile(value)`, `Store(name)`, `compile(body)`, `PopScope` |
-//! | `App{callee, args}` | `compile(callee)`, `compile(args)…`, `Call(n)` |
-//! | `Branch{cond, then, else}` | `compile(cond)`, `JumpIfFalse(else)`, `compile(then)`, `Jump(end)`, `compile(else)` |
-//! | `Prim{op, args}` | `compile(args)…`, `Prim(op, n)` |
-//! | `Foreign{name, args}` | `compile(args)…`, `Foreign(name, n)` |
-//! | `Vau{params, body}` | `VauEnter`, `VauBind(p_i, i)…`, `compile(body)`, `PopScope` |
+//! ISA covers all six `Scheme` combinators (`Arr`, `Seq`, `First`, `Choice`,
+//! `Loop`, `App`); see the [`instr`] module's combinator-to-instruction
+//! mapping table for details.
 //!
 //! ## Conventions (matched to the tree-walk)
 //!
-//! - `Child(n)` = nth child of current node: reads `node.payload["children"][n]`
-//!   to get the absolute `AstRef`, then recurses.
-//! - `Var("$payload")` reads `node.payload` as the variable name.
-//! - `Bind{name: "$payload", ...}` reads `node.payload["name"]` as the bind name.
+//! - `proj_child(n)` = nth child of current node: reads
+//!   `node.payload["children"][n]` to get the absolute `AstRef`, then
+//!   recurses.
+//! - `proj_env("$payload")` reads `node.payload` as the variable name.
+//! - `extend_env("$payload")` reads `node.payload["name"]` as the bind name.
 //! - No-scheme fallback: if a node kind has no eval scheme, returns
 //!   `node.payload` directly.
 //! - Closure representation: `Value::Object` with
 //!   `{"__closure__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
-//!   created by the `"closure"` primitive.
-//! - Primitives: `add, sub, mul, div, eq, lt, gt, not, and, or, closure` —
-//!   identical semantics to the tree-walk.
-//! - Scope: `Vec<HashMap<String, Value>>` scope stack; `Bind` pushes a child
-//!   scope; lookup searches innermost-first. Closure calls swap in the
+//!   created by the `"closure"` native op.
+//! - Native ops: `add, sub, mul, div, mod, neg, eq, neq, lt, gt, lte, gte,
+//!   and, or, not, tag, id, closure` — identical semantics to the tree-walk.
+//! - Scope: `Vec<HashMap<String, Value>>` scope stack; `extend_env` pushes a
+//!   child scope; lookup searches innermost-first. Closure calls swap in the
 //!   captured env, bind params, eval body, restore.
 
 #![warn(missing_docs)]
 
 pub mod compile;
-pub mod compile_v2;
 pub mod instr;
-pub mod instr_v2;
 mod vm;
-mod vm_v2;
 
 pub use compile::compile;
-pub use compile_v2::compile_v2;
 pub use instr::Instr;
-pub use instr_v2::InstrV2;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
@@ -80,21 +65,21 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use vm::VmFrame;
-use vm_v2::VmFrameV2;
 
 /// The bytecode eval engine.
 ///
-/// Compiles `Scheme` data to bytecode and executes via a stack-based VM.
-/// Construct with [`BytecodeEngine::new`] and optionally pass a module
-/// registry via [`BytecodeEngine::with_modules`].
+/// Compiles [`Scheme`](handl_language::Scheme) (the v2 arrow-calculus kernel)
+/// data to bytecode and executes via a stack-based VM. Construct with
+/// [`BytecodeEngine::new`] and optionally pass a module registry via
+/// [`BytecodeEngine::with_modules`].
 ///
-/// The engine checks `lang.scheme_version` against `SchemeVersion::v1()` and
-/// rejects mismatched versions.
+/// The engine checks `lang.scheme_version` against [`SchemeVersion::v2()`]
+/// (exact equality) and rejects mismatched versions.
 #[derive(Clone)]
 pub struct BytecodeEngine {
-    /// The underlying VM (carries the module registry).
-    vm: BytecodeVm,
-    /// Global variables injected by the host (e.g. `self` → language value).
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// Global variables injected by the host (e.g. `self` -> language value).
     globals: HashMap<String, Value>,
 }
 
@@ -102,18 +87,19 @@ impl BytecodeEngine {
     /// Create a new bytecode engine with no module registry.
     pub fn new() -> Self {
         Self {
-            vm: BytecodeVm::new(),
+            modules: None,
             globals: HashMap::new(),
         }
     }
 
     /// Create a bytecode engine with a module registry attached.
     ///
-    /// The module registry is used for [`handl_language::Scheme::Foreign`]
-    /// dispatch (ADR-0044 §7).
+    /// The module registry is used for
+    /// [`Scheme::Arr`](handl_language::Scheme::Arr) with
+    /// [`ArrSource::Foreign`](handl_language::ArrSource::Foreign) dispatch.
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
-            vm: BytecodeVm::with_modules(modules),
+            modules: Some(modules),
             globals: HashMap::new(),
         }
     }
@@ -138,185 +124,19 @@ impl EvalEngine for BytecodeEngine {
         if ast.is_empty() {
             return Ok(Value::Null);
         }
-        // Scheme version check — reject versions the engine doesn't support.
-        if !SchemeVersion::v1().supports(&lang.scheme_version) {
-            return Err(LangError::Engine(format!(
-                "unsupported scheme version: {} (engine supports v1)",
-                lang.scheme_version
-            )));
-        }
-        let root_ref = AstRef::new(ast.len() - 1);
-        let root_node = ast.at(root_ref)?;
-        // Compile the root node's scheme (or use the no-scheme fallback).
-        let scheme_def = lang.eval.get_by_identity(&root_node.kind);
-        let instrs = match scheme_def {
-            Some(def) => compile(&def.scheme, root_node)?,
-            None => vec![Instr::LoadPayload, Instr::Return],
-        };
-        self.vm.execute(lang, ast, &instrs, &self.globals)
-    }
-
-    /// Produce an owned boxed clone (ADR-0047 §2).
-    fn box_clone(&self) -> Box<dyn EvalEngine> {
-        Box::new(self.clone())
-    }
-
-    /// Produce a fresh owned engine with the given module registry
-    /// wired in, preserving any previously-injected globals (ADR-0047 §2).
-    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
-        let mut engine = self.clone();
-        engine.vm = BytecodeVm::with_modules(modules);
-        Box::new(engine)
-    }
-
-    /// Produce a fresh owned engine with an additional global variable
-    /// injected into the root scope (ADR-0047 §2).
-    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
-        Box::new(self.clone().with_global(name, val))
-    }
-}
-
-/// The bytecode VM.
-///
-/// Executes a compiled instruction program against an operand stack and a
-/// scope stack. [`Instr::EvalChild`] and [`Instr::Call`] recurse into
-/// per-node compilation (via a cache) and execution.
-///
-/// Construct with [`BytecodeVm::new`] and optionally pass a module
-/// registry via [`BytecodeVm::with_modules`].
-#[derive(Clone)]
-pub struct BytecodeVm {
-    /// The module registry for `Foreign` dispatch (may be `None`).
-    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
-}
-
-impl BytecodeVm {
-    /// Create a new VM with no module registry.
-    pub fn new() -> Self {
-        Self { modules: None }
-    }
-
-    /// Create a new VM with a module registry.
-    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
-        Self {
-            modules: Some(modules),
-        }
-    }
-
-    /// Execute a pre-compiled instruction program.
-    ///
-    /// The program is executed against the root node (the last node in the
-    /// arena, following the Pratt convention). [`Instr::EvalChild`]
-    /// instructions compile and execute child nodes on demand via a per-node
-    /// cache.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LangError`] on evaluation failure (unknown variable,
-    /// unknown primitive, unregistered foreign function, stack underflow,
-    /// etc.).
-    pub fn execute(
-        &self,
-        lang: &Language,
-        ast: &Ast,
-        instrs: &[Instr],
-        globals: &HashMap<String, Value>,
-    ) -> Result<Value, LangError> {
-        if ast.is_empty() {
-            return Ok(Value::Null);
-        }
-        let root_ref = AstRef::new(ast.len() - 1);
-        let root_node = ast.at(root_ref)?;
-        let mut frame = VmFrame::new(ast, lang, self.modules.as_ref());
-        for (name, val) in globals {
-            frame.define_global(name, val.clone());
-        }
-        frame.exec_instrs(instrs, root_node)
-    }
-}
-
-impl Default for BytecodeVm {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-// ---------------------------------------------------------------------------
-// BytecodeEngineV2 (ADR-0052 Phase B)
-// ---------------------------------------------------------------------------
-
-/// The v2 bytecode eval engine.
-///
-/// Compiles [`SchemeV2`](handl_language::scheme_v2::SchemeV2) data to v2
-/// bytecode and executes via a stack-based VM. This is **additive**: the v1
-/// [`BytecodeEngine`] is untouched. The v2 engine reuses the v1
-/// [`ScopeStack`](crate::vm::ScopeStack) and numeric helpers via
-/// `pub(crate)` visibility.
-///
-/// The engine checks `lang.scheme_version` against [`SchemeVersion::v2()`]
-/// and rejects mismatched versions.
-#[derive(Clone)]
-pub struct BytecodeEngineV2 {
-    /// The module registry for `Foreign` dispatch (may be `None`).
-    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
-    /// Global variables injected by the host (e.g. `self` -> language value).
-    globals: HashMap<String, Value>,
-}
-
-impl BytecodeEngineV2 {
-    /// Create a new v2 bytecode engine with no module registry.
-    pub fn new() -> Self {
-        Self {
-            modules: None,
-            globals: HashMap::new(),
-        }
-    }
-
-    /// Create a v2 bytecode engine with a module registry attached.
-    ///
-    /// The module registry is used for
-    /// [`SchemeV2::Arr`](handl_language::scheme_v2::SchemeV2::Arr) with
-    /// [`ArrSource::Foreign`](handl_language::scheme_v2::ArrSource::Foreign)
-    /// dispatch.
-    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
-        Self {
-            modules: Some(modules),
-            globals: HashMap::new(),
-        }
-    }
-
-    /// Inject a global variable into the root scope (builder style).
-    pub fn with_global(mut self, name: &str, value: Value) -> Self {
-        self.globals.insert(name.to_string(), value);
-        self
-    }
-}
-
-impl Default for BytecodeEngineV2 {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EvalEngine for BytecodeEngineV2 {
-    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
-        let ast = &req.ast;
-        if ast.is_empty() {
-            return Ok(Value::Null);
-        }
-        // Scheme version check -- v2 engine supports v1 and v2.
+        // Scheme version check -- the engine supports v2 only.
         if !SchemeVersion::v2().supports(&lang.scheme_version) {
             return Err(LangError::Engine(format!(
-                "unsupported scheme version: {} (engine supports v2: v1 and v2)",
+                "unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
         }
         let root_ref = AstRef::new(ast.len() - 1);
-        let mut frame = VmFrameV2::new(ast, lang, self.modules.as_ref());
+        let mut frame = VmFrame::new(ast, lang, self.modules.as_ref());
         for (name, val) in &self.globals {
             frame.define_global(name, val.clone());
         }
-        frame.exec_node_v2(root_ref)
+        frame.exec_node(root_ref)
     }
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {
@@ -334,22 +154,27 @@ impl EvalEngine for BytecodeEngineV2 {
     }
 }
 
+/// Alias for the bytecode eval engine (ADR-0052 big-bang cutover).
+///
+/// The v2 engine is now canonical under the name [`BytecodeEngine`]. This
+/// alias preserves the historical `BytecodeEngineV2` name for external
+/// consumers that have not yet been updated.
+pub type BytecodeEngineV2 = BytecodeEngine;
+
 // ---------------------------------------------------------------------------
 // CompileEngine / CompiledArtifact impls (ADR-0047 §3)
 // ---------------------------------------------------------------------------
 
-/// A compiled bytecode artifact. Holds the root node's compiled instruction
-/// program plus the [`Language`] and [`Ast`] it was compiled from (needed
-/// because [`Instr::EvalChild`] lazily compiles child nodes using `lang` +
-/// `ast` at execution time via the per-node cache).
+/// A compiled bytecode artifact. Holds the [`Language`] and [`Ast`] it was
+/// compiled from. Execution lazily compiles each node's scheme (via a
+/// per-node cache) at run time, because [`Instr::EvalChild`] resolves child
+/// nodes using `lang` + `ast`.
 #[derive(Clone)]
 pub struct BytecodeArtifact {
     /// The language the program was compiled under.
     lang: Language,
     /// The AST the program was compiled from.
     ast: Ast,
-    /// The compiled instruction program for the root node.
-    root_instrs: Vec<Instr>,
 }
 
 impl handl_runtime::CompiledArtifact for BytecodeArtifact {
@@ -357,12 +182,12 @@ impl handl_runtime::CompiledArtifact for BytecodeArtifact {
         &self,
         modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Value, LangError> {
-        let vm = match modules {
-            Some(m) => BytecodeVm::with_modules(m),
-            None => BytecodeVm::new(),
-        };
-        let globals = HashMap::new();
-        vm.execute(&self.lang, &self.ast, &self.root_instrs, &globals)
+        if self.ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        let root_ref = AstRef::new(self.ast.len() - 1);
+        let mut frame = VmFrame::new(&self.ast, &self.lang, modules.as_ref());
+        frame.exec_node(root_ref)
     }
 
     fn box_clone(&self) -> Box<dyn handl_runtime::CompiledArtifact> {
@@ -389,33 +214,17 @@ impl handl_runtime::CompileEngine for BytecodeCompileEngine {
         ast: &Ast,
         _target: &str,
     ) -> Result<Box<dyn handl_runtime::CompiledArtifact>, LangError> {
-        if ast.is_empty() {
-            return Ok(Box::new(BytecodeArtifact {
-                lang: lang.clone(),
-                ast: ast.clone(),
-                root_instrs: Vec::new(),
-            }));
-        }
-        if !SchemeVersion::v1().supports(&lang.scheme_version) {
+        if !SchemeVersion::v2().supports(&lang.scheme_version) {
             return Err(LangError::Engine(format!(
-                "compile: unsupported scheme version: {} (engine supports v1)",
+                "compile: unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
         }
-        let root_ref = AstRef::new(ast.len() - 1);
-        let root_node = ast.at(root_ref)?;
-        // Compile the root node's scheme (or use the no-scheme fallback).
         // Child nodes are compiled lazily at execution time via the VM's
-        // per-node cache.
-        let scheme_def = lang.eval.get_by_identity(&root_node.kind);
-        let root_instrs = match scheme_def {
-            Some(def) => compile(&def.scheme, root_node)?,
-            None => vec![Instr::LoadPayload, Instr::Return],
-        };
+        // per-node cache, so the artifact only needs to carry `lang` + `ast`.
         Ok(Box::new(BytecodeArtifact {
             lang: lang.clone(),
             ast: ast.clone(),
-            root_instrs,
         }))
     }
 
@@ -506,7 +315,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.const",
                 "const",
-                Scheme::lit(json!(99)),
+                Scheme::arr_native_lit("const", vec![], json!(99)),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("const")]);
@@ -522,7 +331,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -539,17 +354,23 @@ mod tests {
         let engine = BytecodeEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::child(0)),
-                    body: Box::new(Scheme::child(1)),
-                },
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("extend_env", vec![], "$payload"),
+                    ),
+                    Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -569,11 +390,16 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(2u64)),
+                    ),
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -594,11 +420,16 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(2u64)),
+                    ),
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -619,7 +450,10 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("double", vec![Scheme::child(0)]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(0u64))],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -638,7 +472,10 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("double", vec![Scheme::child(0)]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(0u64))],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -655,24 +492,36 @@ mod tests {
         let engine = BytecodeEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::child(0)),
-                    body: Box::new(Scheme::child(1)),
-                },
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("extend_env", vec![], "$payload"),
+                    ),
+                    Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -692,7 +541,7 @@ mod tests {
     fn engine_version_mismatch_errors() {
         let engine = BytecodeEngine::new();
         let mut lang = Language::new();
-        lang.scheme_version = SchemeVersion::new("v2");
+        lang.scheme_version = SchemeVersion::new("v3");
         let ast = make_ast(vec![AstNode::new("lit").with_payload(json!(42))]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
@@ -726,27 +575,37 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                Scheme::arr_native("closure", vec![]),
             ))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(1u64))],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -766,41 +625,53 @@ mod tests {
         let engine = BytecodeEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::child(0)),
-                    body: Box::new(Scheme::child(1)),
-                },
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("extend_env", vec![], "$payload"),
+                    ),
+                    Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                Scheme::arr_native("closure", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(1u64))],
+                ),
             ))
             .unwrap();
         // let x = 10 in let f = fn(y) { x + y } in f(5) → 15
@@ -819,44 +690,6 @@ mod tests {
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(15));
     }
 
-    // --- BytecodeVm tests ---
-
-    #[test]
-    fn vm_default_constructor() {
-        let vm = BytecodeVm::default();
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Push(json!(42)), Instr::Return];
-        let result = vm.execute(&lang, &ast, &instrs, &HashMap::new()).unwrap();
-        assert_eq!(result, json!(42));
-    }
-
-    #[test]
-    fn vm_empty_ast_returns_null() {
-        let vm = BytecodeVm::new();
-        let lang = Language::new();
-        let instrs = vec![Instr::Return];
-        let result = vm
-            .execute(&lang, &handl_language::Ast::new(), &instrs, &HashMap::new())
-            .unwrap();
-        assert_eq!(result, Value::Null);
-    }
-
-    #[test]
-    fn vm_execute_precompiled() {
-        let vm = BytecodeVm::new();
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(10)),
-            Instr::Push(json!(20)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let result = vm.execute(&lang, &ast, &instrs, &HashMap::new()).unwrap();
-        assert_eq!(result, json!(30));
-    }
-
     #[test]
     fn engine_foreign_host_present_but_fn_not_found_errors() {
         // Module registry is registered but doesn't have the requested function.
@@ -866,7 +699,10 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.triple",
                 "triple",
-                Scheme::foreign("triple", vec![Scheme::child(0)]),
+                Scheme::arr_foreign(
+                    "triple",
+                    vec![Scheme::arr_native_lit("proj_child", vec![], json!(0u64))],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -877,40 +713,5 @@ mod tests {
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
-    }
-
-    // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
-
-    #[test]
-    fn engine_vau_does_not_force_child() {
-        // A vau node binds its child (unevaluated) but the body returns a
-        // constant. The child is a div-by-zero node that would error if
-        // evaluated, proving the child is never forced.
-        let engine = BytecodeEngine::new();
-        let mut lang = Language::new();
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.div",
-                "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.vau",
-                "vau",
-                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
-            ))
-            .unwrap();
-        // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
-        // 3: vau {children:[2]} — binds x to the unevaluated div, returns 42
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!(0)),
-            AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})),
-            AstNode::new("vau").with_payload(json!({"children": [2]})),
-        ]);
-        let req = EvalRequest::new(ast);
-        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
     }
 }

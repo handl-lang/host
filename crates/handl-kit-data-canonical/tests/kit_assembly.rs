@@ -30,14 +30,16 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // grammar.mood.postfix removed (stale placeholder).
     assert_eq!(lang.grammar.len(), 55);
 
-    // Eval schemes: 53 — one per node kind (after excluding the duplicate
+    // Eval schemes: 52 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
-    // primitive), plus the `binary.pow` eval scheme, the `vau` eval scheme,
+    // primitive), plus the `binary.pow` eval scheme,
     // 4 new operator eval schemes (binary.and, binary.or, binary.mod,
     // unary.neg), 1 is eval scheme, 4 mood eval schemes (may, mood.neg,
     // must, when), and 1 proc eval scheme (eval.proc).
+    // `eval.vau` is intentionally omitted (ADR-0052: Vau is removed from the
+    // kernel — it is a handler concern, not a kernel combinator).
     // eval.mood removed (stale placeholder).
-    assert_eq!(lang.eval.len(), 53);
+    assert_eq!(lang.eval.len(), 52);
 
     // AST shapes: 52 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`

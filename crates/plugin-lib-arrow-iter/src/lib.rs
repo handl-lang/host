@@ -7,10 +7,10 @@
 //! primitives and **not** grammar rules — they are *derived patterns*
 //! expressed via the six arrow-calculus primitives. The load-bearing
 //! principle: **feedback is primitive; iteration is derived.** This crate
-//! is the concrete payoff: it builds [`SchemeV2`] descriptions of `while`/
+//! is the concrete payoff: it builds [`Scheme`] descriptions of `while`/
 //! `for`/`fix` from `Loop` + `Arr`, with no new kernel constructs.
 //!
-//! Each builder returns a [`SchemeV2::Loop`] whose body is a single
+//! Each builder returns a [`Scheme::Loop`] whose body is a single
 //! `Arr` composite step op (`while_step`/`for_step`/`fix_step`) carrying
 //! the user-supplied sub-arrows (`cond`/`body`) as `args`. The
 //! description is primitive-only (`Loop` + `Arr`); the *interpretation*
@@ -29,7 +29,7 @@
 
 #![warn(missing_docs)]
 
-use handl_language::SchemeV2;
+use handl_language::Scheme;
 
 /// `while cond body` — derived from `Loop` + `Choice`
 /// (ADR-0052 §"Derived forms").
@@ -38,7 +38,7 @@ use handl_language::SchemeV2;
 /// current value; `cond` tests it. When `cond` is falsy, the loop
 /// returns the current value.
 ///
-/// Arrow-calculus form: a [`SchemeV2::Loop`] whose body is the
+/// Arrow-calculus form: a [`Scheme::Loop`] whose body is the
 /// `while_step` composite op carrying `cond` and `body` as sub-arrows.
 /// The step extracts the current value (the original input on the first
 /// iteration, when the state is `Null`; the evolving state thereafter),
@@ -49,8 +49,8 @@ use handl_language::SchemeV2;
 ///
 /// The `Loop` handler re-runs the body on `right` and returns the
 /// carried value on `left`.
-pub fn while_loop(cond: SchemeV2, body: SchemeV2) -> SchemeV2 {
-    SchemeV2::loop_feedback(SchemeV2::arr_native("while_step", vec![cond, body]))
+pub fn while_loop(cond: Scheme, body: Scheme) -> Scheme {
+    Scheme::loop_feedback(Scheme::arr_native("while_step", vec![cond, body]))
 }
 
 /// `for body` — derived from `Loop` + `Choice`
@@ -60,14 +60,14 @@ pub fn while_loop(cond: SchemeV2, body: SchemeV2) -> SchemeV2 {
 /// input is `pair(count, initial)`; `body` is applied to the accumulator
 /// on each step. Returns the accumulated value after `count` steps.
 ///
-/// Arrow-calculus form: a [`SchemeV2::Loop`] whose body is the
+/// Arrow-calculus form: a [`Scheme::Loop`] whose body is the
 /// `for_step` composite op carrying `body` as a sub-arrow. The state is
 /// `pair(counter, acc)`, initialized from the input on the first step.
 /// While `counter > 0`, the step runs `body` on `acc` and continues with
 /// `pair(counter - 1, body(acc))`; when `counter == 0`, it terminates
 /// with `acc`.
-pub fn for_loop(body: SchemeV2) -> SchemeV2 {
-    SchemeV2::loop_feedback(SchemeV2::arr_native("for_step", vec![body]))
+pub fn for_loop(body: Scheme) -> Scheme {
+    Scheme::loop_feedback(Scheme::arr_native("for_step", vec![body]))
 }
 
 /// `fix body` — derived from `Loop` + `Choice`
@@ -76,15 +76,15 @@ pub fn for_loop(body: SchemeV2) -> SchemeV2 {
 /// Repeatedly applies `body` until the result stabilizes (equals the
 /// input to that step). Returns the fixpoint.
 ///
-/// Arrow-calculus form: a [`SchemeV2::Loop`] whose body is the
+/// Arrow-calculus form: a [`Scheme::Loop`] whose body is the
 /// `fix_step` composite op carrying `body` as a sub-arrow. The step runs
 /// `body` on the current value (the original input on the first
 /// iteration; the evolving state thereafter). If the result equals the
 /// current value, the fixpoint is reached — terminate with it; else
 /// continue with the result. The `Loop` max-iteration guard bounds
 /// non-converging bodies.
-pub fn fix_loop(body: SchemeV2) -> SchemeV2 {
-    SchemeV2::loop_feedback(SchemeV2::arr_native("fix_step", vec![body]))
+pub fn fix_loop(body: Scheme) -> Scheme {
+    Scheme::loop_feedback(Scheme::arr_native("fix_step", vec![body]))
 }
 
 #[cfg(test)]
@@ -104,7 +104,7 @@ mod tests {
     /// a fresh env, passing `None` as incoming.
     fn eval_standalone(
         engine: &V2Interpreter,
-        scheme: &SchemeV2,
+        scheme: &Scheme,
         env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         let mut ast = Ast::new();
@@ -119,10 +119,10 @@ mod tests {
         // Start at 5: 5 -> 4 -> 3 -> 2 -> 1 -> 0 (cond falsy) -> return 0.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let cond = SchemeV2::arr_native("is_pos", vec![]);
-        let body = SchemeV2::arr_native("dec", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], json!(5)),
+        let cond = Scheme::arr_native("is_pos", vec![]);
+        let body = Scheme::arr_native("dec", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(5)),
             while_loop(cond, body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -135,9 +135,9 @@ mod tests {
         // 0 -> 1 -> 2 -> 3 -> 4 -> 5 (counter hits 0) -> return 5.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let body = SchemeV2::arr_native("inc", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], pair(json!(5), json!(0))),
+        let body = Scheme::arr_native("inc", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(5), json!(0))),
             for_loop(body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -150,9 +150,9 @@ mod tests {
         // 100 -> 50 -> 25 -> 12 -> 6 -> 3 -> 1 -> 0 -> 0 (fixpoint) -> 0.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let body = SchemeV2::arr_native("half_floor", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], json!(100)),
+        let body = Scheme::arr_native("half_floor", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(100)),
             fix_loop(body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -164,10 +164,10 @@ mod tests {
         // cond = is_pos, body = dec. Start at 0: cond falsy immediately.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let cond = SchemeV2::arr_native("is_pos", vec![]);
-        let body = SchemeV2::arr_native("dec", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], json!(0)),
+        let cond = Scheme::arr_native("is_pos", vec![]);
+        let body = Scheme::arr_native("dec", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(0)),
             while_loop(cond, body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -179,9 +179,9 @@ mod tests {
         // body = inc. Input = pair(0, 99): zero iterations -> return 99.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let body = SchemeV2::arr_native("inc", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], pair(json!(0), json!(99))),
+        let body = Scheme::arr_native("inc", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(0), json!(99))),
             for_loop(body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();
@@ -193,9 +193,9 @@ mod tests {
         // body = half_floor. Start at 0: 0 -> 0 (fixpoint) -> return 0.
         let engine = V2Interpreter::new();
         let mut env = ScopeStack::new();
-        let body = SchemeV2::arr_native("half_floor", vec![]);
-        let s = SchemeV2::seq(
-            SchemeV2::arr_native_lit("const", vec![], json!(0)),
+        let body = Scheme::arr_native("half_floor", vec![]);
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(0)),
             fix_loop(body),
         );
         let result = eval_standalone(&engine, &s, &mut env).unwrap();

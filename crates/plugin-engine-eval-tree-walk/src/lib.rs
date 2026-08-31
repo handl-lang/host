@@ -1,127 +1,88 @@
 //! # handl-plugin-engine-eval-tree-walk
 //!
-//! The **reference interpreter** for the eval operation (ADR-0044 §3, §4).
+//! The **reference interpreter** for the eval operation (ADR-0044 §3, §4,
+//! ADR-0052). Interprets the arrow-calculus [`handl_language::Scheme`]
+//! kernel directly via tree-walking: it looks up
+//! `lang.eval[node.kind]` → [`handl_language::EvalSchemeDef`] →
+//! [`Scheme`], and interprets the scheme. It is entirely data-driven.
 //!
-//! This engine interprets [`handl_language::Scheme`] **data** directly — it
-//! looks up `lang.eval[node.kind]` → [`handl_language::EvalSchemeDef`] →
-//! [`Scheme`], and interprets the scheme via tree-walking. It does **not**
-//! match on a static `CanonicalKind` enum; it is entirely data-driven.
+//! ## Value shapes
 //!
-//! ## Child resolution convention
+//! The arrow-calculus combinators operate on a few tagged JSON value
+//! shapes:
 //!
-//! [`Scheme::Child`] references are **relative child indices**: `Child(n)`
-//! means "the nth child of the current node". The current node's payload must
-//! contain a `"children"` JSON array of arena indices; `Child(n)` reads
-//! `payload["children"][n]` to get the absolute [`AstRef`], then recurses.
+//! - **Pair** (`first`): `{"__pair__": [a, b]}`. `first inner` runs
+//!   `inner` on `a` and carries `b` through, producing
+//!   `{"__pair__": [inner(a), b]}`.
+//! - **Either** (`Choice` / `tag`): `{"__either__": "left"|"right",
+//!   "value": v}`. `Choice { l, r }` routes a `left` Either to `l` and a
+//!   `right` Either to `r`. The `tag` native op converts a truthy value
+//!   into a `left` Either and a falsy value into a `right` Either (the
+//!   `Branch` lowering: `c >>> arr tag >>> Choice(t, e)`).
+//! - **Closure** (`App`): `{"__closure__": true, "params": [...],
+//!   "body": <idx>, "env": {...}}`. `App` evaluates the callee; if it is
+//!   a string naming a registered host function, dispatches to it;
+//!   otherwise applies the closure (swap-in captured env, bind params,
+//!   eval body node, restore).
 //!
 //! ## `$payload` convention
 //!
-//! When a [`Scheme::Var`] name or [`Scheme::Bind`] name is the string
+//! When a `proj_env` or `extend_env` literal name is the string
 //! `"$payload"`, the engine reads the actual name from the current node's
 //! payload:
-//! - `Var("$payload")` → reads `node.payload` as a string (the variable name).
-//! - `Bind { name: "$payload", ... }` → reads `node.payload["name"]` as a
-//!   string (the bind name).
-//!
-//! This keeps evaluation data-driven: the scheme says "get the name from the
-//! node", not "use this hardcoded name".
+//! - `proj_env "$payload"` → reads `node.payload` as a string (the
+//!   variable name).
+//! - `extend_env "$payload"` → reads `node.payload["name"]` as a string
+//!   (the bind name).
 //!
 //! ## No-scheme fallback
 //!
 //! If a node kind has no eval scheme in the `Language`, the engine returns
-//! `node.payload` as the value directly. This handles literal nodes (e.g. a
-//! `"lit"` node whose payload is `42`).
+//! `node.payload` as the value directly. This handles literal nodes (e.g.
+//! a `"lit"` node whose payload is `42`). `foreign.<name>` kinds dispatch
+//! to the host function `<name>` with evaluated children.
 //!
-//! ## Closure representation
+//! ## Loop semantics
 //!
-//! Closures are `Value::Object` with the shape:
-//! ```json
-//! {"__closure__": true, "params": ["x", ...], "body": <arena_idx>, "env": {...}}
-//! ```
-//! Created by the `"closure"` primitive (see [`Prim` handling](#primitives)).
-//! [`Scheme::App`] evaluates the callee, checks for `__closure__`, binds
-//! params to args in a new scope on top of the captured env, and evaluates
-//! the body node at the stored arena index.
+//! [`Scheme::Loop`] implements **causal/strict** feedback (ADR-0052). The
+//! handler seeds `State` with [`Value::Null`], constructs the pair
+//! `(In, State)`, and evaluates `body` with that pair as `incoming`. The
+//! body's result shape selects one of two modes:
 //!
-//! ## Primitives
-//!
-//! The built-in primitive set: `add`, `sub`, `mul`, `div`, `mod`, `eq`, `lt`,
-//! `gt`, `not`, `and`, `or`, `neg`, and `closure`. Unknown ops return
-//! [`LangError::Engine`].
-//!
-//! ## Scope management
-//!
-//! Uses a `Vec<HashMap<String, Value>>` scope stack. `Bind` pushes a child
-//! scope; lookup searches innermost-first. Closure calls swap in the captured
-//! environment, bind params, evaluate the body, then restore the original
-//! scope stack.
+//! - **Single-step.** The body returns a **pair** `(Out, NewState)`;
+//!   `Loop` returns `Out`.
+//! - **Multi-step (Either-based).** The body returns an **Either**:
+//!   `left(out)` → done; `right(new_state)` → re-run with
+//!   `pair(original_input, new_state)`. A max-iteration guard (100_000)
+//!   prevents infinite loops.
 
 #![warn(missing_docs)]
 
-pub mod v2;
+/// Backward-compatibility re-exports for consumers that still reference
+/// the `v2` module path and `V2Interpreter` type name (ADR-0052 cutover).
+pub mod v2 {
+    pub use crate::{ScopeStack, TreeWalkEngine as V2Interpreter};
+}
 
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Scheme, Value, ast_value};
+use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
+use handl_platform::ModuleLookup;
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 
-/// The tree-walk eval engine.
-///
-/// Construct with [`TreeWalkEngine::new`] and optionally pass a module
-/// registry via [`TreeWalkEngine::with_modules`].
-#[derive(Clone)]
-pub struct TreeWalkEngine {
-    /// The module registry for `Foreign` dispatch (may be `None`).
-    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
-    /// Global variables injected by the host (e.g. `self` → language value).
-    /// Pre-populated into the root scope on every eval call.
-    globals: HashMap<String, Value>,
-}
-
-impl TreeWalkEngine {
-    /// Create a new tree-walk engine with no module registry.
-    pub fn new() -> Self {
-        Self {
-            modules: None,
-            globals: HashMap::new(),
-        }
-    }
-
-    /// Attach a module registry (builder style).
-    pub fn with_modules(mut self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
-        self.modules = Some(modules);
-        self
-    }
-
-    /// Inject a global variable visible to all eval calls (builder style).
-    /// Used by the host to inject `self` (the current language value) and
-    /// other ambient values (ADR-0041 Phase 3).
-    pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
-        self.globals.insert(name.into(), value);
-        self
-    }
-}
-
-impl Default for TreeWalkEngine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// ---------------------------------------------------------------------------
+// ScopeStack
+// ---------------------------------------------------------------------------
 
 /// A scope stack: `Vec<HashMap<String, Value>>` searched innermost-first.
 ///
-/// This type is `pub` so the v2 arrow-calculus handler ([`v2`] module,
-/// ADR-0052) can reuse the *same* scope discipline as the v1 interpreter
-/// rather than duplicating it. This is a visibility-only change — no v1
-/// logic is altered. The `scopes` field stays private; access goes through
-/// the methods below. The v2 handler needs `new`, `lookup`, `define`,
-/// `push_scope`, `pop_scope`, and `capture`, plus direct indexed access to
-/// `scopes[0]` for closure-env swap-in (mirroring v1 `apply_closure`), so
-/// `scopes` is `pub(crate)`.
+/// Used by the tree-walk interpreter for `extend_env` binding and closure
+/// capture/swap-in. The `scopes` field is `pub(crate)` so the engine can
+/// perform the closure-env swap-in.
 pub struct ScopeStack {
-    /// The stack of scopes, innermost last. `pub(crate)` so the v2 handler
-    /// can perform the closure-env swap-in that v1 `apply_closure` does.
+    /// The stack of scopes, innermost last. `pub(crate)` so the engine
+    /// can perform the closure-env swap-in.
     pub(crate) scopes: Vec<HashMap<String, Value>>,
 }
 
@@ -169,62 +130,989 @@ impl ScopeStack {
     }
 }
 
-/// Evaluation context passed through the recursive interpreter.
-struct EvalCtx<'a> {
-    /// The AST being evaluated.
-    ast: &'a Ast,
-    /// The current node's arena reference (retained for debugging and
-    /// future use by engines that need absolute refs).
-    #[allow(dead_code)]
-    current_ref: AstRef,
-    /// The current node.
-    current_node: &'a AstNode,
-    /// The language definition.
-    lang: &'a Language,
-    /// The scope stack.
-    env: &'a mut ScopeStack,
-    /// The module registry (for `Foreign` dispatch).
-    modules: Option<&'a Rc<dyn handl_platform::ModuleLookup>>,
-}
+// ---------------------------------------------------------------------------
+// TreeWalkEngine
+// ---------------------------------------------------------------------------
 
-impl EvalEngine for TreeWalkEngine {
-    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
-        let ast = &req.ast;
-        if ast.is_empty() {
-            return Ok(Value::Null);
-        }
-        let mut env = ScopeStack::new();
-        // Inject host-provided globals (e.g. `self` → language value) into
-        // the root scope. ADR-0041 Phase 3: `self` is an ambient variable,
-        // not a function call.
-        for (name, val) in &self.globals {
-            env.define(name, val.clone());
-        }
-        // The root is the last node in the arena (Pratt convention).
-        let root_ref = AstRef::new(ast.len() - 1);
-        self.eval_node(ast, root_ref, lang, &mut env)
-    }
-
-    fn box_clone(&self) -> Box<dyn EvalEngine> {
-        Box::new(self.clone())
-    }
-
-    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
-        Box::new(self.clone().with_modules(modules))
-    }
-
-    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
-        Box::new(self.clone().with_global(name, val))
-    }
+/// The tree-walk eval engine (ADR-0052 arrow-calculus reference handler).
+///
+/// A tree-walk handler that interprets [`Scheme`] directly. Construct
+/// with [`TreeWalkEngine::new`] and optionally attach a module registry
+/// via [`TreeWalkEngine::with_modules`] or inject globals via
+/// [`TreeWalkEngine::with_global`].
+#[derive(Clone)]
+pub struct TreeWalkEngine {
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn ModuleLookup>>,
+    /// Global variables injected by the host, pre-populated into the root
+    /// scope on every eval call.
+    globals: HashMap<String, Value>,
 }
 
 impl TreeWalkEngine {
-    /// Evaluate a single node by looking up its eval scheme and interpreting
-    /// it. If no scheme exists for the node kind:
-    /// - `foreign.<name>` kinds dispatch to host function `<name>` (ADR-0041
-    ///   Phase 2 — makes `eval`/`self`/`compile` handl-callable).
-    /// - Other kinds return the payload as the value.
-    fn eval_node(
+    /// Create a new tree-walk engine with no module registry.
+    pub fn new() -> Self {
+        Self {
+            modules: None,
+            globals: HashMap::new(),
+        }
+    }
+
+    /// Attach a module registry (builder style).
+    pub fn with_modules(mut self, modules: Rc<dyn ModuleLookup>) -> Self {
+        self.modules = Some(modules);
+        self
+    }
+
+    /// Inject a global variable visible to all eval calls (builder style).
+    /// Used by the host to inject `self` (the current language value) and
+    /// other ambient values (ADR-0041 Phase 3).
+    pub fn with_global(mut self, name: impl Into<String>, value: Value) -> Self {
+        self.globals.insert(name.into(), value);
+        self
+    }
+
+    /// Interpret a given [`Scheme`] in the context of `current_node`.
+    ///
+    /// This is the core handler entry point. `incoming` is the value fed
+    /// by an enclosing `Seq`/`First`/`Choice`/`Loop`; top-level calls
+    /// pass `None`.
+    ///
+    /// # Scope discipline
+    ///
+    /// `extend_env` pushes a scope and returns the value flowing through.
+    /// The scope's lifetime follows the arrow pipeline: it is popped by
+    /// the enclosing [`Scheme::Seq`] whose `fst` (transitively) contained
+    /// the `extend_env`, after that `Seq`'s `snd` completes. This
+    /// realizes the `Bind` lowering
+    /// `value >>> extend_env "x" >>> body` =
+    /// `Seq(Seq(value, extend_env), body)`: the scope pushed by
+    /// `extend_env` (the inner `Seq`'s `snd`) is reported up through the
+    /// inner `Seq` and popped by the outer `Seq` after `body`. A bare
+    /// `extend_env` with no enclosing `Seq` is popped here.
+    #[allow(clippy::too_many_arguments)]
+    pub fn eval_scheme(
+        &self,
+        scheme: &Scheme,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<Value, LangError> {
+        let (val, did_push) = self.eval_inner(
+            scheme, ast, node_ref, lang, env, current_node, incoming,
+        )?;
+        // A bare extend_env (no enclosing Seq to pop it) is balanced here.
+        if did_push {
+            env.pop_scope();
+        }
+        Ok(val)
+    }
+
+    /// Internal recursive interpreter. Returns the value and whether a
+    /// scope was pushed that the *caller* is responsible for popping.
+    ///
+    /// Only `extend_env` pushes a scope. `Seq` pops the scope its `fst`
+    /// reported and propagates whatever `snd` reported (so an
+    /// `extend_env` in the inner `Seq`'s `snd` position — the `Bind`
+    /// lowering shape — is popped by the *enclosing* `Seq` after its
+    /// `snd` completes). The other combinators (`First`/`Choice`/`Loop`/
+    /// `App`) pop any scope their sub-evaluation pushed immediately,
+    /// since they have no "binding persists down the pipeline" semantics.
+    #[allow(clippy::too_many_arguments)]
+    fn eval_inner(
+        &self,
+        scheme: &Scheme,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<(Value, bool), LangError> {
+        match scheme {
+            Scheme::Arr {
+                op,
+                args,
+                source,
+                lit,
+            } => self.eval_arr(
+                op, args, source, lit.as_ref(),
+                ast, node_ref, lang, env, current_node, incoming,
+            ),
+            Scheme::Seq { fst, snd } => {
+                let (fst_val, fst_pushed) = self.eval_inner(
+                    fst, ast, node_ref, lang, env, current_node, incoming,
+                )?;
+                let (snd_val, snd_pushed) = self.eval_inner(
+                    snd, ast, node_ref, lang, env, current_node, Some(fst_val),
+                )?;
+                // Pop the scope `fst` reported (e.g. extend_env as fst).
+                if fst_pushed {
+                    env.pop_scope();
+                }
+                // Propagate `snd_pushed`: an extend_env in snd position
+                // (the Bind lowering shape) is popped by the *enclosing*
+                // Seq after its own snd completes.
+                Ok((snd_val, snd_pushed))
+            }
+            Scheme::First { inner } => {
+                let inc = incoming.ok_or_else(|| {
+                    LangError::Engine("First: missing incoming value".to_string())
+                })?;
+                let a = pair_fst(&inc)
+                    .ok_or_else(|| {
+                        LangError::Engine("First: incoming is not a pair".to_string())
+                    })?
+                    .clone();
+                let b = pair_snd(&inc)
+                    .ok_or_else(|| {
+                        LangError::Engine("First: incoming is not a pair".to_string())
+                    })?
+                    .clone();
+                let (inner_result, pushed) = self.eval_inner(
+                    inner, ast, node_ref, lang, env, current_node, Some(a),
+                )?;
+                if pushed {
+                    env.pop_scope();
+                }
+                Ok((pair(inner_result, b), false))
+            }
+            Scheme::Choice { l, r } => {
+                let inc = incoming.ok_or_else(|| {
+                    LangError::Engine("Choice: missing incoming value".to_string())
+                })?;
+                let (val, pushed) = if is_either_left(&inc) {
+                    let v = either_value(&inc)
+                        .ok_or_else(|| {
+                            LangError::Engine("Choice: left Either missing value".to_string())
+                        })?
+                        .clone();
+                    self.eval_inner(l, ast, node_ref, lang, env, current_node, Some(v))?
+                } else if is_either_right(&inc) {
+                    let v = either_value(&inc)
+                        .ok_or_else(|| {
+                            LangError::Engine("Choice: right Either missing value".to_string())
+                        })?
+                        .clone();
+                    self.eval_inner(r, ast, node_ref, lang, env, current_node, Some(v))?
+                } else {
+                    return Err(LangError::Engine(
+                        "Choice: incoming is not an Either".to_string(),
+                    ));
+                };
+                if pushed {
+                    env.pop_scope();
+                }
+                Ok((val, false))
+            }
+            Scheme::Loop { body } => {
+                // Causal/strict feedback (ADR-0052 §"Feedback semantics").
+                // Two modes, selected by the body's result shape (see the
+                // module-level "Loop semantics" doc):
+                //
+                // 1. Single-step: body returns a pair (Out, NewState);
+                //    Loop returns Out.
+                // 2. Multi-step (Either-based): body returns an Either;
+                //    left(out) terminates, right(new_state) re-runs with
+                //    the new state. A max-iteration guard bounds the loop.
+                let inc = incoming.unwrap_or(Value::Null);
+                let mut state = Value::Null;
+                const MAX_ITERS: usize = 100_000;
+                for _ in 0..MAX_ITERS {
+                    let input = pair(inc.clone(), state.clone());
+                    let (result, pushed) = self.eval_inner(
+                        body, ast, node_ref, lang, env, current_node, Some(input),
+                    )?;
+                    if pushed {
+                        env.pop_scope();
+                    }
+                    if is_either_left(&result) {
+                        let out = either_value(&result).cloned().ok_or_else(|| {
+                            LangError::Engine("Loop: left Either missing value".to_string())
+                        })?;
+                        return Ok((out, false));
+                    }
+                    if is_either_right(&result) {
+                        state = either_value(&result).cloned().ok_or_else(|| {
+                            LangError::Engine("Loop: right Either missing value".to_string())
+                        })?;
+                        continue;
+                    }
+                    // Not an Either → single-step mode: expect a pair
+                    // (Out, State) and return Out.
+                    let out = pair_fst(&result).ok_or_else(|| {
+                        LangError::Engine(
+                            "Loop: body did not return a pair or Either".to_string(),
+                        )
+                    })?;
+                    return Ok((out.clone(), false));
+                }
+                Err(LangError::Engine("Loop: exceeded max iterations".to_string()))
+            }
+            Scheme::App { callee, args } => {
+                let (callee_val, cpushed) = self.eval_inner(
+                    callee, ast, node_ref, lang, env, current_node, incoming.clone(),
+                )?;
+                if cpushed {
+                    env.pop_scope();
+                }
+                let mut arg_vals = Vec::with_capacity(args.len());
+                for arg in args {
+                    let (v, pushed) = self.eval_inner(
+                        arg, ast, node_ref, lang, env, current_node, incoming.clone(),
+                    )?;
+                    if pushed {
+                        env.pop_scope();
+                    }
+                    arg_vals.push(v);
+                }
+                let val = self.apply_app(&callee_val, &arg_vals, ast, lang, env)?;
+                Ok((val, false))
+            }
+        }
+    }
+
+    /// Evaluate an `Arr` combinator. Returns the value and whether this
+    /// Arr pushed a scope (`extend_env` pushes; the caller — `Seq` or
+    /// `eval_scheme` — is responsible for popping it).
+    #[allow(clippy::too_many_arguments)]
+    fn eval_arr(
+        &self,
+        op: &str,
+        args: &[Scheme],
+        source: &ArrSource,
+        lit: Option<&Value>,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<(Value, bool), LangError> {
+        // Derived-pattern composite ops (while_step/for_step/fix_step)
+        // carry sub-arrows as args that must be evaluated with the
+        // *current value* extracted from the incoming pair, not with the
+        // pair itself. The generic arg evaluation below would feed the
+        // pair to the sub-schemes, which is wrong for these ops.
+        // Intercept before it. These are handler-interpreted derived
+        // operations (ADR-0052 §"Derived forms"): the description is
+        // primitive-only (`Loop` + `Arr`); the interpretation routes the
+        // value through the carried cond/body sub-arrows. This is NOT a
+        // new kernel primitive — `while_step` is an `Arr` op (one of the
+        // six primitives); its interpretation is the derived pattern.
+        if matches!(source, ArrSource::Native)
+            && matches!(op, "while_step" | "for_step" | "fix_step")
+        {
+            return self.eval_derived_step(
+                op, args, ast, node_ref, lang, env, current_node, incoming,
+            );
+        }
+        // Evaluate sub-scheme args (each gets the same incoming context).
+        let mut arg_vals = Vec::with_capacity(args.len());
+        for arg in args {
+            arg_vals.push(self.eval_scheme(
+                arg, ast, node_ref, lang, env, current_node, incoming.clone(),
+            )?);
+        }
+        match source {
+            ArrSource::Native => {
+                self.apply_native(op, &arg_vals, lit, ast, node_ref, lang, env, current_node, incoming)
+            }
+            ArrSource::Foreign(name) => {
+                let modules = self.modules.as_ref().ok_or_else(|| {
+                    LangError::Engine(format!("unregistered foreign: {}", name))
+                })?;
+                let func = modules.lookup(name).ok_or_else(|| {
+                    LangError::Engine(format!("unregistered foreign: {}", name))
+                })?;
+                let mut pctx = handl_platform::EvalContext::new();
+                let val = func
+                    .call(&arg_vals, &mut pctx)
+                    .map_err(|e| LangError::Engine(e.to_string()))?;
+                Ok((val, false))
+            }
+        }
+    }
+
+    /// Evaluate a derived-pattern composite step op
+    /// (`while_step`/`for_step`/`fix_step`). These are handler-interpreted
+    /// derived operations (ADR-0052 §"Derived forms"): the `Scheme`
+    /// description is built from primitives (`Loop` + `Arr`), and the
+    /// handler interprets the composite op by recursively evaluating the
+    /// carried sub-arrows (`cond`/`body`) with the *current value*
+    /// extracted from the incoming pair — not the pair itself. Each
+    /// returns an `Either` consumed by the multi-step `Loop` handler:
+    /// `left` terminates, `right` feeds the new state back.
+    #[allow(clippy::too_many_arguments)]
+    fn eval_derived_step(
+        &self,
+        op: &str,
+        raw_args: &[Scheme],
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<(Value, bool), LangError> {
+        let inc = incoming.unwrap_or(Value::Null);
+        let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+        let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+        match op {
+            "while_step" => {
+                // args = [cond, body]. The current value is `in` on the
+                // first step (state is Null) and `state` thereafter. Run
+                // `cond` on it; if truthy, run `body` and continue with
+                // its result; else terminate with the current value.
+                let cond = raw_args.first().ok_or_else(|| {
+                    LangError::Engine("while_step: missing cond sub-arrow".to_string())
+                })?;
+                let body = raw_args.get(1).ok_or_else(|| {
+                    LangError::Engine("while_step: missing body sub-arrow".to_string())
+                })?;
+                let current = if state.is_null() { in_val } else { state };
+                let cond_val = self.eval_scheme(
+                    cond, ast, node_ref, lang, env, current_node, Some(current.clone()),
+                )?;
+                if is_truthy(&cond_val) {
+                    let new_val = self.eval_scheme(
+                        body, ast, node_ref, lang, env, current_node, Some(current),
+                    )?;
+                    Ok((either_right(new_val), false))
+                } else {
+                    Ok((either_left(current), false))
+                }
+            }
+            "for_step" => {
+                // args = [body]. State is pair(counter, acc). On the first
+                // step (state Null), initialize from `in = pair(count,
+                // initial)`. While counter > 0, run `body` on `acc` and
+                // continue with pair(counter-1, new_acc); else terminate
+                // with `acc`.
+                let body = raw_args.first().ok_or_else(|| {
+                    LangError::Engine("for_step: missing body sub-arrow".to_string())
+                })?;
+                let (counter, acc) = if state.is_null() {
+                    let count = pair_fst(&in_val).cloned().ok_or_else(|| {
+                        LangError::Engine(
+                            "for_step: input must be pair(count, initial) when state is Null"
+                                .to_string(),
+                        )
+                    })?;
+                    let initial = pair_snd(&in_val).cloned().unwrap_or(Value::Null);
+                    (count, initial)
+                } else {
+                    let c = pair_fst(&state).cloned().ok_or_else(|| {
+                        LangError::Engine("for_step: state must be pair(counter, acc)".to_string())
+                    })?;
+                    let a = pair_snd(&state).cloned().unwrap_or(Value::Null);
+                    (c, a)
+                };
+                let count_n = as_num(&counter)?;
+                if count_n > Num::Int(0) {
+                    let new_acc = self.eval_scheme(
+                        body, ast, node_ref, lang, env, current_node, Some(acc),
+                    )?;
+                    let new_counter = num_value(count_n - Num::Int(1));
+                    Ok((either_right(pair(new_counter, new_acc)), false))
+                } else {
+                    Ok((either_left(acc), false))
+                }
+            }
+            "fix_step" => {
+                // args = [body]. The current value is `in` on the first
+                // step (state Null) and `state` thereafter. Run `body`; if
+                // the result equals the current value, the fixpoint is
+                // reached — terminate; else continue with the result.
+                let body = raw_args.first().ok_or_else(|| {
+                    LangError::Engine("fix_step: missing body sub-arrow".to_string())
+                })?;
+                let current = if state.is_null() { in_val } else { state };
+                let new_val = self.eval_scheme(
+                    body, ast, node_ref, lang, env, current_node, Some(current.clone()),
+                )?;
+                if new_val == current {
+                    Ok((either_left(new_val), false))
+                } else {
+                    Ok((either_right(new_val), false))
+                }
+            }
+            _ => Err(LangError::Engine(format!("unknown derived step op: {}", op))),
+        }
+    }
+
+    /// Apply a native `arr` op. Returns the value and whether a scope was
+    /// pushed (`extend_env` pushes).
+    #[allow(clippy::too_many_arguments)]
+    fn apply_native(
+        &self,
+        op: &str,
+        args: &[Value],
+        lit: Option<&Value>,
+        ast: &Ast,
+        _node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<(Value, bool), LangError> {
+        match op {
+            "const" => Ok((lit.cloned().unwrap_or(Value::Null), false)),
+            "id" => {
+                // Identity: return the incoming value, or the single arg.
+                Ok((incoming.or_else(|| args.first().cloned()).unwrap_or(Value::Null), false))
+            }
+            "proj_env" => {
+                let name = lit
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine("proj_env: missing name literal".to_string())
+                    })?;
+                let var_name = if name == "$payload" {
+                    current_node.payload.as_str().ok_or_else(|| {
+                        LangError::Engine(
+                            "expected string payload for $payload proj_env".to_string(),
+                        )
+                    })?
+                    .to_string()
+                } else {
+                    name.to_string()
+                };
+                // Unbound → name as a string (allows identifiers like
+                // `eval` to flow into `App` host-function dispatch).
+                let val = env
+                    .lookup(&var_name)
+                    .cloned()
+                    .unwrap_or_else(|| Value::from(var_name));
+                Ok((val, false))
+            }
+            "proj_child" => {
+                let idx = lit
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::Engine("proj_child: missing index literal".to_string())
+                    })?;
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("proj_child: expected children array in payload".to_string())
+                    })?;
+                let arena_idx = children
+                    .get(idx as usize)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| {
+                        LangError::Engine(format!("proj_child: child {} not found", idx))
+                    })?;
+                let target_ref = AstRef::new(arena_idx as usize);
+                let val = self.eval_node(ast, target_ref, lang, env)?;
+                Ok((val, false))
+            }
+            "extend_env" => {
+                let name = lit
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine("extend_env: missing name literal".to_string())
+                    })?;
+                let bind_name = if name == "$payload" {
+                    current_node
+                        .payload
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "expected name in payload for $payload extend_env".to_string(),
+                            )
+                        })?
+                        .to_string()
+                } else {
+                    name.to_string()
+                };
+                // Push a scope, bind the incoming value, return it so it
+                // flows through. The matching pop is the caller's
+                // responsibility (Seq or eval_scheme).
+                env.push_scope();
+                let val = incoming.unwrap_or(Value::Null);
+                env.define(&bind_name, val.clone());
+                Ok((val, true))
+            }
+            "tag" => {
+                // Branch lowering: truthy → left Either, falsy → right.
+                let v = incoming.unwrap_or_else(|| {
+                    args.first().cloned().unwrap_or(Value::Null)
+                });
+                if is_truthy(&v) {
+                    Ok((either_left(v), false))
+                } else {
+                    Ok((either_right(v), false))
+                }
+            }
+            "closure" => {
+                // Read params/body from the current node's payload (rich
+                // or Pratt-parsed shapes).
+                let payload = &current_node.payload;
+                let (params, body) = if let (Some(p), Some(b)) = (
+                    payload.get("params").and_then(|v| v.as_array()),
+                    payload.get("body").and_then(|v| v.as_u64()),
+                ) {
+                    (p.clone(), b as usize)
+                } else if let Some(children) =
+                    payload.get("children").and_then(|c| c.as_array())
+                {
+                    let param_idx = children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine("closure: missing param child".to_string())
+                        })? as usize;
+                    let body_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine("closure: missing body child".to_string())
+                        })? as usize;
+                    let param_node = ast.at(AstRef::new(param_idx))?;
+                    let param_names: Vec<String> = if param_node.kind == "paren" {
+                        let paren_children = param_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: paren params missing children".to_string(),
+                                )
+                            })?;
+                        let mut names = Vec::with_capacity(paren_children.len());
+                        for pc in paren_children {
+                            let pidx = pc.as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: param index must be a number".to_string(),
+                                )
+                            })? as usize;
+                            let pnode = ast.at(AstRef::new(pidx))?;
+                            let pname = pnode.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: param must be a var with string payload"
+                                        .to_string(),
+                                )
+                            })?;
+                            names.push(pname.to_string());
+                        }
+                        names
+                    } else {
+                        let pname = param_node.payload.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "closure: param node must be a var with string payload"
+                                    .to_string(),
+                            )
+                        })?;
+                        vec![pname.to_string()]
+                    };
+                    (
+                        param_names.into_iter().map(Value::from).collect(),
+                        body_idx,
+                    )
+                } else {
+                    return Err(LangError::Engine(
+                        "closure: missing params/body in payload".to_string(),
+                    ));
+                };
+                let captured = env.capture();
+                let closure = serde_json::json!({
+                    "__closure__": true,
+                    "params": params,
+                    "body": body,
+                    "env": captured,
+                });
+                Ok((closure, false))
+            }
+            "array" => {
+                // Two payload shapes:
+                // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
+                // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
+                //   element is an arena index to evaluate.
+                if let Some(elements) = current_node.payload.get("elements") {
+                    Ok((elements.clone(), false))
+                } else if let Some(children) = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                {
+                    let mut result = Vec::with_capacity(children.len());
+                    for entry in children {
+                        let idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "array: element index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        result.push(
+                            self.eval_node(ast, AstRef::new(idx), lang, env)?,
+                        );
+                    }
+                    Ok((Value::Array(result), false))
+                } else {
+                    Err(LangError::Engine(
+                        "array: missing elements/children in payload".to_string(),
+                    ))
+                }
+            }
+            "object" => {
+                // Two payload shapes:
+                // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
+                // - Pratt-parsed: `{"children": [entry_idx, ...]}` where
+                //   each entry node has `{"children": [key_idx,
+                //   value_idx]}`.
+                if let Some(entries) = current_node
+                    .payload
+                    .get("entries")
+                    .and_then(|v| v.as_array())
+                {
+                    let mut obj = serde_json::Map::new();
+                    for entry in entries {
+                        let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
+                            LangError::Engine("object: entry missing key".to_string())
+                        })?;
+                        let value = entry.get("value").ok_or_else(|| {
+                            LangError::Engine("object: entry missing value".to_string())
+                        })?;
+                        obj.insert(key.to_string(), value.clone());
+                    }
+                    Ok((Value::Object(obj), false))
+                } else if let Some(children) = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                {
+                    let mut obj = serde_json::Map::new();
+                    for entry in children {
+                        let entry_idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "object: entry index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        let entry_node = ast.at(AstRef::new(entry_idx))?;
+                        let entry_children = entry_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry node missing children".to_string(),
+                                )
+                            })?;
+                        let key_idx = entry_children
+                            .get(0)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry missing key child".to_string(),
+                                )
+                            })? as usize;
+                        let val_idx = entry_children
+                            .get(1)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry missing value child".to_string(),
+                                )
+                            })? as usize;
+                        let key_val =
+                            self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
+                        let key = key_val.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "object: entry key must evaluate to a string".to_string(),
+                            )
+                        })?;
+                        let value =
+                            self.eval_node(ast, AstRef::new(val_idx), lang, env)?;
+                        obj.insert(key.to_string(), value);
+                    }
+                    Ok((Value::Object(obj), false))
+                } else {
+                    Err(LangError::Engine(
+                        "object: missing entries/children in payload".to_string(),
+                    ))
+                }
+            }
+            "index" => {
+                let target = current_node.payload.get("target").ok_or_else(|| {
+                    LangError::Engine("index: missing target in payload".to_string())
+                })?;
+                let index = current_node.payload.get("index").ok_or_else(|| {
+                    LangError::Engine("index: missing index in payload".to_string())
+                })?;
+                match (target, index) {
+                    (Value::Array(arr), Value::Number(n)) => {
+                        let i = n.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "index: index must be a non-negative integer".to_string(),
+                            )
+                        })? as usize;
+                        let v = arr.get(i).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: index {} out of bounds", i))
+                        })?;
+                        Ok((v, false))
+                    }
+                    (Value::Object(obj), Value::String(key)) => {
+                        let v = obj.get(key).cloned().ok_or_else(|| {
+                            LangError::Engine(format!("index: key '{}' not found", key))
+                        })?;
+                        Ok((v, false))
+                    }
+                    _ => Err(LangError::Engine(
+                        "index: target must be array/object and index must be number/string"
+                            .to_string(),
+                    )),
+                }
+            }
+            "assign" => {
+                let value = current_node.payload.get("value").ok_or_else(|| {
+                    LangError::Engine("assign: missing value in payload".to_string())
+                })?;
+                Ok((value.clone(), false))
+            }
+            "match" => self.prim_match(ast, lang, env, current_node),
+            "handle" => self.prim_handle(ast, lang, env, current_node),
+            "json" => self.prim_json(ast, lang, env, current_node),
+            // Arithmetic / comparison / logic.
+            "add" => bin_num(args, |a, b| a + b),
+            "sub" => bin_num(args, |a, b| a - b),
+            "mul" => bin_num(args, |a, b| a * b),
+            "div" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("division by zero".to_string()));
+                }
+                Ok((num_value(a / b), false))
+            }
+            "mod" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("modulo by zero".to_string()));
+                }
+                let val = match (a, b) {
+                    (Num::Int(a), Num::Int(b)) => num_value(Num::Int(a % b)),
+                    (a, b) => num_value(Num::Float(a.to_f64() % b.to_f64())),
+                };
+                Ok((val, false))
+            }
+            "neg" => {
+                let a = as_num(&args[0])?;
+                let val = match a {
+                    Num::Int(i) => num_value(Num::Int(-i)),
+                    Num::Float(f) => num_value(Num::Float(-f)),
+                };
+                Ok((val, false))
+            }
+            "eq" => Ok((Value::Bool(args[0] == args[1]), false)),
+            "neq" => Ok((Value::Bool(args[0] != args[1]), false)),
+            "lt" => cmp_num(args, |a, b| a < b),
+            "gt" => cmp_num(args, |a, b| a > b),
+            "lte" => cmp_num(args, |a, b| a <= b),
+            "gte" => cmp_num(args, |a, b| a >= b),
+            "pow" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok((num_value(Num::Float(a.to_f64().powf(b.to_f64()))), false))
+            }
+            "compare" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                let cmp = a.partial_cmp(&b).ok_or_else(|| {
+                    LangError::Engine("compare: incomparable values".to_string())
+                })?;
+                Ok((
+                    num_value(Num::Int(match cmp {
+                        std::cmp::Ordering::Less => -1,
+                        std::cmp::Ordering::Equal => 0,
+                        std::cmp::Ordering::Greater => 1,
+                    })),
+                    false,
+                ))
+            }
+            "typeof" => {
+                let type_name = match &args[0] {
+                    Value::Null => "null",
+                    Value::Bool(_) => "bool",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                };
+                Ok((Value::from(type_name), false))
+            }
+            "not" => Ok((Value::Bool(!is_truthy(&args[0])), false)),
+            "and" => Ok((Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1])), false)),
+            "or" => Ok((Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1])), false)),
+            // Utility unary numeric ops (used by derived-pattern tests in
+            // plugin-lib-arrow-iter). These take the incoming value as
+            // their single operand.
+            "is_pos" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok((Value::Bool(n > Num::Int(0)), false))
+            }
+            "dec" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok((num_value(n - Num::Int(1)), false))
+            }
+            "inc" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok((num_value(n + Num::Int(1)), false))
+            }
+            "half_floor" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                let result = match n {
+                    Num::Int(i) => Num::Int(i / 2),
+                    Num::Float(f) => Num::Float((f / 2.0).floor()),
+                };
+                Ok((num_value(result), false))
+            }
+            // Test helper: increment the first component of a pair,
+            // carrying the second through. Used by the Loop
+            // causal-single-step test.
+            "inc_fst" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let a = pair_fst(&inc)
+                    .ok_or_else(|| {
+                        LangError::Engine("inc_fst: input is not a pair".to_string())
+                    })?
+                    .clone();
+                let b = pair_snd(&inc)
+                    .ok_or_else(|| {
+                        LangError::Engine("inc_fst: input is not a pair".to_string())
+                    })?
+                    .clone();
+                let a_n = as_num(&a)?;
+                let new_a = num_value(a_n + Num::Int(1));
+                Ok((pair(new_a, b), false))
+            }
+            // Test helper: multi-step Loop countdown. Incoming is
+            // pair(in, state) where in = pair(result, initial_count). On
+            // the first step (state Null) the state is initialized to
+            // initial_count. Then: state > 0 -> either_right(state - 1)
+            // (continue); state == 0 -> either_left(result) (done).
+            "countdown_step" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let a = pair_fst(&inc).cloned().ok_or_else(|| {
+                    LangError::Engine("countdown_step: input is not a pair".to_string())
+                })?;
+                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let result_val = pair_fst(&a).cloned().ok_or_else(|| {
+                    LangError::Engine(
+                        "countdown_step: in must be pair(result, initial)".to_string(),
+                    )
+                })?;
+                let initial = pair_snd(&a).cloned().unwrap_or(Value::Null);
+                let state = if b.is_null() { initial } else { b };
+                let n = as_num(&state)?;
+                if n > Num::Int(0) {
+                    Ok((either_right(num_value(n - Num::Int(1))), false))
+                } else {
+                    Ok((either_left(result_val), false))
+                }
+            }
+            // Test helper: a body that never terminates — always returns
+            // either_right(state), feeding the state back unchanged. Used
+            // to exercise the Loop max-iteration guard.
+            "infinite_step" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                Ok((either_right(b), false))
+            }
+            _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
+        }
+    }
+
+    /// Apply an `App` callee: host-function dispatch (string callee) or
+    /// closure application.
+    fn apply_app(
+        &self,
+        callee: &Value,
+        args: &[Value],
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+    ) -> Result<Value, LangError> {
+        // Host-function dispatch: a string callee naming a registered
+        // host fn.
+        if let Some(name) = callee.as_str()
+            && let Some(modules) = self.modules.as_ref()
+            && let Some(func) = modules.lookup(name)
+        {
+            let mut pctx = handl_platform::EvalContext::new();
+            return func
+                .call(args, &mut pctx)
+                .map_err(|e| LangError::Engine(e.to_string()));
+        }
+        // Closure application.
+        let obj = callee
+            .as_object()
+            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
+        if !obj
+            .get("__closure__")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return Err(LangError::Engine("callee is not a closure".to_string()));
+        }
+        let params: Vec<String> = obj
+            .get("params")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
+            })
+            .collect::<Result<_, _>>()?;
+        let body_idx = obj
+            .get("body")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
+        let body_ref = AstRef::new(body_idx as usize);
+        let captured_env: HashMap<String, Value> = obj
+            .get("env")
+            .and_then(|v| v.as_object())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+        if params.len() != args.len() {
+            return Err(LangError::Engine(format!(
+                "closure expects {} args, got {}",
+                params.len(),
+                args.len()
+            )));
+        }
+        // Swap in captured env + new scope with params, eval body, restore.
+        let saved = std::mem::replace(env, ScopeStack::new());
+        env.scopes[0] = captured_env;
+        env.push_scope();
+        for (param, arg) in params.iter().zip(args.iter()) {
+            env.define(param, arg.clone());
+        }
+        let result = self.eval_node(ast, body_ref, lang, env);
+        *env = saved;
+        result
+    }
+
+    /// Evaluate a single node by looking up its eval scheme and
+    /// interpreting it. This is the child-node evaluation helper used by
+    /// `proj_child` and closure bodies.
+    ///
+    /// Fallback (no scheme): `foreign.<name>` kinds dispatch to the host
+    /// function `<name>` with evaluated children; other kinds return the
+    /// payload as the value.
+    pub fn eval_node(
         &self,
         ast: &Ast,
         node_ref: AstRef,
@@ -235,22 +1123,10 @@ impl TreeWalkEngine {
         let scheme_def = lang.eval.get_by_identity(&node.kind);
         match scheme_def {
             Some(def) => {
-                let mut ctx = EvalCtx {
-                    ast,
-                    current_ref: node_ref,
-                    current_node: node,
-                    lang,
-                    env,
-                    modules: self.modules.as_ref(),
-                };
-                self.eval_scheme(&def.scheme, &mut ctx)
+                self.eval_scheme(&def.scheme, ast, node_ref, lang, env, node, None)
             }
             None => {
-                // Fallback for `foreign.<name>` node kinds (ADR-0041 Phase 2):
-                // if no explicit scheme exists but the kind is `foreign.<name>`,
-                // dispatch to the host function `<name>` with children as args.
-                // This makes `eval`/`self`/`compile` handl-callable without
-                // requiring per-function scheme entries in the Language data.
+                // Fallback for `foreign.<name>` node kinds.
                 if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
                     let modules = self.modules.as_ref().ok_or_else(|| {
                         LangError::Engine(format!("unregistered foreign: {}", foreign_name))
@@ -259,7 +1135,8 @@ impl TreeWalkEngine {
                         LangError::Engine(format!("unregistered foreign: {}", foreign_name))
                     })?;
                     let mut arg_vals = Vec::new();
-                    if let Some(children) = node.payload.get("children").and_then(|c| c.as_array())
+                    if let Some(children) =
+                        node.payload.get("children").and_then(|c| c.as_array())
                     {
                         for child_ref in children {
                             if let Some(idx) = child_ref.as_u64() {
@@ -278,608 +1155,66 @@ impl TreeWalkEngine {
         }
     }
 
-    /// Interpret a [`Scheme`] combinator in the given context.
-    fn eval_scheme(&self, scheme: &Scheme, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        match scheme {
-            Scheme::Lit(v) => Ok(v.clone()),
-
-            Scheme::Var(name) => {
-                let var_name = if name == "$payload" {
-                    ctx.current_node
-                        .payload
-                        .as_str()
-                        .ok_or_else(|| {
-                            LangError::Engine(
-                                "expected string payload for $payload var".to_string(),
-                            )
-                        })?
-                        .to_string()
-                } else {
-                    name.clone()
-                };
-                // ADR-0041 Phase 2: if the variable is not bound in scope,
-                // return its name as a string value. This allows unbound
-                // identifiers like `eval` to flow into `App` dispatch, where
-                // `apply_closure` / `Scheme::App` checks host functions.
-                // A bound variable shadows this fallback (the common case).
-                ctx.env
-                    .lookup(&var_name)
-                    .cloned()
-                    .map(Ok)
-                    .unwrap_or_else(|| Ok(Value::from(var_name)))
-            }
-
-            Scheme::Child(child_ref) => {
-                let children = ctx
-                    .current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine("expected children array in payload".to_string())
-                    })?;
-                let arena_idx = children
-                    .get(child_ref.index())
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::Engine(format!("child {} not found", child_ref.index()))
-                    })?;
-                let target_ref = AstRef::new(arena_idx as usize);
-                // Save and restore env across child eval (child shares the
-                // same scope, no new scope pushed).
-                self.eval_node(ctx.ast, target_ref, ctx.lang, ctx.env)
-            }
-
-            Scheme::Bind { name, value, body } => {
-                let val = self.eval_scheme(value, ctx)?;
-                let bind_name = if name == "$payload" {
-                    ctx.current_node
-                        .payload
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| {
-                            LangError::Engine(
-                                "expected name in payload for $payload bind".to_string(),
-                            )
-                        })?
-                        .to_string()
-                } else {
-                    name.clone()
-                };
-                ctx.env.push_scope();
-                ctx.env.define(&bind_name, val);
-                let result = self.eval_scheme(body, ctx);
-                ctx.env.pop_scope();
-                result
-            }
-
-            Scheme::App { callee, args } => {
-                let closure_val = self.eval_scheme(callee, ctx)?;
-                // ADR-0041 Phase 2: evaluate args, tolerating missing children
-                // (the call grammar is fixed arity 2 = callee + 1 arg, but
-                // the scheme lists 2 args; Child(2) may be out of bounds for
-                // source-parsed calls with 1 arg). Missing children are
-                // skipped, so `eval("1 + 2")` dispatches with 1 arg.
-                let mut arg_vals = Vec::new();
-                for arg in args {
-                    match self.eval_scheme(arg, ctx) {
-                        Ok(v) => arg_vals.push(v),
-                        Err(LangError::Engine(ref msg))
-                            if msg.contains("child ") && msg.contains("not found") =>
-                        {
-                            // Skip missing child — variable-arity call.
-                        }
-                        Err(e) => return Err(e),
-                    }
-                }
-                // If the callee is a string naming a registered host
-                // function, dispatch to it. This makes `eval("1 + 2")` work:
-                // `var("eval")` evaluates to the string "eval", and App
-                // dispatches to the eval host fn.
-                if let Some(name) = closure_val.as_str() {
-                    if let Some(modules) = ctx.modules {
-                        if let Some(func) = modules.lookup(name) {
-                            let mut pctx = handl_platform::EvalContext::new();
-                            return func
-                                .call(&arg_vals, &mut pctx)
-                                .map_err(|e| LangError::Engine(e.to_string()));
-                        }
-                    }
-                }
-                self.apply_closure(&closure_val, &arg_vals, ctx)
-            }
-
-            Scheme::Branch { cond, then_, else_ } => {
-                let cond_val = self.eval_scheme(cond, ctx)?;
-                if is_truthy(&cond_val) {
-                    self.eval_scheme(then_, ctx)
-                } else {
-                    self.eval_scheme(else_, ctx)
-                }
-            }
-
-            Scheme::Prim { op, args } => {
-                let mut arg_vals = Vec::with_capacity(args.len());
-                for arg in args {
-                    arg_vals.push(self.eval_scheme(arg, ctx)?);
-                }
-                self.apply_prim(op, &arg_vals, ctx)
-            }
-
-            Scheme::Foreign { name, args } => {
-                let mut arg_vals = Vec::with_capacity(args.len());
-                for arg in args {
-                    arg_vals.push(self.eval_scheme(arg, ctx)?);
-                }
-                let modules = ctx
-                    .modules
-                    .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
-                let func = modules
-                    .lookup(name)
-                    .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
-                let mut pctx = handl_platform::EvalContext::new();
-                func.call(&arg_vals, &mut pctx)
-                    .map_err(|e| LangError::Engine(e.to_string()))
-            }
-
-            Scheme::Vau { params, body } => {
-                // The vau escape (ADR-0041 §6, ADR-0045): do NOT evaluate
-                // the children. Instead, bind each param to the
-                // unevaluated child subtree (a tagged `__ast__` value) and
-                // evaluate the body in the extended scope. The body can
-                // call `eval(self, ast)` to evaluate a child on demand.
-                let children = ctx
-                    .current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array());
-                ctx.env.push_scope();
-                for (i, param) in params.iter().enumerate() {
-                    let arena_idx = children
-                        .and_then(|arr| arr.get(i))
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| LangError::Engine(format!("vau: child {} not found", i)))?;
-                    let sub = ctx.ast.subtree(AstRef::new(arena_idx as usize))?;
-                    ctx.env.define(param, ast_value(&sub));
-                }
-                let result = self.eval_scheme(body, ctx);
-                ctx.env.pop_scope();
-                result
-            }
-        }
-    }
-
-    /// Apply a closure value to argument values.
-    fn apply_closure(
+    /// Convenience: look up the `EvalSchemeDef` for the node and interpret
+    /// it. Demonstrates the handler running a language's schemes
+    /// end-to-end (ADR-0052).
+    pub fn eval_lowered(
         &self,
-        closure: &Value,
-        args: &[Value],
-        ctx: &mut EvalCtx<'_>,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
-        // ADR-0041 Phase 2: if the callee is a string that names a registered
-        // host function, dispatch to it. This makes `eval(self, "1 + 2")`
-        // parse as `call(var("eval"), ...)` and dispatch to the `eval` host
-        // function — no special syntax needed.
-        if let Some(name) = closure.as_str() {
-            if let Some(modules) = ctx.modules {
-                if let Some(func) = modules.lookup(name) {
-                    let mut pctx = handl_platform::EvalContext::new();
-                    return func
-                        .call(args, &mut pctx)
-                        .map_err(|e| LangError::Engine(e.to_string()));
-                }
-            }
-        }
-
-        let obj = closure
-            .as_object()
-            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
-        if !obj
-            .get("__closure__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return Err(LangError::Engine("callee is not a closure".to_string()));
-        }
-
-        let params: Vec<String> = obj
-            .get("params")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
-            .iter()
-            .map(|v| {
-                v.as_str()
-                    .map(String::from)
-                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
-            })
-            .collect::<Result<_, _>>()?;
-
-        let body_idx = obj
-            .get("body")
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
-        let body_ref = AstRef::new(body_idx as usize);
-
-        let captured_env: HashMap<String, Value> = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-            .unwrap_or_default();
-
-        if params.len() != args.len() {
-            return Err(LangError::Engine(format!(
-                "closure expects {} args, got {}",
-                params.len(),
-                args.len()
-            )));
-        }
-
-        // Swap in the captured env + new scope with params.
-        let saved = std::mem::replace(ctx.env, ScopeStack::new());
-        ctx.env.scopes[0] = captured_env;
-        ctx.env.push_scope();
-        for (param, arg) in params.iter().zip(args.iter()) {
-            ctx.env.define(param, arg.clone());
-        }
-
-        let result = self.eval_node(ctx.ast, body_ref, ctx.lang, ctx.env);
-
-        // Restore the original scope stack.
-        *ctx.env = saved;
-        result
+        self.eval_node(ast, node_ref, lang, env)
     }
 
-    /// Apply a primitive operation.
-    fn apply_prim(
+    /// Backward-compatible alias for [`eval_scheme`](Self::eval_scheme).
+    #[doc(hidden)]
+    pub fn eval_scheme_v2(
         &self,
-        op: &str,
-        args: &[Value],
-        ctx: &mut EvalCtx<'_>,
+        scheme: &Scheme,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<Value>,
     ) -> Result<Value, LangError> {
-        match op {
-            "add" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(num_value(a + b))
-            }
-            "sub" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(num_value(a - b))
-            }
-            "mul" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(num_value(a * b))
-            }
-            "div" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("division by zero".to_string()));
-                }
-                Ok(num_value(a / b))
-            }
-            "mod" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("modulo by zero".to_string()));
-                }
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(num_value(Num::Int(a % b))),
-                    (a, b) => Ok(num_value(Num::Float(a.to_f64() % b.to_f64()))),
-                }
-            }
-            "pow" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                let result = a.to_f64().powf(b.to_f64());
-                Ok(num_value(Num::Float(result)))
-            }
-            "eq" => Ok(Value::Bool(args[0] == args[1])),
-            "lt" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a < b))
-            }
-            "gt" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a > b))
-            }
-            "gte" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a >= b))
-            }
-            "lte" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a <= b))
-            }
-            "neq" => Ok(Value::Bool(args[0] != args[1])),
-            "compare" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                let cmp = a
-                    .partial_cmp(&b)
-                    .ok_or_else(|| LangError::Engine("compare: incomparable values".to_string()))?;
-                Ok(num_value(Num::Int(match cmp {
-                    std::cmp::Ordering::Less => -1,
-                    std::cmp::Ordering::Equal => 0,
-                    std::cmp::Ordering::Greater => 1,
-                })))
-            }
-            "typeof" => {
-                let type_name = match &args[0] {
-                    Value::Null => "null",
-                    Value::Bool(_) => "bool",
-                    Value::Number(_) => "number",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                };
-                Ok(Value::from(type_name))
-            }
-            "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
-            "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-            "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
-            "neg" => {
-                let a = as_num(&args[0])?;
-                match a {
-                    Num::Int(i) => Ok(num_value(Num::Int(-i))),
-                    Num::Float(f) => Ok(num_value(Num::Float(-f))),
-                }
-            }
-            "closure" => {
-                // Create a closure from the current node's payload.
-                //
-                // Three payload shapes are supported:
-                // - **Rich**: `{"params": ["x", ...], "body": <arena_idx>}`
-                // - **Pratt-parsed (bare param)**: `{"children": [var_idx,
-                //   body_idx]}` where `var_idx` points to a `var` node whose
-                //   payload is the parameter name string.
-                // - **Pratt-parsed (paren params)**: `{"children": [paren_idx,
-                //   body_idx]}` where `paren_idx` points to a `paren` node
-                //   whose children are `var` nodes — supports multi-param
-                //   `(x, y) -> body`.
-                let payload = &ctx.current_node.payload;
-                let (params, body) = if let (Some(p), Some(b)) = (
-                    payload.get("params").and_then(|v| v.as_array()),
-                    payload.get("body").and_then(|v| v.as_u64()),
-                ) {
-                    (p.clone(), b as usize)
-                } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
-                    let param_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::Engine("closure prim: missing param child".to_string())
-                    })? as usize;
-                    let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::Engine("closure prim: missing body child".to_string())
-                    })? as usize;
-                    let param_node = ctx.ast.at(AstRef::new(param_idx))?;
-                    // Extract param names: if the param node is a `paren`,
-                    // unwrap its children (multi-param). If it's a `var`,
-                    // use its string payload directly (bare single param).
-                    let param_names: Vec<String> = if param_node.kind == "paren" {
-                        let paren_children = param_node
-                            .payload
-                            .get("children")
-                            .and_then(|c| c.as_array())
-                            .ok_or_else(|| {
-                                LangError::Engine(
-                                    "closure prim: paren params missing children".to_string(),
-                                )
-                            })?;
-                        let mut names = Vec::with_capacity(paren_children.len());
-                        for pc in paren_children {
-                            let pidx = pc.as_u64().ok_or_else(|| {
-                                LangError::Engine(
-                                    "closure prim: param index must be a number".to_string(),
-                                )
-                            })? as usize;
-                            let pnode = ctx.ast.at(AstRef::new(pidx))?;
-                            let pname = pnode.payload.as_str().ok_or_else(|| {
-                                LangError::Engine(
-                                    "closure prim: param must be a var with string payload"
-                                        .to_string(),
-                                )
-                            })?;
-                            names.push(pname.to_string());
-                        }
-                        names
-                    } else {
-                        let pname = param_node.payload.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "closure prim: param node must be a var with string payload"
-                                    .to_string(),
-                            )
-                        })?;
-                        vec![pname.to_string()]
-                    };
-                    (param_names.into_iter().map(Value::from).collect(), body_idx)
-                } else {
-                    return Err(LangError::Engine(
-                        "closure prim: missing params/body in payload".to_string(),
-                    ));
-                };
-                let env = ctx.env.capture();
-                let closure = serde_json::json!({
-                    "__closure__": true,
-                    "params": params,
-                    "body": body,
-                    "env": env,
-                });
-                Ok(closure)
-            }
-            "array" => {
-                // Two payload shapes:
-                // - **Rich**: `{"elements": [v1, v2, ...]}` — literal values.
-                // - **Pratt-parsed**: `{"children": [elem_idx, ...]}` — each
-                //   element is an arena index to evaluate.
-                if let Some(elements) = ctx.current_node.payload.get("elements") {
-                    Ok(elements.clone())
-                } else if let Some(children) = ctx
-                    .current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                {
-                    let mut result = Vec::with_capacity(children.len());
-                    for entry in children {
-                        let idx = entry.as_u64().ok_or_else(|| {
-                            LangError::Engine("array: element index must be a number".to_string())
-                        })? as usize;
-                        result.push(self.eval_node(
-                            ctx.ast,
-                            AstRef::new(idx),
-                            ctx.lang,
-                            ctx.env,
-                        )?);
-                    }
-                    Ok(Value::Array(result))
-                } else {
-                    Err(LangError::Engine(
-                        "array: missing elements/children in payload".to_string(),
-                    ))
-                }
-            }
-            "object" => {
-                // Two payload shapes:
-                // - **Rich**: `{"entries": [{"key": "k", "value": v}, ...]}`.
-                // - **Pratt-parsed**: `{"children": [entry_idx, ...]}` where
-                //   each entry node has `{"children": [key_idx, value_idx]}`.
-                if let Some(entries) = ctx
-                    .current_node
-                    .payload
-                    .get("entries")
-                    .and_then(|v| v.as_array())
-                {
-                    let mut obj = serde_json::Map::new();
-                    for entry in entries {
-                        let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
-                            LangError::Engine("object: entry missing key".to_string())
-                        })?;
-                        let value = entry.get("value").ok_or_else(|| {
-                            LangError::Engine("object: entry missing value".to_string())
-                        })?;
-                        obj.insert(key.to_string(), value.clone());
-                    }
-                    Ok(Value::Object(obj))
-                } else if let Some(children) = ctx
-                    .current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                {
-                    let mut obj = serde_json::Map::new();
-                    for entry in children {
-                        let entry_idx = entry.as_u64().ok_or_else(|| {
-                            LangError::Engine("object: entry index must be a number".to_string())
-                        })? as usize;
-                        let entry_node = ctx.ast.at(AstRef::new(entry_idx))?;
-                        let entry_children = entry_node
-                            .payload
-                            .get("children")
-                            .and_then(|c| c.as_array())
-                            .ok_or_else(|| {
-                                LangError::Engine("object: entry node missing children".to_string())
-                            })?;
-                        let key_idx =
-                            entry_children
-                                .get(0)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::Engine("object: entry missing key child".to_string())
-                                })? as usize;
-                        let val_idx =
-                            entry_children
-                                .get(1)
-                                .and_then(|v| v.as_u64())
-                                .ok_or_else(|| {
-                                    LangError::Engine(
-                                        "object: entry missing value child".to_string(),
-                                    )
-                                })? as usize;
-                        let key_val =
-                            self.eval_node(ctx.ast, AstRef::new(key_idx), ctx.lang, ctx.env)?;
-                        let key = key_val.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "object: entry key must evaluate to a string".to_string(),
-                            )
-                        })?;
-                        let value =
-                            self.eval_node(ctx.ast, AstRef::new(val_idx), ctx.lang, ctx.env)?;
-                        obj.insert(key.to_string(), value);
-                    }
-                    Ok(Value::Object(obj))
-                } else {
-                    Err(LangError::Engine(
-                        "object: missing entries/children in payload".to_string(),
-                    ))
-                }
-            }
-            "index" => {
-                let target = ctx.current_node.payload.get("target").ok_or_else(|| {
-                    LangError::Engine("index: missing target in payload".to_string())
-                })?;
-                let index = ctx.current_node.payload.get("index").ok_or_else(|| {
-                    LangError::Engine("index: missing index in payload".to_string())
-                })?;
-                match (target, index) {
-                    (Value::Array(arr), Value::Number(n)) => {
-                        let i = n.as_u64().ok_or_else(|| {
-                            LangError::Engine(
-                                "index: index must be a non-negative integer".to_string(),
-                            )
-                        })? as usize;
-                        arr.get(i).cloned().ok_or_else(|| {
-                            LangError::Engine(format!("index: index {} out of bounds", i))
-                        })
-                    }
-                    (Value::Object(obj), Value::String(key)) => {
-                        obj.get(key).cloned().ok_or_else(|| {
-                            LangError::Engine(format!("index: key '{}' not found", key))
-                        })
-                    }
-                    _ => Err(LangError::Engine(
-                        "index: target must be array/object and index must be number/string"
-                            .to_string(),
-                    )),
-                }
-            }
-            "assign" => {
-                let value = ctx.current_node.payload.get("value").ok_or_else(|| {
-                    LangError::Engine("assign: missing value in payload".to_string())
-                })?;
-                Ok(value.clone())
-            }
-            "match" => self.prim_match(ctx),
-            "handle" => self.prim_handle(ctx),
-            "json" => self.prim_json(ctx),
-            _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
-        }
+        self.eval_scheme(scheme, ast, node_ref, lang, env, current_node, incoming)
     }
 
-    /// `match` prim: pattern-match a scrutinee against a list of arms.
+    /// Backward-compatible alias for [`eval_node`](Self::eval_node).
+    #[doc(hidden)]
+    pub fn eval_node_v2(
+        &self,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+    ) -> Result<Value, LangError> {
+        self.eval_node(ast, node_ref, lang, env)
+    }
+
+    /// `match` op: pattern-match a scrutinee against a list of arms.
     ///
-    /// The `match` node's payload has `children: [scrut_idx, block_idx]`. The
-    /// block node (kind `block`) has `children: [arm_idx, ...]`. Each arm
-    /// node (kind `arm`) has `children: [pattern_idx, body_idx]`.
+    /// The `match` node's payload has `children: [scrut_idx, block_idx]`.
+    /// The block node (kind `block`) has `children: [arm_idx, ...]`. Each
+    /// arm node (kind `arm`) has `children: [pattern_idx, body_idx]`.
     ///
     /// Pattern matching interprets the pattern AST node structurally:
-    /// - A `var` node named `_` or starting with `_` → **wildcard** (always
-    ///   matches, binds nothing).
-    /// - A `var` node with any other name → **binder** (always matches, binds
-    ///   the name to the scrutinee value in the current scope).
-    /// - Any other node → **literal**: the pattern is evaluated as a value
-    ///   and compared by equality (`==`) to the scrutinee.
-    ///
-    /// The first matching arm's body is evaluated lazily; non-matching arms
-    /// are never evaluated.
-    fn prim_match(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        let children = ctx
-            .current_node
+    /// - A `var` node named `_` or starting with `_` → **wildcard**.
+    /// - A `var` node with any other name → **binder** (binds the name to
+    ///   the scrutinee value).
+    /// - Any other node → **literal**: the pattern is evaluated as a
+    ///   value and compared by equality (`==`) to the scrutinee.
+    fn prim_match(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let children = current_node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
@@ -896,10 +1231,10 @@ impl TreeWalkEngine {
             as usize;
 
         // Evaluate the scrutinee.
-        let scrut_val = self.eval_node(ctx.ast, AstRef::new(scrut_idx), ctx.lang, ctx.env)?;
+        let scrut_val = self.eval_node(ast, AstRef::new(scrut_idx), lang, env)?;
 
         // Get the block node's children (the arm indices).
-        let block_node = ctx.ast.at(AstRef::new(block_idx))?;
+        let block_node = ast.at(AstRef::new(block_idx))?;
         let arm_indices = block_node
             .payload
             .get("children")
@@ -912,7 +1247,7 @@ impl TreeWalkEngine {
                 .as_u64()
                 .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))?
                 as usize;
-            let arm_node = ctx.ast.at(AstRef::new(arm_idx))?;
+            let arm_node = ast.at(AstRef::new(arm_idx))?;
             let arm_children = arm_node
                 .payload
                 .get("children")
@@ -930,35 +1265,41 @@ impl TreeWalkEngine {
                 as usize;
 
             // Interpret the pattern node structurally.
-            ctx.env.push_scope();
+            env.push_scope();
             let matched = self.try_pattern(
-                ctx.ast,
+                ast,
                 AstRef::new(pattern_idx),
                 &scrut_val,
-                ctx.lang,
-                ctx.env,
+                lang,
+                env,
             )?;
             if matched {
-                let result = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env);
-                ctx.env.pop_scope();
-                return result;
+                let result = self.eval_node(ast, AstRef::new(body_idx), lang, env);
+                env.pop_scope();
+                return result.map(|v| (v, false));
             }
-            ctx.env.pop_scope();
+            env.pop_scope();
         }
 
         Err(LangError::Engine("match: no arm matched".to_string()))
     }
 
-    /// `handle` prim: evaluate a body, then dispatch the result to the first
-    /// matching handler clause.
+    /// `handle` op: evaluate a body, then dispatch the result to the
+    /// first matching handler clause.
     ///
-    /// Structurally identical to `match` (children = [body_idx, block_idx],
-    /// block contains `arm` nodes with [pattern_idx, handler_idx]). The body
-    /// is evaluated first; its result is matched against clause patterns. If
-    /// no clause matches, the body value is returned as-is.
-    fn prim_handle(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        let children = ctx
-            .current_node
+    /// Structurally identical to `match` (children = [body_idx,
+    /// block_idx], block contains `arm` nodes with [pattern_idx,
+    /// handler_idx]). The body is evaluated first; its result is matched
+    /// against clause patterns. If no clause matches, the body value is
+    /// returned as-is.
+    fn prim_handle(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let children = current_node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
@@ -975,10 +1316,10 @@ impl TreeWalkEngine {
             as usize;
 
         // Evaluate the body.
-        let body_val = self.eval_node(ctx.ast, AstRef::new(body_idx), ctx.lang, ctx.env)?;
+        let body_val = self.eval_node(ast, AstRef::new(body_idx), lang, env)?;
 
         // Get the block node's children (the clause indices).
-        let block_node = ctx.ast.at(AstRef::new(block_idx))?;
+        let block_node = ast.at(AstRef::new(block_idx))?;
         let clause_indices = block_node
             .payload
             .get("children")
@@ -990,7 +1331,7 @@ impl TreeWalkEngine {
             let clause_idx = clause_entry.as_u64().ok_or_else(|| {
                 LangError::Engine("handle: clause index must be a number".to_string())
             })? as usize;
-            let clause_node = ctx.ast.at(AstRef::new(clause_idx))?;
+            let clause_node = ast.at(AstRef::new(clause_idx))?;
             let clause_children = clause_node
                 .payload
                 .get("children")
@@ -1011,34 +1352,40 @@ impl TreeWalkEngine {
                     LangError::Engine("handle: clause missing handler child".to_string())
                 })? as usize;
 
-            ctx.env.push_scope();
+            env.push_scope();
             let matched = self.try_pattern(
-                ctx.ast,
+                ast,
                 AstRef::new(pattern_idx),
                 &body_val,
-                ctx.lang,
-                ctx.env,
+                lang,
+                env,
             )?;
             if matched {
-                let result = self.eval_node(ctx.ast, AstRef::new(handler_idx), ctx.lang, ctx.env);
-                ctx.env.pop_scope();
-                return result;
+                let result = self.eval_node(ast, AstRef::new(handler_idx), lang, env);
+                env.pop_scope();
+                return result.map(|v| (v, false));
             }
-            ctx.env.pop_scope();
+            env.pop_scope();
         }
 
         // No clause matched — return the body value as-is.
-        Ok(body_val)
+        Ok((body_val, false))
     }
 
-    /// `json` prim: parse a JSON template string from the node payload.
+    /// `json` op: parse a JSON template string from the node payload.
     ///
-    /// The payload carries `expr` (a JSON string, optionally with `$0`, `$1`,
-    /// … placeholders) and `args` (an array of arena indices whose evaluated
-    /// values are substituted into the placeholders before parsing). If no
-    /// `args` are present, `expr` is parsed directly.
-    fn prim_json(&self, ctx: &mut EvalCtx<'_>) -> Result<Value, LangError> {
-        let payload = &ctx.current_node.payload;
+    /// The payload carries `expr` (a JSON string, optionally with `$0`,
+    /// `$1`, … placeholders) and `args` (an array of arena indices whose
+    /// evaluated values are substituted into the placeholders before
+    /// parsing). If no `args` are present, `expr` is parsed directly.
+    fn prim_json(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let payload = &current_node.payload;
         let expr = payload
             .get("expr")
             .and_then(|v| v.as_str())
@@ -1049,10 +1396,11 @@ impl TreeWalkEngine {
         let final_expr = if let Some(args_arr) = payload.get("args").and_then(|v| v.as_array()) {
             let mut s = expr.to_string();
             for (i, arg_entry) in args_arr.iter().enumerate() {
-                // Each arg entry is an arena index referencing a child node.
+                // Each arg entry is an arena index referencing a child
+                // node.
                 let replacement = if let Some(idx) = arg_entry.as_u64() {
                     let val =
-                        self.eval_node(ctx.ast, AstRef::new(idx as usize), ctx.lang, ctx.env)?;
+                        self.eval_node(ast, AstRef::new(idx as usize), lang, env)?;
                     serde_json::to_string(&val)
                         .map_err(|e| LangError::Engine(format!("json: {}", e)))?
                 } else {
@@ -1069,13 +1417,15 @@ impl TreeWalkEngine {
 
         serde_json::from_str(&final_expr)
             .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+            .map(|v| (v, false))
     }
 
-    /// Interpret a pattern AST node structurally against a scrutinee value.
+    /// Interpret a pattern AST node structurally against a scrutinee
+    /// value.
     ///
     /// - `var` node named `_` or `_*` → wildcard (always matches).
-    /// - `var` node with another name → binder (binds name → scrut, always
-    ///   matches).
+    /// - `var` node with another name → binder (binds name → scrut,
+    ///   always matches).
     /// - `array` node → array destructuring: positional sub-patterns with
     ///   optional `...rest` capture.
     /// - `object` node → object destructuring: key → sub-pattern entries
@@ -1121,9 +1471,9 @@ impl TreeWalkEngine {
 
     /// Extract the binder name from a `rest` pattern node (`...name`).
     ///
-    /// Returns `Some(name)` if the rest node binds a name, or `None` if it's
-    /// a wildcard rest (`..._` or `..._*`). Returns `Err` if the rest node is
-    /// malformed.
+    /// Returns `Some(name)` if the rest node binds a name, or `None` if
+    /// it's a wildcard rest (`..._` or `..._*`). Returns `Err` if the
+    /// rest node is malformed.
     fn rest_binder_name(&self, ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangError> {
         let rest_node = ast.at(rest_ref)?;
         let children = rest_node
@@ -1151,9 +1501,10 @@ impl TreeWalkEngine {
 
     /// Array destructuring: `[a, b, ...rest]`.
     ///
-    /// Positional sub-patterns are matched left-to-right. A `...rest` element
-    /// captures the remaining scrutinee elements as an array bound to `rest`.
-    /// Without a rest, the array length must match exactly.
+    /// Positional sub-patterns are matched left-to-right. A `...rest`
+    /// element captures the remaining scrutinee elements as an array
+    /// bound to `rest`. Without a rest, the array length must match
+    /// exactly.
     fn try_array_pattern(
         &self,
         ast: &Ast,
@@ -1222,9 +1573,10 @@ impl TreeWalkEngine {
 
     /// Object destructuring: `{ x: a, y: b, ...rest }`.
     ///
-    /// Each entry's key is a field name (from a `var` or string `value` node);
-    /// the entry's value is a sub-pattern matched against the corresponding
-    /// field. A `...rest` element captures the unmatched keys as an object.
+    /// Each entry's key is a field name (from a `var` or string `value`
+    /// node); the entry's value is a sub-pattern matched against the
+    /// corresponding field. A `...rest` element captures the unmatched
+    /// keys as an object.
     fn try_object_pattern(
         &self,
         ast: &Ast,
@@ -1275,7 +1627,8 @@ impl TreeWalkEngine {
                     LangError::Engine("object pattern: bad entry val index".to_string())
                 })? as usize;
                 let key_node = ast.at(AstRef::new(key_idx))?;
-                // Key can be a `var` (identifier) or a `value` (string literal).
+                // Key can be a `var` (identifier) or a `value` (string
+                // literal).
                 let key = if key_node.kind == "var" {
                     key_node.payload.as_str().unwrap_or("").to_string()
                 } else {
@@ -1317,7 +1670,48 @@ impl TreeWalkEngine {
     }
 }
 
-/// A number that can be either integer or float.
+impl Default for TreeWalkEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EvalEngine for TreeWalkEngine {
+    fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
+        let ast = &req.ast;
+        if ast.is_empty() {
+            return Ok(Value::Null);
+        }
+        let mut env = ScopeStack::new();
+        // Inject host-provided globals (e.g. `self` → language value) into
+        // the root scope. ADR-0041 Phase 3: `self` is an ambient variable,
+        // not a function call.
+        for (name, val) in &self.globals {
+            env.define(name, val.clone());
+        }
+        // The root is the last node in the arena (Pratt convention).
+        let root_ref = AstRef::new(ast.len() - 1);
+        self.eval_node(ast, root_ref, lang, &mut env)
+    }
+
+    fn box_clone(&self) -> Box<dyn EvalEngine> {
+        Box::new(self.clone())
+    }
+
+    fn with_modules(&self, modules: Rc<dyn ModuleLookup>) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_modules(modules))
+    }
+
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
+        Box::new(self.clone().with_global(name, val))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Numeric helpers
+// ---------------------------------------------------------------------------
+
+/// A number that tracks int-vs-float.
 #[derive(Debug, Clone, Copy)]
 enum Num {
     /// Integer value.
@@ -1425,14 +1819,142 @@ fn is_truthy(v: &Value) -> bool {
     }
 }
 
+/// Binary numeric op helper.
+fn bin_num<F>(args: &[Value], f: F) -> Result<(Value, bool), LangError>
+where
+    F: FnOnce(Num, Num) -> Num,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    Ok((num_value(f(a, b)), false))
+}
+
+/// Numeric comparison helper.
+fn cmp_num<F>(args: &[Value], f: F) -> Result<(Value, bool), LangError>
+where
+    F: FnOnce(Num, Num) -> bool,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    Ok((Value::Bool(f(a, b)), false))
+}
+
+// ---------------------------------------------------------------------------
+// Pair / Either value-shape helpers
+// ---------------------------------------------------------------------------
+
+/// Construct a pair value `{"__pair__": [a, b]}`.
+fn pair(a: Value, b: Value) -> Value {
+    serde_json::json!({"__pair__": [a, b]})
+}
+
+/// Extract the first component of a pair value, or `None` if not a pair.
+fn pair_fst(v: &Value) -> Option<&Value> {
+    v.get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.first())
+}
+
+/// Extract the second component of a pair value, or `None` if not a pair.
+fn pair_snd(v: &Value) -> Option<&Value> {
+    v.get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.get(1))
+}
+
+/// Construct a `left` Either value `{"__either__": "left", "value": v}`.
+fn either_left(v: Value) -> Value {
+    serde_json::json!({"__either__": "left", "value": v})
+}
+
+/// Construct a `right` Either value `{"__either__": "right", "value": v}`.
+fn either_right(v: Value) -> Value {
+    serde_json::json!({"__either__": "right", "value": v})
+}
+
+/// Whether an Either value is a `left`.
+fn is_either_left(v: &Value) -> bool {
+    v.get("__either__").and_then(|s| s.as_str()) == Some("left")
+}
+
+/// Whether an Either value is a `right`.
+fn is_either_right(v: &Value) -> bool {
+    v.get("__either__").and_then(|s| s.as_str()) == Some("right")
+}
+
+/// Extract the carried value from an Either.
+fn either_value(v: &Value) -> Option<&Value> {
+    v.get("value")
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstNode, EvalSchemeDef, Scheme};
+    use handl_language::{AstNode, EvalSchemeDef, Language, Scheme};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_eval::EvalRequest;
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
+
+    // --- v2 scheme constructor helpers (mirror the old v1 shapes) ---
+
+    /// `proj_child n` — the v2 equivalent of the old `Scheme::Child(n)`.
+    fn child(n: u64) -> Scheme {
+        Scheme::arr_native_lit("proj_child", vec![], Value::from(n))
+    }
+
+    /// `proj_env name` — the v2 equivalent of the old `Scheme::Var(name)`.
+    fn var(name: &str) -> Scheme {
+        Scheme::arr_native_lit("proj_env", vec![], name)
+    }
+
+    /// `const v` — the v2 equivalent of the old `Scheme::Lit(v)`.
+    fn lit(v: impl Into<Value>) -> Scheme {
+        Scheme::arr_native_lit("const", vec![], v.into())
+    }
+
+    /// `arr_native op args` — the v2 equivalent of the old
+    /// `Scheme::Prim { op, args }`.
+    fn prim(op: &str, args: Vec<Scheme>) -> Scheme {
+        Scheme::arr_native(op, args)
+    }
+
+    /// `arr_foreign name args` — the v2 equivalent of the old
+    /// `Scheme::Foreign { name, args }`.
+    fn foreign(name: &str, args: Vec<Scheme>) -> Scheme {
+        Scheme::arr_foreign(name, args)
+    }
+
+    /// The `Bind` lowering:
+    /// `Seq(Seq(value, extend_env name), body)`.
+    fn bind(name: &str, value: Scheme, body: Scheme) -> Scheme {
+        Scheme::seq(
+            Scheme::seq(value, Scheme::arr_native_lit("extend_env", vec![], name)),
+            body,
+        )
+    }
+
+    /// The `Branch` lowering:
+    /// `Seq(cond, Seq(arr tag, Choice(then_, else_)))`.
+    fn branch(cond: Scheme, then_: Scheme, else_: Scheme) -> Scheme {
+        Scheme::seq(
+            cond,
+            Scheme::seq(
+                Scheme::arr_native("tag", vec![]),
+                Scheme::choice(then_, else_),
+            ),
+        )
+    }
+
+    /// `app callee args` — the v2 equivalent of the old
+    /// `Scheme::App { callee, args }`.
+    fn app(callee: Scheme, args: Vec<Scheme>) -> Scheme {
+        Scheme::app(callee, args)
+    }
 
     /// Build a simple AST for testing.
     fn make_ast(nodes: Vec<AstNode>) -> Ast {
@@ -1441,6 +1963,24 @@ mod tests {
             ast.push(n);
         }
         ast
+    }
+
+    /// A minimal node used as the "current node" for scheme-only tests
+    /// that do not need child resolution. Its payload is an empty object.
+    fn dummy_node() -> AstNode {
+        AstNode::new("test").with_payload(json!({}))
+    }
+
+    /// Evaluate a standalone scheme with a fresh env and a dummy current
+    /// node, passing `None` as incoming.
+    fn eval_standalone(
+        engine: &TreeWalkEngine,
+        scheme: &Scheme,
+        env: &mut ScopeStack,
+    ) -> Result<Value, LangError> {
+        let ast = make_ast(vec![dummy_node()]);
+        let node = ast.at(AstRef::new(0)).unwrap();
+        engine.eval_scheme(scheme, &ast, AstRef::new(0), &Language::new(), env, node, None)
     }
 
     /// A module exposing a single `double` function for tests.
@@ -1478,7 +2018,455 @@ mod tests {
         Rc::new(ModuleRegistry::new().with(DoubleModule))
     }
 
-    // --- Scheme combinator tests ---
+    // --- arr const -------------------------------------------------------
+
+    #[test]
+    fn arr_const_returns_literal() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native_lit("const", vec![], json!(42));
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn arr_const_null_when_no_literal() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native("const", vec![]);
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, Value::Null);
+    }
+
+    // --- arr proj_env ----------------------------------------------------
+
+    #[test]
+    fn arr_proj_env_bound_lookup() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        env.define("x", json!(7));
+        let s = Scheme::arr_native_lit("proj_env", vec![], "x");
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(7));
+    }
+
+    #[test]
+    fn arr_proj_env_unbound_returns_name() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native_lit("proj_env", vec![], "unknown");
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, Value::from("unknown"));
+    }
+
+    // --- Seq const >>> id ------------------------------------------------
+
+    #[test]
+    fn seq_const_then_id() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(5)),
+            Scheme::arr_native("id", vec![]),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    // --- Bind shape ------------------------------------------------------
+
+    #[test]
+    fn bind_shape_extend_env_then_proj_env() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(5)),
+                Scheme::arr_native_lit("extend_env", vec![], "x"),
+            ),
+            Scheme::arr_native_lit("proj_env", vec![], "x"),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(5));
+        // Scope must be popped after the Seq: "x" no longer visible.
+        assert!(env.lookup("x").is_none());
+    }
+
+    // --- First on a pair -------------------------------------------------
+
+    #[test]
+    fn first_id_on_pair() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(3), json!(7))),
+            Scheme::first(Scheme::arr_native("id", vec![])),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, pair(json!(3), json!(7)));
+    }
+
+    #[test]
+    fn first_const_on_pair() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(3), json!(7))),
+            Scheme::first(Scheme::arr_native_lit("const", vec![], json!(99))),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, pair(json!(99), json!(7)));
+    }
+
+    // --- Choice on Either ------------------------------------------------
+
+    #[test]
+    fn choice_left() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], either_left(json!(5))),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], json!(1)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(1));
+    }
+
+    #[test]
+    fn choice_right() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], either_right(json!(5))),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], json!(1)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(2));
+    }
+
+    // --- tag + Choice (Branch lowering) ----------------------------------
+
+    #[test]
+    fn tag_choice_true_yields_then() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(true)),
+                Scheme::arr_native("tag", vec![]),
+            ),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], "yes"),
+                Scheme::arr_native_lit("const", vec![], "no"),
+            ),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!("yes"));
+    }
+
+    #[test]
+    fn tag_choice_false_yields_else() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(false)),
+                Scheme::arr_native("tag", vec![]),
+            ),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], "yes"),
+                Scheme::arr_native_lit("const", vec![], "no"),
+            ),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!("no"));
+    }
+
+    // --- Loop causal single-step ----------------------------------------
+
+    #[test]
+    fn loop_causal_single_step() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        // body: inc_fst maps pair(in, state) -> pair(in+1, state).
+        // Loop seeds state=Null, feeds pair(in, Null), returns out=in+1.
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(10)),
+            Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![])),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(11));
+    }
+
+    // --- Loop multi-step (Either-based) ---------------------------------
+
+    #[test]
+    fn loop_multi_step_either_countdown() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        // input = pair(42, 5): result=42, countdown from 5.
+        // countdown_step: state>0 -> either_right(state-1) (continue);
+        // state==0 -> either_left(42) (done). Runs 5 steps, returns 42.
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(42), json!(5))),
+            Scheme::loop_feedback(Scheme::arr_native("countdown_step", vec![])),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn loop_multi_step_max_iterations_guard() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        // infinite_step always returns either_right(state) — never
+        // terminates. The Loop max-iteration guard must fire.
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(1)),
+            Scheme::loop_feedback(Scheme::arr_native("infinite_step", vec![])),
+        );
+        let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("max iterations")));
+    }
+
+    #[test]
+    fn loop_multi_step_single_step_still_works() {
+        // Backward compat: a body returning a pair (not an Either) runs
+        // exactly once and returns fst. This is the original single-step
+        // behavior, now the fallback when the result is not an Either.
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(10)),
+            Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![])),
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(11));
+    }
+
+    // --- App with a closure value ---------------------------------------
+
+    #[test]
+    fn app_closure_applies_body() {
+        let engine = TreeWalkEngine::new();
+        // AST:
+        // 0: var("x") payload "x"  -- body node; its scheme returns
+        //    proj_env "x"
+        // 1: test node (current)   -- the node whose scheme is the App
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("test").with_payload(json!({})),
+        ]);
+        // Build a closure value pointing at body node 0, param ["x"].
+        let closure = json!({
+            "__closure__": true,
+            "params": ["x"],
+            "body": 0,
+            "env": {},
+        });
+        // App(callee = const <closure>, args = [const 41])
+        let s = app(
+            Scheme::arr_native_lit("const", vec![], closure),
+            vec![Scheme::arr_native_lit("const", vec![], json!(41))],
+        );
+        let mut env = ScopeStack::new();
+        let node = ast.at(AstRef::new(1)).unwrap();
+        let result = engine
+            .eval_scheme(&s, &ast, AstRef::new(1), &lang, &mut env, node, None)
+            .unwrap();
+        assert_eq!(result, json!(41));
+    }
+
+    // --- eval_lowered end-to-end ----------------------------------------
+
+    #[test]
+    fn eval_lowered_lit_node() {
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.lit", "lit", lit(json!(42))))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("lit").with_payload(json!(42))]);
+        let mut env = ScopeStack::new();
+        let result = engine
+            .eval_lowered(&ast, AstRef::new(0), &lang, &mut env)
+            .unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    // --- Branch lowering via eval_lowered --------------------------------
+
+    #[test]
+    fn lowered_branch_true_takes_then() {
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        // "if" node: Branch { cond: child(0), then: child(1), else:
+        // child(2) } lowered to Seq(cond, Seq(tag, Choice(t, e))).
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                branch(child(0), child(1), child(2)),
+            ))
+            .unwrap();
+        // AST: 0: lit(true), 1: lit(1), 2: lit(2), 3: if{children:[0,1,2]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(true)),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
+        ]);
+        let mut env = ScopeStack::new();
+        let result = engine
+            .eval_lowered(&ast, AstRef::new(3), &lang, &mut env)
+            .unwrap();
+        assert_eq!(result, json!(1));
+    }
+
+    #[test]
+    fn lowered_branch_false_takes_else() {
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                branch(child(0), child(1), child(2)),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(false)),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
+        ]);
+        let mut env = ScopeStack::new();
+        let result = engine
+            .eval_lowered(&ast, AstRef::new(3), &lang, &mut env)
+            .unwrap();
+        assert_eq!(result, json!(2));
+    }
+
+    // --- Arithmetic / comparison parity ---------------------------------
+
+    #[test]
+    fn native_add() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native(
+            "add",
+            vec![
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+                Scheme::arr_native_lit("const", vec![], json!(3)),
+            ],
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn native_eq() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native(
+            "eq",
+            vec![
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ],
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    // --- Foreign dispatch ------------------------------------------------
+
+    #[test]
+    fn foreign_arr_dispatches_to_module() {
+        let engine = TreeWalkEngine::new().with_modules(double_registry());
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_foreign(
+            "double",
+            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+        );
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn foreign_arr_no_modules_errors() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_foreign(
+            "double",
+            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+        );
+        let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unregistered foreign")));
+    }
+
+    // --- proj_child via eval_lowered -------------------------------------
+
+    #[test]
+    fn proj_child_evaluates_child_node() {
+        let engine = TreeWalkEngine::new();
+        let mut lang = Language::new();
+        // "binary.add": add(child(0), child(1)).
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                prim("add", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+        ]);
+        let mut env = ScopeStack::new();
+        let result = engine
+            .eval_lowered(&ast, AstRef::new(2), &lang, &mut env)
+            .unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    // --- Unknown op ------------------------------------------------------
+
+    #[test]
+    fn unknown_native_op_errors() {
+        let engine = TreeWalkEngine::new();
+        let mut env = ScopeStack::new();
+        let s = Scheme::arr_native("bogus", vec![]);
+        let err = eval_standalone(&engine, &s, &mut env).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unknown v2 native op")));
+    }
+
+    // --- Globals injection ----------------------------------------------
+
+    #[test]
+    fn with_global_visible_in_env() {
+        let engine = TreeWalkEngine::new().with_global("self", json!("my-lang"));
+        let mut env = ScopeStack::new();
+        for (name, val) in &engine.globals {
+            env.define(name, val.clone());
+        }
+        let s = Scheme::arr_native_lit("proj_env", vec![], "self");
+        let result = eval_standalone(&engine, &s, &mut env).unwrap();
+        assert_eq!(result, json!("my-lang"));
+    }
+
+    // --- Engine-level tests (via EvalEngine::eval) ----------------------
 
     #[test]
     fn lit_returns_value() {
@@ -1493,22 +2481,19 @@ mod tests {
 
     #[test]
     fn var_resolves_from_scope() {
-        // Create a "var" node with scheme Var("$payload"), payload = "x".
-        // But we need "x" to be in scope. We'll use a Bind to put it there.
+        // Create a "var" node with scheme proj_env "$payload", payload =
+        // "x". But we need "x" to be in scope. We use a Bind to put it
+        // there.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         // Ast:
@@ -1527,13 +2512,13 @@ mod tests {
 
     #[test]
     fn var_unknown_variable_errors() {
-        // ADR-0041 Phase 2: unbound variables now return their name as a
-        // string value (so identifiers like `eval` can flow into host-function
-        // dispatch via `App`). This test verifies the new behavior.
+        // Unbound variables return their name as a string value (so
+        // identifiers like `eval` can flow into host-function dispatch
+        // via `App`).
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("unknown")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("unknown")))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var")]);
         let req = EvalRequest::new(ast);
@@ -1549,7 +2534,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         // Ast:
@@ -1569,17 +2554,13 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         // let x = 10 in x → 10
@@ -1599,17 +2580,13 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         // let x = 10 in 20 → 20 (body is lit(20), not var(x))
@@ -1631,11 +2608,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                branch(child(0), child(1), child(2)),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1657,11 +2630,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                branch(child(0), child(1), child(2)),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1683,11 +2652,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                branch(child(0), child(1), child(2)),
             ))
             .unwrap();
         // Test with 0 (falsy)
@@ -1729,7 +2694,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1749,7 +2714,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.sub",
                 "binary.sub",
-                Scheme::prim("sub", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("sub", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1769,7 +2734,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.mul",
                 "binary.mul",
-                Scheme::prim("mul", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("mul", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1789,7 +2754,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("div", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1809,7 +2774,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("div", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1830,7 +2795,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.eq",
                 "binary.eq",
-                Scheme::prim("eq", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("eq", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1850,14 +2815,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.lt",
                 "binary.lt",
-                Scheme::prim("lt", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("lt", vec![child(0), child(1)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.gt",
                 "binary.gt",
-                Scheme::prim("gt", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("gt", vec![child(0), child(1)]),
             ))
             .unwrap();
         // 3 < 5 → true
@@ -1887,21 +2852,21 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.not",
                 "unary.not",
-                Scheme::prim("not", vec![Scheme::child(0)]),
+                prim("not", vec![child(0)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.and",
                 "binary.and",
-                Scheme::prim("and", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("and", vec![child(0), child(1)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.or",
                 "binary.or",
-                Scheme::prim("or", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("or", vec![child(0), child(1)]),
             ))
             .unwrap();
 
@@ -1940,14 +2905,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.weird",
                 "weird",
-                Scheme::prim("unknown_op", vec![]),
+                prim("unknown_op", vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("weird")]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
-        assert!(msg.contains("unknown prim"));
+        assert!(msg.contains("unknown v2 native op"));
     }
 
     #[test]
@@ -1958,7 +2923,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("double", vec![Scheme::child(0)]),
+                foreign("double", vec![child(0)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1980,7 +2945,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("double", vec![Scheme::child(0)]),
+                foreign("double", vec![child(0)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2003,7 +2968,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("double", vec![Scheme::child(0)]),
+                foreign("double", vec![child(0)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2019,24 +2984,24 @@ mod tests {
     fn app_calls_closure() {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
-        // "function" node: creates a closure via Prim("closure").
+        // "function" node: creates a closure via arr("closure").
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         // "var" node: looks up a variable.
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         // "binary.add": adds two children.
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         // "call": applies callee to args.
@@ -2044,10 +3009,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                app(child(0), vec![child(1)]),
             ))
             .unwrap();
 
@@ -2079,10 +3041,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![],
-                },
+                app(child(0), vec![]),
             ))
             .unwrap();
         // Callee is a lit (not a closure).
@@ -2120,34 +3079,23 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         // Ast:
-        // 0: lit(3)
-        // 1: var("x") — inner let body references x
-        // 2: let {name: "x", children: [0, ?]} — inner let, but body is the outer let
-        // Actually, let me build this more carefully.
-        //
-        // let x = 3 in (let y = 4 in (x + y))
-        //
         // 0: lit(3)        — x's value
         // 1: lit(4)        — y's value
         // 2: var("x")      — x reference in x+y
@@ -2197,7 +3145,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         // Node has no "children" in payload.
@@ -2215,7 +3163,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         // Only one child but scheme expects two.
@@ -2236,7 +3184,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2256,41 +3204,34 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                app(child(0), vec![child(1)]),
             ))
             .unwrap();
 
@@ -2328,17 +3269,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1), Scheme::child(2)],
-                },
+                app(child(0), vec![child(1), child(2)]),
             ))
             .unwrap();
         // function expects 1 param, call passes 2 args.
@@ -2357,14 +3295,14 @@ mod tests {
 
     #[test]
     fn lit_scheme_returns_value() {
-        // Direct Scheme::Lit evaluation via a node whose eval scheme is Lit.
+        // Direct const evaluation via a node whose eval scheme is const.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.const",
                 "const",
-                Scheme::lit(json!(99)),
+                lit(json!(99)),
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("const")]);
@@ -2374,11 +3312,11 @@ mod tests {
 
     #[test]
     fn var_payload_not_string_errors() {
-        // Var("$payload") but payload is not a string.
+        // proj_env "$payload" but payload is not a string.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var").with_payload(json!(42))]);
         let req = EvalRequest::new(ast);
@@ -2395,11 +3333,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("$payload", child(0), child(1)),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2422,7 +3356,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::foreign("triple", vec![Scheme::child(0)]),
+                foreign("triple", vec![child(0)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2446,10 +3380,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![],
-                },
+                app(child(0), vec![]),
             ))
             .unwrap();
         // Callee is an object {"foo": 1} — not a closure.
@@ -2464,14 +3395,14 @@ mod tests {
 
     #[test]
     fn closure_prim_missing_params_errors() {
-        // "closure" prim but payload has no "params" field.
+        // "closure" op but payload has no "params" field.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2484,14 +3415,14 @@ mod tests {
 
     #[test]
     fn closure_prim_missing_body_errors() {
-        // "closure" prim but payload has no "body" field.
+        // "closure" op but payload has no "body" field.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2510,7 +3441,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.sub",
                 "binary.sub",
-                Scheme::prim("sub", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("sub", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2530,7 +3461,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.mul",
                 "binary.mul",
-                Scheme::prim("mul", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("mul", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2550,7 +3481,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("div", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2571,7 +3502,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("div", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2593,7 +3524,7 @@ mod tests {
 
     #[test]
     fn num_partial_eq() {
-        // Cover PartialEq for Num (used by prim "eq").
+        // Cover PartialEq for Num (used by op "eq").
         assert_eq!(Num::Int(5), Num::Int(5));
         assert_ne!(Num::Int(5), Num::Int(6));
         assert_eq!(Num::Float(5.0), Num::Int(5));
@@ -2607,17 +3538,13 @@ mod tests {
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("x")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("x")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.let",
                 "let",
-                Scheme::Bind {
-                    name: "x".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
+                bind("x", child(0), child(1)),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2637,7 +3564,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2659,11 +3586,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                branch(child(0), child(1), child(2)),
             ))
             .unwrap();
         // Object is truthy → takes then branch.
@@ -2696,11 +3619,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.if",
                 "if",
-                Scheme::Branch {
-                    cond: Box::new(Scheme::child(0)),
-                    then_: Box::new(Scheme::child(1)),
-                    else_: Box::new(Scheme::child(2)),
-                },
+                branch(child(0), child(1), child(2)),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2722,17 +3641,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.fn",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                app(child(0), vec![child(1)]),
             ))
             .unwrap();
         // params contains a non-string (number).
@@ -2755,10 +3671,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![],
-                },
+                app(child(0), vec![]),
             ))
             .unwrap();
         // Callee is a "closure" with params as a string (not array).
@@ -2784,10 +3697,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![],
-                },
+                app(child(0), vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2811,10 +3721,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![],
-                },
+                app(child(0), vec![]),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -2826,188 +3733,53 @@ mod tests {
         assert!(matches!(err, LangError::Engine(_)));
     }
 
-    // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
-
-    #[test]
-    fn vau_does_not_force_child() {
-        // A vau node binds its child (unevaluated) but the body returns a
-        // constant. The child is a node that would error if evaluated
-        // (division by zero), proving the child is never forced.
-        let engine = TreeWalkEngine::new();
-        let mut lang = Language::new();
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.div",
-                "binary.div",
-                Scheme::prim("div", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.vau",
-                "vau",
-                Scheme::vau(vec!["x".into()], Scheme::lit(json!(42))),
-            ))
-            .unwrap();
-        // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
-        // 3: vau {children:[2]} — binds x to the unevaluated div, returns 42
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!(0)),
-            AstNode::new("binary.div").with_payload(json!({"children": [0, 1]})),
-            AstNode::new("vau").with_payload(json!({"children": [2]})),
-        ]);
-        let req = EvalRequest::new(ast);
-        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
-    }
-
-    #[test]
-    fn vau_eval_escape_evaluates_child_on_demand() {
-        // A vau node binds its child (unevaluated) and the body calls
-        // `eval(self, x)` to evaluate it — the ArrowApply escape. Requires
-        // a host `eval` fn and a `self` global. We register a custom eval
-        // host fn that re-enters the tree-walk engine.
-        let engine = TreeWalkEngine::new();
-        let mut lang = Language::new();
-        lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
-            .unwrap();
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        // The vau body: eval(self, x) where x is the unevaluated child.
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.vau",
-                "vau",
-                Scheme::vau(
-                    vec!["x".into()],
-                    Scheme::App {
-                        callee: Box::new(Scheme::var("eval")),
-                        args: vec![Scheme::var("self"), Scheme::var("x")],
-                    },
-                ),
-            ))
-            .unwrap();
-
-        // The child to receive unevaluated: 1 + 2 → 3
-        // 0: lit(1), 1: lit(2), 2: binary.add {children:[0,1]}
-        // 3: vau {children:[2]}
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!(2)),
-            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
-            AstNode::new("vau").with_payload(json!({"children": [2]})),
-        ]);
-
-        // A host eval fn that re-enters the engine. It needs the language
-        // and host; we capture them via a registry that re-enters with a
-        // fresh engine (no nested host needed for this self-contained
-        // child).
-        struct EvalHost {
-            lang: Language,
-        }
-        impl Function for EvalHost {
-            fn call(
-                &self,
-                args: &[Value],
-                _ctx: &mut EvalContext,
-            ) -> Result<Value, handl_platform::EvalError> {
-                // eval(self, x): args[0] is the language value (unused —
-                // we use the captured lang), args[1] is the __ast__ value.
-                let ast_val = args.get(1).ok_or_else(|| {
-                    handl_platform::EvalError::Other("eval: expected (self, ast)".into())
-                })?;
-                let ast = handl_language::as_ast(ast_val).ok_or_else(|| {
-                    handl_platform::EvalError::Other("eval: expected an __ast__ value".into())
-                })?;
-                let engine = TreeWalkEngine::new();
-                let req = EvalRequest::new(ast);
-                engine
-                    .eval(&self.lang, &req)
-                    .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
-            }
-        }
-        struct EvalModule {
-            eval: EvalHost,
-        }
-        impl Module for EvalModule {
-            fn name(&self) -> &str {
-                "eval"
-            }
-            fn function(&self, name: &str) -> Option<&dyn Function> {
-                if name == "eval" {
-                    Some(&self.eval)
-                } else {
-                    None
-                }
-            }
-        }
-        let eval_mod = EvalModule {
-            eval: EvalHost { lang: lang.clone() },
-        };
-        let registry: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(eval_mod));
-        let engine = engine
-            .with_modules(registry)
-            .with_global("self", handl_language::language_value(&lang));
-        let req = EvalRequest::new(ast);
-        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
-    }
-
     // -----------------------------------------------------------------
     // Pratt-parsed literal tests (children-based payloads)
     // -----------------------------------------------------------------
 
     /// Build a minimal language for Pratt-parsed literal eval tests:
     /// `value` (lit), `var`, `binary.add`, `array`, `object`, `entry`,
-    /// `function` (closure prim), `call` (App).
+    /// `function` (closure op), `call` (App).
     fn literal_eval_lang() -> Language {
         let mut lang = Language::new();
         // `value` nodes have no scheme — the eval fallback returns
         // `node.payload.clone()`, which is the literal value.
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.array",
                 "array",
-                Scheme::prim("array", vec![]),
+                prim("array", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.object",
                 "object",
-                Scheme::prim("object", vec![]),
+                prim("object", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.function",
                 "function",
-                Scheme::prim("closure", vec![]),
+                prim("closure", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
+                app(child(0), vec![child(1)]),
             ))
             .unwrap();
         lang
@@ -3059,16 +3831,6 @@ mod tests {
 
     #[test]
     fn pratt_function_paren_params_eval() {
-        // (x, y) -> x + y, called with (3, 4) → 7
-        // AST:
-        // 0: var("x"), 1: var("y"), 2: paren{children:[0,1]}
-        // 3: var("x"), 4: var("y"), 5: binary.add{children:[3,4]}
-        // 6: function{children:[2, 5]}
-        // 7: value(3), 8: value(4)
-        // 9: call{children:[6, 7]}  (only 1 arg slot in App — multi-arg call
-        //    isn't supported by the simple App scheme; test single-param path
-        //    separately below)
-        // Since App only supports 1 arg, test single-param function instead.
         // (x) -> x + 1, called with 5 → 6
         // 0: var("x"), 1: value(1), 2: binary.add{children:[0,1]}
         // 3: function{children:[0, 2]}  (bare param: children[0]=var, children[1]=body)
@@ -3091,9 +3853,9 @@ mod tests {
     #[test]
     fn pratt_function_paren_multi_param_eval() {
         // (x, y) -> x + y, called with (10, 20) → 30
-        // The closure prim unwraps the paren node to get [x, y] params.
-        // But App only passes 1 arg. So we test the closure creation itself
-        // (not the call) — verify the closure has 2 params.
+        // The closure op unwraps the paren node to get [x, y] params.
+        // But App only passes 1 arg. So we test the closure creation
+        // itself (not the call) — verify the closure has 2 params.
         // 0: var("x"), 1: var("y"), 2: paren{children:[0,1]}
         // 3: var("x"), 4: var("y"), 5: binary.add{children:[3,4]}
         // 6: function{children:[2, 5]}
@@ -3117,11 +3879,6 @@ mod tests {
 
     // -----------------------------------------------------------------
     // match / handle / destructuring conformance tests
-    //
-    // These are the reference conformance tests for the `match` and
-    // `handle` prims (including array/object/`...rest` destructuring
-    // patterns). The bytecode and cranelift engines replicate this
-    // behavior exactly; the same AST shapes are tested in all three.
     // -----------------------------------------------------------------
 
     /// Build a minimal language for match/handle eval tests:
@@ -3130,27 +3887,27 @@ mod tests {
     fn match_lang() -> Language {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                prim("add", vec![child(0), child(1)]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.match",
                 "match",
-                Scheme::prim("match", vec![]),
+                prim("match", vec![]),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.handle",
                 "handle",
-                Scheme::prim("handle", vec![]),
+                prim("handle", vec![]),
             ))
             .unwrap();
         lang

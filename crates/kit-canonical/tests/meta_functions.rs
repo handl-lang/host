@@ -11,10 +11,9 @@
 //! compared `eval(parse(lex(text)))` to `run(text)` now assert the composed
 //! pipeline result directly.
 
-use handl_kit_canonical::{Kit, runtime_for_lang};
+use handl_kit_canonical::Kit;
 use handl_language::{
-    Ast, AstNode, EvalSchemeDef, Language, Scheme, as_ast, as_language, is_ast_value,
-    is_language_value, language_value,
+    Ast, AstNode, Language, as_language, is_language_value, language_value,
 };
 use handl_runtime::Runtime;
 use serde_json::json;
@@ -30,13 +29,6 @@ fn canonical_lang() -> Language {
 /// Build a runtime for the canonical language via [`Kit::new`].
 fn make_kit() -> Kit {
     Kit::new().expect("kit must build")
-}
-
-/// Build a runtime from an explicit [`Language`] (for tests that override
-/// eval schemes). Injects `self` and wires the meta chain via
-/// [`runtime_for_lang`].
-fn make_runtime_from_lang(lang: Language) -> Runtime {
-    runtime_for_lang(lang).expect("runtime must build")
 }
 
 /// `lex(lang, "1 + 2")` returns a JSON-serialized Tokens value.
@@ -265,65 +257,11 @@ fn eval_non_language_first_arg_returns_error() {
 }
 
 // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
-
-/// The canonical `vau` node kind binds its child unevaluated and
-/// returns the `__ast__` value. The child is never evaluated.
-#[test]
-fn vau_canonical_returns_unevaluated_ast() {
-    let runtime = make_runtime_from_lang(canonical_lang());
-    // 0: value 42, 1: vau {children:[0]}
-    let mut ast = Ast::new();
-    ast.push(AstNode::new("value").with_payload(json!(42)));
-    ast.push(AstNode::new("vau").with_payload(json!({"children": [0]})));
-    let result = runtime.eval(&ast).expect("vau must succeed");
-    // The result is a tagged __ast__ value wrapping the subtree.
-    assert!(
-        is_ast_value(&result),
-        "vau should return an __ast__ value, got: {}",
-        result
-    );
-    let inner = as_ast(&result).expect("must deserialize");
-    // The subtree root is the `value` node.
-    let root = &inner.nodes()[inner.len() - 1];
-    assert_eq!(root.kind, "value");
-    assert_eq!(root.payload, json!(42));
-}
-
-/// The ArrowApply escape: a `vau` node binds its child unevaluated,
-/// then the body calls `eval(self, expr)` to evaluate it on demand.
-/// This composes `Scheme::Vau` with the meta `eval` host function.
-#[test]
-fn vau_eval_escape_evaluates_child_on_demand() {
-    // Build a language where vau's body is
-    //   eval(self, expr)  i.e. App{var eval, [var self, var expr]}
-    let mut lang = canonical_lang();
-    lang.eval
-        .merge(
-            EvalSchemeDef::new(
-                "eval.vau-escape",
-                "vau",
-                Scheme::vau(
-                    vec!["expr".into()],
-                    handl_language::Scheme::App {
-                        callee: Box::new(handl_language::Scheme::var("eval")),
-                        args: vec![
-                            handl_language::Scheme::var("self"),
-                            handl_language::Scheme::var("expr"),
-                        ],
-                    },
-                ),
-            )
-            .with_replaces(vec!["eval.vau".to_string()]),
-        )
-        .unwrap();
-    let runtime = make_runtime_from_lang(lang);
-    // 0: value 1, 1: value 2, 2: binary.add {children:[0,1]}
-    // 3: vau {children:[2]}
-    let mut ast = Ast::new();
-    ast.push(AstNode::new("value").with_payload(json!(1)));
-    ast.push(AstNode::new("value").with_payload(json!(2)));
-    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})));
-    ast.push(AstNode::new("vau").with_payload(json!({"children": [2]})));
-    let result = runtime.eval(&ast).expect("vau eval escape must succeed");
-    assert_eq!(result, json!(3));
-}
+//
+// NOTE: The former `vau_canonical_returns_unevaluated_ast` and
+// `vau_eval_escape_evaluates_child_on_demand` tests were removed:
+// ADR-0052 removes Vau from the kernel — `eval.vau` is intentionally
+// omitted from the canonical eval schemes, and `Scheme::vau` no longer
+// exists. Vau is now a handler concern, not a kernel combinator. The
+// `vau` node kind still exists in the AST/grammar/lexer for parsing,
+// but evaluating a `vau` node requires a handler-provided eval scheme.

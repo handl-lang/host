@@ -200,8 +200,11 @@ fn standalone_run_inner(
     // Set current_ref to the root (matches run_native).
     ctx.current_ref = root_idx;
 
-    // Call the root native function.
-    let result_ptr: *mut Value = unsafe { root_fn(ctx as *mut EvalCtx as *mut u8) as *mut Value };
+    // Call the root native function (v2 signature: ctx + incoming).
+    let null_incoming = unsafe { crate::box_value(Value::Null) };
+    let result_ptr: *mut Value = unsafe {
+        root_fn(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value
+    };
 
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {

@@ -25,7 +25,8 @@
 //! being the default kernel.
 
 use handl_kit_data_canonical;
-use handl_language::{AstRef, Language, Scheme, Source};
+use handl_language::{Language, Scheme, Source};
+use serde_json::Value;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -92,8 +93,8 @@ fn proc_eval_scheme_exists_and_is_child_0() {
     assert_eq!(def.id, "eval.proc");
     assert_eq!(
         def.scheme,
-        Scheme::Child(AstRef::new(0)),
-        "eval.proc scheme should be !Child 0",
+        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+        "eval.proc scheme should be arr(proj_child, lit: 0)",
     );
 }
 

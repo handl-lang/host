@@ -15,7 +15,7 @@ use handl_language::{
     Token, Tokens,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::rc::Rc;
 
 /// Build a registry with the Pratt parse engine and tree-walk eval engine
@@ -85,14 +85,20 @@ fn arith_lang() -> Language {
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            Scheme::arr_native("add", vec![
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+            ]),
         ))
         .unwrap();
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.mul",
             "binary.mul",
-            Scheme::prim("mul", vec![Scheme::child(0), Scheme::child(1)]),
+            Scheme::arr_native("mul", vec![
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+            ]),
         ))
         .unwrap();
 

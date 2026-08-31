@@ -24,7 +24,7 @@
 //! - **Compound nodes** (arity > 0): the payload is
 //!   `{"children": [idx0, idx1, ...]}` where each `idxN` is the arena index
 //!   (`AstRef::index()`) of the Nth child. The eval engine uses this to
-//!   resolve [`handl_language::Scheme::Child`] references.
+//!   resolve `arr(proj_child, ...)` references.
 
 #![warn(missing_docs)]
 

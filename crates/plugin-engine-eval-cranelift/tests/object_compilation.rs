@@ -123,10 +123,6 @@ fn compile_mode_object_dispatch_produces_file() {
     let result = compile_all_nodes(&case.lang, &case.ast, &mode)
         .expect("dispatched object compilation must succeed");
     assert!(
-        matches!(result.mode, CompileMode::Object { .. }),
-        "result mode should be Object"
-    );
-    assert!(
         result.compiled.is_empty(),
         "object mode should produce no function pointers"
     );

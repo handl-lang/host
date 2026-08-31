@@ -25,31 +25,43 @@ fn test_registry() -> Rc<EngineRegistry> {
 }
 
 /// Build a language with eval schemes for `lit` (no scheme → payload),
-/// `binary.add` (Prim add), and a `let`/`var` pair for scope testing.
+/// `binary.add` (arr add), and a `let`/`var` pair for scope testing.
 fn eval_lang() -> Language {
     let mut lang = Language::new();
-    // binary.add → add children 0 and 1
+    // binary.add → arr("add", [proj_child 0, proj_child 1])
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.add",
             "binary.add",
-            Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            Scheme::arr_native(
+                "add",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            ),
         ))
         .unwrap();
-    // var → read name from payload ($payload convention)
+    // var → arr("proj_env", lit: "$payload") reads name from payload
     lang.eval
-        .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+        .merge(EvalSchemeDef::new(
+            "e.var",
+            "var",
+            Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+        ))
         .unwrap();
-    // let → bind name from payload, value = child 0, body = child 1
+    // let → value >>> arr("extend_env", lit: "$payload") >>> body
     lang.eval
         .merge(EvalSchemeDef::new(
             "e.let",
             "let",
-            Scheme::Bind {
-                name: "$payload".into(),
-                value: Box::new(Scheme::child(0)),
-                body: Box::new(Scheme::child(1)),
-            },
+            Scheme::seq(
+                Scheme::seq(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                ),
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+            ),
         ))
         .unwrap();
     lang

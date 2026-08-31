@@ -24,14 +24,14 @@
 //! - **Compound nodes** (arity > 0): payload is `{"children": [idx0, ...]}` of
 //!   arena indices.
 //!
-//! Eval schemes use [`Scheme::Child`]`n)` to reference children and
+//! Eval schemes use `arr(proj_child, lit: n)` to reference children and
 //! `"$payload"` to read data from the current node's payload. See the
 //! tree-walk engine docs for the full convention.
 
 #![warn(missing_docs)]
 
 use handl_language::{
-    AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Scheme, TokenKindDef,
+    AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Scheme, TokenKindDef, Value,
 };
 
 /// The contract every migrated rule crate implements.
@@ -166,25 +166,31 @@ pub fn eval_scheme(
     lang.eval.merge(EvalSchemeDef::new(id, node_kind, scheme))
 }
 
-/// Build a `Prim` scheme for a binary arithmetic primitive over two children.
+/// Build an `arr` scheme for a binary arithmetic primitive over two children.
 ///
 /// Convenience: `prim_binary("add")` →
-/// `Prim { op: "add", args: [Child(0), Child(1)] }`.
+/// `arr("add", [proj_child 0, proj_child 1])`.
 pub fn prim_binary(op: &str) -> Scheme {
-    Scheme::prim(op, vec![Scheme::child(0), Scheme::child(1)])
+    Scheme::arr_native(
+        op,
+        vec![
+            Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+        ],
+    )
 }
 
-/// Build an `App` scheme applying `Child(0)` (the callee) to the remaining
-/// children as arguments: `App { callee: Child(0), args: [Child(1), ...] }`.
+/// Build an `App` scheme applying `proj_child 0` (the callee) to the
+/// remaining children as arguments: `App { callee: proj_child 0, args:
+/// [proj_child 1, ...] }`.
 ///
 /// For a call node with N children, child 0 is the callee and children 1..N
 /// are the arguments.
 pub fn app_call(num_args: usize) -> Scheme {
-    let args: Vec<Scheme> = (1..=num_args).map(Scheme::child).collect();
-    Scheme::App {
-        callee: Box::new(Scheme::child(0)),
-        args,
-    }
+    let args: Vec<Scheme> = (1..=num_args)
+        .map(|i| Scheme::arr_native_lit("proj_child", vec![], Value::from(i as u64)))
+        .collect();
+    Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), args)
 }
 
 #[cfg(test)]
@@ -234,7 +240,13 @@ mod tests {
         let s = prim_binary("add");
         assert_eq!(
             s,
-            Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)])
+            Scheme::arr_native(
+                "add",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            )
         );
     }
 
@@ -243,10 +255,13 @@ mod tests {
         let s = app_call(2);
         assert_eq!(
             s,
-            Scheme::App {
-                callee: Box::new(Scheme::child(0)),
-                args: vec![Scheme::child(1), Scheme::child(2)],
-            }
+            Scheme::app(
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                ],
+            )
         );
     }
 
@@ -255,10 +270,7 @@ mod tests {
         let s = app_call(0);
         assert_eq!(
             s,
-            Scheme::App {
-                callee: Box::new(Scheme::child(0)),
-                args: vec![],
-            }
+            Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![])
         );
     }
 

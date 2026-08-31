@@ -1,20 +1,59 @@
 //! Bytecode VM internals: scope stack, numeric helpers, and the execution
 //! frame.
 //!
-//! The [`VmFrame`] executes a compiled instruction program against an operand
-//! stack and a scope stack. [`Instr::EvalChild`] and [`Instr::Call`] recurse
-//! into [`VmFrame::exec_node`], which compiles (via a per-node cache) and
-//! executes child or closure-body nodes. This per-node compilation cache is
-//! the mechanism that erases data dispatch (ADR-0044 §7): once a node's
-//! scheme is resolved to instructions, subsequent executions skip the
-//! `lang.eval[node.kind]` hash lookup entirely.
+//! [`VmFrame`] executes a compiled [`Vec<Instr>`](crate::Instr) program
+//! against an operand stack and a scope stack. [`Instr::EvalChild`] and
+//! [`Instr::Call`] recurse into [`VmFrame::exec_node`], which compiles the
+//! node's scheme (via a per-node cache) and executes.
+//!
+//! ## Value shapes
+//!
+//! The v2 VM operates on the same tagged JSON value shapes as the v2
+//! tree-walk handler:
+//!
+//! - **Pair** (`first`): `{"__pair__": [a, b]}`.
+//! - **Either** (`Choice` / `tag`): `{"__either__": "left"|"right", "value": v}`.
+//! - **Closure** (`App`): `{"__closure__": true, "params": [...], "body": <idx>, "env": {...}}`.
+//!
+//! ## Loop execution model
+//!
+//! [`Instr::LoopCheck`] implements causal/strict feedback. The compiler
+//! emits `Push(Null), Pair` to seed the initial pair `(incoming, Null)`, then
+//! the body code, then `LoopCheck(loop_back)`. Each iteration: the body
+//! consumes the pair from the stack and leaves its result. `LoopCheck` pops
+//! the result and inspects its shape:
+//! - **Either left** -> push the carried value, fall through (done).
+//! - **Either right** -> the carried value is the new state; reconstruct
+//!   `pair(original_input, new_state)`, push it, jump to `loop_back`.
+//! - **Pair** (not an Either) -> single-step mode: push `fst`, fall through.
+//!
+//! A max-iteration counter (100_000) prevents infinite loops. The
+//! `original_input` is saved by a look-ahead in the `Push` handler: when
+//! `Push(Null)` is followed by `Pair` and no loop is active, the stack top
+//! (the incoming value) is saved as `loop_input` before `Pair` consumes it.
+//!
+//! ## Native ops and `incoming`
+//!
+//! In the tree-walk, `incoming` is passed explicitly to each `eval_inner`
+//! call. In the VM, the incoming value flows through the operand stack. For
+//! 0-arg native ops that use `incoming` (`id`, `tag`, `is_pos`, `dec`,
+//! `inc`, `half_floor`, `inc_fst`, `countdown_step`, `infinite_step`), the
+//! incoming value IS the top of the stack -- the op pops it and pushes its
+//! result. For ops with args (`add`, `sub`, etc.), the args are on the stack
+//! and `incoming` is not used. For `closure` (0-arg, no incoming), nothing is
+//! popped.
+//!
+//! ## Derived step ops limitation
+//!
+//! The derived step ops `while_step`/`for_step`/`fix_step` are **not**
+//! supported. See the [`instr`](crate::instr) module docs for details.
 
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value, ast_value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 
-use crate::compile;
+use crate::compile::compile;
 use crate::instr::Instr;
 
 // ---------------------------------------------------------------------------
@@ -23,17 +62,12 @@ use crate::instr::Instr;
 
 /// A scope stack: `Vec<HashMap<String, Value>>` searched innermost-first.
 ///
-/// Mirrors the tree-walk's `ScopeStack` exactly: `Bind` pushes a child scope;
-/// lookup searches innermost-first; closure calls swap in the captured
+/// Mirrors the tree-walk's `ScopeStack` exactly: `extend_env` pushes a child
+/// scope; lookup searches innermost-first; closure calls swap in the captured
 /// environment, bind params, evaluate the body, then restore the original
 /// scope stack.
-///
-/// This type is `pub(crate)` so the v2 VM ([`crate::vm_v2`], ADR-0052) can
-/// reuse the same scope discipline. This is a visibility-only change — no
-/// v1 logic is altered. The `scopes` field is `pub(crate)` for the
-/// closure-env swap-in that `apply_closure` performs.
 pub(crate) struct ScopeStack {
-    /// The stack of scopes, innermost last. `pub(crate)` so the v2 VM can
+    /// The stack of scopes, innermost last. `pub(crate)` so the frame can
     /// perform the closure-env swap-in.
     pub(crate) scopes: Vec<HashMap<String, Value>>,
 }
@@ -88,9 +122,6 @@ impl ScopeStack {
 // ---------------------------------------------------------------------------
 
 /// A number that can be either integer or float.
-///
-/// `pub(crate)` so the v2 VM ([`crate::vm_v2`]) can reuse the same
-/// numeric semantics. This is a visibility-only change.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Num {
     /// Integer value.
@@ -142,14 +173,62 @@ pub(crate) fn is_truthy(v: &Value) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// VmFrame — the execution context
+// Pair / Either value-shape helpers (mirror the v2 tree-walk)
 // ---------------------------------------------------------------------------
 
-/// The execution frame for the bytecode VM.
+/// Construct a pair value `{"__pair__": [a, b]}`.
+fn pair(a: Value, b: Value) -> Value {
+    serde_json::json!({"__pair__": [a, b]})
+}
+
+/// Extract the first component of a pair value, or `None` if not a pair.
+fn pair_fst(v: &Value) -> Option<&Value> {
+    v.get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.first())
+}
+
+/// Extract the second component of a pair value, or `None` if not a pair.
+fn pair_snd(v: &Value) -> Option<&Value> {
+    v.get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.get(1))
+}
+
+/// Construct a `left` Either value `{"__either__": "left", "value": v}`.
+fn either_left(v: Value) -> Value {
+    serde_json::json!({"__either__": "left", "value": v})
+}
+
+/// Construct a `right` Either value `{"__either__": "right", "value": v}`.
+fn either_right(v: Value) -> Value {
+    serde_json::json!({"__either__": "right", "value": v})
+}
+
+/// Whether an Either value is a `left`.
+fn is_either_left(v: &Value) -> bool {
+    v.get("__either__").and_then(|s| s.as_str()) == Some("left")
+}
+
+/// Whether an Either value is a `right`.
+fn is_either_right(v: &Value) -> bool {
+    v.get("__either__").and_then(|s| s.as_str()) == Some("right")
+}
+
+/// Extract the carried value from an Either.
+fn either_value(v: &Value) -> Option<&Value> {
+    v.get("value")
+}
+
+// ---------------------------------------------------------------------------
+// VmFrame -- the v2 execution context
+// ---------------------------------------------------------------------------
+
+/// The execution frame for the v2 bytecode VM.
 ///
-/// Owns the scope stack and a per-node compilation cache. The `ast` and
-/// `lang` references are immutable; `modules` is the optional module
-/// registry for `Foreign` dispatch.
+/// Owns the scope stack and a per-node v2 compilation cache. The `ast` and
+/// `lang` references are immutable; `modules` is the optional module registry
+/// for `Foreign` dispatch.
 pub(crate) struct VmFrame<'a, 'h> {
     /// The AST being evaluated.
     ast: &'a Ast,
@@ -157,15 +236,14 @@ pub(crate) struct VmFrame<'a, 'h> {
     lang: &'a Language,
     /// The module registry (for `Foreign` dispatch).
     modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
-    /// Per-node compilation cache: `AstRef index → compiled instructions`.
-    /// This is the data-dispatch erasure mechanism (ADR-0044 §7).
+    /// Per-node v2 compilation cache: `AstRef index -> compiled instructions`.
     cache: HashMap<usize, Vec<Instr>>,
     /// The scope stack.
     scopes: ScopeStack,
 }
 
 impl<'a, 'h> VmFrame<'a, 'h> {
-    /// Create a new frame with a fresh cache and scope stack.
+    /// Create a new v2 frame with a fresh cache and scope stack.
     pub(crate) fn new(
         ast: &'a Ast,
         lang: &'a Language,
@@ -180,23 +258,22 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         }
     }
 
-    /// Define a global variable in the root scope (used by the host to inject
-    /// `self` and other ambient values before execution).
+    /// Define a global variable in the root scope.
     pub(crate) fn define_global(&mut self, name: &str, value: Value) {
         self.scopes.define(name, value);
     }
 
-    /// Compile (if not cached) and execute a single node.
+    /// Compile (if not cached) and execute a single node using v2 bytecode.
     ///
-    /// Looks up `lang.eval[node.kind]` to find the node's [`Scheme`], compiles
-    /// it to instructions (or uses the no-scheme fallback `[LoadPayload,
-    /// Return]`), caches the result, and executes. On subsequent calls for
-    /// the same [`AstRef`], the cached instructions are reused — no
-    /// `lang.eval` lookup occurs.
-    fn exec_node(&mut self, node_ref: AstRef) -> Result<Value, LangError> {
+    /// Looks up `lang.eval[node.kind]` to find the node's `Scheme`, compiles
+    /// it to v2 instructions (or uses the no-scheme fallback
+    /// `[LoadPayload, Return]`), caches the result, and executes. On
+    /// subsequent calls for the same [`AstRef`], the cached instructions are
+    /// reused.
+    pub(crate) fn exec_node(&mut self, node_ref: AstRef) -> Result<Value, LangError> {
         let node = self.ast.at(node_ref)?;
 
-        // Compile-on-demand with cache (erases data dispatch).
+        // Compile-on-demand with cache.
         if !self.cache.contains_key(&node_ref.index()) {
             let scheme_def = self.lang.eval.get_by_identity(&node.kind);
             let instrs = match scheme_def {
@@ -213,23 +290,50 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .get(&node_ref.index())
             .expect("just inserted or cached")
             .clone();
-        self.exec_instrs(&instrs, node)
+        self.exec_instrs(&instrs, node, None)
     }
 
-    /// Execute a program of instructions against the given current node.
+    /// Execute a program of v2 instructions against the given current node.
     ///
-    /// Uses a fresh operand stack. The scope stack (`self.scopes`) is shared
-    /// across recursive `exec_node` calls.
+    /// `incoming` is the value fed by an enclosing combinator (top-level
+    /// calls pass `None`). The operand stack is fresh; the scope stack
+    /// (`self.scopes`) is shared across recursive `exec_node` calls.
     pub(crate) fn exec_instrs(
         &mut self,
         instrs: &[Instr],
         node: &AstNode,
+        incoming: Option<Value>,
     ) -> Result<Value, LangError> {
         let mut stack: Vec<Value> = Vec::new();
+        // Push the incoming value onto the stack so that 0-arg ops using
+        // `op_uses_incoming` (like `id`) can pop it. At the top level
+        // (incoming = None), the stack starts empty — matching the
+        // tree-walk's `incoming: None` behavior.
+        if let Some(v) = &incoming {
+            stack.push(v.clone());
+        }
+        let mut current_incoming = incoming;
+        let mut loop_counter: usize = 0;
+        const MAX_ITERS: usize = 100_000;
+        let mut loop_input: Option<Value> = None;
+
         let mut ip = 0;
         while ip < instrs.len() {
             match &instrs[ip] {
                 Instr::Push(v) => {
+                    // Look-ahead: if this is Push(Null) followed by Pair and
+                    // no loop is active, save the stack top as the original
+                    // loop input. The compiler emits Push(Null), Pair as the
+                    // loop prologue; the stack top is the incoming value that
+                    // Pair will consume into the initial pair.
+                    if loop_input.is_none()
+                        && loop_counter == 0
+                        && v.is_null()
+                        && ip + 1 < instrs.len()
+                        && matches!(instrs[ip + 1], Instr::Pair)
+                    {
+                        loop_input = stack.last().cloned();
+                    }
                     stack.push(v.clone());
                 }
                 Instr::Load(name) => {
@@ -237,7 +341,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .scopes
                         .lookup(name)
                         .cloned()
-                        .ok_or_else(|| LangError::UnknownVariable { name: name.clone() })?;
+                        .unwrap_or_else(|| Value::from(name.as_str()));
                     stack.push(val);
                 }
                 Instr::LoadPayloadVar => {
@@ -245,16 +349,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .payload
                         .as_str()
                         .ok_or_else(|| {
-                            LangError::Engine(
-                                "expected string payload for $payload var".to_string(),
-                            )
+                            LangError::Engine("expected string payload for $payload var".to_string())
                         })?
                         .to_string();
                     let val = self
                         .scopes
                         .lookup(&var_name)
                         .cloned()
-                        .ok_or(LangError::UnknownVariable { name: var_name })?;
+                        .unwrap_or_else(|| Value::from(var_name.as_str()));
                     stack.push(val);
                 }
                 Instr::LoadPayload => {
@@ -284,16 +386,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     self.scopes.define(name, val);
                 }
                 Instr::StorePayloadName => {
-                    let val = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on StorePayloadName".to_string())
-                    })?;
+                    let val = stack
+                        .pop()
+                        .ok_or_else(|| {
+                            LangError::Engine("stack underflow on StorePayloadName".to_string())
+                        })?;
                     let bind_name = node
                         .payload
                         .get("name")
                         .and_then(|v| v.as_str())
                         .ok_or_else(|| {
                             LangError::Engine(
-                                "expected name in payload for $payload bind".to_string(),
+                                "expected name in payload for $payload extend_env".to_string(),
                             )
                         })?
                         .to_string();
@@ -314,70 +418,142 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let callee = stack
                         .pop()
                         .ok_or_else(|| LangError::Engine("stack underflow on Call".to_string()))?;
-                    let result = self.apply_closure(&callee, &args)?;
+                    let result = self.apply_app(&callee, &args)?;
                     stack.push(result);
                 }
-                Instr::JumpIfFalse(target) => {
-                    let cond = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on JumpIfFalse".to_string())
-                    })?;
-                    if !is_truthy(&cond) {
-                        ip = *target;
+                Instr::ChoiceJump(left_target, right_target) => {
+                    let either = stack
+                        .pop()
+                        .ok_or_else(|| {
+                            LangError::Engine("stack underflow on ChoiceJump".to_string())
+                        })?;
+                    let val = either_value(&either)
+                        .cloned()
+                        .ok_or_else(|| {
+                            LangError::Engine("Choice: Either missing value".to_string())
+                        })?;
+                    if is_either_left(&either) {
+                        stack.push(val);
+                        ip = *left_target;
                         continue;
+                    } else if is_either_right(&either) {
+                        stack.push(val);
+                        ip = *right_target;
+                        continue;
+                    } else {
+                        return Err(LangError::Engine(
+                            "Choice: incoming is not an Either".to_string(),
+                        ));
                     }
                 }
                 Instr::Jump(target) => {
                     ip = *target;
                     continue;
                 }
-                Instr::Prim(op, n) => {
+                Instr::NativeOp(op, n) => {
+                    // For 0-arg ops that use `incoming`: the incoming value
+                    // is on top of the stack. Pop it and pass as `incoming`.
+                    // For other ops: pop n args, use current_incoming.
+                    let inc = if *n == 0 && op_uses_incoming(op) {
+                        stack.pop()
+                    } else {
+                        current_incoming.take()
+                    };
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
                         args.push(stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on Prim".to_string())
+                            LangError::Engine("stack underflow on NativeOp".to_string())
                         })?);
                     }
                     args.reverse();
-                    let result = self.apply_prim(op, &args, node)?;
+                    let result = self.apply_native_v2(op, &args, node, inc)?;
                     stack.push(result);
                 }
-                Instr::Foreign(name, n) => {
+                Instr::ForeignOp(name, n) => {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
                         args.push(stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on Foreign".to_string())
+                            LangError::Engine("stack underflow on ForeignOp".to_string())
                         })?);
                     }
                     args.reverse();
-                    let modules = self.modules.ok_or_else(|| {
-                        LangError::Engine(format!("unregistered foreign: {}", name))
-                    })?;
-                    let func = modules.lookup(name).ok_or_else(|| {
-                        LangError::Engine(format!("unregistered foreign: {}", name))
-                    })?;
+                    let modules = self
+                        .modules
+                        .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
+                    let func = modules
+                        .lookup(name)
+                        .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
                     let mut pctx = handl_platform::EvalContext::new();
                     let result = func
                         .call(&args, &mut pctx)
                         .map_err(|e| LangError::Engine(e.to_string()))?;
                     stack.push(result);
                 }
-                Instr::VauEnter => {
-                    // Push a new scope for the vau parameter bindings.
-                    self.scopes.push_scope();
+                Instr::FirstOp(start, end) => {
+                    // Pop the pair from the stack, extract fst/snd, run the
+                    // inner sub-program at [start, end) with fst as incoming
+                    // on a fresh stack, then re-pair the result with snd.
+                    let p = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on FirstOp".to_string()))?;
+                    let a = pair_fst(&p)
+                        .ok_or_else(|| LangError::Engine("FirstOp: not a pair".to_string()))?
+                        .clone();
+                    let b = pair_snd(&p)
+                        .ok_or_else(|| LangError::Engine("FirstOp: not a pair".to_string()))?
+                        .clone();
+                    let sub = &instrs[*start..*end];
+                    let result = self.exec_instrs(sub, node, Some(a))?;
+                    stack.push(pair(result, b));
+                    ip = *end;
+                    continue;
                 }
-                Instr::VauBind(name, child_n) => {
-                    // Bind the unevaluated child subtree to `name` in the
-                    // current scope (the vau escape, ADR-0041 §6). The child
-                    // is NOT evaluated.
-                    let children = node.payload.get("children").and_then(|c| c.as_array());
-                    let arena_idx = children
-                        .and_then(|arr| arr.get(*child_n))
-                        .and_then(|v| v.as_u64())
+                Instr::Pair => {
+                    let a = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Pair".to_string()))?;
+                    let b = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Pair".to_string()))?;
+                    stack.push(pair(b, a));
+                }
+                Instr::LoopCheck(loop_back) => {
+                    loop_counter += 1;
+                    if loop_counter > MAX_ITERS {
+                        return Err(LangError::Engine(
+                            "Loop: exceeded max iterations".to_string(),
+                        ));
+                    }
+                    let result = stack
+                        .pop()
                         .ok_or_else(|| {
-                            LangError::Engine(format!("vau: child {} not found", child_n))
+                            LangError::Engine("stack underflow on LoopCheck".to_string())
                         })?;
-                    let sub = self.ast.subtree(AstRef::new(arena_idx as usize))?;
-                    self.scopes.define(name, ast_value(&sub));
+                    if is_either_left(&result) {
+                        let out = either_value(&result).cloned().ok_or_else(|| {
+                            LangError::Engine("Loop: left Either missing value".to_string())
+                        })?;
+                        stack.push(out);
+                        loop_counter = 0;
+                        loop_input = None;
+                    } else if is_either_right(&result) {
+                        let new_state = either_value(&result).cloned().ok_or_else(|| {
+                            LangError::Engine("Loop: right Either missing value".to_string())
+                        })?;
+                        let orig = loop_input.clone().unwrap_or(Value::Null);
+                        stack.push(pair(orig, new_state));
+                        ip = *loop_back;
+                        continue;
+                    } else {
+                        let out = pair_fst(&result).ok_or_else(|| {
+                            LangError::Engine(
+                                "Loop: body did not return a pair or Either".to_string(),
+                            )
+                        })?;
+                        stack.push(out.clone());
+                        loop_counter = 0;
+                        loop_input = None;
+                    }
                 }
                 Instr::Return => {
                     return stack
@@ -387,238 +563,209 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             }
             ip += 1;
         }
-        // No Return encountered — return top of stack (defensive).
         stack
             .pop()
             .ok_or_else(|| LangError::Engine("empty operand stack at end of program".to_string()))
     }
 
-    /// Apply a closure value to argument values.
+    /// Apply a native v2 op. Mirrors the v2 tree-walk's `apply_native` exactly.
     ///
-    /// Mirrors the tree-walk's `apply_closure`: extract params/body/env from
-    /// the closure object, save the current scope stack, swap in the captured
-    /// env with a new scope for params, evaluate the body node, then restore
-    /// the original scope stack.
-    fn apply_closure(&mut self, closure: &Value, args: &[Value]) -> Result<Value, LangError> {
-        let obj = closure
-            .as_object()
-            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
-        if !obj
-            .get("__closure__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return Err(LangError::Engine("callee is not a closure".to_string()));
-        }
-
-        let params: Vec<String> = obj
-            .get("params")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
-            .iter()
-            .map(|v| {
-                v.as_str()
-                    .map(String::from)
-                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
-            })
-            .collect::<Result<_, _>>()?;
-
-        let body_idx = obj
-            .get("body")
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
-        let body_ref = AstRef::new(body_idx as usize);
-
-        let captured_env: HashMap<String, Value> = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-            .unwrap_or_default();
-
-        if params.len() != args.len() {
-            return Err(LangError::Engine(format!(
-                "closure expects {} args, got {}",
-                params.len(),
-                args.len()
-            )));
-        }
-
-        // Swap in the captured env + new scope with params.
-        let saved = std::mem::replace(&mut self.scopes, ScopeStack::new());
-        self.scopes.scopes[0] = captured_env;
-        self.scopes.push_scope();
-        for (param, arg) in params.iter().zip(args.iter()) {
-            self.scopes.define(param, arg.clone());
-        }
-
-        let result = self.exec_node(body_ref);
-
-        // Restore the original scope stack.
-        self.scopes = saved;
-        result
-    }
-
-    /// Apply a primitive operation.
-    ///
-    /// Replicates the tree-walk's primitive semantics exactly: `add`, `sub`,
-    /// `mul`, `div`, `mod`, `eq`, `lt`, `gt`, `not`, `and`, `or`, `neg`,
-    /// `closure`.
-    fn apply_prim(&mut self, op: &str, args: &[Value], node: &AstNode) -> Result<Value, LangError> {
+    /// `incoming` is the value flowing through the arrow (used by `id`,
+    /// `tag`, `is_pos`, `dec`, `inc`, `half_floor`, `inc_fst`,
+    /// `countdown_step`, `infinite_step`).
+    fn apply_native_v2(
+        &mut self,
+        op: &str,
+        args: &[Value],
+        node: &AstNode,
+        incoming: Option<Value>,
+    ) -> Result<Value, LangError> {
         match op {
-            "add" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a + b)),
-                    (a, b) => Ok(Value::from(a.to_f64() + b.to_f64())),
-                }
-            }
-            "sub" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a - b)),
-                    (a, b) => Ok(Value::from(a.to_f64() - b.to_f64())),
-                }
-            }
-            "mul" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a * b)),
-                    (a, b) => Ok(Value::from(a.to_f64() * b.to_f64())),
-                }
-            }
-            "div" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("division by zero".to_string()));
-                }
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a / b)),
-                    (a, b) => Ok(Value::from(a.to_f64() / b.to_f64())),
-                }
-            }
-            "mod" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("modulo by zero".to_string()));
-                }
-                match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a % b)),
-                    (a, b) => Ok(Value::from(a.to_f64() % b.to_f64())),
-                }
-            }
-            "eq" => Ok(Value::Bool(args[0] == args[1])),
-            "lt" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a.to_f64() < b.to_f64()))
-            }
-            "gt" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a.to_f64() > b.to_f64()))
-            }
-            "pow" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::from(a.to_f64().powf(b.to_f64())))
-            }
-            "gte" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a.to_f64() >= b.to_f64()))
-            }
-            "lte" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                Ok(Value::Bool(a.to_f64() <= b.to_f64()))
-            }
-            "neq" => Ok(Value::Bool(args[0] != args[1])),
-            "compare" => {
-                let a = as_num(&args[0])?;
-                let b = as_num(&args[1])?;
-                let af = a.to_f64();
-                let bf = b.to_f64();
-                if af < bf {
-                    Ok(Value::from(-1i64))
-                } else if af > bf {
-                    Ok(Value::from(1i64))
+            "id" => Ok(incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(Value::Null)),
+            "tag" => {
+                let v = incoming
+                    .or_else(|| args.first().cloned())
+                    .unwrap_or(Value::Null);
+                if is_truthy(&v) {
+                    Ok(either_left(v))
                 } else {
-                    Ok(Value::from(0i64))
-                }
-            }
-            "typeof" => {
-                let type_name = match &args[0] {
-                    Value::Null => "null",
-                    Value::Bool(_) => "bool",
-                    Value::Number(_) => "number",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                };
-                Ok(Value::from(type_name))
-            }
-            "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
-            "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-            "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
-            "neg" => {
-                let a = as_num(&args[0])?;
-                match a {
-                    Num::Int(i) => Ok(Value::from(-i)),
-                    Num::Float(f) => Ok(Value::from(-f)),
+                    Ok(either_right(v))
                 }
             }
             "closure" => {
                 let payload = &node.payload;
-                let params = payload
-                    .get("params")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine("closure prim: missing params in payload".to_string())
-                    })?;
-                let body = payload
-                    .get("body")
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::Engine("closure prim: missing body in payload".to_string())
-                    })?;
-                let env = self.scopes.capture();
+                let (params, body) = if let (Some(p), Some(b)) = (
+                    payload.get("params").and_then(|v| v.as_array()),
+                    payload.get("body").and_then(|v| v.as_u64()),
+                ) {
+                    (p.clone(), b as usize)
+                } else if let Some(children) =
+                    payload.get("children").and_then(|c| c.as_array())
+                {
+                    let param_idx = children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine("closure: missing param child".to_string())
+                        })? as usize;
+                    let body_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| {
+                            LangError::Engine("closure: missing body child".to_string())
+                        })? as usize;
+                    let param_node = self.ast.at(AstRef::new(param_idx))?;
+                    let param_names: Vec<String> = if param_node.kind == "paren" {
+                        let paren_children = param_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: paren params missing children".to_string(),
+                                )
+                            })?;
+                        let mut names = Vec::with_capacity(paren_children.len());
+                        for pc in paren_children {
+                            let pidx = pc.as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: param index must be a number".to_string(),
+                                )
+                            })? as usize;
+                            let pnode = self.ast.at(AstRef::new(pidx))?;
+                            let pname = pnode.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "closure: param must be a var with string payload"
+                                        .to_string(),
+                                )
+                            })?;
+                            names.push(pname.to_string());
+                        }
+                        names
+                    } else {
+                        let pname = param_node.payload.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "closure: param node must be a var with string payload"
+                                    .to_string(),
+                            )
+                        })?;
+                        vec![pname.to_string()]
+                    };
+                    (
+                        param_names.into_iter().map(Value::from).collect(),
+                        body_idx,
+                    )
+                } else {
+                    return Err(LangError::Engine(
+                        "closure: missing params/body in payload".to_string(),
+                    ));
+                };
+                let captured = self.scopes.capture();
                 Ok(serde_json::json!({
                     "__closure__": true,
                     "params": params,
                     "body": body,
-                    "env": env,
+                    "env": captured,
                 }))
             }
             "array" => {
-                let elements = node.payload.get("elements").ok_or_else(|| {
-                    LangError::Engine("array: missing elements in payload".to_string())
-                })?;
-                Ok(elements.clone())
+                // Two payload shapes (mirrors v1 `array` prim):
+                // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
+                // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
+                //   element is an arena index to evaluate.
+                if let Some(elements) = node.payload.get("elements") {
+                    Ok(elements.clone())
+                } else if let Some(children) =
+                    node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    let mut result = Vec::with_capacity(children.len());
+                    for entry in children {
+                        let idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "array: element index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        result.push(self.exec_node(AstRef::new(idx))?);
+                    }
+                    Ok(Value::Array(result))
+                } else {
+                    Err(LangError::Engine(
+                        "array: missing elements/children in payload".to_string(),
+                    ))
+                }
             }
             "object" => {
-                let entries = node
-                    .payload
-                    .get("entries")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine("object: missing entries in payload".to_string())
-                    })?;
-                let mut obj = serde_json::Map::new();
-                for entry in entries {
-                    let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
-                        LangError::Engine("object: entry missing key".to_string())
-                    })?;
-                    let value = entry.get("value").ok_or_else(|| {
-                        LangError::Engine("object: entry missing value".to_string())
-                    })?;
-                    obj.insert(key.to_string(), value.clone());
+                // Two payload shapes (mirrors v1 `object` prim):
+                // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
+                // - Pratt-parsed: `{"children": [entry_idx, ...]}` where each
+                //   entry node has `{"children": [key_idx, value_idx]}`.
+                if let Some(entries) =
+                    node.payload.get("entries").and_then(|v| v.as_array())
+                {
+                    let mut obj = serde_json::Map::new();
+                    for entry in entries {
+                        let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
+                            LangError::Engine("object: entry missing key".to_string())
+                        })?;
+                        let value = entry.get("value").ok_or_else(|| {
+                            LangError::Engine("object: entry missing value".to_string())
+                        })?;
+                        obj.insert(key.to_string(), value.clone());
+                    }
+                    Ok(Value::Object(obj))
+                } else if let Some(children) =
+                    node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    let mut obj = serde_json::Map::new();
+                    for entry in children {
+                        let entry_idx = entry.as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "object: entry index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        let entry_node = self.ast.at(AstRef::new(entry_idx))?;
+                        let entry_children = entry_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry node missing children".to_string(),
+                                )
+                            })?;
+                        let key_idx = entry_children
+                            .get(0)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry missing key child".to_string(),
+                                )
+                            })? as usize;
+                        let val_idx = entry_children
+                            .get(1)
+                            .and_then(|v| v.as_u64())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry missing value child".to_string(),
+                                )
+                            })? as usize;
+                        let key_val = self.exec_node(AstRef::new(key_idx))?;
+                        let key = key_val.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "object: entry key must evaluate to a string".to_string(),
+                            )
+                        })?;
+                        let value = self.exec_node(AstRef::new(val_idx))?;
+                        obj.insert(key.to_string(), value);
+                    }
+                    Ok(Value::Object(obj))
+                } else {
+                    Err(LangError::Engine(
+                        "object: missing entries/children in payload".to_string(),
+                    ))
                 }
-                Ok(Value::Object(obj))
             }
             "index" => {
                 let target = node.payload.get("target").ok_or_else(|| {
@@ -655,343 +802,261 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 })?;
                 Ok(value.clone())
             }
-            "match" => self.prim_match(node),
-            "handle" => self.prim_handle(node),
-            _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
-        }
-    }
-
-    // --- match / handle primitives (mirror the tree-walk interpreter) ---
-
-    /// `match`: pattern-match a scrutinee against a list of arms.
-    ///
-    /// The node payload is `{"children": [scrut_idx, block_idx]}`; the block
-    /// node's payload is `{"children": [arm_idx, ...]}`; each arm node's
-    /// payload is `{"children": [pattern_idx, body_idx]}`. The first matching
-    /// arm's body is evaluated; non-matching arms are never evaluated. Returns
-    /// an error if no arm matches.
-    fn prim_match(&mut self, node: &AstNode) -> Result<Value, LangError> {
-        let children = node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("match: missing children in payload".to_string()))?;
-        let scrut_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing scrutinee child".to_string()))?
-            as usize;
-        let block_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing block child".to_string()))?
-            as usize;
-        let scrut_val = self.exec_node(AstRef::new(scrut_idx))?;
-        let block_node = self.ast.at(AstRef::new(block_idx))?;
-        let arm_indices = block_node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("match: block node missing children".to_string()))?;
-        for arm_entry in arm_indices {
-            let arm_idx = arm_entry
-                .as_u64()
-                .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))?
-                as usize;
-            let arm_node = self.ast.at(AstRef::new(arm_idx))?;
-            let arm_children = arm_node
-                .payload
-                .get("children")
-                .and_then(|c| c.as_array())
-                .ok_or_else(|| LangError::Engine("match: arm node missing children".to_string()))?;
-            let pattern_idx = arm_children
-                .get(0)
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing pattern child".to_string()))?
-                as usize;
-            let body_idx = arm_children
-                .get(1)
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))?
-                as usize;
-            self.scopes.push_scope();
-            let matched = self.try_pattern(AstRef::new(pattern_idx), &scrut_val)?;
-            if matched {
-                let result = self.exec_node(AstRef::new(body_idx));
-                self.scopes.pop_scope();
-                return result;
+            "add" => bin_num(args, |a, b| a + b),
+            "sub" => bin_num(args, |a, b| a - b),
+            "mul" => bin_num(args, |a, b| a * b),
+            "div" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("division by zero".to_string()));
+                }
+                match (a, b) {
+                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a / b)),
+                    (a, b) => Ok(Value::from(a.to_f64() / b.to_f64())),
+                }
             }
-            self.scopes.pop_scope();
-        }
-        Err(LangError::Engine("match: no arm matched".to_string()))
-    }
-
-    /// `handle`: evaluate a body, then dispatch the result to the first
-    /// matching handler clause. Structurally identical to `match`. If no
-    /// clause matches, the body value is returned as-is.
-    fn prim_handle(&mut self, node: &AstNode) -> Result<Value, LangError> {
-        let children = node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("handle: missing children in payload".to_string()))?;
-        let body_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing body child".to_string()))?
-            as usize;
-        let block_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing block child".to_string()))?
-            as usize;
-        let body_val = self.exec_node(AstRef::new(body_idx))?;
-        let block_node = self.ast.at(AstRef::new(block_idx))?;
-        let clause_indices = block_node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("handle: block node missing children".to_string()))?;
-        for clause_entry in clause_indices {
-            let clause_idx = clause_entry
-                .as_u64()
-                .ok_or_else(|| {
-                    LangError::Engine("handle: clause index must be a number".to_string())
-                })? as usize;
-            let clause_node = self.ast.at(AstRef::new(clause_idx))?;
-            let clause_children = clause_node
-                .payload
-                .get("children")
-                .and_then(|c| c.as_array())
-                .ok_or_else(|| {
-                    LangError::Engine("handle: clause node missing children".to_string())
+            "mod" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::Engine("modulo by zero".to_string()));
+                }
+                Ok(num_value(match (a, b) {
+                    (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
+                    (a, b) => Num::Float(a.to_f64() % b.to_f64()),
+                }))
+            }
+            "neg" => {
+                let a = as_num(&args[0])?;
+                Ok(num_value(match a {
+                    Num::Int(i) => Num::Int(-i),
+                    Num::Float(f) => Num::Float(-f),
+                }))
+            }
+            "eq" => Ok(Value::Bool(args[0] == args[1])),
+            "neq" => Ok(Value::Bool(args[0] != args[1])),
+            "lt" => cmp_num(args, |a, b| a < b),
+            "gt" => cmp_num(args, |a, b| a > b),
+            "lte" => cmp_num(args, |a, b| a <= b),
+            "gte" => cmp_num(args, |a, b| a >= b),
+            "pow" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                Ok(num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
+            }
+            "compare" => {
+                let a = as_num(&args[0])?;
+                let b = as_num(&args[1])?;
+                let cmp = a.to_f64().partial_cmp(&b.to_f64()).ok_or_else(|| {
+                    LangError::Engine("compare: incomparable values".to_string())
                 })?;
-            let pattern_idx = clause_children
-                .get(0)
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| {
-                    LangError::Engine("handle: clause missing pattern child".to_string())
-                })? as usize;
-            let handler_idx = clause_children
-                .get(1)
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| {
-                    LangError::Engine("handle: clause missing handler child".to_string())
-                })? as usize;
-            self.scopes.push_scope();
-            let matched = self.try_pattern(AstRef::new(pattern_idx), &body_val)?;
-            if matched {
-                let result = self.exec_node(AstRef::new(handler_idx));
-                self.scopes.pop_scope();
-                return result;
+                Ok(num_value(Num::Int(match cmp {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
+                })))
             }
-            self.scopes.pop_scope();
-        }
-        Ok(body_val) // No clause matched — return the body value as-is.
-    }
-
-    /// Interpret a pattern AST node structurally against a scrutinee value.
-    fn try_pattern(
-        &mut self,
-        pattern_ref: AstRef,
-        scrut: &Value,
-    ) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        if pattern_node.kind == "var" {
-            if let Some(name) = pattern_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
-                    return Ok(true); // wildcard
-                }
-                self.scopes.define(name, scrut.clone()); // binder
-                return Ok(true);
-            }
-        }
-        if pattern_node.kind == "array" {
-            return self.try_array_pattern(pattern_ref, scrut);
-        }
-        if pattern_node.kind == "object" {
-            return self.try_object_pattern(pattern_ref, scrut);
-        }
-        let pat_val = self.exec_node(pattern_ref)?; // literal
-        Ok(pat_val == *scrut)
-    }
-
-    /// Resolve the binder name of a `rest` pattern node.
-    ///
-    /// Returns `None` for a wildcard rest (`_` / `_*`), `Some(name)` for a
-    /// binder, or an error if the rest child is not a `var`.
-    fn rest_binder_name(&self, rest_ref: AstRef) -> Result<Option<String>, LangError> {
-        let rest_node = self.ast.at(rest_ref)?;
-        let children = rest_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("rest pattern: missing children".to_string()))?;
-        let var_idx = children
-            .first()
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("rest pattern: missing binder".to_string()))?;
-        let var_node = self.ast.at(AstRef::new(var_idx as usize))?;
-        if var_node.kind == "var" {
-            if let Some(name) = var_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
-                    return Ok(None); // wildcard rest
-                }
-                return Ok(Some(name.to_string()));
-            }
-        }
-        Err(LangError::Engine("rest pattern: binder is not a var".to_string()))
-    }
-
-    /// Array destructuring pattern: positional sub-patterns with an optional
-    /// `...rest`. Without rest, the array length must match exactly; with
-    /// rest, the remaining elements are captured as an array bound to the rest
-    /// name.
-    fn try_array_pattern(
-        &mut self,
-        pattern_ref: AstRef,
-        scrut: &Value,
-    ) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        let children = pattern_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("array pattern: missing children".to_string()))?;
-        let scrut_arr = match scrut.as_array() {
-            Some(a) => a,
-            None => return Ok(false),
-        };
-        let mut rest_idx: Option<usize> = None;
-        let mut positional: Vec<usize> = Vec::new();
-        for child in children {
-            let idx = child
-                .as_u64()
-                .ok_or_else(|| LangError::Engine("array pattern: bad child index".to_string()))?
-                as usize;
-            let child_node = self.ast.at(AstRef::new(idx))?;
-            if child_node.kind == "rest" {
-                if rest_idx.is_some() {
-                    return Err(LangError::Engine(
-                        "array pattern: multiple rest patterns".to_string(),
-                    ));
-                }
-                rest_idx = Some(idx);
-            } else {
-                positional.push(idx);
-            }
-        }
-        let n = positional.len();
-        if rest_idx.is_none() && scrut_arr.len() != n {
-            return Ok(false);
-        }
-        if scrut_arr.len() < n {
-            return Ok(false);
-        }
-        for (i, &pat_idx) in positional.iter().enumerate() {
-            if !self.try_pattern(AstRef::new(pat_idx), &scrut_arr[i])? {
-                return Ok(false);
-            }
-        }
-        if let Some(ridx) = rest_idx {
-            if let Some(name) = self.rest_binder_name(AstRef::new(ridx))? {
-                let rest_vals: Vec<Value> = scrut_arr[n..].to_vec();
-                self.scopes.define(&name, Value::Array(rest_vals));
-            }
-        }
-        Ok(true)
-    }
-
-    /// Object destructuring pattern: each child is an `entry` node
-    /// (`{"children": [key_idx, val_pattern_idx]}`) or a `rest` node. The key
-    /// can be a `var` (identifier name) or evaluated to a string. An optional
-    /// `...rest` captures unmatched keys as an object.
-    fn try_object_pattern(
-        &mut self,
-        pattern_ref: AstRef,
-        scrut: &Value,
-    ) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        let children = pattern_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("object pattern: missing children".to_string()))?;
-        let scrut_obj = match scrut.as_object() {
-            Some(o) => o,
-            None => return Ok(false),
-        };
-        let mut rest_idx: Option<usize> = None;
-        let mut entries: Vec<(String, usize)> = Vec::new();
-        for child in children {
-            let idx = child
-                .as_u64()
-                .ok_or_else(|| LangError::Engine("object pattern: bad child index".to_string()))?
-                as usize;
-            let child_node = self.ast.at(AstRef::new(idx))?;
-            if child_node.kind == "rest" {
-                if rest_idx.is_some() {
-                    return Err(LangError::Engine(
-                        "object pattern: multiple rest patterns".to_string(),
-                    ));
-                }
-                rest_idx = Some(idx);
-            } else if child_node.kind == "entry" {
-                let entry_children = child_node
-                    .payload
-                    .get("children")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| LangError::Engine("object pattern: malformed entry".to_string()))?;
-                let key_idx = entry_children[0]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry key index".to_string())
-                    })? as usize;
-                let val_idx = entry_children[1]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry val index".to_string())
-                    })? as usize;
-                let key_node = self.ast.at(AstRef::new(key_idx))?;
-                let key = if key_node.kind == "var" {
-                    key_node.payload.as_str().unwrap_or("").to_string()
-                } else {
-                    let key_val = self.exec_node(AstRef::new(key_idx))?;
-                    key_val.as_str().unwrap_or("").to_string()
+            "typeof" => {
+                let type_name = match &args[0] {
+                    Value::Null => "null",
+                    Value::Bool(_) => "bool",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
                 };
-                entries.push((key, val_idx));
+                Ok(Value::from(type_name))
             }
-        }
-        let mut matched_keys: Vec<String> = Vec::new();
-        for (key, val_idx) in &entries {
-            match scrut_obj.get(key) {
-                Some(scrut_val) => {
-                    matched_keys.push(key.clone());
-                    if !self.try_pattern(AstRef::new(*val_idx), scrut_val)? {
-                        return Ok(false);
-                    }
+            "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
+            "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
+            "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+            "is_pos" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok(Value::Bool(n.to_f64() > 0.0))
+            }
+            "dec" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok(num_value(match n {
+                    Num::Int(i) => Num::Int(i - 1),
+                    Num::Float(f) => Num::Float(f - 1.0),
+                }))
+            }
+            "inc" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok(num_value(match n {
+                    Num::Int(i) => Num::Int(i + 1),
+                    Num::Float(f) => Num::Float(f + 1.0),
+                }))
+            }
+            "half_floor" => {
+                let v = incoming.unwrap_or(Value::Null);
+                let n = as_num(&v)?;
+                Ok(num_value(match n {
+                    Num::Int(i) => Num::Int(i / 2),
+                    Num::Float(f) => Num::Float((f / 2.0).floor()),
+                }))
+            }
+            "inc_fst" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let a = pair_fst(&inc)
+                    .ok_or_else(|| LangError::Engine("inc_fst: input is not a pair".to_string()))?
+                    .clone();
+                let b = pair_snd(&inc)
+                    .ok_or_else(|| LangError::Engine("inc_fst: input is not a pair".to_string()))?
+                    .clone();
+                let a_n = as_num(&a)?;
+                Ok(pair(num_value(match a_n {
+                    Num::Int(i) => Num::Int(i + 1),
+                    Num::Float(f) => Num::Float(f + 1.0),
+                }), b))
+            }
+            "countdown_step" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let a = pair_fst(&inc)
+                    .cloned()
+                    .ok_or_else(|| LangError::Engine("countdown_step: input is not a pair".to_string()))?;
+                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let result_val = pair_fst(&a).cloned().ok_or_else(|| {
+                    LangError::Engine("countdown_step: in must be pair(result, initial)".to_string())
+                })?;
+                let initial = pair_snd(&a).cloned().unwrap_or(Value::Null);
+                let state = if b.is_null() { initial } else { b };
+                let n = as_num(&state)?;
+                if n.to_f64() > 0.0 {
+                    Ok(either_right(num_value(match n {
+                        Num::Int(i) => Num::Int(i - 1),
+                        Num::Float(f) => Num::Float(f - 1.0),
+                    })))
+                } else {
+                    Ok(either_left(result_val))
                 }
-                None => return Ok(false),
             }
-        }
-        if let Some(ridx) = rest_idx {
-            if let Some(name) = self.rest_binder_name(AstRef::new(ridx))? {
-                let rest_obj: serde_json::Map<String, Value> = scrut_obj
-                    .iter()
-                    .filter(|(k, _)| !matched_keys.contains(k))
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                self.scopes.define(&name, Value::Object(rest_obj));
+            "infinite_step" => {
+                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                Ok(either_right(b))
             }
+            _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
-        Ok(true)
+    }
+
+    /// Apply an `App` callee: host-function dispatch (string callee) or
+    /// closure application. Mirrors the v2 tree-walk's `apply_app` and v1's
+    /// `apply_closure`.
+    fn apply_app(&mut self, callee: &Value, args: &[Value]) -> Result<Value, LangError> {
+        // Host-function dispatch: a string callee naming a registered host fn.
+        if let Some(name) = callee.as_str()
+            && let Some(modules) = self.modules
+            && let Some(func) = modules.lookup(name)
+        {
+            let mut pctx = handl_platform::EvalContext::new();
+            return func
+                .call(args, &mut pctx)
+                .map_err(|e| LangError::Engine(e.to_string()));
+        }
+        // Closure application.
+        let obj = callee
+            .as_object()
+            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
+        if !obj
+            .get("__closure__")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return Err(LangError::Engine("callee is not a closure".to_string()));
+        }
+        let params: Vec<String> = obj
+            .get("params")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
+            })
+            .collect::<Result<_, _>>()?;
+        let body_idx = obj
+            .get("body")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
+        let body_ref = AstRef::new(body_idx as usize);
+        let captured_env: HashMap<String, Value> = obj
+            .get("env")
+            .and_then(|v| v.as_object())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+        if params.len() != args.len() {
+            return Err(LangError::Engine(format!(
+                "closure expects {} args, got {}",
+                params.len(),
+                args.len()
+            )));
+        }
+        let saved = std::mem::replace(&mut self.scopes, ScopeStack::new());
+        self.scopes.scopes[0] = captured_env;
+        self.scopes.push_scope();
+        for (param, arg) in params.iter().zip(args.iter()) {
+            self.scopes.define(param, arg.clone());
+        }
+        let result = self.exec_node(body_ref);
+        self.scopes = saved;
+        result
     }
 }
+
+/// Whether a native op uses the `incoming` value (as opposed to only args).
+///
+/// Ops that use `incoming` with 0 args pop the incoming value from the stack
+/// (it's the value flowing through the arrow). Ops that don't use `incoming`
+/// (like `closure`) don't pop anything for a 0-arg call.
+fn op_uses_incoming(op: &str) -> bool {
+    matches!(
+        op,
+        "id" | "tag" | "is_pos" | "dec" | "inc" | "half_floor" | "inc_fst"
+            | "countdown_step" | "infinite_step"
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Numeric op helpers (mirror the v2 tree-walk)
+// ---------------------------------------------------------------------------
+
+/// Binary numeric op helper. Preserves int-int arithmetic (matching v1).
+fn bin_num<F>(args: &[Value], f: F) -> Result<Value, LangError>
+where
+    F: FnOnce(f64, f64) -> f64,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    match (a, b) {
+        (Num::Int(a), Num::Int(b)) => Ok(Value::from(f(a as f64, b as f64) as i64)),
+        (a, b) => Ok(Value::from(f(a.to_f64(), b.to_f64()))),
+    }
+}
+
+/// Numeric comparison helper.
+fn cmp_num<F>(args: &[Value], f: F) -> Result<Value, LangError>
+where
+    F: FnOnce(f64, f64) -> bool,
+{
+    let a = as_num(&args[0])?;
+    let b = as_num(&args[1])?;
+    Ok(Value::Bool(f(a.to_f64(), b.to_f64())))
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{Ast, AstNode, Language, Scheme, SchemeVersion};
+    use handl_language::{Ast, AstNode, EvalSchemeDef, Language, Scheme, SchemeVersion};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
@@ -1006,653 +1071,350 @@ mod tests {
         ast
     }
 
-    // --- ScopeStack tests ---
-
-    #[test]
-    fn scope_stack_lookup_innermost_first() {
-        let mut s = ScopeStack::new();
-        s.define("x", json!(1));
-        s.push_scope();
-        s.define("x", json!(2));
-        assert_eq!(s.lookup("x"), Some(&json!(2)));
-        s.pop_scope();
-        assert_eq!(s.lookup("x"), Some(&json!(1)));
+    /// A dummy node with an empty-object payload.
+    fn dummy_node() -> AstNode {
+        AstNode::new("test").with_payload(json!({}))
     }
 
-    #[test]
-    fn scope_stack_pop_never_removes_last() {
-        let mut s = ScopeStack::new();
-        s.pop_scope();
-        assert_eq!(s.scopes.len(), 1);
-    }
-
-    #[test]
-    fn scope_stack_capture_flattens() {
-        let mut s = ScopeStack::new();
-        s.define("a", json!(1));
-        s.push_scope();
-        s.define("b", json!(2));
-        let cap = s.capture();
-        assert_eq!(cap.get("a"), Some(&json!(1)));
-        assert_eq!(cap.get("b"), Some(&json!(2)));
-    }
-
-    // --- Numeric helper tests ---
-
-    #[test]
-    fn num_to_f64() {
-        assert_eq!(Num::Int(42).to_f64(), 42.0);
-        assert_eq!(Num::Float(3.14).to_f64(), 3.14);
-    }
-
-    #[test]
-    fn as_num_extracts_int_and_float() {
-        assert_eq!(as_num(&json!(42)).unwrap(), Num::Int(42));
-        assert_eq!(as_num(&json!(3.14)).unwrap(), Num::Float(3.14));
-        assert!(as_num(&json!("not a number")).is_err());
-    }
-
-    #[test]
-    fn vm_prim_sub_non_number_errors() {
+    /// Evaluate a standalone v2 scheme with a fresh frame and dummy node.
+    fn eval_standalone(scheme: &Scheme) -> Result<Value, LangError> {
+        let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!("not a number")),
-            Instr::Push(json!(1)),
-            Instr::Prim("sub".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        let node = ast.at(AstRef::new(0)).unwrap();
+        let instrs = compile(scheme, node)?;
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        frame.exec_instrs(&instrs, node, None)
     }
+
+    // 1. arr const
 
     #[test]
-    fn vm_prim_mul_non_number_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!("not a number")),
-            Instr::Push(json!(1)),
-            Instr::Prim("mul".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_lt_non_number_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!("not a number")),
-            Instr::Push(json!(1)),
-            Instr::Prim("lt".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_gt_non_number_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!("not a number")),
-            Instr::Push(json!(1)),
-            Instr::Prim("gt".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_div_float_by_zero_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1.0)),
-            Instr::Push(json!(0.0)),
-            Instr::Prim("div".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_mixed_arithmetic() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1)),
-            Instr::Push(json!(2.5)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(3.5));
-    }
-
-    #[test]
-    fn vm_prim_lt_float() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(3.0)),
-            Instr::Push(json!(5)),
-            Instr::Prim("lt".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(true));
-    }
-
-    // --- is_truthy tests ---
-
-    #[test]
-    fn is_truthy_bool() {
-        assert!(is_truthy(&json!(true)));
-        assert!(!is_truthy(&json!(false)));
-    }
-
-    #[test]
-    fn is_truthy_null() {
-        assert!(!is_truthy(&Value::Null));
-    }
-
-    #[test]
-    fn is_truthy_number() {
-        assert!(!is_truthy(&json!(0)));
-        assert!(is_truthy(&json!(42)));
-        assert!(!is_truthy(&json!(0.0)));
-        assert!(is_truthy(&json!(3.14)));
-    }
-
-    #[test]
-    fn is_truthy_string() {
-        assert!(!is_truthy(&json!("")));
-        assert!(is_truthy(&json!("hello")));
-    }
-
-    #[test]
-    fn is_truthy_object_and_array() {
-        assert!(is_truthy(&json!({"a": 1})));
-        assert!(is_truthy(&json!([1, 2])));
-    }
-
-    // --- VmFrame instruction execution tests ---
-
-    /// Helper: execute a raw instruction program against a root node.
-    fn exec_raw(
-        lang: &Language,
-        ast: &Ast,
-        instrs: &[Instr],
-        modules: Option<&Rc<dyn ModuleLookup>>,
-    ) -> Result<Value, LangError> {
-        if ast.is_empty() {
-            return Ok(Value::Null);
-        }
-        let root_ref = AstRef::new(ast.len() - 1);
-        let root_node = ast.at(root_ref)?;
-        let mut frame = VmFrame {
-            ast,
-            lang,
-            modules,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        frame.exec_instrs(instrs, root_node)
-    }
-
-    #[test]
-    fn vm_push_return() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Push(json!(42)), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+    fn arr_const_returns_literal() {
+        let s = Scheme::arr_native_lit("const", vec![], json!(42));
+        let result = eval_standalone(&s).unwrap();
         assert_eq!(result, json!(42));
     }
 
     #[test]
-    fn vm_load_payload() {
+    fn arr_const_null_when_no_literal() {
+        let s = Scheme::arr_native("const", vec![]);
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, Value::Null);
+    }
+
+    // 2. arr proj_env
+
+    #[test]
+    fn arr_proj_env_bound_lookup() {
+        let s = Scheme::arr_native_lit("proj_env", vec![], "x");
+        let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("lit").with_payload(json!("hello"))]);
-        let instrs = vec![Instr::LoadPayload, Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!("hello"));
+        let node = ast.at(AstRef::new(0)).unwrap();
+        let instrs = compile(&s, node).unwrap();
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        frame.define_global("x", json!(7));
+        let result = frame.exec_instrs(&instrs, node, None).unwrap();
+        assert_eq!(result, json!(7));
     }
 
     #[test]
-    fn vm_load_unknown_variable_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Load("x".into()), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert_eq!(err, LangError::UnknownVariable { name: "x".into() });
+    fn arr_proj_env_unbound_returns_name() {
+        let s = Scheme::arr_native_lit("proj_env", vec![], "unknown");
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, Value::from("unknown"));
+    }
+
+    // 3. Seq const >>> id
+
+    #[test]
+    fn seq_const_then_id() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(5)),
+            Scheme::arr_native("id", vec![]),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    // 4. Bind shape
+
+    #[test]
+    fn bind_shape_extend_env_then_proj_env() {
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(5)),
+                Scheme::arr_native_lit("extend_env", vec![], "x"),
+            ),
+            Scheme::arr_native_lit("proj_env", vec![], "x"),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    // 5. First on a pair
+
+    #[test]
+    fn first_id_on_pair() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(3), json!(7))),
+            Scheme::first(Scheme::arr_native("id", vec![])),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, pair(json!(3), json!(7)));
     }
 
     #[test]
-    fn vm_load_payload_var() {
-        let lang = Language::new();
-        // Root node is a "var" with payload "x".
-        // We need "x" in scope. Use Store first.
-        let ast = make_ast(vec![AstNode::new("var").with_payload(json!("x"))]);
-        let instrs = vec![
-            Instr::Push(json!(99)),
-            Instr::Store("x".into()),
-            Instr::LoadPayloadVar,
-            Instr::PopScope,
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(99));
+    fn first_const_on_pair() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(3), json!(7))),
+            Scheme::first(Scheme::arr_native_lit("const", vec![], json!(99))),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, pair(json!(99), json!(7)));
     }
 
-    #[test]
-    fn vm_load_payload_var_not_string_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("var").with_payload(json!(42))]);
-        let instrs = vec![Instr::LoadPayloadVar, Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
+    // 6. Choice on Either
 
     #[test]
-    fn vm_store_and_load() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(10)),
-            Instr::Store("x".into()),
-            Instr::Load("x".into()),
-            Instr::PopScope,
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(10));
-    }
-
-    #[test]
-    fn vm_store_payload_name() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("let").with_payload(json!({"name": "x"}))]);
-        let instrs = vec![
-            Instr::Push(json!(42)),
-            Instr::StorePayloadName,
-            Instr::Load("x".into()),
-            Instr::PopScope,
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(42));
-    }
-
-    #[test]
-    fn vm_store_payload_name_missing_name_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("let").with_payload(json!({}))]);
-        let instrs = vec![
-            Instr::Push(json!(42)),
-            Instr::StorePayloadName,
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_pop_scope_after_bind() {
-        // After Store + PopScope, the variable should not be visible.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(10)),
-            Instr::Store("x".into()),
-            Instr::PopScope,
-            Instr::Load("x".into()),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert_eq!(err, LangError::UnknownVariable { name: "x".into() });
-    }
-
-    #[test]
-    fn vm_jump_if_false_takes_branch() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(false)),
-            Instr::JumpIfFalse(3),
-            Instr::Push(json!(1)),
-            Instr::Push(json!(2)),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(2));
-    }
-
-    #[test]
-    fn vm_jump_if_false_does_not_jump_when_truthy() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(true)),
-            Instr::JumpIfFalse(4),
-            Instr::Push(json!(1)),
-            Instr::Jump(5),
-            Instr::Push(json!(2)),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+    fn choice_left() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], either_left(json!(5))),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], json!(1)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ),
+        );
+        let result = eval_standalone(&s).unwrap();
         assert_eq!(result, json!(1));
     }
 
     #[test]
-    fn vm_jump_unconditional() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1)),
-            Instr::Jump(3),
-            Instr::Push(json!(2)),
-            Instr::Push(json!(3)),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(3));
+    fn choice_right() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], either_right(json!(5))),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], json!(1)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(2));
+    }
+
+    // 7. tag + Choice (Branch lowering)
+
+    #[test]
+    fn tag_choice_true_yields_then() {
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(true)),
+                Scheme::arr_native("tag", vec![]),
+            ),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], "yes"),
+                Scheme::arr_native_lit("const", vec![], "no"),
+            ),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!("yes"));
     }
 
     #[test]
-    fn vm_prim_add() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(3)),
-            Instr::Push(json!(4)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(7));
+    fn tag_choice_false_yields_else() {
+        let s = Scheme::seq(
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], json!(false)),
+                Scheme::arr_native("tag", vec![]),
+            ),
+            Scheme::choice(
+                Scheme::arr_native_lit("const", vec![], "yes"),
+                Scheme::arr_native_lit("const", vec![], "no"),
+            ),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!("no"));
     }
 
-    #[test]
-    fn vm_prim_sub() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(10)),
-            Instr::Push(json!(3)),
-            Instr::Prim("sub".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(7));
-    }
+    // 8. Loop causal single-step
 
     #[test]
-    fn vm_prim_mul() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(6)),
-            Instr::Push(json!(7)),
-            Instr::Prim("mul".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+    fn loop_causal_single_step() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(10)),
+            Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![])),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(11));
+    }
+
+    // 8b. Loop multi-step (Either-based)
+
+    #[test]
+    fn loop_multi_step_either_countdown() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(42), json!(5))),
+            Scheme::loop_feedback(Scheme::arr_native("countdown_step", vec![])),
+        );
+        let result = eval_standalone(&s).unwrap();
         assert_eq!(result, json!(42));
     }
 
     #[test]
-    fn vm_prim_div() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(20)),
-            Instr::Push(json!(4)),
-            Instr::Prim("div".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+    fn loop_multi_step_max_iterations_guard() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(1)),
+            Scheme::loop_feedback(Scheme::arr_native("infinite_step", vec![])),
+        );
+        let err = eval_standalone(&s).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("max iterations")));
+    }
+
+    // 9. App with a closure value
+
+    #[test]
+    fn app_closure_applies_body() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("test").with_payload(json!({})),
+        ]);
+        let closure = json!({
+            "__closure__": true,
+            "params": ["x"],
+            "body": 0,
+            "env": {},
+        });
+        let s = Scheme::app(
+            Scheme::arr_native_lit("const", vec![], closure),
+            vec![Scheme::arr_native_lit("const", vec![], json!(41))],
+        );
+        let node = ast.at(AstRef::new(1)).unwrap();
+        let instrs = compile(&s, node).unwrap();
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_instrs(&instrs, node, None).unwrap();
+        assert_eq!(result, json!(41));
+    }
+
+    // 10. Arithmetic parity
+
+    #[test]
+    fn native_add() {
+        let s = Scheme::arr_native(
+            "add",
+            vec![
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+                Scheme::arr_native_lit("const", vec![], json!(3)),
+            ],
+        );
+        let result = eval_standalone(&s).unwrap();
         assert_eq!(result, json!(5));
     }
 
     #[test]
-    fn vm_prim_div_by_zero_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1)),
-            Instr::Push(json!(0)),
-            Instr::Prim("div".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_eq() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(5)),
-            Instr::Push(json!(5)),
-            Instr::Prim("eq".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+    fn native_eq() {
+        let s = Scheme::arr_native(
+            "eq",
+            vec![
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+                Scheme::arr_native_lit("const", vec![], json!(2)),
+            ],
+        );
+        let result = eval_standalone(&s).unwrap();
         assert_eq!(result, json!(true));
     }
 
-    #[test]
-    fn vm_prim_lt_gt() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(3)),
-            Instr::Push(json!(5)),
-            Instr::Prim("lt".into(), 2),
-            Instr::Return,
-        ];
-        assert_eq!(exec_raw(&lang, &ast, &instrs, None).unwrap(), json!(true));
-
-        let instrs = vec![
-            Instr::Push(json!(3)),
-            Instr::Push(json!(5)),
-            Instr::Prim("gt".into(), 2),
-            Instr::Return,
-        ];
-        assert_eq!(exec_raw(&lang, &ast, &instrs, None).unwrap(), json!(false));
-    }
+    // 11. Unknown op
 
     #[test]
-    fn vm_prim_not_and_or() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-
-        // not true → false
-        let instrs = vec![
-            Instr::Push(json!(true)),
-            Instr::Prim("not".into(), 1),
-            Instr::Return,
-        ];
-        assert_eq!(exec_raw(&lang, &ast, &instrs, None).unwrap(), json!(false));
-
-        // true and false → false
-        let instrs = vec![
-            Instr::Push(json!(true)),
-            Instr::Push(json!(false)),
-            Instr::Prim("and".into(), 2),
-            Instr::Return,
-        ];
-        assert_eq!(exec_raw(&lang, &ast, &instrs, None).unwrap(), json!(false));
-
-        // true or false → true
-        let instrs = vec![
-            Instr::Push(json!(true)),
-            Instr::Push(json!(false)),
-            Instr::Prim("or".into(), 2),
-            Instr::Return,
-        ];
-        assert_eq!(exec_raw(&lang, &ast, &instrs, None).unwrap(), json!(true));
+    fn unknown_native_op_errors() {
+        let s = Scheme::arr_native("bogus", vec![]);
+        let err = eval_standalone(&s).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unknown v2 native op")));
     }
 
-    #[test]
-    fn vm_prim_unknown_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Prim("unknown_op".into(), 0), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("unknown prim"));
-    }
+    // 12. Foreign dispatch
 
-    #[test]
-    fn vm_prim_add_non_number_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!("not a number")),
-            Instr::Push(json!(1)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
+    /// A host function that doubles its numeric argument.
+    struct DoubleFn;
 
-    #[test]
-    fn vm_prim_closure() {
-        let lang = Language::new();
-        let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 0})),
-        ]);
-        let instrs = vec![Instr::Prim("closure".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        let obj = result.as_object().unwrap();
-        assert_eq!(obj.get("__closure__"), Some(&json!(true)));
-        assert_eq!(obj.get("params"), Some(&json!(["x"])));
-        assert_eq!(obj.get("body"), Some(&json!(0)));
-        assert!(obj.get("env").is_some());
-    }
-
-    #[test]
-    fn vm_prim_closure_missing_params_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"body": 0})),
-        ]);
-        let instrs = vec![Instr::Prim("closure".into(), 0), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_closure_missing_body_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![
-            AstNode::new("function").with_payload(json!({"params": ["x"]})),
-        ]);
-        let instrs = vec![Instr::Prim("closure".into(), 0), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    // --- Foreign tests ---
-
-    /// A host function that doubles its integer argument.
-    struct DoubleHostFn;
-
-    impl Function for DoubleHostFn {
+    impl Function for DoubleFn {
         fn call(
             &self,
             args: &[Value],
             _ctx: &mut EvalContext,
         ) -> Result<Value, handl_platform::EvalError> {
-            let n = args[0].as_i64().unwrap();
-            Ok(Value::from(n * 2))
+            Ok(Value::from(args[0].as_i64().unwrap() * 2))
         }
     }
 
-    /// A module with "double" registered.
-    struct ConformanceModule;
+    struct DoubleModule;
 
-    impl Module for ConformanceModule {
+    impl Module for DoubleModule {
         fn name(&self) -> &str {
-            "conformance"
+            "test"
         }
         fn function(&self, name: &str) -> Option<&dyn Function> {
             if name == "double" {
-                Some(&DoubleHostFn)
+                Some(&DoubleFn)
             } else {
                 None
             }
         }
     }
 
-    /// Build a module registry with the `double` function registered.
-    fn conformance_registry() -> Rc<dyn ModuleLookup> {
-        Rc::new(ModuleRegistry::new().with(ConformanceModule))
+    fn double_registry() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(DoubleModule))
     }
 
     #[test]
-    fn vm_foreign_dispatches_to_host() {
+    fn foreign_arr_dispatches_to_module() {
+        let s = Scheme::arr_foreign(
+            "double",
+            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+        );
+        let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(21)),
-            Instr::Foreign("double".into(), 1),
-            Instr::Return,
-        ];
-        let reg = conformance_registry();
-        let result = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap();
+        let node = ast.at(AstRef::new(0)).unwrap();
+        let instrs = compile(&s, node).unwrap();
+        let reg = double_registry();
+        let mut frame = VmFrame::new(&ast, &lang, Some(&reg));
+        let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(42));
     }
 
     #[test]
-    fn vm_foreign_no_host_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(21)),
-            Instr::Foreign("double".into(), 1),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("unregistered foreign"));
+    fn foreign_arr_no_modules_errors() {
+        let s = Scheme::arr_foreign(
+            "double",
+            vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+        );
+        let err = eval_standalone(&s).unwrap_err();
+        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unregistered foreign")));
     }
 
-    #[test]
-    fn vm_foreign_host_present_but_fn_not_found_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(21)),
-            Instr::Foreign("triple".into(), 1),
-            Instr::Return,
-        ];
-        let reg = conformance_registry();
-        let err = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("unregistered foreign"));
-    }
-
-    // --- EvalChild tests (via exec_node) ---
+    // 13. exec_node (v2 scheme from lang.eval)
 
     #[test]
-    fn vm_eval_child() {
+    fn exec_node_add() {
         let mut lang = Language::new();
         lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
+            .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1660,952 +1422,86 @@ mod tests {
             AstNode::new("lit").with_payload(json!(3)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        // Test via exec_node which handles EvalChild properly (compiles
-        // child nodes on demand via the cache).
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let result = frame.exec_node(root_ref).unwrap();
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(2)).unwrap();
         assert_eq!(result, json!(5));
     }
 
     #[test]
-    fn vm_eval_child_missing_children_errors() {
+    fn exec_node_branch_true() {
         let mut lang = Language::new();
         lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        let ast = make_ast(vec![AstNode::new("binary.add").with_payload(json!({}))]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let err = frame.exec_node(root_ref).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_eval_child_index_out_of_range_errors() {
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(2u64)),
+                    ),
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(true)),
             AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("binary.add").with_payload(json!({"children": [0]})),
-        ]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let err = frame.exec_node(root_ref).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_no_scheme_returns_payload() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("custom").with_payload(json!("hello"))]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let result = frame.exec_node(root_ref).unwrap();
-        assert_eq!(result, json!("hello"));
-    }
-
-    #[test]
-    fn vm_compilation_cache_reuses() {
-        // Execute a node twice; the cache should contain the compiled instrs.
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!(2)),
-            AstNode::new("lit").with_payload(json!(3)),
-            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+            AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
         ]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let r1 = frame.exec_node(root_ref).unwrap();
-        assert_eq!(r1, json!(5));
-        // Cache should now have entries for all 3 nodes.
-        assert_eq!(frame.cache.len(), 3);
-        // Second execution uses cache (same result).
-        let r2 = frame.exec_node(root_ref).unwrap();
-        assert_eq!(r2, json!(5));
-        // Cache size unchanged (no recompilation).
-        assert_eq!(frame.cache.len(), 3);
-    }
-
-    // --- Call / closure tests ---
-
-    #[test]
-    fn vm_call_closure() {
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.fn",
-                "function",
-                Scheme::prim("closure", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.call",
-                "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
-            ))
-            .unwrap();
-        // Ast for: fn(x) { x + 1 } applied to 5 → 6
-        // 0: var("x")
-        // 1: lit(1)
-        // 2: binary.add {children: [0, 1]}
-        // 3: function {params: ["x"], body: 2}
-        // 4: lit(5)
-        // 5: call {children: [3, 4]}  — App{callee: child(0), args: [child(1)]}
-        let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
-            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 2})),
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("call").with_payload(json!({"children": [3, 4]})),
-        ]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let result = frame.exec_node(root_ref).unwrap();
-        assert_eq!(result, json!(6));
-    }
-
-    #[test]
-    fn vm_call_non_closure_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(42)),
-            AstNode::new("test"),
-        ]);
-        let closure = json!(42);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.apply_closure(&closure, &[]).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_object_not_closure_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({"foo": 1});
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.apply_closure(&closure, &[]).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_wrong_arity_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({
-            "__closure__": true,
-            "params": ["x"],
-            "body": 0,
-            "env": {}
-        });
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame
-            .apply_closure(&closure, &[json!(1), json!(2)])
-            .unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_closure_missing_params_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({
-            "__closure__": true,
-            "params": "not_an_array",
-            "body": 0
-        });
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.apply_closure(&closure, &[]).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_closure_missing_body_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({
-            "__closure__": true,
-            "params": []
-        });
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.apply_closure(&closure, &[]).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_closure_param_not_string_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({
-            "__closure__": true,
-            "params": [123],
-            "body": 0
-        });
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.apply_closure(&closure, &[json!(1)]).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_closure_captures_env() {
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.let",
-                "let",
-                Scheme::Bind {
-                    name: "$payload".into(),
-                    value: Box::new(Scheme::Child(AstRef::new(0))),
-                    body: Box::new(Scheme::Child(AstRef::new(1))),
-                },
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.fn",
-                "function",
-                Scheme::prim("closure", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.call",
-                "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
-            ))
-            .unwrap();
-        // let x = 10 in let f = fn(y) { x + y } in f(5) → 15
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(10)),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("var").with_payload(json!("y")),
-            AstNode::new("binary.add").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("function").with_payload(json!({"params": ["y"], "body": 3})),
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("call").with_payload(json!({"children": [4, 5]})),
-            AstNode::new("let").with_payload(json!({"name": "f", "children": [4, 6]})),
-            AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 7]})),
-        ]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let root_ref = AstRef::new(ast.len() - 1);
-        let result = frame.exec_node(root_ref).unwrap();
-        assert_eq!(result, json!(15));
-    }
-
-    // --- Version check test ---
-
-    #[test]
-    fn version_mismatch_errors() {
-        let mut lang = Language::new();
-        lang.scheme_version = SchemeVersion::new("v2");
-        // The engine should reject v2.
-        assert!(!SchemeVersion::v1().supports(&lang.scheme_version));
-    }
-
-    // --- Stack underflow tests ---
-
-    #[test]
-    fn vm_return_empty_stack_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_no_return_returns_top_of_stack() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Push(json!(99))];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(99));
-    }
-
-    #[test]
-    fn vm_no_return_empty_stack_errors() {
-        // No Return and empty stack — should error.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs: Vec<Instr> = vec![];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_float_arithmetic() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1.5)),
-            Instr::Push(json!(2.5)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(4.0));
-    }
-
-    #[test]
-    fn vm_float_sub() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(5.5)),
-            Instr::Push(json!(1.5)),
-            Instr::Prim("sub".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(4.0));
-    }
-
-    #[test]
-    fn vm_float_mul() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(2.5)),
-            Instr::Push(json!(3.0)),
-            Instr::Prim("mul".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(7.5));
-    }
-
-    #[test]
-    fn vm_div_floats() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(7.5)),
-            Instr::Push(json!(2.5)),
-            Instr::Prim("div".into(), 2),
-            Instr::Return,
-        ];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(3.0));
-    }
-
-    #[test]
-    fn vm_div_int_by_zero_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1)),
-            Instr::Push(json!(0)),
-            Instr::Prim("div".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    // --- AstIndexOutOfBounds test ---
-
-    #[test]
-    fn vm_ast_index_out_of_bounds_errors() {
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let mut frame = VmFrame {
-            ast: &ast,
-            lang: &lang,
-            modules: None,
-            cache: HashMap::new(),
-            scopes: ScopeStack::new(),
-        };
-        let err = frame.exec_node(AstRef::new(99)).unwrap_err();
-        assert_eq!(err, LangError::AstIndexOutOfBounds { index: 99 });
-    }
-
-    // --- Coverage: stack underflow and edge cases ---
-
-    #[test]
-    fn vm_load_payload_var_unknown_variable_errors() {
-        // LoadPayloadVar with a valid string payload but the variable
-        // is not in scope.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("var").with_payload(json!("unknown"))]);
-        let instrs = vec![Instr::LoadPayloadVar, Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert_eq!(
-            err,
-            LangError::UnknownVariable {
-                name: "unknown".into()
-            }
-        );
-    }
-
-    #[test]
-    fn vm_store_payload_name_stack_underflow_errors() {
-        // StorePayloadName with an empty operand stack.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("let").with_payload(json!({"name": "x"}))]);
-        let instrs = vec![Instr::StorePayloadName, Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_jump_if_false_stack_underflow_errors() {
-        // JumpIfFalse with an empty operand stack.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::JumpIfFalse(1), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_foreign_stack_underflow_errors() {
-        // Foreign with an empty operand stack (expects 1 arg but none pushed).
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let reg = conformance_registry();
-        let instrs = vec![Instr::Foreign("double".into(), 1), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_exec_raw_empty_ast_returns_null() {
-        // The exec_raw helper's empty-ast early return.
-        let lang = Language::new();
-        let ast = Ast::new();
-        let instrs = vec![Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, Value::Null);
-    }
-
-    #[test]
-    fn vm_store_stack_underflow_errors() {
-        // Store with an empty operand stack.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Store("x".into()), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_stack_underflow_callee_errors() {
-        // Call with an empty operand stack (no callee).
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Call(0), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_stack_underflow_args_errors() {
-        // Call(2) with only 1 value on the stack (callee + 1 arg, but
-        // expects 2 args).
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Push(json!(1)), Instr::Call(2), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_stack_underflow_errors() {
-        // Prim("add", 2) with an empty operand stack.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![Instr::Prim("add".into(), 2), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_prim_partial_stack_underflow_errors() {
-        // Prim("add", 2) with only 1 value on the stack.
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let instrs = vec![
-            Instr::Push(json!(1)),
-            Instr::Prim("add".into(), 2),
-            Instr::Return,
-        ];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
-
-    #[test]
-    fn vm_call_closure_body_exec_error_restores_scope() {
-        // When a closure body execution errors, the scope stack should
-        // still be restored (the saved scopes are put back).
-        let lang = Language::new();
-        let ast = make_ast(vec![AstNode::new("test")]);
-        let closure = json!({
-            "__closure__": true,
-            "params": [],
-            "body": 99,  // invalid body index
-            "env": {}
-        });
         let mut frame = VmFrame::new(&ast, &lang, None);
-        let err = frame.apply_closure(&closure, &[]).unwrap_err();
-        assert!(matches!(err, LangError::AstIndexOutOfBounds { .. }));
-    }
-
-    #[test]
-    fn vm_call_closure_with_env_no_object() {
-        // Closure with no "env" field (defaults to empty).
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.call",
-                "call",
-                Scheme::App {
-                    callee: Box::new(Scheme::child(0)),
-                    args: vec![Scheme::child(1)],
-                },
-            ))
-            .unwrap();
-        // fn(x) { x + 1 } called with 5, but closure has no env field
-        let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("call").with_payload(json!({"children": [3, 3]})),
-        ]);
-        // Manually create a closure and call it
-        let closure = json!({
-            "__closure__": true,
-            "params": ["x"],
-            "body": 2,
-        });
-        let mut frame = VmFrame::new(&ast, &lang, None);
-        let result = frame.apply_closure(&closure, &[json!(5)]).unwrap();
-        assert_eq!(result, json!(6));
-    }
-
-    // --- match / handle primitive tests ---
-
-    /// A language with `var`, `match`, `handle`, `array`, `object`, and
-    /// `binary.add` schemes.
-    fn match_lang() -> Language {
-        let mut lang = Language::new();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.var",
-                "var",
-                Scheme::var("$payload"),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.match",
-                "match",
-                Scheme::prim("match", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.handle",
-                "handle",
-                Scheme::prim("handle", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.array",
-                "array",
-                Scheme::prim("array", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.object",
-                "object",
-                Scheme::prim("object", vec![]),
-            ))
-            .unwrap();
-        lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "e.add",
-                "binary.add",
-                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
-            ))
-            .unwrap();
-        lang
-    }
-
-    #[test]
-    fn vm_match_wildcard() {
-        // match 5 { _: 1 } → 1
-        // 0: lit(5), 1: var("_"), 2: lit(1), 3: arm{[1,2]}, 4: block{[3]}, 5: match{[0,4]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("var").with_payload(json!("_")),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("block").with_payload(json!({"children": [3]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
+        let result = frame.exec_node(AstRef::new(3)).unwrap();
         assert_eq!(result, json!(1));
     }
 
     #[test]
-    fn vm_match_binder() {
-        // match 5 { x: x } → 5
-        // 0: lit(5), 1: var("x") (pattern), 2: var("x") (body), 3: arm{[1,2]}, 4: block{[3]}, 5: match{[0,4]}
-        let lang = match_lang();
+    fn exec_node_branch_false() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(2u64)),
+                    ),
+                ),
+            ))
+            .unwrap();
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("block").with_payload(json!({"children": [3]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(5));
-    }
-
-    #[test]
-    fn vm_match_literal() {
-        // match 3 { 1: "a", 3: "b" } → "b"
-        // 0: lit(3), 1: lit(1), 2: lit("a"), 3: arm{[1,2]},
-        // 4: lit(3), 5: lit("b"), 6: arm{[4,5]},
-        // 7: block{[3,6]}, 8: match{[0,7]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("lit").with_payload(json!(false)),
             AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!("a")),
-            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("lit").with_payload(json!(3)),
-            AstNode::new("lit").with_payload(json!("b")),
-            AstNode::new("arm").with_payload(json!({"children": [4, 5]})),
-            AstNode::new("block").with_payload(json!({"children": [3, 6]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 7]})),
+            AstNode::new("lit").with_payload(json!(2)),
+            AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
         ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!("b"));
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(3)).unwrap();
+        assert_eq!(result, json!(2));
     }
 
-    #[test]
-    fn vm_match_no_arm_errors() {
-        // match 9 { 1: "a" } → error
-        // 0: lit(9), 1: lit(1), 2: lit("a"), 3: arm{[1,2]}, 4: block{[3]}, 5: match{[0,4]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(9)),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!("a")),
-            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("block").with_payload(json!({"children": [3]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, None).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-    }
+    // 14. No-scheme fallback
 
     #[test]
-    fn vm_match_array_destructuring() {
-        // match [1,2] { [a, b]: a + b } → 3
-        // 0: array{elements:[1,2]}, 1: var("a"), 2: var("b"),
-        // 3: array{children:[1,2]} (pattern), 4: var("a"), 5: var("b"),
-        // 6: binary.add{children:[4,5]}, 7: arm{[3,6]}, 8: block{[7]}, 9: match{[0,8]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("array").with_payload(json!({"elements": [1, 2]})),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("var").with_payload(json!("b")),
-            AstNode::new("array").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("var").with_payload(json!("b")),
-            AstNode::new("binary.add").with_payload(json!({"children": [4, 5]})),
-            AstNode::new("arm").with_payload(json!({"children": [3, 6]})),
-            AstNode::new("block").with_payload(json!({"children": [7]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 8]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(3));
+    fn no_scheme_returns_payload() {
+        let lang = Language::new();
+        let ast = make_ast(vec![AstNode::new("custom").with_payload(json!("hello"))]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(0)).unwrap();
+        assert_eq!(result, json!("hello"));
     }
 
-    #[test]
-    fn vm_match_array_rest() {
-        // match [1,2,3,4] { [a, ...rest]: rest } → [2,3,4]
-        // (one positional pattern `a` binds to 1; rest captures indices 1..)
-        // 0: array{elements:[1,2,3,4]}, 1: var("a"), 2: var("rest"),
-        // 3: rest{children:[2]}, 4: array{children:[1,3]} (pattern),
-        // 5: var("rest") (body), 6: arm{[4,5]}, 7: block{[6]}, 8: match{[0,7]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("array").with_payload(json!({"elements": [1, 2, 3, 4]})),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("var").with_payload(json!("rest")),
-            AstNode::new("rest").with_payload(json!({"children": [2]})),
-            AstNode::new("array").with_payload(json!({"children": [1, 3]})),
-            AstNode::new("var").with_payload(json!("rest")),
-            AstNode::new("arm").with_payload(json!({"children": [4, 5]})),
-            AstNode::new("block").with_payload(json!({"children": [6]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 7]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!([2, 3, 4]));
-    }
+    // 15. Version check
 
     #[test]
-    fn vm_match_object_destructuring() {
-        // match {x: 1, y: 2} { {x: a, y: b}: a + b } → 3
-        // 0: object{entries:[{key:"x",value:1},{key:"y",value:2}]},
-        // 1: var("x"), 2: var("a"), 3: entry{children:[1,2]},
-        // 4: var("y"), 5: var("b"), 6: entry{children:[4,5]},
-        // 7: object{children:[3,6]} (pattern),
-        // 8: var("a"), 9: var("b"), 10: binary.add{children:[8,9]},
-        // 11: arm{[7,10]}, 12: block{[11]}, 13: match{[0,12]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("object").with_payload(json!({"entries": [
-                {"key": "x", "value": 1},
-                {"key": "y", "value": 2},
-            ]})),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("entry").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("var").with_payload(json!("y")),
-            AstNode::new("var").with_payload(json!("b")),
-            AstNode::new("entry").with_payload(json!({"children": [4, 5]})),
-            AstNode::new("object").with_payload(json!({"children": [3, 6]})),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("var").with_payload(json!("b")),
-            AstNode::new("binary.add").with_payload(json!({"children": [8, 9]})),
-            AstNode::new("arm").with_payload(json!({"children": [7, 10]})),
-            AstNode::new("block").with_payload(json!({"children": [11]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 12]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(3));
-    }
-
-    #[test]
-    fn vm_match_object_rest() {
-        // match {x: 1, y: 2, z: 3} { {x: a, ...rest}: rest } → {y: 2, z: 3}
-        // 0: object{entries:[{key:"x",value:1},{key:"y",value:2},{key:"z",value:3}]},
-        // 1: var("x"), 2: var("a"), 3: entry{children:[1,2]},
-        // 4: var("rest"), 5: rest{children:[4]},
-        // 6: object{children:[3,5]} (pattern),
-        // 7: var("rest") (body), 8: arm{[6,7]}, 9: block{[8]}, 10: match{[0,9]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("object").with_payload(json!({"entries": [
-                {"key": "x", "value": 1},
-                {"key": "y", "value": 2},
-                {"key": "z", "value": 3},
-            ]})),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("var").with_payload(json!("a")),
-            AstNode::new("entry").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("var").with_payload(json!("rest")),
-            AstNode::new("rest").with_payload(json!({"children": [4]})),
-            AstNode::new("object").with_payload(json!({"children": [3, 5]})),
-            AstNode::new("var").with_payload(json!("rest")),
-            AstNode::new("arm").with_payload(json!({"children": [6, 7]})),
-            AstNode::new("block").with_payload(json!({"children": [8]})),
-            AstNode::new("match").with_payload(json!({"children": [0, 9]})),
-        ]);
-        let instrs = vec![Instr::Prim("match".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!({"y": 2, "z": 3}));
-    }
-
-    #[test]
-    fn vm_handle_dispatches() {
-        // handle 5 { x: x + 1 } → 6
-        // 0: lit(5), 1: var("x"), 2: lit(1),
-        // 3: binary.add{children:[1,2]}, 4: arm{[1,3]},
-        // 5: block{[4]}, 6: handle{[0,5]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("var").with_payload(json!("x")),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("binary.add").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("arm").with_payload(json!({"children": [1, 3]})),
-            AstNode::new("block").with_payload(json!({"children": [4]})),
-            AstNode::new("handle").with_payload(json!({"children": [0, 5]})),
-        ]);
-        let instrs = vec![Instr::Prim("handle".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(6));
-    }
-
-    #[test]
-    fn vm_handle_no_clause_returns_body() {
-        // handle 5 { 1: "a" } → 5 (body returned as-is, no clause matches)
-        // 0: lit(5), 1: lit(1), 2: lit("a"), 3: arm{[1,2]},
-        // 4: block{[3]}, 5: handle{[0,4]}
-        let lang = match_lang();
-        let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),
-            AstNode::new("lit").with_payload(json!(1)),
-            AstNode::new("lit").with_payload(json!("a")),
-            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
-            AstNode::new("block").with_payload(json!({"children": [3]})),
-            AstNode::new("handle").with_payload(json!({"children": [0, 4]})),
-        ]);
-        let instrs = vec![Instr::Prim("handle".into(), 0), Instr::Return];
-        let result = exec_raw(&lang, &ast, &instrs, None).unwrap();
-        assert_eq!(result, json!(5));
+    fn v2_engine_accepts_v2_lang() {
+        assert!(SchemeVersion::v2().supports(&SchemeVersion::v2()));
     }
 }
