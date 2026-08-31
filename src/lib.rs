@@ -132,3 +132,6 @@ impl Function for EvalFn {
 
 pub mod plugin;
 pub use plugin::LibraryPlugin;
+
+#[cfg(test)]
+mod tests;
