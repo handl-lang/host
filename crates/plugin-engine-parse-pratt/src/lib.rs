@@ -320,8 +320,26 @@ impl PrattEngine {
                                 }
                             }
                         } else {
-                            let el = self.expression_inner(lang, cursor, 0)?;
-                            children.push(el.index());
+                            // Check for rest/spread `...rest` (explicit
+                            // handling, mirroring the object-literal path).
+                            // The `token.ellipsis` prefix grammar rule
+                            // produces a `rest` node; this special-case makes
+                            // the intent explicit rather than relying on the
+                            // generic element fallthrough.
+                            if let Some(t) = cursor.peek() {
+                                if t.kind == "token.ellipsis" {
+                                    let rest = self.expression_inner(lang, cursor, 0)?;
+                                    children.push(rest.index());
+                                } else {
+                                    let el = self.expression_inner(lang, cursor, 0)?;
+                                    children.push(el.index());
+                                }
+                            } else {
+                                return Err(LangError::Engine(format!(
+                                    "unexpected end of input in {} literal",
+                                    kind
+                                )));
+                            }
                         }
                         // After an element: comma (consume, maybe trailing) or close.
                         match cursor.peek() {
@@ -1520,6 +1538,63 @@ mod tests {
             ast.nodes()[children[1].as_u64().unwrap() as usize].kind,
             "binary.add"
         );
+    }
+
+    #[test]
+    fn array_literal_parses_rest_explicit() {
+        // [1, ...rest] → array{children:[value(1), rest{[var(rest)]}]}
+        let engine = PrattEngine::new();
+        let mut lang = literal_lang();
+        // Register the ellipsis token kind and its prefix grammar row,
+        // mirroring the canonical `grammar.ellipsis.prefix` row that
+        // produces a `rest` node with arity 1.
+        lang.tokens.merge(TokenKindDef::new("token.ellipsis")).unwrap();
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.ellipsis.prefix",
+                    "token.ellipsis",
+                    GrammarPosition::Prefix,
+                    AstShapeRef::new("rest", 1),
+                )
+                .with_binding_power(0, 0),
+            )
+            .unwrap();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("token.lbracket", "["),
+            tok("token.number", "1"),
+            tok("token.comma", ","),
+            tok("token.ellipsis", "..."),
+            tok("token.identifier", "rest"),
+            tok("token.rbracket", "]"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        // The array node is the last node pushed.
+        let array_idx = ast.len() - 1;
+        let array_node = &ast.nodes()[array_idx];
+        assert_eq!(array_node.kind, "array");
+        let children = array_node
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(children.len(), 2);
+        // First child: value(1)
+        let val_node = &ast.nodes()[children[0].as_u64().unwrap() as usize];
+        assert_eq!(val_node.payload, json!(1));
+        // Second child: rest node
+        let rest_node = &ast.nodes()[children[1].as_u64().unwrap() as usize];
+        assert_eq!(rest_node.kind, "rest");
+        let rest_children = rest_node
+            .payload
+            .get("children")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let var_node = &ast.nodes()[rest_children[0].as_u64().unwrap() as usize];
+        assert_eq!(var_node.kind, "var");
+        assert_eq!(var_node.payload, json!("rest"));
     }
 
     #[test]

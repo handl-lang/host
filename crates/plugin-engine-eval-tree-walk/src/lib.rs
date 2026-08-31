@@ -3099,4 +3099,242 @@ mod tests {
         assert_eq!(result["__closure__"], json!(true));
         assert_eq!(result["params"], json!(["x", "y"]));
     }
+
+    // -----------------------------------------------------------------
+    // match / handle / destructuring conformance tests
+    //
+    // These are the reference conformance tests for the `match` and
+    // `handle` prims (including array/object/`...rest` destructuring
+    // patterns). The bytecode and cranelift engines replicate this
+    // behavior exactly; the same AST shapes are tested in all three.
+    // -----------------------------------------------------------------
+
+    /// Build a minimal language for match/handle eval tests:
+    /// `value` (no scheme → payload fallback), `var`, `binary.add`,
+    /// `match`, `handle`.
+    fn match_lang() -> Language {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.match",
+                "match",
+                Scheme::prim("match", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.handle",
+                "handle",
+                Scheme::prim("handle", vec![]),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn match_wildcard_pattern() {
+        // match 5 { _: 1 } → 1
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),        // 0: scrutinee
+            AstNode::new("var").with_payload(json!("_")),        // 1: wildcard pattern
+            AstNode::new("value").with_payload(json!(1)),        // 2: body
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})), // 3
+            AstNode::new("block").with_payload(json!({"children": [3]})),  // 4
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})), // 5: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn match_binder_pattern() {
+        // match 5 { x: x } → 5 (binder binds x to scrutinee)
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),        // 0: scrutinee
+            AstNode::new("var").with_payload(json!("x")),        // 1: binder pattern
+            AstNode::new("var").with_payload(json!("x")),        // 2: body (returns x)
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})), // 3
+            AstNode::new("block").with_payload(json!({"children": [3]})),  // 4
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})), // 5: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    #[test]
+    fn match_literal_pattern() {
+        // match 3 { 1: "a", 3: "b" } → "b" (second arm matches by equality)
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(3)),        // 0: scrutinee
+            AstNode::new("value").with_payload(json!(1)),        // 1: pattern (literal 1)
+            AstNode::new("value").with_payload(json!("a")),      // 2: body
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})), // 3
+            AstNode::new("value").with_payload(json!(3)),        // 4: pattern (literal 3)
+            AstNode::new("value").with_payload(json!("b")),      // 5: body
+            AstNode::new("arm").with_payload(json!({"children": [4, 5]})), // 6
+            AstNode::new("block").with_payload(json!({"children": [3, 6]})), // 7
+            AstNode::new("match").with_payload(json!({"children": [0, 7]})), // 8: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!("b"));
+    }
+
+    #[test]
+    fn match_no_arm_errors() {
+        // match 9 { 1: "a" } → error (no arm matches)
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(9)),        // 0: scrutinee
+            AstNode::new("value").with_payload(json!(1)),        // 1: pattern (literal 1)
+            AstNode::new("value").with_payload(json!("a")),      // 2: body
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})), // 3
+            AstNode::new("block").with_payload(json!({"children": [3]})),  // 4
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})), // 5: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine(_)));
+    }
+
+    #[test]
+    fn match_array_destructuring() {
+        // match [1, 2] { [a, b]: a + b } → 3
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!([1, 2])),   // 0: scrutinee
+            AstNode::new("var").with_payload(json!("a")),        // 1: pattern elem a
+            AstNode::new("var").with_payload(json!("b")),        // 2: pattern elem b
+            AstNode::new("array").with_payload(json!({"children": [1, 2]})), // 3: pattern
+            AstNode::new("var").with_payload(json!("a")),        // 4: body a
+            AstNode::new("var").with_payload(json!("b")),        // 5: body b
+            AstNode::new("binary.add").with_payload(json!({"children": [4, 5]})), // 6: a+b
+            AstNode::new("arm").with_payload(json!({"children": [3, 6]})), // 7
+            AstNode::new("block").with_payload(json!({"children": [7]})),  // 8
+            AstNode::new("match").with_payload(json!({"children": [0, 8]})), // 9: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
+    }
+
+    #[test]
+    fn match_array_rest() {
+        // match [1, 2, 3, 4] { [a, ...rest]: rest } → [2, 3, 4]
+        // (one positional pattern `a` binds 1; rest captures [2,3,4])
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!([1, 2, 3, 4])), // 0: scrutinee
+            AstNode::new("var").with_payload(json!("a")),        // 1: pattern elem a
+            AstNode::new("var").with_payload(json!("rest")),     // 2: rest binder
+            AstNode::new("rest").with_payload(json!({"children": [2]})), // 3: ...rest
+            AstNode::new("array").with_payload(json!({"children": [1, 3]})), // 4: pattern [a, ...rest]
+            AstNode::new("var").with_payload(json!("rest")),     // 5: body (returns rest)
+            AstNode::new("arm").with_payload(json!({"children": [4, 5]})), // 6
+            AstNode::new("block").with_payload(json!({"children": [6]})),  // 7
+            AstNode::new("match").with_payload(json!({"children": [0, 7]})), // 8: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!([2, 3, 4]));
+    }
+
+    #[test]
+    fn match_object_destructuring() {
+        // match {x: 1, y: 2} { {x: a, y: b}: a + b } → 3
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!({"x": 1, "y": 2})), // 0: scrutinee
+            AstNode::new("var").with_payload(json!("x")),       // 1: key x
+            AstNode::new("var").with_payload(json!("a")),       // 2: val pattern a
+            AstNode::new("entry").with_payload(json!({"children": [1, 2]})), // 3: x: a
+            AstNode::new("var").with_payload(json!("y")),       // 4: key y
+            AstNode::new("var").with_payload(json!("b")),       // 5: val pattern b
+            AstNode::new("entry").with_payload(json!({"children": [4, 5]})), // 6: y: b
+            AstNode::new("object").with_payload(json!({"children": [3, 6]})), // 7: pattern
+            AstNode::new("var").with_payload(json!("a")),       // 8: body a
+            AstNode::new("var").with_payload(json!("b")),       // 9: body b
+            AstNode::new("binary.add").with_payload(json!({"children": [8, 9]})), // 10: a+b
+            AstNode::new("arm").with_payload(json!({"children": [7, 10]})), // 11
+            AstNode::new("block").with_payload(json!({"children": [11]})), // 12
+            AstNode::new("match").with_payload(json!({"children": [0, 12]})), // 13: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
+    }
+
+    #[test]
+    fn match_object_rest() {
+        // match {x: 1, y: 2, z: 3} { {x: a, ...rest}: rest } → {y: 2, z: 3}
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!({"x": 1, "y": 2, "z": 3})), // 0
+            AstNode::new("var").with_payload(json!("x")),       // 1: key x
+            AstNode::new("var").with_payload(json!("a")),       // 2: val pattern a
+            AstNode::new("entry").with_payload(json!({"children": [1, 2]})), // 3: x: a
+            AstNode::new("var").with_payload(json!("rest")),    // 4: rest binder
+            AstNode::new("rest").with_payload(json!({"children": [4]})), // 5: ...rest
+            AstNode::new("object").with_payload(json!({"children": [3, 5]})), // 6: pattern
+            AstNode::new("var").with_payload(json!("rest")),    // 7: body (returns rest)
+            AstNode::new("arm").with_payload(json!({"children": [6, 7]})), // 8
+            AstNode::new("block").with_payload(json!({"children": [8]})),  // 9
+            AstNode::new("match").with_payload(json!({"children": [0, 9]})), // 10: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!({"y": 2, "z": 3}));
+    }
+
+    #[test]
+    fn handle_dispatches_to_matching_clause() {
+        // handle 5 { x: x + 1 } → 6
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),        // 0: body
+            AstNode::new("var").with_payload(json!("x")),        // 1: pattern (binder x)
+            AstNode::new("var").with_payload(json!("x")),        // 2: handler x
+            AstNode::new("value").with_payload(json!(1)),        // 3: handler 1
+            AstNode::new("binary.add").with_payload(json!({"children": [2, 3]})), // 4: x+1
+            AstNode::new("arm").with_payload(json!({"children": [1, 4]})), // 5: clause
+            AstNode::new("block").with_payload(json!({"children": [5]})),  // 6
+            AstNode::new("handle").with_payload(json!({"children": [0, 6]})), // 7: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    #[test]
+    fn handle_no_clause_returns_body() {
+        // handle 5 { 1: "a" } → 5 (no clause matches, body returned as-is)
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),        // 0: body
+            AstNode::new("value").with_payload(json!(1)),        // 1: pattern (literal 1)
+            AstNode::new("value").with_payload(json!("a")),      // 2: handler
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})), // 3: clause
+            AstNode::new("block").with_payload(json!({"children": [3]})),  // 4
+            AstNode::new("handle").with_payload(json!({"children": [0, 4]})), // 5: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
 }

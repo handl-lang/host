@@ -1165,6 +1165,470 @@ pub unsafe extern "C" fn helper_call_foreign(
     }
 }
 
+/// Evaluate a child node by arena index from within a Rust helper (e.g.
+/// `apply_prim`).
+///
+/// Looks up the pre-compiled native function for the node, saves/restores
+/// `current_ref`, calls the function, and reclaims the boxed result. Returns
+/// the evaluated [`Value`] or sets `ctx.error` and returns `Err`.
+fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangError> {
+    let func = match ctx.compiled.get(&arena_idx).copied() {
+        Some(f) => f,
+        None => {
+            return Err(LangError::Engine(format!(
+                "no compiled function for node {}",
+                arena_idx
+            )))
+        }
+    };
+    let saved_ref = ctx.current_ref;
+    ctx.current_ref = arena_idx;
+    let result_ptr = unsafe { func(ctx as *mut EvalCtx as *mut u8) as *mut Value };
+    ctx.current_ref = saved_ref;
+    if result_ptr.is_null() {
+        return Err(ctx
+            .error
+            .take()
+            .unwrap_or_else(|| LangError::Engine("eval_child_node: null result".to_string())));
+    }
+    Ok(unsafe { take_value(result_ptr) })
+}
+
+/// `match` prim: pattern-match a scrutinee against a list of arms.
+///
+/// The node payload is `{"children": [scrut_idx, block_idx]}`; the block node
+/// holds the arm indices. Each arm is `{"children": [pattern_idx, body_idx]}`.
+/// The first matching arm's body is evaluated in a scope holding the pattern
+/// bindings. If no arm matches, an error is returned.
+fn prim_match(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "match: missing children in payload".to_string(),
+            ))
+        }
+    };
+    let scrut_idx = match children.get(0).and_then(|v| v.as_u64()) {
+        Some(i) => i as usize,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "match: missing scrutinee child".to_string(),
+            ))
+        }
+    };
+    let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
+        Some(i) => i as usize,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "match: missing block child".to_string(),
+            ))
+        }
+    };
+    let scrut_val = match eval_child_node(ctx, scrut_idx) {
+        Ok(v) => v,
+        Err(e) => return ctx.set_error(e),
+    };
+    let ast = unsafe { &*ctx.ast };
+    let block_node = match ast.at(AstRef::new(block_idx)) {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    let arm_indices = match block_node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "match: block node missing children".to_string(),
+            ))
+        }
+    };
+    for arm_entry in arm_indices {
+        let arm_idx = match arm_entry.as_u64() {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "match: arm index must be a number".to_string(),
+                ))
+            }
+        };
+        let arm_node = match ast.at(AstRef::new(arm_idx)) {
+            Ok(n) => n,
+            Err(e) => return ctx.set_error(e),
+        };
+        let arm_children = match arm_node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(c) => c,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "match: arm node missing children".to_string(),
+                ))
+            }
+        };
+        let pattern_idx = match arm_children.get(0).and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "match: arm missing pattern child".to_string(),
+                ))
+            }
+        };
+        let body_idx = match arm_children.get(1).and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "match: arm missing body child".to_string(),
+                ))
+            }
+        };
+        ctx.env.push_scope();
+        let matched = match try_pattern(ctx, AstRef::new(pattern_idx), &scrut_val) {
+            Ok(b) => b,
+            Err(e) => {
+                ctx.env.pop_scope();
+                return ctx.set_error(e);
+            }
+        };
+        if matched {
+            let result = eval_child_node(ctx, body_idx);
+            ctx.env.pop_scope();
+            return match result {
+                Ok(v) => unsafe { box_value(v) },
+                Err(e) => ctx.set_error(e),
+            };
+        }
+        ctx.env.pop_scope();
+    }
+    ctx.set_error(LangError::Engine("match: no arm matched".to_string()))
+}
+
+/// `handle` prim: evaluate a body, then dispatch the result to the first
+/// matching handler clause.
+///
+/// Structurally identical to `match` (children = [body_idx, block_idx], block
+/// contains `arm` nodes with [pattern_idx, handler_idx]). The body is
+/// evaluated first; its result is matched against clause patterns. If no
+/// clause matches, the body value is returned as-is (not an error).
+fn prim_handle(ctx: &mut EvalCtx) -> *mut Value {
+    let node = match ctx.current_node() {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "handle: missing children in payload".to_string(),
+            ))
+        }
+    };
+    let body_idx = match children.get(0).and_then(|v| v.as_u64()) {
+        Some(i) => i as usize,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "handle: missing body child".to_string(),
+            ))
+        }
+    };
+    let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
+        Some(i) => i as usize,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "handle: missing block child".to_string(),
+            ))
+        }
+    };
+    let body_val = match eval_child_node(ctx, body_idx) {
+        Ok(v) => v,
+        Err(e) => return ctx.set_error(e),
+    };
+    let ast = unsafe { &*ctx.ast };
+    let block_node = match ast.at(AstRef::new(block_idx)) {
+        Ok(n) => n,
+        Err(e) => return ctx.set_error(e),
+    };
+    let clause_indices = match block_node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "handle: block node missing children".to_string(),
+            ))
+        }
+    };
+    for clause_entry in clause_indices {
+        let clause_idx = match clause_entry.as_u64() {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "handle: clause index must be a number".to_string(),
+                ))
+            }
+        };
+        let clause_node = match ast.at(AstRef::new(clause_idx)) {
+            Ok(n) => n,
+            Err(e) => return ctx.set_error(e),
+        };
+        let clause_children = match clause_node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(c) => c,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "handle: clause node missing children".to_string(),
+                ))
+            }
+        };
+        let pattern_idx = match clause_children.get(0).and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "handle: clause missing pattern child".to_string(),
+                ))
+            }
+        };
+        let handler_idx = match clause_children.get(1).and_then(|v| v.as_u64()) {
+            Some(i) => i as usize,
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "handle: clause missing handler child".to_string(),
+                ))
+            }
+        };
+        ctx.env.push_scope();
+        let matched = match try_pattern(ctx, AstRef::new(pattern_idx), &body_val) {
+            Ok(b) => b,
+            Err(e) => {
+                ctx.env.pop_scope();
+                return ctx.set_error(e);
+            }
+        };
+        if matched {
+            let result = eval_child_node(ctx, handler_idx);
+            ctx.env.pop_scope();
+            return match result {
+                Ok(v) => unsafe { box_value(v) },
+                Err(e) => ctx.set_error(e),
+            };
+        }
+        ctx.env.pop_scope();
+    }
+    // No clause matched — return the body value as-is.
+    unsafe { box_value(body_val) }
+}
+
+/// Interpret a pattern AST node structurally against a scrutinee value.
+///
+/// - `var` node named `_` or `_*` → wildcard (always matches, binds nothing).
+/// - `var` node with another name → binder (binds name → scrut, always
+///   matches).
+/// - `array` node → array destructuring with optional `...rest`.
+/// - `object` node → object destructuring with optional `...rest`.
+/// - Any other node → literal: evaluate the pattern as a value and compare by
+///   equality.
+///
+/// Returns `true` if the pattern matches. Bindings are inserted into
+/// `ctx.env` (the caller is responsible for push/pop scope).
+fn try_pattern(ctx: &mut EvalCtx, pattern_ref: AstRef, scrut: &Value) -> Result<bool, LangError> {
+    let ast = unsafe { &*ctx.ast };
+    let pattern_node = ast.at(pattern_ref)?;
+    if pattern_node.kind == "var" {
+        if let Some(name) = pattern_node.payload.as_str() {
+            if name == "_" || name.starts_with('_') {
+                return Ok(true);
+            }
+            ctx.env.define(name, scrut.clone());
+            return Ok(true);
+        }
+    }
+    if pattern_node.kind == "array" {
+        return try_array_pattern(ctx, pattern_ref, scrut);
+    }
+    if pattern_node.kind == "object" {
+        return try_object_pattern(ctx, pattern_ref, scrut);
+    }
+    let pat_val = eval_child_node(ctx, pattern_ref.index())?;
+    Ok(pat_val == *scrut)
+}
+
+/// Extract the binder name from a `rest` pattern node (`...name`).
+///
+/// Returns `Some(name)` if the rest node binds a name, or `None` if it's a
+/// wildcard rest (`..._` or `..._*`). Returns `Err` if the rest node is
+/// malformed.
+fn rest_binder_name(ctx: &mut EvalCtx, rest_ref: AstRef) -> Result<Option<String>, LangError> {
+    let ast = unsafe { &*ctx.ast };
+    let rest_node = ast.at(rest_ref)?;
+    let children = rest_node
+        .payload
+        .get("children")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| LangError::Engine("rest pattern: missing children".to_string()))?;
+    let var_idx = children
+        .first()
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| LangError::Engine("rest pattern: missing binder".to_string()))?;
+    let var_node = ast.at(AstRef::new(var_idx as usize))?;
+    if var_node.kind == "var" {
+        if let Some(name) = var_node.payload.as_str() {
+            if name == "_" || name.starts_with('_') {
+                return Ok(None);
+            }
+            return Ok(Some(name.to_string()));
+        }
+    }
+    Err(LangError::Engine(
+        "rest pattern: binder is not a var".to_string(),
+    ))
+}
+
+/// Array destructuring: `[a, b, ...rest]`.
+///
+/// Positional sub-patterns are matched left-to-right. A `...rest` element
+/// captures the remaining scrutinee elements as an array bound to `rest`.
+/// Without a rest, the array length must match exactly.
+fn try_array_pattern(
+    ctx: &mut EvalCtx,
+    pattern_ref: AstRef,
+    scrut: &Value,
+) -> Result<bool, LangError> {
+    let ast = unsafe { &*ctx.ast };
+    let pattern_node = ast.at(pattern_ref)?;
+    let children = pattern_node
+        .payload
+        .get("children")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| LangError::Engine("array pattern: missing children".to_string()))?;
+    let scrut_arr = match scrut.as_array() {
+        Some(a) => a,
+        None => return Ok(false),
+    };
+    let mut rest_idx: Option<usize> = None;
+    let mut positional: Vec<usize> = Vec::new();
+    for child in children {
+        let idx = child
+            .as_u64()
+            .ok_or_else(|| LangError::Engine("array pattern: bad child index".to_string()))?
+            as usize;
+        let child_node = ast.at(AstRef::new(idx))?;
+        if child_node.kind == "rest" {
+            if rest_idx.is_some() {
+                return Err(LangError::Engine(
+                    "array pattern: multiple rest patterns".to_string(),
+                ));
+            }
+            rest_idx = Some(idx);
+        } else {
+            positional.push(idx);
+        }
+    }
+    let n = positional.len();
+    if rest_idx.is_none() && scrut_arr.len() != n {
+        return Ok(false);
+    }
+    if scrut_arr.len() < n {
+        return Ok(false);
+    }
+    for (i, &pat_idx) in positional.iter().enumerate() {
+        if !try_pattern(ctx, AstRef::new(pat_idx), &scrut_arr[i])? {
+            return Ok(false);
+        }
+    }
+    if let Some(ridx) = rest_idx {
+        if let Some(name) = rest_binder_name(ctx, AstRef::new(ridx))? {
+            let rest_vals: Vec<Value> = scrut_arr[n..].to_vec();
+            ctx.env.define(&name, Value::Array(rest_vals));
+        }
+    }
+    Ok(true)
+}
+
+/// Object destructuring: `{ x: a, y: b, ...rest }`.
+///
+/// Each entry's key is a field name (from a `var` or evaluated to a string);
+/// the entry's value is a sub-pattern matched against the corresponding field.
+/// A `...rest` element captures the unmatched keys as an object.
+fn try_object_pattern(
+    ctx: &mut EvalCtx,
+    pattern_ref: AstRef,
+    scrut: &Value,
+) -> Result<bool, LangError> {
+    let ast = unsafe { &*ctx.ast };
+    let pattern_node = ast.at(pattern_ref)?;
+    let children = pattern_node
+        .payload
+        .get("children")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| LangError::Engine("object pattern: missing children".to_string()))?;
+    let scrut_obj = match scrut.as_object() {
+        Some(o) => o,
+        None => return Ok(false),
+    };
+    let mut rest_idx: Option<usize> = None;
+    let mut entries: Vec<(String, usize)> = Vec::new();
+    for child in children {
+        let idx = child
+            .as_u64()
+            .ok_or_else(|| LangError::Engine("object pattern: bad child index".to_string()))?
+            as usize;
+        let child_node = ast.at(AstRef::new(idx))?;
+        if child_node.kind == "rest" {
+            if rest_idx.is_some() {
+                return Err(LangError::Engine(
+                    "object pattern: multiple rest patterns".to_string(),
+                ));
+            }
+            rest_idx = Some(idx);
+        } else if child_node.kind == "entry" {
+            let entry_children = child_node
+                .payload
+                .get("children")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| LangError::Engine("object pattern: malformed entry".to_string()))?;
+            let key_idx = entry_children[0]
+                .as_u64()
+                .ok_or_else(|| {
+                    LangError::Engine("object pattern: bad entry key index".to_string())
+                })? as usize;
+            let val_idx = entry_children[1]
+                .as_u64()
+                .ok_or_else(|| {
+                    LangError::Engine("object pattern: bad entry val index".to_string())
+                })? as usize;
+            let key_node = ast.at(AstRef::new(key_idx))?;
+            let key = if key_node.kind == "var" {
+                key_node.payload.as_str().unwrap_or("").to_string()
+            } else {
+                let key_val = eval_child_node(ctx, key_idx)?;
+                key_val.as_str().unwrap_or("").to_string()
+            };
+            entries.push((key, val_idx));
+        }
+    }
+    let mut matched_keys: Vec<String> = Vec::new();
+    for (key, val_idx) in &entries {
+        match scrut_obj.get(key) {
+            Some(scrut_val) => {
+                matched_keys.push(key.clone());
+                if !try_pattern(ctx, AstRef::new(*val_idx), scrut_val)? {
+                    return Ok(false);
+                }
+            }
+            None => return Ok(false),
+        }
+    }
+    if let Some(ridx) = rest_idx {
+        if let Some(name) = rest_binder_name(ctx, AstRef::new(ridx))? {
+            let rest_obj: serde_json::Map<String, Value> = scrut_obj
+                .iter()
+                .filter(|(k, _)| !matched_keys.contains(k))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            ctx.env.define(&name, Value::Object(rest_obj));
+        }
+    }
+    Ok(true)
+}
+
 /// Apply a primitive operation (shared logic).
 fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
     let result = match op {
@@ -1474,6 +1938,8 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 }
             }
         }
+        "match" => return prim_match(ctx),
+        "handle" => return prim_handle(ctx),
         _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
     };
 
@@ -2567,5 +3033,237 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    // --- match / handle prim tests (mirror tree-walk semantics) ---
+
+    /// Build a language with the eval schemes needed for match/handle tests.
+    fn match_lang() -> Language {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.match",
+                "match",
+                Scheme::prim("match", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.handle",
+                "handle",
+                Scheme::prim("handle", vec![]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::prim("add", vec![Scheme::child(0), Scheme::child(1)]),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn engine_match_wildcard() {
+        // match 5 { _: 1 } → 1
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("var").with_payload(json!("_")),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("block").with_payload(json!({"children": [3]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn engine_match_binder() {
+        // match 5 { x: x } → 5
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("block").with_payload(json!({"children": [3]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    #[test]
+    fn engine_match_literal() {
+        // match 3 { 1: "a", 3: "b" } → "b"
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!("a")),
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("lit").with_payload(json!(3)),
+            AstNode::new("lit").with_payload(json!("b")),
+            AstNode::new("arm").with_payload(json!({"children": [4, 5]})),
+            AstNode::new("block").with_payload(json!({"children": [3, 6]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 7]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!("b"));
+    }
+
+    #[test]
+    fn engine_match_no_arm_errors() {
+        // match 9 { 1: "a" } → error
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(9)),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!("a")),
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("block").with_payload(json!({"children": [3]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine(_)));
+    }
+
+    #[test]
+    fn engine_match_array_destructuring() {
+        // match [1,2] { [a, b]: a + b } → 3
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!([1, 2])),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("var").with_payload(json!("b")),
+            AstNode::new("array").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("var").with_payload(json!("b")),
+            AstNode::new("binary.add").with_payload(json!({"children": [4, 5]})),
+            AstNode::new("arm").with_payload(json!({"children": [3, 6]})),
+            AstNode::new("block").with_payload(json!({"children": [7]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 8]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
+    }
+
+    #[test]
+    fn engine_match_array_rest() {
+        // match [1,2,3,4] { [a, b, ...rest]: rest } → [3,4]
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!([1, 2, 3, 4])),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("var").with_payload(json!("b")),
+            AstNode::new("var").with_payload(json!("rest")),
+            AstNode::new("rest").with_payload(json!({"children": [3]})),
+            AstNode::new("array").with_payload(json!({"children": [1, 2, 4]})),
+            AstNode::new("var").with_payload(json!("rest")),
+            AstNode::new("arm").with_payload(json!({"children": [5, 6]})),
+            AstNode::new("block").with_payload(json!({"children": [7]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 8]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!([3, 4]));
+    }
+
+    #[test]
+    fn engine_match_object_destructuring() {
+        // match {x: 1, y: 2} { {x: a, y: b}: a + b } → 3
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!({"x": 1, "y": 2})),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("entry").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("var").with_payload(json!("y")),
+            AstNode::new("var").with_payload(json!("b")),
+            AstNode::new("entry").with_payload(json!({"children": [4, 5]})),
+            AstNode::new("object").with_payload(json!({"children": [3, 6]})),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("var").with_payload(json!("b")),
+            AstNode::new("binary.add").with_payload(json!({"children": [8, 9]})),
+            AstNode::new("arm").with_payload(json!({"children": [7, 10]})),
+            AstNode::new("block").with_payload(json!({"children": [11]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 12]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(3));
+    }
+
+    #[test]
+    fn engine_match_object_rest() {
+        // match {x: 1, y: 2, z: 3} { {x: a, ...rest}: rest } → {y: 2, z: 3}
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!({"x": 1, "y": 2, "z": 3})),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("var").with_payload(json!("a")),
+            AstNode::new("entry").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("var").with_payload(json!("rest")),
+            AstNode::new("rest").with_payload(json!({"children": [4]})),
+            AstNode::new("object").with_payload(json!({"children": [3, 5]})),
+            AstNode::new("var").with_payload(json!("rest")),
+            AstNode::new("arm").with_payload(json!({"children": [6, 7]})),
+            AstNode::new("block").with_payload(json!({"children": [8]})),
+            AstNode::new("match").with_payload(json!({"children": [0, 9]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(
+            engine.eval(&lang, &req).unwrap(),
+            json!({"y": 2, "z": 3})
+        );
+    }
+
+    #[test]
+    fn engine_handle_dispatches() {
+        // handle 5 { x: x + 1 } → 6
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("var").with_payload(json!("x")),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("binary.add").with_payload(json!({"children": [2, 3]})),
+            AstNode::new("arm").with_payload(json!({"children": [1, 4]})),
+            AstNode::new("block").with_payload(json!({"children": [5]})),
+            AstNode::new("handle").with_payload(json!({"children": [0, 6]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    #[test]
+    fn engine_handle_no_clause_returns_body() {
+        // handle 5 { 1: "a" } → 5 (no clause matches, body returned as-is)
+        let engine = CraneliftEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),
+            AstNode::new("lit").with_payload(json!(1)),
+            AstNode::new("lit").with_payload(json!("a")),
+            AstNode::new("arm").with_payload(json!({"children": [1, 2]})),
+            AstNode::new("block").with_payload(json!({"children": [3]})),
+            AstNode::new("handle").with_payload(json!({"children": [0, 4]})),
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
     }
 }
