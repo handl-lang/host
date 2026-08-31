@@ -125,7 +125,7 @@
   - 55
   - 56
   child_shape:
-    node_kind: is
+    node_kind: mood.int
     arity: 2
 - id: grammar.may.infix
   token: token.keyword.may
@@ -134,7 +134,7 @@
   - 55
   - 56
   child_shape:
-    node_kind: may
+    node_kind: mood.pot
     arity: 2
 - id: grammar.must.infix
   token: token.keyword.must
@@ -143,7 +143,7 @@
   - 55
   - 56
   child_shape:
-    node_kind: must
+    node_kind: mood.norm
     arity: 2
 - id: grammar.not.infix
   token: token.keyword.not
@@ -161,7 +161,7 @@
   - 15
   - 16
   child_shape:
-    node_kind: when
+    node_kind: mood.cnd
     arity: 3
 - id: grammar.stmt-const.prefix
   token: token.keyword.const

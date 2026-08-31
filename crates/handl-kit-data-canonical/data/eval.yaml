@@ -136,13 +136,13 @@
     name: field_access
     args:
     - !Child 0
+    - !Child 1
 - id: eval.flow
   node_kind: flow
-  scheme: !Foreign
-    name: fn.flow
+  scheme: !App
+    callee: !Child 1
     args:
     - !Child 0
-    - !Child 1
 - id: eval.function
   node_kind: function
   scheme: !Prim
@@ -150,11 +150,9 @@
     args: []
 - id: eval.handle
   node_kind: handle
-  scheme: !Foreign
-    name: handle
-    args:
-    - !Child 0
-    - !Child 1
+  scheme: !Prim
+    op: handle
+    args: []
 - id: eval.hello.greet
   node_kind: hello.greet
   scheme: !Foreign
@@ -171,14 +169,14 @@
   scheme: !Prim
     op: index
     args: []
-- id: eval.is
-  node_kind: is
+- id: eval.mood.int
+  node_kind: mood.int
   scheme: !App
     callee: !Child 1
     args:
     - !Child 0
-- id: eval.may
-  node_kind: may
+- id: eval.mood.pot
+  node_kind: mood.pot
   scheme: !Foreign
     name: mood.pot
     args:
@@ -191,8 +189,8 @@
     args:
     - !Child 0
     - !Child 1
-- id: eval.must
-  node_kind: must
+- id: eval.mood.norm
+  node_kind: mood.norm
   scheme: !Foreign
     name: mood.norm
     args:
@@ -200,8 +198,8 @@
     - !Child 1
 - id: eval.json
   node_kind: json
-  scheme: !Foreign
-    name: json
+  scheme: !Prim
+    op: json
     args: []
 - id: eval.let
   node_kind: let
@@ -211,11 +209,9 @@
     body: !Child 1
 - id: eval.match
   node_kind: match
-  scheme: !Foreign
-    name: match
-    args:
-    - !Child 0
-    - !Child 1
+  scheme: !Prim
+    op: match
+    args: []
 - id: eval.object
   node_kind: object
   scheme: !Prim
@@ -289,8 +285,8 @@
     op: typeof
     args:
     - !Child 0
-- id: eval.when
-  node_kind: when
+- id: eval.mood.cnd
+  node_kind: mood.cnd
   scheme: !Foreign
     name: mood.cnd
     args:

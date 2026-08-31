@@ -353,8 +353,8 @@
     - target
     - index
     type: object
-- id: ast.is
-  node_kind: is
+- id: ast.mood.int
+  node_kind: mood.int
   payload_schema:
     properties:
       children:
@@ -364,8 +364,8 @@
     required:
     - children
     type: object
-- id: ast.may
-  node_kind: may
+- id: ast.mood.pot
+  node_kind: mood.pot
   payload_schema:
     properties:
       children:
@@ -390,8 +390,8 @@
     required:
     - children
     type: object
-- id: ast.must
-  node_kind: must
+- id: ast.mood.norm
+  node_kind: mood.norm
   payload_schema:
     properties:
       children:
@@ -543,8 +543,8 @@
     required:
     - children
     type: object
-- id: ast.when
-  node_kind: when
+- id: ast.mood.cnd
+  node_kind: mood.cnd
   payload_schema:
     properties:
       children:

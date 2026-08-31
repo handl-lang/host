@@ -222,9 +222,21 @@ impl PrattEngine {
                 .map(|(l, _)| l)
                 .unwrap_or(0);
             let mut children: Vec<usize> = Vec::with_capacity(arity);
-            for _ in 0..arity {
+            // When the shape carries a `delimited` descriptor, the **last**
+            // child is a delimited block (e.g. `match x { ... }`); the first
+            // `arity - 1` children are ordinary expressions.
+            let delim = prefix_row.child_shape.delimited.as_ref();
+            let normal = match delim {
+                Some(_) => arity - 1,
+                None => arity,
+            };
+            for _ in 0..normal {
                 let child = self.expression_inner(lang, cursor, prefix_rbp)?;
                 children.push(child.index());
+            }
+            if let Some(d) = delim {
+                let block = self.parse_delimited_block(lang, cursor, d)?;
+                children.push(block.index());
             }
             let payload = serde_json::json!({ "children": children });
             let node = AstNode::new(&kind).with_payload(payload);
