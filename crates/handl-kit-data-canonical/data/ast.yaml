@@ -353,6 +353,17 @@
     - target
     - index
     type: object
+- id: ast.is
+  node_kind: is
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: number
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.json
   node_kind: json
   payload_schema:

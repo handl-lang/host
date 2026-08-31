@@ -46,6 +46,8 @@
   label: handle
 - id: token.keyword.if
   label: if
+- id: token.keyword.is
+  label: is
 - id: token.keyword.import
   label: import
 - id: token.keyword.let

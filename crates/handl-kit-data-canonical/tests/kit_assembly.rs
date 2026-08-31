@@ -14,27 +14,27 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // token.template, token.mood) + 3 operator tokens (token.and, token.or,
     // token.percent) + 1 vau keyword token (token.vau). All other
     // re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 57);
+    assert_eq!(lang.tokens.len(), 58);
 
-    // Grammar rows: 48 — one per construct (after excluding the duplicate
+    // Grammar rows: 49 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
     // value literal rules (string, bool, null), 1 pow rule, 4 new operator
-    // rules (and.infix, or.infix, mod.infix, neg.prefix), and 1 vau prefix
-    // rule.
-    assert_eq!(lang.grammar.len(), 48);
+    // rules (and.infix, or.infix, mod.infix, neg.prefix), 1 vau prefix
+    // rule, and 1 is infix rule.
+    assert_eq!(lang.grammar.len(), 49);
 
-    // Eval schemes: 48 — one per node kind (after excluding the duplicate
+    // Eval schemes: 49 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
     // primitive), plus the `binary.pow` eval scheme, the `vau` eval scheme,
-    // and 4 new operator eval schemes (binary.and, binary.or, binary.mod,
-    // unary.neg).
-    assert_eq!(lang.eval.len(), 48);
+    // 4 new operator eval schemes (binary.and, binary.or, binary.mod,
+    // unary.neg), and 1 is eval scheme.
+    assert_eq!(lang.eval.len(), 49);
 
-    // AST shapes: 44 — 36 from the `tokens` foundation + 3 unique shapes from
+    // AST shapes: 45 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
     // shape + 4 new operator shapes (binary.and, binary.or, binary.mod,
-    // unary.neg). Duplicates are union (idempotent).
-    assert_eq!(lang.ast.len(), 44);
+    // unary.neg) + 1 is shape. Duplicates are union (idempotent).
+    assert_eq!(lang.ast.len(), 45);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -67,8 +67,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 57);
-    assert_eq!(rt.lang().grammar.len(), 48);
+    assert_eq!(rt.lang().tokens.len(), 58);
+    assert_eq!(rt.lang().grammar.len(), 49);
 }
 
 #[test]
@@ -90,7 +90,11 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.tokens.get_by_id("token.vau").is_some());
 
     // --- Grammar rows ---
-    assert!(lang.grammar.get_by_id("grammar.identifier.prefix").is_some());
+    assert!(
+        lang.grammar
+            .get_by_id("grammar.identifier.prefix")
+            .is_some()
+    );
     assert!(lang.grammar.get_by_id("grammar.add.infix").is_some());
     assert!(lang.grammar.get_by_id("grammar.eq.infix").is_some());
     assert!(lang.grammar.get_by_id("grammar.call.infix").is_some());

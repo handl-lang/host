@@ -171,6 +171,12 @@
   scheme: !Prim
     op: index
     args: []
+- id: eval.is
+  node_kind: is
+  scheme: !App
+    callee: !Child 1
+    args:
+    - !Child 0
 - id: eval.json
   node_kind: json
   scheme: !Foreign

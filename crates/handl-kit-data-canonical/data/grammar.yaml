@@ -118,6 +118,15 @@
   child_shape:
     node_kind: if
     arity: 3
+- id: grammar.is.infix
+  token: token.keyword.is
+  position: Infix
+  binding_power:
+  - 55
+  - 56
+  child_shape:
+    node_kind: is
+    arity: 2
 - id: grammar.stmt-const.prefix
   token: token.keyword.const
   position: Prefix

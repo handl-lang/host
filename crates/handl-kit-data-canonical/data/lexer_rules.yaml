@@ -124,6 +124,11 @@
   pattern: !Literal
     text: if
   priority: 15
+- id: lex.keyword.is
+  token_kind: token.keyword.is
+  pattern: !Literal
+    text: is
+  priority: 15
 - id: lex.keyword.import
   token_kind: token.keyword.import
   pattern: !Literal
