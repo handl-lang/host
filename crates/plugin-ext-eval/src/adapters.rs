@@ -116,8 +116,8 @@ impl Function for GenericFunction {
 /// ```
 pub struct LazyFunction {
     name: String,
-    init: Mutex<Option<Box<dyn FnOnce() -> Box<dyn Function> + Send + Sync>>>,
-    cached: Mutex<Option<Box<dyn Function>>>,
+    init: Mutex<Option<Box<dyn FnOnce() -> Box<dyn Function + Send + Sync> + Send + Sync>>>,
+    cached: Mutex<Option<Box<dyn Function + Send + Sync>>>,
 }
 
 impl LazyFunction {
@@ -127,7 +127,7 @@ impl LazyFunction {
     /// result is cached and reused for all subsequent calls.
     pub fn new(
         name: impl Into<String>,
-        init: impl FnOnce() -> Box<dyn Function> + Send + Sync + 'static,
+        init: impl FnOnce() -> Box<dyn Function + Send + Sync> + Send + Sync + 'static,
     ) -> Self {
         LazyFunction {
             name: name.into(),
@@ -230,7 +230,7 @@ where
 
 impl<F> Function for AsyncFn<F>
 where
-    F: for<'a> Fn(&'a [Value], &'a mut EvalContext) -> EvalFuture<'a> + Send + Sync,
+    F: for<'a> Fn(&'a [Value], &'a mut EvalContext) -> EvalFuture<'a> + Send + Sync + 'static,
 {
     fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         Err(EvalError::Other(format!(
@@ -246,7 +246,7 @@ where
 
 impl<F> AsyncFunction for AsyncFn<F>
 where
-    F: for<'a> Fn(&'a [Value], &'a mut EvalContext) -> EvalFuture<'a> + Send + Sync,
+    F: for<'a> Fn(&'a [Value], &'a mut EvalContext) -> EvalFuture<'a> + Send + Sync + 'static,
 {
     fn call_async<'a>(
         &'a self,

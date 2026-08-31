@@ -296,7 +296,7 @@ impl BasicExecControl {
 /// function can itself recurse (`ctx.eval`, `ctx.call_function`) or inspect
 /// variable bindings. There is no `V` genericity — values are
 /// `serde_json::Value`.
-pub trait Function: Send + Sync {
+pub trait Function: 'static {
     /// Invoke the function.
     ///
     /// `args` are the already-evaluated argument values. `ctx` is the
@@ -335,7 +335,7 @@ pub trait Function: Send + Sync {
 ///
 /// The returned future is `Pin<Box<dyn Future + 'a>>` — single-threaded
 /// (consistent with [`EvalContext`]'s `Rc`-based handles), no `Send` bound.
-pub trait AsyncFunction: Send + Sync {
+pub trait AsyncFunction: 'static {
     /// Invoke the function asynchronously.
     ///
     /// `args` are the already-evaluated argument values. `ctx` is the
@@ -355,7 +355,7 @@ pub trait AsyncFunction: Send + Sync {
 /// `"math"` providing a function `"add"` is callable as `math.add(1, 2)`.
 /// Which modules exist is a runtime host decision, not a language-level
 /// feature.
-pub trait Module: Send + Sync {
+pub trait Module: 'static {
     /// The module name — the namespace prefix for qualified calls.
     fn name(&self) -> &str;
 

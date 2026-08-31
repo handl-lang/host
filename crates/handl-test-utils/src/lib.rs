@@ -25,8 +25,8 @@
 //!   invocations, for testing exec-control wiring.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
@@ -66,12 +66,24 @@ type FnHandler = Box<dyn Fn(&[Value], &mut EvalContext) -> Result<Value, EvalErr
 /// assert!(module.function("add").is_some());
 /// assert!(module.function("sub").is_none());
 /// ```
-///
+
+/// A wrapper around `Arc<dyn Function + Send + Sync>` that implements
+/// `Function` (without `Send + Sync` in the trait object), so it can be
+/// returned as `&dyn Function` from `Module::function`. The wrapper itself
+/// is `Send + Sync` because the inner `Arc` is.
+struct SendSyncFunction(Arc<dyn Function + Send + Sync>);
+
+impl Function for SendSyncFunction {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        self.0.call(args, ctx)
+    }
+}
+
 /// Ported from `plugin-vm-common`'s `StubModule`, adapted to the
 /// non-generic `Module` trait from `handl-platform`.
 pub struct MockModule {
     name: String,
-    functions: HashMap<String, Arc<dyn Function>>,
+    functions: HashMap<String, Arc<SendSyncFunction>>,
 }
 
 impl MockModule {
@@ -87,9 +99,10 @@ impl MockModule {
     pub fn with_function(
         mut self,
         name: impl Into<String>,
-        function: impl Function + 'static,
+        function: impl Function + Send + Sync + 'static,
     ) -> Self {
-        self.functions.insert(name.into(), Arc::new(function));
+        self.functions
+            .insert(name.into(), Arc::new(SendSyncFunction(Arc::new(function))));
         self
     }
 
@@ -97,9 +110,10 @@ impl MockModule {
     pub fn with_function_arc(
         mut self,
         name: impl Into<String>,
-        function: Arc<dyn Function>,
+        function: Arc<dyn Function + Send + Sync>,
     ) -> Self {
-        self.functions.insert(name.into(), function);
+        self.functions
+            .insert(name.into(), Arc::new(SendSyncFunction(function)));
         self
     }
 
@@ -115,13 +129,15 @@ impl Module for MockModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        self.functions.get(name).map(|f| f.as_ref())
+        self.functions
+            .get(name)
+            .map(|f| f.as_ref() as &dyn Function)
     }
 
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
         self.functions
             .iter()
-            .map(|(name, f)| (name.as_str(), f.as_ref()))
+            .map(|(name, f)| (name.as_str(), f.as_ref() as &dyn Function))
             .collect()
     }
 }
@@ -316,7 +332,7 @@ pub fn test_context_with_scope(vars: &[(&str, Value)]) -> EvalContext {
 
 /// Create an [`EvalContext`] wired with a [`ModuleRegistry`] containing the
 /// given module, so `ctx.call_function` resolves functions from it.
-pub fn test_context_with_module(module: impl Module + 'static) -> EvalContext {
+pub fn test_context_with_module(module: impl Module + Send + Sync + 'static) -> EvalContext {
     let registry = ModuleRegistry::new().with(module);
     let lookup: Rc<dyn ModuleLookup> = Rc::new(registry);
     let mut ctx = EvalContext::new();
@@ -538,7 +554,9 @@ mod tests {
         });
         let mut ctx = EvalContext::new();
 
-        let result = capture.call(&[json!(1), json!(2), json!(3)], &mut ctx).unwrap();
+        let result = capture
+            .call(&[json!(1), json!(2), json!(3)], &mut ctx)
+            .unwrap();
         assert_eq!(result, json!(6));
         assert_eq!(capture.call_count(), 1);
         assert_eq!(capture.calls(), vec![vec![json!(1), json!(2), json!(3)]]);
@@ -582,7 +600,9 @@ mod tests {
         let mut ctx = test_context_with_module(module);
         assert!(ctx.has_modules());
 
-        let result = ctx.call_function("math.add", &[json!(2), json!(3)]).unwrap();
+        let result = ctx
+            .call_function("math.add", &[json!(2), json!(3)])
+            .unwrap();
         assert_eq!(result, json!(5));
     }
 

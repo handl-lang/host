@@ -47,7 +47,6 @@ use std::path::PathBuf;
 
 use handl_emitters::Emitter;
 use handl_language::{Fragment, LangError, Language};
-use handl_plugin_engine_eval::HostFunctions;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use std::rc::Rc;
 use serde::{Deserialize, Serialize};
@@ -388,7 +387,7 @@ impl DataKit {
     ///
     /// The caller supplies an [`EngineRegistry`] populated with the available
     /// engine impls; `into_runtime` resolves `self.runtime_config` against it.
-    /// If `host` is `Some`, it is passed to the eval engine for
+    /// If `modules` is `Some`, it is passed to the eval engine for
     /// [`handl_language::Scheme::Foreign`] dispatch.
     ///
     /// # Errors
@@ -397,13 +396,13 @@ impl DataKit {
     pub fn into_runtime(
         self,
         registry: &Rc<EngineRegistry>,
-        host: Option<Rc<dyn HostFunctions>>,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Runtime, LangError> {
         Runtime::from_registry_with_globals(
             self.lang,
             registry,
             &self.runtime_config,
-            host,
+            modules,
             None,
         )
     }

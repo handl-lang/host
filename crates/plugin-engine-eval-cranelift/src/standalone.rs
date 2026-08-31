@@ -44,7 +44,7 @@ pub struct StandaloneCtx {
     #[allow(dead_code)]
     ast: Box<Ast>,
     /// The evaluation context (holds a raw pointer to `ast`).
-    ctx: EvalCtx<'static>,
+    ctx: EvalCtx,
 }
 
 /// Initialize a standalone evaluation context.
@@ -198,7 +198,7 @@ fn standalone_run_inner(
 
     // Call the root native function.
     let result_ptr: *mut Value =
-        unsafe { root_fn(ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value };
+        unsafe { root_fn(ctx as *mut EvalCtx as *mut u8) as *mut Value };
 
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {

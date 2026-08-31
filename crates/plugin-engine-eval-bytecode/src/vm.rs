@@ -10,9 +10,9 @@
 //! `lang.eval[node.kind]` hash lookup entirely.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use handl_language::{ast_value, Ast, AstNode, AstRef, LangError, Language, Value};
-use handl_plugin_engine_eval::HostFunctions;
 
 use crate::compile;
 use crate::instr::Instr;
@@ -134,15 +134,15 @@ fn is_truthy(v: &Value) -> bool {
 /// The execution frame for the bytecode VM.
 ///
 /// Owns the scope stack and a per-node compilation cache. The `ast` and
-/// `lang` references are immutable; `host` is the optional host-functions
+/// `lang` references are immutable; `modules` is the optional module
 /// registry for `Foreign` dispatch.
 pub(crate) struct VmFrame<'a, 'h> {
     /// The AST being evaluated.
     ast: &'a Ast,
     /// The language definition (for scheme lookup during compilation).
     lang: &'a Language,
-    /// The host functions registry (for `Foreign` dispatch).
-    host: Option<&'h dyn HostFunctions>,
+    /// The module registry (for `Foreign` dispatch).
+    modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
     /// Per-node compilation cache: `AstRef index → compiled instructions`.
     /// This is the data-dispatch erasure mechanism (ADR-0044 §7).
     cache: HashMap<usize, Vec<Instr>>,
@@ -155,12 +155,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     pub(crate) fn new(
         ast: &'a Ast,
         lang: &'a Language,
-        host: Option<&'h dyn HostFunctions>,
+        modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Self {
         Self {
             ast,
             lang,
-            host,
+            modules,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         }
@@ -347,13 +347,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         );
                     }
                     args.reverse();
-                    let host = self.host.ok_or_else(|| {
+                    let modules = self.modules.ok_or_else(|| {
                         LangError::Engine(format!("unregistered foreign: {}", name))
                     })?;
-                    let host_fn = host.lookup(name).ok_or_else(|| {
+                    let func = modules.lookup(name).ok_or_else(|| {
                         LangError::Engine(format!("unregistered foreign: {}", name))
                     })?;
-                    let result = host_fn.call(&args)?;
+                    let mut pctx = handl_platform::EvalContext::new();
+                    let result = func.call(&args, &mut pctx)
+                        .map_err(|e| LangError::Engine(e.to_string()))?;
                     stack.push(result);
                 }
                 Instr::VauEnter => {
@@ -650,8 +652,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
 mod tests {
     use super::*;
     use handl_language::{Ast, AstNode, Language, Scheme, SchemeVersion};
-    use handl_plugin_engine_eval::{HostFn, HostFunctions};
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
+    use std::rc::Rc;
 
     /// Build a simple AST for testing.
     fn make_ast(nodes: Vec<AstNode>) -> Ast {
@@ -846,7 +850,7 @@ mod tests {
         lang: &Language,
         ast: &Ast,
         instrs: &[Instr],
-        host: Option<&dyn HostFunctions>,
+        modules: Option<&Rc<dyn ModuleLookup>>,
     ) -> Result<Value, LangError> {
         if ast.is_empty() {
             return Ok(Value::Null);
@@ -856,7 +860,7 @@ mod tests {
         let mut frame = VmFrame {
             ast,
             lang,
-            host,
+            modules,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1223,24 +1227,32 @@ mod tests {
     /// A host function that doubles its integer argument.
     struct DoubleHostFn;
 
-    impl HostFn for DoubleHostFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for DoubleHostFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
     }
 
-    /// A host function registry with "double" registered.
-    struct ConformanceHost;
+    /// A module with "double" registered.
+    struct ConformanceModule;
 
-    impl HostFunctions for ConformanceHost {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+    impl Module for ConformanceModule {
+        fn name(&self) -> &str {
+            "conformance"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
             if name == "double" {
                 Some(&DoubleHostFn)
             } else {
                 None
             }
         }
+    }
+
+    /// Build a module registry with the `double` function registered.
+    fn conformance_registry() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(ConformanceModule))
     }
 
     #[test]
@@ -1252,8 +1264,8 @@ mod tests {
             Instr::Foreign("double".into(), 1),
             Instr::Return,
         ];
-        let host = ConformanceHost;
-        let result = exec_raw(&lang, &ast, &instrs, Some(&host)).unwrap();
+        let reg = conformance_registry();
+        let result = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap();
         assert_eq!(result, json!(42));
     }
 
@@ -1280,8 +1292,8 @@ mod tests {
             Instr::Foreign("triple".into(), 1),
             Instr::Return,
         ];
-        let host = ConformanceHost;
-        let err = exec_raw(&lang, &ast, &instrs, Some(&host)).unwrap_err();
+        let reg = conformance_registry();
+        let err = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
     }
@@ -1308,7 +1320,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1331,7 +1343,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1357,7 +1369,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1373,7 +1385,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1401,7 +1413,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1471,7 +1483,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1491,7 +1503,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1507,7 +1519,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1528,7 +1540,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1550,7 +1562,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1569,7 +1581,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1589,7 +1601,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1657,7 +1669,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1785,7 +1797,7 @@ mod tests {
         let mut frame = VmFrame {
             ast: &ast,
             lang: &lang,
-            host: None,
+            modules: None,
             cache: HashMap::new(),
             scopes: ScopeStack::new(),
         };
@@ -1836,9 +1848,9 @@ mod tests {
         // Foreign with an empty operand stack (expects 1 arg but none pushed).
         let lang = Language::new();
         let ast = make_ast(vec![AstNode::new("test")]);
-        let host = ConformanceHost;
+        let reg = conformance_registry();
         let instrs = vec![Instr::Foreign("double".into(), 1), Instr::Return];
-        let err = exec_raw(&lang, &ast, &instrs, Some(&host)).unwrap_err();
+        let err = exec_raw(&lang, &ast, &instrs, Some(&reg)).unwrap_err();
         assert!(matches!(err, LangError::Engine(_)));
     }
 

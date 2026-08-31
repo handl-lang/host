@@ -8,6 +8,7 @@ crate-type = ["lib", "staticlib"]
 
 [dependencies]
 handl-language = { workspace = true }
+handl-platform = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
 handl-runtime = { workspace = true }
 cranelift = { workspace = true }
@@ -20,4 +21,5 @@ serde_json = { workspace = true }
 handl-test-utils = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-plugin-module = { workspace = true }
 serde_json = { workspace = true }

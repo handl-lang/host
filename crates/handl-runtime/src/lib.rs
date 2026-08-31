@@ -57,8 +57,8 @@
 
 #![warn(missing_docs)]
 
-pub mod meta;
 pub mod fp;
+pub mod meta;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -68,7 +68,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 
 use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -101,20 +101,23 @@ pub struct CompiledHandle {
 /// (needed to execute: the bytecode VM lazily compiles child nodes using
 /// `lang` + `ast`; the cranelift helpers read `ast` node payloads and `lang`
 /// at execution time). `run` executes the artifact using the supplied
-/// host-functions registry (for [`handl_language::Scheme::Foreign`] dispatch,
+/// module registry (for [`handl_language::Scheme::Foreign`] dispatch,
 /// re-attached by the runtime so the compiled program can recurse via the
 /// meta host functions).
 pub trait CompiledArtifact {
     /// Execute this compiled artifact, returning the result value.
     ///
-    /// `host` is the host-functions registry to use for `Foreign`
+    /// `modules` is the module registry to use for `Foreign`
     /// dispatch (the runtime re-attaches the meta host functions so a
     /// compiled program can call `eval`/`compile`/`run_compiled`).
     ///
     /// # Errors
     ///
     /// Returns [`LangError`] on execution failure.
-    fn run(&self, host: Option<Rc<dyn HostFunctions>>) -> Result<Value, LangError>;
+    fn run(
+        &self,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    ) -> Result<Value, LangError>;
 
     /// Produce an owned boxed clone of this artifact.
     ///
@@ -366,8 +369,8 @@ pub trait RuntimeFactory {
     /// Build a [`RuntimeHandle`] for `lang`, re-attaching the meta functions
     /// (so the sub-runtime can recurse) and injecting `self` as a global.
     ///
-    /// `delegate` is an optional user-supplied [`HostFunctions`] for
-    /// non-meta host functions.
+    /// `delegate` is an optional user-supplied [`handl_platform::ModuleLookup`]
+    /// for non-meta host functions.
     ///
     /// # Errors
     ///
@@ -376,7 +379,7 @@ pub trait RuntimeFactory {
     fn build(
         &self,
         lang: Language,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Box<dyn RuntimeHandle>, LangError>;
 }
 
@@ -424,6 +427,76 @@ pub trait RuntimeHandle {
 }
 
 // ---------------------------------------------------------------------------
+// RuntimeFactoryImpl — breaks the meta-module / Runtime chicken-and-egg
+// (ADR-0047 §2)
+// ---------------------------------------------------------------------------
+
+/// A [`RuntimeFactory`] that re-attaches a meta chain to sub-runtimes.
+///
+/// Holds an [`EngineRegistry`] + [`RuntimeConfig`] + a settable meta chain
+/// (the `Rc<dyn ModuleLookup>` that provides `lex`/`parse`/`eval`/`compile`/
+/// `run_compiled`). The meta chain is set after construction via
+/// [`RuntimeFactoryImpl::set_meta_chain`], breaking the chicken-and-egg
+/// between the `Runtime` (which needs `modules` at construction) and the
+/// meta modules (which need `Rc<dyn RuntimeFactory>` at construction).
+///
+/// `build` creates a sub-`Runtime` with the meta chain re-attached (so the
+/// sub-runtime can recurse via `Foreign` dispatch) and `self` injected as a
+/// global bound to the [`Language`] value (ADR-0041 Phase 3).
+///
+/// The `delegate` parameter to [`RuntimeFactory::build`] is intentionally
+/// ignored — the meta chain (set via [`set_meta_chain`](Self::set_meta_chain))
+/// already includes the user delegate layered in. This is because the meta
+/// modules pass their `delegate` (the user delegate or chain tail) to
+/// `factory.build`, but `build` uses the pre-set meta chain (which already
+/// has the user delegate). This is correct because the user delegate doesn't
+/// change across recursion levels.
+pub struct RuntimeFactoryImpl {
+    registry: Rc<EngineRegistry>,
+    config: RuntimeConfig,
+    meta_chain: std::cell::RefCell<Option<Rc<dyn handl_platform::ModuleLookup>>>,
+}
+
+impl RuntimeFactoryImpl {
+    /// Create a factory backed by `registry` + `config`, with no meta chain
+    /// yet. Call [`set_meta_chain`](Self::set_meta_chain) before `build` is
+    /// invoked.
+    pub fn new(registry: Rc<EngineRegistry>, config: RuntimeConfig) -> Self {
+        Self {
+            registry,
+            config,
+            meta_chain: std::cell::RefCell::new(None),
+        }
+    }
+
+    /// Set the meta chain that `build` re-attaches to each sub-runtime.
+    pub fn set_meta_chain(&self, chain: Rc<dyn handl_platform::ModuleLookup>) {
+        *self.meta_chain.borrow_mut() = Some(chain);
+    }
+}
+
+impl RuntimeFactory for RuntimeFactoryImpl {
+    fn build(
+        &self,
+        lang: Language,
+        _delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    ) -> Result<Box<dyn RuntimeHandle>, LangError> {
+        let modules = self.meta_chain.borrow().clone();
+        let self_val = handl_language::language_value(&lang);
+        let mut globals = HashMap::new();
+        globals.insert("self".to_string(), self_val);
+        let rt = Runtime::from_registry_with_globals(
+            lang,
+            &self.registry,
+            &self.config,
+            modules,
+            Some(&globals),
+        )?;
+        Ok(Box::new(rt))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // COMPILED_REGISTRY — thread-local store of compiled artifacts (ADR-0047 §3)
 // ---------------------------------------------------------------------------
 
@@ -452,7 +525,7 @@ thread_local! {
 static COMPILED_NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 /// Build a compiled-program handle [`Value`] for `id` and `target`.
-pub(crate) fn compiled_value(id: u64, target: &str) -> Value {
+pub fn compiled_value(id: u64, target: &str) -> Value {
     serde_json::json!({
         COMPILED_VALUE_KEY: id,
         "target": target,
@@ -462,12 +535,12 @@ pub(crate) fn compiled_value(id: u64, target: &str) -> Value {
 /// Extract a compiled-program handle id from a [`Value`].
 ///
 /// Returns `None` if the value is not a tagged compiled-program handle.
-pub(crate) fn as_compiled_id(value: &Value) -> Option<u64> {
+pub fn as_compiled_id(value: &Value) -> Option<u64> {
     value.get(COMPILED_VALUE_KEY).and_then(|v| v.as_u64())
 }
 
 /// Extract the target string from a compiled-program handle [`Value`].
-pub(crate) fn as_compiled_target(value: &Value) -> Option<&str> {
+pub fn as_compiled_target(value: &Value) -> Option<&str> {
     value.get("target").and_then(|v| v.as_str())
 }
 
@@ -502,9 +575,9 @@ pub struct Runtime {
     eval_engine: Option<Box<dyn EvalEngine>>,
     /// The compile engines keyed by target name (for `compile`/`run_compiled`).
     compile_engines: HashMap<String, Box<dyn CompileEngine>>,
-    /// The optional host-functions registry, retained for inspection and for
+    /// The optional module registry, retained for inspection and for
     /// `run_compiled` to pass to the artifact.
-    host: Option<Rc<dyn HostFunctions>>,
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// The registry this runtime was built from (for `RuntimeFactory::build`
     /// to re-build sub-runtimes). `None` if built via the `with_*` builders.
     registry: Option<Rc<EngineRegistry>>,
@@ -519,8 +592,11 @@ impl std::fmt::Debug for Runtime {
             .field("has_lex_engine", &self.lex_engine.is_some())
             .field("has_parse_engine", &self.parse_engine.is_some())
             .field("has_eval_engine", &self.eval_engine.is_some())
-            .field("compile_targets", &self.compile_engines.keys().collect::<Vec<_>>())
-            .field("has_host", &self.host.is_some())
+            .field(
+                "compile_targets",
+                &self.compile_engines.keys().collect::<Vec<_>>(),
+            )
+            .field("has_modules", &self.modules.is_some())
             .finish()
     }
 }
@@ -538,7 +614,7 @@ impl Runtime {
             parse_engine: None,
             eval_engine: None,
             compile_engines: HashMap::new(),
-            host: None,
+            modules: None,
             registry: None,
             config: RuntimeConfig::default(),
         }
@@ -562,21 +638,21 @@ impl Runtime {
     /// Attach an eval engine (builder style).
     ///
     /// The caller is responsible for wiring host functions into this engine
-    /// directly (e.g. calling `TreeWalkEngine::with_host` before boxing).
+    /// directly (e.g. calling `TreeWalkEngine::with_modules` before boxing).
     /// The `Runtime` does not rewire a manually-set engine.
     pub fn with_eval_engine(mut self, engine: Box<dyn EvalEngine>) -> Self {
         self.eval_engine = Some(engine);
         self
     }
 
-    /// Record a host-functions registry (builder style).
+    /// Record a module registry (builder style).
     ///
     /// This stores the registry for inspection and for `run_compiled` but
     /// does **not** rewire an already-attached eval engine. Use
     /// [`Runtime::from_registry_with_globals`] to have the runtime wire
-    /// host functions into the eval engine automatically.
-    pub fn with_host(mut self, host: Rc<dyn HostFunctions>) -> Self {
-        self.host = Some(host);
+    /// the module registry into the eval engine automatically.
+    pub fn with_modules(mut self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        self.modules = Some(modules);
         self
     }
 
@@ -585,9 +661,9 @@ impl Runtime {
         &self.lang
     }
 
-    /// The host-functions registry, if one was provided.
-    pub fn host(&self) -> Option<&Rc<dyn HostFunctions>> {
-        self.host.as_ref()
+    /// The module registry, if one was provided.
+    pub fn modules(&self) -> Option<&Rc<dyn handl_platform::ModuleLookup>> {
+        self.modules.as_ref()
     }
 
     /// Lex source text into a token stream using the bound lex engine.
@@ -677,7 +753,7 @@ impl Runtime {
     /// Looks up the [`CompiledArtifact`] in the [`COMPILED_REGISTRY`], clones
     /// it out under a short-lived borrow (so re-entrant `compile` /
     /// `run_compiled` calls don't panic), then executes it with this
-    /// runtime's host-functions registry attached (so `Foreign` dispatch —
+    /// runtime's module registry attached (so `Foreign` dispatch —
     /// including the meta host functions — resolves).
     ///
     /// # Errors
@@ -699,7 +775,7 @@ impl Runtime {
                 })
                 .map(|a| a.box_clone())
         })?;
-        artifact.run(self.host.clone())
+        artifact.run(self.modules.clone())
     }
 
     /// Build a [`Runtime`] from a [`Language`], an [`EngineRegistry`], and a
@@ -725,9 +801,9 @@ impl Runtime {
     /// Like [`from_registry`] but injects `globals` as root-scope variables
     /// in the eval engine (e.g. `self` → language value). ADR-0041 Phase 3.
     ///
-    /// If `host` is `Some`, it is passed to the eval engine (via
-    /// `EvalEngine::with_host_fns`) for [`handl_language::Scheme::Foreign`]
-    /// dispatch; if `None`, no host functions are wired.
+    /// If `modules` is `Some`, it is passed to the eval engine (via
+    /// `EvalEngine::with_modules`) for [`handl_language::Scheme::Foreign`]
+    /// dispatch; if `None`, no module registry is wired.
     ///
     /// # Errors
     ///
@@ -736,7 +812,7 @@ impl Runtime {
         lang: Language,
         registry: &Rc<EngineRegistry>,
         config: &RuntimeConfig,
-        host: Option<Rc<dyn HostFunctions>>,
+        modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
         globals: Option<&HashMap<String, Value>>,
     ) -> Result<Self, LangError> {
         // Resolve lex engine (clone out of the registry).
@@ -746,7 +822,9 @@ impl Runtime {
             Some(
                 registry
                     .lex_engine(&config.lex)
-                    .ok_or_else(|| LangError::Engine(format!("unknown lex engine: {}", config.lex)))?
+                    .ok_or_else(|| {
+                        LangError::Engine(format!("unknown lex engine: {}", config.lex))
+                    })?
                     .box_clone(),
             )
         };
@@ -765,15 +843,15 @@ impl Runtime {
             )
         };
 
-        // Resolve eval engine (clone + wire host/globals via trait methods).
+        // Resolve eval engine (clone + wire modules/globals via trait methods).
         let eval_engine: Option<Box<dyn EvalEngine>> = if config.eval.is_empty() {
             None
         } else {
-            let reg_engine = registry
-                .eval_engine(&config.eval)
-                .ok_or_else(|| LangError::Engine(format!("unknown eval engine: {}", config.eval)))?;
-            let mut engine = match host.clone() {
-                Some(h) => reg_engine.with_host_fns(h),
+            let reg_engine = registry.eval_engine(&config.eval).ok_or_else(|| {
+                LangError::Engine(format!("unknown eval engine: {}", config.eval))
+            })?;
+            let mut engine = match modules.clone() {
+                Some(m) => reg_engine.with_modules(m),
                 None => reg_engine.box_clone(),
             };
             if let Some(globals) = globals {
@@ -798,7 +876,7 @@ impl Runtime {
             parse_engine,
             eval_engine,
             compile_engines,
-            host,
+            modules,
             registry: Some(Rc::clone(registry)),
             config: config.clone(),
         })
@@ -813,12 +891,11 @@ impl RuntimeFactory for Runtime {
     fn build(
         &self,
         lang: Language,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Box<dyn RuntimeHandle>, LangError> {
-        let registry = self
-            .registry
-            .as_ref()
-            .ok_or_else(|| LangError::Engine("RuntimeFactory::build: runtime has no registry".into()))?;
+        let registry = self.registry.as_ref().ok_or_else(|| {
+            LangError::Engine("RuntimeFactory::build: runtime has no registry".into())
+        })?;
         // Re-attach the meta host functions so the sub-runtime can recurse,
         // layered on top of the caller's delegate (user host functions).
         let sub_meta = meta::MetaHostFunctions::new(
@@ -827,7 +904,7 @@ impl RuntimeFactory for Runtime {
             Rc::clone(registry),
             delegate,
         );
-        let sub_meta_rc: Rc<dyn HostFunctions> = Rc::new(sub_meta);
+        let sub_meta_rc: Rc<dyn handl_platform::ModuleLookup> = Rc::new(sub_meta);
         // Inject `self` as a global variable bound to the Language value
         // (ADR-0041 Phase 3).
         let self_val = handl_language::language_value(&lang);
@@ -873,11 +950,11 @@ mod tests {
         AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Scheme, Token,
         TokenKindDef,
     };
-    use handl_plugin_engine_eval::{HostFn, HostFunctions};
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
-    use std::collections::HashMap;
 
     // -----------------------------------------------------------------------
     // Stub engines for independent dispatch testing
@@ -943,32 +1020,39 @@ mod tests {
     // Test helpers
     // -----------------------------------------------------------------------
 
-    /// A simple host functions registry for tests: a single function "double".
-    struct MapHost {
-        fns: HashMap<String, Box<dyn HostFn>>,
-    }
+    /// A module exposing a single `double` function for tests.
+    struct DoubleModule;
 
-    impl HostFunctions for MapHost {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
-            self.fns.get(name).map(|b| b.as_ref())
+    impl Module for DoubleModule {
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
+            if name == "double" {
+                Some(&DoubleFn)
+            } else {
+                None
+            }
         }
     }
 
     /// A host function that doubles its integer argument.
     struct DoubleFn;
 
-    impl HostFn for DoubleFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for DoubleFn {
+        fn call(
+            &self,
+            args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
     }
 
-    /// A host functions registry with "double" registered.
-    fn double_host() -> Rc<dyn HostFunctions> {
-        let mut fns: HashMap<String, Box<dyn HostFn>> = HashMap::new();
-        fns.insert("double".to_string(), Box::new(DoubleFn));
-        Rc::new(MapHost { fns })
+    /// A module registry with "double" registered.
+    fn double_modules() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(DoubleModule))
     }
 
     /// Build a registry pre-populated with the lex/parse/eval engine impls
@@ -1143,8 +1227,9 @@ mod tests {
 
     #[test]
     fn eval_only_runtime_lex_returns_error_eval_works() {
-        let rt = Runtime::new(arith_lang())
-            .with_eval_engine(Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()));
+        let rt = Runtime::new(arith_lang()).with_eval_engine(Box::new(
+            handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+        ));
         // lex returns NotImplemented (no lex engine).
         assert_eq!(
             rt.lex(&Source::new("1 + 2")).unwrap_err(),
@@ -1302,15 +1387,10 @@ mod tests {
 
         let reg = default_registry();
         let config = RuntimeConfig::new().with_eval("tree-walk");
-        let rt = Runtime::from_registry_with_globals(
-            lang,
-            &reg,
-            &config,
-            Some(double_host()),
-            None,
-        )
-        .unwrap();
-        assert!(rt.host().is_some());
+        let rt =
+            Runtime::from_registry_with_globals(lang, &reg, &config, Some(double_modules()), None)
+                .unwrap();
+        assert!(rt.modules().is_some());
 
         // Ast: 0: lit(21), 1: foreign.double {children: [0]}
         let mut ast = Ast::new();
@@ -1436,13 +1516,13 @@ mod tests {
     #[test]
     fn host_accessor_returns_none_by_default() {
         let rt = Runtime::new(Language::new());
-        assert!(rt.host().is_none());
+        assert!(rt.modules().is_none());
     }
 
     #[test]
     fn host_accessor_returns_some_when_set() {
-        let rt = Runtime::new(Language::new()).with_host(double_host());
-        assert!(rt.host().is_some());
+        let rt = Runtime::new(Language::new()).with_modules(double_modules());
+        assert!(rt.modules().is_some());
     }
 
     // -----------------------------------------------------------------------

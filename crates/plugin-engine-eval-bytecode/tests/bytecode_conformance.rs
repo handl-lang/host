@@ -11,34 +11,44 @@
 
 use std::rc::Rc;
 
-use handl_language::{LangError, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFn, HostFunctions};
+use handl_language::Value;
+use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_eval_bytecode::BytecodeEngine;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
+use handl_plugin_module::ModuleRegistry;
 use handl_test_utils::conformance::{eval_corpus, run_eval_conformance};
 
 /// A host function that doubles its integer argument (matches the "double"
 /// function expected by the "foreign" conformance case).
 struct DoubleHostFn;
 
-impl HostFn for DoubleHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for DoubleHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
         let n = args[0].as_i64().unwrap();
         Ok(Value::from(n * 2))
     }
 }
 
-/// A host function registry with "double" registered.
-struct ConformanceHost;
+/// A module with "double" registered.
+struct ConformanceModule;
 
-impl HostFunctions for ConformanceHost {
-    fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+impl Module for ConformanceModule {
+    fn name(&self) -> &str {
+        "conformance"
+    }
+    fn function(&self, name: &str) -> Option<&dyn Function> {
         if name == "double" {
             Some(&DoubleHostFn)
         } else {
             None
         }
     }
+}
+
+/// Build a module registry with the `double` function registered.
+fn conformance_registry() -> Rc<dyn ModuleLookup> {
+    Rc::new(ModuleRegistry::new().with(ConformanceModule))
 }
 
 /// The bytecode engine passes the full eval conformance suite (non-foreign
@@ -53,8 +63,7 @@ fn bytecode_engine_passes_eval_conformance() {
 /// registry.
 #[test]
 fn bytecode_engine_passes_foreign_conformance() {
-    let host = ConformanceHost;
-    let engine = BytecodeEngine::with_host(Rc::new(host));
+    let engine = BytecodeEngine::with_modules(conformance_registry());
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()
@@ -99,9 +108,9 @@ fn cross_engine_non_foreign_results_match() {
 /// host registry produce identical results.
 #[test]
 fn cross_engine_foreign_results_match() {
-    let host = Rc::new(ConformanceHost) as Rc<dyn HostFunctions>;
-    let bytecode = BytecodeEngine::with_host(Rc::clone(&host));
-    let tree_walk = TreeWalkEngine::new().with_host(Rc::clone(&host));
+    let reg = conformance_registry();
+    let bytecode = BytecodeEngine::with_modules(Rc::clone(&reg));
+    let tree_walk = TreeWalkEngine::new().with_modules(Rc::clone(&reg));
     let corpus = eval_corpus();
     let foreign_case = corpus
         .iter()

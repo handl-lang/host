@@ -920,6 +920,7 @@ dependencies = [
  "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-cranelift",
@@ -1048,6 +1049,7 @@ version = "0.1.0"
 dependencies = [
  "handl-emitters",
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
@@ -1169,6 +1171,8 @@ name = "handl-plugin-engine-eval"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
  "serde_json",
 ]
 
@@ -1177,8 +1181,10 @@ name = "handl-plugin-engine-eval-bytecode"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
  "serde_json",
@@ -1193,9 +1199,11 @@ dependencies = [
  "cranelift-module",
  "cranelift-object",
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
  "serde_json",
@@ -1206,7 +1214,9 @@ name = "handl-plugin-engine-eval-tree-walk"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
+ "handl-plugin-module",
  "handl-test-utils",
  "serde_json",
 ]
@@ -1670,6 +1680,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-lang-compile"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-lang-eval"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-lang-lex"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-lang-parse"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-lang-run-compiled"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-os"
 version = "0.1.0"
 dependencies = [
@@ -2051,6 +2116,7 @@ dependencies = [
  "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-cranelift",
@@ -2059,6 +2125,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-module",
  "serde",
  "serde_json",
 ]

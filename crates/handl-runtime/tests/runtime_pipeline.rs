@@ -114,7 +114,8 @@ fn runtime_pipeline_parse_then_eval_addition() {
     let config = RuntimeConfig::new()
         .with_parse("pratt")
         .with_eval("tree-walk");
-    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
+    let rt =
+        Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // Manually construct tokens for "1 + 2" (lex stage is stubbed — no lex
     // engine exists in Phase 3).
@@ -145,7 +146,8 @@ fn runtime_pipeline_parse_then_eval_precedence() {
     let config = RuntimeConfig::new()
         .with_parse("pratt")
         .with_eval("tree-walk");
-    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
+    let rt =
+        Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // Tokens for "1 + 2 * 3" — * binds tighter than +.
     let tokens = Tokens(vec![
@@ -174,7 +176,8 @@ fn runtime_pipeline_lex_stage_is_not_implemented() {
     let config = RuntimeConfig::new()
         .with_parse("pratt")
         .with_eval("tree-walk");
-    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
+    let rt =
+        Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     let err = rt.lex(&Source::new("1 + 2")).unwrap_err();
     assert_eq!(err, handl_language::LangError::NotImplemented);
@@ -188,7 +191,8 @@ fn runtime_pipeline_run_requires_lex_engine() {
     let config = RuntimeConfig::new()
         .with_parse("pratt")
         .with_eval("tree-walk");
-    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
+    let rt =
+        Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     let err = rt.run(&Source::new("1 + 2")).unwrap_err();
     assert_eq!(err, handl_language::LangError::NotImplemented);
@@ -200,15 +204,14 @@ fn runtime_pipeline_manual_ast_eval() {
     // and evaluating it, as a cross-check against the parse+eval path.
     let lang = arith_lang();
     let config = RuntimeConfig::new().with_eval("tree-walk");
-    let rt = Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
+    let rt =
+        Runtime::from_registry(lang, &test_registry(), &config).expect("config should resolve");
 
     // Manually build: 0: lit(10), 1: lit(20), 2: binary.add {children: [0,1]}
     let mut ast = handl_language::Ast::new();
     ast.push(AstNode::new("lit").with_payload(json!(10)));
     ast.push(AstNode::new("lit").with_payload(json!(20)));
-    ast.push(
-        AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
-    );
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})));
 
     let result = rt.eval(&ast).expect("eval should succeed");
     assert_eq!(result, json!(30));

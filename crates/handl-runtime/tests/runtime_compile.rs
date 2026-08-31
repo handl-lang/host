@@ -4,7 +4,7 @@
 //! that prevents `handl-runtime` lib tests from using compile-engine crates.
 
 use handl_kit_canonical::Kit;
-use handl_language::{language_value, Ast, AstNode, Value};
+use handl_language::{Ast, AstNode, Value, language_value};
 use handl_runtime::Runtime;
 use serde_json::json;
 
@@ -56,18 +56,14 @@ fn compile_bytecode_run_compiled_matches_eval() {
     ast.push(AstNode::new("value").with_payload(lang_val.clone()));
     ast.push(AstNode::new("value").with_payload(ast_val.clone()));
     ast.push(AstNode::new("value").with_payload(json!("bytecode")));
-    ast.push(
-        AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})),
-    );
+    ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})));
     let handle = runtime.eval(&ast).expect("compile must succeed");
     assert_is_compiled_handle(&handle);
 
     // run_compiled(handle)
     let mut ast2 = Ast::new();
     ast2.push(AstNode::new("value").with_payload(handle));
-    ast2.push(
-        AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})),
-    );
+    ast2.push(AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})));
     let compiled_result = runtime.eval(&ast2).expect("run_compiled must succeed");
 
     // eval(lang, ast) for comparison
@@ -98,18 +94,14 @@ fn compile_native_run_compiled_matches_eval() {
     ast.push(AstNode::new("value").with_payload(lang_val.clone()));
     ast.push(AstNode::new("value").with_payload(ast_val.clone()));
     ast.push(AstNode::new("value").with_payload(json!("native")));
-    ast.push(
-        AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})),
-    );
+    ast.push(AstNode::new("foreign.compile").with_payload(json!({"children": [0, 1, 2]})));
     let handle = runtime.eval(&ast).expect("compile must succeed");
     assert_is_compiled_handle(&handle);
 
     // run_compiled(handle)
     let mut ast2 = Ast::new();
     ast2.push(AstNode::new("value").with_payload(handle));
-    ast2.push(
-        AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})),
-    );
+    ast2.push(AstNode::new("foreign.run_compiled").with_payload(json!({"children": [0]})));
     let compiled_result = runtime.eval(&ast2).expect("run_compiled must succeed");
 
     // eval(lang, ast) for comparison

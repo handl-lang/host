@@ -83,11 +83,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
         {
             let mut lang = Language::new();
             lang.eval
-                .merge(EvalSchemeDef::new(
-                    "e.var",
-                    "var",
-                    Scheme::var("$payload"),
-                ))
+                .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
                 .unwrap();
             lang.eval
                 .merge(EvalSchemeDef::new(
@@ -139,8 +135,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                     a.push(AstNode::new("lit").with_payload(Value::from(1)));
                     a.push(AstNode::new("lit").with_payload(Value::from(2)));
                     a.push(
-                        AstNode::new("if")
-                            .with_payload(serde_json::json!({"children": [0, 1, 2]})),
+                        AstNode::new("if").with_payload(serde_json::json!({"children": [0, 1, 2]})),
                     );
                     a
                 },
@@ -166,10 +161,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 ast: {
                     let mut a = Ast::new();
                     a.push(AstNode::new("lit").with_payload(Value::from(21)));
-                    a.push(
-                        AstNode::new("dbl")
-                            .with_payload(serde_json::json!({"children": [0]})),
-                    );
+                    a.push(AstNode::new("dbl").with_payload(serde_json::json!({"children": [0]})));
                     a
                 },
                 expected: Value::from(42),
@@ -179,11 +171,7 @@ pub fn eval_corpus() -> Vec<EvalCase> {
         {
             let mut lang = Language::new();
             lang.eval
-                .merge(EvalSchemeDef::new(
-                    "e.var",
-                    "var",
-                    Scheme::var("$payload"),
-                ))
+                .merge(EvalSchemeDef::new("e.var", "var", Scheme::var("$payload")))
                 .unwrap();
             lang.eval
                 .merge(EvalSchemeDef::new(
@@ -240,7 +228,9 @@ pub fn parse_corpus() -> Vec<ParseCase> {
     /// Build a small arithmetic language.
     fn arith_lang() -> Language {
         let mut lang = Language::new();
-        lang.tokens.merge(TokenKindDef::new("token.number")).unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("token.number"))
+            .unwrap();
         lang.tokens.merge(TokenKindDef::new("token.plus")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.star")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.minus")).unwrap();
@@ -332,16 +322,12 @@ pub fn parse_corpus() -> Vec<ParseCase> {
         ParseCase {
             name: "prefix_neg",
             lang: arith_lang(),
-            tokens: Tokens(vec![
-                tok("token.minus", "-"),
-                tok("token.number", "5"),
-            ]),
+            tokens: Tokens(vec![tok("token.minus", "-"), tok("token.number", "5")]),
             expected: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("lit").with_payload(Value::from(5)));
                 a.push(
-                    AstNode::new("unary.neg")
-                        .with_payload(serde_json::json!({"children": [0]})),
+                    AstNode::new("unary.neg").with_payload(serde_json::json!({"children": [0]})),
                 );
                 a
             },

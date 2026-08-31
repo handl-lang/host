@@ -13,7 +13,7 @@
 
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
-use handl_plugin_engine_eval::{HostFn, HostFunctions};
+use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
 use handl_runtime::meta::MetaHostFunctions;
 use handl_runtime::{EngineRegistry, Runtime};
 use std::rc::Rc;
@@ -32,26 +32,26 @@ use std::rc::Rc;
 /// a string-named host function to this impl.
 pub struct HelloGreetHostFn;
 
-impl HostFn for HelloGreetHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for HelloGreetHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 1 {
-            return Err(LangError::Engine(format!(
+            return Err(EvalError::Other(format!(
                 "hello.greet: expected 1 argument, got {}",
                 args.len()
             )));
         }
         let name = args[0].as_str().ok_or_else(|| {
-            LangError::Engine("hello.greet: expected string argument".to_string())
+            EvalError::Other("hello.greet: expected string argument".to_string())
         })?;
         Ok(Value::String(format!("Hello, {name}!")))
     }
 }
 
-/// A [`HostFunctions`] registry exposing `hello.greet`, with an optional
+/// A [`ModuleLookup`] registry exposing `hello.greet`, with an optional
 /// delegate for further lookup.
 pub struct HelloHostFunctions {
     greet: HelloGreetHostFn,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl Clone for HelloHostFunctions {
@@ -66,7 +66,7 @@ impl Clone for HelloHostFunctions {
 impl HelloHostFunctions {
     /// Create a `HelloHostFunctions` with an optional delegate for
     /// unknown-name lookup.
-    pub fn new(delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+    pub fn new(delegate: Option<Rc<dyn ModuleLookup>>) -> Self {
         Self {
             greet: HelloGreetHostFn,
             delegate,
@@ -74,10 +74,10 @@ impl HelloHostFunctions {
     }
 }
 
-impl HostFunctions for HelloHostFunctions {
-    fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+impl ModuleLookup for HelloHostFunctions {
+    fn lookup(&self, name: &str) -> Option<&dyn Function> {
         match name {
-            "hello.greet" => Some(&self.greet),
+            "hello.greet" | "greet" => Some(&self.greet),
             _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
         }
     }
@@ -115,7 +115,7 @@ pub struct SpannedToken {
 /// All staged methods (`lex`, `parse`, `eval`, `run`) delegate to the
 /// underlying [`Runtime`].
 pub struct Kit {
-    /// The runtime (no lifetime — engines own `Rc<dyn HostFunctions>`).
+    /// The runtime (no lifetime — engines own `Rc<dyn ModuleLookup>`).
     runtime: Runtime,
 }
 
@@ -158,7 +158,7 @@ impl Kit {
         registry.register_compile("native", Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()));
         let registry = Rc::new(registry);
 
-        // Build the host-functions chain (outermost first):
+        // Build the module-registry chain (outermost first):
         //   meta (eval/lex/parse/run/compile) → hello (hello.greet) → fp
         //   (fn.fanout_fn, field_access) → None
         // Meta is outermost so its names win; hello and fp are delegates so
@@ -167,14 +167,14 @@ impl Kit {
         // them via the delegate chain.
         let fp = handl_runtime::fp::canonical_fp_host_functions(None);
         let hello = Rc::new(HelloHostFunctions::new(Some(Rc::clone(&fp)
-            as Rc<dyn handl_plugin_engine_eval::HostFunctions>)));
+            as Rc<dyn handl_platform::ModuleLookup>)));
         let meta = MetaHostFunctions::new(
             lang.clone(),
             config.clone(),
             Rc::clone(&registry),
-            Some(Rc::clone(&hello) as Rc<dyn handl_plugin_engine_eval::HostFunctions>),
+            Some(Rc::clone(&hello) as Rc<dyn handl_platform::ModuleLookup>),
         );
-        let meta_rc: Rc<dyn handl_plugin_engine_eval::HostFunctions> = Rc::new(meta);
+        let meta_rc: Rc<dyn handl_platform::ModuleLookup> = Rc::new(meta);
 
         // Inject `self` as a global variable bound to the canonical
         // `Language` value (ADR-0041 Phase 3: `self` is an ambient variable,

@@ -13,6 +13,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+handl-platform = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
 handl-plugin-engine-eval-cranelift = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }

@@ -70,7 +70,7 @@ pub use compile::compile;
 pub use instr::Instr;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -79,21 +79,21 @@ use vm::VmFrame;
 /// The bytecode eval engine.
 ///
 /// Compiles `Scheme` data to bytecode and executes via a stack-based VM.
-/// Construct with [`BytecodeEngine::new`] and optionally pass a host
-/// functions registry via [`BytecodeEngine::with_host`].
+/// Construct with [`BytecodeEngine::new`] and optionally pass a module
+/// registry via [`BytecodeEngine::with_modules`].
 ///
 /// The engine checks `lang.scheme_version` against `SchemeVersion::v1()` and
 /// rejects mismatched versions.
 #[derive(Clone)]
 pub struct BytecodeEngine {
-    /// The underlying VM (carries the host functions registry).
+    /// The underlying VM (carries the module registry).
     vm: BytecodeVm,
     /// Global variables injected by the host (e.g. `self` → language value).
     globals: HashMap<String, Value>,
 }
 
 impl BytecodeEngine {
-    /// Create a new bytecode engine with no host functions.
+    /// Create a new bytecode engine with no module registry.
     pub fn new() -> Self {
         Self {
             vm: BytecodeVm::new(),
@@ -101,13 +101,13 @@ impl BytecodeEngine {
         }
     }
 
-    /// Create a bytecode engine with a host functions registry attached.
+    /// Create a bytecode engine with a module registry attached.
     ///
-    /// The host registry is used for [`handl_language::Scheme::Foreign`]
+    /// The module registry is used for [`handl_language::Scheme::Foreign`]
     /// dispatch (ADR-0044 §7).
-    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
+    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
-            vm: BytecodeVm::with_host(host),
+            vm: BytecodeVm::with_modules(modules),
             globals: HashMap::new(),
         }
     }
@@ -155,11 +155,11 @@ impl EvalEngine for BytecodeEngine {
         Box::new(self.clone())
     }
 
-    /// Produce a fresh owned engine with the given host-functions registry
+    /// Produce a fresh owned engine with the given module registry
     /// wired in, preserving any previously-injected globals (ADR-0047 §2).
-    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
         let mut engine = self.clone();
-        engine.vm = BytecodeVm::with_host(host);
+        engine.vm = BytecodeVm::with_modules(modules);
         Box::new(engine)
     }
 
@@ -176,23 +176,23 @@ impl EvalEngine for BytecodeEngine {
 /// scope stack. [`Instr::EvalChild`] and [`Instr::Call`] recurse into
 /// per-node compilation (via a cache) and execution.
 ///
-/// Construct with [`BytecodeVm::new`] and optionally pass a host functions
-/// registry via [`BytecodeVm::with_host`].
+/// Construct with [`BytecodeVm::new`] and optionally pass a module
+/// registry via [`BytecodeVm::with_modules`].
 #[derive(Clone)]
 pub struct BytecodeVm {
-    /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<Rc<dyn HostFunctions>>,
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
 }
 
 impl BytecodeVm {
-    /// Create a new VM with no host functions.
+    /// Create a new VM with no module registry.
     pub fn new() -> Self {
-        Self { host: None }
+        Self { modules: None }
     }
 
-    /// Create a new VM with a host functions registry.
-    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
-        Self { host: Some(host) }
+    /// Create a new VM with a module registry.
+    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        Self { modules: Some(modules) }
     }
 
     /// Execute a pre-compiled instruction program.
@@ -219,7 +219,7 @@ impl BytecodeVm {
         }
         let root_ref = AstRef::new(ast.len() - 1);
         let root_node = ast.at(root_ref)?;
-        let mut frame = VmFrame::new(ast, lang, self.host.as_deref());
+        let mut frame = VmFrame::new(ast, lang, self.modules.as_ref());
         for (name, val) in globals {
             frame.define_global(name, val.clone());
         }
@@ -252,9 +252,9 @@ pub struct BytecodeArtifact {
 }
 
 impl handl_runtime::CompiledArtifact for BytecodeArtifact {
-    fn run(&self, host: Option<Rc<dyn HostFunctions>>) -> Result<Value, LangError> {
-        let vm = match host {
-            Some(h) => BytecodeVm::with_host(h),
+    fn run(&self, modules: Option<Rc<dyn handl_platform::ModuleLookup>>) -> Result<Value, LangError> {
+        let vm = match modules {
+            Some(m) => BytecodeVm::with_modules(m),
             None => BytecodeVm::new(),
         };
         let globals = HashMap::new();
@@ -324,7 +324,9 @@ impl handl_runtime::CompileEngine for BytecodeCompileEngine {
 mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Language, Scheme, Value};
-    use handl_plugin_engine_eval::{EvalRequest, HostFn, HostFunctions};
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_engine_eval::EvalRequest;
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 
     /// Build a simple AST for testing.
@@ -339,24 +341,32 @@ mod tests {
     /// A host function that doubles its integer argument.
     struct DoubleHostFn;
 
-    impl HostFn for DoubleHostFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for DoubleHostFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
     }
 
-    /// A host function registry with "double" registered.
-    struct ConformanceHost;
+    /// A module with "double" registered.
+    struct ConformanceModule;
 
-    impl HostFunctions for ConformanceHost {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+    impl Module for ConformanceModule {
+        fn name(&self) -> &str {
+            "conformance"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
             if name == "double" {
                 Some(&DoubleHostFn)
             } else {
                 None
             }
         }
+    }
+
+    /// Build a module registry with the `double` function registered.
+    fn conformance_registry() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(ConformanceModule))
     }
 
     // --- BytecodeEngine tests ---
@@ -491,8 +501,7 @@ mod tests {
 
     #[test]
     fn engine_foreign() {
-        let host = ConformanceHost;
-        let engine = BytecodeEngine::with_host(Rc::new(host));
+        let engine = BytecodeEngine::with_modules(conformance_registry());
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -736,9 +745,8 @@ mod tests {
 
     #[test]
     fn engine_foreign_host_present_but_fn_not_found_errors() {
-        // Host is registered but doesn't have the requested function.
-        let host = ConformanceHost;
-        let engine = BytecodeEngine::with_host(Rc::new(host));
+        // Module registry is registered but doesn't have the requested function.
+        let engine = BytecodeEngine::with_modules(conformance_registry());
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(

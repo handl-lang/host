@@ -67,7 +67,7 @@ pub use handl_platform::{Function, Module, ModuleLookup};
 /// about modules.
 #[derive(Clone, Default)]
 pub struct ModuleRegistry {
-    modules: Vec<Arc<dyn Module>>,
+    modules: Vec<Arc<dyn Module + Send + Sync>>,
 }
 
 impl ModuleRegistry {
@@ -79,18 +79,18 @@ impl ModuleRegistry {
     }
 
     /// Register a module (builder style).
-    pub fn with(mut self, module: impl Module + 'static) -> Self {
+    pub fn with(mut self, module: impl Module + Send + Sync + 'static) -> Self {
         self.modules.push(Arc::new(module));
         self
     }
 
     /// Register a module (mutating).
-    pub fn register(&mut self, module: impl Module + 'static) {
+    pub fn register(&mut self, module: impl Module + Send + Sync + 'static) {
         self.modules.push(Arc::new(module));
     }
 
     /// Register an already-`Arc`ed module (mutating).
-    pub fn register_arc(&mut self, module: Arc<dyn Module>) {
+    pub fn register_arc(&mut self, module: Arc<dyn Module + Send + Sync>) {
         self.modules.push(module);
     }
 
@@ -105,7 +105,7 @@ impl ModuleRegistry {
     }
 
     /// Look up a module by name.
-    pub fn module(&self, name: &str) -> Option<&Arc<dyn Module>> {
+    pub fn module(&self, name: &str) -> Option<&Arc<dyn Module + Send + Sync>> {
         self.modules.iter().find(|m| m.name() == name)
     }
 }
@@ -145,16 +145,16 @@ impl std::fmt::Debug for ModuleRegistry {
 /// This wraps a module in an `Arc` so it can be passed through the platform
 /// contribution pipeline via
 /// `ctx.contribute::<ModuleRuntime>(ModuleRule::new(MyModule))`.
-pub struct ModuleRule(pub Arc<dyn Module>);
+pub struct ModuleRule(pub Arc<dyn Module + Send + Sync>);
 
 impl ModuleRule {
     /// Wrap a module for contribution to a [`ModuleRuntime`].
-    pub fn new(module: impl Module + 'static) -> Self {
+    pub fn new(module: impl Module + Send + Sync + 'static) -> Self {
         Self(Arc::new(module))
     }
 
     /// Wrap an already-`Arc`ed module for contribution.
-    pub fn from_arc(module: Arc<dyn Module>) -> Self {
+    pub fn from_arc(module: Arc<dyn Module + Send + Sync>) -> Self {
         Self(module)
     }
 }
@@ -207,7 +207,7 @@ impl ModuleRuntime {
     }
 
     /// Register a module directly (builder style).
-    pub fn with(mut self, module: impl Module + 'static) -> Self {
+    pub fn with(mut self, module: impl Module + Send + Sync + 'static) -> Self {
         self.registry.register(module);
         self
     }

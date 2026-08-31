@@ -2,7 +2,7 @@
 //!
 //! Host functions for the functional-programming `Foreign` schemes in the
 //! canonical eval data. These are the FP-relevant foreign functions that can
-//! be implemented as pure [`HostFn`] impls — they operate on already-evaluated
+//! be implemented as pure [`Function`] impls — they operate on already-evaluated
 //! argument values and need no access to the AST, node payload, or scope.
 //!
 //! - `fn.fanout_fn(a, b)` → `[a, b]` — eager fanout into a pair/tuple.
@@ -11,11 +11,11 @@
 //!
 //! Constructs that require lazy evaluation or payload access (`match`,
 //! `handle`, `json`) are implemented as engine `Prim` ops, not `Foreign` host
-//! functions, because the [`HostFn`] trait (`call(&[Value])`) provides no
+//! functions, because the [`Function`] trait (`call(&[Value], &mut EvalContext)`) provides no
 //! access to the evaluation context.
 
-use handl_language::{LangError, Value};
-use handl_plugin_engine_eval::{HostFn, HostFunctions};
+use handl_language::Value;
+use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
 
 use std::rc::Rc;
 
@@ -29,13 +29,13 @@ use std::rc::Rc;
 /// eager interpretation of the `&&&` (fanout) operator: both sides are
 /// evaluated and collected into a tuple. The higher-order interpretation
 /// (composing two functions into a fanout function) requires first-class
-/// closure construction, which is not available from a plain [`HostFn`].
+/// closure construction, which is not available from a plain [`Function`].
 pub struct FanoutHostFn;
 
-impl HostFn for FanoutHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for FanoutHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
-            return Err(LangError::Engine(format!(
+            return Err(EvalError::Other(format!(
                 "fn.fanout_fn: expected 2 arguments, got {}",
                 args.len()
             )));
@@ -61,10 +61,10 @@ impl HostFn for FanoutHostFn {
 /// yields `a["b"]`.
 pub struct FieldAccessHostFn;
 
-impl HostFn for FieldAccessHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for FieldAccessHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
-            return Err(LangError::Engine(format!(
+            return Err(EvalError::Other(format!(
                 "field_access: expected 2 arguments (target, field), got {}",
                 args.len()
             )));
@@ -77,13 +77,19 @@ impl HostFn for FieldAccessHostFn {
             }
             (Value::Array(arr), Value::Number(n)) => {
                 let i = n.as_u64().ok_or_else(|| {
-                    LangError::Engine("field_access: array index must be a non-negative integer".to_string())
+                    EvalError::Other(
+                        "field_access: array index must be a non-negative integer".to_string(),
+                    )
                 })? as usize;
                 arr.get(i).cloned().ok_or_else(|| {
-                    LangError::Engine(format!("field_access: index {} out of bounds (len {})", i, arr.len()))
+                    EvalError::Other(format!(
+                        "field_access: index {} out of bounds (len {})",
+                        i,
+                        arr.len()
+                    ))
                 })
             }
-            _ => Err(LangError::Engine(format!(
+            _ => Err(EvalError::Other(format!(
                 "field_access: target must be object/array, field must be string/number; got {} and {}",
                 target, field
             ))),
@@ -95,13 +101,13 @@ impl HostFn for FieldAccessHostFn {
 // FpHostFunctions — registry of FP host functions
 // ---------------------------------------------------------------------------
 
-/// A [`HostFunctions`] registry containing the FP host functions
+/// A [`ModuleLookup`] registry containing the FP host functions
 /// (`fn.fanout_fn`, `field_access`), with an optional delegate for further
 /// delegation.
 pub struct FpHostFunctions {
     fanout: FanoutHostFn,
     field_access: FieldAccessHostFn,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl Clone for FpHostFunctions {
@@ -117,7 +123,7 @@ impl Clone for FpHostFunctions {
 impl FpHostFunctions {
     /// Create a new `FpHostFunctions` with an optional delegate for
     /// unknown-name lookup.
-    pub fn new(delegate: Option<Rc<dyn HostFunctions>>) -> Self {
+    pub fn new(delegate: Option<Rc<dyn ModuleLookup>>) -> Self {
         Self {
             fanout: FanoutHostFn,
             field_access: FieldAccessHostFn,
@@ -126,8 +132,8 @@ impl FpHostFunctions {
     }
 }
 
-impl HostFunctions for FpHostFunctions {
-    fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+impl ModuleLookup for FpHostFunctions {
+    fn lookup(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "fn.fanout_fn" => Some(&self.fanout),
             "field_access" => Some(&self.field_access),
@@ -138,76 +144,85 @@ impl HostFunctions for FpHostFunctions {
 
 /// Build an [`FpHostFunctions`] for the canonical handl language, layered on
 /// top of an optional delegate.
-pub fn canonical_fp_host_functions(
-    delegate: Option<Rc<dyn HostFunctions>>,
-) -> Rc<FpHostFunctions> {
+pub fn canonical_fp_host_functions(delegate: Option<Rc<dyn ModuleLookup>>) -> Rc<FpHostFunctions> {
     Rc::new(FpHostFunctions::new(delegate))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handl_platform::Module;
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
-    use std::collections::HashMap;
+
+    /// Helper: call a [`Function`] with a fresh [`EvalContext`].
+    fn call_fn(f: &dyn Function, args: &[Value]) -> Result<Value, EvalError> {
+        let mut ctx = EvalContext::new();
+        f.call(args, &mut ctx)
+    }
 
     #[test]
     fn fanout_returns_pair() {
         let f = FanoutHostFn;
-        let result = f.call(&[json!(1), json!(2)]).unwrap();
+        let result = call_fn(&f, &[json!(1), json!(2)]).unwrap();
         assert_eq!(result, json!([1, 2]));
     }
 
     #[test]
     fn fanout_wrong_arity_errors() {
         let f = FanoutHostFn;
-        let err = f.call(&[json!(1)]).unwrap_err();
+        let err = call_fn(&f, &[json!(1)]).unwrap_err();
         assert!(err.to_string().contains("fn.fanout_fn"));
     }
 
     #[test]
     fn field_access_object_string_key() {
         let f = FieldAccessHostFn;
-        let result = f.call(&[json!({"a": 1, "b": 2}), json!("a")]).unwrap();
+        let result = call_fn(&f, &[json!({"a": 1, "b": 2}), json!("a")]).unwrap();
         assert_eq!(result, json!(1));
     }
 
     #[test]
     fn field_access_object_missing_key_returns_null() {
         let f = FieldAccessHostFn;
-        let result = f.call(&[json!({"a": 1}), json!("z")]).unwrap();
+        let result = call_fn(&f, &[json!({"a": 1}), json!("z")]).unwrap();
         assert_eq!(result, Value::Null);
     }
 
     #[test]
     fn field_access_array_numeric_index() {
         let f = FieldAccessHostFn;
-        let result = f.call(&[json!([10, 20, 30]), json!(1)]).unwrap();
+        let result = call_fn(&f, &[json!([10, 20, 30]), json!(1)]).unwrap();
         assert_eq!(result, json!(20));
     }
 
     #[test]
     fn field_access_array_out_of_bounds_errors() {
         let f = FieldAccessHostFn;
-        let err = f.call(&[json!([1, 2]), json!(5)]).unwrap_err();
+        let err = call_fn(&f, &[json!([1, 2]), json!(5)]).unwrap_err();
         assert!(err.to_string().contains("out of bounds"));
     }
 
     #[test]
     fn field_access_wrong_types_errors() {
         let f = FieldAccessHostFn;
-        let err = f.call(&[json!(42), json!("a")]).unwrap_err();
+        let err = call_fn(&f, &[json!(42), json!("a")]).unwrap_err();
         assert!(err.to_string().contains("target must be"));
     }
 
     #[test]
     fn fp_host_functions_lookup_registered() {
         let fp = FpHostFunctions::new(None);
-        let f = fp.lookup("fn.fanout_fn").expect("fanout should be registered");
-        let result = f.call(&[json!("x"), json!("y")]).unwrap();
+        let f = fp
+            .lookup("fn.fanout_fn")
+            .expect("fanout should be registered");
+        let result = call_fn(f, &[json!("x"), json!("y")]).unwrap();
         assert_eq!(result, json!(["x", "y"]));
 
-        let f = fp.lookup("field_access").expect("field_access should be registered");
-        let result = f.call(&[json!({"k": 42}), json!("k")]).unwrap();
+        let f = fp
+            .lookup("field_access")
+            .expect("field_access should be registered");
+        let result = call_fn(f, &[json!({"k": 42}), json!("k")]).unwrap();
         assert_eq!(result, json!(42));
     }
 
@@ -220,24 +235,28 @@ mod tests {
     #[test]
     fn fp_host_functions_delegates_unknown_names() {
         struct DummyHost;
-        impl HostFn for DummyHost {
-            fn call(&self, _args: &[Value]) -> Result<Value, LangError> {
+        impl Function for DummyHost {
+            fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
                 Ok(json!("delegated"))
             }
         }
-        struct DummyRegistry {
-            fns: HashMap<String, Box<dyn HostFn>>,
-        }
-        impl HostFunctions for DummyRegistry {
-            fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
-                self.fns.get(name).map(|f| f.as_ref())
+        struct DummyModule;
+        impl Module for DummyModule {
+            fn name(&self) -> &str {
+                "dummy"
+            }
+            fn function(&self, name: &str) -> Option<&dyn Function> {
+                if name == "custom" {
+                    Some(&DummyHost)
+                } else {
+                    None
+                }
             }
         }
-        let mut dummy = DummyRegistry { fns: HashMap::new() };
-        dummy.fns.insert("custom".to_string(), Box::new(DummyHost));
-        let delegate: Rc<dyn HostFunctions> = Rc::new(dummy);
-        let fp = FpHostFunctions::new(Some(delegate));
+        let dummy: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(DummyModule));
+        let fp = FpHostFunctions::new(Some(dummy));
         let f = fp.lookup("custom").expect("should delegate");
-        assert_eq!(f.call(&[]).unwrap(), json!("delegated"));
+        let result = call_fn(f, &[]).unwrap();
+        assert_eq!(result, json!("delegated"));
     }
 }

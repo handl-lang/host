@@ -44,9 +44,9 @@
 //! [`handl_language::language_value`]). The host functions extract the
 //! [`Language`] directly — no string-handle registry lookup is required.
 //!
-//! [`MetaHostFunctions`] implements [`HostFunctions`] by returning the meta
+//! [`MetaHostFunctions`] implements [`ModuleLookup`] by returning the meta
 //! functions for their names and delegating everything else to an optional
-//! user-supplied [`HostFunctions`].
+//! user-supplied [`ModuleLookup`].
 //!
 //! ## Registry-based (ADR-0047 §2)
 //!
@@ -63,9 +63,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{
-    as_language, language_value, Ast, LangError, Language, Source, Tokens, Value,
+    Ast, LangError, Language, Source, Tokens, Value, as_language, language_value,
 };
-use handl_plugin_engine_eval::{HostFn, HostFunctions};
+use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
 
 use crate::{CompiledHandle, EngineRegistry, Runtime, RuntimeConfig};
 
@@ -77,7 +77,10 @@ use crate::{CompiledHandle, EngineRegistry, Runtime, RuntimeConfig};
 /// function call.
 fn extract_language(arg: Option<&Value>, fn_name: &str) -> Result<Language, LangError> {
     let v = arg.ok_or_else(|| {
-        LangError::Engine(format!("{}: expected a Language value as first argument", fn_name))
+        LangError::Engine(format!(
+            "{}: expected a Language value as first argument",
+            fn_name
+        ))
     })?;
     as_language(v).ok_or_else(|| {
         LangError::Engine(format!(
@@ -99,11 +102,16 @@ fn build_runtime(
     lang: Language,
     config: &RuntimeConfig,
     registry: &Rc<EngineRegistry>,
-    delegate: &Option<Rc<dyn HostFunctions>>,
+    delegate: &Option<Rc<dyn ModuleLookup>>,
 ) -> Result<Runtime, LangError> {
     let self_val = language_value(&lang);
-    let sub_meta = MetaHostFunctions::new(lang.clone(), config.clone(), Rc::clone(registry), delegate.clone());
-    let sub_meta_rc: Rc<dyn HostFunctions> = Rc::new(sub_meta);
+    let sub_meta = MetaHostFunctions::new(
+        lang.clone(),
+        config.clone(),
+        Rc::clone(registry),
+        delegate.clone(),
+    );
+    let sub_meta_rc: Rc<dyn ModuleLookup> = Rc::new(sub_meta);
     let mut globals = HashMap::new();
     globals.insert("self".to_string(), self_val);
     Runtime::from_registry_with_globals(lang, registry, config, Some(sub_meta_rc), Some(&globals))
@@ -121,7 +129,7 @@ fn build_runtime(
 pub struct LexHostFn {
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl LexHostFn {
@@ -130,7 +138,7 @@ impl LexHostFn {
     pub fn new(
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             config,
@@ -140,16 +148,20 @@ impl LexHostFn {
     }
 }
 
-impl HostFn for LexHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        let lang = extract_language(args.first(), "lex")?;
+impl Function for LexHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let lang =
+            extract_language(args.first(), "lex").map_err(|e| EvalError::Other(e.to_string()))?;
         let text = args
             .get(1)
             .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::Engine("lex: expected (lang, text)".into()))?;
-        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
-        let tokens = runtime.lex(&Source::new(text))?;
-        serde_json::to_value(&tokens).map_err(|e| LangError::Engine(format!("lex: {}", e)))
+            .ok_or_else(|| EvalError::Other("lex: expected (lang, text)".into()))?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        let tokens = runtime
+            .lex(&Source::new(text))
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        serde_json::to_value(&tokens).map_err(|e| EvalError::Other(format!("lex: {}", e)))
     }
 }
 
@@ -165,7 +177,7 @@ impl HostFn for LexHostFn {
 pub struct ParseHostFn {
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl ParseHostFn {
@@ -174,7 +186,7 @@ impl ParseHostFn {
     pub fn new(
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             config,
@@ -184,17 +196,21 @@ impl ParseHostFn {
     }
 }
 
-impl HostFn for ParseHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        let lang = extract_language(args.first(), "parse")?;
+impl Function for ParseHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let lang =
+            extract_language(args.first(), "parse").map_err(|e| EvalError::Other(e.to_string()))?;
         let tokens_val = args
             .get(1)
-            .ok_or_else(|| LangError::Engine("parse: expected (lang, tokens)".into()))?;
+            .ok_or_else(|| EvalError::Other("parse: expected (lang, tokens)".into()))?;
         let tokens: Tokens = serde_json::from_value(tokens_val.clone())
-            .map_err(|e| LangError::Engine(format!("parse: {}", e)))?;
-        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
-        let ast = runtime.parse(&tokens)?;
-        serde_json::to_value(&ast).map_err(|e| LangError::Engine(format!("parse: {}", e)))
+            .map_err(|e| EvalError::Other(format!("parse: {}", e)))?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        let ast = runtime
+            .parse(&tokens)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        serde_json::to_value(&ast).map_err(|e| EvalError::Other(format!("parse: {}", e)))
     }
 }
 
@@ -210,7 +226,7 @@ impl HostFn for ParseHostFn {
 pub struct EvalHostFn {
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl EvalHostFn {
@@ -219,7 +235,7 @@ impl EvalHostFn {
     pub fn new(
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             config,
@@ -229,22 +245,26 @@ impl EvalHostFn {
     }
 }
 
-impl HostFn for EvalHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        let lang = extract_language(args.first(), "eval")?;
+impl Function for EvalHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let lang =
+            extract_language(args.first(), "eval").map_err(|e| EvalError::Other(e.to_string()))?;
         let ast_val = args
             .get(1)
-            .ok_or_else(|| LangError::Engine("eval: expected (lang, ast)".into()))?;
+            .ok_or_else(|| EvalError::Other("eval: expected (lang, ast)".into()))?;
         // Accept either a raw serialized `Ast` value or a tagged `__ast__`
         // value (the form bound by `Scheme::Vau` — ADR-0041 §6, ADR-0045).
         let ast: Ast = if let Some(tagged) = handl_language::as_ast(ast_val) {
             tagged
         } else {
             serde_json::from_value(ast_val.clone())
-                .map_err(|e| LangError::Engine(format!("eval: {}", e)))?
+                .map_err(|e| EvalError::Other(format!("eval: {}", e)))?
         };
-        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
-        runtime.eval(&ast)
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        runtime
+            .eval(&ast)
+            .map_err(|e| EvalError::Other(e.to_string()))
     }
 }
 
@@ -265,7 +285,7 @@ pub struct RunHostFn {
     current_lang: Language,
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl RunHostFn {
@@ -276,7 +296,7 @@ impl RunHostFn {
         current_lang: Language,
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             current_lang,
@@ -287,29 +307,34 @@ impl RunHostFn {
     }
 }
 
-impl HostFn for RunHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for RunHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         // Two calling conventions:
         //   run(lang, text) — 2-arg: explicit Language value
         //   run(text)       — 1-arg: use the current language (self)
-        let (lang, text) = if args.len() >= 2 {
-            let l = extract_language(args.first(), "run")?;
-            let t = args
-                .get(1)
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("run: expected (lang, text) or (text)".into()))?;
-            (l, t.to_string())
-        } else if args.len() == 1 {
-            let t = args
-                .first()
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("run: expected (lang, text) or (text)".into()))?;
-            (self.current_lang.clone(), t.to_string())
-        } else {
-            return Err(LangError::Engine("run: expected (lang, text) or (text)".into()));
-        };
-        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
-        runtime.run(&Source::new(&text))
+        let (lang, text) =
+            if args.len() >= 2 {
+                let l = extract_language(args.first(), "run")
+                    .map_err(|e| EvalError::Other(e.to_string()))?;
+                let t = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
+                    EvalError::Other("run: expected (lang, text) or (text)".into())
+                })?;
+                (l, t.to_string())
+            } else if args.len() == 1 {
+                let t = args.first().and_then(|v| v.as_str()).ok_or_else(|| {
+                    EvalError::Other("run: expected (lang, text) or (text)".into())
+                })?;
+                (self.current_lang.clone(), t.to_string())
+            } else {
+                return Err(EvalError::Other(
+                    "run: expected (lang, text) or (text)".into(),
+                ));
+            };
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        runtime
+            .run(&Source::new(&text))
+            .map_err(|e| EvalError::Other(e.to_string()))
     }
 }
 
@@ -336,7 +361,7 @@ impl HostFn for RunHostFn {
 pub struct CompileHostFn {
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl CompileHostFn {
@@ -345,7 +370,7 @@ impl CompileHostFn {
     pub fn new(
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             config,
@@ -355,21 +380,22 @@ impl CompileHostFn {
     }
 }
 
-impl HostFn for CompileHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
-        let lang = extract_language(args.first(), "compile")?;
+impl Function for CompileHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let lang = extract_language(args.first(), "compile")
+            .map_err(|e| EvalError::Other(e.to_string()))?;
         let ast_val = args
             .get(1)
-            .ok_or_else(|| LangError::Engine("compile: expected (lang, ast, target)".into()))?;
+            .ok_or_else(|| EvalError::Other("compile: expected (lang, ast, target)".into()))?;
         let ast: Ast = serde_json::from_value(ast_val.clone())
-            .map_err(|e| LangError::Engine(format!("compile: {}", e)))?;
-        let target = args
-            .get(2)
-            .and_then(|v| v.as_str())
-            .unwrap_or("native");
+            .map_err(|e| EvalError::Other(format!("compile: {}", e)))?;
+        let target = args.get(2).and_then(|v| v.as_str()).unwrap_or("native");
 
-        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)?;
-        let handle = runtime.compile(&ast, target)?;
+        let runtime = build_runtime(lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        let handle = runtime
+            .compile(&ast, target)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
         // Return the handle as a tagged JSON value (same shape as before:
         // {"__compiled__": <id>, "target": <target>}).
         Ok(crate::compiled_value(handle.id, &handle.target))
@@ -394,7 +420,7 @@ impl HostFn for CompileHostFn {
 pub struct RunCompiledHostFn {
     config: RuntimeConfig,
     registry: Rc<EngineRegistry>,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl RunCompiledHostFn {
@@ -403,7 +429,7 @@ impl RunCompiledHostFn {
     pub fn new(
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             config,
@@ -413,13 +439,13 @@ impl RunCompiledHostFn {
     }
 }
 
-impl HostFn for RunCompiledHostFn {
-    fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+impl Function for RunCompiledHostFn {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let handle = args
             .first()
-            .ok_or_else(|| LangError::Engine("run_compiled: expected (handle)".into()))?;
+            .ok_or_else(|| EvalError::Other("run_compiled: expected (handle)".into()))?;
         let id = crate::as_compiled_id(handle).ok_or_else(|| {
-            LangError::Engine("run_compiled: expected a compiled-program handle".into())
+            EvalError::Other("run_compiled: expected a compiled-program handle".into())
         })?;
         let target = crate::as_compiled_target(handle).unwrap_or("");
 
@@ -436,8 +462,11 @@ impl HostFn for RunCompiledHostFn {
         // carries them (ADR-0047 §3). We build a runtime with a dummy
         // language (the artifact's `run` method uses its own `lang`/`ast`).
         let dummy_lang = Language::new();
-        let runtime = build_runtime(dummy_lang, &self.config, &self.registry, &self.delegate)?;
-        runtime.run_compiled(&handle)
+        let runtime = build_runtime(dummy_lang, &self.config, &self.registry, &self.delegate)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        runtime
+            .run_compiled(&handle)
+            .map_err(|e| EvalError::Other(e.to_string()))
     }
 }
 
@@ -445,9 +474,9 @@ impl HostFn for RunCompiledHostFn {
 // MetaHostFunctions registry
 // ---------------------------------------------------------------------------
 
-/// A [`HostFunctions`] registry that includes the meta functions
+/// A [`ModuleLookup`] registry that includes the meta functions
 /// (`lex`/`parse`/`eval`/`run`/`compile`/`run_compiled`) and delegates
-/// unknown names to an optional user-supplied [`HostFunctions`].
+/// unknown names to an optional user-supplied [`ModuleLookup`].
 ///
 /// `self` is not a host function — it is injected as a global variable by
 /// [`build_runtime`] / `Kit::new` (ADR-0041 Phase 3).
@@ -461,7 +490,7 @@ pub struct MetaHostFunctions {
     run_fn: RunHostFn,
     compile_fn: CompileHostFn,
     run_compiled_fn: RunCompiledHostFn,
-    delegate: Option<Rc<dyn HostFunctions>>,
+    delegate: Option<Rc<dyn ModuleLookup>>,
 }
 
 impl Clone for MetaHostFunctions {
@@ -512,13 +541,18 @@ impl MetaHostFunctions {
         current_lang: Language,
         config: RuntimeConfig,
         registry: Rc<EngineRegistry>,
-        delegate: Option<Rc<dyn HostFunctions>>,
+        delegate: Option<Rc<dyn ModuleLookup>>,
     ) -> Self {
         Self {
             lex_fn: LexHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
             parse_fn: ParseHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
             eval_fn: EvalHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
-            run_fn: RunHostFn::new(current_lang, config.clone(), Rc::clone(&registry), delegate.clone()),
+            run_fn: RunHostFn::new(
+                current_lang,
+                config.clone(),
+                Rc::clone(&registry),
+                delegate.clone(),
+            ),
             compile_fn: CompileHostFn::new(config.clone(), Rc::clone(&registry), delegate.clone()),
             run_compiled_fn: RunCompiledHostFn::new(config, registry, delegate.clone()),
             delegate,
@@ -526,8 +560,8 @@ impl MetaHostFunctions {
     }
 }
 
-impl HostFunctions for MetaHostFunctions {
-    fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+impl ModuleLookup for MetaHostFunctions {
+    fn lookup(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "lex" => Some(&self.lex_fn),
             "parse" => Some(&self.parse_fn),
@@ -557,7 +591,7 @@ pub fn canonical_meta_host_functions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{language_value, Ast, AstNode};
+    use handl_language::{Ast, AstNode, language_value};
     use handl_plugin_engine_eval_cranelift::CraneliftEngine;
     use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
     use handl_plugin_engine_lex_pattern::DataLexerEngine;
@@ -580,7 +614,10 @@ mod tests {
         reg.register_lex("data", Box::new(DataLexerEngine::new()));
         reg.register_parse("pratt", PrattEngine::new());
         reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
-        reg.register_eval("bytecode", Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()));
+        reg.register_eval(
+            "bytecode",
+            Box::new(handl_plugin_engine_eval_bytecode::BytecodeEngine::new()),
+        );
         reg.register_eval("cranelift", Box::new(CraneliftEngine::new()));
         Rc::new(reg)
     }
@@ -600,7 +637,7 @@ mod tests {
         let meta = canonical_meta_host_functions(canonical.clone(), config.clone(), registry);
         // Inject `self` as a global variable bound to the current Language
         // value (ADR-0041 Phase 3).
-        let meta_rc: Rc<dyn HostFunctions> = meta;
+        let meta_rc: Rc<dyn ModuleLookup> = meta;
         let mut globals = HashMap::new();
         globals.insert("self".to_string(), language_value(&canonical));
         Runtime::from_registry_with_globals(
@@ -624,7 +661,11 @@ mod tests {
         ast.push(AstNode::new("foreign.lex").with_payload(json!({"children": [0, 1]})));
         let result = runtime.eval(&ast).expect("lex must succeed");
         // Tokens serialize as a JSON array of {kind, text} objects.
-        assert!(result.is_array(), "lex should return an array, got: {}", result);
+        assert!(
+            result.is_array(),
+            "lex should return an array, got: {}",
+            result
+        );
     }
 
     /// `parse(lang, tokens)` returns a JSON-serialized Ast value.
@@ -814,11 +855,7 @@ mod tests {
         ast.push(AstNode::new("value").with_payload(sub_ast_val));
         ast.push(AstNode::new("foreign.eval").with_payload(json!({"children": [0, 1]})));
         let err = runtime.eval(&ast).unwrap_err();
-        assert!(
-            err.to_string().contains("Language value"),
-            "got: {}",
-            err
-        );
+        assert!(err.to_string().contains("Language value"), "got: {}", err);
     }
 
     // --- Vau (fexpr) tests (ADR-0041 §6, ADR-0045) ---
@@ -855,21 +892,23 @@ mod tests {
         //   eval(self, expr)  i.e. App{var eval, [var self, var expr]}
         let mut lang = canonical_lang();
         lang.eval
-            .merge(handl_language::EvalSchemeDef::new(
-                "eval.vau-escape",
-                "vau",
-                handl_language::Scheme::vau(
-                    vec!["expr".into()],
-                    handl_language::Scheme::App {
-                        callee: Box::new(handl_language::Scheme::var("eval")),
-                        args: vec![
-                            handl_language::Scheme::var("self"),
-                            handl_language::Scheme::var("expr"),
-                        ],
-                    },
-                ),
+            .merge(
+                handl_language::EvalSchemeDef::new(
+                    "eval.vau-escape",
+                    "vau",
+                    handl_language::Scheme::vau(
+                        vec!["expr".into()],
+                        handl_language::Scheme::App {
+                            callee: Box::new(handl_language::Scheme::var("eval")),
+                            args: vec![
+                                handl_language::Scheme::var("self"),
+                                handl_language::Scheme::var("expr"),
+                            ],
+                        },
+                    ),
+                )
+                .with_replaces(vec!["eval.vau".to_string()]),
             )
-            .with_replaces(vec!["eval.vau".to_string()]))
             .unwrap();
         let runtime = make_runtime_from_lang(lang);
         // 0: value 1, 1: value 2, 2: binary.add {children:[0,1]}

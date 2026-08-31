@@ -5,10 +5,11 @@
 //! Splits `plugin-ext-eval` into an abstraction (operation marker + trait,
 //! no engine) and an engine crate (`plugin-engine-eval-tree-walk`). This
 //! crate defines the `Eval` operation marker, [`EvalRequest`], the
-//! [`EvalEngine`] trait, and the [`HostFunctions`]/[`HostFn`] traits that form
-//! the bridge for `Foreign` scheme dispatch (ADR-0044 §7 "Foreign host-function
-//! registration"). **No interpreter code lives here** — the abstraction is the
-//! contract; the tree-walk (or bytecode/cranelift) engine implements it.
+//! [`EvalEngine`] trait. `Foreign` scheme dispatch uses
+//! [`handl_platform::ModuleLookup`]/[`handl_platform::Function`] from the
+//! `handl-platform` crate (ADR-0044 §7 "Foreign host-function registration").
+//! **No interpreter code lives here** — the abstraction is the contract; the
+//! tree-walk (or bytecode/cranelift) engine implements it.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
 //! `lang.eval[node.kind]` to find a [`handl_language::Scheme`] and interpret
@@ -79,9 +80,9 @@ pub trait EvalEngine {
     /// Produce an owned boxed clone of this engine (ADR-0047 §2).
     fn box_clone(&self) -> Box<dyn EvalEngine>;
 
-    /// Produce a fresh owned engine with the given host-functions registry
-    /// wired in. Default: clone + ignore. ADR-0047 §2.
-    fn with_host_fns(&self, _host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
+    /// Produce a fresh owned engine with the given module registry wired in
+    /// for `Foreign` dispatch. Default: clone + ignore. ADR-0047 §2.
+    fn with_modules(&self, _modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
         self.box_clone()
     }
 
@@ -92,40 +93,13 @@ pub trait EvalEngine {
     }
 }
 
-/// A registry of host functions, looked up by name.
-///
-/// This is the bridge the tree-walk (and other engines) use to resolve
-/// [`handl_language::Scheme::Foreign`] — a `Foreign(name)` scheme looks up
-/// `name` in the host functions registry and calls it. These are runtime-only
-/// types (not serializable); a `Runtime` (Phase 3) owns the concrete
-/// registry and passes it to the engine.
-///
-/// See ADR-0044 §7 "Foreign host-function registration".
-pub trait HostFunctions {
-    /// Look up a host function by name.
-    fn lookup(&self, name: &str) -> Option<&dyn HostFn>;
-}
-
-/// A single host function callable by an engine.
-///
-/// Engines call `HostFn::call` when interpreting a
-/// [`handl_language::Scheme::Foreign`] scheme, passing the evaluated argument
-/// values.
-pub trait HostFn {
-    /// Call this host function with the given argument values.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LangError`] on failure (e.g. wrong argument count or types).
-    fn call(&self, args: &[Value]) -> Result<Value, LangError>;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use handl_language::{Ast, AstNode};
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
-    use std::collections::HashMap;
 
     #[test]
     fn eval_marker_constructs() {
@@ -188,65 +162,60 @@ mod tests {
     /// A host function that returns the sum of its integer arguments.
     struct AddHostFn;
 
-    impl HostFn for AddHostFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for AddHostFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
             let sum: i64 = args.iter().filter_map(|v| v.as_i64()).sum();
             Ok(Value::from(sum))
         }
     }
 
-    /// A simple host function registry backed by a `HashMap`.
-    struct MapHostFunctions {
-        fns: HashMap<String, Box<dyn HostFn>>,
-    }
+    /// A simple module with an `add` function.
+    struct AddModule;
 
-    impl MapHostFunctions {
-        fn new() -> Self {
-            Self {
-                fns: HashMap::new(),
+    impl Module for AddModule {
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
+            if name == "add" {
+                Some(&AddHostFn)
+            } else {
+                None
             }
         }
-
-        fn register(&mut self, name: impl Into<String>, f: Box<dyn HostFn>) {
-            self.fns.insert(name.into(), f);
-        }
     }
 
-    impl HostFunctions for MapHostFunctions {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
-            self.fns.get(name).map(|f| f.as_ref())
-        }
+    /// Helper: call a [`Function`] with a fresh [`EvalContext`].
+    fn call_fn(f: &dyn Function, args: &[Value]) -> Result<Value, handl_platform::EvalError> {
+        let mut ctx = EvalContext::new();
+        f.call(args, &mut ctx)
     }
 
     #[test]
     fn host_functions_lookup_registered() {
-        let mut host = MapHostFunctions::new();
-        host.register("add", Box::new(AddHostFn));
-        let f = host.lookup("add").expect("add should be registered");
-        let result = f.call(&[json!(2), json!(3)]).unwrap();
+        let reg: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(AddModule));
+        let f = reg.lookup("add").expect("add should be registered");
+        let result = call_fn(f, &[json!(2), json!(3)]).unwrap();
         assert_eq!(result, json!(5));
     }
 
     #[test]
     fn host_functions_lookup_unregistered_returns_none() {
-        let host = MapHostFunctions::new();
-        assert!(host.lookup("missing").is_none());
+        let reg: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(AddModule));
+        assert!(reg.lookup("missing").is_none());
     }
 
     #[test]
     fn host_fn_call_with_no_args() {
-        let f = AddHostFn;
-        let result = f.call(&[]).unwrap();
+        let result = call_fn(&AddHostFn, &[]).unwrap();
         assert_eq!(result, json!(0));
     }
 
     #[test]
     fn host_functions_via_dyn_trait() {
-        let mut host = MapHostFunctions::new();
-        host.register("add", Box::new(AddHostFn));
-        let dyn_host: &dyn HostFunctions = &host;
-        let f = dyn_host.lookup("add").expect("add should be registered");
-        let result = f.call(&[json!(10), json!(20)]).unwrap();
+        let reg: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(AddModule));
+        let f = reg.lookup("add").expect("add should be registered");
+        let result = call_fn(f, &[json!(10), json!(20)]).unwrap();
         assert_eq!(result, json!(30));
     }
 }

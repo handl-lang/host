@@ -15,5 +15,5 @@
 pub mod corpus;
 pub mod run;
 
-pub use corpus::{eval_corpus, parse_corpus, EvalCase, ParseCase};
+pub use corpus::{EvalCase, ParseCase, eval_corpus, parse_corpus};
 pub use run::{run_eval_conformance, run_parse_conformance};

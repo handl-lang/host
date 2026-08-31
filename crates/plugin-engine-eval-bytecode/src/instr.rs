@@ -118,7 +118,7 @@ pub enum Instr {
     /// result.
     ///
     /// Emitted by [`Scheme::Foreign`](handl_language::Scheme::Foreign). The
-    /// host function is looked up in the [`HostFunctions`](handl_plugin_engine_eval::HostFunctions)
+    /// host function is looked up in the [`ModuleLookup`](handl_platform::ModuleLookup)
     /// registry.
     Foreign(String, usize),
 

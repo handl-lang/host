@@ -42,7 +42,7 @@
 //! ## Per-node compilation
 //!
 //! Every node in the [`Ast`] arena is compiled to its own native function with
-//! the signature `fn(*mut EvalCtx<'_>) -> *mut Value`. The scheme for each node is
+//! the signature `fn(*mut EvalCtx) -> *mut Value`. The scheme for each node is
 //! resolved at **compile time** (one-time `lang.eval[node.kind]` lookup) and
 //! baked into the IR. At execution time, [`Scheme::Child`] dispatches to the
 //! child's pre-compiled native function via a function-pointer cache — no
@@ -108,7 +108,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
-use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
+use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -118,25 +118,25 @@ use handl_plugin_engine_eval::{EvalEngine, EvalRequest, HostFunctions};
 ///
 /// Compiles `Scheme` data to native code via cranelift and executes via an
 /// in-memory JIT. Construct with [`CraneliftEngine::new`] and optionally pass
-/// a host functions registry via [`CraneliftEngine::with_host`].
+/// a module registry via [`CraneliftEngine::with_modules`].
 ///
 /// The engine checks `lang.scheme_version` against `SchemeVersion::v1()` and
 /// rejects mismatched versions.
 #[derive(Clone)]
 pub struct CraneliftEngine {
-    /// The host functions registry for `Foreign` dispatch (may be `None`).
-    host: Option<Rc<dyn HostFunctions>>,
+    /// The module registry for `Foreign` dispatch (may be `None`).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
 }
 
 impl CraneliftEngine {
-    /// Create a new cranelift engine with no host functions.
+    /// Create a new cranelift engine with no module registry.
     pub fn new() -> Self {
-        Self { host: None }
+        Self { modules: None }
     }
 
-    /// Attach a host functions registry (builder style).
-    pub fn with_host(host: Rc<dyn HostFunctions>) -> Self {
-        Self { host: Some(host) }
+    /// Attach a module registry (builder style).
+    pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
+        Self { modules: Some(modules) }
     }
 
     /// Compile the language + AST to an on-disk object file.
@@ -205,10 +205,10 @@ impl CraneliftEngine {
     /// JIT-allocated native code in memory, so the function pointers in
     /// `result.compiled` remain valid as long as `result` is alive.
     ///
-    /// The engine's host functions registry (set via [`with_host`]) is used
+    /// The engine's module registry (set via [`with_modules`]) is used
     /// for [`Scheme::Foreign`] dispatch, matching [`eval`].
     ///
-    /// [`with_host`]: CraneliftEngine::with_host
+    /// [`with_modules`]: CraneliftEngine::with_modules
     /// [`eval`]: EvalEngine::eval
     ///
     /// # Errors
@@ -230,7 +230,7 @@ impl CraneliftEngine {
             &result.compiled,
             &result.literals,
             &result.names,
-            self.host.as_deref(),
+            self.modules.as_ref(),
         )
     }
 }
@@ -266,7 +266,7 @@ impl EvalEngine for CraneliftEngine {
             &compile_result.compiled,
             &compile_result.literals,
             &compile_result.names,
-            self.host.as_deref(),
+            self.modules.as_ref(),
         )
     }
 
@@ -274,8 +274,8 @@ impl EvalEngine for CraneliftEngine {
         Box::new(self.clone())
     }
 
-    fn with_host_fns(&self, host: Rc<dyn HostFunctions>) -> Box<dyn EvalEngine> {
-        Box::new(CraneliftEngine::with_host(host))
+    fn with_modules(&self, modules: Rc<dyn handl_platform::ModuleLookup>) -> Box<dyn EvalEngine> {
+        Box::new(CraneliftEngine::with_modules(modules))
     }
 }
 
@@ -297,7 +297,7 @@ fn run_native(
     compiled: &HashMap<usize, CompiledFn>,
     literals: &[Value],
     names: &[String],
-    host: Option<&dyn HostFunctions>,
+    modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
     let mut ctx = EvalCtx {
@@ -305,7 +305,7 @@ fn run_native(
         ast: ast as *const Ast,
         env: ScopeStack::new(),
         current_ref: ast.len() - 1,
-        host: host.map(|h| h as *const dyn HostFunctions),
+        modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
         compiled: compiled.clone(),
         literals: literals.to_vec(),
         names: names.to_vec(),
@@ -322,7 +322,7 @@ fn run_native(
         .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
 
     let result_ptr: *mut Value =
-        unsafe { root_fn(&mut ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value };
+        unsafe { root_fn(&mut ctx as *mut EvalCtx as *mut u8) as *mut Value };
 
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {
@@ -353,12 +353,12 @@ fn run_native(
 ///
 /// # Safety
 ///
-/// The `lang`, `ast`, and `host` raw pointers are valid for the lifetime of
+/// The `lang`, `ast`, and `modules` raw pointers are valid for the lifetime of
 /// the `eval` call (the engine borrows them from the `EvalEngine::eval`
 /// parameters). The `compiled` map holds function pointers into JIT-allocated
 /// memory that remains valid as long as the `JITModule` is alive — the
 /// compile module keeps the module alive via the `CompiledResult`.
-pub struct EvalCtx<'a> {
+pub struct EvalCtx {
     /// The language definition (raw pointer; valid for the eval call).
     #[allow(dead_code)]
     lang: *const Language,
@@ -368,8 +368,8 @@ pub struct EvalCtx<'a> {
     env: ScopeStack,
     /// The arena index of the node currently being evaluated.
     current_ref: usize,
-    /// The host functions registry (raw trait-object pointer; may be null).
-    host: Option<*const (dyn HostFunctions + 'a)>,
+    /// The module registry (raw trait-object pointer; may be null).
+    modules: Option<*const dyn handl_platform::ModuleLookup>,
     /// Per-node compiled function pointers, keyed by arena index.
     compiled: HashMap<usize, compile::CompiledFn>,
     /// Literal constant pool: values referenced by `Scheme::Lit`.
@@ -381,7 +381,7 @@ pub struct EvalCtx<'a> {
     error: Option<LangError>,
 }
 
-impl EvalCtx<'_> {
+impl EvalCtx {
     /// Get the current node being evaluated.
     fn current_node(&self) -> Result<&AstNode, LangError> {
         unsafe { (*self.ast).at(AstRef::new(self.current_ref)) }
@@ -427,7 +427,7 @@ impl EvalCtx<'_> {
             ast: ast as *const Ast,
             env: ScopeStack::new(),
             current_ref: if ast.is_empty() { 0 } else { ast.len() - 1 },
-            host: None,
+            modules: None,
             compiled,
             literals,
             names,
@@ -642,7 +642,7 @@ unsafe fn take_value(ptr: *mut Value) -> Value { unsafe {
 
 /// Push a literal value (from the constant pool) as a boxed clone.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx<'_>, lit_idx: usize) -> *mut Value { unsafe {
+pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     if lit_idx >= ctx.literals.len() {
         return ctx.set_error(LangError::Engine(format!(
@@ -655,7 +655,7 @@ pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx<'_>, lit_idx: usi
 
 /// Load a variable by name index from the scope stack.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx<'_>, name_idx: usize) -> *mut Value { unsafe {
+pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     if name_idx >= ctx.names.len() {
         return ctx.set_error(LangError::Engine(format!(
@@ -675,7 +675,7 @@ pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx<'_>, name_idx: usize)
 /// Load the payload variable: reads `node.payload` as a string (the variable
 /// name) and looks it up in the scope.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
+pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     match ctx.current_node() {
         Ok(node) => match node.payload.as_str() {
@@ -695,7 +695,7 @@ pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx<'_>) -> *mut 
 
 /// Load the current node's payload directly (no-scheme fallback).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx<'_>) -> *mut Value { unsafe {
+pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     match ctx.current_node() {
         Ok(node) => box_value(node.payload.clone()),
@@ -708,7 +708,7 @@ pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx<'_>) -> *mut Valu
 /// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
 /// calls the child's pre-compiled native function.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n: usize) -> *mut Value { unsafe {
+pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut Value { unsafe {
     let ctx = &mut *ctx;
     let node = match ctx.current_node() {
         Ok(n) => n,
@@ -744,7 +744,7 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n: usize
     // Save and set current_ref for the child evaluation.
     let saved_ref = ctx.current_ref;
     ctx.current_ref = arena_idx;
-    let result = func(ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value;
+    let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
     // Restore current_ref.
     ctx.current_ref = saved_ref;
     result
@@ -755,7 +755,7 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx<'_>, child_n: usize
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx<'_>, name_idx: usize, val: *mut Value) { unsafe {
+pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut Value) { unsafe {
     let ctx = &mut *ctx;
     if name_idx >= ctx.names.len() {
         ctx.set_error(LangError::Engine(format!(
@@ -782,7 +782,7 @@ pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx<'_>, name_idx: usize, va
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val: *mut Value) { unsafe {
+pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut Value) { unsafe {
     let ctx = &mut *ctx;
     let node = match ctx.current_node() {
         Ok(n) => n,
@@ -816,14 +816,14 @@ pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx<'_>, val: *mut V
 
 /// Pop the innermost scope.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx<'_>) { unsafe {
+pub unsafe extern "C" fn helper_pop_scope(ctx: *mut EvalCtx) { unsafe {
     let ctx = &mut *ctx;
     ctx.env.pop_scope();
 }}
 
 /// Push a new empty scope for the `vau` parameter bindings (ADR-0041 §6).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe {
+pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx) { unsafe {
     let ctx = &mut *ctx;
     ctx.env.push_scope();
 }}
@@ -837,7 +837,7 @@ pub unsafe extern "C" fn helper_vau_enter(ctx: *mut EvalCtx<'_>) { unsafe {
 /// (innermost) scope. The child is **not** evaluated.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_vau_bind(
-    ctx: *mut EvalCtx<'_>,
+    ctx: *mut EvalCtx,
     name_idx: usize,
     child_n: usize,
 ) { unsafe {
@@ -926,7 +926,7 @@ pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 { unsafe {
 /// The callee and all argument value pointers are consumed (reclaimed).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_apply_closure(
-    ctx: *mut EvalCtx<'_>,
+    ctx: *mut EvalCtx,
     callee: *mut Value,
     args: *const *mut Value,
     n: usize,
@@ -1043,7 +1043,7 @@ pub unsafe extern "C" fn helper_apply_closure(
     let saved_ref = ctx.current_ref;
     ctx.current_ref = body_idx;
 
-    let result = func(ctx as *mut EvalCtx<'_> as *mut u8) as *mut Value;
+    let result = func(ctx as *mut EvalCtx as *mut u8) as *mut Value;
 
     // Restore the original scope stack and current_ref.
     ctx.current_ref = saved_ref;
@@ -1057,7 +1057,7 @@ pub unsafe extern "C" fn helper_apply_closure(
 /// All argument value pointers are consumed (reclaimed).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_apply_prim(
-    ctx: *mut EvalCtx<'_>,
+    ctx: *mut EvalCtx,
     op_idx: usize,
     args: *const *mut Value,
     n: usize,
@@ -1102,7 +1102,7 @@ pub unsafe extern "C" fn helper_apply_prim(
 /// All argument value pointers are consumed (reclaimed).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_call_foreign(
-    ctx: *mut EvalCtx<'_>,
+    ctx: *mut EvalCtx,
     name_idx: usize,
     args: *const *mut Value,
     n: usize,
@@ -1138,8 +1138,8 @@ pub unsafe extern "C" fn helper_call_foreign(
         arg_vals.push(take_value(arg_ptr));
     }
 
-    // Look up the host function.
-    let host_ptr = match ctx.host {
+    // Look up the module function.
+    let modules_ptr = match ctx.modules {
         Some(ptr) => ptr,
         None => {
             return ctx.set_error(LangError::Engine(format!(
@@ -1148,9 +1148,9 @@ pub unsafe extern "C" fn helper_call_foreign(
             )))
         }
     };
-    // SAFETY: host_ptr is a valid trait-object pointer set by the engine.
-    let host: &dyn HostFunctions = &*host_ptr;
-    let host_fn = match host.lookup(&name) {
+    // SAFETY: modules_ptr is a valid trait-object pointer set by the engine.
+    let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
+    let func = match modules.lookup(&name) {
         Some(f) => f,
         None => {
             return ctx.set_error(LangError::Engine(format!(
@@ -1160,10 +1160,11 @@ pub unsafe extern "C" fn helper_call_foreign(
         }
     };
 
-    // Call the host function.
-    match host_fn.call(&arg_vals) {
+    // Call the module function.
+    let mut pctx = handl_platform::EvalContext::new();
+    match func.call(&arg_vals, &mut pctx) {
         Ok(v) => box_value(v),
-        Err(e) => ctx.set_error(e),
+        Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
     }
 }}
 
@@ -1499,15 +1500,15 @@ pub struct CraneliftArtifact {
 }
 
 impl handl_runtime::CompiledArtifact for CraneliftArtifact {
-    fn run(&self, host: Option<Rc<dyn HostFunctions>>) -> Result<Value, LangError> {
+    fn run(&self, modules: Option<Rc<dyn handl_platform::ModuleLookup>>) -> Result<Value, LangError> {
         if self.ast.is_empty() {
             return Ok(Value::Null);
         }
         let result = self.result.as_ref().ok_or_else(|| {
             LangError::Engine("run: no compiled result (empty program)".into())
         })?;
-        let engine = match host {
-            Some(h) => CraneliftEngine::with_host(h),
+        let engine = match modules {
+            Some(m) => CraneliftEngine::with_modules(m),
             None => CraneliftEngine::new(),
         };
         engine.run_compiled(&self.lang, &self.ast, result)
@@ -1570,7 +1571,9 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
 mod tests {
     use super::*;
     use handl_language::{AstNode, EvalSchemeDef, Scheme};
-    use handl_plugin_engine_eval::{EvalRequest, HostFn, HostFunctions};
+    use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+    use handl_plugin_engine_eval::EvalRequest;
+    use handl_plugin_module::ModuleRegistry;
     use serde_json::json;
 
     /// Build a simple AST for testing.
@@ -1585,24 +1588,32 @@ mod tests {
     /// A host function that doubles its integer argument.
     struct DoubleHostFn;
 
-    impl HostFn for DoubleHostFn {
-        fn call(&self, args: &[Value]) -> Result<Value, LangError> {
+    impl Function for DoubleHostFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, handl_platform::EvalError> {
             let n = args[0].as_i64().unwrap();
             Ok(Value::from(n * 2))
         }
     }
 
-    /// A host function registry with "double" registered.
-    struct ConformanceHost;
+    /// A module with "double" registered.
+    struct ConformanceModule;
 
-    impl HostFunctions for ConformanceHost {
-        fn lookup(&self, name: &str) -> Option<&dyn HostFn> {
+    impl Module for ConformanceModule {
+        fn name(&self) -> &str {
+            "conformance"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
             if name == "double" {
                 Some(&DoubleHostFn)
             } else {
                 None
             }
         }
+    }
+
+    /// Build a module registry with the `double` function registered.
+    fn conformance_registry() -> Rc<dyn ModuleLookup> {
+        Rc::new(ModuleRegistry::new().with(ConformanceModule))
     }
 
     // --- Engine-level tests (end-to-end native execution) ---
@@ -2122,8 +2133,7 @@ mod tests {
 
     #[test]
     fn engine_foreign_dispatches_to_registered_host() {
-        let host = ConformanceHost;
-        let engine = CraneliftEngine::with_host(Rc::new(host));
+        let engine = CraneliftEngine::with_modules(conformance_registry());
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new(

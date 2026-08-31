@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
+handl-platform = { workspace = true }
 handl-plugin-engine-lex = { workspace = true }
 handl-plugin-engine-parse = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
@@ -18,5 +19,6 @@ handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
 handl-plugin-engine-eval-cranelift = { workspace = true }
+handl-plugin-module = { workspace = true }
 handl-kit-data-canonical = { workspace = true }
 handl-kit-canonical = { workspace = true }
