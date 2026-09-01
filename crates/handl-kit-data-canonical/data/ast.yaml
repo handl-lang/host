@@ -368,6 +368,27 @@
     required:
     - children
     type: object
+  desugar:
+    target_kind: match
+    children:
+    - !Keep 0
+    - !Create
+      kind: block
+      children:
+      - !Create
+        kind: arm
+        children:
+        - !Create
+          kind: lit
+          payload: true
+        - !Keep 1
+      - !Create
+        kind: arm
+        children:
+        - !Create
+          kind: var
+          payload: _
+        - !Keep 2
 - id: ast.import
   node_kind: import
   payload_schema:
