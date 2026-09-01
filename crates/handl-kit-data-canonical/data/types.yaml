@@ -2068,8 +2068,9 @@
           lit: body
 
 # `let` — delegates to the `synth_let` judgment, which synth child 0
-# (value) → type T, reads the var name from `payload_field("name")`,
-# extends Γ with (name, T), and synth child 1 (body) → return body type.
+# (value) → type T, reads the var name from the assign child's `var`
+# node payload, extends Γ with (name, T), and synth child 1 (body)
+# → return body type.
 - id: type.let
   node_kind: let
   synth: !Arr

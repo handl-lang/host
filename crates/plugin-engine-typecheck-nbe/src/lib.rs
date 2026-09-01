@@ -2823,56 +2823,166 @@ fn extract_meta_id(v: &Value) -> Option<u64> {
     obj.get(META_KEY).and_then(|id| id.as_u64())
 }
 
-/// Interpret a type-expression AST node (e.g. `type.number` parsed as
-/// `field-access` with children [var("type"), value("number")]) into a
-/// concrete type value via the registry.
+/// Interpret a type-expression AST node into a concrete type value via
+/// the registry.
+///
+/// Supported forms:
+/// - `field-access` (`type.number`, `type.string`, …) → atomic `type.{field}`
+/// - `paren` (`(T)`) → unwrap and interpret the single child
+/// - `function` (`(T) -> U`) → `type.function{param: T, body: U}`
+/// - `array` (`[T]`) → `type.array{element: T}`
+///
+/// Compound forms recurse on their children, so `(type.number) -> [type.string]`
+/// produces `type.function{param: type.number, body: type.array{element: type.string}}`.
 fn interpret_type_expr(
     ast: &Ast,
     node: &handl_language::AstNode,
     registry: &TypeRegistry,
 ) -> Result<Value, LangError> {
-    if node.kind == "field-access" {
-        let children = node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| {
-                LangError::Engine("interpret_type_expr: field-access has no children".into())
+    match node.kind.as_str() {
+        "field-access" => {
+            let children = node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .ok_or_else(|| {
+                    LangError::Engine("interpret_type_expr: field-access has no children".into())
+                })?;
+            if children.len() < 2 {
+                return Err(LangError::Engine(
+                    "interpret_type_expr: field-access needs 2 children".into(),
+                ));
+            }
+            let field_idx = children[1].as_u64().ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: field child index is not a u64".into())
+            })? as usize;
+            let field_node = ast.get(AstRef::new(field_idx)).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: field node {} out of bounds",
+                    field_idx
+                ))
             })?;
-        if children.len() < 2 {
-            return Err(LangError::Engine(
-                "interpret_type_expr: field-access needs 2 children".into(),
-            ));
+            let field = field_node.payload.get("name").and_then(|v| v.as_str()).or_else(|| {
+                field_node.payload.get("value").and_then(|v| v.as_str())
+            }).or_else(|| {
+                field_node.payload.as_str().map(|s| s)
+            }).ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: field node has no name/value string".into())
+            })?;
+            let tag = format!("type.{}", field);
+            registry.construct(&tag, &Value::Null).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: failed to construct type '{}'",
+                    tag
+                ))
+            })
         }
-        let field_idx = children[1].as_u64().ok_or_else(|| {
-            LangError::Engine("interpret_type_expr: field child index is not a u64".into())
-        })? as usize;
-        let field_node = ast.get(AstRef::new(field_idx)).ok_or_else(|| {
-            LangError::Engine(format!(
-                "interpret_type_expr: field node {} out of bounds",
-                field_idx
-            ))
-        })?;
-        let field = field_node.payload.get("name").and_then(|v| v.as_str()).or_else(|| {
-            field_node.payload.get("value").and_then(|v| v.as_str())
-        }).or_else(|| {
-            field_node.payload.as_str().map(|s| s)
-        }).ok_or_else(|| {
-            LangError::Engine("interpret_type_expr: field node has no name/value string".into())
-        })?;
-        let tag = format!("type.{}", field);
-        registry.construct(&tag, &Value::Null).ok_or_else(|| {
-            LangError::Engine(format!(
-                "interpret_type_expr: failed to construct type '{}'",
-                tag
-            ))
-        })
-    } else {
-        Err(LangError::Engine(format!(
+        "paren" => {
+            // Grouping: unwrap the single child and interpret it.
+            let child_idx = first_child_idx(node)?;
+            let child = ast.get(AstRef::new(child_idx)).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: paren child {} out of bounds",
+                    child_idx
+                ))
+            })?;
+            interpret_type_expr(ast, child, registry)
+        }
+        "function" => {
+            // `(T) -> U` → type.function{param: T, body: U}.
+            let children = node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .ok_or_else(|| {
+                    LangError::Engine("interpret_type_expr: function has no children".into())
+                })?;
+            if children.len() < 2 {
+                return Err(LangError::Engine(
+                    "interpret_type_expr: function needs 2 children (param, body)".into(),
+                ));
+            }
+            let param_idx = children[0].as_u64().ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: param child index is not a u64".into())
+            })? as usize;
+            let body_idx = children[1].as_u64().ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: body child index is not a u64".into())
+            })? as usize;
+            let param_node = ast.get(AstRef::new(param_idx)).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: param node {} out of bounds",
+                    param_idx
+                ))
+            })?;
+            let body_node = ast.get(AstRef::new(body_idx)).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: body node {} out of bounds",
+                    body_idx
+                ))
+            })?;
+            // The param child is a `paren` node wrapping the param type expr.
+            let param_type = if param_node.kind == "paren" {
+                let inner_idx = first_child_idx(param_node)?;
+                let inner = ast.get(AstRef::new(inner_idx)).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "interpret_type_expr: param paren child {} out of bounds",
+                        inner_idx
+                    ))
+                })?;
+                interpret_type_expr(ast, inner, registry)?
+            } else {
+                interpret_type_expr(ast, param_node, registry)?
+            };
+            let body_type = interpret_type_expr(ast, body_node, registry)?;
+            let payload = serde_json::json!({"param": param_type, "body": body_type});
+            registry.construct("type.function", &payload).ok_or_else(|| {
+                LangError::Engine(
+                    "interpret_type_expr: failed to construct type.function".into(),
+                )
+            })
+        }
+        "array" => {
+            // `[T]` → type.array{element: T}.
+            let child_idx = first_child_idx(node)?;
+            let child = ast.get(AstRef::new(child_idx)).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "interpret_type_expr: array child {} out of bounds",
+                    child_idx
+                ))
+            })?;
+            let element_type = interpret_type_expr(ast, child, registry)?;
+            let payload = serde_json::json!({"element": element_type});
+            registry.construct("type.array", &payload).ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: failed to construct type.array".into())
+            })
+        }
+        _ => Err(LangError::Engine(format!(
             "interpret_type_expr: unsupported type-expr kind '{}'",
             node.kind
-        )))
+        ))),
     }
+}
+
+/// Extract the first child index from a node's `children` payload array.
+fn first_child_idx(node: &handl_language::AstNode) -> Result<usize, LangError> {
+    let children = node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .ok_or_else(|| {
+            LangError::Engine("interpret_type_expr: node has no children array".into())
+        })?;
+    if children.is_empty() {
+        return Err(LangError::Engine(
+            "interpret_type_expr: node has no children".into(),
+        ));
+    }
+    children[0]
+        .as_u64()
+        .map(|i| i as usize)
+        .ok_or_else(|| {
+            LangError::Engine("interpret_type_expr: child index is not a u64".into())
+        })
 }
 
 #[cfg(test)]
