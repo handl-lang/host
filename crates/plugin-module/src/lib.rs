@@ -112,13 +112,21 @@ impl ModuleRegistry {
 
 impl ModuleLookup for ModuleRegistry {
     fn lookup(&self, qualified_name: &str) -> Option<&dyn Function> {
+        // First, try each module with the full qualified name — some modules
+        // (e.g. `collections`) use dotted function names like `vec.new`.
+        for m in &self.modules {
+            if let Some(f) = m.function(qualified_name) {
+                return Some(f);
+            }
+        }
+        // Fall back to splitting on the first dot: `module_name.func_name`.
         if let Some((module_name, func_name)) = qualified_name.split_once('.') {
             self.modules
                 .iter()
                 .find(|m| m.name() == module_name)
                 .and_then(|m| m.function(func_name))
         } else {
-            self.modules.iter().find_map(|m| m.function(qualified_name))
+            None
         }
     }
 }

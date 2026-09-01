@@ -436,6 +436,63 @@ pub(crate) fn apply_fn2(
     ctx.eval_expr(&fn_val.body, &vars)
 }
 
+/// Check if a value is an arrow-value (first-class function from the
+/// tree-walk engine).
+pub fn is_arrow_value(value: &serde_json::Value) -> bool {
+    value
+        .as_object()
+        .and_then(|obj| obj.get("__arrow__"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Apply a callable value (arrow-value or FunctionValue) to a single arg.
+/// If the value is an arrow-value, uses `ctx.try_call_value`. Otherwise,
+/// falls back to `FunctionValue` + `eval_expr`.
+pub fn apply_callable(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    value: &serde_json::Value,
+) -> Result<serde_json::Value, EvalError> {
+    if is_arrow_value(fn_arg) {
+        ctx.try_call_value(fn_arg, std::slice::from_ref(value))
+            .unwrap_or_else(|| Err(EvalError::TypeMismatch(
+                "call_value: no value callable set in context".to_string(),
+            )))
+    } else {
+        let fn_val = require_function_value(fn_arg)?;
+        apply_fn(ctx, &fn_val, value)
+    }
+}
+
+/// Apply a callable value to two args (for reduce-like combinators).
+pub fn apply_callable2(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    a: &serde_json::Value,
+    b: &serde_json::Value,
+) -> Result<serde_json::Value, EvalError> {
+    if is_arrow_value(fn_arg) {
+        ctx.try_call_value(fn_arg, &[a.clone(), b.clone()])
+            .unwrap_or_else(|| Err(EvalError::TypeMismatch(
+                "call_value: no value callable set in context".to_string(),
+            )))
+    } else {
+        let fn_val = require_function_value(fn_arg)?;
+        apply_fn2(ctx, &fn_val, a, b)
+    }
+}
+
+/// Check if a callable value's result is truthy (for filter-like combinators).
+pub fn is_truthy_callable(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    value: &serde_json::Value,
+) -> Result<bool, EvalError> {
+    let result = apply_callable(ctx, fn_arg, value)?;
+    Ok(is_truthy_value(&result))
+}
+
 /// Apply a predicate function and check if the result is truthy.
 pub(crate) fn is_truthy_fn(
     ctx: &mut EvalContext,
@@ -464,6 +521,23 @@ where
     Ok(results)
 }
 
+/// Map a callable (arrow-value or FunctionValue) over an iterator.
+pub fn map_callable_iter<'a, I>(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    iter: I,
+) -> Result<Vec<serde_json::Value>, EvalError>
+where
+    I: Iterator<Item = &'a serde_json::Value>,
+{
+    let mut results = Vec::new();
+    for item in iter {
+        let mapped = apply_callable(ctx, fn_arg, item)?;
+        results.push(mapped);
+    }
+    Ok(results)
+}
+
 /// Filter an iterator by a predicate function, collecting matching items.
 pub(crate) fn filter_iter<'a, I>(
     ctx: &mut EvalContext,
@@ -476,6 +550,24 @@ where
     let mut results = Vec::new();
     for item in iter {
         if is_truthy_fn(ctx, fn_val, item)? {
+            results.push(item.clone());
+        }
+    }
+    Ok(results)
+}
+
+/// Filter an iterator by a callable predicate (arrow-value or FunctionValue).
+pub fn filter_callable_iter<'a, I>(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    iter: I,
+) -> Result<Vec<serde_json::Value>, EvalError>
+where
+    I: Iterator<Item = &'a serde_json::Value>,
+{
+    let mut results = Vec::new();
+    for item in iter {
+        if is_truthy_callable(ctx, fn_arg, item)? {
             results.push(item.clone());
         }
     }
@@ -495,6 +587,24 @@ where
     let mut acc = init;
     for item in iter {
         let result = apply_fn2(ctx, fn_val, &acc, item)?;
+        acc = result;
+    }
+    Ok(acc)
+}
+
+/// Fold an iterator with a two-param callable (arrow-value or FunctionValue).
+pub fn fold_callable_iter<'a, I>(
+    ctx: &mut EvalContext,
+    fn_arg: &serde_json::Value,
+    iter: I,
+    init: serde_json::Value,
+) -> Result<serde_json::Value, EvalError>
+where
+    I: Iterator<Item = &'a serde_json::Value>,
+{
+    let mut acc = init;
+    for item in iter {
+        let result = apply_callable2(ctx, fn_arg, &acc, item)?;
         acc = result;
     }
     Ok(acc)

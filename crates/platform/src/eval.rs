@@ -139,6 +139,22 @@ pub trait ExprEvaluator: 'static {
     fn eval_expr(&self, expr: &str, vars: &[(String, Value)]) -> Result<Value, EvalError>;
 }
 
+/// A callable value evaluator — allows host functions to call arrow-values
+/// (first-class function values from the tree-walk engine) by passing the
+/// value and arguments through the eval engine.
+///
+/// This is the bridge between `fn.*` combinators (which receive arrow-values
+/// as arguments) and the tree-walk engine (which knows how to invoke them).
+pub trait ValueCallable: 'static {
+    /// Call a callable value (e.g. arrow-value `{__arrow__: true, ...}`) with
+    /// the given arguments. Returns the result value.
+    fn call_value(
+        &self,
+        callee: &Value,
+        args: &[Value],
+    ) -> Result<Value, EvalError>;
+}
+
 /// Concrete `EvaluatorCallback` backed by cloned rule and exec-control lists.
 ///
 /// Created by `BasicEvaluator::run`; not intended to be constructed directly
@@ -456,6 +472,12 @@ pub struct EvalContext {
     /// Runtime-only; not serialized. Re-attached by the host on resume.
     #[serde(skip)]
     expr_evaluator: Option<Rc<dyn ExprEvaluator>>,
+    /// Value callable — set by the host so host functions can call
+    /// arrow-values (first-class function values) via `ctx.call_value`.
+    ///
+    /// Runtime-only; not serialized. Re-attached by the host on resume.
+    #[serde(skip)]
+    value_callable: Option<Rc<dyn ValueCallable>>,
     /// Stack of handler frames from enclosing `handle` expressions.
     ///
     /// Each frame is a list of [`HandlerClause`]s from one `handle` expression.
@@ -481,6 +503,7 @@ impl EvalContext {
             evaluator: None,
             modules: None,
             expr_evaluator: None,
+            value_callable: None,
             handlers: Vec::new(),
         }
     }
@@ -520,6 +543,29 @@ impl EvalContext {
     /// strings from `FunctionValue.body` via `ctx.eval_expr`.
     pub fn set_expr_evaluator(&mut self, evaluator: Rc<dyn ExprEvaluator>) {
         self.expr_evaluator = Some(evaluator);
+    }
+
+    /// Set the value callable handle (for `call_value`).
+    ///
+    /// The host wires a [`ValueCallable`] (typically the tree-walk engine)
+    /// into the context so host functions like `fn.map` can call arrow-values
+    /// passed as arguments.
+    pub fn set_value_callable(&mut self, callable: Rc<dyn ValueCallable>) {
+        self.value_callable = Some(callable);
+    }
+
+    /// Call a callable value (e.g. arrow-value) with the given arguments.
+    ///
+    /// Delegates to the [`ValueCallable`] set via [`set_value_callable`].
+    /// Returns `None` if no value callable is set (caller can fall back
+    /// to `FunctionValue` / `eval_expr`).
+    pub fn try_call_value(
+        &mut self,
+        callee: &Value,
+        args: &[Value],
+    ) -> Option<Result<Value, EvalError>> {
+        let callable = self.value_callable.clone()?;
+        Some(callable.call_value(callee, args))
     }
 
     /// Evaluate an expression string with the given variable bindings.
@@ -874,6 +920,7 @@ impl Clone for EvalContext {
             evaluator: self.evaluator.clone(),
             modules: self.modules.clone(),
             expr_evaluator: self.expr_evaluator.clone(),
+            value_callable: self.value_callable.clone(),
             handlers: self.handlers.clone(),
         }
     }

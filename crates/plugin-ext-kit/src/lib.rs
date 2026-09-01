@@ -1,6 +1,7 @@
 use handl_kit_cli::CliKit;
 use handl_kit_config::ConfigKit;
 use handl_kit_hello::HelloKit;
+use handl_kit_stdlib::StdlibKit;
 use handl_kit_server::ServerKit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
@@ -204,6 +205,8 @@ pub enum BasicKit {
     Cli(CliKit),
     /// The hello kit.
     Hello(HelloKit),
+    /// The stdlib kit (hello + fn + collections).
+    Stdlib(StdlibKit),
     /// The config kit.
     Config(ConfigKit),
     /// The server kit.
@@ -223,6 +226,7 @@ impl Plugin for BasicKit {
         match self {
             Self::Cli(k) => k.id(),
             Self::Hello(k) => k.id(),
+            Self::Stdlib(k) => k.id(),
             Self::Config(k) => k.id(),
             Self::Server(k) => k.id(),
             Self::Manifest(k) => k.id(),
@@ -233,6 +237,7 @@ impl Plugin for BasicKit {
         match self {
             Self::Cli(k) => k.name(),
             Self::Hello(k) => k.name(),
+            Self::Stdlib(k) => k.name(),
             Self::Config(k) => k.name(),
             Self::Server(k) => k.name(),
             Self::Manifest(k) => k.name(),
@@ -251,6 +256,7 @@ impl Plugin for BasicKit {
         match self {
             Self::Cli(k) => k.contribute(ctx),
             Self::Hello(k) => k.contribute(ctx),
+            Self::Stdlib(k) => k.contribute(ctx),
             Self::Config(k) => k.contribute(ctx),
             Self::Server(k) => k.contribute(ctx),
             Self::Manifest(k) => k.contribute(ctx),
@@ -265,6 +271,7 @@ impl Plugin for BasicKit {
         match self {
             Self::Cli(k) => k.run(request, ctx),
             Self::Hello(k) => k.run(request, ctx),
+            Self::Stdlib(k) => k.run(request, ctx),
             Self::Config(k) => k.run(request, ctx),
             Self::Server(k) => k.run(request, ctx),
             Self::Manifest(k) => k.run(request, ctx),
@@ -294,6 +301,7 @@ impl BasicKitLoaderPlugin {
         match name_or_path {
             "cli" => Ok(BasicKit::Cli(CliKit::new())),
             "hello" => Ok(BasicKit::Hello(HelloKit::new())),
+            "stdlib" => Ok(BasicKit::Stdlib(StdlibKit::new())),
             "config" => Ok(BasicKit::Config(ConfigKit::new())),
             "server" => Ok(BasicKit::Server(ServerKit::new())),
             _ => Err(PlatformError::InvalidMetadata(format!(

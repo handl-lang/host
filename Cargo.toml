@@ -98,6 +98,7 @@ members = [
   "crates/host-tooling",
   "crates/kit-config",
   "crates/kit-server",
+  "crates/kit-stdlib",
   "crates/plugin-typecheck-nbe",
   "crates/kit-type",
   "crates/kit-type-schema-json",
@@ -242,6 +243,7 @@ handl-plugin-source = { path = "crates/plugin-source" }
 handl-host-tooling = { path = "crates/host-tooling" }
 handl-kit-config = { path = "crates/kit-config" }
 handl-kit-server = { path = "crates/kit-server" }
+handl-kit-stdlib = { path = "crates/kit-stdlib" }
 handl-kit-type = { path = "crates/kit-type" }
 handl-plugin-typecheck-nbe = { path = "crates/plugin-typecheck-nbe" }
 handl-kit-type-schema-json = { path = "crates/kit-type-schema-json" }

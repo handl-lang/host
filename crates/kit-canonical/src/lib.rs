@@ -14,11 +14,17 @@
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
+use handl_plugin_lib_collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
+use handl_plugin_lib_utils::{
+    BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule, ParseModule as UtilsParseModule,
+    ResultModule, SerializeModule, StrModule, TypeModule,
+};
+use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig, RuntimeFactoryImpl};
 use std::rc::Rc;
@@ -185,12 +191,28 @@ impl Kit {
 
         // Build the module-registry chain (outermost first):
         //   meta (lex/parse/eval/compile/run_compiled) → hello (hello.greet)
-        //   → fp (fn.fanout_fn, field_access) → None
+        //   → fp (fn.fanout_fn, field_access) → stdlib (fn.*, collections.*,
+        //   math.*, str.*, bool.*, type.*, option.*, result.*, mood.*,
+        //   encoding.*, parse.*, serialize.*) → None
         // Meta is outermost so its names win; hello and fp are delegates so
         // both the demo greeting and the FP Foreign schemes resolve at eval
         // time, and sub-runtimes created by meta functions (e.g. eval) inherit
         // them via the delegate chain.
-        let fp = handl_runtime::fp::canonical_fp_host_functions(None);
+        let mut stdlib_registry = ModuleRegistry::new();
+        stdlib_registry.register(FnModule);
+        stdlib_registry.register(MathModule);
+        stdlib_registry.register(StrModule);
+        stdlib_registry.register(BoolModule);
+        stdlib_registry.register(TypeModule);
+        stdlib_registry.register(OptionModule);
+        stdlib_registry.register(ResultModule);
+        stdlib_registry.register(MoodModule);
+        stdlib_registry.register(EncodingModule::new());
+        stdlib_registry.register(UtilsParseModule::new());
+        stdlib_registry.register(SerializeModule::new());
+        stdlib_registry.register(CollectionsModule);
+        let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
+        let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
             Rc::clone(&fp) as Rc<dyn handl_platform::ModuleLookup>
         )));

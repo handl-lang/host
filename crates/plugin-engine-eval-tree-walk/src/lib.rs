@@ -66,10 +66,20 @@ pub mod v2 {
 
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
-use handl_platform::ModuleLookup;
+use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+
+// Thread-local storage for the current AST and Language, so the
+// ValueCallable impl can access them when host functions (e.g. fn.map)
+// call arrow-values via ctx.try_call_value.
+thread_local! {
+    static CURRENT_AST: RefCell<Option<Rc<Ast>>> = RefCell::new(None);
+    static CURRENT_LANG: RefCell<Option<Rc<Language>>> = RefCell::new(None);
+    static CURRENT_MODULES: RefCell<Option<Rc<dyn ModuleLookup>>> = RefCell::new(None);
+}
 
 // ---------------------------------------------------------------------------
 // ScopeStack
@@ -429,6 +439,7 @@ impl TreeWalkEngine {
                     LangError::Engine(format!("unregistered foreign: {}", name))
                 })?;
                 let mut pctx = handl_platform::EvalContext::new();
+                pctx.set_value_callable(Rc::new(TreeWalkCallable));
                 let val = func
                     .call(&arg_vals, &mut pctx)
                     .map_err(|e| LangError::Engine(e.to_string()))?;
@@ -819,9 +830,22 @@ impl TreeWalkEngine {
                                 "array: element index must be a number".to_string(),
                             )
                         })? as usize;
-                        result.push(
-                            self.eval_node(ast, AstRef::new(idx), lang, env)?,
-                        );
+                        let child_ref = AstRef::new(idx);
+                        // Spread: if the child is a `rest` node (from
+                        // `...expr` syntax), flatten its value into the
+                        // array if it's an array.
+                        if ast.get(child_ref).map(|n| n.kind.as_str()) == Some("rest") {
+                            let val = self.eval_node(ast, child_ref, lang, env)?;
+                            if let Some(arr) = val.as_array() {
+                                result.extend(arr.iter().cloned());
+                            } else {
+                                result.push(val);
+                            }
+                        } else {
+                            result.push(
+                                self.eval_node(ast, child_ref, lang, env)?,
+                            );
+                        }
                     }
                     Ok((Value::Array(result), false))
                 } else {
@@ -1164,6 +1188,9 @@ impl TreeWalkEngine {
             && let Some(func) = modules.lookup(name)
         {
             let mut pctx = handl_platform::EvalContext::new();
+            // Set value_callable so host functions (fn.map, fn.filter, etc.)
+            // can call arrow-values passed as arguments.
+            pctx.set_value_callable(Rc::new(TreeWalkCallable));
             return func
                 .call(args, &mut pctx)
                 .map_err(|e| LangError::Engine(e.to_string()));
@@ -1261,6 +1288,7 @@ impl TreeWalkEngine {
                         }
                     }
                     let mut pctx = handl_platform::EvalContext::new();
+                    pctx.set_value_callable(Rc::new(TreeWalkCallable));
                     func.call(&arg_vals, &mut pctx)
                         .map_err(|e| LangError::Engine(e.to_string()))
                 } else {
@@ -1881,6 +1909,14 @@ impl EvalEngine for TreeWalkEngine {
         if ast.is_empty() {
             return Ok(Value::Null);
         }
+        // Set thread-locals so host functions can call arrow-values via
+        // ctx.try_call_value (see TreeWalkCallable below).
+        let ast_rc = Rc::new(ast.clone());
+        let lang_rc = Rc::new(lang.clone());
+        let modules_rc = self.modules.clone();
+        CURRENT_AST.with(|c| *c.borrow_mut() = Some(Rc::clone(&ast_rc)));
+        CURRENT_LANG.with(|c| *c.borrow_mut() = Some(Rc::clone(&lang_rc)));
+        CURRENT_MODULES.with(|c| *c.borrow_mut() = modules_rc);
         let mut env = ScopeStack::new();
         // Inject host-provided globals (e.g. `self` → language value) into
         // the root scope. ADR-0041 Phase 3: `self` is an ambient variable,
@@ -1889,8 +1925,13 @@ impl EvalEngine for TreeWalkEngine {
             env.define(name, val.clone());
         }
         // The root is the last node in the arena (Pratt convention).
-        let root_ref = AstRef::new(ast.len() - 1);
-        self.eval_node(ast, root_ref, lang, &mut env)
+        let root_ref = AstRef::new(ast_rc.len() - 1);
+        let result = self.eval_node(&ast_rc, root_ref, &lang_rc, &mut env);
+        // Clear thread-locals.
+        CURRENT_AST.with(|c| *c.borrow_mut() = None);
+        CURRENT_LANG.with(|c| *c.borrow_mut() = None);
+        CURRENT_MODULES.with(|c| *c.borrow_mut() = None);
+        result
     }
 
     fn box_clone(&self) -> Box<dyn EvalEngine> {
@@ -1903,6 +1944,81 @@ impl EvalEngine for TreeWalkEngine {
 
     fn with_global(&self, name: &str, val: Value) -> Box<dyn EvalEngine> {
         Box::new(self.clone().with_global(name, val))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ValueCallable — allows host functions (fn.map, fn.filter, etc.) to call
+// arrow-values passed as arguments.
+// ---------------------------------------------------------------------------
+
+/// A `ValueCallable` that calls arrow-values using the thread-local AST
+/// and Language set by `EvalEngine::eval`.
+pub struct TreeWalkCallable;
+
+impl ValueCallable for TreeWalkCallable {
+    fn call_value(
+        &self,
+        callee: &Value,
+        args: &[Value],
+    ) -> Result<Value, handl_platform::EvalError> {
+        let obj = callee
+            .as_object()
+            .ok_or_else(|| handl_platform::EvalError::Other("call_value: not an object".to_string()))?;
+        if !obj.get("__arrow__").and_then(|v| v.as_bool()).unwrap_or(false) {
+            return Err(handl_platform::EvalError::Other(
+                "call_value: not an arrow-value".to_string(),
+            ));
+        }
+        let params: Vec<String> = obj
+            .get("params")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| handl_platform::EvalError::Other("arrow-value missing params".to_string()))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| handl_platform::EvalError::Other("arrow-value param not string".to_string()))
+            })
+            .collect::<Result<_, _>>()?;
+        let body_idx = obj
+            .get("body")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| handl_platform::EvalError::Other("arrow-value missing body".to_string()))?;
+        let captured_env: HashMap<String, Value> = obj
+            .get("env")
+            .and_then(|v| v.as_object())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+        if params.len() != args.len() {
+            return Err(handl_platform::EvalError::Other(format!(
+                "arrow-value expects {} args, got {}",
+                params.len(),
+                args.len()
+            )));
+        }
+        // Build a fresh env from the arrow's captured env + params.
+        let mut arrow_env = ScopeStack::new();
+        arrow_env.scopes[0] = captured_env;
+        arrow_env.push_scope();
+        for (param, arg) in params.iter().zip(args.iter()) {
+            arrow_env.define(param, arg.clone());
+        }
+        // Get AST and Language from thread-locals.
+        let ast = CURRENT_AST.with(|c| c.borrow().clone())
+            .ok_or_else(|| handl_platform::EvalError::Other("call_value: no AST in thread-local".to_string()))?;
+        let lang = CURRENT_LANG.with(|c| c.borrow().clone())
+            .ok_or_else(|| handl_platform::EvalError::Other("call_value: no Language in thread-local".to_string()))?;
+        let engine = TreeWalkEngine::new();
+        // Set modules if available.
+        let engine = if let Some(mods) = CURRENT_MODULES.with(|c| c.borrow().clone()) {
+            engine.with_modules(mods)
+        } else {
+            engine
+        };
+        engine
+            .eval_node(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
+            .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
     }
 }
 

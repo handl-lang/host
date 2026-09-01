@@ -1,0 +1,11 @@
+[package]
+name = "handl-kit-stdlib"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-plugin-module = { workspace = true }
+handl-plugin-lib-hello = { workspace = true }
+handl-plugin-lib-utils = { workspace = true }
+handl-plugin-lib-collections = { workspace = true }

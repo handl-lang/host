@@ -4,8 +4,9 @@ use crate::function_value::FunctionValue;
 use serde_json::Value as JsonValue;
 
 use crate::shared::{
-    apply_fn, apply_fn2, arr, bind_function_params, filter_iter, fold_iter, is_truthy_fn, map_iter,
-    require_array, require_function_and_array, require_function_value, require_functions,
+    apply_fn, apply_fn2, arr, bind_function_params, filter_callable_iter, fold_callable_iter,
+    is_truthy_fn, map_callable_iter, require_array, require_function_and_array,
+    require_function_value, require_functions,
 };
 
 fn substitute_param(body: &str, param: &str, replacement: &str) -> String {
@@ -286,8 +287,15 @@ impl Function for Map {
         args: &[serde_json::Value],
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let (fn_val, array) = require_function_and_array(args)?;
-        let results = map_iter(ctx, &fn_val, array.iter())?;
+        if args.len() < 2 {
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
+        }
+        let array = require_array(&args[1])?;
+        let results = map_callable_iter(ctx, &args[0], array.iter())?;
         Ok(arr(&results))
     }
 }
@@ -302,8 +310,15 @@ impl Function for Filter {
         args: &[serde_json::Value],
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
-        let (fn_val, array) = require_function_and_array(args)?;
-        let results = filter_iter(ctx, &fn_val, array.iter())?;
+        if args.len() < 2 {
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
+        }
+        let array = require_array(&args[1])?;
+        let results = filter_callable_iter(ctx, &args[0], array.iter())?;
         Ok(arr(&results))
     }
 }
@@ -325,10 +340,9 @@ impl Function for Reduce {
                 args.len(),
             )));
         }
-        let fn_val = require_function_value(&args[0])?;
         let array = require_array(&args[1])?;
         let init = args[2].clone();
-        let result = fold_iter(ctx, &fn_val, array.iter(), init)?;
+        let result = fold_callable_iter(ctx, &args[0], array.iter(), init)?;
         Ok(serde_json::Value::from(result))
     }
 }

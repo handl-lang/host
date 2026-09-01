@@ -89,6 +89,13 @@ impl Function for FieldAccessHostFn {
                     ))
                 })
             }
+            // Module path construction: if target is a string (unbound
+            // variable fallback) and field is a string, concatenate as
+            // "target.field". This makes `fn.map` resolve to "fn.map"
+            // which `apply_app` dispatches to the module registry.
+            (Value::String(s), Value::String(key)) => {
+                Ok(Value::String(format!("{}.{}", s, key)))
+            }
             _ => Err(EvalError::Other(format!(
                 "field_access: target must be object/array, field must be string/number; got {} and {}",
                 target, field

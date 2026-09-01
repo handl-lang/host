@@ -1,0 +1,3 @@
+# Load the "stdlib" kit (canonical + hello + fn + collections)
+[[kit]]
+include = "stdlib"
