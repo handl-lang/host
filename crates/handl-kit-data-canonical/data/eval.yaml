@@ -437,6 +437,12 @@
           source: Native
           lit: 1
         source: Native
+- id: eval.block
+  node_kind: block
+  scheme: !Arr
+    op: eval_block
+    args: []
+    source: Native
 - id: eval.let
   node_kind: let
   scheme: !Seq

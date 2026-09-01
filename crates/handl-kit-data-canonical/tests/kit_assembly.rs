@@ -19,7 +19,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // + 2 keyword tokens (token.keyword.then, token.keyword.in).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 66);
+    assert_eq!(lang.tokens.len(), 67);
 
     // Grammar rows: 56 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
@@ -42,7 +42,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `eval.vau` is intentionally omitted (ADR-0052: Vau is removed from the
     // kernel — it is a handler concern, not a kernel combinator).
     // eval.mood removed (stale placeholder).
-    assert_eq!(lang.eval.len(), 55);
+    assert_eq!(lang.eval.len(), 56);
 
     // AST shapes: 57 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
@@ -86,7 +86,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 66);
+    assert_eq!(rt.lang().tokens.len(), 67);
     assert_eq!(rt.lang().grammar.len(), 56);
 }
 

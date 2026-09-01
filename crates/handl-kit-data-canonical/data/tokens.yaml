@@ -77,6 +77,8 @@
   label: proc
 - id: token.keyword.loop
   label: loop
+- id: token.keyword.do
+  label: do
 - id: token.keyword.then
   label: then
 - id: token.keyword.in

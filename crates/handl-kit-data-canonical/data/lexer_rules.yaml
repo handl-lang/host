@@ -191,6 +191,11 @@
   pattern: !Literal
     text: loop
   priority: 15
+- id: lex.keyword.do
+  token_kind: token.keyword.do
+  pattern: !Literal
+    text: do
+  priority: 15
 - id: lex.keyword.then
   token_kind: token.keyword.then
   pattern: !Literal

@@ -1201,13 +1201,14 @@ impl TreeWalkEngine {
                     Ok((either_right(val), false))
                 }
             }
-            // ADR-0060: call_host — takes a string callee (args[0]) and an
-            // args array (args[1]), looks up the callee in the module
-            // registry, and invokes the host function with the array
+            // ADR-0060: call_host — the callee string arrives via
+            // `incoming` (from route_on_type → Choice), and `args[0]` is
+            // the args array (from proj_rest). Looks up the callee in the
+            // module registry and invokes the host function with the array
             // elements as individual arguments.
             "call_host" => {
-                let callee = args
-                    .first()
+                let callee = incoming
+                    .as_ref()
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
                         LangError::Engine("call_host: callee must be a string".to_string())
@@ -1219,7 +1220,7 @@ impl TreeWalkEngine {
                     LangError::Engine(format!("call_host: function '{}' not found", callee))
                 })?;
                 let call_args: Vec<Value> = args
-                    .get(1)
+                    .first()
                     .and_then(|v| v.as_array())
                     .map(|arr| arr.iter().cloned().collect())
                     .unwrap_or_default();
@@ -1249,6 +1250,29 @@ impl TreeWalkEngine {
                     vals.push(self.eval_node(ast, AstRef::new(idx), lang, env)?);
                 }
                 Ok((Value::Array(vals), false))
+            }
+            // eval_block — evaluate all children of a block node in
+            // sequence, returning the last child's value. Used by
+            // `do { expr; expr; ... }` surface syntax (ADR-0054).
+            "eval_block" => {
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("eval_block: expected children array in payload".to_string())
+                    })?;
+                if children.is_empty() {
+                    return Ok((Value::Null, false));
+                }
+                let mut result = Value::Null;
+                for entry in children.iter() {
+                    let idx = entry.as_u64().ok_or_else(|| {
+                        LangError::Engine("eval_block: child index must be a number".to_string())
+                    })? as usize;
+                    result = self.eval_node(ast, AstRef::new(idx), lang, env)?;
+                }
+                Ok((result, false))
             }
             "typeof" => {
                 let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);

@@ -138,8 +138,8 @@ pub struct CorpusCase {
 /// | `typeof_bool`        | `typeof true`                         | value, typeof                       |
 /// | `not_true`           | `!false`                              | value, unary.not                    |
 /// | `not_false`          | `!true`                               | value, unary.not                    |
-/// | `let_var`            | `let x = 5; x`                        | value, let, var                     |
-/// | `stmt_let`           | `let x = 6; x`                        | value, stmt.let, var                |
+/// | `let_var`            | `let x = 5 in x`                        | value, let, var                     |
+/// | `stmt_let`           | `let x = 6 in x`                        | value, stmt.let, var                |
 /// | `stmt_const`         | `const x = 7; x`                      | value, stmt.const, var              |
 /// | `if_true`            | `if (true) 1 else 2`                  | value, if                           |
 /// | `if_false`           | `if (false) 1 else 2`                 | value, if                           |
@@ -147,10 +147,10 @@ pub struct CorpusCase {
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `function_call`      | `let f = (x, y) -> x + y; f(3, 4)`    | function, call, let, var, binary.add|
-/// | `pipe_call`          | `let f = (x) -> x + 1; 5 | f`         | function, pipe, let, var, binary.add|
-/// | `nested_let`         | `let x = 3; let y = 4; x + y`         | let, var, binary.add                |
-/// | `if_with_let`        | `if (true) (let x = 1; x) else 0`     | if, let, var, value                 |
+/// | `function_call`      | `let f = (x, y) -> x + y in f(3, 4)`    | function, call, let, var, binary.add|
+/// | `pipe_call`          | `let f = (x) -> x + 1 in 5 | f`         | function, pipe, let, var, binary.add|
+/// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
+/// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
 /// | `array_index`        | `[10, 20, 30][1]`                     | index                               |
 /// | `object_literal`     | `{"a": 1, "b": 2}`                    | object                              |
@@ -329,10 +329,10 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(false),
             tree_walk_only: false,
         },
-        // 13. Let + var: let x = 5; x
+        // 13. Let + var: let x = 5 in x
         CorpusCase {
             name: "let_var",
-            source: "let x = 5; x",
+            source: "let x = 5 in x",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(5)));
@@ -343,10 +343,10 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(5),
             tree_walk_only: false,
         },
-        // 14. stmt.let + var: let x = 6; x  (stmt.let uses the same Bind scheme as let)
+        // 14. stmt.let + var: let x = 6 in x  (stmt.let uses the same Bind scheme as let)
         CorpusCase {
             name: "stmt_let",
-            source: "let x = 6; x",
+            source: "let x = 6 in x",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(6)));
@@ -467,12 +467,12 @@ pub fn corpus() -> Vec<CorpusCase> {
         // `not`, `when`). The `mood` node kind no longer exists; only
         // `mood.int`, `mood.pot`, `mood.norm`, `mood.neg`, `mood.cnd` remain.
         // This case is intentionally omitted from the corpus.
-        // 23. Function + call: let f = (x, y) -> x + y; f(3, 4)
+        // 23. Function + call: let f = (x, y) -> x + y in f(3, 4)
         //     The canonical call emitter targets 2-arg calls, so the function
         //     takes two params.
         CorpusCase {
             name: "function_call",
-            source: "let f = (x, y) -> x + y; f(3, 4)",
+            source: "let f = (x, y) -> x + y in f(3, 4)",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -501,12 +501,12 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(7),
             tree_walk_only: false,
         },
-        // 24. Pipe: let f = (x) -> x + 1; 5 | f
+        // 24. Pipe: let f = (x) -> x + 1 in 5 | f
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
         //     applies the right child (function) to the left child (value).
         CorpusCase {
             name: "pipe_call",
-            source: "let f = (x) -> x + 1; 5 | f",
+            source: "let f = (x) -> x + 1 in 5 | f",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -534,10 +534,10 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(6),
             tree_walk_only: false,
         },
-        // 25. Nested let + add: let x = 3; let y = 4; x + y
+        // 25. Nested let + add: let x = 3 in let y = 4 in x + y
         CorpusCase {
             name: "nested_let",
-            source: "let x = 3; let y = 4; x + y",
+            source: "let x = 3 in let y = 4 in x + y",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(3))); // 0
@@ -561,10 +561,10 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(7),
             tree_walk_only: false,
         },
-        // 26. If with let in branch: if (true) (let x = 1; x) else 0
+        // 26. If with let in branch: if (true) (let x = 1 in x) else 0
         CorpusCase {
             name: "if_with_let",
-            source: "if (true) (let x = 1; x) else 0",
+            source: "if (true) (let x = 1 in x) else 0",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(true))); // 0: cond
@@ -857,7 +857,7 @@ pub fn corpus() -> Vec<CorpusCase> {
 /// | `proc_double`      | `21 \| proc x -> x * 2`                       | 42       |
 /// | `proc_const`       | `99 \| proc x -> 42`                          | 42       |
 /// | `proc_pipe_chain`  | `5 \| proc x -> x + 1 \| proc y -> y * 2`    | 12       |
-/// | `proc_let_body`    | `3 \| proc x -> (let y = x + 1; y * 2)`      | 8        |
+/// | `proc_let_body`    | `3 \| proc x -> (let y = x + 1 in y * 2)`      | 8        |
 pub fn proc_corpus() -> Vec<CorpusCase> {
     vec![
         // 1. proc_increment: 41 | proc x -> x + 1  →  42
@@ -1000,11 +1000,11 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
             expected: json!(12),
             tree_walk_only: false,
         },
-        // 5. proc_let_body: 3 | proc x -> (let y = x + 1; y * 2)  →  8
+        // 5. proc_let_body: 3 | proc x -> (let y = x + 1 in y * 2)  →  8
         //    The proc body uses a let-binding: y = x + 1 = 4, then y * 2 = 8.
         CorpusCase {
             name: "proc_let_body",
-            source: "3 | proc x -> (let y = x + 1; y * 2)",
+            source: "3 | proc x -> (let y = x + 1 in y * 2)",
             ast: {
                 let mut a = Ast::new();
                 // --- proc body: let y = x + 1 in y * 2 ---

@@ -296,6 +296,59 @@ fn parity_let_shadow() {
 }
 
 // ===========================================================================
+// Part B-7b: Compound type annotations (interpret_type_expr)
+// ===========================================================================
+
+fn t_function(param: Value, body: Value) -> Value {
+    json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": param,
+        "body": body
+    })
+}
+
+fn t_array(element: Value) -> Value {
+    json!({
+        "__tag__": "type.array",
+        "__registry__": "handl.canonical",
+        "element": element
+    })
+}
+
+#[test]
+fn parity_let_annotated_function_type() {
+    // `let f: (type.number) -> type.number = (x) -> x in f`
+    // The annotation `(type.number) -> type.number` is a compound type
+    // expression parsed as a `function` node; interpret_type_expr must
+    // recurse into param (paren → field-access) and body (field-access).
+    assert_eq!(
+        tc("let f: (type.number) -> type.number = (x) -> x in f"),
+        t_function(t_number(), t_number())
+    );
+}
+
+#[test]
+fn parity_let_annotated_array_type() {
+    // `let xs: [type.number] = [1, 2, 3] in xs`
+    // The annotation `[type.number]` is a compound type expression parsed
+    // as an `array` node; interpret_type_expr must recurse into the element.
+    assert_eq!(
+        tc("let xs: [type.number] = [1, 2, 3] in xs"),
+        t_array(t_number())
+    );
+}
+
+#[test]
+fn parity_let_annotated_nested_function_array() {
+    // `(type.number) -> [type.string]` — function returning an array.
+    assert_eq!(
+        tc("let f: (type.number) -> [type.string] = (x) -> [\"a\"] in f"),
+        t_function(t_number(), t_array(t_string()))
+    );
+}
+
+// ===========================================================================
 // Part B-8: Typeof
 // ===========================================================================
 
@@ -359,6 +412,28 @@ fn parity_ternary_string() {
 #[test]
 fn parity_ternary_bool() {
     assert_eq!(tc("true ? false : true"), t_bool());
+}
+
+// ===========================================================================
+// Part B-12: Block expressions (do { ... })
+// ===========================================================================
+
+#[test]
+fn parity_block_single() {
+    assert_eq!(tc("do { 42 }"), t_number());
+}
+
+#[test]
+fn parity_block_multi() {
+    assert_eq!(tc("do { 1; 2; \"hello\" }"), t_string());
+}
+
+#[test]
+fn parity_block_empty() {
+    // Empty block returns type.unit.
+    let result = tc("do { }");
+    assert!(result["__tag__"].as_str() == Some("type.unit") || result["__tag__"].as_str() == Some("type.null"),
+        "expected type.unit or type.null, got: {:?}", result);
 }
 
 // ===========================================================================

@@ -339,6 +339,22 @@
     arity: 2
     child_separators:
     - !Required token.keyword.in
+- id: grammar.do-block.prefix
+  token: token.keyword.do
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: block
+    arity: 1
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.semicolon
+      container_kind: block
+      open_is_operator_token: false
+      flatten: true
 - id: grammar.call.infix
   token: token.lparen
   position: Infix
