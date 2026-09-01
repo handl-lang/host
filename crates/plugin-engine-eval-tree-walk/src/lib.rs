@@ -445,6 +445,9 @@ impl TreeWalkEngine {
                     .map_err(|e| LangError::Engine(e.to_string()))?;
                 Ok((val, false))
             }
+            ArrSource::Judgment => Err(LangError::Engine(
+                "judgment ops are not supported by the tree-walk engine".to_string(),
+            )),
         }
     }
 
@@ -960,6 +963,36 @@ impl TreeWalkEngine {
                                     )
                                 })?
                                 .to_string()
+                        } else if key_node.kind == "array" {
+                            // Computed key: `[expr]: val` evaluates expr and
+                            // uses its value as the key (JS-style bracket
+                            // computed keys). Only a single-element bracket
+                            // is meaningful as a key.
+                            let arr_children = key_node
+                                .payload
+                                .get("children")
+                                .and_then(|c| c.as_array());
+                            let inner_idx = match arr_children {
+                                Some(c) if c.len() == 1 => c[0].as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "object: computed key [expr] child index must be a number"
+                                            .to_string(),
+                                    )
+                                })? as usize,
+                                _ => {
+                                    return Err(LangError::Engine(
+                                        "object: computed key [expr] requires exactly one element"
+                                            .to_string(),
+                                    ))
+                                }
+                            };
+                            let key_val =
+                                self.eval_node(ast, AstRef::new(inner_idx), lang, env)?;
+                            if let Some(s) = key_val.as_str() {
+                                s.to_string()
+                            } else {
+                                key_val.to_string()
+                            }
                         } else {
                             let key_val =
                                 self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
@@ -4220,6 +4253,48 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!({"a": 1, "b": 2}));
+    }
+
+    #[test]
+    fn pratt_object_computed_bracket_key_eval() {
+        // { [k]: 2, other: 5 } where k = "mykey"
+        // The key node is an `array` with one child (the var k); the
+        // evaluator evaluates the inner expr and uses its value as the
+        // key (JS-style bracket computed keys).
+        // 0: var("k") (computed key expr)
+        // 1: array{children:[0]} (the [k] bracket)
+        // 2: value(2)
+        // 3: entry{children:[1, 2]} ([k]: 2)
+        // 4: var("other") (literal key name)
+        // 5: value(5)
+        // 6: entry{children:[4, 5]} (other: 5)
+        // 7: object{children:[3, 6]}
+        // 8: var("k") (proc param)
+        // 9: object ref (7) — body
+        // 10: function{children:[8, 7]}
+        // 11: value("mykey")
+        // 12: call{children:[10, 11]}
+        let engine = TreeWalkEngine::new();
+        let lang = literal_eval_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("k")),                  // 0
+            AstNode::new("array").with_payload(json!({"children": [0]})),  // 1
+            AstNode::new("value").with_payload(json!(2)),                  // 2
+            AstNode::new("entry").with_payload(json!({"children": [1, 2]})), // 3
+            AstNode::new("var").with_payload(json!("other")),              // 4
+            AstNode::new("value").with_payload(json!(5)),                  // 5
+            AstNode::new("entry").with_payload(json!({"children": [4, 5]})), // 6
+            AstNode::new("object").with_payload(json!({"children": [3, 6]})), // 7
+            AstNode::new("var").with_payload(json!("k")),                  // 8
+            AstNode::new("function").with_payload(json!({"children": [8, 7]})), // 9
+            AstNode::new("value").with_payload(json!("mykey")),            // 10
+            AstNode::new("call").with_payload(json!({"children": [9, 10]})), // 11
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(
+            engine.eval(&lang, &req).unwrap(),
+            json!({"mykey": 2, "other": 5})
+        );
     }
 
     #[test]

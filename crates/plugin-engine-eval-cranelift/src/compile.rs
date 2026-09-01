@@ -1170,6 +1170,15 @@ fn compile_arr(
             );
             (builder.inst_results(call)[0], false)
         }
+        ArrSource::Judgment => {
+            // Judgment ops (ADR-0054) are typecheck engine ops, not eval
+            // engine ops — the eval engine does not dispatch them. This arm
+            // should never be reached; fail fast at compile time.
+            unreachable!(
+                "compile: judgment op '{}' is not supported by the eval engine (ADR-0054: judgment ops are dispatched by the typecheck engine)",
+                op
+            );
+        }
     }
 }
 

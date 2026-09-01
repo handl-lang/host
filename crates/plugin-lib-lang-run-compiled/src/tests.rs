@@ -42,6 +42,13 @@ impl RuntimeHandle for MockHandle {
         Err(LangError::NotImplemented)
     }
 
+    fn typecheck(
+        &self,
+        _ast: &handl_language::Ast,
+    ) -> Result<handl_runtime::TypecheckResult, LangError> {
+        Err(LangError::NotImplemented)
+    }
+
     fn compile(
         &self,
         _ast: &handl_language::Ast,

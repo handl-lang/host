@@ -9,6 +9,7 @@ handl-platform = { workspace = true }
 handl-plugin-engine-lex = { workspace = true }
 handl-plugin-engine-parse = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
+handl-plugin-engine-typecheck = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

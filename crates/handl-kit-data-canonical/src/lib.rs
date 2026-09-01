@@ -45,7 +45,7 @@ use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_language::{
     AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language,
-    LexerRuleDef, OptionSchema, TokenKindDef,
+    LexerRuleDef, OptionSchema, TokenKindDef, TypeRuleDef,
 };
 use handl_runtime::RuntimeConfig;
 
@@ -77,6 +77,7 @@ pub const EXCLUDED_FRAGMENT_IDS: &[&str] = &[
 const TOKENS_YAML: &str = include_str!("../data/tokens.yaml");
 const GRAMMAR_YAML: &str = include_str!("../data/grammar.yaml");
 const EVAL_YAML: &str = include_str!("../data/eval.yaml");
+const TYPES_YAML: &str = include_str!("../data/types.yaml");
 const AST_YAML: &str = include_str!("../data/ast.yaml");
 const CAPS_YAML: &str = include_str!("../data/caps.yaml");
 const OPTIONS_YAML: &str = include_str!("../data/options.yaml");
@@ -115,6 +116,13 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
         .map_err(|e| LangError::Engine(format!("eval.yaml: {}", e)))?;
     for frag in eval {
         lang.eval.merge(frag)?;
+    }
+
+    // Type rules (ADR-0054 — non-union, pre-resolved).
+    let types: Vec<TypeRuleDef> = serde_yaml::from_str(TYPES_YAML)
+        .map_err(|e| LangError::Engine(format!("types.yaml: {}", e)))?;
+    for frag in types {
+        lang.types.merge(frag)?;
     }
 
     // AST shapes (union — idempotent merge).
@@ -247,6 +255,7 @@ mod tests {
         assert!(lang.tokens.len() > 0);
         assert!(lang.grammar.len() > 0);
         assert!(lang.eval.len() > 0);
+        assert!(lang.types.len() > 0);
         assert!(lang.ast.len() > 0);
         assert!(lang.caps.len() > 0);
     }
@@ -257,6 +266,21 @@ mod tests {
         assert!(lang.tokens.len() > 0);
         assert!(lang.grammar.len() > 0);
         assert!(lang.eval.len() > 0);
+    }
+
+    #[test]
+    fn types_yaml_loads() {
+        let lang = language_from_yaml().unwrap();
+        // 57 type rules in types.yaml (one per canonical node kind).
+        assert_eq!(lang.types.len(), 57);
+        // The `value` kind (literals) must have a rule.
+        assert!(lang.types.get_by_identity("value").is_some());
+        // Spot-check a few meaningful rules.
+        assert!(lang.types.get_by_identity("var").is_some());
+        assert!(lang.types.get_by_identity("if").is_some());
+        assert!(lang.types.get_by_identity("binary.add").is_some());
+        assert!(lang.types.get_by_identity("unary.neg").is_some());
+        assert!(lang.types.get_by_identity("paren").is_some());
     }
 
     #[test]

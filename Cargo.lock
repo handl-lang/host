@@ -1004,12 +1004,15 @@ dependencies = [
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-typecheck",
+ "handl-plugin-engine-typecheck-nbe",
  "handl-plugin-lib-collections",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
  "handl-plugin-lib-lang-lex",
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
+ "handl-plugin-lib-lang-typecheck",
  "handl-plugin-lib-tag",
  "handl-plugin-lib-utils",
  "handl-plugin-module",
@@ -1280,6 +1283,30 @@ dependencies = [
  "handl-language",
  "handl-plugin-engine-parse",
  "handl-test-utils",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-engine-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-module",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-engine-typecheck-nbe"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-engine-eval",
+ "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-typecheck",
+ "handl-plugin-lib-tag",
+ "handl-plugin-module",
  "serde_json",
 ]
 
@@ -1771,6 +1798,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-lang-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-engine-typecheck",
+ "handl-plugin-module",
+ "handl-runtime",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-os"
 version = "0.1.0"
 dependencies = [
@@ -2171,6 +2210,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-typecheck",
  "handl-plugin-module",
  "serde",
  "serde_json",

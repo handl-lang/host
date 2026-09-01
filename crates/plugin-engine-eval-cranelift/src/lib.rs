@@ -3222,9 +3222,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         }
     };
     let ast = unsafe { &*ctx.ast };
-    // Collect (key_idx, val_idx, key_kind, key_payload) for each entry.
-    // Releasing borrows before evaluating children below.
-    let mut entries: Vec<(usize, usize, String, Option<String>)> =
+    // Collect (key_idx, val_idx, key_kind, key_payload, computed_key_idx)
+    // for each entry. Releasing borrows before evaluating children below.
+    let mut entries: Vec<(usize, usize, String, Option<String>, Option<usize>)> =
         Vec::with_capacity(entry_indices.len());
     for entry_idx in &entry_indices {
         let entry_node = match ast.at(AstRef::new(*entry_idx)) {
@@ -3258,7 +3258,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         };
         // Object key: if the key node is a `var` (bare identifier) or
         // `string`, use its payload string directly — don't evaluate it.
-        // Mirrors the v2 tree-walk's object prim.
+        // If it's an `array` with one child, treat it as a computed key
+        // (`[expr]: val`) and evaluate the inner expression. Mirrors the
+        // v2 tree-walk's object prim.
         let key_node = match ast.at(AstRef::new(key_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
@@ -3268,14 +3270,39 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         } else {
             None
         };
-        entries.push((key_idx, val_idx, key_node.kind.to_string(), direct_key));
+        // For computed `[expr]:` keys, resolve the inner child index now
+        // (the array node is discarded; the inner expr is evaluated later).
+        let computed_key_idx: Option<usize> = if key_node.kind == "array" {
+            let arr_children = key_node.payload.get("children").and_then(|c| c.as_array());
+            match arr_children {
+                Some(c) if c.len() == 1 => c[0].as_u64().map(|i| i as usize),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if key_node.kind == "array" && computed_key_idx.is_none() {
+            return ctx.set_error(LangError::Engine(
+                "object: computed key [expr] requires exactly one element".to_string(),
+            ));
+        }
+        entries.push((
+            key_idx,
+            val_idx,
+            key_node.kind.to_string(),
+            direct_key,
+            computed_key_idx,
+        ));
     }
     let mut obj = serde_json::Map::new();
-    for (key_idx, val_idx, _key_kind, direct_key) in entries {
+    for (key_idx, val_idx, _key_kind, direct_key, computed_key_idx) in entries {
         let key = match direct_key {
             Some(k) => k,
             None => {
-                let key_val = match eval_child_node(ctx, key_idx) {
+                // For computed `[expr]:` keys, evaluate the inner child
+                // instead of the array node itself.
+                let eval_idx = computed_key_idx.unwrap_or(key_idx);
+                let key_val = match eval_child_node(ctx, eval_idx) {
                     Ok(v) => v,
                     Err(e) => return ctx.set_error(e),
                 };

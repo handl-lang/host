@@ -256,6 +256,12 @@ fn compile_arr(
         ArrSource::Foreign(name) => {
             out.push(Instr::ForeignOp(name.clone(), args.len()));
         }
+        ArrSource::Judgment => {
+            return Err(LangError::Engine(format!(
+                "compile: judgment op '{}' is not supported by the eval engine (ADR-0054: judgment ops are dispatched by the typecheck engine)",
+                op
+            )));
+        }
     }
     Ok(false)
 }

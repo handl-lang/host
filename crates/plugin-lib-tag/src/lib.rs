@@ -12,7 +12,7 @@
 //! only way a value acquires a `__tag__` key is through this plugin's
 //! `tag.tag` host function. User code cannot forge a tagged value.
 //!
-//! This crate exposes the `tag` module with five callables:
+//! This crate exposes the `tag` module with seven callables:
 //!
 //! | Callable | Role |
 //! |---|---|
@@ -21,6 +21,12 @@
 //! | `tag.untag(v)` | return the payload of a tagged value (inspection) |
 //! | `tag.tag_of(v)` | return the tag name of a tagged value (inspection) |
 //! | `tag.is_tag(v)` | test whether `v` is a tagged value (inspection) |
+//! | `tag.construct(tag_name, payload)` | **mint** a registry-scoped type value (ADR-0054) |
+//! | `tag.match_type(v, cases)` | **dispatch** on the type tag of `v` (ADR-0054) |
+//!
+//! `tag.construct` and `tag.match_type` are the user-facing surface of the
+//! ADR-0054 judgment ops `construct` and `match_type`: they are backed by a
+//! [`TypeRegistry`] with registry id `"handl.canonical"`.
 //!
 //! `tag.tag` is the minting capability (host-secured); the inspection ops are
 //! available to any code that holds a tagged value — matching the capability
@@ -35,6 +41,10 @@
 
 use handl_language::{as_tag, is_tag_value, tag_value, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module};
+
+/// The host type registry (ADR-0054).
+pub mod registry;
+pub use registry::TypeRegistry;
 
 pub mod plugin;
 pub use plugin::LibraryPlugin;
@@ -265,6 +275,71 @@ fn require_one_arg<'a>(args: &'a [Value], fn_name: &str) -> Result<&'a Value, Ev
 }
 
 // ---------------------------------------------------------------------------
+// tag.construct / tag.match_type — host type registry (ADR-0054)
+// ---------------------------------------------------------------------------
+
+/// The registry id of the canonical handl typechecker, used by the
+/// `tag.construct` / `tag.match_type` host functions.
+pub const CANONICAL_REGISTRY_ID: &str = "handl.canonical";
+
+/// `tag.construct(tag_name, payload)` — mint a registry-scoped type value
+/// (ADR-0054 §"construct").
+///
+/// Mints `{"__tag__": tag_name, "__registry__": "handl.canonical",
+/// ...payload}` via the canonical [`TypeRegistry`]. This is the
+/// `construct` judgment op of ADR-0054: the `tag` op (ADR-0055) called
+/// against the host type registry. Returns an error if `tag_name` is not a
+/// string, if `payload` is not an object/null, or if `payload` smuggles a
+/// reserved `__tag__` or `__registry__` key (forgery prevention).
+#[derive(Clone, Copy)]
+pub struct Construct;
+
+impl Function for Construct {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::Other(format!(
+                "tag.construct: expected 2 arguments (tag_name, payload), got {}",
+                args.len()
+            )));
+        }
+        let tag_name = args[0]
+            .as_str()
+            .ok_or_else(|| EvalError::Other("tag.construct: tag_name must be a string".to_string()))?;
+        let registry = TypeRegistry::new(CANONICAL_REGISTRY_ID);
+        registry.construct(tag_name, &args[1]).ok_or_else(|| {
+            EvalError::Other(
+                "tag.construct: payload must be an object (or null) without reserved __tag__/__registry__ keys"
+                    .to_string(),
+            )
+        })
+    }
+}
+
+/// `tag.match_type(v, cases)` — dispatch on the type tag of `v` (ADR-0054
+/// §"match_type").
+///
+/// `cases` is an object mapping type tag names to case values. If `v` is a
+/// type value minted by the canonical registry whose tag has an explicit
+/// case, that case is returned. Otherwise returns `null` — there is no
+/// default-case fallback (the caller handles non-matches, per ADR-0054).
+/// This is `match_tag` on type tags scoped to the canonical registry.
+#[derive(Clone, Copy)]
+pub struct MatchType;
+
+impl Function for MatchType {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::Other(format!(
+                "tag.match_type: expected 2 arguments (value, cases), got {}",
+                args.len()
+            )));
+        }
+        let registry = TypeRegistry::new(CANONICAL_REGISTRY_ID);
+        Ok(registry.match_type(&args[0], &args[1]).unwrap_or(Value::Null))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Module + reserved-key re-export
 // ---------------------------------------------------------------------------
 
@@ -273,11 +348,15 @@ static MATCH_TAG: MatchTag = MatchTag;
 static UNTAG: Untag = Untag;
 static TAG_OF: TagOf = TagOf;
 static IS_TAG: IsTag = IsTag;
+static CONSTRUCT: Construct = Construct;
+static MATCH_TYPE: MatchType = MatchType;
 
-/// The `tag` module — tagged-value host functions (ADR-0055).
+/// The `tag` module — tagged-value host functions (ADR-0055) plus the
+/// host type registry surface (ADR-0054).
 ///
-/// Provides `tag.tag`, `tag.match_tag`, `tag.untag`, `tag.tag_of`, and
-/// `tag.is_tag` callable from handl expressions.
+/// Provides `tag.tag`, `tag.match_tag`, `tag.untag`, `tag.tag_of`,
+/// `tag.is_tag`, `tag.construct`, and `tag.match_type` callable from handl
+/// expressions.
 #[derive(Clone, Copy)]
 pub struct TagModule;
 
@@ -293,6 +372,8 @@ impl Module for TagModule {
             "untag" => Some(&UNTAG),
             "tag_of" => Some(&TAG_OF),
             "is_tag" => Some(&IS_TAG),
+            "construct" => Some(&CONSTRUCT),
+            "match_type" => Some(&MATCH_TYPE),
             _ => None,
         }
     }
@@ -304,6 +385,8 @@ impl Module for TagModule {
             ("untag", &UNTAG as &dyn Function),
             ("tag_of", &TAG_OF as &dyn Function),
             ("is_tag", &IS_TAG as &dyn Function),
+            ("construct", &CONSTRUCT as &dyn Function),
+            ("match_type", &MATCH_TYPE as &dyn Function),
         ]
     }
 }

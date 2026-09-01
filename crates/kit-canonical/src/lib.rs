@@ -21,6 +21,8 @@ use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
+use handl_plugin_lib_lang_typecheck::TypecheckModule;
+use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_lib_utils::{
     BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule, ParseModule as UtilsParseModule,
     ResultModule, SerializeModule, StrModule, TypeModule,
@@ -157,7 +159,7 @@ impl Kit {
     pub fn new() -> Result<Self, LangError> {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
-        let config = kit.runtime_config().clone();
+        let config = kit.runtime_config().clone().with_typecheck("nbe");
 
         // Build the engine registry with all available engine impls
         // (ADR-0047 §2). The host (this crate) registers the engines;
@@ -188,10 +190,16 @@ impl Kit {
             "native",
             Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
         );
+        registry.register_typecheck(
+            "nbe",
+            Box::new(NbeTypecheckEngine::new(Box::new(
+                handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+            ))),
+        );
         let registry = Rc::new(registry);
 
         // Build the module-registry chain (outermost first):
-        //   meta (lex/parse/eval/compile/run_compiled) → hello (hello.greet)
+        //   meta (lex/parse/eval/typecheck/compile/run_compiled) → hello (hello.greet)
         //   → fp (fn.fanout_fn, field_access) → stdlib (fn.*, collections.*,
         //   math.*, str.*, bool.*, type.*, option.*, result.*, mood.*,
         //   encoding.*, parse.*, serialize.*) → None
@@ -229,7 +237,7 @@ impl Kit {
         ));
         let factory_dyn: Rc<dyn RuntimeFactory> = Rc::clone(&factory) as Rc<dyn RuntimeFactory>;
 
-        // Chain: lex → parse → eval → compile → run_compiled → hello → fp → None
+        // Chain: lex → parse → eval → typecheck → compile → run_compiled → hello → fp → None
         let run_compiled_mod = Rc::new(RunCompiledModule::new(
             Rc::clone(&factory_dyn),
             Some(Rc::clone(&hello) as Rc<dyn handl_platform::ModuleLookup>),
@@ -238,9 +246,13 @@ impl Kit {
             Rc::clone(&factory_dyn),
             Some(Rc::clone(&run_compiled_mod) as Rc<dyn handl_platform::ModuleLookup>),
         ));
-        let eval_mod = Rc::new(EvalModule::new(
+        let typecheck_mod = Rc::new(TypecheckModule::new(
             Rc::clone(&factory_dyn),
             Some(Rc::clone(&compile_mod) as Rc<dyn handl_platform::ModuleLookup>),
+        ));
+        let eval_mod = Rc::new(EvalModule::new(
+            Rc::clone(&factory_dyn),
+            Some(Rc::clone(&typecheck_mod) as Rc<dyn handl_platform::ModuleLookup>),
         ));
         let parse_mod = Rc::new(ParseModule::new(
             Rc::clone(&factory_dyn),
@@ -388,6 +400,21 @@ impl Kit {
         self.runtime.eval(&ast)
     }
 
+    /// Typecheck `input`, returning the synthesized type (ADR-0054).
+    ///
+    /// This lexes, parses, and typechecks the input. This is the pure-eval
+    /// path: type expressions are evaluated via the bound typecheck engine
+    /// without running effects.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on any stage failure.
+    pub fn typecheck(&self, input: &str) -> Result<Value, LangError> {
+        let ast = self.parse(input)?;
+        let result = self.runtime.typecheck(&ast)?;
+        Ok(result.typ)
+    }
+
     /// Convenience: `eval(parse(lex(input)?)?)`.
     ///
     /// # Errors
@@ -442,7 +469,8 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
     let config = RuntimeConfig::new()
         .with_lex("data")
         .with_parse("pratt")
-        .with_eval("tree-walk");
+        .with_eval("tree-walk")
+        .with_typecheck("nbe");
 
     // Build the engine registry with all available engine impls
     // (ADR-0047 §2).
@@ -472,10 +500,16 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
         "native",
         Box::new(handl_plugin_engine_eval_cranelift::CraneliftCompileEngine::new()),
     );
+    registry.register_typecheck(
+        "nbe",
+        Box::new(NbeTypecheckEngine::new(Box::new(
+            handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new(),
+        ))),
+    );
     let registry = Rc::new(registry);
 
-    // Build the meta chain from the 5 plugin-lib-lang-* crates
-    // (ADR-0047 §1). Delegate is None (no user host fns).
+    // Build the meta chain from the 6 plugin-lib-lang-* crates
+    // (ADR-0047 §1, ADR-0054). Delegate is None (no user host fns).
     let factory = Rc::new(RuntimeFactoryImpl::new(
         Rc::clone(&registry),
         config.clone(),
@@ -486,9 +520,13 @@ pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangE
         Rc::clone(&factory_dyn),
         Some(Rc::clone(&run_compiled_mod) as Rc<dyn handl_platform::ModuleLookup>),
     ));
-    let eval_mod = Rc::new(EvalModule::new(
+    let typecheck_mod = Rc::new(TypecheckModule::new(
         Rc::clone(&factory_dyn),
         Some(Rc::clone(&compile_mod) as Rc<dyn handl_platform::ModuleLookup>),
+    ));
+    let eval_mod = Rc::new(EvalModule::new(
+        Rc::clone(&factory_dyn),
+        Some(Rc::clone(&typecheck_mod) as Rc<dyn handl_platform::ModuleLookup>),
     ));
     let parse_mod = Rc::new(ParseModule::new(
         Rc::clone(&factory_dyn),
@@ -943,5 +981,25 @@ mod tests {
     fn is_number_kind_works() {
         assert!(is_number_kind("token.number"));
         assert!(!is_number_kind("token.string"));
+    }
+
+    // --- ADR-0054 typecheck stage ---
+
+    #[test]
+    fn typecheck_number_returns_type_value() {
+        // The `value` type rule returns `type.value` (a tagged type value).
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("42").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.value"));
+        assert_eq!(typ["__registry__"], serde_json::json!("handl.canonical"));
+    }
+
+    #[test]
+    fn typecheck_unbound_var_errors() {
+        // `x` is an unbound variable: `var("x")` with no Γ entry → `lookup`
+        // fails.
+        let kit = Kit::new().unwrap();
+        let res = kit.typecheck("x");
+        assert!(res.is_err(), "expected typecheck error for unbound var");
     }
 }

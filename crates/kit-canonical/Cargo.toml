@@ -13,10 +13,13 @@ handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
 handl-plugin-engine-eval-cranelift = { workspace = true }
+handl-plugin-engine-typecheck = { workspace = true }
+handl-plugin-engine-typecheck-nbe = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-lib-lang-lex = { workspace = true }
 handl-plugin-lib-lang-parse = { workspace = true }
 handl-plugin-lib-lang-eval = { workspace = true }
+handl-plugin-lib-lang-typecheck = { workspace = true }
 handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-plugin-lib-utils = { workspace = true }

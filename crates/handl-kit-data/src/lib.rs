@@ -418,8 +418,8 @@ fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
 /// Merge `fragment_lang`'s fragments into `lang`, applying the include/exclude
 /// filter by fragment `id`.
 ///
-/// Fragments are iterated in the order tokens → grammar → eval → ast → caps →
-/// options, preserving the dependency ordering that `requires` validation
+/// Fragments are iterated in the order tokens → grammar → eval → types → ast →
+/// caps → options, preserving the dependency ordering that `requires` validation
 /// relies on (e.g. token kinds before grammar rows that require them). A
 /// fragment is merged only if it passes the filter; skipped fragments are
 /// simply absent, so a later fragment declaring `replaces: [skipped_id]` will
@@ -461,6 +461,11 @@ fn merge_filtered(
     for frag in fragment_lang.eval.fragments() {
         if passes(frag.id()) {
             lang.eval.merge(frag.clone())?;
+        }
+    }
+    for frag in fragment_lang.types.fragments() {
+        if passes(frag.id()) {
+            lang.types.merge(frag.clone())?;
         }
     }
     for frag in fragment_lang.ast.fragments() {

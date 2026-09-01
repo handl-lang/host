@@ -57,6 +57,7 @@
 
 #![warn(missing_docs)]
 
+pub mod desugar_pass;
 pub mod fp;
 
 use std::cell::RefCell;
@@ -70,6 +71,11 @@ use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
+use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
+/// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
+/// implementations can name it without a direct dependency on
+/// `handl-plugin-engine-typecheck` (ADR-0054).
+pub use handl_plugin_engine_typecheck::TypecheckResult;
 
 // ---------------------------------------------------------------------------
 // Compiled-handle / artifact / compile-engine traits (ADR-0047 §3)
@@ -214,6 +220,8 @@ pub struct EngineRegistry {
     parse: HashMap<String, Box<dyn ParseEngineDyn>>,
     /// Eval engines keyed by name.
     eval: HashMap<String, Box<dyn EvalEngine>>,
+    /// Typecheck engines keyed by name (ADR-0054).
+    typecheck: HashMap<String, Box<dyn TypecheckEngine>>,
     /// Compile engines keyed by target name.
     compile: HashMap<String, Box<dyn CompileEngine>>,
 }
@@ -224,6 +232,7 @@ impl std::fmt::Debug for EngineRegistry {
             .field("lex", &self.lex.keys().collect::<Vec<_>>())
             .field("parse", &self.parse.keys().collect::<Vec<_>>())
             .field("eval", &self.eval.keys().collect::<Vec<_>>())
+            .field("typecheck", &self.typecheck.keys().collect::<Vec<_>>())
             .field("compile", &self.compile.keys().collect::<Vec<_>>())
             .finish()
     }
@@ -242,6 +251,7 @@ impl EngineRegistry {
             lex: HashMap::new(),
             parse: HashMap::new(),
             eval: HashMap::new(),
+            typecheck: HashMap::new(),
             compile: HashMap::new(),
         }
     }
@@ -268,6 +278,15 @@ impl EngineRegistry {
         self.eval.insert(name.into(), engine);
     }
 
+    /// Register a typecheck engine under `name` (ADR-0054).
+    pub fn register_typecheck(
+        &mut self,
+        name: impl Into<String>,
+        engine: Box<dyn TypecheckEngine>,
+    ) {
+        self.typecheck.insert(name.into(), engine);
+    }
+
     /// Register a compile engine under `target` name.
     pub fn register_compile(&mut self, name: impl Into<String>, engine: Box<dyn CompileEngine>) {
         self.compile.insert(name.into(), engine);
@@ -286,6 +305,11 @@ impl EngineRegistry {
     /// Look up an eval engine by name.
     pub fn eval_engine(&self, name: &str) -> Option<&dyn EvalEngine> {
         self.eval.get(name).map(|e| e.as_ref())
+    }
+
+    /// Look up a typecheck engine by name (ADR-0054).
+    pub fn typecheck_engine(&self, name: &str) -> Option<&dyn TypecheckEngine> {
+        self.typecheck.get(name).map(|e| e.as_ref())
     }
 
     /// Look up a compile engine by target name.
@@ -324,6 +348,9 @@ pub struct RuntimeConfig {
     pub parse: String,
     /// The eval engine name (e.g. `"tree-walk"`, `"bytecode"`, `"cranelift"`).
     pub eval: String,
+    /// The typecheck engine name (e.g. `"nbe"`). Empty ⇒ unbound
+    /// (ADR-0054).
+    pub typecheck: String,
 }
 
 impl RuntimeConfig {
@@ -347,6 +374,12 @@ impl RuntimeConfig {
     /// Set the eval engine name (builder style).
     pub fn with_eval(mut self, name: impl Into<String>) -> Self {
         self.eval = name.into();
+        self
+    }
+
+    /// Set the typecheck engine name (builder style, ADR-0054).
+    pub fn with_typecheck(mut self, name: impl Into<String>) -> Self {
+        self.typecheck = name.into();
         self
     }
 }
@@ -406,6 +439,20 @@ pub trait RuntimeHandle {
     ///
     /// Returns [`LangError`] on eval failure or if no eval engine is bound.
     fn eval(&self, ast: &Ast) -> Result<Value, LangError>;
+
+    /// Typecheck an [`Ast`], returning the synthesized type (ADR-0054).
+    ///
+    /// This is the **pure-eval** path: type expressions are evaluated via
+    /// the bound typecheck engine (which delegates value-level computation
+    /// to a pure eval engine) without running effects. Returns the
+    /// synthesized type (a value — types are values, ADR-0032) plus
+    /// diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on typecheck failure or if no typecheck
+    /// engine is bound.
+    fn typecheck(&self, ast: &Ast) -> Result<TypecheckResult, LangError>;
 
     /// Compile an [`Ast`] to `target`, returning a serializable
     /// [`CompiledHandle`].
@@ -572,6 +619,8 @@ pub struct Runtime {
     parse_engine: Option<Box<dyn ParseEngineDyn>>,
     /// The optional eval engine.
     eval_engine: Option<Box<dyn EvalEngine>>,
+    /// The optional typecheck engine (ADR-0054).
+    typecheck_engine: Option<Box<dyn TypecheckEngine>>,
     /// The compile engines keyed by target name (for `compile`/`run_compiled`).
     compile_engines: HashMap<String, Box<dyn CompileEngine>>,
     /// The optional module registry, retained for inspection and for
@@ -591,6 +640,7 @@ impl std::fmt::Debug for Runtime {
             .field("has_lex_engine", &self.lex_engine.is_some())
             .field("has_parse_engine", &self.parse_engine.is_some())
             .field("has_eval_engine", &self.eval_engine.is_some())
+            .field("has_typecheck_engine", &self.typecheck_engine.is_some())
             .field(
                 "compile_targets",
                 &self.compile_engines.keys().collect::<Vec<_>>(),
@@ -612,6 +662,7 @@ impl Runtime {
             lex_engine: None,
             parse_engine: None,
             eval_engine: None,
+            typecheck_engine: None,
             compile_engines: HashMap::new(),
             modules: None,
             registry: None,
@@ -641,6 +692,12 @@ impl Runtime {
     /// The `Runtime` does not rewire a manually-set engine.
     pub fn with_eval_engine(mut self, engine: Box<dyn EvalEngine>) -> Self {
         self.eval_engine = Some(engine);
+        self
+    }
+
+    /// Attach a typecheck engine (builder style, ADR-0054).
+    pub fn with_typecheck_engine(mut self, engine: Box<dyn TypecheckEngine>) -> Self {
+        self.typecheck_engine = Some(engine);
         self
     }
 
@@ -689,7 +746,9 @@ impl Runtime {
             .as_ref()
             .ok_or(LangError::NotImplemented)?;
         let req = ParserRequest::new(toks.clone());
-        engine.parse_dyn(&self.lang, &req)
+        let ast = engine.parse_dyn(&self.lang, &req)?;
+        // ADR-0053 §7: apply data-driven desugar pass between parse and eval.
+        Ok(desugar_pass::apply_desugar(&self.lang, &ast))
     }
 
     /// Evaluate an [`Ast`] into a [`Value`] using the bound eval engine.
@@ -702,6 +761,25 @@ impl Runtime {
         let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
         let req = EvalRequest::new(ast.clone());
         engine.eval(&self.lang, &req)
+    }
+
+    /// Typecheck an [`Ast`], returning the synthesized type (ADR-0054).
+    ///
+    /// This is the **pure-eval** path: the bound typecheck engine evaluates
+    /// type expressions without running effects. Returns the synthesized
+    /// type (a value — types are values, ADR-0032) plus diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no typecheck engine is bound,
+    /// or propagates the engine's error.
+    pub fn typecheck(&self, ast: &Ast) -> Result<TypecheckResult, LangError> {
+        let engine = self
+            .typecheck_engine
+            .as_ref()
+            .ok_or(LangError::NotImplemented)?;
+        let req = TypecheckRequest::new(ast.clone());
+        engine.typecheck(&self.lang, &req)
     }
 
     /// Convenience: `eval(parse(lex(src)?)?)`.
@@ -869,11 +947,26 @@ impl Runtime {
             }
         }
 
+        // Resolve typecheck engine (clone + wire modules via trait method).
+        let typecheck_engine: Option<Box<dyn TypecheckEngine>> = if config.typecheck.is_empty() {
+            None
+        } else {
+            let reg_engine = registry.typecheck_engine(&config.typecheck).ok_or_else(|| {
+                LangError::Engine(format!("unknown typecheck engine: {}", config.typecheck))
+            })?;
+            let engine = match modules.clone() {
+                Some(m) => reg_engine.with_modules(m),
+                None => reg_engine.box_clone(),
+            };
+            Some(engine)
+        };
+
         Ok(Self {
             lang,
             lex_engine,
             parse_engine,
             eval_engine,
+            typecheck_engine,
             compile_engines,
             modules,
             registry: Some(Rc::clone(registry)),
@@ -925,6 +1018,10 @@ impl RuntimeHandle for Runtime {
 
     fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
         Runtime::eval(self, ast)
+    }
+
+    fn typecheck(&self, ast: &Ast) -> Result<TypecheckResult, LangError> {
+        Runtime::typecheck(self, ast)
     }
 
     fn compile(&self, ast: &Ast, target: &str) -> Result<CompiledHandle, LangError> {

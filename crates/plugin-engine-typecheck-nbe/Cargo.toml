@@ -1,0 +1,16 @@
+[package]
+name = "handl-plugin-engine-typecheck-nbe"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-engine-eval = { workspace = true }
+handl-plugin-engine-typecheck = { workspace = true }
+handl-plugin-lib-tag = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-module = { workspace = true }

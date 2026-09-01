@@ -47,6 +47,7 @@ members = [
   "crates/plugin-lib-lang-lex",
   "crates/plugin-lib-lang-parse",
   "crates/plugin-lib-lang-eval",
+  "crates/plugin-lib-lang-typecheck",
   "crates/plugin-lib-lang-compile",
   "crates/plugin-lib-lang-run-compiled",
   "crates/plugin-lib-kv",
@@ -112,6 +113,8 @@ members = [
   "crates/plugin-engine-lex-pattern",
   "crates/plugin-engine-parse",
   "crates/plugin-engine-eval",
+  "crates/plugin-engine-typecheck",
+  "crates/plugin-engine-typecheck-nbe",
   "crates/plugin-engine-parse-pratt",
   "crates/plugin-engine-eval-tree-walk",
   "crates/plugin-engine-eval-bytecode",
@@ -194,6 +197,7 @@ handl-plugin-lib-json = { path = "crates/plugin-lib-json" }
 handl-plugin-lib-lang-lex = { path = "crates/plugin-lib-lang-lex" }
 handl-plugin-lib-lang-parse = { path = "crates/plugin-lib-lang-parse" }
 handl-plugin-lib-lang-eval = { path = "crates/plugin-lib-lang-eval" }
+handl-plugin-lib-lang-typecheck = { path = "crates/plugin-lib-lang-typecheck" }
 handl-plugin-lib-lang-compile = { path = "crates/plugin-lib-lang-compile" }
 handl-plugin-lib-lang-run-compiled = { path = "crates/plugin-lib-lang-run-compiled" }
 handl-plugin-lib-kv = { path = "crates/plugin-lib-kv" }
@@ -255,6 +259,8 @@ handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
 handl-plugin-engine-eval = { path = "crates/plugin-engine-eval" }
+handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
+handl-plugin-engine-typecheck-nbe = { path = "crates/plugin-engine-typecheck-nbe" }
 handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-eval-tree-walk = { path = "crates/plugin-engine-eval-tree-walk" }
 handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode" }

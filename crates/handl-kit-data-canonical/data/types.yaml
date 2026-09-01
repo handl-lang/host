@@ -1,0 +1,1226 @@
+# Type rule definitions (ADR-0054 — Generic Typecheck Engine, task 4).
+#
+# The canonical type rules: every node kind maps to a `TypeRuleDef` with a
+# `synth` scheme (Γ ⊢ node ⇒ T). The `synth` scheme uses the arrow-calculus
+# `Scheme` kernel (the same `!Arr`/`!Seq`/`!First`/`!Choice`/`!Loop` tags as
+# `eval.yaml`) with `source: Judgment` for typecheck judgment ops.
+#
+# The NBE typecheck engine (`plugin-engine-typecheck-nbe`) interprets these
+# schemes. Judgment ops: `construct`, `match_type`, `synth_child`, `check_child`,
+# `eval_child`, `proj_child`, `unify`, `extend`, `lookup`, `lookup_var`,
+# `fresh_meta`, `solve_meta`, `quote`, `normalize`, `bind`, `result`,
+# `node_payload`. `Seq` threads `fst`'s result into `snd` as `incoming`.
+#
+# This is the initial canonical set (ADR-0054 explicitly states the full rule
+# set is implementation work refined over time). The common arithmetic, logic,
+# comparison, conditional, paren, and variable kinds have meaningful rules;
+# the remaining kinds use `type.unknown` as a catch-all.
+
+# ---------------------------------------------------------------------------
+# Literals & variables
+# ---------------------------------------------------------------------------
+
+# `value` — a JSON literal node. The payload IS the literal. Without a
+# conditional dispatch on the payload's JSON type within a Scheme, we return
+# `type.value` as a universal "some literal" type.
+- id: type.value
+  node_kind: value
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.value
+
+# `var` — look up the variable's type in Γ. The var node's payload is the
+# name string. `node_payload` returns it; `lookup` reads the name from
+# `incoming` (when `lit` is absent).
+- id: type.var
+  node_kind: var
+  synth: !Seq
+    fst: !Arr
+      op: node_payload
+      args: []
+      source: Judgment
+    snd: !Arr
+      op: lookup
+      args: []
+      source: Judgment
+
+# ---------------------------------------------------------------------------
+# Conditionals
+# ---------------------------------------------------------------------------
+
+# `if` — synth condition (child 0), unify with type.bool, synth then-branch
+# (child 1), synth else-branch (child 2), unify then-type with else-type,
+# return then-type.
+- id: type.if
+  node_kind: if
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: tcond
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: tcond
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          snd: !Seq
+            fst: !Arr
+              op: bind
+              args: []
+              source: Judgment
+              lit: tthen
+            snd: !Seq
+              fst: !Arr
+                op: unify
+                args:
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: tthen
+                - !Arr
+                  op: synth_child
+                  args: []
+                  source: Judgment
+                  lit: 2
+                source: Judgment
+              snd: !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: tthen
+
+# `ternary` — same structure as `if` (cond ? then : else).
+- id: type.ternary
+  node_kind: ternary
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: tcond
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: tcond
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          snd: !Seq
+            fst: !Arr
+              op: bind
+              args: []
+              source: Judgment
+              lit: tthen
+            snd: !Seq
+              fst: !Arr
+                op: unify
+                args:
+                - !Arr
+                  op: result
+                  args: []
+                  source: Judgment
+                  lit: tthen
+                - !Arr
+                  op: synth_child
+                  args: []
+                  source: Judgment
+                  lit: 2
+                source: Judgment
+              snd: !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: tthen
+
+# ---------------------------------------------------------------------------
+# Binary arithmetic — both children type.number, result type.number
+# ---------------------------------------------------------------------------
+
+- id: type.binary.add
+  node_kind: binary.add
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+- id: type.binary.sub
+  node_kind: binary.sub
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+- id: type.binary.mul
+  node_kind: binary.mul
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+- id: type.binary.div
+  node_kind: binary.div
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+- id: type.binary.mod
+  node_kind: binary.mod
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+- id: type.binary.pow
+  node_kind: binary.pow
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.number
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+
+# ---------------------------------------------------------------------------
+# Binary comparison — both children same type, result type.bool
+# ---------------------------------------------------------------------------
+
+- id: type.binary.eq
+  node_kind: binary.eq
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.neq
+  node_kind: binary.neq
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.compare
+  node_kind: binary.compare
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.gt
+  node_kind: binary.gt
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.gte
+  node_kind: binary.gte
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.lt
+  node_kind: binary.lt
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+- id: type.binary.lte
+  node_kind: binary.lte
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+# ---------------------------------------------------------------------------
+# Binary logic — both children type.bool, result type.bool
+# ---------------------------------------------------------------------------
+
+- id: type.binary.and
+  node_kind: binary.and
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+
+- id: type.binary.or
+  node_kind: binary.or
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+        snd: !Seq
+          fst: !Arr
+            op: unify
+            args:
+            - !Arr
+              op: synth_child
+              args: []
+              source: Judgment
+              lit: 1
+            - !Arr
+              op: construct
+              args: []
+              source: Judgment
+              lit: type.bool
+            source: Judgment
+          snd: !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+
+# ---------------------------------------------------------------------------
+# Unary — neg: type.number → type.number; not: type.bool → type.bool
+# ---------------------------------------------------------------------------
+
+- id: type.unary.neg
+  node_kind: unary.neg
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+
+- id: type.unary.not
+  node_kind: unary.not
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: a
+      snd: !Seq
+        fst: !Arr
+          op: unify
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: a
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+
+# ---------------------------------------------------------------------------
+# Structural kinds — passthrough / simple type tags
+# ---------------------------------------------------------------------------
+
+# `paren` — passthrough: synth the single child.
+- id: type.paren
+  node_kind: paren
+  synth: !Arr
+    op: synth_child
+    args: []
+    source: Judgment
+    lit: 0
+
+# `block` — returns type.unit for now (would need last-child synthesis).
+- id: type.block
+  node_kind: block
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `array` — type.array.
+- id: type.array
+  node_kind: array
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.array
+
+# `object` — type.object.
+- id: type.object
+  node_kind: object
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.object
+
+# `function` — type.function.
+- id: type.function
+  node_kind: function
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.function
+
+# `call` — type.unknown (would need the function's return type).
+- id: type.call
+  node_kind: call
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# `let` — type.unknown (would need body child synthesis).
+- id: type.let
+  node_kind: let
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# `bind` — type.unknown.
+- id: type.bind
+  node_kind: bind
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# ---------------------------------------------------------------------------
+# Catch-all kinds — type.unknown
+# ---------------------------------------------------------------------------
+
+- id: type.field-access
+  node_kind: field-access
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.index
+  node_kind: index
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.match
+  node_kind: match
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.handle
+  node_kind: handle
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.flow
+  node_kind: flow
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.pipe
+  node_kind: pipe
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.fanout
+  node_kind: fanout
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.apply
+  node_kind: apply
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.proc
+  node_kind: proc
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.typeof
+  node_kind: typeof
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.type-annot
+  node_kind: type-annot
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.template
+  node_kind: template
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.json
+  node_kind: json
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.assign
+  node_kind: assign
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.resolve
+  node_kind: resolve
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.rest
+  node_kind: rest
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.loop
+  node_kind: loop
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# ---------------------------------------------------------------------------
+# Mood kinds
+# ---------------------------------------------------------------------------
+
+- id: type.mood.cnd
+  node_kind: mood.cnd
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.mood.int
+  node_kind: mood.int
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.mood.neg
+  node_kind: mood.neg
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.mood.norm
+  node_kind: mood.norm
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+- id: type.mood.pot
+  node_kind: mood.pot
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
+
+# ---------------------------------------------------------------------------
+# Statement kinds
+# ---------------------------------------------------------------------------
+
+- id: type.stmt.let
+  node_kind: stmt.let
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+- id: type.stmt.const
+  node_kind: stmt.const
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+- id: type.stmt.export
+  node_kind: stmt.export
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+- id: type.stmt.import
+  node_kind: stmt.import
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+- id: type.stmt.module
+  node_kind: stmt.module
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+
+- id: type.hello.greet
+  node_kind: hello.greet
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown

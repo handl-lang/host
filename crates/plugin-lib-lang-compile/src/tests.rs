@@ -62,6 +62,10 @@ impl RuntimeHandle for MockHandle {
         Err(LangError::NotImplemented)
     }
 
+    fn typecheck(&self, _ast: &Ast) -> Result<handl_runtime::TypecheckResult, LangError> {
+        Err(LangError::NotImplemented)
+    }
+
     fn compile(&self, _ast: &Ast, target: &str) -> Result<CompiledHandle, LangError> {
         *self.last_target.borrow_mut() = Some(target.to_string());
         match &self.compile_err {

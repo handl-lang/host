@@ -857,6 +857,35 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 )
                             })?
                             .to_string()
+                        } else if key_node.kind == "array" {
+                            // Computed key: `[expr]: val` evaluates expr and
+                            // uses its value as the key (JS-style bracket
+                            // computed keys). Only a single-element bracket
+                            // is meaningful as a key.
+                            let arr_children = key_node
+                                .payload
+                                .get("children")
+                                .and_then(|c| c.as_array());
+                            let inner_idx = match arr_children {
+                                Some(c) if c.len() == 1 => c[0].as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "object: computed key [expr] child index must be a number"
+                                            .to_string(),
+                                    )
+                                })? as usize,
+                                _ => {
+                                    return Err(LangError::Engine(
+                                        "object: computed key [expr] requires exactly one element"
+                                            .to_string(),
+                                    ))
+                                }
+                            };
+                            let key_val = self.exec_node(AstRef::new(inner_idx))?;
+                            if let Some(s) = key_val.as_str() {
+                                s.to_string()
+                            } else {
+                                key_val.to_string()
+                            }
                         } else {
                             let key_val = self.exec_node(AstRef::new(key_idx))?;
                             if let Some(s) = key_val.as_str() {
