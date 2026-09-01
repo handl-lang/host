@@ -11,8 +11,8 @@
 //! `RuntimeConfig` (data-driven engine selection, ADR-0044 §7).
 
 use handl_language::{
-    AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, Scheme, Source,
-    Token, Tokens,
+    AstNode, AstShapeRef, EvalSchemeDef, GrammarPosition, GrammarRow, Language, LiteralKind,
+    Scheme, Source, Token, Tokens,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde_json::{Value, json};
@@ -37,7 +37,10 @@ fn arith_lang() -> Language {
     let mut lang = Language::new();
     // Token kinds
     lang.tokens
-        .merge(handl_language::TokenKindDef::new("token.number"))
+        .merge(
+            handl_language::TokenKindDef::new("token.number")
+                .with_literal(LiteralKind::Number),
+        )
         .unwrap();
     lang.tokens
         .merge(handl_language::TokenKindDef::new("token.plus"))

@@ -34,6 +34,15 @@
   child_shape:
     node_kind: proc
     arity: 1
+- id: grammar.loop.prefix
+  token: token.keyword.loop
+  position: Prefix
+  binding_power:
+  - 91
+  - 0
+  child_shape:
+    node_kind: loop
+    arity: 2
 - id: grammar.value.bool
   token: token.bool
   position: Prefix
@@ -54,10 +63,10 @@
   position: Infix
   binding_power:
   - 90
-  - 0
+  - 91
   child_shape:
     node_kind: field-access
-    arity: 1
+    arity: 2
 - id: grammar.eq.infix
   token: token.eqeq
   position: Infix
@@ -142,6 +151,9 @@
   child_shape:
     node_kind: if
     arity: 3
+    child_separators:
+    - !Required token.keyword.then
+    - !Required token.keyword.else
 - id: grammar.is.infix
   token: token.keyword.is
   position: Infix
@@ -222,6 +234,8 @@
       pair:
         separator: token.colon
         node_kind: arm
+      open_is_operator_token: false
+      flatten: false
 - id: grammar.stmt-import.prefix
   token: token.keyword.import
   position: Prefix
@@ -257,6 +271,8 @@
       pair:
         separator: token.colon
         node_kind: arm
+      open_is_operator_token: false
+      flatten: false
 - id: grammar.stmt-module.prefix
   token: token.keyword.module
   position: Prefix
@@ -284,6 +300,17 @@
   child_shape:
     node_kind: object
     arity: 1
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.comma
+      container_kind: object
+      pair:
+        separator: token.colon
+        node_kind: entry
+      open_is_operator_token: true
+      flatten: true
+      rest_token: token.ellipsis
 - id: grammar.index.postfix
   token: token.lbracket
   position: Infix
@@ -302,6 +329,14 @@
   child_shape:
     node_kind: array
     arity: 1
+    delimited:
+      open: token.lbracket
+      close: token.rbracket
+      separator: token.comma
+      container_kind: array
+      open_is_operator_token: true
+      flatten: true
+      rest_token: token.ellipsis
 - id: grammar.let.prefix
   token: token.let
   position: Prefix
@@ -319,7 +354,14 @@
   - 91
   child_shape:
     node_kind: call
-    arity: 2
+    arity: 1
+    delimited:
+      open: token.lparen
+      close: token.rparen
+      separator: token.comma
+      container_kind: call
+      open_is_operator_token: true
+      flatten: true
 - id: grammar.paren.prefix
   token: token.lparen
   position: Prefix
@@ -329,6 +371,13 @@
   child_shape:
     node_kind: paren
     arity: 1
+    delimited:
+      open: token.lparen
+      close: token.rparen
+      separator: token.comma
+      container_kind: paren
+      open_is_operator_token: true
+      flatten: true
 - id: grammar.lt.infix
   token: token.lt
   position: Infix

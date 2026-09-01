@@ -31,7 +31,8 @@
 use std::cell::RefCell;
 
 use handl_language::{
-    Ast, AstNode, AstRef, DelimitedShape, GrammarPosition, LangError, Language, Token, Value,
+    Ast, AstNode, AstRef, ChildSeparator, DelimitedShape, GrammarPosition, LangError, Language,
+    LiteralKind, Token, Value,
 };
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -59,49 +60,64 @@ impl PrattEngine {
     }
 
     /// Interpret a token's text into a payload [`Value`], using the
-    /// language's token kind definitions to decide how.
+    /// language's token kind definitions' `literal` field for typed dispatch
+    /// (ADR-0053).
     ///
-    /// If the token kind id contains `"number"`, the text is parsed as an
-    /// integer (falling back to a float). If it contains `"bool"`, the text
-    /// is parsed as a boolean (`"true"` → `true`, anything else → `false`).
-    /// If it contains `"null"`, the payload is `Value::Null`. Otherwise the
-    /// text is used as a string. This is data-driven: the engine reads
-    /// `lang.tokens` to find the [`TokenKindDef`] for the token's kind.
+    /// Dispatches on `TokenKindDef.literal` (defaulting to [`LiteralKind::Raw`])
+    /// — no substring matching on the token kind id. Adding a new literal form
+    /// is a new `LiteralKind` variant + a token row, not a parser edit.
     fn atom_payload(&self, lang: &Language, token: &Token) -> Value {
         let kind_def = lang.tokens.get_by_identity(&token.kind);
-        let kind_id = kind_def.map(|tkd| tkd.id.as_str()).unwrap_or(&token.kind);
+        let literal = kind_def
+            .map(|tkd| tkd.literal.clone())
+            .unwrap_or(None)
+            .unwrap_or(LiteralKind::Raw);
 
-        if kind_id.contains("number") {
-            if let Ok(n) = token.text.parse::<i64>() {
-                return Value::from(n);
+        match literal {
+            LiteralKind::Number => {
+                if let Ok(n) = token.text.parse::<i64>() {
+                    return Value::from(n);
+                }
+                if let Ok(f) = token.text.parse::<f64>() {
+                    return Value::from(f);
+                }
+                // Non-numeric text with Number kind: fall back to string.
+                Value::from(token.text.as_str())
             }
-            if let Ok(f) = token.text.parse::<f64>() {
-                return Value::from(f);
+            LiteralKind::Bool => Value::from(token.text == "true"),
+            LiteralKind::Null => Value::Null,
+            LiteralKind::String { delim_chars, escapes } => {
+                if token.text.len() >= 2 * delim_chars {
+                    let inner = &token.text[delim_chars..token.text.len() - delim_chars];
+                    let mut result = inner.to_string();
+                    for (from, to) in &escapes {
+                        result = result.replace(from, to);
+                    }
+                    Value::from(result)
+                } else {
+                    Value::from(token.text.as_str())
+                }
             }
+            LiteralKind::StripAffix { prefix, suffix, wrap } => {
+                let text = token.text.as_str();
+                let stripped = if text.starts_with(&prefix) && text.ends_with(&suffix) {
+                    let start = prefix.len();
+                    let end = text.len().saturating_sub(suffix.len());
+                    if start <= end {
+                        &text[start..end]
+                    } else {
+                        ""
+                    }
+                } else {
+                    text
+                };
+                match wrap {
+                    Some((open, close)) => Value::from(format!("{}{}{}", open, stripped, close)),
+                    None => Value::from(stripped),
+                }
+            }
+            LiteralKind::Raw => Value::from(token.text.as_str()),
         }
-
-        if kind_id.contains("bool") {
-            return Value::from(token.text == "true");
-        }
-
-        if kind_id.contains("null") {
-            return Value::Null;
-        }
-
-        // String tokens: the lexer includes the delimiters (quotes) in the
-        // token text. Strip them to get the raw string value.
-        if kind_id.contains("string") && token.text.len() >= 2 {
-            let inner = &token.text[1..token.text.len() - 1];
-            // Unescape basic escape sequences.
-            let unescaped = inner
-                .replace("\\n", "\n")
-                .replace("\\t", "\t")
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\");
-            return Value::from(unescaped);
-        }
-
-        Value::from(token.text.as_str())
     }
 
     /// Look up a grammar row by `(token_kind, position)` using the identity
@@ -188,6 +204,8 @@ impl<'a> Cursor<'a> {
 
 impl PrattEngine {
     /// The internal Pratt expression loop, driven entirely by `lang.grammar`
+    /// data (ADR-0053). No string literals, no `kind == "..."`, no
+    /// `token.kind == "..."` — the parser is a fixed interpreter of grammar
     /// data.
     fn expression_inner(
         &self,
@@ -197,237 +215,59 @@ impl PrattEngine {
     ) -> Result<AstRef, LangError> {
         let token = cursor.advance()?;
 
-        // Special case: `if cond then a else b` desugars to
-        // `match cond { true: a, _: b }` at parse time.
-        if token.kind == "token.keyword.if" {
-            return self.parse_if(lang, cursor);
-        }
-
         // 1. Look up the prefix row for this token.
         let prefix_row = Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix)
             .ok_or_else(|| LangError::Engine(format!("unexpected token: {}", token.kind)))?;
 
-        let arity = prefix_row.child_shape.arity;
-        let kind = prefix_row.child_shape.node_kind.clone();
+        let shape = &prefix_row.child_shape;
+        let arity = shape.arity;
+        let kind = &shape.node_kind;
+        let delim = shape.delimited.as_ref();
 
         // 2. Build the prefix (null-denotation) node.
-        let left = if kind == "json" {
-            // `json` prim source syntax: the token text is `json{...}` (a
-            // brace-balanced block captured by the lexer's nesting-aware
-            // delimited rule). Strip the `json{` prefix and `}` suffix to
-            // get the JSON template string. Optionally parse a `(arg1, …)`
-            // clause whose evaluated values fill `$0`, `$1`, … placeholders.
-            let text = token.text.as_str();
-            const JSON_OPEN: &str = "json{";
-            if !text.starts_with(JSON_OPEN) || !text.ends_with('}') {
-                return Err(LangError::Engine(format!(
-                    "json: malformed token text {:?}",
-                    text
-                )));
-            }
-            // The lexer's open delimiter `json{` consumes the opening brace,
-            // and the close `}` consumes the closing brace. Reconstruct the
-            // full JSON string by wrapping the content in braces.
-            let content = &text[JSON_OPEN.len()..text.len() - 1];
-            let expr = format!("{{{}}}", content);
-
-            let mut args: Vec<usize> = Vec::new();
-            // Optional `(arg1, arg2, …)` clause for placeholder substitution.
-            if let Some(next) = cursor.peek() {
-                if next.kind == "token.lparen" {
-                    let _ = cursor.advance()?; // consume `(`
-                    if let Some(t) = cursor.peek() {
-                        if t.kind != "token.rparen" {
-                            loop {
-                                let arg = self.expression_inner(lang, cursor, 0)?;
-                                args.push(arg.index());
-                                match cursor.peek() {
-                                    Some(t) if t.kind == "token.comma" => {
-                                        let _ = cursor.advance()?;
-                                    }
-                                    Some(t) if t.kind == "token.rparen" => {
-                                        let _ = cursor.advance()?;
-                                        break;
-                                    }
-                                    _ => break,
-                                }
-                            }
-                        } else {
-                            let _ = cursor.advance()?; // consume empty `()`
-                        }
-                    }
-                }
-            }
-
-            let payload = serde_json::json!({ "expr": expr, "args": args });
-            let node = AstNode::new("json").with_payload(payload);
-            self.ast.borrow_mut().push(node)
-        } else if arity == 0 {
-            // Atom: payload is the token's interpreted value.
+        let left = if arity == 0 && delim.is_none() {
+            // Atom: payload is the token's interpreted value (dispatches on
+            // LiteralKind — no substring matching).
             let payload = self.atom_payload(lang, &token);
-            let node = AstNode::new(&kind).with_payload(payload);
+            let node = AstNode::new(kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
-        } else if kind == "array" || kind == "object" || kind == "paren" {
-            // Array/object/paren literals: the prefix token (`[` / `{` / `(`)
-            // IS the opening delimiter. Parse comma-separated elements until
-            // the matching close token (`]` / `}` / `)`). For objects, each
-            // element is a `key : value` pair (emitted as an `entry` node).
-            // For paren, elements are single expressions (function params).
-            let (close_kind, is_object) = if kind == "array" {
-                ("token.rbracket", false)
-            } else if kind == "object" {
-                ("token.rbrace", true)
-            } else {
-                ("token.rparen", false)
-            };
-            let mut children: Vec<usize> = Vec::new();
-            // Empty literal: `[]` / `{}`.
-            if let Some(next) = cursor.peek() {
-                if next.kind == close_kind {
-                    let _ = cursor.advance()?;
-                    let payload = serde_json::json!({ "children": children });
-                    let node = AstNode::new(&kind).with_payload(payload);
-                    self.ast.borrow_mut().push(node)
-                } else {
-                    loop {
-                        if is_object {
-                            // Check for rest pattern `...rest` (no key:value
-                            // pair — captures remaining keys in destructuring).
-                            if let Some(t) = cursor.peek() {
-                                if t.kind == "token.ellipsis" {
-                                    let rest = self.expression_inner(lang, cursor, 0)?;
-                                    children.push(rest.index());
-                                } else {
-                                    // Parse `key : value` pair → entry node.
-                                    // Key is parsed with rbp above `:` infix lbp so
-                                    // the colon is left for this loop.
-                                    let key_rbp = Self::lookup_row(
-                                        lang,
-                                        "token.colon",
-                                        GrammarPosition::Infix,
-                                    )
-                                    .and_then(|r| r.binding_power.map(|(l, _)| l))
-                                    .map(|lbp| lbp.saturating_add(1))
-                                    .unwrap_or(u8::MAX);
-                                    let key = self.expression_inner(lang, cursor, key_rbp)?;
-                                    let sep = cursor.advance()?;
-                                    if sep.kind != "token.colon" {
-                                        return Err(LangError::Engine(format!(
-                                            "expected ':' in object entry, got {}",
-                                            sep.kind
-                                        )));
-                                    }
-                                    let val = self.expression_inner(lang, cursor, 0)?;
-                                    let entry_payload = serde_json::json!({ "children": [key.index(), val.index()] });
-                                    let entry_node =
-                                        AstNode::new("entry").with_payload(entry_payload);
-                                    let entry_ref = self.ast.borrow_mut().push(entry_node);
-                                    children.push(entry_ref.index());
-                                }
-                            }
-                        } else {
-                            // Check for rest/spread `...rest` (explicit
-                            // handling, mirroring the object-literal path).
-                            // The `token.ellipsis` prefix grammar rule
-                            // produces a `rest` node; this special-case makes
-                            // the intent explicit rather than relying on the
-                            // generic element fallthrough.
-                            if let Some(t) = cursor.peek() {
-                                if t.kind == "token.ellipsis" {
-                                    let rest = self.expression_inner(lang, cursor, 0)?;
-                                    children.push(rest.index());
-                                } else {
-                                    let el = self.expression_inner(lang, cursor, 0)?;
-                                    children.push(el.index());
-                                }
-                            } else {
-                                return Err(LangError::Engine(format!(
-                                    "unexpected end of input in {} literal",
-                                    kind
-                                )));
-                            }
-                        }
-                        // After an element: comma (consume, maybe trailing) or close.
-                        match cursor.peek() {
-                            Some(t) if t.kind == "token.comma" => {
-                                let _ = cursor.advance()?;
-                                if let Some(t2) = cursor.peek() {
-                                    if t2.kind == close_kind {
-                                        break;
-                                    }
-                                }
-                                continue;
-                            }
-                            Some(t) if t.kind == close_kind => break,
-                            Some(t) => {
-                                return Err(LangError::Engine(format!(
-                                    "expected ',' or '{}' in {} literal, got {}",
-                                    close_kind, kind, t.kind
-                                )));
-                            }
-                            None => {
-                                return Err(LangError::Engine(format!(
-                                    "unexpected end of input in {} literal",
-                                    kind
-                                )));
-                            }
-                        }
-                    }
-                    // Consume the closing delimiter.
-                    let close = cursor.advance()?;
-                    if close.kind != close_kind {
-                        return Err(LangError::Engine(format!(
-                            "expected '{}' to close {} literal, got {}",
-                            close_kind, kind, close.kind
-                        )));
-                    }
-                    let payload = serde_json::json!({ "children": children });
-                    let node = AstNode::new(&kind).with_payload(payload);
-                    self.ast.borrow_mut().push(node)
-                }
-            } else {
-                return Err(LangError::Engine(format!(
-                    "unexpected end of input in {} literal",
-                    kind
-                )));
-            }
         } else {
-            // Prefix operator: parse `arity` operands.
+            // Prefix operator: parse normal children + optional delimited block.
             let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
             let mut children: Vec<usize> = Vec::with_capacity(arity);
-            // When the shape carries a `delimited` descriptor, the **last**
-            // child is a delimited block (e.g. `match x { ... }`); the first
-            // `arity - 1` children are ordinary expressions.
-            let delim = prefix_row.child_shape.delimited.as_ref();
+            // When delimited is set, the last child slot is the delimited
+            // block (flatten just controls whether a container node is emitted
+            // or elements are spliced — the slot count is the same).
             let normal = match delim {
-                Some(_) => arity - 1,
+                Some(_) => arity.saturating_sub(1),
                 None => arity,
             };
-            for _ in 0..normal {
+            for i in 0..normal {
                 let child = self.expression_inner(lang, cursor, prefix_rbp)?;
                 children.push(child.index());
+                // Consume separator between children (not after the last
+                // normal child — the delimited block follows).
+                if i + 1 < normal {
+                    if let Some(sep) = shape.child_separators.get(i) {
+                        Self::consume_separator(cursor, sep)?;
+                    }
+                }
             }
             if let Some(d) = delim {
-                let block = self.parse_delimited_block(lang, cursor, d)?;
-                children.push(block.index());
+                let result = self.parse_delimited_block(lang, cursor, d)?;
+                match result {
+                    DelimitedResult::Container(idx) => children.push(idx),
+                    DelimitedResult::Elements(indices) => children.extend(indices),
+                }
             }
             let payload = serde_json::json!({ "children": children });
-            let node = AstNode::new(&kind).with_payload(payload);
+            let node = AstNode::new(kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
         };
 
         // 3. Infix (left-denotation) loop.
         let mut left = left;
         while let Some(next) = cursor.peek() {
-            // Special case: `x = y in body` — handle `=` before the
-            // standard binding-power check, so bindings work inside
-            // `proc (...) -> body` (where `->` has higher rbp than `=`'s lbp).
-            if next.kind == "token.equal" {
-                let _ = cursor.advance()?;
-                left = self.parse_binding(lang, cursor, left)?;
-                continue;
-            }
-
             let infix_row = match Self::lookup_row(lang, &next.kind, GrammarPosition::Infix) {
                 Some(row) => row,
                 None => break,
@@ -444,207 +284,110 @@ impl PrattEngine {
             // Consume the operator token.
             let _op = cursor.advance()?;
 
-            // Parse the right operand. For `call` nodes, use rbp=0 so nested
-            // calls (e.g. `parse(self, lex(...))`) are fully parsed as the
-            // first argument, not truncated at the next `(`. For other infix
-            // operators, use the row's right binding power.
-            let arg_rbp = if infix_row.child_shape.node_kind == "call" {
-                0
-            } else {
-                rbp_right
-            };
-            let right = self.expression_inner(lang, cursor, arg_rbp)?;
+            let shape = &infix_row.child_shape;
+            let infix_kind = &shape.node_kind;
+            let infix_arity = shape.arity;
+            let delim = shape.delimited.as_ref();
 
-            // Build the infix node: children = [left, right, ...].
-            let infix_kind = infix_row.child_shape.node_kind.clone();
-            let infix_arity = infix_row.child_shape.arity;
+            // normal = arity - 1 (left) - 1 (delimited) when delimited is set.
+            // flatten just controls container vs splice — the slot count is
+            // the same.
+            let normal = match delim {
+                Some(_) => infix_arity.saturating_sub(2),
+                None => infix_arity.saturating_sub(1),
+            };
             let mut children: Vec<usize> = Vec::with_capacity(infix_arity);
             children.push(left.index());
-            // For arity 2, add the right operand. For higher arity, parse more.
-            children.push(right.index());
-            for _ in 2..infix_arity {
-                let extra = self.expression_inner(lang, cursor, rbp_right)?;
-                children.push(extra.index());
-            }
-            // ADR-0041 Phase 2: variable-arity calls. If the infix node is a
-            // `call` and the next token is a comma, keep parsing comma-
-            // separated arguments until `token.rparen`. This makes
-            // `eval(handle, ast)`, `parse(handle, tokens)`, etc. parseable
-            // from source. The fixed-arity grammar row stays as-is (arity 2
-            // = callee + first arg); this extension adds the remaining args.
-            //
-            // Args are parsed with rbp=0 so nested calls (e.g.
-            // `parse(self, lex(...))`) are fully parsed as expressions, not
-            // truncated at the next `(`.
-            if infix_kind == "call" {
-                while let Some(next) = cursor.peek() {
-                    if next.kind != "token.comma" {
-                        break;
+            for i in 0..normal {
+                let child = self.expression_inner(lang, cursor, rbp_right)?;
+                children.push(child.index());
+                // Consume separator between children (not after the last).
+                if i + 1 < normal {
+                    if let Some(sep) = shape.child_separators.get(i) {
+                        Self::consume_separator(cursor, sep)?;
                     }
-                    // Consume the comma.
-                    let _ = cursor.advance()?;
-                    let arg = self.expression_inner(lang, cursor, 0)?;
-                    children.push(arg.index());
                 }
-                // Consume the closing `)`.
-                if let Some(next) = cursor.peek() {
-                    if next.kind == "token.rparen" {
-                        let _ = cursor.advance()?;
-                    }
+            }
+            if let Some(d) = delim {
+                let result = self.parse_delimited_block(lang, cursor, d)?;
+                match result {
+                    DelimitedResult::Container(idx) => children.push(idx),
+                    DelimitedResult::Elements(indices) => children.extend(indices),
                 }
             }
             let payload = serde_json::json!({ "children": children });
-            let node = AstNode::new(&infix_kind).with_payload(payload);
+            let node = AstNode::new(infix_kind).with_payload(payload);
             left = self.ast.borrow_mut().push(node);
         }
 
         Ok(left)
     }
 
-    /// Parse `if cond then a else b` and desugar to
-    /// `match cond { true: a, _: b }`.
-    ///
-    /// The `if` token has already been consumed. This method:
-    /// 1. Parses the condition expression
-    /// 2. Expects `then`, parses the then-branch
-    /// 3. Expects `else`, parses the else-branch
-    /// 4. Builds a `match` AST node with two arms: `true: then` and `_: else`
-    fn parse_if(
-        &self,
-        lang: &Language,
+    /// Consume a [`ChildSeparator`] from the cursor (ADR-0053).
+    fn consume_separator(
         cursor: &mut Cursor<'_>,
-    ) -> Result<AstRef, LangError> {
-        // Parse condition (with low rbp so `then` stops it).
-        let cond = self.expression_inner(lang, cursor, 0)?;
-
-        // Expect `then`.
-        let then_tok = cursor.advance()?;
-        if then_tok.kind != "token.keyword.then" {
-            return Err(LangError::Engine(format!(
-                "expected 'then' after if condition, got '{}'",
-                then_tok.text
-            )));
+        sep: &ChildSeparator,
+    ) -> Result<(), LangError> {
+        match sep {
+            ChildSeparator::Required(kind) => {
+                let tok = cursor.advance()?;
+                if tok.kind != *kind {
+                    return Err(LangError::Engine(format!(
+                        "expected separator {}, got {}",
+                        kind, tok.kind
+                    )));
+                }
+            }
+            ChildSeparator::Optional(kind) => {
+                if let Some(t) = cursor.peek() {
+                    if t.kind == *kind {
+                        let _ = cursor.advance()?;
+                    }
+                }
+            }
+            ChildSeparator::OneOf(kinds) => {
+                let tok = cursor.advance()?;
+                if !kinds.iter().any(|k| k == &tok.kind) {
+                    return Err(LangError::Engine(format!(
+                        "expected one of {:?}, got {}",
+                        kinds, tok.kind
+                    )));
+                }
+            }
         }
-
-        // Parse then-branch (with low rbp so `else` stops it).
-        let then_branch = self.expression_inner(lang, cursor, 0)?;
-
-        // Expect `else`.
-        let else_tok = cursor.advance()?;
-        if else_tok.kind != "token.keyword.else" {
-            return Err(LangError::Engine(format!(
-                "expected 'else' after then-branch, got '{}'",
-                else_tok.text
-            )));
-        }
-
-        // Parse else-branch.
-        let else_branch = self.expression_inner(lang, cursor, 0)?;
-
-        // Build the match node: match cond { true: then, _: else }
-        // Pattern `true` is a literal bool node.
-        let true_node = AstNode::new("bool").with_payload(serde_json::json!(true));
-        let true_ref = self.ast.borrow_mut().push(true_node);
-        // Pattern `_` is a var node with payload "_".
-        let wild_node = AstNode::new("var").with_payload(serde_json::json!("_"));
-        let wild_ref = self.ast.borrow_mut().push(wild_node);
-        // Arm 0: true -> then_branch
-        let arm0 = AstNode::new("arm")
-            .with_payload(serde_json::json!({ "children": [true_ref.index(), then_branch.index()] }));
-        let arm0_ref = self.ast.borrow_mut().push(arm0);
-        // Arm 1: _ -> else_branch
-        let arm1 = AstNode::new("arm")
-            .with_payload(serde_json::json!({ "children": [wild_ref.index(), else_branch.index()] }));
-        let arm1_ref = self.ast.borrow_mut().push(arm1);
-        // Block node containing the arms.
-        let block = AstNode::new("block")
-            .with_payload(serde_json::json!({ "children": [arm0_ref.index(), arm1_ref.index()] }));
-        let block_ref = self.ast.borrow_mut().push(block);
-        // Match node: children = [cond, block]
-        let match_node = AstNode::new("match")
-            .with_payload(serde_json::json!({ "children": [cond.index(), block_ref.index()] }));
-        Ok(self.ast.borrow_mut().push(match_node))
+        Ok(())
     }
 
-    /// Parse `x = y in body` and desugar to `(proc (x) -> body)(y)`.
+    /// Parse a delimited block (ADR-0053). Consumes the `open` token (unless
+    /// `open_is_operator_token` is set, in which case the open was the
+    /// prefix/infix token itself, already consumed by the caller), zero or
+    /// more elements separated by `separator`, and the `close` token.
     ///
-    /// The `=` token has already been consumed. `left` is the LHS (a `var`
-    /// node whose payload is the variable name). This method:
-    /// 1. Parses the value expression (RHS of `=`)
-    /// 2. Expects `in`
-    /// 3. Parses the body expression
-    /// 4. Builds a `proc` node with param = var name, body = body node
-    /// 5. Builds an `app` node: app(proc_node, [value_node])
-    fn parse_binding(
-        &self,
-        lang: &Language,
-        cursor: &mut Cursor<'_>,
-        left: AstRef,
-    ) -> Result<AstRef, LangError> {
-        // Extract variable name from the LHS (var node).
-        let var_name = {
-            let ast = self.ast.borrow();
-            let left_node = ast.at(left)?;
-            left_node
-                .payload
-                .as_str()
-                .ok_or_else(|| {
-                    LangError::Engine("binding LHS must be an identifier".to_string())
-                })?
-                .to_string()
-        };
-
-        // Parse the value expression (RHS of `=`).
-        let value = self.expression_inner(lang, cursor, 0)?;
-
-        // Expect `in`.
-        let in_tok = cursor.advance()?;
-        if in_tok.kind != "token.keyword.in" {
-            return Err(LangError::Engine(format!(
-                "expected 'in' after binding value, got '{}'",
-                in_tok.text
-            )));
-        }
-
-        // Parse the body expression.
-        let body = self.expression_inner(lang, cursor, 0)?;
-
-        // Build a bind node: { name: var_name, children: [value, body] }
-        // This is the arrow-calculus-honest desugar of `x = y in body`:
-        // evaluate y, extend env with x=y, evaluate body. No closure
-        // creation, no env capture/swap — just env extension (ADR-0052).
-        let bind_node = AstNode::new("bind")
-            .with_payload(serde_json::json!({ "name": var_name, "children": [value.index(), body.index()] }));
-        Ok(self.ast.borrow_mut().push(bind_node))
-    }
-
-    /// Parse a delimited block child (the last child of a prefix shape whose
-    /// `delimited` field is set). Consumes the `open` token, zero or more
-    /// elements separated by `separator`, and the `close` token. Emits a
-    /// container node of `delim.container_kind` whose `children` array holds
-    /// the element node indices.
+    /// Each element is either a single expression (`pair` is `None`) or a
+    /// pair `<expr> <pair sep> <expr>` emitted as a node of
+    /// `pair.node_kind` with `children = [lhs, rhs]` (e.g. a match arm
+    /// `pattern : body`). When `rest_token` is set and the next token matches
+    /// it, a bare expression is parsed instead of a pair.
     ///
-    /// Each element is either a single expression (`delim.pair` is `None`) or
-    /// a pair `<expr> <pair sep> <expr>` emitted as a node of
-    /// `delim.pair.node_kind` with `children = [lhs, rhs]` (e.g. a match arm
-    /// `pattern : body`). The pair's left operand is parsed with a right
-    /// binding power just above the pair separator's infix left binding power,
-    /// so the separator is left for this loop to consume rather than being
-    /// absorbed by the infix grammar (e.g. `token.colon` is otherwise the
-    /// `type-annot` infix operator).
+    /// When `flatten` is true, no container node is emitted — the element
+    /// indices are returned directly for splicing into the parent's children.
+    /// When false, a container node of `container_kind` is emitted.
     fn parse_delimited_block(
         &self,
         lang: &Language,
         cursor: &mut Cursor<'_>,
         delim: &DelimitedShape,
-    ) -> Result<AstRef, LangError> {
-        // Consume the opening delimiter.
-        let open = cursor.advance()?;
-        if open.kind != delim.open {
-            return Err(LangError::Engine(format!(
-                "expected opening delimiter {}, got {}",
-                delim.open, open.kind
-            )));
+    ) -> Result<DelimitedResult, LangError> {
+        // Consume the opening delimiter, unless the open IS the operator
+        // token (already consumed by the caller).
+        if !delim.open_is_operator_token {
+            let open = cursor.advance()?;
+            if open.kind != delim.open {
+                return Err(LangError::Engine(format!(
+                    "expected opening delimiter {}, got {}",
+                    delim.open, open.kind
+                )));
+            }
         }
 
         // The right binding power for a pair's left operand: one above the
@@ -660,19 +403,33 @@ impl PrattEngine {
 
         let mut elements: Vec<usize> = Vec::new();
 
-        // Empty block: `open close`.
+        // Empty block: `open close` (or just `close` when open_is_operator).
         if let Some(next) = cursor.peek() {
             if next.kind == delim.close {
                 let _ = cursor.advance()?;
-                let node = AstNode::new(&delim.container_kind)
-                    .with_payload(serde_json::json!({ "children": elements }));
-                return Ok(self.ast.borrow_mut().push(node));
+                return if delim.flatten {
+                    Ok(DelimitedResult::Elements(elements))
+                } else {
+                    let node = AstNode::new(&delim.container_kind)
+                        .with_payload(serde_json::json!({ "children": elements }));
+                    Ok(DelimitedResult::Container(self.ast.borrow_mut().push(node).index()))
+                };
             }
         }
 
         loop {
-            // Parse one element.
-            if let (Some(pair), Some(rbp)) = (delim.pair.as_ref(), pair_lhs_rbp) {
+            // Check for rest/spread token: if the next token matches
+            // rest_token, parse a bare expression instead of a pair.
+            let is_rest = delim
+                .rest_token
+                .as_ref()
+                .and_then(|rt| cursor.peek().map(|t| t.kind == *rt))
+                .unwrap_or(false);
+
+            if is_rest {
+                let rest = self.expression_inner(lang, cursor, 0)?;
+                elements.push(rest.index());
+            } else if let (Some(pair), Some(rbp)) = (delim.pair.as_ref(), pair_lhs_rbp) {
                 let lhs = self.expression_inner(lang, cursor, rbp)?;
                 let sep = cursor.advance()?;
                 if sep.kind != pair.separator {
@@ -730,10 +487,25 @@ impl PrattEngine {
             )));
         }
 
-        let node = AstNode::new(&delim.container_kind)
-            .with_payload(serde_json::json!({ "children": elements }));
-        Ok(self.ast.borrow_mut().push(node))
+        if delim.flatten {
+            Ok(DelimitedResult::Elements(elements))
+        } else {
+            let node = AstNode::new(&delim.container_kind)
+                .with_payload(serde_json::json!({ "children": elements }));
+            Ok(DelimitedResult::Container(self.ast.borrow_mut().push(node).index()))
+        }
     }
+}
+
+/// The result of [`PrattEngine::parse_delimited_block`]: either a container
+/// node (when `flatten` is false) or raw element indices for splicing into
+/// the parent's children (when `flatten` is true).
+enum DelimitedResult {
+    /// A container node was emitted (flatten: false). The index is the arena
+    /// index of the container node.
+    Container(usize),
+    /// Elements to splice directly into the parent's children (flatten: true).
+    Elements(Vec<usize>),
 }
 
 #[cfg(test)]
@@ -749,7 +521,10 @@ mod tests {
         let mut lang = Language::new();
         // Token kinds
         lang.tokens
-            .merge(TokenKindDef::new("token.number"))
+            .merge(
+                TokenKindDef::new("token.number")
+                    .with_literal(LiteralKind::Number),
+            )
             .unwrap();
         lang.tokens.merge(TokenKindDef::new("token.plus")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.star")).unwrap();
@@ -1059,7 +834,7 @@ mod tests {
     fn atom_payload_token_kind_not_in_tokens_fragment_set() {
         // When a token kind has a grammar row but is NOT registered in
         // lang.tokens, atom_payload's get_by_identity returns None and
-        // the unwrap_or_else fallback is used.
+        // the LiteralKind::Raw fallback is used (ADR-0053).
         let engine = PrattEngine::new();
         let mut lang = Language::new();
         // Register a grammar row for "token.foo" but do NOT register
@@ -1074,8 +849,7 @@ mod tests {
             .unwrap();
         let req = ParserRequest::new(Tokens(vec![tok("token.foo", "hello")]));
         let ast = engine.parse(&lang, &req).unwrap();
-        // atom_payload falls back to checking token.kind.contains("number"),
-        // which is false, so payload is the text "hello".
+        // atom_payload falls back to LiteralKind::Raw (verbatim text).
         assert_eq!(ast.nodes()[0].payload, json!("hello"));
     }
 
@@ -1290,8 +1064,13 @@ mod tests {
     fn match_lang() -> Language {
         use handl_language::DelimitedShape;
         let mut lang = Language::new();
+        lang.tokens
+            .merge(
+                TokenKindDef::new("token.number")
+                    .with_literal(LiteralKind::Number),
+            )
+            .unwrap();
         for k in [
-            "token.number",
             "token.identifier",
             "token.keyword.match",
             "token.lbrace",
@@ -1349,6 +1128,9 @@ mod tests {
                             separator: "token.colon".into(),
                             node_kind: "arm".into(),
                         }),
+                        open_is_operator_token: false,
+                        flatten: false,
+                        rest_token: None,
                     }),
                 )
                 .with_binding_power(0, 0),
@@ -1452,12 +1234,32 @@ mod tests {
 
     /// Build a language with array, object, paren, function, and call support
     /// modelled on the canonical kit, for testing delimited-literal parsing.
+    /// Uses the ADR-0053 generic delimited-block schema (open_is_operator_token,
+    /// flatten, rest_token, pair) instead of hardcoded kind checks.
     fn literal_lang() -> Language {
         let mut lang = Language::new();
+        // Token kinds with LiteralKind dispatch (ADR-0053).
+        lang.tokens
+            .merge(
+                TokenKindDef::new("token.number")
+                    .with_literal(LiteralKind::Number),
+            )
+            .unwrap();
+        lang.tokens
+            .merge(
+                TokenKindDef::new("token.string").with_literal(LiteralKind::String {
+                    delim_chars: 1,
+                    escapes: vec![
+                        ("\\n".into(), "\n".into()),
+                        ("\\t".into(), "\t".into()),
+                        ("\\\"".into(), "\"".into()),
+                        ("\\\\".into(), "\\".into()),
+                    ],
+                }),
+            )
+            .unwrap();
         for k in [
-            "token.number",
             "token.identifier",
-            "token.string",
             "token.lbracket",
             "token.rbracket",
             "token.lbrace",
@@ -1468,9 +1270,22 @@ mod tests {
             "token.colon",
             "token.arrow",
             "token.plus",
+            "token.ellipsis",
         ] {
             lang.tokens.merge(TokenKindDef::new(k)).unwrap();
         }
+        // Ellipsis prefix: `...rest` produces a `rest` node with arity 1.
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.ellipsis.prefix",
+                    "token.ellipsis",
+                    GrammarPosition::Prefix,
+                    AstShapeRef::new("rest", 1),
+                )
+                .with_binding_power(0, 0),
+            )
+            .unwrap();
         lang.grammar
             .merge(GrammarRow::new(
                 "g.num",
@@ -1495,28 +1310,65 @@ mod tests {
                 AstShapeRef::new("var", 0),
             ))
             .unwrap();
+        // Array: `[` is both the prefix token and the opening delimiter
+        // (open_is_operator_token). Elements are spliced directly into the
+        // array node's children (flatten). Supports `...rest` via rest_token.
         lang.grammar
             .merge(GrammarRow::new(
                 "g.array",
                 "token.lbracket",
                 GrammarPosition::Prefix,
-                AstShapeRef::new("array", 1),
+                AstShapeRef::new("array", 1).with_delimited(DelimitedShape {
+                    open: "token.lbracket".into(),
+                    close: "token.rbracket".into(),
+                    separator: Some("token.comma".into()),
+                    container_kind: "array".into(),
+                    pair: None,
+                    open_is_operator_token: true,
+                    flatten: true,
+                    rest_token: Some("token.ellipsis".into()),
+                }),
             ))
             .unwrap();
+        // Object: `{` is both the prefix token and the opening delimiter.
+        // Elements are key:value pairs (entry nodes). Supports `...rest`.
         lang.grammar
             .merge(GrammarRow::new(
                 "g.object",
                 "token.lbrace",
                 GrammarPosition::Prefix,
-                AstShapeRef::new("object", 1),
+                AstShapeRef::new("object", 1).with_delimited(DelimitedShape {
+                    open: "token.lbrace".into(),
+                    close: "token.rbrace".into(),
+                    separator: Some("token.comma".into()),
+                    container_kind: "object".into(),
+                    pair: Some(handl_language::PairShape {
+                        separator: "token.colon".into(),
+                        node_kind: "entry".into(),
+                    }),
+                    open_is_operator_token: true,
+                    flatten: true,
+                    rest_token: Some("token.ellipsis".into()),
+                }),
             ))
             .unwrap();
+        // Paren: `(` is both the prefix token and the opening delimiter.
+        // Elements are single expressions (function params).
         lang.grammar
             .merge(GrammarRow::new(
                 "g.paren",
                 "token.lparen",
                 GrammarPosition::Prefix,
-                AstShapeRef::new("paren", 1),
+                AstShapeRef::new("paren", 1).with_delimited(DelimitedShape {
+                    open: "token.lparen".into(),
+                    close: "token.rparen".into(),
+                    separator: Some("token.comma".into()),
+                    container_kind: "paren".into(),
+                    pair: None,
+                    open_is_operator_token: true,
+                    flatten: true,
+                    rest_token: None,
+                }),
             ))
             .unwrap();
         lang.grammar
@@ -1552,13 +1404,25 @@ mod tests {
                 .with_binding_power(55, 56),
             )
             .unwrap();
+        // Call: `(` is the infix operator token and the opening delimiter
+        // (open_is_operator_token). Args are spliced directly into the call
+        // node's children (flatten) — no nested args container.
         lang.grammar
             .merge(
                 GrammarRow::new(
                     "g.call",
                     "token.lparen",
                     GrammarPosition::Infix,
-                    AstShapeRef::new("call", 2),
+                    AstShapeRef::new("call", 1).with_delimited(DelimitedShape {
+                        open: "token.lparen".into(),
+                        close: "token.rparen".into(),
+                        separator: Some("token.comma".into()),
+                        container_kind: "call".into(),
+                        pair: None,
+                        open_is_operator_token: true,
+                        flatten: true,
+                        rest_token: None,
+                    }),
                 )
                 .with_binding_power(90, 91),
             )
@@ -1675,23 +1539,11 @@ mod tests {
     #[test]
     fn array_literal_parses_rest_explicit() {
         // [1, ...rest] → array{children:[value(1), rest{[var(rest)]}]}
+        // The rest_token field on the array's DelimitedShape tells
+        // parse_delimited_block to parse a bare expression when it sees
+        // token.ellipsis (ADR-0053).
         let engine = PrattEngine::new();
-        let mut lang = literal_lang();
-        // Register the ellipsis token kind and its prefix grammar row,
-        // mirroring the canonical `grammar.ellipsis.prefix` row that
-        // produces a `rest` node with arity 1.
-        lang.tokens.merge(TokenKindDef::new("token.ellipsis")).unwrap();
-        lang.grammar
-            .merge(
-                GrammarRow::new(
-                    "grammar.ellipsis.prefix",
-                    "token.ellipsis",
-                    GrammarPosition::Prefix,
-                    AstShapeRef::new("rest", 1),
-                )
-                .with_binding_power(0, 0),
-            )
-            .unwrap();
+        let lang = literal_lang();
         let req = ParserRequest::new(Tokens(vec![
             tok("token.lbracket", "["),
             tok("token.number", "1"),

@@ -282,9 +282,9 @@ fn handle_binder_binds_body_result() {
 #[test]
 fn json_prim_parses_literal_string() {
     let kit = kit();
-    // Build a manual AST: a `json` node with payload { "expr": "{\"a\": 1}" }.
+    // ADR-0053: json node payload is the JSON template string directly.
     let mut ast = Ast::new();
-    let json_node = AstNode::new("json").with_payload(json!({ "expr": "{\"a\": 1}" }));
+    let json_node = AstNode::new("json").with_payload(json!("{\"a\": 1}"));
     ast.push(json_node);
     let result = kit.runtime().eval(&ast).expect("json prim must eval");
     assert_eq!(result, json!({"a": 1}));
@@ -293,18 +293,19 @@ fn json_prim_parses_literal_string() {
 #[test]
 fn json_prim_with_placeholder_substitution() {
     let kit = kit();
-    // Build a manual AST: a `json` node with expr and args (arena indices).
-    // The args reference child nodes that evaluate to the values to substitute.
+    // ADR-0053: json{...}(args) is parsed as call { children: [json_node, arg_node] }.
+    // prim_call checks if callee is json and does placeholder substitution.
     let mut ast = Ast::new();
     // Node 0: literal 42 (value to substitute into $0).
     let lit_node = AstNode::new("lit").with_payload(json!(42));
     let lit_idx = ast.push(lit_node).index();
-    // Node 1: the json node with expr containing $0 and args referencing node 0.
-    let json_node = AstNode::new("json").with_payload(json!({
-        "expr": "{\"value\": $0}",
-        "args": [lit_idx]
-    }));
-    ast.push(json_node);
+    // Node 1: the json node with template containing $0.
+    let json_node = AstNode::new("json").with_payload(json!("{\"value\": $0}"));
+    let json_idx = ast.push(json_node).index();
+    // Node 2: call node wrapping json with args.
+    let call_node = AstNode::new("call")
+        .with_payload(json!({ "children": [json_idx, lit_idx] }));
+    ast.push(call_node);
     let result = kit
         .runtime()
         .eval(&ast)

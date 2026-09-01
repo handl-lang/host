@@ -1006,10 +1006,58 @@ impl TreeWalkEngine {
                 }
             }
             "assign" => {
-                let value = current_node.payload.get("value").ok_or_else(|| {
-                    LangError::Engine("assign: missing value in payload".to_string())
-                })?;
-                Ok((value.clone(), false))
+                // ADR-0053: `assign { children: [var, value] }` or
+                // `assign { children: [var, value, body] }` —
+                // evaluate value, optionally bind var in a new scope and
+                // evaluate body, or just return the value.
+                // Falls back to legacy `payload.value` for hand-built ASTs.
+                if let Some(children) =
+                    current_node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    if children.len() >= 2 {
+                        let value_idx = children[1].as_u64().ok_or_else(|| {
+                            LangError::Engine("assign: value index must be a number".to_string())
+                        })? as usize;
+                        if children.len() == 3 {
+                            // `x = y in body` — bind and evaluate body.
+                            let var_idx = children[0].as_u64().ok_or_else(|| {
+                                LangError::Engine("assign: var index must be a number".to_string())
+                            })? as usize;
+                            let body_idx = children[2].as_u64().ok_or_else(|| {
+                                LangError::Engine("assign: body index must be a number".to_string())
+                            })? as usize;
+                            let var_name = {
+                                let var_node = ast.at(AstRef::new(var_idx))?;
+                                var_node.payload.as_str().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "assign: LHS must be an identifier".to_string(),
+                                    )
+                                })?
+                            };
+                            let value = self.eval_node(ast, AstRef::new(value_idx), lang, env)?;
+                            env.push_scope();
+                            env.define(var_name, value);
+                            let result = self.eval_node(ast, AstRef::new(body_idx), lang, env);
+                            env.pop_scope();
+                            result.map(|v| (v, false))
+                        } else {
+                            // `x = y` — just evaluate and return the value.
+                            self.eval_node(ast, AstRef::new(value_idx), lang, env)
+                                .map(|v| (v, false))
+                        }
+                    } else {
+                        Err(LangError::Engine(
+                            "assign: expected at least 2 children".to_string(),
+                        ))
+                    }
+                } else {
+                    // Legacy shape: `assign { target, value }` (hand-built
+                    // ASTs). Just return the value.
+                    let value = current_node.payload.get("value").ok_or_else(|| {
+                        LangError::Engine("assign: missing value in payload".to_string())
+                    })?;
+                    Ok((value.clone(), false))
+                }
             }
             "match" => self.prim_match(ast, lang, env, current_node),
             "handle" => self.prim_handle(ast, lang, env, current_node),
@@ -1364,8 +1412,32 @@ impl TreeWalkEngine {
         let callee_idx = children
             .first()
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))?;
-        let callee = self.eval_node(ast, AstRef::new(callee_idx as usize), lang, env)?;
+            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))? as usize;
+
+        // ADR-0053: json{...}(args) — when the callee is a `json` node,
+        // perform placeholder substitution ($0, $1, …) into the JSON template
+        // before parsing. This replaces the old `json` prim's args handling.
+        let callee_node = ast.at(AstRef::new(callee_idx))?;
+        if callee_node.kind == "json" {
+            let template = callee_node.payload.as_str().ok_or_else(|| {
+                LangError::Engine("json: payload must be a string".to_string())
+            })?;
+            let mut s = template.to_string();
+            for (i, arg_entry) in children[1..].iter().enumerate() {
+                let idx = arg_entry.as_u64().ok_or_else(|| {
+                    LangError::Engine("call: child index must be a number".to_string())
+                })? as usize;
+                let val = self.eval_node(ast, AstRef::new(idx), lang, env)?;
+                let replacement = serde_json::to_string(&val)
+                    .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
+                s = s.replace(&format!("${}", i), &replacement);
+            }
+            return serde_json::from_str(&s)
+                .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                .map(|v| (v, false));
+        }
+
+        let callee = self.eval_node(ast, AstRef::new(callee_idx), lang, env)?;
         let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
         for entry in &children[1..] {
             let idx = entry.as_u64().ok_or_else(|| {
@@ -1601,10 +1673,12 @@ impl TreeWalkEngine {
 
     /// `json` op: parse a JSON template string from the node payload.
     ///
-    /// The payload carries `expr` (a JSON string, optionally with `$0`,
-    /// `$1`, … placeholders) and `args` (an array of arena indices whose
-    /// evaluated values are substituted into the placeholders before
-    /// parsing). If no `args` are present, `expr` is parsed directly.
+    /// The payload is a JSON string (produced by `LiteralKind::StripAffix`
+    /// from the `json{...}` token text, ADR-0053). When the `json` node is
+    /// wrapped in a `call` node (i.e. `json{...}(args)`), `prim_call`
+    /// handles placeholder substitution before reaching this prim — so
+    /// `prim_json` only handles the no-args case: parse the payload string
+    /// as JSON directly.
     fn prim_json(
         &self,
         ast: &Ast,
@@ -1612,37 +1686,11 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
         current_node: &AstNode,
     ) -> Result<(Value, bool), LangError> {
-        let payload = &current_node.payload;
-        let expr = payload
-            .get("expr")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::Engine("json: missing expr string in payload".to_string()))?;
-
-        // If there are args, substitute placeholders $0, $1, … with their
-        // evaluated JSON representations.
-        let final_expr = if let Some(args_arr) = payload.get("args").and_then(|v| v.as_array()) {
-            let mut s = expr.to_string();
-            for (i, arg_entry) in args_arr.iter().enumerate() {
-                // Each arg entry is an arena index referencing a child
-                // node.
-                let replacement = if let Some(idx) = arg_entry.as_u64() {
-                    let val =
-                        self.eval_node(ast, AstRef::new(idx as usize), lang, env)?;
-                    serde_json::to_string(&val)
-                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?
-                } else {
-                    // Already a literal value — serialize directly.
-                    serde_json::to_string(arg_entry)
-                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?
-                };
-                s = s.replace(&format!("${}", i), &replacement);
-            }
-            s
-        } else {
-            expr.to_string()
-        };
-
-        serde_json::from_str(&final_expr)
+        let _ = (ast, lang, env);
+        let expr = current_node.payload.as_str().ok_or_else(|| {
+            LangError::Engine("json: payload must be a string".to_string())
+        })?;
+        serde_json::from_str(expr)
             .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
             .map(|v| (v, false))
     }

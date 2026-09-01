@@ -6,6 +6,7 @@
   label: null
 - id: token.bool
   label: bool
+  literal: Bool
 - id: token.colon
   label: ':'
 - id: token.comma
@@ -36,6 +37,12 @@
   label: identifier
 - id: token.json
   label: json
+  literal: !StripAffix
+    prefix: 'json{'
+    suffix: '}'
+    wrap:
+    - '{'
+    - '}'
 - id: token.if
   label: null
 - id: token.keyword.as
@@ -96,8 +103,10 @@
   label: '!='
 - id: token.null
   label: 'null'
+  literal: 'Null'
 - id: token.number
   label: number
+  literal: Number
 - id: token.or
   label: '||'
 - id: token.percent
@@ -126,6 +135,17 @@
   label: '*'
 - id: token.string
   label: string
+  literal: !String
+    delim_chars: 1
+    escapes:
+    - - '\n'
+      - "\n"
+    - - '\t'
+      - "\t"
+    - - '\"'
+      - '"'
+    - - '\\'
+      - '\'
 - id: token.template
   label: null
 - id: token.vau
