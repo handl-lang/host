@@ -21,6 +21,7 @@ handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-plugin-lib-utils = { workspace = true }
 handl-plugin-lib-collections = { workspace = true }
+handl-plugin-lib-tag = { workspace = true }
 handl-plugin-module = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

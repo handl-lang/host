@@ -873,6 +873,12 @@ impl TreeWalkEngine {
                         let value = entry.get("value").ok_or_else(|| {
                             LangError::Engine("object: entry missing value".to_string())
                         })?;
+                        if handl_language::is_reserved_value_key(key) {
+                            return Err(LangError::Engine(format!(
+                                "object: key '{}' is reserved",
+                                key
+                            )));
+                        }
                         obj.insert(key.to_string(), value.clone());
                     }
                     Ok((Value::Object(obj), false))
@@ -965,6 +971,12 @@ impl TreeWalkEngine {
                         };
                         let value =
                             self.eval_node(ast, AstRef::new(val_idx), lang, env)?;
+                        if handl_language::is_reserved_value_key(&key) {
+                            return Err(LangError::Engine(format!(
+                                "object: key '{}' is reserved",
+                                key
+                            )));
+                        }
                         obj.insert(key.to_string(), value);
                     }
                     Ok((Value::Object(obj), false))

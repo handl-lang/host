@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-lib-tag"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-module = { workspace = true }
+serde_json = { workspace = true }

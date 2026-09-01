@@ -16,6 +16,7 @@ use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
 use handl_plugin_lib_collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
+use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
@@ -211,6 +212,7 @@ impl Kit {
         stdlib_registry.register(UtilsParseModule::new());
         stdlib_registry.register(SerializeModule::new());
         stdlib_registry.register(CollectionsModule);
+        stdlib_registry.register(TagModule);
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
@@ -257,6 +259,17 @@ impl Kit {
         // `hello.greet(x)` parses to `call(field-access(hello, greet), x)`,
         // resolves `hello.greet` to the host-function name string, and
         // dispatches via `apply_closure`'s string-named host-fn path.
+        //
+        // The `tag.*` tagged-values capability (ADR-0055) is NOT a global:
+        // `tag` is an unbound identifier, so `tag.tag(...)` parses to
+        // `call(field-access(tag, tag), ...)`, both `tag` identifiers fall
+        // back to the string `"tag"` (the unbound-variable fallback), and
+        // `field_access("tag", "tag")` concatenates them to `"tag.tag"` —
+        // the same module-path-construction path `fn.map` uses. The
+        // `tag.*` host functions are registered by `plugin-lib-tag`'s
+        // `TagModule` (above). A host that does not register `TagModule`
+        // does not offer tagging — the capability boundary (ADR-0046,
+        // ADR-0055 §1) is preserved.
         let self_val = handl_language::language_value(&lang);
         let mut globals = std::collections::HashMap::new();
         globals.insert("self".to_string(), self_val);

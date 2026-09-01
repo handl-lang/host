@@ -63,6 +63,7 @@ members = [
   "crates/plugin-lib-tls",
   "crates/plugin-lib-tls-native",
   "crates/plugin-lib-toml",
+  "crates/plugin-lib-tag",
   "crates/plugin-lib-type",
   "crates/plugin-lib-unicode",
   "crates/plugin-lib-url-rfc",
@@ -209,6 +210,7 @@ handl-plugin-lib-test = { path = "crates/plugin-lib-test" }
 handl-plugin-lib-tls = { path = "crates/plugin-lib-tls" }
 handl-plugin-lib-tls-native = { path = "crates/plugin-lib-tls-native" }
 handl-plugin-lib-toml = { path = "crates/plugin-lib-toml" }
+handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-plugin-lib-type = { path = "crates/plugin-lib-type", default-features = false }
 handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-plugin-lib-url-rfc = { path = "crates/plugin-lib-url-rfc" }
