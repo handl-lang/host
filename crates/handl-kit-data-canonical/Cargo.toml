@@ -17,4 +17,5 @@ handl-plugin-engine-lex-pattern = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-eval-tree-walk = { workspace = true }
 handl-plugin-engine-eval-bytecode = { workspace = true }
+handl-plugin-engine-eval-cranelift = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }

@@ -214,6 +214,35 @@ fn compile_arr(
     }
 
     // General native or foreign op: compile args, then emit NativeOp/ForeignOp.
+    //
+    // Derived step ops (`while_step`/`for_step`/`fix_step`) are special:
+    // their args (cond/body sub-schemes) must be re-evaluated per iteration
+    // with the current value as incoming. We compile the args as sub-programs
+    // at known instruction ranges, then emit a `DerivedStepOp` instruction
+    // that stores those ranges. A `Jump` before the sub-programs skips them
+    // during normal execution (only the `DerivedStepOp` handler re-executes
+    // them per iteration via `exec_instrs`).
+    if source == &ArrSource::Native && is_derived_step_op_with_sub_schemes(op) {
+        // Jump over the arg sub-programs to the DerivedStepOp instruction.
+        let jump_pos = out.len();
+        out.push(Instr::Jump(0)); // placeholder — patched below
+        let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(args.len());
+        for arg in args {
+            let start = out.len();
+            let arg_pushed = compile_into(arg, out)?;
+            if arg_pushed {
+                out.push(Instr::PopScope);
+            }
+            let end = out.len();
+            ranges.push((start, end));
+        }
+        let derived_pos = out.len();
+        out.push(Instr::DerivedStepOp(op.to_string(), ranges));
+        // Patch the Jump to skip the sub-programs.
+        out[jump_pos] = Instr::Jump(derived_pos);
+        return Ok(false);
+    }
+
     for arg in args {
         let arg_pushed = compile_into(arg, out)?;
         if arg_pushed {
@@ -229,6 +258,14 @@ fn compile_arr(
         }
     }
     Ok(false)
+}
+
+/// `while_step`/`for_step`/`fix_step` — derived step ops that carry
+/// cond/body sub-schemes as args and need per-iteration re-evaluation.
+/// (`loop_step` is NOT here — its body proc arg is a closure evaluated
+/// once, then applied per iteration via `apply_app`.)
+fn is_derived_step_op_with_sub_schemes(op: &str) -> bool {
+    matches!(op, "while_step" | "for_step" | "fix_step")
 }
 
 #[cfg(test)]

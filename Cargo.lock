@@ -1004,11 +1004,15 @@ dependencies = [
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-lib-collections",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
  "handl-plugin-lib-lang-lex",
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
+ "handl-plugin-lib-tag",
+ "handl-plugin-lib-utils",
+ "handl-plugin-module",
  "handl-runtime",
  "serde",
  "serde_json",
@@ -1079,6 +1083,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
+ "handl-plugin-engine-eval-cranelift",
  "handl-plugin-engine-eval-tree-walk",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
@@ -1119,6 +1124,17 @@ dependencies = [
  "handl-plugin-lib-os-std",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-rand",
+]
+
+[[package]]
+name = "handl-kit-stdlib"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-collections",
+ "handl-plugin-lib-hello",
+ "handl-plugin-lib-utils",
+ "handl-plugin-module",
 ]
 
 [[package]]
@@ -1399,6 +1415,7 @@ dependencies = [
  "handl-kit-config",
  "handl-kit-hello",
  "handl-kit-server",
+ "handl-kit-stdlib",
  "handl-platform",
  "serde_json",
 ]
@@ -1829,6 +1846,16 @@ dependencies = [
 name = "handl-plugin-lib-stats"
 version = "0.1.0"
 dependencies = [
+ "handl-platform",
+ "handl-plugin-module",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-tag"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
  "handl-platform",
  "handl-plugin-module",
  "serde_json",

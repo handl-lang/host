@@ -26,6 +26,7 @@
 //! | [`ForeignOp`]        | `arg... -> result`                    | Call host function `name` with `n` args (`Arr Foreign`). |
 //! | [`FirstOp`]          | `pair -> {__pair__:[result, snd]}`    | Run inner sub-program on pair's first component; re-pair with second (`First`). |
 //! | [`LoopCheck`]        | `result -> ...`                       | Inspect loop body result; route single-step vs multi-step (`Loop`). |
+//! | [`DerivedStepOp`]   | `pair -> either`                      | Re-evaluate arg sub-programs per iteration; apply derived step op (`while_step`/`for_step`/`fix_step`). |
 //! | [`Return`]           | `val ->`                              | Pop and return the top of the operand stack. |
 //!
 //! ## Combinator → instruction mapping
@@ -37,6 +38,7 @@
 //! | `Arr { op: "proj_child", lit: Some(idx), .. }` | `EvalChild(idx)` |
 //! | `Arr { op: "extend_env", lit: Some(name), .. }` | `Store(name)` or `StorePayloadName` if name is `"$payload"` |
 //! | `Arr { op, args, source: Native, .. }` (general) | `compile(args)...`, `NativeOp(op, n)` |
+//! | `Arr { op: "while_step"/"for_step"/"fix_step", args, source: Native, .. }` | `Jump(derived_pos)`, `<arg sub-programs>`, `DerivedStepOp(op, ranges)` |
 //! | `Arr { op, args, source: Foreign(name), .. }` | `compile(args)...`, `ForeignOp(name, n)` |
 //! | `Seq { fst, snd }` | `compile(fst)`, `compile(snd)`, [`PopScope`] if `fst` pushed a scope |
 //! | `First { inner }` | `FirstOp(start, end)`, `<inner sub-program at [start, end)>` |
@@ -46,23 +48,26 @@
 //!
 //! ## Derived step ops
 //!
-//! The derived step op `loop_step` (the ergonomic `loop` surface lowering,
-//! ADR-0052) **is** supported by the v2 bytecode VM. Its carried sub-scheme
-//! arg (the body proc) is compiled inline like any other `Arr.arg`; the
-//! `NativeOp` handler recognizes `loop_step` via [`op_is_derived_step`] and
-//! additionally pops the loop pair `(in, state)` left on the operand stack
-//! by the enclosing `Loop`, passing it as `incoming` to
-//! [`VmFrame::apply_native_v2`]. The body proc is then applied via
-//! [`VmFrame::apply_app`] (recursive `exec_node`), which is the recursive
-//! sub-scheme evaluation the flat bytecode model needs here.
+//! All four derived step ops from ADR-0052 are supported by the v2 bytecode VM:
 //!
-//! The remaining derived step ops `while_step`/`for_step`/`fix_step` (from
-//! `plugin-lib-arrow-iter`) are **not** supported. These carry cond/body
-//! sub-schemes that must be evaluated with the *current value* (extracted
-//! from the pair) as incoming — a recursive sub-program execution pattern
-//! not yet wired into the flat bytecode model. The v2 tree-walk handler
-//! supports them via recursive `eval_inner` calls. Users can construct
-//! equivalent behavior using `Loop` and `Choice` directly.
+//! - **`loop_step`** (the ergonomic `loop` surface lowering): its carried
+//!   sub-scheme arg (the body proc) is compiled inline like any other
+//!   `Arr.arg`; the `NativeOp` handler recognizes `loop_step` via
+//!   [`op_is_derived_step`] and additionally pops the loop pair `(in, state)`
+//!   left on the operand stack by the enclosing `Loop`, passing it as
+//!   `incoming` to [`VmFrame::apply_native_v2`]. The body proc is then
+//!   applied via [`VmFrame::apply_app`] (recursive `exec_node`).
+//!
+//! - **`while_step`/`for_step`/`fix_step`** (from `plugin-lib-arrow-iter`):
+//!   these carry cond/body sub-schemes that must be re-evaluated **per
+//!   iteration** with the current value (extracted from the loop pair) as
+//!   incoming. The compiler emits a [`DerivedStepOp`] instruction that
+//!   stores each arg as an instruction range `(start, end)`. A `Jump` before
+//!   the sub-programs skips them during normal execution; the
+//!   `DerivedStepOp` handler re-executes them via [`VmFrame::exec_instrs`]
+//!   with the current value as incoming, then dispatches to
+//!   [`VmFrame::apply_native_v2`] with the fresh results and the loop pair
+//!   as incoming. The produced `Either` is pushed for [`LoopCheck`].
 
 use handl_language::Value;
 
@@ -151,11 +156,13 @@ pub enum Instr {
     /// result.
     ///
     /// Emitted by `Arr { op, args, source: Native, .. }` for general native
-    /// ops (not the lit-bearing special cases). The native op set matches
-    /// the v2 tree-walk exactly: arithmetic (`add`/`sub`/`mul`/`div`/`mod`/
-    /// `neg`), comparison (`eq`/`neq`/`lt`/`gt`/`lte`/`gte`), logic
-    /// (`and`/`or`/`not`), `tag`, `id`, `closure`, `bind` (env extension),
-    /// and utility ops (`is_pos`/`dec`/`inc`/`half_floor`/`inc_fst`/
+    /// ops (not the lit-bearing special cases, and not the derived step
+    /// ops `while_step`/`for_step`/`fix_step` which use [`DerivedStepOp`]).
+    /// The native op set matches the v2 tree-walk exactly: arithmetic
+    /// (`add`/`sub`/`mul`/`div`/`mod`/`neg`), comparison (`eq`/`neq`/`lt`/
+    /// `gt`/`lte`/`gte`), logic (`and`/`or`/`not`), `tag`, `id`, `closure`,
+    /// `bind` (env extension), `loop_step` (ergonomic loop surface), and
+    /// utility ops (`is_pos`/`dec`/`inc`/`half_floor`/`inc_fst`/
     /// `countdown_step`/`infinite_step`).
     NativeOp(String, usize),
 
@@ -204,6 +211,28 @@ pub enum Instr {
     ///
     /// A max-iteration counter (100_000) prevents infinite loops.
     LoopCheck(usize),
+
+    /// Derived step op (`while_step`/`for_step`/`fix_step`) with
+    /// re-evaluatable arg sub-programs.
+    ///
+    /// Unlike [`NativeOp`], which evaluates args once before the handler
+    /// runs, `DerivedStepOp` stores each arg as an instruction range
+    /// `(start, end)` and re-evaluates them **per iteration** with the
+    /// current value (extracted from the loop pair) as incoming. This is
+    /// required because `while_step`/`for_step`/`fix_step` carry cond/body
+    /// sub-schemes that must be re-run with the evolving current value on
+    /// each loop iteration — not evaluated once upfront.
+    ///
+    /// The handler pops the loop pair `(in, state)` from the stack (left
+    /// by the enclosing `Loop`), extracts the current value, re-executes
+    /// each arg sub-program via [`VmFrame::exec_instrs`] with `Some(current)`
+    /// as incoming, then dispatches to [`VmFrame::apply_native_v2`] with
+    /// the fresh results. The produced `Either` is pushed for `LoopCheck`.
+    ///
+    /// (`loop_step` is handled by [`NativeOp`] instead — its body proc arg
+    /// is a closure evaluated once, then applied per iteration via
+    /// [`VmFrame::apply_app`].)
+    DerivedStepOp(String, Vec<(usize, usize)>),
 
     /// Pop the top of the operand stack and return it as the program result.
     ///

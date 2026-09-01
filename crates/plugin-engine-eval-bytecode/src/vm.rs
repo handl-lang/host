@@ -45,13 +45,17 @@
 //!
 //! ## Derived step ops
 //!
-//! The derived step op `loop_step` (the ergonomic `loop` surface lowering)
-//! is supported: the `NativeOp` handler pops the loop pair from the operand
-//! stack (below the inline-compiled args) and passes it as `incoming` to
-//! [`VmFrame::apply_native_v2`], which applies the body proc via
-//! [`VmFrame::apply_app`]. The remaining derived step ops
-//! `while_step`/`for_step`/`fix_step` are **not** supported. See the
-//! [`instr`](crate::instr) module docs for details.
+//! All four derived step ops from ADR-0052 are supported:
+//! - `loop_step` (the ergonomic `loop` surface lowering): the `NativeOp`
+//!   handler pops the loop pair from the operand stack (below the
+//!   inline-compiled args) and passes it as `incoming` to
+//!   [`VmFrame::apply_native_v2`], which applies the body proc via
+//!   [`VmFrame::apply_app`].
+//! - `while_step`/`for_step`/`fix_step`: the `DerivedStepOp` instruction
+//!   re-evaluates the arg sub-programs per iteration with the current value
+//!   (extracted from the loop pair) as incoming, then dispatches to
+//!   [`VmFrame::apply_native_v2`]. See the [`instr`](crate::instr) module
+//!   docs for details.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -127,7 +131,7 @@ impl ScopeStack {
 // ---------------------------------------------------------------------------
 
 /// A number that can be either integer or float.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) enum Num {
     /// Integer value.
     Int(i64),
@@ -585,6 +589,55 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .pop()
                         .ok_or_else(|| LangError::Engine("stack underflow on Return".to_string()));
                 }
+                Instr::DerivedStepOp(op, ranges) => {
+                    // Pop the loop pair (in, state) from the stack — left
+                    // by the enclosing Loop. Extract the current value
+                    // (in on first step, state thereafter).
+                    let inc = stack.pop().ok_or_else(|| {
+                        LangError::Engine(
+                            "DerivedStepOp: missing loop pair on stack".to_string(),
+                        )
+                    })?;
+                    let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+                    let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                    let current = if state.is_null() { in_val.clone() } else { state.clone() };
+                    // Determine the incoming value for the arg sub-programs.
+                    // - while_step / fix_step: pass `current` (the evolving
+                    //   value) to cond/body.
+                    // - for_step: pass `acc` (the second component of the
+                    //   pair) to body — not the full pair. The pair is
+                    //   (counter, acc); the body operates on `acc`.
+                    let arg_incoming = if op == "for_step" {
+                        if state.is_null() {
+                            // First step: in_val = pair(count, initial).
+                            // acc = snd(in_val).
+                            pair_snd(&in_val).cloned().unwrap_or(Value::Null)
+                        } else {
+                            // Later steps: state = pair(counter, acc).
+                            pair_snd(&state).cloned().unwrap_or(Value::Null)
+                        }
+                    } else {
+                        current
+                    };
+                    // Re-evaluate each arg sub-program with `arg_incoming`
+                    // as incoming. The sub-programs are at [start, end) in
+                    // the current instruction stream.
+                    let mut eval_args: Vec<Value> = Vec::with_capacity(ranges.len());
+                    for &(start, end) in ranges {
+                        let sub = &instrs[start..end];
+                        let result = self.exec_instrs(sub, node, Some(arg_incoming.clone()))?;
+                        eval_args.push(result);
+                    }
+                    // Dispatch to apply_native_v2 with the fresh results
+                    // and the loop pair as incoming.
+                    let result = self.apply_native_v2(
+                        op,
+                        &eval_args,
+                        node,
+                        Some(inc),
+                    )?;
+                    stack.push(result);
+                }
             }
             ip += 1;
         }
@@ -737,6 +790,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         let value = entry.get("value").ok_or_else(|| {
                             LangError::Engine("object: entry missing value".to_string())
                         })?;
+                        if handl_language::is_reserved_value_key(key) {
+                            return Err(LangError::Engine(format!(
+                                "object: key '{}' is reserved",
+                                key
+                            )));
+                        }
                         obj.insert(key.to_string(), value.clone());
                     }
                     Ok(Value::Object(obj))
@@ -776,14 +835,44 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                     "object: entry missing value child".to_string(),
                                 )
                             })? as usize;
-                        let key_val = self.exec_node(AstRef::new(key_idx))?;
-                        let key = key_val.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "object: entry key must evaluate to a string".to_string(),
-                            )
-                        })?;
+                        // Object key: if the key node is a `var` (bare
+                        // identifier), use its name as the key string
+                        // directly — don't evaluate it as a variable. This
+                        // makes `{ n: 5 }` use key "n", not the value of n.
+                        // Otherwise, evaluate the key expression and use
+                        // its string representation. Mirrors the v2
+                        // tree-walk's object prim.
+                        let key_node = self.ast.at(AstRef::new(key_idx))?;
+                        let key = if key_node.kind == "var" {
+                            key_node.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: var key missing string payload".to_string(),
+                                )
+                            })?
+                            .to_string()
+                        } else if key_node.kind == "string" {
+                            key_node.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: string key missing payload".to_string(),
+                                )
+                            })?
+                            .to_string()
+                        } else {
+                            let key_val = self.exec_node(AstRef::new(key_idx))?;
+                            if let Some(s) = key_val.as_str() {
+                                s.to_string()
+                            } else {
+                                key_val.to_string()
+                            }
+                        };
                         let value = self.exec_node(AstRef::new(val_idx))?;
-                        obj.insert(key.to_string(), value);
+                        if handl_language::is_reserved_value_key(&key) {
+                            return Err(LangError::Engine(format!(
+                                "object: key '{}' is reserved",
+                                key
+                            )));
+                        }
+                        obj.insert(key, value);
                     }
                     Ok(Value::Object(obj))
                 } else {
@@ -1039,6 +1128,69 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     ))
                 }
             }
+            // `while_step` derived step op (ADR-0052 §"Derived forms").
+            // args = [cond_result, body_result] — re-evaluated per iteration
+            // by the `DerivedStepOp` handler with the current value as
+            // incoming. `incoming` is the loop pair (in, state).
+            // Current = in (first step) or state (later). If cond is truthy,
+            // run body and continue with its result; else terminate.
+            "while_step" => {
+                let inc = incoming.unwrap_or(Value::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let current = if state.is_null() { in_val } else { state };
+                let cond_val = args.first().cloned().unwrap_or(Value::Null);
+                if is_truthy(&cond_val) {
+                    let body_val = args.get(1).cloned().unwrap_or(Value::Null);
+                    Ok(either_right(body_val))
+                } else {
+                    Ok(either_left(current))
+                }
+            }
+            // `for_step` derived step op. args = [body_result]. State is
+            // pair(counter, acc). First step: initialize from in = pair(count,
+            // initial). While counter > 0, run body on acc and continue with
+            // pair(counter-1, new_acc); else terminate with acc.
+            "for_step" => {
+                let inc = incoming.unwrap_or(Value::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let (counter, acc) = if state.is_null() {
+                    let count = pair_fst(&in_val).cloned().unwrap_or(Value::Null);
+                    let initial = pair_snd(&in_val).cloned().unwrap_or(Value::Null);
+                    (count, initial)
+                } else {
+                    let c = pair_fst(&state).cloned().unwrap_or(Value::Null);
+                    let a = pair_snd(&state).cloned().unwrap_or(Value::Null);
+                    (c, a)
+                };
+                let count_n = as_num(&counter)?;
+                if count_n > Num::Int(0) {
+                    let body_val = args.first().cloned().unwrap_or(Value::Null);
+                    let new_counter = match count_n {
+                        Num::Int(i) => num_value(Num::Int(i - 1)),
+                        Num::Float(f) => num_value(Num::Float(f - 1.0)),
+                    };
+                    Ok(either_right(pair(new_counter, body_val)))
+                } else {
+                    Ok(either_left(acc))
+                }
+            }
+            // `fix_step` derived step op. args = [body_result]. Current = in
+            // (first step) or state (later). If body result equals current,
+            // terminate (fixpoint); else continue with the result.
+            "fix_step" => {
+                let inc = incoming.unwrap_or(Value::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let current = if state.is_null() { in_val } else { state };
+                let new_val = args.first().cloned().unwrap_or(Value::Null);
+                if new_val == current {
+                    Ok(either_left(new_val))
+                } else {
+                    Ok(either_right(new_val))
+                }
+            }
             // Variable-arity function application (mirrors the v2 tree-walk
             // `prim_call`). The `call` node's children are
             // `[callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
@@ -1237,11 +1389,12 @@ fn op_uses_incoming(op: &str) -> bool {
 /// The `NativeOp` handler pops the args first, then pops the pair as
 /// `incoming`, before dispatching to [`VmFrame::apply_native_v2`].
 ///
-/// Currently only `loop_step` (the ergonomic `loop` surface lowering) is
-/// supported. `while_step`/`for_step`/`fix_step` require evaluating their
-/// carried cond/body sub-schemes with the *current value* (extracted from
-/// the pair) as incoming — a recursive sub-program execution pattern not
-/// yet wired into the flat bytecode model.
+/// Only `loop_step` (the ergonomic `loop` surface lowering) is handled here
+/// — its body proc arg is a closure evaluated once, then applied per
+/// iteration via [`VmFrame::apply_app`]. The remaining derived step ops
+/// (`while_step`/`for_step`/`fix_step`) use the [`Instr::DerivedStepOp`]
+/// instruction instead, which re-evaluates their cond/body sub-programs
+/// per iteration with the current value as incoming.
 fn op_is_derived_step(op: &str) -> bool {
     matches!(op, "loop_step")
 }
@@ -1669,6 +1822,106 @@ mod tests {
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_node(AstRef::new(22)).unwrap();
         assert_eq!(result, json!(6));
+    }
+
+    // 8d. `while_step` / `for_step` / `fix_step` derived step ops.
+    // These use the `DerivedStepOp` instruction which re-evaluates arg
+    // sub-programs per iteration with the current value as incoming.
+
+    /// `while` loop: countdown from 5 to 0 using `is_pos`/`dec` ops.
+    /// `while_loop(is_pos, dec)` applied to 5.
+    #[test]
+    fn while_step_countdown() {
+        // Scheme: Seq(const 5, Loop(while_step(is_pos, dec)))
+        // is_pos: native op, 0 args, uses incoming (checks > 0)
+        // dec: native op, 0 args, uses incoming (subtracts 1)
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(5)),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "while_step",
+                vec![
+                    Scheme::arr_native("is_pos", vec![]),
+                    Scheme::arr_native("dec", vec![]),
+                ],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    /// `while` loop with zero iterations: cond is immediately false.
+    #[test]
+    fn while_step_zero_iterations() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(0)),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "while_step",
+                vec![
+                    Scheme::arr_native("is_pos", vec![]),
+                    Scheme::arr_native("dec", vec![]),
+                ],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    /// `for` loop: accumulate 5 increments from 0. `for_loop(inc)` applied
+    /// to pair(5, 0).
+    #[test]
+    fn for_step_accumulate() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(5), json!(0))),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "for_step",
+                vec![Scheme::arr_native("inc", vec![])],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    /// `for` loop with zero iterations: counter is 0, return initial.
+    #[test]
+    fn for_step_zero_iterations() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], pair(json!(0), json!(99))),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "for_step",
+                vec![Scheme::arr_native("inc", vec![])],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(99));
+    }
+
+    /// `fix` loop: repeatedly halve 100 until fixpoint at 0.
+    /// `fix_loop(half_floor)` applied to 100.
+    #[test]
+    fn fix_step_halve_to_zero() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(100)),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "fix_step",
+                vec![Scheme::arr_native("half_floor", vec![])],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    /// `fix` loop already at fixpoint: 0 → 0.
+    #[test]
+    fn fix_step_already_at_fixpoint() {
+        let s = Scheme::seq(
+            Scheme::arr_native_lit("const", vec![], json!(0)),
+            Scheme::loop_feedback(Scheme::arr_native(
+                "fix_step",
+                vec![Scheme::arr_native("half_floor", vec![])],
+            )),
+        );
+        let result = eval_standalone(&s).unwrap();
+        assert_eq!(result, json!(0));
     }
 
     // 9. App with a closure value

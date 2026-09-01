@@ -40,22 +40,25 @@
 //!
 //! ## Derived step ops
 //!
-//! The derived step op `loop_step` (the ergonomic `loop` surface lowering,
-//! ADR-0052) **is** supported. Its carried sub-scheme arg (the body proc) is
-//! compiled inline like any other `Arr.arg`; the `Loop` combinator passes the
-//! current pair `(in, state)` as `incoming` to `apply_native`, which dispatches
-//! to `prim_v2_loop_step`. That helper applies the body proc closure via
-//! `apply_closure_value` (a recursive call into the closure body's compiled
-//! native function) — the recursive sub-scheme evaluation the cranelift
-//! compiler's inline model needs here.
+//! All four derived step ops from ADR-0052 are supported:
 //!
-//! The remaining derived step ops `while_step`/`for_step`/`fix_step` (from
-//! `plugin-lib-arrow-iter`) are **not** supported. These carry cond/body
-//! sub-schemes that must be evaluated with the *current value* (extracted
-//! from the pair) as incoming — a recursive sub-scheme evaluation pattern
-//! not yet wired into the cranelift compiler. The tree-walk handler supports
-//! them via recursive `eval_inner` calls. Users can construct equivalent
-//! behavior using `Loop` and `Choice` directly.
+//! - **`loop_step`** (the ergonomic `loop` surface lowering): its carried
+//!   sub-scheme arg (the body proc) is compiled inline like any other
+//!   `Arr.arg`; the `Loop` combinator passes the current pair `(in, state)`
+//!   as `incoming` to `apply_native`, which dispatches to
+//!   `prim_v2_loop_step`. That helper applies the body proc closure via
+//!   `apply_closure_value` (a recursive call into the closure body's
+//!   compiled native function).
+//!
+//! - **`while_step`/`for_step`/`fix_step`** (from `plugin-lib-arrow-iter`):
+//!   these carry cond/body sub-schemes that must be re-evaluated **per
+//!   iteration** with the current value (extracted from the loop pair) as
+//!   incoming. The compiler calls `helper_v2_derived_step_arg_incoming` to
+//!   extract the appropriate incoming value from the pair at runtime, then
+//!   compiles the args inline with that value as incoming. The compiled args
+//!   run each iteration (they're inline in the loop body block), using the
+//!   runtime arg-incoming value. `apply_native` still receives the full pair
+//!   as incoming (the op handlers extract current/state from it).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -210,6 +213,7 @@ struct HelperIds {
     either_value: FuncId,
     apply_native: FuncId,
     loop_check: FuncId,
+    derived_step_arg_incoming: FuncId,
 }
 
 /// `FuncRef`s for the helpers, declared in a specific function.
@@ -241,6 +245,7 @@ struct HelperRefs {
     either_value: FuncRef,
     apply_native: FuncRef,
     loop_check: FuncRef,
+    derived_step_arg_incoming: FuncRef,
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +367,10 @@ pub fn compile_all_nodes_jit(
     builder.symbol(
         "helper_v2_loop_check",
         crate::helper_v2_loop_check as *const u8,
+    );
+    builder.symbol(
+        "helper_v2_derived_step_arg_incoming",
+        crate::helper_v2_derived_step_arg_incoming as *const u8,
     );
 
     let mut module = JITModule::new(builder);
@@ -599,6 +608,13 @@ fn declare_helper_imports_v2<M: Module>(
     sig_loop_check.params.push(AbiParam::new(ptr_type));
     sig_loop_check.returns.push(AbiParam::new(types::I8));
 
+    // (ctx, pair, op_idx) -> *mut Value  (derived_step_arg_incoming)
+    let mut sig_derived_step = module.make_signature();
+    sig_derived_step.params.push(AbiParam::new(ptr_type));
+    sig_derived_step.params.push(AbiParam::new(ptr_type));
+    sig_derived_step.params.push(AbiParam::new(types::I64));
+    sig_derived_step.returns.push(AbiParam::new(ptr_type));
+
     let declare = |m: &mut M, name: &str, sig: &Signature| -> Result<FuncId, LangError> {
         m.declare_function(name, Linkage::Import, sig)
             .map_err(|e| LangError::Engine(format!("declare import error: {}", e)))
@@ -629,6 +645,11 @@ fn declare_helper_imports_v2<M: Module>(
         either_value: declare(module, "helper_v2_either_value", &sig_2arg_ret)?,
         apply_native: declare(module, "helper_v2_apply_native", &sig_apply_native)?,
         loop_check: declare(module, "helper_v2_loop_check", &sig_loop_check)?,
+        derived_step_arg_incoming: declare(
+            module,
+            "helper_v2_derived_step_arg_incoming",
+            &sig_derived_step,
+        )?,
     })
 }
 
@@ -689,6 +710,8 @@ fn compile_node<M: Module>(
             apply_native: module
                 .declare_func_in_func(helper_ids.apply_native, &mut builder.func),
             loop_check: module.declare_func_in_func(helper_ids.loop_check, &mut builder.func),
+            derived_step_arg_incoming: module
+                .declare_func_in_func(helper_ids.derived_step_arg_incoming, &mut builder.func),
         };
 
         // Entry block: two params (ctx, incoming).
@@ -1097,6 +1120,34 @@ fn compile_arr(
     // General native or foreign op: compile args, then call apply_native /
     // call_foreign. The incoming value is passed as a separate parameter to
     // apply_native (which may or may not use it depending on the op).
+    //
+    // Derived step ops (`while_step`/`for_step`/`fix_step`) are special:
+    // their args (cond/body sub-schemes) must be re-evaluated per iteration
+    // with the current value (extracted from the loop pair) as incoming —
+    // not the full pair. We call `helper_v2_derived_step_arg_incoming` to
+    // extract the appropriate incoming value from the pair at runtime, then
+    // compile the args with that value as incoming. The compiled args run
+    // each iteration (they're inline in the loop body), using the runtime
+    // arg_incoming value. `apply_native` still receives the full pair as
+    // incoming (the op handlers extract current/state from it).
+    if source == &ArrSource::Native && is_derived_step_op(op) {
+        let op_idx = pools.add_name(op);
+        let op_idx_val = builder.ins().iconst(types::I64, op_idx as i64);
+        let arg_incoming_call = builder.ins().call(
+            helpers.derived_step_arg_incoming,
+            &[ctx_param, incoming_val, op_idx_val],
+        );
+        let arg_incoming = builder.inst_results(arg_incoming_call)[0];
+        let arg_ptrs =
+            compile_args_v2(builder, args, ctx_param, arg_incoming, helpers, pools, ptr_type);
+        let n_val = builder.ins().iconst(types::I64, args.len() as i64);
+        let call = builder.ins().call(
+            helpers.apply_native,
+            &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
+        );
+        return (builder.inst_results(call)[0], false);
+    }
+
     let arg_ptrs =
         compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type);
     let n_val = builder.ins().iconst(types::I64, args.len() as i64);
@@ -1120,6 +1171,15 @@ fn compile_arr(
             (builder.inst_results(call)[0], false)
         }
     }
+}
+
+/// `while_step`/`for_step`/`fix_step` — derived step ops that carry
+/// cond/body sub-schemes as args and need per-iteration re-evaluation
+/// with the current value (extracted from the loop pair) as incoming.
+/// (`loop_step` is NOT here — its body proc arg is a closure evaluated
+/// once, then applied per iteration via `apply_closure_value`.)
+fn is_derived_step_op(op: &str) -> bool {
+    matches!(op, "while_step" | "for_step" | "fix_step")
 }
 
 /// Compile a list of argument sub-schemes, packing the result pointers into a

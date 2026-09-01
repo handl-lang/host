@@ -1888,6 +1888,12 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                         ));
                     }
                 };
+                if handl_language::is_reserved_value_key(key) {
+                    return ctx.set_error(LangError::Engine(format!(
+                        "object: key '{}' is reserved",
+                        key
+                    )));
+                }
                 obj.insert(key.to_string(), value.clone());
             }
             Ok(Value::Object(obj))
@@ -2870,6 +2876,76 @@ pub unsafe extern "C" fn helper_v2_either_value(
     }
 }
 
+/// Extract the appropriate incoming value for the arg sub-schemes of a
+/// derived step op (`while_step`/`for_step`/`fix_step`).
+///
+/// The `pair` is the loop pair `(in, state)` from the enclosing `Loop`.
+/// The `op_idx` is the name pool index of the op name.
+///
+/// - `while_step`/`fix_step`: returns `current` = `in` on the first step
+///   (state is Null), `state` thereafter.
+/// - `for_step`: returns `acc` = `snd(in)` on the first step (state is
+///   Null), `snd(state)` thereafter.
+///
+/// The `pair` pointer is NOT consumed (cloned). The returned pointer is
+/// a freshly boxed value.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
+    ctx: *mut EvalCtx,
+    pair: *mut Value,
+    op_idx: usize,
+) -> *mut Value {
+    unsafe {
+        let ctx = &mut *ctx;
+        if op_idx >= ctx.names.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "derived_step_arg_incoming: op index {} out of bounds",
+                op_idx
+            )));
+        }
+        let op = ctx.names[op_idx].clone();
+        if pair.is_null() {
+            return box_value(Value::Null);
+        }
+        let p = (*pair).clone();
+        let in_val = p
+            .get("__pair__")
+            .and_then(|arr| arr.as_array())
+            .and_then(|a| a.first())
+            .cloned()
+            .unwrap_or(Value::Null);
+        let state = p
+            .get("__pair__")
+            .and_then(|arr| arr.as_array())
+            .and_then(|a| a.get(1))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let arg_incoming = if op == "for_step" {
+            if state.is_null() {
+                // First step: in_val = pair(count, initial). acc = snd(in_val).
+                in_val
+                    .get("__pair__")
+                    .and_then(|arr| arr.as_array())
+                    .and_then(|a| a.get(1))
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            } else {
+                // Later: state = pair(counter, acc). acc = snd(state).
+                state
+                    .get("__pair__")
+                    .and_then(|arr| arr.as_array())
+                    .and_then(|a| a.get(1))
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            }
+        } else {
+            // while_step / fix_step: current = in (first step) or state.
+            if state.is_null() { in_val } else { state }
+        };
+        box_value(arg_incoming)
+    }
+}
+
 /// Apply a v2 native op (by name index) to argument values, with the incoming
 /// value as a separate parameter.
 ///
@@ -3113,6 +3189,12 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
                     ))
                 }
             };
+            if handl_language::is_reserved_value_key(&key) {
+                return ctx.set_error(LangError::Engine(format!(
+                    "object: key '{}' is reserved",
+                    key
+                )));
+            }
             obj.insert(key, value);
         }
         return unsafe { box_value(Value::Object(obj)) };
@@ -3140,7 +3222,10 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         }
     };
     let ast = unsafe { &*ctx.ast };
-    let mut pairs: Vec<(usize, usize)> = Vec::with_capacity(entry_indices.len());
+    // Collect (key_idx, val_idx, key_kind, key_payload) for each entry.
+    // Releasing borrows before evaluating children below.
+    let mut entries: Vec<(usize, usize, String, Option<String>)> =
+        Vec::with_capacity(entry_indices.len());
     for entry_idx in &entry_indices {
         let entry_node = match ast.at(AstRef::new(*entry_idx)) {
             Ok(n) => n,
@@ -3171,26 +3256,45 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
                 ))
             }
         };
-        pairs.push((key_idx, val_idx));
-    }
-    let mut obj = serde_json::Map::new();
-    for (key_idx, val_idx) in pairs {
-        let key_val = match eval_child_node(ctx, key_idx) {
-            Ok(v) => v,
+        // Object key: if the key node is a `var` (bare identifier) or
+        // `string`, use its payload string directly — don't evaluate it.
+        // Mirrors the v2 tree-walk's object prim.
+        let key_node = match ast.at(AstRef::new(key_idx)) {
+            Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
-        let key = match key_val.as_str() {
-            Some(k) => k.to_string(),
+        let direct_key = if key_node.kind == "var" || key_node.kind == "string" {
+            key_node.payload.as_str().map(String::from)
+        } else {
+            None
+        };
+        entries.push((key_idx, val_idx, key_node.kind.to_string(), direct_key));
+    }
+    let mut obj = serde_json::Map::new();
+    for (key_idx, val_idx, _key_kind, direct_key) in entries {
+        let key = match direct_key {
+            Some(k) => k,
             None => {
-                return ctx.set_error(LangError::Engine(
-                    "object: entry key must evaluate to a string".to_string(),
-                ))
+                let key_val = match eval_child_node(ctx, key_idx) {
+                    Ok(v) => v,
+                    Err(e) => return ctx.set_error(e),
+                };
+                match key_val.as_str() {
+                    Some(k) => k.to_string(),
+                    None => key_val.to_string(),
+                }
             }
         };
         let value = match eval_child_node(ctx, val_idx) {
             Ok(v) => v,
             Err(e) => return ctx.set_error(e),
         };
+        if handl_language::is_reserved_value_key(&key) {
+            return ctx.set_error(LangError::Engine(format!(
+                "object: key '{}' is reserved",
+                key
+            )));
+        }
         obj.insert(key, value);
     }
     unsafe { box_value(Value::Object(obj)) }
@@ -3343,6 +3447,122 @@ fn apply_native_v2(
         // an object `{ out: v }` (terminate) or `{ state: v }` (continue).
         // Param destructuring mirrors the v2 tree-walk's `loop_step` arm.
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
+        // `while_step` derived step op (ADR-0052). args = [cond_result,
+        // body_result] — re-evaluated per iteration by the compiler with
+        // the current value as incoming. `incoming` is the loop pair.
+        "while_step" => {
+            let inc = incoming.unwrap_or(Value::Null);
+            let in_val = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.first())
+                .cloned()
+                .unwrap_or(Value::Null);
+            let state = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.get(1))
+                .cloned()
+                .unwrap_or(Value::Null);
+            let current = if state.is_null() { in_val } else { state };
+            let cond_val = args.first().cloned().unwrap_or(Value::Null);
+            if is_truthy(&cond_val) {
+                let body_val = args.get(1).cloned().unwrap_or(Value::Null);
+                Ok(serde_json::json!({"__either__": "right", "value": body_val}))
+            } else {
+                Ok(serde_json::json!({"__either__": "left", "value": current}))
+            }
+        }
+        // `for_step` derived step op. args = [body_result]. State is
+        // pair(counter, acc). First step: initialize from in = pair(count,
+        // initial). While counter > 0, continue with pair(counter-1,
+        // body(acc)); else terminate with acc.
+        "for_step" => {
+            let inc = incoming.unwrap_or(Value::Null);
+            let in_val = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.first())
+                .cloned()
+                .unwrap_or(Value::Null);
+            let state = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.get(1))
+                .cloned()
+                .unwrap_or(Value::Null);
+            let (counter, acc) = if state.is_null() {
+                let count = in_val
+                    .get("__pair__")
+                    .and_then(|p| p.as_array())
+                    .and_then(|a| a.first())
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let initial = in_val
+                    .get("__pair__")
+                    .and_then(|p| p.as_array())
+                    .and_then(|a| a.get(1))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                (count, initial)
+            } else {
+                let c = state
+                    .get("__pair__")
+                    .and_then(|p| p.as_array())
+                    .and_then(|a| a.first())
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let a = state
+                    .get("__pair__")
+                    .and_then(|p| p.as_array())
+                    .and_then(|a| a.get(1))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                (c, a)
+            };
+            let count_i = counter.as_i64();
+            let count_f = counter.as_f64();
+            let still_going = match (count_i, count_f) {
+                (Some(i), _) => i > 0,
+                (None, Some(f)) => f > 0.0,
+                (None, None) => false,
+            };
+            if still_going {
+                let body_val = args.first().cloned().unwrap_or(Value::Null);
+                let new_counter = match count_i {
+                    Some(i) => Value::from(i - 1),
+                    None => Value::from(count_f.unwrap_or(0.0) - 1.0),
+                };
+                let new_pair = serde_json::json!({"__pair__": [new_counter, body_val]});
+                Ok(serde_json::json!({"__either__": "right", "value": new_pair}))
+            } else {
+                Ok(serde_json::json!({"__either__": "left", "value": acc}))
+            }
+        }
+        // `fix_step` derived step op. args = [body_result]. If body result
+        // equals current, terminate (fixpoint); else continue.
+        "fix_step" => {
+            let inc = incoming.unwrap_or(Value::Null);
+            let in_val = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.first())
+                .cloned()
+                .unwrap_or(Value::Null);
+            let state = inc
+                .get("__pair__")
+                .and_then(|p| p.as_array())
+                .and_then(|a| a.get(1))
+                .cloned()
+                .unwrap_or(Value::Null);
+            let current = if state.is_null() { in_val } else { state };
+            let new_val = args.first().cloned().unwrap_or(Value::Null);
+            if new_val == current {
+                Ok(serde_json::json!({"__either__": "left", "value": new_val}))
+            } else {
+                Ok(serde_json::json!({"__either__": "right", "value": new_val}))
+            }
+        }
         "array" => {
             // Two payload shapes (mirrors v1 `array` prim):
             // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
@@ -3600,6 +3820,11 @@ mod tests {
             ast.push(n);
         }
         ast
+    }
+
+    /// Construct a pair value `{"__pair__": [a, b]}`.
+    fn pair(a: Value, b: Value) -> Value {
+        json!({"__pair__": [a, b]})
     }
 
     /// A host function that doubles its integer argument.
@@ -5343,6 +5568,157 @@ mod tests {
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    // 11c. `while_step`/`for_step`/`fix_step` derived step ops.
+    // These carry cond/body sub-schemes that must be re-evaluated per
+    // iteration with the current value (extracted from the loop pair) as
+    // incoming. The compiler calls `helper_v2_derived_step_arg_incoming`
+    // to extract the right incoming value, then compiles the args inline
+    // (re-executed each iteration via the loop back-edge).
+
+    /// `while is_pos dec` applied to 5 → countdown to 0.
+    #[test]
+    fn v2_while_step_countdown() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.while_test",
+                "while_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], json!(5)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "while_step",
+                        vec![
+                            Scheme::arr_native("is_pos", vec![]),
+                            Scheme::arr_native("dec", vec![]),
+                        ],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("while_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(0));
+    }
+
+    /// `while is_pos dec` applied to 0 → zero iterations.
+    #[test]
+    fn v2_while_step_zero_iterations() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.while_test",
+                "while_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], json!(0)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "while_step",
+                        vec![
+                            Scheme::arr_native("is_pos", vec![]),
+                            Scheme::arr_native("dec", vec![]),
+                        ],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("while_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(0));
+    }
+
+    /// `for inc` applied to pair(5, 0) → accumulate 5 increments → 5.
+    #[test]
+    fn v2_for_step_accumulate() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.for_test",
+                "for_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], pair(json!(5), json!(0))),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "for_step",
+                        vec![Scheme::arr_native("inc", vec![])],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("for_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    /// `for inc` applied to pair(0, 99) → zero iterations → 99.
+    #[test]
+    fn v2_for_step_zero_iterations() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.for_test",
+                "for_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], pair(json!(0), json!(99))),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "for_step",
+                        vec![Scheme::arr_native("inc", vec![])],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("for_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(99));
+    }
+
+    /// `fix half_floor` applied to 100 → halve to 0.
+    #[test]
+    fn v2_fix_step_halve_to_zero() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.fix_test",
+                "fix_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], json!(100)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "fix_step",
+                        vec![Scheme::arr_native("half_floor", vec![])],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("fix_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(0));
+    }
+
+    /// `fix half_floor` applied to 0 → already at fixpoint.
+    #[test]
+    fn v2_fix_step_already_at_fixpoint() {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.fix_test",
+                "fix_test",
+                Scheme::seq(
+                    Scheme::arr_native_lit("const", vec![], json!(0)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "fix_step",
+                        vec![Scheme::arr_native("half_floor", vec![])],
+                    )),
+                ),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![AstNode::new("fix_test")]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(0));
     }
 
     // 12. Empty AST
