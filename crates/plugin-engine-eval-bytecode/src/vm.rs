@@ -945,6 +945,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // `[callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
             // the rest as the argument list, and dispatch via `apply_app`.
             "call" => self.prim_v2_call(node),
+            // `bind` op: arrow-calculus env extension (ADR-0052). Mirrors the
+            // v2 tree-walk's `prim_bind`. The `bind` node's payload has
+            // `name` and `children: [value_idx, body_idx]`; evaluate value,
+            // extend env with name=value, evaluate body, pop scope.
+            "bind" => self.prim_v2_bind(node),
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
     }
@@ -976,6 +981,44 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             arg_vals.push(self.exec_node(AstRef::new(idx))?);
         }
         self.apply_app(&callee, &arg_vals)
+    }
+
+    /// `bind` native op: arrow-calculus env extension (ADR-0052). Mirrors
+    /// the v2 tree-walk's `prim_bind`. The `bind` node's payload has
+    /// `name` and `children: [value_idx, body_idx]`. Evaluates the value
+    /// child, pushes a scope with `name = value`, evaluates the body child
+    /// in the extended env, then pops the scope.
+    fn prim_v2_bind(&mut self, node: &AstNode) -> Result<Value, LangError> {
+        let name = node
+            .payload
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("bind: missing name".to_string()))?;
+        let children = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("bind: expected children array in payload".to_string())
+            })?;
+        let value_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("bind: missing value child".to_string()))?
+            as usize;
+        let body_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("bind: missing body child".to_string()))?
+            as usize;
+        // Evaluate the value in the current env.
+        let value = self.exec_node(AstRef::new(value_idx))?;
+        // Extend env with name = value, evaluate body, pop.
+        self.scopes.push_scope();
+        self.scopes.define(name, value);
+        let result = self.exec_node(AstRef::new(body_idx));
+        self.scopes.pop_scope();
+        result
     }
 
     /// Apply an `App` callee: host-function dispatch (string callee) or

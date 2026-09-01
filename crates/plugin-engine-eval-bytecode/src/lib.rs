@@ -45,7 +45,8 @@
 //!   `{"__arrow__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
 //!   created by the `"closure"` native op.
 //! - Native ops: `add, sub, mul, div, mod, neg, eq, neq, lt, gt, lte, gte,
-//!   and, or, not, tag, id, closure` — identical semantics to the tree-walk.
+//!   and, or, not, tag, id, closure, bind` — identical semantics to the
+//!   tree-walk.
 //! - Scope: `Vec<HashMap<String, Value>>` scope stack; `extend_env` pushes a
 //!   child scope; lookup searches innermost-first. Closure calls swap in the
 //!   captured env, bind params, eval body, restore.
@@ -713,5 +714,49 @@ mod tests {
         let err = engine.eval(&lang, &req).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("unregistered foreign"));
+    }
+
+    #[test]
+    fn engine_bind() {
+        // `x = 5 in x + 1` → bind { name: "x", children: [lit(5), add(x, 1)] }
+        // The bind node's scheme is Arr { op: "bind", source: Native }.
+        let engine = BytecodeEngine::new();
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], "$payload"),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                    ],
+                ),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.bind",
+                "bind",
+                Scheme::arr_native("bind", vec![]),
+            ))
+            .unwrap();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!(5)),               // 0
+            AstNode::new("lit").with_payload(json!(1)),               // 1
+            AstNode::new("var").with_payload(json!("x")),             // 2
+            AstNode::new("binary.add").with_payload(json!({"children": [2, 1]})), // 3
+            AstNode::new("bind").with_payload(json!({"name": "x", "children": [0, 3]})), // 4
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
     }
 }

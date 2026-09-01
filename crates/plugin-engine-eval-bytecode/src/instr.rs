@@ -146,9 +146,9 @@ pub enum Instr {
     /// ops (not the lit-bearing special cases). The native op set matches
     /// the v2 tree-walk exactly: arithmetic (`add`/`sub`/`mul`/`div`/`mod`/
     /// `neg`), comparison (`eq`/`neq`/`lt`/`gt`/`lte`/`gte`), logic
-    /// (`and`/`or`/`not`), `tag`, `id`, `closure`, and utility ops
-    /// (`is_pos`/`dec`/`inc`/`half_floor`/`inc_fst`/`countdown_step`/
-    /// `infinite_step`).
+    /// (`and`/`or`/`not`), `tag`, `id`, `closure`, `bind` (env extension),
+    /// and utility ops (`is_pos`/`dec`/`inc`/`half_floor`/`inc_fst`/
+    /// `countdown_step`/`infinite_step`).
     NativeOp(String, usize),
 
     /// Pop `n` argument values, call the host function `name`, and push the

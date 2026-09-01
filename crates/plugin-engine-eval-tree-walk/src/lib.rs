@@ -993,7 +993,7 @@ impl TreeWalkEngine {
             "call" => self.prim_call(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
             // Arithmetic / comparison / logic.
-            "add" => bin_num(args, |a, b| a + b),
+            "add" => bin_add(args),
             "sub" => bin_num(args, |a, b| a - b),
             "mul" => bin_num(args, |a, b| a * b),
             "div" => {
@@ -2026,6 +2026,24 @@ where
     let a = as_num(&args[0])?;
     let b = as_num(&args[1])?;
     Ok((num_value(f(a, b)), false))
+}
+
+/// Addition helper. Supports string concatenation when both operands are
+/// strings, and numeric addition when both operands are numbers. Any other
+/// combination of types is a type-mismatch error.
+fn bin_add(args: &[Value]) -> Result<(Value, bool), LangError> {
+    let a = &args[0];
+    let b = &args[1];
+    match (a, b) {
+        (Value::String(s1), Value::String(s2)) => {
+            Ok((Value::String(format!("{}{}", s1, s2)), false))
+        }
+        (Value::String(_), _) | (_, Value::String(_)) => Err(LangError::Engine(format!(
+            "add: type mismatch ({} + {}): string concatenation requires both operands to be strings",
+            a, b
+        ))),
+        _ => bin_num(args, |x, y| x + y),
+    }
 }
 
 /// Numeric comparison helper.
