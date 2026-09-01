@@ -1170,6 +1170,12 @@ fn compile_arr(
             );
             (builder.inst_results(call)[0], false)
         }
+        ArrSource::DynamicForeign => {
+            unreachable!(
+                "compile: dynamic foreign op '{}' is not supported by the cranelift engine",
+                op
+            );
+        }
         ArrSource::Judgment => {
             // Judgment ops (ADR-0054) are typecheck engine ops, not eval
             // engine ops — the eval engine does not dispatch them. This arm

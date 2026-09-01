@@ -445,6 +445,9 @@ impl TreeWalkEngine {
                     .map_err(|e| LangError::Engine(e.to_string()))?;
                 Ok((val, false))
             }
+            ArrSource::DynamicForeign => {
+                self.apply_native(op, &arg_vals, lit, ast, node_ref, lang, env, current_node, incoming)
+            }
             ArrSource::Judgment => Err(LangError::Engine(
                 "judgment ops are not supported by the tree-walk engine".to_string(),
             )),

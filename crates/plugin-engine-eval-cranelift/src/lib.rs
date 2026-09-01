@@ -2365,37 +2365,36 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
     }
 }
 
-/// Apply a callee value (host-function string or closure) to a list of
-/// argument values. This is the shared core of
-/// [`helper_v2_apply_closure`] (callee + args arrive as pointers) and
-/// [`prim_v2_call`] (the variable-arity `call` native op, which gathers
-/// args by evaluating the `call` node's children). Returns a boxed result
-/// or a null pointer with the error set on `ctx`.
+/// Apply a closure value to a list of argument values. This is the shared
+/// core of [`helper_v2_apply_closure`] (callee + args arrive as pointers).
+/// Returns a boxed result or a null pointer with the error set on `ctx`.
+///
+/// ADR-0060: host-function string-callee dispatch has been removed from this
+/// function. Host dispatch is now handled by the `call_host` native op. This
+/// function only handles closure application (`__arrow__` values).
 fn apply_closure_value(
     ctx: &mut EvalCtx,
     closure_val: Value,
     arg_vals: Vec<Value>,
 ) -> *mut Value {
     // SAFETY: this is the shared core factored out of the `unsafe extern "C"`
-    // helper `helper_v2_apply_closure`. It dereferences the `ctx.modules`
-    // raw pointer and calls the unsafe `box_value` helper. Callers must
-    // uphold the same safety contract as that helper: `ctx` is a valid
-    // `&mut EvalCtx` and, when `ctx.modules` is `Some`, it points to a
-    // live `dyn ModuleLookup` valid for the duration of this call.
+    // helper `helper_v2_apply_closure`. It calls the unsafe `box_value`
+    // helper. Callers must uphold the same safety contract as that helper:
+    // `ctx` is a valid `&mut EvalCtx`.
     unsafe {
-        // Host-function dispatch: a string callee naming a registered host fn.
-        if let Some(name) = closure_val.as_str()
-            && let Some(modules_ptr) = ctx.modules
-        {
-            let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
-            if let Some(func) = modules.lookup(name) {
-                let mut pctx = handl_platform::EvalContext::new();
-                return match func.call(&arg_vals, &mut pctx) {
-                    Ok(v) => box_value(v),
-                    Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
-                };
+        // ADR-0060: unpack single array arg for variable-arity call.
+        // When the closure receives a single array argument, unpack it into
+        // individual values before binding params. This supports the
+        // data-driven call dispatch where args are packed into an array.
+        let arg_vals = if arg_vals.len() == 1 {
+            if let Some(arr) = arg_vals[0].as_array() {
+                arr.clone()
+            } else {
+                arg_vals
             }
-        }
+        } else {
+            arg_vals
+        };
 
         // Closure application.
         let obj = match closure_val.as_object() {

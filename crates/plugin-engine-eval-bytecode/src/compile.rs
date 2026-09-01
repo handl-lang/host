@@ -256,6 +256,12 @@ fn compile_arr(
         ArrSource::Foreign(name) => {
             out.push(Instr::ForeignOp(name.clone(), args.len()));
         }
+        ArrSource::DynamicForeign => {
+            return Err(LangError::Engine(format!(
+                "compile: dynamic foreign op '{}' is not supported by the bytecode engine",
+                op
+            )));
+        }
         ArrSource::Judgment => {
             return Err(LangError::Engine(format!(
                 "compile: judgment op '{}' is not supported by the eval engine (ADR-0054: judgment ops are dispatched by the typecheck engine)",
