@@ -44,17 +44,25 @@
 //! | `Loop { body }` | `LoopCheck(loop_back)`, `compile(body)` (laid out as a loop body region) |
 //! | `App { callee, args }` | `compile(callee)`, `compile(args)...`, `Call(n)` |
 //!
-//! ## Limitation: derived step ops
+//! ## Derived step ops
 //!
-//! The derived step ops `while_step`/`for_step`/`fix_step` (from
-//! `plugin-lib-arrow-iter`) are **not** supported by the v2 bytecode VM.
-//! These ops carry sub-schemes as `Arr.args` that must be evaluated with
-//! specific incoming values — a pattern that requires recursive sub-program
-//! execution from within a native op, which the flat bytecode model does not
-//! directly support. The v2 tree-walk handler supports them via recursive
-//! `eval_inner` calls. Users can construct equivalent behavior using `Loop`
-//! and `Choice` directly. Supporting derived step ops in the bytecode VM is
-//! future work.
+//! The derived step op `loop_step` (the ergonomic `loop` surface lowering,
+//! ADR-0052) **is** supported by the v2 bytecode VM. Its carried sub-scheme
+//! arg (the body proc) is compiled inline like any other `Arr.arg`; the
+//! `NativeOp` handler recognizes `loop_step` via [`op_is_derived_step`] and
+//! additionally pops the loop pair `(in, state)` left on the operand stack
+//! by the enclosing `Loop`, passing it as `incoming` to
+//! [`VmFrame::apply_native_v2`]. The body proc is then applied via
+//! [`VmFrame::apply_app`] (recursive `exec_node`), which is the recursive
+//! sub-scheme evaluation the flat bytecode model needs here.
+//!
+//! The remaining derived step ops `while_step`/`for_step`/`fix_step` (from
+//! `plugin-lib-arrow-iter`) are **not** supported. These carry cond/body
+//! sub-schemes that must be evaluated with the *current value* (extracted
+//! from the pair) as incoming — a recursive sub-program execution pattern
+//! not yet wired into the flat bytecode model. The v2 tree-walk handler
+//! supports them via recursive `eval_inner` calls. Users can construct
+//! equivalent behavior using `Loop` and `Choice` directly.
 
 use handl_language::Value;
 

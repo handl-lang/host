@@ -38,17 +38,24 @@
 //! a stack slot prevents infinite loops, matching the tree-walk and bytecode
 //! VM guards.
 //!
-//! ## Derived step ops limitation
+//! ## Derived step ops
 //!
-//! The derived step ops `while_step`/`for_step`/`fix_step` (from
-//! `plugin-lib-arrow-iter`) are **not** supported. These ops carry sub-schemes
-//! as `Arr.args` that must be evaluated with specific incoming values
-//! extracted from the loop pair — a pattern that requires recursive
-//! sub-scheme evaluation from within a native op, which the cranelift
-//! compiler's inline model does not directly support. The tree-walk handler
-//! supports them via recursive `eval_inner` calls. Users can construct
-//! equivalent behavior using `Loop` and `Choice` directly. Supporting derived
-//! step ops in the cranelift compiler is future work.
+//! The derived step op `loop_step` (the ergonomic `loop` surface lowering,
+//! ADR-0052) **is** supported. Its carried sub-scheme arg (the body proc) is
+//! compiled inline like any other `Arr.arg`; the `Loop` combinator passes the
+//! current pair `(in, state)` as `incoming` to `apply_native`, which dispatches
+//! to `prim_v2_loop_step`. That helper applies the body proc closure via
+//! `apply_closure_value` (a recursive call into the closure body's compiled
+//! native function) — the recursive sub-scheme evaluation the cranelift
+//! compiler's inline model needs here.
+//!
+//! The remaining derived step ops `while_step`/`for_step`/`fix_step` (from
+//! `plugin-lib-arrow-iter`) are **not** supported. These carry cond/body
+//! sub-schemes that must be evaluated with the *current value* (extracted
+//! from the pair) as incoming — a recursive sub-scheme evaluation pattern
+//! not yet wired into the cranelift compiler. The tree-walk handler supports
+//! them via recursive `eval_inner` calls. Users can construct equivalent
+//! behavior using `Loop` and `Choice` directly.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -916,7 +923,10 @@ fn compile_loop(
 
     // --- Loop body ---
     builder.switch_to_block(loop_block);
-    builder.seal_block(loop_block);
+    // NOTE: loop_block is NOT sealed here — it has a back-edge from
+    // `right_block` below that is added later. Sealing now would trigger
+    // cranelift-frontend's "block already sealed" assertion when the
+    // back-edge is added. Seal after the back-edge is in place.
     let current_pair = builder.block_params(loop_block)[0];
 
     // Increment the iteration counter.
@@ -1000,6 +1010,10 @@ fn compile_loop(
         builder.inst_results(call)[0]
     };
     builder.ins().jump(loop_block, &[new_pair]);
+
+    // Now that both predecessors of loop_block are in place (the initial
+    // entry jump and this back-edge), seal it.
+    builder.seal_block(loop_block);
 
     // Single-step: terminate with unpair_fst(body_result).
     builder.switch_to_block(single_step_block);

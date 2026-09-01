@@ -1955,17 +1955,52 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 Ok(n) => n,
                 Err(e) => return ctx.set_error(e),
             };
-            match node.payload.get("value") {
-                Some(value) => Ok(value.clone()),
-                None => {
-                    return ctx.set_error(LangError::Engine(
-                        "assign: missing value in payload".to_string(),
-                    ));
+            // ADR-0053: `assign { children: [var, value] }` — evaluate
+            // child 1 (value) and return it. Fall back to legacy
+            // `payload.value` for hand-built ASTs.
+            if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                if children.len() >= 2 {
+                    let value_idx = match children[1].as_u64() {
+                        Some(i) => i as usize,
+                        None => {
+                            return ctx.set_error(LangError::Engine(
+                                "assign: value index must be a number".to_string(),
+                            ));
+                        }
+                    };
+                    eval_child_node(ctx, value_idx)
+                } else {
+                    Err(LangError::Engine(
+                        "assign: expected at least 2 children".to_string(),
+                    ))
+                }
+            } else {
+                match node.payload.get("value") {
+                    Some(value) => Ok(value.clone()),
+                    None => {
+                        return ctx.set_error(LangError::Engine(
+                            "assign: missing value in payload".to_string(),
+                        ));
+                    }
                 }
             }
         }
         "match" => return prim_match(ctx),
         "handle" => return prim_handle(ctx),
+        "json" => {
+            // ADR-0053: json node payload is the JSON template string.
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            match node.payload.as_str() {
+                Some(expr) => {
+                    serde_json::from_str(expr)
+                        .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                }
+                None => Err(LangError::Engine("json: payload must be a string".to_string())),
+            }
+        }
         _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
     };
 
@@ -2484,6 +2519,50 @@ fn prim_v2_call(ctx: &mut EvalCtx) -> *mut Value {
         },
         Err(e) => return ctx.set_error(e),
     };
+    // ADR-0053: json{...}(args) — when the callee is a `json` node,
+    // perform placeholder substitution ($0, $1, …) into the JSON template
+    // before parsing. This replaces the old `json` prim's args handling.
+    let callee_is_json = match unsafe { (*ctx.ast).get(AstRef::new(callee_idx)) } {
+        Some(n) => n.kind == "json",
+        None => false,
+    };
+    if callee_is_json {
+        let template = match unsafe { (*ctx.ast).get(AstRef::new(callee_idx)) } {
+            Some(n) => match n.payload.as_str() {
+                Some(s) => s.to_string(),
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "json: payload must be a string".to_string(),
+                    ));
+                }
+            },
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "call: callee node not found".to_string(),
+                ));
+            }
+        };
+        let mut s = template;
+        for (i, idx) in arg_idxs.iter().enumerate() {
+            match eval_child_node(ctx, *idx) {
+                Ok(val) => {
+                    let replacement = match serde_json::to_string(&val) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return ctx.set_error(LangError::Engine(format!("json: {}", e)));
+                        }
+                    };
+                    s = s.replace(&format!("${}", i), &replacement);
+                }
+                Err(e) => return ctx.set_error(e),
+            }
+        }
+        return match serde_json::from_str(&s) {
+            Ok(v) => unsafe { box_value(v) },
+            Err(e) => ctx.set_error(LangError::Engine(format!("json: parse error: {}", e))),
+        };
+    }
+
     let callee = match eval_child_node(ctx, callee_idx) {
         Ok(v) => v,
         Err(e) => return ctx.set_error(e),
@@ -2557,6 +2636,89 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut Value {
     match result {
         Ok(v) => unsafe { box_value(v) },
         Err(e) => ctx.set_error(e),
+    }
+}
+
+/// `loop_step` derived step op (ADR-0052 §"Derived forms"): the ergonomic
+/// `loop` surface lowering. `args = [body_proc]` is the body proc closure
+/// (evaluated from the carried sub-scheme arg); `incoming` is the loop pair
+/// `(in, state)` from the enclosing `Loop` combinator.
+///
+/// The body proc is applied to the current state (`in` on the first step,
+/// `state` thereafter) via [`apply_closure_value`]. It must return an object:
+/// - `{ out: v }`    → `either_left(v)`  (terminate with `v`)
+/// - `{ state: v }`  → `either_right(v)` (continue with new state `v`)
+///
+/// Param destructuring: if the body proc has >1 params and the current state
+/// is an object, bind each param to the corresponding field by name. Mirrors
+/// the v2 tree-walk's `eval_derived_step` `loop_step` arm exactly.
+fn prim_v2_loop_step(
+    ctx: &mut EvalCtx,
+    args: &[Value],
+    incoming: Option<Value>,
+) -> *mut Value {
+    let inc = incoming.unwrap_or(Value::Null);
+    let in_val = inc
+        .get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.first())
+        .cloned()
+        .unwrap_or(Value::Null);
+    let state = inc
+        .get("__pair__")
+        .and_then(|p| p.as_array())
+        .and_then(|arr| arr.get(1))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let body_proc = match args.first() {
+        Some(b) => b.clone(),
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "loop_step: missing body proc".to_string(),
+            ));
+        }
+    };
+    let current = if state.is_null() { in_val } else { state };
+    let call_args: Vec<Value> = if let Some(obj_state) = current.as_object() {
+        if let Some(closure_obj) = body_proc.as_object()
+            && let Some(params) = closure_obj.get("params").and_then(|v| v.as_array())
+            && params.len() > 1
+        {
+            params
+                .iter()
+                .map(|p| {
+                    let name = p.as_str().unwrap_or("_");
+                    obj_state.get(name).cloned().unwrap_or(Value::Null)
+                })
+                .collect()
+        } else {
+            vec![current]
+        }
+    } else {
+        vec![current]
+    };
+    let result_ptr = apply_closure_value(ctx, body_proc, call_args);
+    if result_ptr.is_null() {
+        // Error already set on ctx by apply_closure_value.
+        return std::ptr::null_mut();
+    }
+    let result = unsafe { take_value(result_ptr) };
+    let obj = match result.as_object() {
+        Some(o) => o,
+        None => {
+            return ctx.set_error(LangError::Engine(
+                "loop_step: body must return { out: v } or { state: v }".to_string(),
+            ));
+        }
+    };
+    if let Some(out) = obj.get("out") {
+        unsafe { box_value(serde_json::json!({"__either__": "left", "value": out})) }
+    } else if let Some(new_state) = obj.get("state") {
+        unsafe { box_value(serde_json::json!({"__either__": "right", "value": new_state})) }
+    } else {
+        ctx.set_error(LangError::Engine(
+            "loop_step: body must return { out: v } or { state: v }".to_string(),
+        ))
     }
 }
 
@@ -3095,12 +3257,33 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut Value {
     }
 }
 
-/// v2 `assign` prim: return the assigned value from the current node's payload.
+/// v2 `assign` prim: evaluate and return the assigned value.
+///
+/// ADR-0053: `assign { children: [var, value] }` — evaluate child 1 (the
+/// value expression) and return it. Falls back to legacy `payload.value`
+/// for hand-built ASTs.
 fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut Value {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
+    if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+        if children.len() >= 2 {
+            let value_idx = match children[1].as_u64() {
+                Some(idx) => idx as usize,
+                None => {
+                    return ctx.set_error(LangError::Engine(
+                        "assign: value index must be a number".to_string(),
+                    ));
+                }
+            };
+            let result = eval_child_node(ctx, value_idx);
+            return match result {
+                Ok(v) => unsafe { box_value(v) },
+                Err(e) => ctx.set_error(e),
+            };
+        }
+    }
     match node.payload.get("value") {
         Some(v) => unsafe { box_value(v.clone()) },
         None => ctx.set_error(LangError::Engine(
@@ -3152,6 +3335,14 @@ fn apply_native_v2(
         // `apply_closure_value`.
         "call" => return prim_v2_call(ctx),
         "bind" => return prim_v2_bind(ctx),
+        // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
+        // — the body proc closure, evaluated from the carried sub-scheme
+        // arg. `incoming` is the loop pair `(in, state)` passed by the
+        // enclosing `Loop` combinator. The body proc is applied to the
+        // current state (in on the first step, state thereafter); it returns
+        // an object `{ out: v }` (terminate) or `{ state: v }` (continue).
+        // Param destructuring mirrors the v2 tree-walk's `loop_step` arm.
+        "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
         "array" => {
             // Two payload shapes (mirrors v1 `array` prim):
             // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
@@ -3171,6 +3362,20 @@ fn apply_native_v2(
         }
         "assign" => {
             return prim_v2_assign(ctx);
+        }
+        "json" => {
+            // ADR-0053: json node payload is the JSON template string.
+            let node = match ctx.current_node() {
+                Ok(n) => n,
+                Err(e) => return ctx.set_error(e),
+            };
+            match node.payload.as_str() {
+                Some(expr) => match serde_json::from_str(expr) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(LangError::Engine(format!("json: parse error: {}", e))),
+                },
+                None => Err(LangError::Engine("json: payload must be a string".to_string())),
+            }
         }
         "add" => bin_num_v2(args, |a, b| a + b),
         "sub" => bin_num_v2(args, |a, b| a - b),
@@ -5005,6 +5210,135 @@ mod tests {
             AstNode::new("function").with_payload(json!({"params": ["x"], "body": 2})),
             AstNode::new("lit").with_payload(json!(5)),
             AstNode::new("call").with_payload(json!({"children": [3, 4]})),
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(6));
+    }
+
+    // 11b. `loop_step` derived op — the ergonomic `loop` surface lowering
+    // (ADR-0052). Builds the canonical `loop` lowering
+    // `Seq(proj_child(0), Loop(loop_step(proj_child(1))))` by hand with a
+    // real `proc` body, exercising param destructuring, `if`, arithmetic,
+    // and object construction under native compilation.
+
+    /// Wire the eval schemes needed for the `loop` surface.
+    fn loop_lang() -> Language {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .unwrap();
+        for (id, kind, op) in [
+            ("e.eq", "binary.eq", "eq"),
+            ("e.sub", "binary.sub", "sub"),
+            ("e.mul", "binary.mul", "mul"),
+        ] {
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    id,
+                    kind,
+                    Scheme::arr_native(
+                        op,
+                        vec![
+                            Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                            Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        ],
+                    ),
+                ))
+                .unwrap();
+        }
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    ),
+                ),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.object", "object", Scheme::arr_native("object", vec![])))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.function", "function", Scheme::arr_native("closure", vec![])))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.proc", "proc", Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.loop",
+                "loop",
+                Scheme::seq(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "loop_step",
+                        vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))],
+                    )),
+                ),
+            ))
+            .unwrap();
+        lang
+    }
+
+    /// `loop 42 (proc (x) -> { out: x })` — single-step terminate, scalar
+    /// state, one param. Expected: 42.
+    #[test]
+    fn v2_loop_step_single_step_terminate() {
+        let lang = loop_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("out")),                       // 0
+            AstNode::new("var").with_payload(json!("x")),                         // 1
+            AstNode::new("entry").with_payload(json!({"children": [0, 1]})),      // 2
+            AstNode::new("object").with_payload(json!({"children": [2]})),        // 3
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
+            AstNode::new("proc").with_payload(json!({"children": [4]})),          // 5
+            AstNode::new("lit").with_payload(json!(42)),                          // 6
+            AstNode::new("loop").with_payload(json!({"children": [6, 5]})),       // 7
+        ]);
+        let engine = CraneliftEngineV2::new();
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    /// `loop { n: 3, acc: 1 }(proc (n, acc) -> if n == 0 then { out: acc }
+    /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
+    /// destructuring, `if`, arithmetic, nested object construction.
+    /// Computes 3! = 6.
+    #[test]
+    fn v2_loop_step_factorial_destructured() {
+        let lang = loop_lang();
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("n")),                        // 0
+            AstNode::new("lit").with_payload(json!("acc")),                      // 1
+            AstNode::new("lit").with_payload(json!("out")),                      // 2
+            AstNode::new("lit").with_payload(json!("state")),                    // 3
+            AstNode::new("lit").with_payload(json!(0)),                          // 4
+            AstNode::new("lit").with_payload(json!(1)),                          // 5
+            AstNode::new("var").with_payload(json!("n")),                        // 6
+            AstNode::new("var").with_payload(json!("acc")),                      // 7
+            AstNode::new("binary.eq").with_payload(json!({"children": [6, 4]})), // 8
+            AstNode::new("binary.sub").with_payload(json!({"children": [6, 5]})),// 9
+            AstNode::new("binary.mul").with_payload(json!({"children": [7, 6]})),// 10
+            AstNode::new("entry").with_payload(json!({"children": [0, 9]})),     // 11
+            AstNode::new("entry").with_payload(json!({"children": [1, 10]})),    // 12
+            AstNode::new("object").with_payload(json!({"children": [11, 12]})),  // 13
+            AstNode::new("entry").with_payload(json!({"children": [2, 7]})),     // 14
+            AstNode::new("object").with_payload(json!({"children": [14]})),      // 15
+            AstNode::new("entry").with_payload(json!({"children": [3, 13]})),    // 16
+            AstNode::new("object").with_payload(json!({"children": [16]})),      // 17
+            AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),   // 18
+            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
+            AstNode::new("proc").with_payload(json!({"children": [19]})),        // 20
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 21
+            AstNode::new("loop").with_payload(json!({"children": [21, 20]})),    // 22
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);

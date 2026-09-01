@@ -43,10 +43,15 @@
 //! and `incoming` is not used. For `closure` (0-arg, no incoming), nothing is
 //! popped.
 //!
-//! ## Derived step ops limitation
+//! ## Derived step ops
 //!
-//! The derived step ops `while_step`/`for_step`/`fix_step` are **not**
-//! supported. See the [`instr`](crate::instr) module docs for details.
+//! The derived step op `loop_step` (the ergonomic `loop` surface lowering)
+//! is supported: the `NativeOp` handler pops the loop pair from the operand
+//! stack (below the inline-compiled args) and passes it as `incoming` to
+//! [`VmFrame::apply_native_v2`], which applies the body proc via
+//! [`VmFrame::apply_app`]. The remaining derived step ops
+//! `while_step`/`for_step`/`fix_step` are **not** supported. See the
+//! [`instr`](crate::instr) module docs for details.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -454,7 +459,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // For 0-arg ops that use `incoming`: the incoming value
                     // is on top of the stack. Pop it and pass as `incoming`.
                     // For other ops: pop n args, use current_incoming.
-                    let inc = if *n == 0 && op_uses_incoming(op) {
+                    //
+                    // Derived step ops (`loop_step`) are a hybrid: they carry
+                    // sub-scheme args (the body proc) compiled inline, but
+                    // they also consume the loop pair `(in, state)` that the
+                    // enclosing `Loop` left on the stack below those args.
+                    // Pop the args first, then pop the pair as `incoming`.
+                    let is_derived_step = op_is_derived_step(op);
+                    let inc = if is_derived_step {
+                        // Filled below after popping args (the pair sits
+                        // beneath the args on the stack).
+                        None
+                    } else if *n == 0 && op_uses_incoming(op) {
                         stack.pop()
                     } else {
                         current_incoming.take()
@@ -466,6 +482,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         })?);
                     }
                     args.reverse();
+                    let inc = if is_derived_step {
+                        Some(stack.pop().ok_or_else(|| {
+                            LangError::Engine(
+                                "derived step op: missing loop pair on stack".to_string(),
+                            )
+                        })?)
+                    } else {
+                        inc
+                    };
                     let result = self.apply_native_v2(op, &args, node, inc)?;
                     stack.push(result);
                 }
@@ -797,6 +822,21 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }
             }
             "assign" => {
+                // ADR-0053: `assign { children: [var, value] }` — evaluate
+                // child 1 (value) and return it. Fall back to legacy
+                // `payload.value` for hand-built ASTs.
+                if let Some(children) =
+                    node.payload.get("children").and_then(|c| c.as_array())
+                {
+                    if children.len() >= 2 {
+                        let value_idx = children[1].as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "assign: value index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        return self.exec_node(AstRef::new(value_idx));
+                    }
+                }
                 let value = node.payload.get("value").ok_or_else(|| {
                     LangError::Engine("assign: missing value in payload".to_string())
                 })?;
@@ -940,6 +980,65 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
                 Ok(either_right(b))
             }
+            // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
+            // — the body proc closure, evaluated from the carried sub-scheme
+            // arg. `incoming` is the loop pair `(in, state)` popped from the
+            // operand stack by the `NativeOp` handler (see `op_is_derived_step`).
+            // The body proc is applied to the current state (in on the first
+            // step, state thereafter); it returns an object:
+            //   { out: v }    → either_left(v)  (terminate)
+            //   { state: v }  → either_right(v) (continue)
+            // Param destructuring: if the body proc has >1 params and the
+            // current state is an object, bind each param to the corresponding
+            // field by name. Mirrors the v2 tree-walk's `eval_derived_step`
+            // `loop_step` arm exactly.
+            "loop_step" => {
+                let inc = incoming.unwrap_or(Value::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let body_proc = args.first().ok_or_else(|| {
+                    LangError::Engine("loop_step: missing body proc".to_string())
+                })?;
+                let current = if state.is_null() { in_val } else { state };
+                let call_args: Vec<Value> = if let Some(obj_state) = current.as_object() {
+                    if let Some(closure_obj) = body_proc.as_object()
+                        && let Some(params) = closure_obj
+                            .get("params")
+                            .and_then(|v| v.as_array())
+                        && params.len() > 1
+                    {
+                        params
+                            .iter()
+                            .map(|p| {
+                                let name = p.as_str().unwrap_or("_");
+                                obj_state
+                                    .get(name)
+                                    .cloned()
+                                    .unwrap_or(Value::Null)
+                            })
+                            .collect()
+                    } else {
+                        vec![current]
+                    }
+                } else {
+                    vec![current]
+                };
+                let result = self.apply_app(body_proc, &call_args)?;
+                let obj = result.as_object().ok_or_else(|| {
+                    LangError::Engine(
+                        "loop_step: body must return { out: v } or { state: v }".to_string(),
+                    )
+                })?;
+                if let Some(out) = obj.get("out") {
+                    Ok(either_left(out.clone()))
+                } else if let Some(new_state) = obj.get("state") {
+                    Ok(either_right(new_state.clone()))
+                } else {
+                    Err(LangError::Engine(
+                        "loop_step: body must return { out: v } or { state: v }".to_string(),
+                    ))
+                }
+            }
             // Variable-arity function application (mirrors the v2 tree-walk
             // `prim_call`). The `call` node's children are
             // `[callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
@@ -950,6 +1049,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // `name` and `children: [value_idx, body_idx]`; evaluate value,
             // extend env with name=value, evaluate body, pop scope.
             "bind" => self.prim_v2_bind(node),
+            // ADR-0053: json node payload is the JSON template string.
+            "json" => {
+                let expr = node.payload.as_str().ok_or_else(|| {
+                    LangError::Engine("json: payload must be a string".to_string())
+                })?;
+                serde_json::from_str(expr)
+                    .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+            }
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
     }
@@ -972,6 +1079,30 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .and_then(|v| v.as_u64())
             .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))?
             as usize;
+
+        // ADR-0053: json{...}(args) — when the callee is a `json` node,
+        // perform placeholder substitution ($0, $1, …) into the JSON template
+        // before parsing.
+        if let Some(callee_node) = self.ast.get(AstRef::new(callee_idx)) {
+            if callee_node.kind == "json" {
+                let template = callee_node.payload.as_str().ok_or_else(|| {
+                    LangError::Engine("json: payload must be a string".to_string())
+                })?;
+                let mut s = template.to_string();
+                for (i, entry) in children[1..].iter().enumerate() {
+                    let idx = entry.as_u64().ok_or_else(|| {
+                        LangError::Engine("call: child index must be a number".to_string())
+                    })? as usize;
+                    let val = self.exec_node(AstRef::new(idx))?;
+                    let replacement = serde_json::to_string(&val)
+                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
+                    s = s.replace(&format!("${}", i), &replacement);
+                }
+                return serde_json::from_str(&s)
+                    .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)));
+            }
+        }
+
         let callee = self.exec_node(AstRef::new(callee_idx))?;
         let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
         for entry in &children[1..] {
@@ -1097,6 +1228,22 @@ fn op_uses_incoming(op: &str) -> bool {
         "id" | "tag" | "is_pos" | "dec" | "inc" | "half_floor" | "inc_fst"
             | "countdown_step" | "infinite_step"
     )
+}
+
+/// Whether a native op is a handler-interpreted derived step op
+/// (ADR-0052 §"Derived forms"). These ops carry sub-scheme `Arr.args`
+/// compiled inline *and* consume the loop pair `(in, state)` that the
+/// enclosing `Loop` combinator left on the operand stack below those args.
+/// The `NativeOp` handler pops the args first, then pops the pair as
+/// `incoming`, before dispatching to [`VmFrame::apply_native_v2`].
+///
+/// Currently only `loop_step` (the ergonomic `loop` surface lowering) is
+/// supported. `while_step`/`for_step`/`fix_step` require evaluating their
+/// carried cond/body sub-schemes with the *current value* (extracted from
+/// the pair) as incoming — a recursive sub-program execution pattern not
+/// yet wired into the flat bytecode model.
+fn op_is_derived_step(op: &str) -> bool {
+    matches!(op, "loop_step")
 }
 
 // ---------------------------------------------------------------------------
@@ -1344,6 +1491,184 @@ mod tests {
         );
         let err = eval_standalone(&s).unwrap_err();
         assert!(matches!(err, LangError::Engine(ref m) if m.contains("max iterations")));
+    }
+
+    // 8c. `loop_step` derived op — the ergonomic `loop` surface lowering
+    // (ADR-0052). These tests build the canonical `loop` lowering
+    // `Seq(proj_child(0), Loop(loop_step(proj_child(1))))` by hand with a
+    // real `proc` body, exercising param destructuring, `if`, arithmetic,
+    // and object construction — the same shape `hnl` source parses to.
+
+    /// Wire the eval schemes needed for the `loop` surface: `var`, arithmetic,
+    /// `if`, `object`, `function` (closure), `proc`, and `loop`.
+    fn loop_lang() -> Language {
+        let mut lang = Language::new();
+        // var -> proj_env $payload (looks up the var name in the env)
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
+            .unwrap();
+        // binary.eq / sub / mul -> native op over the two children
+        for (id, kind, op) in [
+            ("e.eq", "binary.eq", "eq"),
+            ("e.sub", "binary.sub", "sub"),
+            ("e.mul", "binary.mul", "mul"),
+        ] {
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    id,
+                    kind,
+                    Scheme::arr_native(
+                        op,
+                        vec![
+                            Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                            Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        ],
+                    ),
+                ))
+                .unwrap();
+        }
+        // if -> Seq(Seq(proj_child(0), tag), Choice(proj_child(1), proj_child(2)))
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                Scheme::seq(
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], json!(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], json!(2u64)),
+                    ),
+                ),
+            ))
+            .unwrap();
+        // object -> native `object` prim (reads the node's children payload)
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.object",
+                "object",
+                Scheme::arr_native("object", vec![]),
+            ))
+            .unwrap();
+        // function -> closure prim
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.function",
+                "function",
+                Scheme::arr_native("closure", vec![]),
+            ))
+            .unwrap();
+        // proc -> proj_child(0)
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.proc",
+                "proc",
+                Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+            ))
+            .unwrap();
+        // loop -> Seq(proj_child(0), Loop(loop_step(proj_child(1))))
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.loop",
+                "loop",
+                Scheme::seq(
+                    Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+                    Scheme::loop_feedback(Scheme::arr_native(
+                        "loop_step",
+                        vec![Scheme::arr_native_lit("proj_child", vec![], json!(1u64))],
+                    )),
+                ),
+            ))
+            .unwrap();
+        lang
+    }
+
+    /// `loop 42 (proc (x) -> { out: x })` — single-step terminate,
+    /// one param (no destructuring), scalar state. Expected: 42.
+    #[test]
+    fn loop_step_single_step_terminate() {
+        let lang = loop_lang();
+        // Arena:
+        //   0: lit "out"      1: var "x"
+        //   2: entry [0, 1]   3: object {children: [2]}
+        //   4: function {params: ["x"], body: 3}
+        //   5: proc {children: [4]}
+        //   6: lit 42         7: loop {children: [6, 5]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("out")),            // 0
+            AstNode::new("var").with_payload(json!("x")),              // 1
+            AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
+            AstNode::new("object").with_payload(json!({"children": [2]})),   // 3
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
+            AstNode::new("proc").with_payload(json!({"children": [4]})),    // 5
+            AstNode::new("lit").with_payload(json!(42)),                    // 6
+            AstNode::new("loop").with_payload(json!({"children": [6, 5]})), // 7
+        ]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(7)).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    /// `loop { n: 3, acc: 1 }(proc (n, acc) -> if n == 0 then { out: acc }
+    /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
+    /// destructuring, `if`, arithmetic, nested object construction.
+    /// Computes 3! = 6.
+    #[test]
+    fn loop_step_factorial_destructured() {
+        let lang = loop_lang();
+        // Arena (see `loop_lang` for the schemes):
+        //   0: lit "n"        1: lit "acc"      2: lit "out"    3: lit "state"
+        //   4: lit 0          5: lit 1
+        //   6: var "n"        7: var "acc"
+        //   8: binary.eq   [6, 4]    (n == 0)
+        //   9: binary.sub  [6, 5]    (n - 1)
+        //  10: binary.mul  [7, 6]    (acc * n)
+        //  11: entry [0, 9]          (n: n - 1)
+        //  12: entry [1, 10]         (acc: acc * n)
+        //  13: object {children: [11, 12]}   (inner state {n, acc})
+        //  14: entry [2, 7]          (out: acc)
+        //  15: object {children: [14]}       (then {out: acc})
+        //  16: entry [3, 13]         (state: inner)
+        //  17: object {children: [16]}       (else {state: {...}})
+        //  18: if {children: [8, 15, 17]}
+        //  19: function {params: ["n","acc"], body: 18}
+        //  20: proc {children: [19]}
+        //  21: lit {n: 3, acc: 1}
+        //  22: loop {children: [21, 20]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("n")),              // 0
+            AstNode::new("lit").with_payload(json!("acc")),            // 1
+            AstNode::new("lit").with_payload(json!("out")),            // 2
+            AstNode::new("lit").with_payload(json!("state")),          // 3
+            AstNode::new("lit").with_payload(json!(0)),                // 4
+            AstNode::new("lit").with_payload(json!(1)),                // 5
+            AstNode::new("var").with_payload(json!("n")),              // 6
+            AstNode::new("var").with_payload(json!("acc")),            // 7
+            AstNode::new("binary.eq").with_payload(json!({"children": [6, 4]})),   // 8
+            AstNode::new("binary.sub").with_payload(json!({"children": [6, 5]})),  // 9
+            AstNode::new("binary.mul").with_payload(json!({"children": [7, 6]})),  // 10
+            AstNode::new("entry").with_payload(json!({"children": [0, 9]})),       // 11
+            AstNode::new("entry").with_payload(json!({"children": [1, 10]})),      // 12
+            AstNode::new("object").with_payload(json!({"children": [11, 12]})),    // 13
+            AstNode::new("entry").with_payload(json!({"children": [2, 7]})),       // 14
+            AstNode::new("object").with_payload(json!({"children": [14]})),        // 15
+            AstNode::new("entry").with_payload(json!({"children": [3, 13]})),      // 16
+            AstNode::new("object").with_payload(json!({"children": [16]})),        // 17
+            AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),     // 18
+            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
+            AstNode::new("proc").with_payload(json!({"children": [19]})),          // 20
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 21
+            AstNode::new("loop").with_payload(json!({"children": [21, 20]})),      // 22
+        ]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(22)).unwrap();
+        assert_eq!(result, json!(6));
     }
 
     // 9. App with a closure value

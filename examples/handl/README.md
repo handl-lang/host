@@ -169,8 +169,11 @@ that `hnl run`/`hnl eval` use today:
   scalar-returning folds (`sum`, `max`, `length`, `contains`).
 - Bracket indexing (`xs[0]`); use dot-index instead (`xs.0`)
 - String concatenation (`"a" + "b"`) — `+` only works on numbers.
-- `loop` is tree-walk-engine only (the bytecode and cranelift engines do not
-  support derived step ops; use `Loop` + `Choice` directly in those contexts).
+- `loop` runs in all three eval engines (tree-walk, bytecode, cranelift).
+  The `loop_step` derived op is supported across engines; the remaining
+  derived step ops (`while_step`/`for_step`/`fix_step` from
+  `plugin-lib-arrow-iter`) are still tree-walk-only — use `Loop` + `Choice`
+  directly in those contexts.
 - The library modules (`str.*`, `math.*`, `json.*`, `http_server.*`, mood
   operators `is`/`may`/`must`/`when`, etc.) — these require a kit loaded via
   `.handl.toml` through the plugin host.
