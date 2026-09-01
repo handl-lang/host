@@ -1114,6 +1114,24 @@ fn compile_arr(
                 .call(helpers.extend_env, &[ctx_param, name_idx_val, incoming_val]);
             return (builder.inst_results(call)[0], true);
         }
+        // ADR-0060: route_on_type takes the value from incoming (or args[0])
+        // and a type tag lit. Encode the type tag in the op name so
+        // apply_native_v2 can dispatch on it.
+        "route_on_type" => {
+            let tag = lit.and_then(|v| v.as_str()).unwrap_or("");
+            let synthetic_op = format!("route_on_type:{}", tag);
+            let op_idx = pools.add_name(&synthetic_op);
+            let op_idx_val = builder.ins().iconst(types::I64, op_idx as i64);
+            // route_on_type has 0 sub-scheme args; the value comes from
+            // incoming. Pass 0 args to apply_native.
+            let arg_ptrs = builder.ins().iconst(types::I64, 0);
+            let n_val = builder.ins().iconst(types::I64, 0);
+            let call = builder.ins().call(
+                helpers.apply_native,
+                &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
+            );
+            return (builder.inst_results(call)[0], false);
+        }
         _ => {}
     }
 
@@ -1171,10 +1189,16 @@ fn compile_arr(
             (builder.inst_results(call)[0], false)
         }
         ArrSource::DynamicForeign => {
-            unreachable!(
-                "compile: dynamic foreign op '{}' is not supported by the cranelift engine",
-                op
+            // ADR-0060: DynamicForeign ops (e.g. call_host) are dispatched
+            // like Native ops — the op handler in apply_native performs the
+            // host-function lookup at runtime.
+            let op_idx = pools.add_name(op);
+            let op_idx_val = builder.ins().iconst(types::I64, op_idx as i64);
+            let call = builder.ins().call(
+                helpers.apply_native,
+                &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
             );
+            (builder.inst_results(call)[0], false)
         }
         ArrSource::Judgment => {
             // Judgment ops (ADR-0054) are typecheck engine ops, not eval

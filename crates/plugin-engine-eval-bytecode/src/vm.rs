@@ -204,6 +204,18 @@ fn pair_snd(v: &Value) -> Option<&Value> {
         .and_then(|arr| arr.get(1))
 }
 
+/// Return the type tag string for a JSON value (ADR-0060).
+fn type_tag(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
 /// Construct a `left` Either value `{"__either__": "left", "value": v}`.
 fn either_left(v: Value) -> Value {
     serde_json::json!({"__either__": "left", "value": v})
@@ -427,7 +439,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let callee = stack
                         .pop()
                         .ok_or_else(|| LangError::Engine("stack underflow on Call".to_string()))?;
-                    let result = self.apply_app(&callee, &args)?;
+                    // ADR-0060: unpack single array arg for variable-arity
+                    // call. When Call receives a single argument that is an
+                    // array, unpack it into individual arguments.
+                    let actual_args: Vec<Value> = if args.len() == 1 && args[0].is_array() {
+                        args[0].as_array().unwrap().iter().cloned().collect()
+                    } else {
+                        args
+                    };
+                    let result = self.apply_app(&callee, &actual_args)?;
                     stack.push(result);
                 }
                 Instr::ChoiceJump(left_target, right_target) => {
@@ -458,6 +478,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Jump(target) => {
                     ip = *target;
                     continue;
+                }
+                Instr::RouteOnType(tag) => {
+                    let val = stack
+                        .pop()
+                        .ok_or_else(|| {
+                            LangError::Engine("stack underflow on RouteOnType".to_string())
+                        })?;
+                    if type_tag(&val) == tag.as_str() {
+                        stack.push(either_left(val));
+                    } else {
+                        stack.push(either_right(val));
+                    }
                 }
                 Instr::NativeOp(op, n) => {
                     // For 0-arg ops that use `incoming`: the incoming value
@@ -988,16 +1020,58 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     std::cmp::Ordering::Greater => 1,
                 })))
             }
+            // ADR-0060: call_host — takes a string callee (args[0]) and an
+            // args array (args[1]), looks up the callee in the module
+            // registry, and invokes the host function with the array
+            // elements as individual arguments.
+            "call_host" => {
+                let callee = args
+                    .first()
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine("call_host: callee must be a string".to_string())
+                    })?;
+                let modules = self.modules.ok_or_else(|| {
+                    LangError::Engine("call_host: no module registry".to_string())
+                })?;
+                let func = modules.lookup(callee).ok_or_else(|| {
+                    LangError::Engine(format!("call_host: function '{}' not found", callee))
+                })?;
+                let call_args: Vec<Value> = args
+                    .get(1)
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().cloned().collect())
+                    .unwrap_or_default();
+                let mut pctx = handl_platform::EvalContext::new();
+                func.call(&call_args, &mut pctx)
+                    .map_err(|e| LangError::Engine(e.to_string()))
+            }
+            // ADR-0060: proj_rest — evaluate all children after index 0 and
+            // return them as a JSON array.
+            "proj_rest" => {
+                let children = node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine(
+                            "proj_rest: expected children array in payload".to_string(),
+                        )
+                    })?;
+                let mut vals = Vec::new();
+                for entry in children.iter().skip(1) {
+                    let idx = entry.as_u64().ok_or_else(|| {
+                        LangError::Engine(
+                            "proj_rest: child index must be a number".to_string(),
+                        )
+                    })? as usize;
+                    vals.push(self.exec_node(AstRef::new(idx))?);
+                }
+                Ok(Value::Array(vals))
+            }
             "typeof" => {
-                let type_name = match &args[0] {
-                    Value::Null => "null",
-                    Value::Bool(_) => "bool",
-                    Value::Number(_) => "number",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                };
-                Ok(Value::from(type_name))
+                let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
+                Ok(Value::from(type_tag(arg)))
             }
             "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
             "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
@@ -1193,18 +1267,39 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     Ok(either_right(new_val))
                 }
             }
-            // Variable-arity function application (mirrors the v2 tree-walk
-            // `prim_call`). The `call` node's children are
-            // `[callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
-            // the rest as the argument list, and dispatch via `apply_app`.
-            "call" => self.prim_v2_call(node),
             // `bind` op: arrow-calculus env extension (ADR-0052). Mirrors the
             // v2 tree-walk's `prim_bind`. The `bind` node's payload has
             // `name` and `children: [value_idx, body_idx]`; evaluate value,
             // extend env with name=value, evaluate body, pop scope.
             "bind" => self.prim_v2_bind(node),
-            // ADR-0053: json node payload is the JSON template string.
+            // ADR-0060: json node payload is the JSON template string. When
+            // the json node has children (desugared from json{...}(args)),
+            // child 0 is the template node and children 1..N are args.
+            // Evaluate args and substitute $0, $1, … into the template.
             "json" => {
+                if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
+                    if children.len() >= 2 {
+                        let template_idx = children[0].as_u64().ok_or_else(|| {
+                            LangError::Engine("json: child index must be a number".to_string())
+                        })? as usize;
+                        let template_node = self.ast.at(AstRef::new(template_idx))?;
+                        let template = template_node.payload.as_str().ok_or_else(|| {
+                            LangError::Engine("json: template payload must be a string".to_string())
+                        })?;
+                        let mut s = template.to_string();
+                        for (i, entry) in children[1..].iter().enumerate() {
+                            let idx = entry.as_u64().ok_or_else(|| {
+                                LangError::Engine("json: child index must be a number".to_string())
+                            })? as usize;
+                            let val = self.exec_node(AstRef::new(idx))?;
+                            let replacement = serde_json::to_string(&val)
+                                .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
+                            s = s.replace(&format!("${}", i), &replacement);
+                        }
+                        return serde_json::from_str(&s)
+                            .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)));
+                    }
+                }
                 let expr = node.payload.as_str().ok_or_else(|| {
                     LangError::Engine("json: payload must be a string".to_string())
                 })?;
@@ -1218,59 +1313,6 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             "handle" => self.prim_v2_handle(node),
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
-    }
-
-    /// `call` native op: variable-arity function application. Mirrors the
-    /// v2 tree-walk's `prim_call`. The `call` node's payload has
-    /// `children: [callee_idx, arg_idx, ...]`; evaluate child 0 as the
-    /// callee, the remaining children as the argument list, and dispatch
-    /// via [`apply_app`](Self::apply_app).
-    fn prim_v2_call(&mut self, node: &AstNode) -> Result<Value, LangError> {
-        let children = node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| {
-                LangError::Engine("call: expected children array in payload".to_string())
-            })?;
-        let callee_idx = children
-            .first()
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))?
-            as usize;
-
-        // ADR-0053: json{...}(args) — when the callee is a `json` node,
-        // perform placeholder substitution ($0, $1, …) into the JSON template
-        // before parsing.
-        if let Some(callee_node) = self.ast.get(AstRef::new(callee_idx)) {
-            if callee_node.kind == "json" {
-                let template = callee_node.payload.as_str().ok_or_else(|| {
-                    LangError::Engine("json: payload must be a string".to_string())
-                })?;
-                let mut s = template.to_string();
-                for (i, entry) in children[1..].iter().enumerate() {
-                    let idx = entry.as_u64().ok_or_else(|| {
-                        LangError::Engine("call: child index must be a number".to_string())
-                    })? as usize;
-                    let val = self.exec_node(AstRef::new(idx))?;
-                    let replacement = serde_json::to_string(&val)
-                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
-                    s = s.replace(&format!("${}", i), &replacement);
-                }
-                return serde_json::from_str(&s)
-                    .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)));
-            }
-        }
-
-        let callee = self.exec_node(AstRef::new(callee_idx))?;
-        let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
-        for entry in &children[1..] {
-            let idx = entry.as_u64().ok_or_else(|| {
-                LangError::Engine("call: child index must be a number".to_string())
-            })? as usize;
-            arg_vals.push(self.exec_node(AstRef::new(idx))?);
-        }
-        self.apply_app(&callee, &arg_vals)
     }
 
     /// `bind` native op: arrow-calculus env extension (ADR-0052). Mirrors
@@ -1676,20 +1718,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         Ok(true)
     }
 
-    /// Apply an `App` callee: host-function dispatch (string callee) or
-    /// closure application. Mirrors the v2 tree-walk's `apply_app` and v1's
-    /// `apply_closure`.
+    /// Apply an `App` callee: closure application only (ADR-0060).
+    ///
+    /// Host-function dispatch (string callee) has been moved to the
+    /// `call_host` native op. This helper only handles arrow-value
+    /// (closure) application.
     fn apply_app(&mut self, callee: &Value, args: &[Value]) -> Result<Value, LangError> {
-        // Host-function dispatch: a string callee naming a registered host fn.
-        if let Some(name) = callee.as_str()
-            && let Some(modules) = self.modules
-            && let Some(func) = modules.lookup(name)
-        {
-            let mut pctx = handl_platform::EvalContext::new();
-            return func
-                .call(args, &mut pctx)
-                .map_err(|e| LangError::Engine(e.to_string()));
-        }
         // Closure application.
         let obj = callee
             .as_object()

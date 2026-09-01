@@ -281,12 +281,44 @@
 # `handle`/`json`): the handler evaluates child 0 as the callee, the
 # remaining children as the argument list, and dispatches via
 # `apply_app` (host-function string callee or closure value).
+# ADR-0060 Generic Call Dispatch: eval.call is now data-driven.
+# The scheme evaluates child 0 (the callee), classifies it by type
+# (string → host function, object → closure), and dispatches accordingly.
+# Variable arity is handled by proj_rest which packs children 1..N into a
+# single array value; App and call_host unpack it.
 - id: eval.call
   node_kind: call
-  scheme: !Arr
-    op: call
-    args: []
-    source: Native
+  scheme: !Seq
+    fst: !Seq
+      fst: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      snd: !Arr
+        op: route_on_type
+        args: []
+        source: Native
+        lit: string
+    snd: !Choice
+      l: !Arr
+        op: call_host
+        args:
+        - !Arr
+          op: proj_rest
+          args: []
+          source: Native
+        source: DynamicForeign
+      r: !App
+        callee: !Arr
+          op: id
+          args: []
+          source: Native
+        args:
+        - !Arr
+          op: proj_rest
+          args: []
+          source: Native
 - id: eval.fanout
   node_kind: fanout
   scheme: !Arr

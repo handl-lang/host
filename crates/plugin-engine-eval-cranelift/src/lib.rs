@@ -405,6 +405,11 @@ impl EvalCtx {
         unsafe { (*self.ast).at(AstRef::new(self.current_ref)) }
     }
 
+    /// Get a node by arena index (ADR-0060).
+    fn ast_at(&self, node_ref: AstRef) -> Result<&AstNode, LangError> {
+        unsafe { (*self.ast).at(node_ref) }
+    }
+
     /// Set the deferred error and return a null pointer (for helper use).
     fn set_error(&mut self, err: LangError) -> *mut Value {
         self.error = Some(err);
@@ -2484,104 +2489,6 @@ fn apply_closure_value(
     }
 }
 
-/// `call` native op: variable-arity function application. Mirrors the v2
-/// tree-walk's `prim_call`. The `call` node's payload has
-/// `children: [callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
-/// the remaining children as the argument list, and dispatch via
-/// [`apply_closure_value`] (host-function string callee or closure value).
-fn prim_v2_call(ctx: &mut EvalCtx) -> *mut Value {
-    // Collect child indices first, dropping the immutable `current_node`
-    // borrow before the mutable `eval_child_node` calls below.
-    let (callee_idx, arg_idxs): (usize, Vec<usize>) = match ctx.current_node() {
-        Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
-            Some(children) => {
-                let callee_idx = match children.first().and_then(|v| v.as_u64()) {
-                    Some(idx) => idx as usize,
-                    None => {
-                        return ctx.set_error(LangError::Engine(
-                            "call: missing callee child".to_string(),
-                        ));
-                    }
-                };
-                let mut arg_idxs = Vec::with_capacity(children.len().saturating_sub(1));
-                for entry in &children[1..] {
-                    match entry.as_u64() {
-                        Some(idx) => arg_idxs.push(idx as usize),
-                        None => {
-                            return ctx.set_error(LangError::Engine(
-                                "call: child index must be a number".to_string(),
-                            ));
-                        }
-                    }
-                }
-                (callee_idx, arg_idxs)
-            }
-            None => {
-                return ctx.set_error(LangError::Engine(
-                    "call: expected children array in payload".to_string(),
-                ));
-            }
-        },
-        Err(e) => return ctx.set_error(e),
-    };
-    // ADR-0053: json{...}(args) — when the callee is a `json` node,
-    // perform placeholder substitution ($0, $1, …) into the JSON template
-    // before parsing. This replaces the old `json` prim's args handling.
-    let callee_is_json = match unsafe { (*ctx.ast).get(AstRef::new(callee_idx)) } {
-        Some(n) => n.kind == "json",
-        None => false,
-    };
-    if callee_is_json {
-        let template = match unsafe { (*ctx.ast).get(AstRef::new(callee_idx)) } {
-            Some(n) => match n.payload.as_str() {
-                Some(s) => s.to_string(),
-                None => {
-                    return ctx.set_error(LangError::Engine(
-                        "json: payload must be a string".to_string(),
-                    ));
-                }
-            },
-            None => {
-                return ctx.set_error(LangError::Engine(
-                    "call: callee node not found".to_string(),
-                ));
-            }
-        };
-        let mut s = template;
-        for (i, idx) in arg_idxs.iter().enumerate() {
-            match eval_child_node(ctx, *idx) {
-                Ok(val) => {
-                    let replacement = match serde_json::to_string(&val) {
-                        Ok(r) => r,
-                        Err(e) => {
-                            return ctx.set_error(LangError::Engine(format!("json: {}", e)));
-                        }
-                    };
-                    s = s.replace(&format!("${}", i), &replacement);
-                }
-                Err(e) => return ctx.set_error(e),
-            }
-        }
-        return match serde_json::from_str(&s) {
-            Ok(v) => unsafe { box_value(v) },
-            Err(e) => ctx.set_error(LangError::Engine(format!("json: parse error: {}", e))),
-        };
-    }
-
-    let callee = match eval_child_node(ctx, callee_idx) {
-        Ok(v) => v,
-        Err(e) => return ctx.set_error(e),
-    };
-    let mut arg_vals = Vec::with_capacity(arg_idxs.len());
-    for idx in arg_idxs {
-        match eval_child_node(ctx, idx) {
-            Ok(v) => arg_vals.push(v),
-            Err(e) => return ctx.set_error(e),
-        }
-    }
-    apply_closure_value(ctx, callee, arg_vals)
-}
-
 /// `bind` prim: arrow-calculus env extension (ADR-0052). Mirrors the v2
 /// tree-walk's `prim_bind`. The `bind` node's payload has `name` and
 /// `children: [value_idx, body_idx]`. Evaluates the value child, pushes a
@@ -3435,12 +3342,6 @@ fn apply_native_v2(
                 Err(e) => Err(e),
             }
         }
-        // Variable-arity function application (mirrors the v2 tree-walk
-        // `prim_call`). The `call` node's children are
-        // `[callee_idx, arg_idx, ...]`; `prim_v2_call` evaluates child 0
-        // as the callee, the rest as the argument list, and dispatches via
-        // `apply_closure_value`.
-        "call" => return prim_v2_call(ctx),
         "bind" => return prim_v2_bind(ctx),
         // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
         // — the body proc closure, evaluated from the carried sub-scheme
@@ -3587,13 +3488,62 @@ fn apply_native_v2(
             return prim_v2_assign(ctx);
         }
         "json" => {
-            // ADR-0053: json node payload is the JSON template string.
+            // ADR-0060: json node payload is the JSON template string. When
+            // the json node has children (desugared from json{...}(args)),
+            // child 0 is the template node and children 1..N are args.
             let node = match ctx.current_node() {
                 Ok(n) => n,
                 Err(e) => return ctx.set_error(e),
             };
-            match node.payload.as_str() {
-                Some(expr) => match serde_json::from_str(expr) {
+            // Clone children to release the borrow on ctx before we
+            // mutate ctx.current_ref in the loop below.
+            let children_opt = node.payload.get("children").and_then(|c| c.as_array()).cloned();
+            let payload_str = node.payload.as_str().map(|s| s.to_string());
+            // Check if the json node has children (desugared from call).
+            if let Some(children) = children_opt {
+                if children.len() >= 2 {
+                    let template_idx = match children[0].as_u64() {
+                        Some(v) => v as usize,
+                        None => return ctx.set_error(LangError::Engine("json: child index must be a number".to_string())),
+                    };
+                    let template_node = match ctx.ast_at(AstRef::new(template_idx)) {
+                        Ok(n) => n,
+                        Err(e) => return ctx.set_error(e),
+                    };
+                    let template = match template_node.payload.as_str() {
+                        Some(s) => s.to_string(),
+                        None => return ctx.set_error(LangError::Engine("json: template payload must be a string".to_string())),
+                    };
+                    let mut s = template;
+                    let saved_ref = ctx.current_ref;
+                    for (i, entry) in children[1..].iter().enumerate() {
+                        let idx = match entry.as_u64() {
+                            Some(v) => v as usize,
+                            None => return ctx.set_error(LangError::Engine("json: child index must be a number".to_string())),
+                        };
+                        let func = match ctx.compiled.get(&idx).copied() {
+                            Some(f) => f,
+                            None => return ctx.set_error(LangError::Engine(format!("json: no compiled function for node {}", idx))),
+                        };
+                        ctx.current_ref = idx;
+                        let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
+                        let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut Value };
+                        let val = unsafe { (*result_ptr).clone() };
+                        let replacement = match serde_json::to_string(&val) {
+                            Ok(r) => r,
+                            Err(e) => return ctx.set_error(LangError::Engine(format!("json: {}", e))),
+                        };
+                        s = s.replace(&format!("${}", i), &replacement);
+                    }
+                    ctx.current_ref = saved_ref;
+                    return match serde_json::from_str(&s) {
+                        Ok(v) => unsafe { box_value(v) },
+                        Err(e) => ctx.set_error(LangError::Engine(format!("json: parse error: {}", e))),
+                    };
+                }
+            }
+            match payload_str {
+                Some(expr) => match serde_json::from_str(&expr) {
                     Ok(v) => Ok(v),
                     Err(e) => Err(LangError::Engine(format!("json: parse error: {}", e))),
                 },
@@ -3680,8 +3630,100 @@ fn apply_native_v2(
                 )),
             }
         }
+        // ADR-0060: route_on_type — encoded as "route_on_type:<tag>" in the
+        // op name by the cranelift compiler. Takes the value from incoming
+        // (or args[0]) and returns either_left/either_right.
+        op if op.starts_with("route_on_type:") => {
+            let tag = &op["route_on_type:".len()..];
+            let val = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(Value::Null);
+            let actual_tag = match &val {
+                Value::Null => "null",
+                Value::Bool(_) => "bool",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            };
+            if actual_tag == tag {
+                Ok(serde_json::json!({"__either__": "left", "value": val}))
+            } else {
+                Ok(serde_json::json!({"__either__": "right", "value": val}))
+            }
+        }
+        // ADR-0060: call_host — takes a string callee (args[0]) and an args
+        // array (args[1]), looks up the callee in the module registry.
+        "call_host" => {
+            let callee = match args.first().and_then(|v| v.as_str()) {
+                Some(s) => s,
+                None => return ctx.set_error(LangError::Engine(
+                    "call_host: callee must be a string".to_string(),
+                )),
+            };
+            let modules_ptr = match ctx.modules {
+                Some(p) => p,
+                None => return ctx.set_error(LangError::Engine(
+                    "call_host: no module registry".to_string(),
+                )),
+            };
+            let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
+            let func = match modules.lookup(callee) {
+                Some(f) => f,
+                None => return ctx.set_error(LangError::Engine(format!(
+                    "call_host: function '{}' not found",
+                    callee
+                ))),
+            };
+            let call_args: Vec<Value> = args
+                .get(1)
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().cloned().collect())
+                .unwrap_or_default();
+            let mut pctx = handl_platform::EvalContext::new();
+            func.call(&call_args, &mut pctx)
+                .map_err(|e| LangError::Engine(e.to_string()))
+        }
+        // ADR-0060: proj_rest — evaluate all children after index 0 and
+        // return them as a JSON array.
+        "proj_rest" => {
+            let children = match ctx.current_node() {
+                Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
+                    Some(c) => c.clone(),
+                    None => return ctx.set_error(LangError::Engine(
+                        "proj_rest: expected children array in payload".to_string(),
+                    )),
+                },
+                Err(e) => return ctx.set_error(e),
+            };
+            let mut vals = Vec::new();
+            let saved_ref = ctx.current_ref;
+            for entry in children.iter().skip(1) {
+                let idx = match entry.as_u64() {
+                    Some(i) => i as usize,
+                    None => return ctx.set_error(LangError::Engine(
+                        "proj_rest: child index must be a number".to_string(),
+                    )),
+                };
+                let func = match ctx.compiled.get(&idx).copied() {
+                    Some(f) => f,
+                    None => return ctx.set_error(LangError::Engine(format!(
+                        "proj_rest: no compiled function for node {}",
+                        idx
+                    ))),
+                };
+                ctx.current_ref = idx;
+                let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
+                let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut Value };
+                let val = unsafe { (*result_ptr).clone() };
+                vals.push(val);
+            }
+            ctx.current_ref = saved_ref;
+            Ok(Value::Array(vals))
+        }
         "typeof" => {
-            let type_name = match &args[0] {
+            let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
+            let type_name = match arg {
                 Value::Null => "null",
                 Value::Bool(_) => "bool",
                 Value::Number(_) => "number",

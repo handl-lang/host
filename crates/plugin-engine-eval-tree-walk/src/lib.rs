@@ -379,7 +379,17 @@ impl TreeWalkEngine {
                     }
                     arg_vals.push(v);
                 }
-                let val = self.apply_app(&callee_val, &arg_vals, ast, lang, env)?;
+                // ADR-0060: unpack single array arg for variable-arity call.
+                // When the App receives a single argument that is an array,
+                // unpack it into individual arguments. This supports the
+                // eval.call scheme where proj_rest packs all call args into
+                // one array value.
+                let actual_args: Vec<Value> = if arg_vals.len() == 1 && arg_vals[0].is_array() {
+                    arg_vals[0].as_array().unwrap().iter().cloned().collect()
+                } else {
+                    arg_vals
+                };
+                let val = self.apply_app(&callee_val, &actual_args, ast, lang, env)?;
                 Ok((val, false))
             }
         }
@@ -1083,7 +1093,6 @@ impl TreeWalkEngine {
             "match" => self.prim_match(ast, lang, env, current_node),
             "handle" => self.prim_handle(ast, lang, env, current_node),
             "json" => self.prim_json(ast, lang, env, current_node),
-            "call" => self.prim_call(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
             // Arithmetic / comparison / logic.
             "add" => bin_add(args),
@@ -1143,16 +1152,78 @@ impl TreeWalkEngine {
                     false,
                 ))
             }
+            // ADR-0060: route_on_type — takes a value (from args or incoming)
+            // and a literal type tag. Returns either_left(value) if the
+            // type matches, either_right(value) otherwise.
+            "route_on_type" => {
+                let tag = lit
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine("route_on_type: missing type tag literal".to_string())
+                    })?;
+                let val = args
+                    .first()
+                    .cloned()
+                    .or(incoming)
+                    .unwrap_or(Value::Null);
+                if type_tag(&val) == tag {
+                    Ok((either_left(val), false))
+                } else {
+                    Ok((either_right(val), false))
+                }
+            }
+            // ADR-0060: call_host — takes a string callee (args[0]) and an
+            // args array (args[1]), looks up the callee in the module
+            // registry, and invokes the host function with the array
+            // elements as individual arguments.
+            "call_host" => {
+                let callee = args
+                    .first()
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine("call_host: callee must be a string".to_string())
+                    })?;
+                let modules = self.modules.as_ref().ok_or_else(|| {
+                    LangError::Engine("call_host: no module registry".to_string())
+                })?;
+                let func = modules.lookup(callee).ok_or_else(|| {
+                    LangError::Engine(format!("call_host: function '{}' not found", callee))
+                })?;
+                let call_args: Vec<Value> = args
+                    .get(1)
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().cloned().collect())
+                    .unwrap_or_default();
+                let mut pctx = handl_platform::EvalContext::new();
+                pctx.set_value_callable(Rc::new(TreeWalkCallable));
+                let val = func
+                    .call(&call_args, &mut pctx)
+                    .map_err(|e| LangError::Engine(e.to_string()))?;
+                Ok((val, false))
+            }
+            // ADR-0060: proj_rest — evaluate all children after index 0 and
+            // return them as a JSON array. Used by eval.call to collect the
+            // variable-arity argument list into a single array value.
+            "proj_rest" => {
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("proj_rest: expected children array in payload".to_string())
+                    })?;
+                let mut vals = Vec::new();
+                for entry in children.iter().skip(1) {
+                    let idx = entry.as_u64().ok_or_else(|| {
+                        LangError::Engine("proj_rest: child index must be a number".to_string())
+                    })? as usize;
+                    vals.push(self.eval_node(ast, AstRef::new(idx), lang, env)?);
+                }
+                Ok((Value::Array(vals), false))
+            }
             "typeof" => {
-                let type_name = match &args[0] {
-                    Value::Null => "null",
-                    Value::Bool(_) => "bool",
-                    Value::Number(_) => "number",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                };
-                Ok((Value::from(type_name), false))
+                let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
+                Ok((Value::from(type_tag(arg)), false))
             }
             "not" => Ok((Value::Bool(!is_truthy(&args[0])), false)),
             "and" => Ok((Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1])), false)),
@@ -1240,8 +1311,12 @@ impl TreeWalkEngine {
         }
     }
 
-    /// Apply an `App` callee: host-function dispatch (string callee) or
-    /// closure application.
+    /// Apply an `App` callee: closure application only (ADR-0060).
+    ///
+    /// Host-function dispatch (string callee) has been moved to the
+    /// `call_host` native op. This helper only handles arrow-value
+    /// (closure) application: extract params/body/env, build a fresh
+    /// scope from the captured env, bind params, evaluate the body.
     fn apply_app(
         &self,
         callee: &Value,
@@ -1250,20 +1325,6 @@ impl TreeWalkEngine {
         lang: &Language,
         _env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
-        // Host-function dispatch: a string callee naming a registered
-        // host fn.
-        if let Some(name) = callee.as_str()
-            && let Some(modules) = self.modules.as_ref()
-            && let Some(func) = modules.lookup(name)
-        {
-            let mut pctx = handl_platform::EvalContext::new();
-            // Set value_callable so host functions (fn.map, fn.filter, etc.)
-            // can call arrow-values passed as arguments.
-            pctx.set_value_callable(Rc::new(TreeWalkCallable));
-            return func
-                .call(args, &mut pctx)
-                .map_err(|e| LangError::Engine(e.to_string()));
-        }
         // Closure application.
         let obj = callee
             .as_object()
@@ -1405,69 +1466,6 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         self.eval_node(ast, node_ref, lang, env)
-    }
-
-    /// `call` op: variable-arity function application.
-    ///
-    /// A Pratt-parsed `call` node has `children: [callee_idx, arg_idx, ...]`
-    /// — one child for the callee plus one child per comma-separated
-    /// argument (ADR-0041 Phase 2). The fixed-arity `App` scheme cannot
-    /// express this, so `eval.call` lowers to this native op: evaluate
-    /// child 0 as the callee, the remaining children as the argument
-    /// list, and dispatch via [`apply_app`](Self::apply_app) (host-function
-    /// string callee or closure value).
-    fn prim_call(
-        &self,
-        ast: &Ast,
-        lang: &Language,
-        env: &mut ScopeStack,
-        current_node: &AstNode,
-    ) -> Result<(Value, bool), LangError> {
-        let children = current_node
-            .payload
-            .get("children")
-            .and_then(|c| c.as_array())
-            .ok_or_else(|| {
-                LangError::Engine("call: expected children array in payload".to_string())
-            })?;
-        let callee_idx = children
-            .first()
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))? as usize;
-
-        // ADR-0053: json{...}(args) — when the callee is a `json` node,
-        // perform placeholder substitution ($0, $1, …) into the JSON template
-        // before parsing. This replaces the old `json` prim's args handling.
-        let callee_node = ast.at(AstRef::new(callee_idx))?;
-        if callee_node.kind == "json" {
-            let template = callee_node.payload.as_str().ok_or_else(|| {
-                LangError::Engine("json: payload must be a string".to_string())
-            })?;
-            let mut s = template.to_string();
-            for (i, arg_entry) in children[1..].iter().enumerate() {
-                let idx = arg_entry.as_u64().ok_or_else(|| {
-                    LangError::Engine("call: child index must be a number".to_string())
-                })? as usize;
-                let val = self.eval_node(ast, AstRef::new(idx), lang, env)?;
-                let replacement = serde_json::to_string(&val)
-                    .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
-                s = s.replace(&format!("${}", i), &replacement);
-            }
-            return serde_json::from_str(&s)
-                .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
-                .map(|v| (v, false));
-        }
-
-        let callee = self.eval_node(ast, AstRef::new(callee_idx), lang, env)?;
-        let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
-        for entry in &children[1..] {
-            let idx = entry.as_u64().ok_or_else(|| {
-                LangError::Engine("call: child index must be a number".to_string())
-            })? as usize;
-            arg_vals.push(self.eval_node(ast, AstRef::new(idx), lang, env)?);
-        }
-        let val = self.apply_app(&callee, &arg_vals, ast, lang, env)?;
-        Ok((val, false))
     }
 
     /// `bind` op: arrow-calculus env extension (ADR-0052).
@@ -1695,11 +1693,11 @@ impl TreeWalkEngine {
     /// `json` op: parse a JSON template string from the node payload.
     ///
     /// The payload is a JSON string (produced by `LiteralKind::StripAffix`
-    /// from the `json{...}` token text, ADR-0053). When the `json` node is
-    /// wrapped in a `call` node (i.e. `json{...}(args)`), `prim_call`
-    /// handles placeholder substitution before reaching this prim — so
-    /// `prim_json` only handles the no-args case: parse the payload string
-    /// as JSON directly.
+    /// from the `json{...}` token text, ADR-0053). When the `json` node has
+    /// children (i.e. `json{...}(args)` desugared by ADR-0060), child 0 is
+    /// the original `json` template node and children 1..N are the argument
+    /// expressions. This prim evaluates the args and performs $0/$1/…
+    /// placeholder substitution into the template string before parsing.
     fn prim_json(
         &self,
         ast: &Ast,
@@ -1707,7 +1705,36 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
         current_node: &AstNode,
     ) -> Result<(Value, bool), LangError> {
-        let _ = (ast, lang, env);
+        // ADR-0060: if the json node has children (desugared from
+        // json{...}(args)), child 0 is the template node, children 1..N
+        // are the args. Evaluate args and substitute $0, $1, … into the
+        // template string.
+        if let Some(children) = current_node.payload.get("children").and_then(|c| c.as_array()) {
+            if children.len() >= 2 {
+                // Child 0 is the original json template node.
+                let template_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("json: child index must be a number".to_string())
+                })? as usize;
+                let template_node = ast.at(AstRef::new(template_idx))?;
+                let template = template_node.payload.as_str().ok_or_else(|| {
+                    LangError::Engine("json: template payload must be a string".to_string())
+                })?;
+                let mut s = template.to_string();
+                for (i, arg_entry) in children[1..].iter().enumerate() {
+                    let idx = arg_entry.as_u64().ok_or_else(|| {
+                        LangError::Engine("json: child index must be a number".to_string())
+                    })? as usize;
+                    let val = self.eval_node(ast, AstRef::new(idx), lang, env)?;
+                    let replacement = serde_json::to_string(&val)
+                        .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
+                    s = s.replace(&format!("${}", i), &replacement);
+                }
+                return serde_json::from_str(&s)
+                    .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                    .map(|v| (v, false));
+            }
+        }
+        // No children: parse the payload string as JSON directly.
         let expr = current_node.payload.as_str().ok_or_else(|| {
             LangError::Engine("json: payload must be a string".to_string())
         })?;
@@ -2244,6 +2271,21 @@ where
 // ---------------------------------------------------------------------------
 // Pair / Either value-shape helpers
 // ---------------------------------------------------------------------------
+
+/// Return the type tag string for a JSON value (ADR-0060).
+///
+/// Used by `route_on_type` and the `typeof` native op. Returns one of
+/// `"null"`, `"bool"`, `"number"`, `"string"`, `"array"`, `"object"`.
+fn type_tag(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
 
 /// Construct a pair value `{"__pair__": [a, b]}`.
 fn pair(a: Value, b: Value) -> Value {

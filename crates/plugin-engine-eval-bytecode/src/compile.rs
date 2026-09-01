@@ -210,6 +210,23 @@ fn compile_arr(
             }
             return Ok(true); // pushed a scope -- caller pops
         }
+        // ADR-0060: route_on_type takes one arg (the value) and a lit
+        // (the type tag string). Compile the arg, then emit RouteOnType.
+        "route_on_type" => {
+            for arg in args {
+                let arg_pushed = compile_into(arg, out)?;
+                if arg_pushed {
+                    out.push(Instr::PopScope);
+                }
+            }
+            let tag = lit
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    LangError::Engine("route_on_type: missing type tag literal".to_string())
+                })?;
+            out.push(Instr::RouteOnType(tag.to_string()));
+            return Ok(false);
+        }
         _ => {}
     }
 
@@ -257,10 +274,10 @@ fn compile_arr(
             out.push(Instr::ForeignOp(name.clone(), args.len()));
         }
         ArrSource::DynamicForeign => {
-            return Err(LangError::Engine(format!(
-                "compile: dynamic foreign op '{}' is not supported by the bytecode engine",
-                op
-            )));
+            // ADR-0060: DynamicForeign ops (e.g. call_host) are dispatched
+            // like Native ops — the op handler in apply_native_v2 performs
+            // the host-function lookup at runtime.
+            out.push(Instr::NativeOp(op.to_string(), args.len()));
         }
         ArrSource::Judgment => {
             return Err(LangError::Engine(format!(
