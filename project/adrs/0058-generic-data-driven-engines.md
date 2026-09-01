@@ -97,10 +97,16 @@ key/forms of existing primitives.
 - **Engines converge on a fixed core.** Each engine implements the kernel
   combinators (`Arr`, `Seq`, `First`, `App`, `Loop`) and a small set of
   native ops. Language-specific behavior migrates to data.
-- **Existing hardcoded logic is debt.** The `var`, `call`, and `object`
-  prims contain language-specific logic that should eventually become data.
-  This ADR doesn't require migrating all of it at once — it establishes the
-  direction. Object keys are the first migration.
+- **Existing hardcoded logic is debt — now paid.** The `var`, `call`,
+  `object`, and pattern-matching prims each contained language-specific
+  logic that violated the principle. All four have since been migrated:
+  `var` is a generic `proj_env` kernel op; object keys migrated to a
+  desugar rule ([ADR-0059](./0059-generic-object-key-evaluation.md));
+  `call` dispatch migrated to a `Choice` scheme
+  ([ADR-0060](./0060-generic-call-dispatch.md)); pattern matching was
+  de-duplicated into a shared module
+  ([ADR-0061](./0061-generic-pattern-match.md)). The direction this ADR
+  established is now fully realized.
 - **No runtime cost.** Desugar runs once between parse and eval; the
   engines consume a simpler AST.
 - **ADR-0057's implementation is superseded.** ADR-0057's *language design*
