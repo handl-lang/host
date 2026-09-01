@@ -68,6 +68,12 @@
   label: not
 - id: token.keyword.proc
   label: proc
+- id: token.keyword.loop
+  label: loop
+- id: token.keyword.then
+  label: then
+- id: token.keyword.in
+  label: in
 - id: token.keyword.typeof
   label: typeof
 - id: token.keyword.when

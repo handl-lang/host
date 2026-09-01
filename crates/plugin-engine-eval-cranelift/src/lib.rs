@@ -66,7 +66,7 @@
 //! - No-scheme fallback: if a node kind has no eval scheme, returns
 //!   `node.payload` directly.
 //! - Closure representation: `Value::Object` with
-//!   `{"__closure__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
+//!   `{"__arrow__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
 //!   created by the `"closure"` primitive.
 //! - Primitives: `add, sub, mul, div, mod, eq, lt, gt, not, and, or, neg,
 //!   closure` — identical semantics to the tree-walk.
@@ -989,14 +989,14 @@ pub unsafe extern "C" fn helper_apply_closure(
         // Parse closure.
         let obj = match closure_val.as_object() {
             Some(o) => o,
-            None => return ctx.set_error(LangError::Engine("callee is not a closure".to_string())),
+            None => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
         if !obj
-            .get("__closure__")
+            .get("__arrow__")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
         {
-            return ctx.set_error(LangError::Engine("callee is not a closure".to_string()));
+            return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string()));
         }
 
         let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
@@ -1007,19 +1007,19 @@ pub unsafe extern "C" fn helper_apply_closure(
                         Some(s) => params.push(s.to_string()),
                         None => {
                             return ctx.set_error(LangError::Engine(
-                                "closure param is not a string".to_string(),
+                                "arrow-value param is not a string".to_string(),
                             ));
                         }
                     }
                 }
                 params
             }
-            None => return ctx.set_error(LangError::Engine("closure missing params".to_string())),
+            None => return ctx.set_error(LangError::Engine("arrow-value missing params".to_string())),
         };
 
         let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
-            None => return ctx.set_error(LangError::Engine("closure missing body".to_string())),
+            None => return ctx.set_error(LangError::Engine("arrow-value missing body".to_string())),
         };
 
         let captured_env: HashMap<String, Value> = obj
@@ -1030,7 +1030,7 @@ pub unsafe extern "C" fn helper_apply_closure(
 
         if params.len() != arg_vals.len() {
             return ctx.set_error(LangError::Engine(format!(
-                "closure expects {} args, got {}",
+                "arrow-value expects {} args, got {}",
                 params.len(),
                 arg_vals.len()
             )));
@@ -1837,7 +1837,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             };
             let env = ctx.env.capture();
             let closure = serde_json::json!({
-                "__closure__": true,
+                "__arrow__": true,
                 "params": params,
                 "body": body,
                 "env": env,
@@ -2320,6 +2320,28 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
             arg_vals.push(take_value(arg_ptr));
         }
 
+        apply_closure_value(ctx, closure_val, arg_vals)
+    }
+}
+
+/// Apply a callee value (host-function string or closure) to a list of
+/// argument values. This is the shared core of
+/// [`helper_v2_apply_closure`] (callee + args arrive as pointers) and
+/// [`prim_v2_call`] (the variable-arity `call` native op, which gathers
+/// args by evaluating the `call` node's children). Returns a boxed result
+/// or a null pointer with the error set on `ctx`.
+fn apply_closure_value(
+    ctx: &mut EvalCtx,
+    closure_val: Value,
+    arg_vals: Vec<Value>,
+) -> *mut Value {
+    // SAFETY: this is the shared core factored out of the `unsafe extern "C"`
+    // helper `helper_v2_apply_closure`. It dereferences the `ctx.modules`
+    // raw pointer and calls the unsafe `box_value` helper. Callers must
+    // uphold the same safety contract as that helper: `ctx` is a valid
+    // `&mut EvalCtx` and, when `ctx.modules` is `Some`, it points to a
+    // live `dyn ModuleLookup` valid for the duration of this call.
+    unsafe {
         // Host-function dispatch: a string callee naming a registered host fn.
         if let Some(name) = closure_val.as_str()
             && let Some(modules_ptr) = ctx.modules
@@ -2337,14 +2359,14 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
         // Closure application.
         let obj = match closure_val.as_object() {
             Some(o) => o,
-            None => return ctx.set_error(LangError::Engine("callee is not a closure".to_string())),
+            None => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
         if !obj
-            .get("__closure__")
+            .get("__arrow__")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
         {
-            return ctx.set_error(LangError::Engine("callee is not a closure".to_string()));
+            return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string()));
         }
 
         let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
@@ -2355,19 +2377,19 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
                         Some(s) => params.push(s.to_string()),
                         None => {
                             return ctx.set_error(LangError::Engine(
-                                "closure param is not a string".to_string(),
+                                "arrow-value param is not a string".to_string(),
                             ));
                         }
                     }
                 }
                 params
             }
-            None => return ctx.set_error(LangError::Engine("closure missing params".to_string())),
+            None => return ctx.set_error(LangError::Engine("arrow-value missing params".to_string())),
         };
 
         let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
-            None => return ctx.set_error(LangError::Engine("closure missing body".to_string())),
+            None => return ctx.set_error(LangError::Engine("arrow-value missing body".to_string())),
         };
 
         let captured_env: HashMap<String, Value> = obj
@@ -2378,7 +2400,7 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
 
         if params.len() != arg_vals.len() {
             return ctx.set_error(LangError::Engine(format!(
-                "closure expects {} args, got {}",
+                "arrow-value expects {} args, got {}",
                 params.len(),
                 arg_vals.len()
             )));
@@ -2420,6 +2442,60 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
 
         result
     }
+}
+
+/// `call` native op: variable-arity function application. Mirrors the v2
+/// tree-walk's `prim_call`. The `call` node's payload has
+/// `children: [callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
+/// the remaining children as the argument list, and dispatch via
+/// [`apply_closure_value`] (host-function string callee or closure value).
+fn prim_v2_call(ctx: &mut EvalCtx) -> *mut Value {
+    // Collect child indices first, dropping the immutable `current_node`
+    // borrow before the mutable `eval_child_node` calls below.
+    let (callee_idx, arg_idxs): (usize, Vec<usize>) = match ctx.current_node() {
+        Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(children) => {
+                let callee_idx = match children.first().and_then(|v| v.as_u64()) {
+                    Some(idx) => idx as usize,
+                    None => {
+                        return ctx.set_error(LangError::Engine(
+                            "call: missing callee child".to_string(),
+                        ));
+                    }
+                };
+                let mut arg_idxs = Vec::with_capacity(children.len().saturating_sub(1));
+                for entry in &children[1..] {
+                    match entry.as_u64() {
+                        Some(idx) => arg_idxs.push(idx as usize),
+                        None => {
+                            return ctx.set_error(LangError::Engine(
+                                "call: child index must be a number".to_string(),
+                            ));
+                        }
+                    }
+                }
+                (callee_idx, arg_idxs)
+            }
+            None => {
+                return ctx.set_error(LangError::Engine(
+                    "call: expected children array in payload".to_string(),
+                ));
+            }
+        },
+        Err(e) => return ctx.set_error(e),
+    };
+    let callee = match eval_child_node(ctx, callee_idx) {
+        Ok(v) => v,
+        Err(e) => return ctx.set_error(e),
+    };
+    let mut arg_vals = Vec::with_capacity(arg_idxs.len());
+    for idx in arg_idxs {
+        match eval_child_node(ctx, idx) {
+            Ok(v) => arg_vals.push(v),
+            Err(e) => return ctx.set_error(e),
+        }
+    }
+    apply_closure_value(ctx, callee, arg_vals)
 }
 
 /// Call a foreign (host) function (by name index).
@@ -2666,7 +2742,7 @@ pub unsafe extern "C" fn helper_v2_loop_check(
     }
 }
 
-/// Resolve closure params and body from the current node's payload.
+/// Resolve arrow-value params and body from the current node's payload.
 ///
 /// Mirrors the v2 tree-walk's `closure` op: reads `params`/`body` from the
 /// payload (rich shape), or falls back to the `children` array (Pratt-parsed
@@ -2998,7 +3074,7 @@ fn apply_native_v2(
                 Ok((params, body)) => {
                     let captured = ctx.env.capture();
                     Ok(serde_json::json!({
-                        "__closure__": true,
+                        "__arrow__": true,
                         "params": params,
                         "body": body,
                         "env": captured,
@@ -3007,6 +3083,12 @@ fn apply_native_v2(
                 Err(e) => Err(e),
             }
         }
+        // Variable-arity function application (mirrors the v2 tree-walk
+        // `prim_call`). The `call` node's children are
+        // `[callee_idx, arg_idx, ...]`; `prim_v2_call` evaluates child 0
+        // as the callee, the rest as the argument list, and dispatches via
+        // `apply_closure_value`.
+        "call" => return prim_v2_call(ctx),
         "array" => {
             // Two payload shapes (mirrors v1 `array` prim):
             // - Rich: `{"elements": [v1, v2, ...]}` — literal values.

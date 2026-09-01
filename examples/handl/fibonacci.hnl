@@ -1,0 +1,3 @@
+loop { n: 10, a: 0, b: 1 }(
+  proc (n, a, b) -> if n == 0 then { out: a } else { state: { n: n - 1, a: b, b: a + b } }
+)

@@ -122,7 +122,7 @@ pub enum Instr {
     /// fn), and push the result.
     ///
     /// Emitted by `App { callee, args }`. The callee may be a closure value
-    /// (`{"__closure__": true, ...}`) or a string naming a registered host
+    /// (`{"__arrow__": true, ...}`) or a string naming a registered host
     /// function.
     Call(usize),
 

@@ -85,6 +85,22 @@
     required:
     - children
     type: object
+- id: ast.bind
+  node_kind: bind
+  payload_schema:
+    properties:
+      name:
+        type: string
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - name
+    - children
+    type: object
 - id: ast.binary.compare
   node_kind: binary.compare
   payload_schema:
@@ -365,6 +381,19 @@
     required:
     - path
     type: object
+- id: ast.loop
+  node_kind: loop
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.index
   node_kind: index
   payload_schema:
@@ -529,6 +558,19 @@
     type: object
 - id: ast.proc
   node_kind: proc
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.rest
+  node_kind: rest
   payload_schema:
     properties:
       children:

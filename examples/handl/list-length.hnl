@@ -1,0 +1,6 @@
+loop { xs: [10, 20, 30, 40, 50], len: 0 }(
+  proc (xs, len) -> match xs {
+    []: { out: len },
+    [h, ...t]: { state: { xs: t, len: len + 1 } }
+  }
+)

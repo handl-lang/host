@@ -122,6 +122,18 @@ fn try_rule<'r>(rule: &'r LexerRuleDef, src: &str, pos: usize) -> Option<(&'r st
         LexerPattern::Literal { text } => {
             if src[pos..].starts_with(text.as_str()) {
                 let next = pos + text.len();
+                // Word-like literals (keywords such as `let`, `if`, `true`)
+                // must be followed by a word boundary: if the next char is an
+                // identifier-continue character, the match is rejected so the
+                // identifier CharClass rule can consume the whole token
+                // (e.g. `if_true` lexes as one identifier, not `if` + `_true`).
+                if is_word_literal(text) {
+                    if let Some(following) = peek_char(src, next) {
+                        if char_matches(following, "a-zA-Z0-9_") {
+                            return None;
+                        }
+                    }
+                }
                 Some((rule.token_kind.as_str(), text.clone(), next))
             } else {
                 None
@@ -320,6 +332,15 @@ pub fn char_matches(ch: char, class: &str) -> bool {
     false
 }
 
+/// Whether a `Literal` pattern's text is "word-like": composed entirely of
+/// identifier-continue characters (`a-zA-Z0-9_`). Such literals (keywords like
+/// `let`, `if`, `true`) require a word boundary after matching so they don't
+/// greedily consume the prefix of a longer identifier. Operator literals
+/// (`==`, `->`, `(`) contain non-identifier characters and are unaffected.
+fn is_word_literal(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|c| char_matches(c, "a-zA-Z0-9_"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -478,6 +499,18 @@ mod tests {
                 tok("token.identifier", "x"),
             ]
         );
+    }
+
+    #[test]
+    fn lex_keyword_prefix_does_not_split_identifier() {
+        // A keyword literal must not greedily consume the prefix of a longer
+        // identifier. `letx`, `let_x`, and `letter` are all single identifiers,
+        // not `let` + remainder.
+        let lang = test_lang();
+        for src in ["letx", "let_x", "letter", "lets"] {
+            let toks = lex(&lang, src).unwrap();
+            assert_eq!(toks.0, vec![tok("token.identifier", src)], "{src}");
+        }
     }
 
     #[test]

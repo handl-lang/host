@@ -184,6 +184,21 @@
   pattern: !Literal
     text: proc
   priority: 15
+- id: lex.keyword.loop
+  token_kind: token.keyword.loop
+  pattern: !Literal
+    text: loop
+  priority: 15
+- id: lex.keyword.then
+  token_kind: token.keyword.then
+  pattern: !Literal
+    text: then
+  priority: 15
+- id: lex.keyword.in
+  token_kind: token.keyword.in
+  pattern: !Literal
+    text: in
+  priority: 15
 - id: lex.keyword.typeof
   token_kind: token.keyword.typeof
   pattern: !Literal

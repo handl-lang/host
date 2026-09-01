@@ -1,0 +1,19 @@
+{
+  if_true: match (5 > 3) { true: "yes", _: "no" },
+  if_false: match (5 < 3) { true: "yes", _: "no" },
+  both: match (1 < 2) {
+    true: match (2 < 3) { true: "both", _: "first-only" },
+    _: "neither"
+  },
+  either: match (1 > 2) {
+    true: "first",
+    _: match (2 < 3) { true: "second", _: "neither" }
+  },
+  grade: match 85 { n:
+    match (n >= 90) { true: "A", _:
+      match (n >= 80) { true: "B", _:
+        match (n >= 70) { true: "C", _: "F" }
+      }
+    }
+  }
+}

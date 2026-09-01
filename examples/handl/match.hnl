@@ -1,0 +1,8 @@
+{
+  literal: match 2 { 1: "one", 2: "two", 3: "three", _: "other" },
+  wildcard: match 99 { 1: "one", _: "other" },
+  binder: match 5 { 0: "zero", n: n * 2 },
+  string: match "ping" { "ping": "pong", "foo": "bar", _: "unknown" },
+  bool: match (7 > 3) { true: "yes", _: "no" },
+  nested: match 3 { 1: "small", 2: "medium", n: match n { 3: "large", _: "huge" } }
+}

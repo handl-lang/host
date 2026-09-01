@@ -1,0 +1,8 @@
+loop { xs: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19], target: 13, lo: 0, hi: 9 }(
+  proc (s) -> mid = (s.lo + s.hi) / 2 in
+  guess = s.xs.mid in
+  if s.lo > s.hi then { out: -1 }
+  else if guess == s.target then { out: mid }
+  else if guess < s.target then { state: { ...s, lo: mid + 1 } }
+  else { state: { ...s, hi: mid - 1 } }
+)

@@ -1,0 +1,10 @@
+{
+  user: {
+    name: "alice",
+    age: 30,
+    scores: [90, 85, 92]
+  },
+  first_score: { name: "alice", scores: [90, 85, 92] }.scores.0,
+  nested: { a: { b: { c: 42 } } }.a.b.c,
+  computed: { double: 2 * 5, square: (proc (n) -> n * n)(4) }
+}

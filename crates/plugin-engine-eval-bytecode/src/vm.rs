@@ -13,7 +13,7 @@
 //!
 //! - **Pair** (`first`): `{"__pair__": [a, b]}`.
 //! - **Either** (`Choice` / `tag`): `{"__either__": "left"|"right", "value": v}`.
-//! - **Closure** (`App`): `{"__closure__": true, "params": [...], "body": <idx>, "env": {...}}`.
+//! - **Arrow-value** (`App`): `{"__arrow__": true, "params": [...], "body": <idx>, "env": {...}}`.
 //!
 //! ## Loop execution model
 //!
@@ -664,7 +664,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 };
                 let captured = self.scopes.capture();
                 Ok(serde_json::json!({
-                    "__closure__": true,
+                    "__arrow__": true,
                     "params": params,
                     "body": body,
                     "env": captured,
@@ -940,8 +940,42 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
                 Ok(either_right(b))
             }
+            // Variable-arity function application (mirrors the v2 tree-walk
+            // `prim_call`). The `call` node's children are
+            // `[callee_idx, arg_idx, ...]`; evaluate child 0 as the callee,
+            // the rest as the argument list, and dispatch via `apply_app`.
+            "call" => self.prim_v2_call(node),
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
+    }
+
+    /// `call` native op: variable-arity function application. Mirrors the
+    /// v2 tree-walk's `prim_call`. The `call` node's payload has
+    /// `children: [callee_idx, arg_idx, ...]`; evaluate child 0 as the
+    /// callee, the remaining children as the argument list, and dispatch
+    /// via [`apply_app`](Self::apply_app).
+    fn prim_v2_call(&mut self, node: &AstNode) -> Result<Value, LangError> {
+        let children = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("call: expected children array in payload".to_string())
+            })?;
+        let callee_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))?
+            as usize;
+        let callee = self.exec_node(AstRef::new(callee_idx))?;
+        let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
+        for entry in &children[1..] {
+            let idx = entry.as_u64().ok_or_else(|| {
+                LangError::Engine("call: child index must be a number".to_string())
+            })? as usize;
+            arg_vals.push(self.exec_node(AstRef::new(idx))?);
+        }
+        self.apply_app(&callee, &arg_vals)
     }
 
     /// Apply an `App` callee: host-function dispatch (string callee) or
@@ -961,29 +995,29 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         // Closure application.
         let obj = callee
             .as_object()
-            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
+            .ok_or_else(|| LangError::Engine("callee is not an arrow-value".to_string()))?;
         if !obj
-            .get("__closure__")
+            .get("__arrow__")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
         {
-            return Err(LangError::Engine("callee is not a closure".to_string()));
+            return Err(LangError::Engine("callee is not an arrow-value".to_string()));
         }
         let params: Vec<String> = obj
             .get("params")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
+            .ok_or_else(|| LangError::Engine("arrow-value missing params".to_string()))?
             .iter()
             .map(|v| {
                 v.as_str()
                     .map(String::from)
-                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
+                    .ok_or_else(|| LangError::Engine("arrow-value param is not a string".to_string()))
             })
             .collect::<Result<_, _>>()?;
         let body_idx = obj
             .get("body")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
+            .ok_or_else(|| LangError::Engine("arrow-value missing body".to_string()))?;
         let body_ref = AstRef::new(body_idx as usize);
         let captured_env: HashMap<String, Value> = obj
             .get("env")
@@ -992,7 +1026,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .unwrap_or_default();
         if params.len() != args.len() {
             return Err(LangError::Engine(format!(
-                "closure expects {} args, got {}",
+                "arrow-value expects {} args, got {}",
                 params.len(),
                 args.len()
             )));
@@ -1286,7 +1320,7 @@ mod tests {
             AstNode::new("test").with_payload(json!({})),
         ]);
         let closure = json!({
-            "__closure__": true,
+            "__arrow__": true,
             "params": ["x"],
             "body": 0,
             "env": {},

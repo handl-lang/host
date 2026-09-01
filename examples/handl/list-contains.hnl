@@ -1,0 +1,6 @@
+loop { xs: [4, 7, 9, 12], needle: 9 }(
+  proc (xs, needle) -> match xs {
+    []: { out: false },
+    [h, ...t]: if h == needle then { out: true } else { state: { xs: t, needle: needle } }
+  }
+)

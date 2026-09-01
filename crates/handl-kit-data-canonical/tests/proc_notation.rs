@@ -106,9 +106,9 @@ fn proc_eval_scheme_exists_and_is_child_0() {
 fn proc_x_to_x_evaluates_to_closure() {
     let rt = full_runtime();
     let result = rt.run(&Source::new("proc x -> x")).expect("eval should succeed");
-    // The result is a closure value: {"__closure__": true, "params": ["x"], ...}
+    // The result is a closure value: {"__arrow__": true, "params": ["x"], ...}
     assert_eq!(
-        result["__closure__"],
+        result["__arrow__"],
         serde_json::Value::Bool(true),
         "proc x -> x should evaluate to a closure",
     );

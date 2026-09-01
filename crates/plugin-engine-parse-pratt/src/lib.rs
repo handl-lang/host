@@ -197,6 +197,12 @@ impl PrattEngine {
     ) -> Result<AstRef, LangError> {
         let token = cursor.advance()?;
 
+        // Special case: `if cond then a else b` desugars to
+        // `match cond { true: a, _: b }` at parse time.
+        if token.kind == "token.keyword.if" {
+            return self.parse_if(lang, cursor);
+        }
+
         // 1. Look up the prefix row for this token.
         let prefix_row = Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix)
             .ok_or_else(|| LangError::Engine(format!("unexpected token: {}", token.kind)))?;
@@ -413,6 +419,15 @@ impl PrattEngine {
         // 3. Infix (left-denotation) loop.
         let mut left = left;
         while let Some(next) = cursor.peek() {
+            // Special case: `x = y in body` — handle `=` before the
+            // standard binding-power check, so bindings work inside
+            // `proc (...) -> body` (where `->` has higher rbp than `=`'s lbp).
+            if next.kind == "token.equal" {
+                let _ = cursor.advance()?;
+                left = self.parse_binding(lang, cursor, left)?;
+                continue;
+            }
+
             let infix_row = match Self::lookup_row(lang, &next.kind, GrammarPosition::Infix) {
                 Some(row) => row,
                 None => break,
@@ -484,6 +499,123 @@ impl PrattEngine {
         }
 
         Ok(left)
+    }
+
+    /// Parse `if cond then a else b` and desugar to
+    /// `match cond { true: a, _: b }`.
+    ///
+    /// The `if` token has already been consumed. This method:
+    /// 1. Parses the condition expression
+    /// 2. Expects `then`, parses the then-branch
+    /// 3. Expects `else`, parses the else-branch
+    /// 4. Builds a `match` AST node with two arms: `true: then` and `_: else`
+    fn parse_if(
+        &self,
+        lang: &Language,
+        cursor: &mut Cursor<'_>,
+    ) -> Result<AstRef, LangError> {
+        // Parse condition (with low rbp so `then` stops it).
+        let cond = self.expression_inner(lang, cursor, 0)?;
+
+        // Expect `then`.
+        let then_tok = cursor.advance()?;
+        if then_tok.kind != "token.keyword.then" {
+            return Err(LangError::Engine(format!(
+                "expected 'then' after if condition, got '{}'",
+                then_tok.text
+            )));
+        }
+
+        // Parse then-branch (with low rbp so `else` stops it).
+        let then_branch = self.expression_inner(lang, cursor, 0)?;
+
+        // Expect `else`.
+        let else_tok = cursor.advance()?;
+        if else_tok.kind != "token.keyword.else" {
+            return Err(LangError::Engine(format!(
+                "expected 'else' after then-branch, got '{}'",
+                else_tok.text
+            )));
+        }
+
+        // Parse else-branch.
+        let else_branch = self.expression_inner(lang, cursor, 0)?;
+
+        // Build the match node: match cond { true: then, _: else }
+        // Pattern `true` is a literal bool node.
+        let true_node = AstNode::new("bool").with_payload(serde_json::json!(true));
+        let true_ref = self.ast.borrow_mut().push(true_node);
+        // Pattern `_` is a var node with payload "_".
+        let wild_node = AstNode::new("var").with_payload(serde_json::json!("_"));
+        let wild_ref = self.ast.borrow_mut().push(wild_node);
+        // Arm 0: true -> then_branch
+        let arm0 = AstNode::new("arm")
+            .with_payload(serde_json::json!({ "children": [true_ref.index(), then_branch.index()] }));
+        let arm0_ref = self.ast.borrow_mut().push(arm0);
+        // Arm 1: _ -> else_branch
+        let arm1 = AstNode::new("arm")
+            .with_payload(serde_json::json!({ "children": [wild_ref.index(), else_branch.index()] }));
+        let arm1_ref = self.ast.borrow_mut().push(arm1);
+        // Block node containing the arms.
+        let block = AstNode::new("block")
+            .with_payload(serde_json::json!({ "children": [arm0_ref.index(), arm1_ref.index()] }));
+        let block_ref = self.ast.borrow_mut().push(block);
+        // Match node: children = [cond, block]
+        let match_node = AstNode::new("match")
+            .with_payload(serde_json::json!({ "children": [cond.index(), block_ref.index()] }));
+        Ok(self.ast.borrow_mut().push(match_node))
+    }
+
+    /// Parse `x = y in body` and desugar to `(proc (x) -> body)(y)`.
+    ///
+    /// The `=` token has already been consumed. `left` is the LHS (a `var`
+    /// node whose payload is the variable name). This method:
+    /// 1. Parses the value expression (RHS of `=`)
+    /// 2. Expects `in`
+    /// 3. Parses the body expression
+    /// 4. Builds a `proc` node with param = var name, body = body node
+    /// 5. Builds an `app` node: app(proc_node, [value_node])
+    fn parse_binding(
+        &self,
+        lang: &Language,
+        cursor: &mut Cursor<'_>,
+        left: AstRef,
+    ) -> Result<AstRef, LangError> {
+        // Extract variable name from the LHS (var node).
+        let var_name = {
+            let ast = self.ast.borrow();
+            let left_node = ast.at(left)?;
+            left_node
+                .payload
+                .as_str()
+                .ok_or_else(|| {
+                    LangError::Engine("binding LHS must be an identifier".to_string())
+                })?
+                .to_string()
+        };
+
+        // Parse the value expression (RHS of `=`).
+        let value = self.expression_inner(lang, cursor, 0)?;
+
+        // Expect `in`.
+        let in_tok = cursor.advance()?;
+        if in_tok.kind != "token.keyword.in" {
+            return Err(LangError::Engine(format!(
+                "expected 'in' after binding value, got '{}'",
+                in_tok.text
+            )));
+        }
+
+        // Parse the body expression.
+        let body = self.expression_inner(lang, cursor, 0)?;
+
+        // Build a bind node: { name: var_name, children: [value, body] }
+        // This is the arrow-calculus-honest desugar of `x = y in body`:
+        // evaluate y, extend env with x=y, evaluate body. No closure
+        // creation, no env capture/swap — just env extension (ADR-0052).
+        let bind_node = AstNode::new("bind")
+            .with_payload(serde_json::json!({ "name": var_name, "children": [value.index(), body.index()] }));
+        Ok(self.ast.borrow_mut().push(bind_node))
     }
 
     /// Parse a delimited block child (the last child of a prefix shape whose

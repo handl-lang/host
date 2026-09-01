@@ -42,7 +42,7 @@
 //! - No-scheme fallback: if a node kind has no eval scheme, returns
 //!   `node.payload` directly.
 //! - Closure representation: `Value::Object` with
-//!   `{"__closure__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
+//!   `{"__arrow__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
 //!   created by the `"closure"` native op.
 //! - Native ops: `add, sub, mul, div, mod, neg, eq, neq, lt, gt, lte, gte,
 //!   and, or, not, tag, id, closure` — identical semantics to the tree-walk.

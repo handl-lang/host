@@ -19,7 +19,7 @@
 //!   `right` Either to `r`. The `tag` native op converts a truthy value
 //!   into a `left` Either and a falsy value into a `right` Either (the
 //!   `Branch` lowering: `c >>> arr tag >>> Choice(t, e)`).
-//! - **Closure** (`App`): `{"__closure__": true, "params": [...],
+//! - **Arrow-value** (`App`): `{"__arrow__": true, "params": [...],
 //!   "body": <idx>, "env": {...}}`. `App` evaluates the callee; if it is
 //!   a string naming a registered host function, dispatches to it;
 //!   otherwise applies the closure (swap-in captured env, bind params,
@@ -404,7 +404,7 @@ impl TreeWalkEngine {
         // new kernel primitive — `while_step` is an `Arr` op (one of the
         // six primitives); its interpretation is the derived pattern.
         if matches!(source, ArrSource::Native)
-            && matches!(op, "while_step" | "for_step" | "fix_step")
+            && matches!(op, "while_step" | "for_step" | "fix_step" | "loop_step")
         {
             return self.eval_derived_step(
                 op, args, ast, node_ref, lang, env, current_node, incoming,
@@ -538,6 +538,76 @@ impl TreeWalkEngine {
                     Ok((either_left(new_val), false))
                 } else {
                     Ok((either_right(new_val), false))
+                }
+            }
+            "loop_step" => {
+                // Ergonomic loop surface (ADR-0052). args = [body_proc].
+                // The current state is `in` on the first step (state is
+                // Null) and `state` thereafter. The body proc is applied to
+                // the current state; it returns an object:
+                //   { out: v }    → terminate with v
+                //   { state: v }  → continue with new state v
+                //
+                // Param destructuring: if the body proc has multiple params
+                // and the current state is an object, bind each field to a
+                // param by name (e.g. `proc (n, acc) -> ...` with state
+                // `{ n: 5, acc: 1 }` binds n=5, acc=1).
+                let body_proc = raw_args.first().ok_or_else(|| {
+                    LangError::Engine("loop_step: missing body proc".to_string())
+                })?;
+                let current = if state.is_null() { in_val } else { state };
+                let closure_val = self.eval_scheme(
+                    body_proc, ast, node_ref, lang, env, current_node, None,
+                )?;
+                // Check if destructuring applies: closure has multiple
+                // params and current state is an object.
+                let args: Vec<Value> = if let Some(obj_state) = current.as_object() {
+                    if let Some(closure_obj) = closure_val.as_object() {
+                        if let Some(params) = closure_obj
+                            .get("params")
+                            .and_then(|v| v.as_array())
+                        {
+                            if params.len() > 1 {
+                                // Destructure: bind each param to the
+                                // corresponding field by name.
+                                params
+                                    .iter()
+                                    .map(|p| {
+                                        let name = p.as_str().unwrap_or("_");
+                                        obj_state
+                                            .get(name)
+                                            .cloned()
+                                            .unwrap_or(Value::Null)
+                                    })
+                                    .collect()
+                            } else {
+                                vec![current]
+                            }
+                        } else {
+                            vec![current]
+                        }
+                    } else {
+                        vec![current]
+                    }
+                } else {
+                    vec![current]
+                };
+                let result = self.apply_app(
+                    &closure_val, &args, ast, lang, env,
+                )?;
+                let obj = result.as_object().ok_or_else(|| {
+                    LangError::Engine(
+                        "loop_step: body must return { out: v } or { state: v }".to_string(),
+                    )
+                })?;
+                if let Some(out) = obj.get("out") {
+                    Ok((either_left(out.clone()), false))
+                } else if let Some(new_state) = obj.get("state") {
+                    Ok((either_right(new_state.clone()), false))
+                } else {
+                    Err(LangError::Engine(
+                        "loop_step: body must return { out: v } or { state: v }".to_string(),
+                    ))
                 }
             }
             _ => Err(LangError::Engine(format!("unknown derived step op: {}", op))),
@@ -723,7 +793,7 @@ impl TreeWalkEngine {
                 };
                 let captured = env.capture();
                 let closure = serde_json::json!({
-                    "__closure__": true,
+                    "__arrow__": true,
                     "params": params,
                     "body": body,
                     "env": captured,
@@ -795,6 +865,19 @@ impl TreeWalkEngine {
                             )
                         })? as usize;
                         let entry_node = ast.at(AstRef::new(entry_idx))?;
+                        // Spread entry: if the child is not an `entry` node,
+                        // evaluate it and merge its fields into the object.
+                        // This implements `{ ...s, field: val }` syntax.
+                        if entry_node.kind != "entry" {
+                            let spread_val =
+                                self.eval_node(ast, AstRef::new(entry_idx), lang, env)?;
+                            if let Some(spread_obj) = spread_val.as_object() {
+                                for (k, v) in spread_obj {
+                                    obj.insert(k.clone(), v.clone());
+                                }
+                            }
+                            continue;
+                        }
                         let entry_children = entry_node
                             .payload
                             .get("children")
@@ -820,13 +903,42 @@ impl TreeWalkEngine {
                                     "object: entry missing value child".to_string(),
                                 )
                             })? as usize;
-                        let key_val =
-                            self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
-                        let key = key_val.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "object: entry key must evaluate to a string".to_string(),
-                            )
-                        })?;
+                        // Object key: if the key node is a `var` (bare
+                        // identifier), use its name as the key string
+                        // directly — don't evaluate it as a variable. This
+                        // makes `{ n: 5 }` use key "n", not the value of n.
+                        // Otherwise, evaluate the key expression and use
+                        // its string representation.
+                        let key_node = ast.at(AstRef::new(key_idx))?;
+                        let key = if key_node.kind == "var" {
+                            key_node
+                                .payload
+                                .as_str()
+                                .ok_or_else(|| {
+                                    LangError::Engine(
+                                        "object: var key missing string payload".to_string(),
+                                    )
+                                })?
+                                .to_string()
+                        } else if key_node.kind == "string" {
+                            key_node
+                                .payload
+                                .as_str()
+                                .ok_or_else(|| {
+                                    LangError::Engine(
+                                        "object: string key missing payload".to_string(),
+                                    )
+                                })?
+                                .to_string()
+                        } else {
+                            let key_val =
+                                self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
+                            if let Some(s) = key_val.as_str() {
+                                s.to_string()
+                            } else {
+                                key_val.to_string()
+                            }
+                        };
                         let value =
                             self.eval_node(ast, AstRef::new(val_idx), lang, env)?;
                         obj.insert(key.to_string(), value);
@@ -878,6 +990,8 @@ impl TreeWalkEngine {
             "match" => self.prim_match(ast, lang, env, current_node),
             "handle" => self.prim_handle(ast, lang, env, current_node),
             "json" => self.prim_json(ast, lang, env, current_node),
+            "call" => self.prim_call(ast, lang, env, current_node),
+            "bind" => self.prim_bind(ast, lang, env, current_node),
             // Arithmetic / comparison / logic.
             "add" => bin_num(args, |a, b| a + b),
             "sub" => bin_num(args, |a, b| a - b),
@@ -1041,7 +1155,7 @@ impl TreeWalkEngine {
         args: &[Value],
         ast: &Ast,
         lang: &Language,
-        env: &mut ScopeStack,
+        _env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         // Host-function dispatch: a string callee naming a registered
         // host fn.
@@ -1057,29 +1171,29 @@ impl TreeWalkEngine {
         // Closure application.
         let obj = callee
             .as_object()
-            .ok_or_else(|| LangError::Engine("callee is not a closure".to_string()))?;
+            .ok_or_else(|| LangError::Engine("callee is not an arrow-value".to_string()))?;
         if !obj
-            .get("__closure__")
+            .get("__arrow__")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
         {
-            return Err(LangError::Engine("callee is not a closure".to_string()));
+            return Err(LangError::Engine("callee is not an arrow-value".to_string()));
         }
         let params: Vec<String> = obj
             .get("params")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("closure missing params".to_string()))?
+            .ok_or_else(|| LangError::Engine("arrow-value missing params".to_string()))?
             .iter()
             .map(|v| {
                 v.as_str()
                     .map(String::from)
-                    .ok_or_else(|| LangError::Engine("closure param is not a string".to_string()))
+                    .ok_or_else(|| LangError::Engine("arrow-value param is not a string".to_string()))
             })
             .collect::<Result<_, _>>()?;
         let body_idx = obj
             .get("body")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("closure missing body".to_string()))?;
+            .ok_or_else(|| LangError::Engine("arrow-value missing body".to_string()))?;
         let body_ref = AstRef::new(body_idx as usize);
         let captured_env: HashMap<String, Value> = obj
             .get("env")
@@ -1088,21 +1202,22 @@ impl TreeWalkEngine {
             .unwrap_or_default();
         if params.len() != args.len() {
             return Err(LangError::Engine(format!(
-                "closure expects {} args, got {}",
+                "arrow-value expects {} args, got {}",
                 params.len(),
                 args.len()
             )));
         }
-        // Swap in captured env + new scope with params, eval body, restore.
-        let saved = std::mem::replace(env, ScopeStack::new());
-        env.scopes[0] = captured_env;
-        env.push_scope();
+        // Arrow-value invocation (ADR-0052): the arrow carries its
+        // definition-time env as data. We construct a fresh env from
+        // that carried env, extend with params, and evaluate the body.
+        // The caller's env is never mutated — no swap/restore hack.
+        let mut arrow_env = ScopeStack::new();
+        arrow_env.scopes[0] = captured_env;
+        arrow_env.push_scope();
         for (param, arg) in params.iter().zip(args.iter()) {
-            env.define(param, arg.clone());
+            arrow_env.define(param, arg.clone());
         }
-        let result = self.eval_node(ast, body_ref, lang, env);
-        *env = saved;
-        result
+        self.eval_node(ast, body_ref, lang, &mut arrow_env)
     }
 
     /// Evaluate a single node by looking up its eval scheme and
@@ -1193,6 +1308,90 @@ impl TreeWalkEngine {
         env: &mut ScopeStack,
     ) -> Result<Value, LangError> {
         self.eval_node(ast, node_ref, lang, env)
+    }
+
+    /// `call` op: variable-arity function application.
+    ///
+    /// A Pratt-parsed `call` node has `children: [callee_idx, arg_idx, ...]`
+    /// — one child for the callee plus one child per comma-separated
+    /// argument (ADR-0041 Phase 2). The fixed-arity `App` scheme cannot
+    /// express this, so `eval.call` lowers to this native op: evaluate
+    /// child 0 as the callee, the remaining children as the argument
+    /// list, and dispatch via [`apply_app`](Self::apply_app) (host-function
+    /// string callee or closure value).
+    fn prim_call(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let children = current_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("call: expected children array in payload".to_string())
+            })?;
+        let callee_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("call: missing callee child".to_string()))?;
+        let callee = self.eval_node(ast, AstRef::new(callee_idx as usize), lang, env)?;
+        let mut arg_vals = Vec::with_capacity(children.len().saturating_sub(1));
+        for entry in &children[1..] {
+            let idx = entry.as_u64().ok_or_else(|| {
+                LangError::Engine("call: child index must be a number".to_string())
+            })? as usize;
+            arg_vals.push(self.eval_node(ast, AstRef::new(idx), lang, env)?);
+        }
+        let val = self.apply_app(&callee, &arg_vals, ast, lang, env)?;
+        Ok((val, false))
+    }
+
+    /// `bind` op: arrow-calculus env extension (ADR-0052).
+    ///
+    /// `x = y in body` → `bind { name: "x", children: [y, body] }`.
+    /// Evaluates `y` in the current env, pushes a scope with `x = y`,
+    /// evaluates `body` in the extended env, pops the scope. No closure
+    /// creation, no env capture — just env extension via `Seq` semantics.
+    fn prim_bind(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let name = current_node
+            .payload
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| LangError::Engine("bind: missing name".to_string()))?;
+        let children = current_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("bind: expected children array in payload".to_string())
+            })?;
+        let value_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("bind: missing value child".to_string()))?
+            as usize;
+        let body_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| LangError::Engine("bind: missing body child".to_string()))?
+            as usize;
+        // Evaluate the value in the current env.
+        let value = self.eval_node(ast, AstRef::new(value_idx), lang, env)?;
+        // Extend env with name = value, evaluate body, pop.
+        env.push_scope();
+        env.define(name, value);
+        let result = self.eval_node(ast, AstRef::new(body_idx), lang, env);
+        env.pop_scope();
+        result.map(|v| (v, false))
     }
 
     /// `match` op: pattern-match a scrutinee against a list of arms.
@@ -2269,7 +2468,7 @@ mod tests {
         ]);
         // Build a closure value pointing at body node 0, param ["x"].
         let closure = json!({
-            "__closure__": true,
+            "__arrow__": true,
             "params": ["x"],
             "body": 0,
             "env": {},
@@ -3373,7 +3572,7 @@ mod tests {
 
     #[test]
     fn app_callee_is_object_but_not_closure_errors() {
-        // Callee is an object without __closure__ marker.
+        // Callee is an object without __arrow__ marker.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
@@ -3677,7 +3876,7 @@ mod tests {
         // Callee is a "closure" with params as a string (not array).
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!({
-                "__closure__": true,
+                "__arrow__": true,
                 "params": "not_an_array",
                 "body": 0
             })),
@@ -3702,7 +3901,7 @@ mod tests {
             .unwrap();
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!({
-                "__closure__": true,
+                "__arrow__": true,
                 "params": []
             })),
             AstNode::new("call").with_payload(json!({"children": [0]})),
@@ -3873,7 +4072,7 @@ mod tests {
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
         // Result is a closure value with 2 params.
-        assert_eq!(result["__closure__"], json!(true));
+        assert_eq!(result["__arrow__"], json!(true));
         assert_eq!(result["params"], json!(["x", "y"]));
     }
 

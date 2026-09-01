@@ -1,0 +1,13 @@
+{
+  apply_twice: (proc (f, n) -> f(f(n)))(proc (n) -> n + 1, 5),
+  compose: (proc (f, g, x) -> f(g(x)))(
+    proc (n) -> n + 1,
+    proc (n) -> n * 2,
+    5
+  ),
+  thrice: (proc (f, x) -> f(f(f(x))))(proc (n) -> n * 2, 1),
+  add: (proc (x, y) -> x + y)(3, 4),
+  first: [(proc (n) -> n + 1), (proc (n) -> n * 2), (proc (n) -> n * n)].0(10),
+  second: [(proc (n) -> n + 1), (proc (n) -> n * 2), (proc (n) -> n * n)].1(10),
+  third: [(proc (n) -> n + 1), (proc (n) -> n * 2), (proc (n) -> n * n)].2(10)
+}

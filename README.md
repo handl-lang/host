@@ -2,6 +2,14 @@
 
 `handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.
 
+## Computational model
+
+**Arrow calculus, not lambda calculus.** The kernel (ADR-0052) is six arrow-calculus primitives: `arr`/`>>>`/`first`/`choice`/`loop`/`app`. No lambda, no lambda application. `proc` desugars to arrow combinators; calling a `proc` is `app` (dynamic arrow invocation).
+
+**Declarative, not imperative.** No mutation primitive — reassignment was deleted from the kernel. Binding (`x = y`) is immutable `Seq` + env extension. State goes through `loop` (feedback), not variable mutation.
+
+**Descriptions, not execution.** `>>>` composes descriptions without running them. Handlers interpret the same description differently: runtime runs it, compiler lowers it, analyzer inspects it.
+
 ## High-level architecture
 
 - `handl-platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `Host`, `DefaultHost`, `LanguageHost`, `Boundary`, `PlatformError`.

@@ -1,0 +1,4 @@
+loop { n: 10, k: 3, acc: 1, i: 1 }(
+  proc (n, k, acc, i) -> if i > k then { out: acc }
+  else { state: { n: n, k: k, acc: acc * (n - i + 1) / i, i: i + 1 } }
+)
