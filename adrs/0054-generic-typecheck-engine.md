@@ -428,4 +428,76 @@ registry with `__registry__` field) and the judgment-op spike
 `eval_child`/`quote`/`normalize` judgment ops) are implemented. The full
 `types.yaml` rule set (57 rules for all canonical kinds) is authored and the
 NBE engine (`plugin-engine-typecheck-nbe`) implements `TypecheckEngine`
-against it. `hnl typecheck <expr>` ships in the CLI.
+against it. `handl-host-cli typecheck` ships in the CLI for end-to-end
+testing.
+
+### Completed migration work
+
+The data-driven typecheck engine has been brought to parity with the legacy
+`plugin-typecheck-nbe` crate for **surface-syntax** typechecking. The
+following work is complete:
+
+1. **Core architecture** — `plugin-engine-typecheck-nbe` implements
+   `TypecheckEngine`, interprets `Scheme`s from `types.yaml`, delegates
+   non-judgment ops to `EvalEngine`, and enforces purity (effectful `Foreign`
+   ops are rejected).
+2. **Recursive structural unification** — `unify` handles tagged type values
+   with the same tag by recursively unifying payload fields (e.g.
+   `type.function{param, body}`). Previously `unify` used flat JSON equality,
+   which could not unify two structurally-equal `type.function` values that
+   were distinct objects. The recursive case is tried after the equality and
+   metavariable-solving cases, before the error case.
+3. **Occurs-check** — `unify` prevents circular metavariable solving.
+4. **Metavariable solving** — `fresh_meta`, `solve_meta`, `extract_meta_id`
+   for hole-filling.
+5. **22 judgment ops** — `synth_child`, `check_child`, `eval_child`,
+   `unify`, `extend`, `lookup`, `lookup_var`, `fresh_meta`, `solve_meta`,
+   `quote`, `construct`, `match_type`, `bind`, `result`, `node_payload`,
+   `json_type_construct`, `payload_field`, `field`, `type_field`,
+   `synth_last_child`, `record_field_type`, `array_element_type`,
+   `synth_first_child_or_unknown`, `check_json_value`, `check_last_child`,
+   `synth_match_arms`, `check_all_children`.
+6. **57 type rules in `types.yaml`** — all surface-syntax node kinds covered.
+7. **Synth rules** for: `value`, `var`, `if`, `ternary`, all binary ops, all
+   unary ops, `paren`, `block`, `array`, `object`, `function`, `call`, `let`,
+   `bind`, `field-access`, `index`, `match`, `handle`, `flow`, `pipe`, `proc`,
+   `rest`, `apply`, `typeof`, `type-annot`, `template`, `assign`, `loop`,
+   `mood.int`, and all `stmt.*` nodes.
+8. **Check rules** for: `paren`, `type-annot`, `value`, `block`, `if`,
+   `ternary`, `let`, `bind`, `function`, all binary arithmetic ops, all binary
+   comparison ops, all binary logic ops, `unary.neg`, `unary.not`, `array`.
+9. **Purity enforcement** — Foreign ops are rejected in type rules and in
+   `eval_child` delegation, matching on `ArrSource` rather than a string
+   prefix.
+10. **CLI** — `handl-host-cli typecheck` command for end-to-end testing.
+
+### Remaining gaps
+
+The following gaps remain vs the legacy `plugin-typecheck-nbe`:
+
+1. **Foreign op nodes** — `fanout` now returns
+   `type.function{param: type.unknown, body: type.unknown}` (more precise
+   than `type.unknown` — it at least says "this is a function"). `json`
+   and `resolve` remain `type.unknown` by design: they are dynamic
+   operations (JSON path evaluation, module loading) whose result types
+   cannot be determined statically. `mood.*` nodes (`mood.int`,
+   `mood.cnd`, `mood.neg`, `mood.norm`, `mood.pot`) are now fully typed
+   (all return `type.number`).
+2. **Legacy core calculus** — Pi/Sigma/Forall/Vau with NBE closures,
+   universe levels, polymorphism, and equality types are not ported
+   (fundamentally different architecture from surface-syntax rules).
+3. **Record field checking** — the `object` check rule doesn't verify
+   individual fields against a `type.record` (needs a field-name-to-child
+   mapping).
+4. **Dependent types** — no closure-based type computation (Pi/Sigma body
+   depends on param value).
+
+### Architecture decision
+
+The data-driven engine handles **surface syntax** typechecking (the
+`types.yaml` rules), while the legacy `plugin-typecheck-nbe` handles the
+**core calculus** (dependent types, polymorphism, universes). These are
+complementary, not competing — the surface syntax lowers to the core
+calculus for advanced features. The data-driven engine is the primary
+typechecker for surface-level programs; the legacy engine remains for core
+calculus research.
