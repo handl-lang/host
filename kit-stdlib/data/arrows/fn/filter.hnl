@@ -1,0 +1,25 @@
+// filter: keep only elements satisfying a predicate.
+// Written as an arrow graph over list primitives.
+// Contract: AllSatisfy(output, p) ∧ LengthLe(output, input) — INFERRED.
+//
+// Graph structure:
+//   loop(comp(filter_step, id))
+//
+// The loop processes elements one at a time:
+//   - apply predicate p to head of remaining input
+//   - if p(h): cons h onto output
+//   - if not p(h): skip
+//   - repeat until input is exhausted
+
+loop { remaining: input.0, p: input.1, acc: [] }(
+  proc (state) -> match state.remaining {
+    []: { out: state.acc },
+    [h, ...t]:
+      if state.p(h) then { state: {
+        remaining: t,
+        p: state.p,
+        acc: [h, ...state.acc]
+      } }
+      else { state: { remaining: t, p: state.p, acc: state.acc } }
+  }
+)

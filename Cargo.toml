@@ -14,6 +14,7 @@ members = [
   "crates/plugin-ext-lint",
   "crates/plugin-ext-lsp",
   "crates/plugin-ext-plugin",
+  "crates/plugin-ext-refinement",
   "crates/plugin-ext-typecheck",
   "crates/host-cli",
   "crates/host-lsp",
@@ -57,6 +58,7 @@ members = [
   "crates/plugin-lib-otlp",
   "crates/plugin-lib-otlp-std",
   "crates/plugin-lib-parse",
+  "crates/plugin-lib-prim",
   "crates/plugin-lib-rand",
   "crates/plugin-lib-serialize",
   "crates/plugin-lib-stats",
@@ -164,6 +166,7 @@ handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }
 handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
 handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
 handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
+handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
 handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
@@ -207,6 +210,7 @@ handl-plugin-lib-os-std = { path = "crates/plugin-lib-os-std" }
 handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
 handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
 handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
+handl-plugin-lib-prim = { path = "crates/plugin-lib-prim" }
 handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
 handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }
 handl-plugin-lib-stats = { path = "crates/plugin-lib-stats" }

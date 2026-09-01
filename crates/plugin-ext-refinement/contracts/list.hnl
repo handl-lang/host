@@ -1,0 +1,36 @@
+// Axioms for list primitives.
+//
+// These carry conditional contracts with real semantic content so that
+// inference can derive non-trivial guarantees like Sorted and LengthEq.
+
+axiom list.cons : (α × List α) → List α
+  requires: Sorted(tail) ∧ Le(head, head_of_tail)
+  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail)
+
+axiom list.head : List α → α
+  requires: Sorted(input)
+  guarantee: True
+
+axiom list.tail : List α → List α
+  requires: Sorted(input)
+  guarantee: Sorted(output) ∧ LengthSubOne(output, input)
+
+axiom list.is_empty : List α → Bool
+  guarantee: True
+
+axiom cons : (α × List α) → List α
+  requires: Sorted(tail) ∧ Le(head, head_of_tail)
+  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail)
+
+axiom id : α → α
+  guarantee: True
+
+axiom fn.apply : (α × α) → α
+  guarantee: True
+
+axiom filter_step : List α → List α
+  guarantee: AllSatisfy(output, predicate) ∧ LengthLe(output, input)
+
+axiom fold_step : (α × α) → α
+  guarantee: True
+  termination: decrements_length

@@ -1,0 +1,11 @@
+// Axioms for irreducible Rust primitives.
+// These are the foundation — everything else is derived.
+
+axiom prim.add : (Int × Int) → Int
+  guarantee: True
+
+axiom prim.compare : (α × β) → Int
+  guarantee: Le(output, 1)
+
+axiom prim.alloc : Int → List α
+  guarantee: LengthEq(output, 0)
