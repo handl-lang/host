@@ -3222,9 +3222,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         }
     };
     let ast = unsafe { &*ctx.ast };
-    // Collect (key_idx, val_idx, key_kind, key_payload, computed_key_idx)
-    // for each entry. Releasing borrows before evaluating children below.
-    let mut entries: Vec<(usize, usize, String, Option<String>, Option<usize>)> =
+    // Collect (key_idx, val_idx, direct_key) for each entry. Releasing
+    // borrows before evaluating children below.
+    let mut entries: Vec<(usize, usize, Option<String>)> =
         Vec::with_capacity(entry_indices.len());
     for entry_idx in &entry_indices {
         let entry_node = match ast.at(AstRef::new(*entry_idx)) {
@@ -3258,9 +3258,11 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         };
         // Object key: if the key node is a `var` (bare identifier) or
         // `string`, use its payload string directly — don't evaluate it.
-        // If it's an `array` with one child, treat it as a computed key
-        // (`[expr]: val`) and evaluate the inner expression. Mirrors the
-        // v2 tree-walk's object prim.
+        // Otherwise (computed key), evaluate the key expression and use
+        // its string representation. Bracket computed keys `[expr]:` are
+        // desugared to `paren { expr }` before eval (ADR-0058), so they
+        // fall into the `None` (evaluate) branch. Mirrors the v2
+        // tree-walk's object prim.
         let key_node = match ast.at(AstRef::new(key_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
@@ -3270,39 +3272,14 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         } else {
             None
         };
-        // For computed `[expr]:` keys, resolve the inner child index now
-        // (the array node is discarded; the inner expr is evaluated later).
-        let computed_key_idx: Option<usize> = if key_node.kind == "array" {
-            let arr_children = key_node.payload.get("children").and_then(|c| c.as_array());
-            match arr_children {
-                Some(c) if c.len() == 1 => c[0].as_u64().map(|i| i as usize),
-                _ => None,
-            }
-        } else {
-            None
-        };
-        if key_node.kind == "array" && computed_key_idx.is_none() {
-            return ctx.set_error(LangError::Engine(
-                "object: computed key [expr] requires exactly one element".to_string(),
-            ));
-        }
-        entries.push((
-            key_idx,
-            val_idx,
-            key_node.kind.to_string(),
-            direct_key,
-            computed_key_idx,
-        ));
+        entries.push((key_idx, val_idx, direct_key));
     }
     let mut obj = serde_json::Map::new();
-    for (key_idx, val_idx, _key_kind, direct_key, computed_key_idx) in entries {
+    for (key_idx, val_idx, direct_key) in entries {
         let key = match direct_key {
             Some(k) => k,
             None => {
-                // For computed `[expr]:` keys, evaluate the inner child
-                // instead of the array node itself.
-                let eval_idx = computed_key_idx.unwrap_or(key_idx);
-                let key_val = match eval_child_node(ctx, eval_idx) {
+                let key_val = match eval_child_node(ctx, key_idx) {
                     Ok(v) => v,
                     Err(e) => return ctx.set_error(e),
                 };
@@ -3802,6 +3779,12 @@ fn apply_native_v2(
                 .unwrap_or(Value::Null);
             Ok(serde_json::json!({"__either__": "right", "value": b}))
         }
+        // ADR-0053: the data-driven `if → match` desugar rewrites `if`
+        // nodes into `match` nodes before eval, so the v2 compiled path
+        // must dispatch `match`/`handle` to the existing prims (which
+        // read the current node from `ctx` and walk the arm children).
+        "match" => return prim_match(ctx),
+        "handle" => return prim_handle(ctx),
         _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
     };
 

@@ -553,6 +553,32 @@
     required:
     - entries
     type: object
+- id: ast.entry
+  node_kind: entry
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+  desugar:
+    target_kind: entry
+    when:
+      child_index: 0
+      child_kind: array
+    children:
+    - !Create
+      kind: paren
+      children:
+      - !KeepPath
+        - 0
+        - 0
+    - !Keep 1
 - id: ast.paren
   node_kind: paren
   payload_schema:

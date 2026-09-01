@@ -937,11 +937,14 @@ impl TreeWalkEngine {
                                 )
                             })? as usize;
                         // Object key: if the key node is a `var` (bare
-                        // identifier), use its name as the key string
-                        // directly — don't evaluate it as a variable. This
-                        // makes `{ n: 5 }` use key "n", not the value of n.
-                        // Otherwise, evaluate the key expression and use
-                        // its string representation.
+                        // identifier) or `string` literal, use its payload
+                        // as the key string directly — don't evaluate it.
+                        // This makes `{ n: 5 }` use key "n" and `{ "s": 5 }`
+                        // use key "s". Otherwise (computed key), evaluate
+                        // the key expression and use its string
+                        // representation. Bracket computed keys `[expr]:`
+                        // are desugared to `paren { expr }` before eval
+                        // (ADR-0058), so they fall into the `else` branch.
                         let key_node = ast.at(AstRef::new(key_idx))?;
                         let key = if key_node.kind == "var" {
                             key_node
@@ -963,36 +966,6 @@ impl TreeWalkEngine {
                                     )
                                 })?
                                 .to_string()
-                        } else if key_node.kind == "array" {
-                            // Computed key: `[expr]: val` evaluates expr and
-                            // uses its value as the key (JS-style bracket
-                            // computed keys). Only a single-element bracket
-                            // is meaningful as a key.
-                            let arr_children = key_node
-                                .payload
-                                .get("children")
-                                .and_then(|c| c.as_array());
-                            let inner_idx = match arr_children {
-                                Some(c) if c.len() == 1 => c[0].as_u64().ok_or_else(|| {
-                                    LangError::Engine(
-                                        "object: computed key [expr] child index must be a number"
-                                            .to_string(),
-                                    )
-                                })? as usize,
-                                _ => {
-                                    return Err(LangError::Engine(
-                                        "object: computed key [expr] requires exactly one element"
-                                            .to_string(),
-                                    ))
-                                }
-                            };
-                            let key_val =
-                                self.eval_node(ast, AstRef::new(inner_idx), lang, env)?;
-                            if let Some(s) = key_val.as_str() {
-                                s.to_string()
-                            } else {
-                                key_val.to_string()
-                            }
                         } else {
                             let key_val =
                                 self.eval_node(ast, AstRef::new(key_idx), lang, env)?;
@@ -4208,6 +4181,10 @@ mod tests {
                 app(child(0), vec![child(1)]),
             ))
             .unwrap();
+        // `paren` evaluates to its single child (proj_child 0).
+        lang.eval
+            .merge(EvalSchemeDef::new("e.paren", "paren", child(0)))
+            .unwrap();
         lang
     }
 
@@ -4258,13 +4235,15 @@ mod tests {
     #[test]
     fn pratt_object_computed_bracket_key_eval() {
         // { [k]: 2, other: 5 } where k = "mykey"
-        // The key node is an `array` with one child (the var k); the
-        // evaluator evaluates the inner expr and uses its value as the
-        // key (JS-style bracket computed keys).
+        // After ADR-0058 desugar, `[k]` (an `array` key) is rewritten to
+        // `paren { k }` — the engine evaluates the `paren` (which evaluates
+        // its inner child) and uses the result as the computed key. This
+        // test builds the post-desugar AST directly (the desugar pass
+        // itself is tested in handl-runtime::desugar_pass).
         // 0: var("k") (computed key expr)
-        // 1: array{children:[0]} (the [k] bracket)
+        // 1: paren{children:[0]} (post-desugar [k] → (k))
         // 2: value(2)
-        // 3: entry{children:[1, 2]} ([k]: 2)
+        // 3: entry{children:[1, 2]} ((k): 2)
         // 4: var("other") (literal key name)
         // 5: value(5)
         // 6: entry{children:[4, 5]} (other: 5)
@@ -4278,7 +4257,7 @@ mod tests {
         let lang = literal_eval_lang();
         let ast = make_ast(vec![
             AstNode::new("var").with_payload(json!("k")),                  // 0
-            AstNode::new("array").with_payload(json!({"children": [0]})),  // 1
+            AstNode::new("paren").with_payload(json!({"children": [0]})),  // 1
             AstNode::new("value").with_payload(json!(2)),                  // 2
             AstNode::new("entry").with_payload(json!({"children": [1, 2]})), // 3
             AstNode::new("var").with_payload(json!("other")),              // 4

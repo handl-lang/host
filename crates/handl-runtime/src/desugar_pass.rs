@@ -14,7 +14,7 @@
 //! convention); the output preserves this convention.
 
 use handl_language::{
-    Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, AstShapeDef, Language,
+    Ast, AstDesugarChild, AstDesugarRule, AstNode, AstRef, Language,
 };
 use serde_json::{Map, Value};
 
@@ -39,10 +39,21 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Ast {
         let shape = lang.ast.get_by_identity(&node.kind);
         if let Some(shape) = shape {
             if let Some(rule) = &shape.desugar {
+                // ADR-0058: if the rule has a `when` condition, only fire
+                // it when the original node's child at `child_index` has
+                // kind `child_kind`. Otherwise fall through to the
+                // no-desugar path (push the remapped node unchanged).
+                if let Some(cond) = &rule.when {
+                    if !matches_condition(ast, node, cond) {
+                        let new_ref = out.push(remapped);
+                        remap[i] = Some(new_ref.index());
+                        continue;
+                    }
+                }
                 // Build the replacement node from the rule. Pass the
                 // ORIGINAL (pre-remap) node so `Keep(i)` can look up old
                 // arena indices and translate them via `remap`.
-                let new_ref = build_desugar(&rule, node, &mut out, &remap);
+                let new_ref = build_desugar(&rule, node, ast, &mut out, &remap);
                 remap[i] = Some(new_ref.index());
                 continue;
             }
@@ -52,6 +63,25 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Ast {
         remap[i] = Some(new_ref.index());
     }
     out
+}
+
+/// Check whether a node's child at `cond.child_index` has kind
+/// `cond.child_kind` (ADR-0058 `when` condition).
+fn matches_condition(ast: &Ast, node: &AstNode, cond: &handl_language::AstDesugarCondition) -> bool {
+    let child_idx = node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.get(cond.child_index))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize);
+    match child_idx {
+        Some(idx) => match ast.get(AstRef::new(idx)) {
+            Some(child) => child.kind == cond.child_kind,
+            None => false,
+        },
+        None => false,
+    }
 }
 
 /// Remap the `children` array in a node's payload from old to new indices.
@@ -77,21 +107,25 @@ fn remap_children(node: &AstNode, remap: &[Option<usize>]) -> AstNode {
 ///
 /// The rule specifies `target_kind` and a list of [`AstDesugarChild`]s.
 /// Each child is either `Keep(i)` (use the remapped arena index of the
-/// original node's child `i`) or `Create { kind, payload, children }`
+/// original node's child `i`), `KeepPath([i, j, ...])` (navigate through
+/// descendant children by index path), or `Create { kind, payload, children }`
 /// (allocate a new node).
 ///
 /// `original` is the original (pre-remap) node — its `children` array
 /// holds OLD arena indices. The `remap` table translates old → new.
+/// `ast` is the full original AST, needed by `KeepPath` to look up
+/// intermediate nodes during navigation.
 fn build_desugar(
     rule: &AstDesugarRule,
     original: &AstNode,
+    ast: &Ast,
     out: &mut Ast,
     remap: &[Option<usize>],
 ) -> AstRef {
     let children: Vec<Value> = rule
         .children
         .iter()
-        .map(|spec| build_child(spec, original, out, remap))
+        .map(|spec| build_child(spec, original, ast, out, remap))
         .collect();
     let mut payload = Map::new();
     if !children.is_empty() {
@@ -109,6 +143,7 @@ fn build_desugar(
 fn build_child(
     spec: &AstDesugarChild,
     original: &AstNode,
+    ast: &Ast,
     out: &mut Ast,
     remap: &[Option<usize>],
 ) -> Value {
@@ -127,6 +162,37 @@ fn build_child(
                 None => Value::Null,
             }
         }
+        AstDesugarChild::KeepPath(path) => {
+            // Navigate through the original AST's children by index path.
+            // Start at the original node, follow each index into its
+            // child's children array, and remap the final arena index.
+            let mut current_node = original;
+            let mut current_idx: Option<usize> = None;
+            for &step in path {
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array());
+                let next_idx = match children.and_then(|arr| arr.get(step)) {
+                    Some(v) => v.as_u64().map(|v| v as usize),
+                    None => None,
+                };
+                match next_idx {
+                    Some(idx) => {
+                        current_idx = Some(idx);
+                        match ast.get(AstRef::new(idx)) {
+                            Some(n) => current_node = n,
+                            None => return Value::Null,
+                        }
+                    }
+                    None => return Value::Null,
+                }
+            }
+            match current_idx.and_then(|idx| remap.get(idx).copied().flatten()) {
+                Some(new_idx) => Value::from(new_idx),
+                None => Value::Null,
+            }
+        }
         AstDesugarChild::Create {
             kind,
             payload,
@@ -134,7 +200,7 @@ fn build_child(
         } => {
             let child_indices: Vec<Value> = children
                 .iter()
-                .map(|c| build_child(c, original, out, remap))
+                .map(|c| build_child(c, original, ast, out, remap))
                 .collect();
             let node_payload = if child_indices.is_empty() {
                 payload.clone().unwrap_or(Value::Null)
@@ -164,7 +230,7 @@ fn build_child(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{AstShapeDef, FragmentSet};
+    use handl_language::AstShapeDef;
     use serde_json::json;
 
     #[test]
@@ -223,6 +289,7 @@ mod tests {
                     ],
                 },
             ],
+            when: None,
         });
         lang.ast.merge(if_shape).unwrap();
         // Other shapes (no desugar)
@@ -301,6 +368,7 @@ mod tests {
                     ],
                 },
             ],
+            when: None,
         });
         lang.ast.merge(if_shape).unwrap();
         lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
@@ -337,5 +405,112 @@ mod tests {
         let arm2_children = arm2.payload.get("children").unwrap().as_array().unwrap();
         let else_body = out.get(AstRef::new(arm2_children[1].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(else_body.kind, "match", "nested if should be desugared to match");
+    }
+
+    #[test]
+    fn entry_bracket_key_desugar() {
+        // ADR-0058: `entry { children: [array { children: [expr] }, value] }`
+        // desugars to `entry { children: [paren { children: [expr] }, value] }`
+        // — the `array` wrapper is replaced by a `paren` wrapper so the
+        // engine evaluates the inner expression as a computed key.
+        //
+        // Non-array keys (var, string, paren, etc.) pass through unchanged
+        // because the `when` condition only fires for `array` children.
+        let mut lang = Language::new();
+        let entry_shape = AstShapeDef::new("ast.entry", "entry").with_desugar(AstDesugarRule {
+            target_kind: "entry".to_string(),
+            children: vec![
+                // Create paren { children: [inner expr] }
+                AstDesugarChild::Create {
+                    kind: "paren".to_string(),
+                    payload: None,
+                    children: vec![AstDesugarChild::KeepPath(vec![0, 0])],
+                },
+                // Keep child 1 (value)
+                AstDesugarChild::Keep(1),
+            ],
+            when: Some(handl_language::AstDesugarCondition {
+                child_index: 0,
+                child_kind: "array".to_string(),
+            }),
+        });
+        lang.ast.merge(entry_shape).unwrap();
+        // Other shapes (no desugar, just so the language is well-formed)
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.array", "array")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.paren", "paren")).unwrap();
+
+        // Build: entry { children: [array{[0]}, value(1)] }
+        //   0: var("k")        (computed key expr)
+        //   1: array{[0]}      (the [k] bracket)
+        //   2: value(1)        (the value)
+        //   3: entry{[1, 2]}   (the entry to desugar)
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("var").with_payload(json!("k"))); // 0
+        ast.push(AstNode::new("array").with_payload(json!({"children": [0]}))); // 1
+        ast.push(AstNode::new("value").with_payload(json!(1))); // 2
+        ast.push(AstNode::new("entry").with_payload(json!({"children": [1, 2]}))); // 3
+
+        let out = apply_desugar(&lang, &ast);
+        // The last node should still be `entry` (target_kind = entry).
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "entry");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 2);
+        // Child 0 should be a `paren` node (not `array`).
+        let key_node = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(key_node.kind, "paren");
+        // The paren's child 0 should be the remapped var("k").
+        let paren_children = key_node.payload.get("children").unwrap().as_array().unwrap();
+        let inner = out.get(AstRef::new(paren_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(inner.kind, "var");
+        assert_eq!(inner.payload, json!("k"));
+        // Child 1 should be the remapped value(1).
+        let val = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(val.kind, "value");
+        assert_eq!(val.payload, json!(1));
+    }
+
+    #[test]
+    fn entry_non_array_key_passes_through() {
+        // ADR-0058: entries whose key is NOT an `array` (e.g. a bare `var`)
+        // pass through the desugar pass unchanged because the `when`
+        // condition does not match.
+        let mut lang = Language::new();
+        let entry_shape = AstShapeDef::new("ast.entry", "entry").with_desugar(AstDesugarRule {
+            target_kind: "entry".to_string(),
+            children: vec![
+                AstDesugarChild::Create {
+                    kind: "paren".to_string(),
+                    payload: None,
+                    children: vec![AstDesugarChild::KeepPath(vec![0, 0])],
+                },
+                AstDesugarChild::Keep(1),
+            ],
+            when: Some(handl_language::AstDesugarCondition {
+                child_index: 0,
+                child_kind: "array".to_string(),
+            }),
+        });
+        lang.ast.merge(entry_shape).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.var", "var")).unwrap();
+
+        // Build: entry { children: [var("n"), value(1)] }
+        //   0: var("n")   (literal bare-id key)
+        //   1: value(1)
+        //   2: entry{[0, 1]}
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("var").with_payload(json!("n"))); // 0
+        ast.push(AstNode::new("value").with_payload(json!(1))); // 1
+        ast.push(AstNode::new("entry").with_payload(json!({"children": [0, 1]}))); // 2
+
+        let out = apply_desugar(&lang, &ast);
+        // The entry should pass through unchanged — key is still `var`, not `paren`.
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "entry");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        let key = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(key.kind, "var", "non-array key should pass through unchanged");
+        assert_eq!(key.payload, json!("n"));
     }
 }
