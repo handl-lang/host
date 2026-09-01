@@ -44,15 +44,16 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // eval.mood removed (stale placeholder).
     assert_eq!(lang.eval.len(), 55);
 
-    // AST shapes: 55 — 36 from the `tokens` foundation + 3 unique shapes from
+    // AST shapes: 57 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
-    // shape + 4 new operator shapes (binary.and, binary.or, binary.mod,
+    // shape + the `forall` shape (ADR-0054 parametric polymorphism)
+    // + 4 new operator shapes (binary.and, binary.or, binary.mod,
     // unary.neg) + 1 is shape + 4 mood shapes (may, mood.neg, must, when)
     // + 2 delimited-block shapes (arm, block) from match/handle parsing
     // + 1 proc shape (ast.proc) + 1 loop shape (ast.loop)
     // + 1 rest shape (ast.rest) + 1 bind shape (ast.bind).
     // Duplicates are union (idempotent).
-    assert_eq!(lang.ast.len(), 55);
+    assert_eq!(lang.ast.len(), 57);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);

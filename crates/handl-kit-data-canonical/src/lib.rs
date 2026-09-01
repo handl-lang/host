@@ -271,8 +271,10 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 57 type rules in types.yaml (one per canonical node kind).
-        assert_eq!(lang.types.len(), 57);
+        // 61 type rules in types.yaml (one per canonical node kind,
+        // plus type.pi and type.sigma for dependent types, ADR-0054,
+        // plus type.forall and type.vau for polymorphism/fexpr, ADR-0054).
+        assert_eq!(lang.types.len(), 61);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

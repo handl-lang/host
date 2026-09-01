@@ -9,7 +9,14 @@
 # schemes. Judgment ops: `construct`, `match_type`, `synth_child`, `check_child`,
 # `eval_child`, `proj_child`, `unify`, `extend`, `lookup`, `lookup_var`,
 # `fresh_meta`, `solve_meta`, `quote`, `normalize`, `bind`, `result`,
-# `node_payload`. `Seq` threads `fst`'s result into `snd` as `incoming`.
+# `node_payload`, `json_type_construct`, `payload_field`, `field`, `type_field`,
+# `synth_last_child`, `check_json_value`, `check_last_child`, `synth_match_arms`,
+# `synth_first_child_or_unknown`, `record_field_type`, `array_element_type`,
+# `synth_object_record`, `check_object_record`, `check_all_children`,
+# `construct_pi`, `construct_sigma`, `pi_apply`, `unify_pi`, `check_pi_body`,
+# `construct_forall`, `forall_apply`, `unify_forall`,
+# `construct_vau_type`, `vau_apply`, `unify_vau`.
+# `Seq` threads `fst`'s result into `snd` as `incoming`.
 #
 # This is the initial canonical set (ADR-0054 explicitly states the full rule
 # set is implementation work refined over time). The common arithmetic, logic,
@@ -20,16 +27,30 @@
 # Literals & variables
 # ---------------------------------------------------------------------------
 
-# `value` — a JSON literal node. The payload IS the literal. Without a
-# conditional dispatch on the payload's JSON type within a Scheme, we return
-# `type.value` as a universal "some literal" type.
+# `value` — a JSON literal node. The payload IS the literal. `node_payload`
+# returns it; `json_type_construct` dispatches on its JSON type and mints the
+# appropriate type value (type.number, type.string, type.bool, type.null,
+# type.array, or type.object).
 - id: type.value
   node_kind: value
-  synth: !Arr
-    op: construct
+  synth: !Seq
+    fst: !Arr
+      op: node_payload
+      args: []
+      source: Judgment
+    snd: !Arr
+      op: json_type_construct
+      args: []
+      source: Judgment
+  # Directed check: verify the JSON payload is a member of the expected
+  # collection type (type.number, type.string, type.bool, type.null). This is
+  # more precise than synth-then-unify because it avoids synthesizing a type
+  # and unifying — it directly inspects the payload's JSON kind
+  # (ADR-0054 directed checking).
+  check: !Arr
+    op: check_json_value
     args: []
     source: Judgment
-    lit: type.value
 
 # `var` — look up the variable's type in Γ. The var node's payload is the
 # name string. `node_payload` returns it; `lookup` reads the name from
@@ -114,6 +135,51 @@
                 args: []
                 source: Judgment
                 lit: tthen
+  # Directed check: check the condition against type.bool, then check both
+  # branches against the expected type (incoming). This is more precise than
+  # synth-then-unify because each branch is checked in isolation against the
+  # expected type rather than unified with each other
+  # (ADR-0054 directed checking). The expected type is bound to "expected"
+  # first because `Seq` threads `fst`'s result (Null from check_child) into
+  # `snd` as `incoming`, overwriting the original expected type.
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+        lit: 0
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: 1
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: 2
 
 # `ternary` — same structure as `if` (cond ? then : else).
 - id: type.ternary
@@ -177,6 +243,49 @@
                 args: []
                 source: Judgment
                 lit: tthen
+  # Directed check: same structure as `if` — check the condition against
+  # type.bool, then check both branches against the expected type (incoming).
+  # The expected type is bound to "expected" first because `Seq` threads
+  # `fst`'s result (Null from check_child) into `snd` as `incoming`,
+  # overwriting the original expected type (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+        lit: 0
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: 1
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: 2
 
 # ---------------------------------------------------------------------------
 # Binary arithmetic — both children type.number, result type.number
@@ -231,6 +340,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 - id: type.binary.sub
   node_kind: binary.sub
@@ -281,6 +434,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 - id: type.binary.mul
   node_kind: binary.mul
@@ -331,6 +528,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 - id: type.binary.div
   node_kind: binary.div
@@ -381,6 +622,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 - id: type.binary.mod
   node_kind: binary.mod
@@ -431,6 +716,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 - id: type.binary.pow
   node_kind: binary.pow
@@ -481,6 +810,50 @@
             args: []
             source: Judgment
             lit: type.number
+  # Directed check: verify the expected type is type.number, then check both
+  # operands against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 1
 
 # ---------------------------------------------------------------------------
 # Binary comparison — both children same type, result type.bool
@@ -520,6 +893,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.neq
   node_kind: binary.neq
@@ -555,6 +973,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.compare
   node_kind: binary.compare
@@ -590,6 +1053,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.gt
   node_kind: binary.gt
@@ -625,6 +1133,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.gte
   node_kind: binary.gte
@@ -660,6 +1213,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.lt
   node_kind: binary.lt
@@ -695,6 +1293,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 - id: type.binary.lte
   node_kind: binary.lte
@@ -730,6 +1373,51 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then unify the two
+  # operand types (they must match each other) (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 0
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: operand_type
+          snd: !Arr
+            op: check_child
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: operand_type
+            source: Judgment
+            lit: 1
 
 # ---------------------------------------------------------------------------
 # Binary logic — both children type.bool, result type.bool
@@ -784,6 +1472,50 @@
             args: []
             source: Judgment
             lit: type.bool
+  # Directed check: verify the expected type is type.bool, then check both
+  # operands against type.bool (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+          lit: 1
 
 - id: type.binary.or
   node_kind: binary.or
@@ -834,6 +1566,50 @@
             args: []
             source: Judgment
             lit: type.bool
+  # Directed check: verify the expected type is type.bool, then check both
+  # operands against type.bool (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.bool
+          source: Judgment
+          lit: 1
 
 # ---------------------------------------------------------------------------
 # Unary — neg: type.number → type.number; not: type.bool → type.bool
@@ -873,6 +1649,39 @@
           args: []
           source: Judgment
           lit: type.number
+  # Directed check: verify the expected type is type.number, then check the
+  # operand against type.number (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+      snd: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+        lit: 0
 
 - id: type.unary.not
   node_kind: unary.not
@@ -908,12 +1717,47 @@
           args: []
           source: Judgment
           lit: type.bool
+  # Directed check: verify the expected type is type.bool, then check the
+  # operand against type.bool (ADR-0054 directed checking).
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: unify
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+      snd: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.bool
+        source: Judgment
+        lit: 0
 
 # ---------------------------------------------------------------------------
 # Structural kinds — passthrough / simple type tags
 # ---------------------------------------------------------------------------
 
-# `paren` — passthrough: synth the single child.
+# `paren` — passthrough: synth the single child. The `check` rule checks
+# the child against the expected type (incoming), enabling directed checking
+# through parenthesized expressions (ADR-0054 legacy migration).
 - id: type.paren
   node_kind: paren
   synth: !Arr
@@ -921,170 +1765,783 @@
     args: []
     source: Judgment
     lit: 0
+  check: !Arr
+    op: check_child
+    args: []
+    source: Judgment
+    lit: 0
 
-# `block` — returns type.unit for now (would need last-child synthesis).
+# `block` — synth the last child (the block's type is the type of its last
+# statement). An empty block returns `type.unit`. Uses `synth_last_child`
+# (ADR-0054 legacy migration). The `check` rule checks the last child against
+# the expected type (incoming), enabling directed checking through blocks
+# (ADR-0054 directed checking).
 - id: type.block
   node_kind: block
   synth: !Arr
-    op: construct
+    op: synth_last_child
     args: []
     source: Judgment
-    lit: type.unit
+  check: !Arr
+    op: check_last_child
+    args: []
+    source: Judgment
 
-# `array` — type.array.
+# `array` — type.array with element type. Synths the first child (the
+# first element) and carries its type as the `element` field. An empty
+# array yields `type.array{element: type.unknown}` via
+# `synth_first_child_or_unknown` (ADR-0054).
 - id: type.array
   node_kind: array
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.array
+  synth: !Seq
+    fst: !Arr
+      op: synth_first_child_or_unknown
+      args: []
+      source: Judgment
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: element_type
+      snd: !Arr
+        op: construct
+        args:
+        - !Arr
+          op: field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: element_type
+          source: Judgment
+          lit: element
+        source: Judgment
+        lit: type.array
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Arr
+      op: check_all_children
+      args:
+      - !Arr
+        op: array_element_type
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        source: Judgment
+      source: Judgment
 
-# `object` — type.object.
+# `object` — synth a `type.record{fields: {...}}` from the node's `entries`
+# array. Each entry has a `key` (string) and a `value` (JSON value); the
+# value's JSON type becomes the field type. The `check` rule checks each
+# entry's value against the corresponding field type in the expected
+# `type.record` (ADR-0054 — object uses `entries`, not `children`, so a
+# dedicated judgment op iterates the entries).
 - id: type.object
   node_kind: object
   synth: !Arr
-    op: construct
+    op: synth_object_record
     args: []
     source: Judgment
-    lit: type.object
+  check: !Arr
+    op: check_object_record
+    args: []
+    source: Judgment
 
-# `function` — type.function.
+# `function` — synth child 0 (param) → param type, synth child 1 (body)
+# → body type, then construct `type.function` with `{"param": ..., "body": ...}`.
+# The `check` rule checks child 0 (param) against the expected type's `param`
+# field and child 1 (body) against the expected type's `body` field, enabling
+# directed checking of function literals against a known `type.function`
+# (ADR-0054 legacy migration).
 - id: type.function
   node_kind: function
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.function
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: paramtype
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 1
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: bodytype
+          snd: !Arr
+            op: construct
+            args:
+            - !Arr
+              op: field
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: paramtype
+              source: Judgment
+              lit: param
+            - !Arr
+              op: field
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: bodytype
+              source: Judgment
+              lit: body
+            source: Judgment
+            lit: type.function
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: param
+        source: Judgment
+        lit: 0
+      snd: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: body
+        source: Judgment
+        lit: 1
 
-# `call` — type.unknown (would need the function's return type).
+# ---------------------------------------------------------------------------
+# Dependent types — Pi / Sigma (ADR-0054 closure machinery)
+# ---------------------------------------------------------------------------
+#
+# `pi` — a dependent function type `Π (x: A) → B(x)`. Child 0 is the param
+# type A; child 1 is the body type B (which may reference the bound variable).
+# The `construct_pi` judgment op synths child 0 for the param type and stores
+# child 1's arena index in a `body_closure` marker — the body is NOT evaluated
+# eagerly. The closure is applied lazily via `pi_apply` (marks Γ, extends with
+# the variable, synths the body child, restores Γ).
+#
+# The `check` rule enables checking a `function` node against a `type.pi`:
+# it checks child 0 (param) against the Pi's `param` field, then uses
+# `check_pi_body` to bind the variable, apply the closure, and check child 1
+# (body) against the resulting body type.
+
+- id: type.pi
+  node_kind: pi
+  synth: !Arr
+    op: construct_pi
+    args:
+    - !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    source: Judgment
+    lit: x
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: expected
+          source: Judgment
+          lit: param
+        source: Judgment
+        lit: 0
+      snd: !Arr
+        op: check_pi_body
+        args:
+        - !Arr
+          op: result
+          args: []
+          source: Judgment
+          lit: expected
+        source: Judgment
+
+# `sigma` — a dependent pair type `Σ (x: A) × B(x)`. Same structure as `pi`
+# but mints `type.sigma`. Child 0 is the param type A; child 1 is the body
+# type B (which may reference the bound variable).
+- id: type.sigma
+  node_kind: sigma
+  synth: !Arr
+    op: construct_sigma
+    args:
+    - !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    source: Judgment
+    lit: x
+
+# `forall` — a polymorphic type `∀ (x: Kind) → body(x)`. Child 0 is the kind
+# of the type parameter; child 1 is the body type B (which may reference the
+# bound type variable). The `construct_forall` judgment op synths child 0 for
+# the kind and stores child 1's arena index in a `body_closure` marker — the
+# body is NOT evaluated eagerly. The closure is applied lazily via
+# `forall_apply` (marks Γ, extends with the type variable, synths the body
+# child, restores Γ). This is like `pi` but for type-level abstraction: the
+# parameter is a *type*, not a value (ADR-0054).
+- id: type.forall
+  node_kind: forall
+  synth: !Arr
+    op: construct_forall
+    args:
+    - !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    source: Judgment
+    lit: x
+
+# `vau` — a vau (fexpr) type `Vau (x: A) → B(x)`. Like `pi` but the parameter
+# is NOT evaluated before substitution (fexpr semantics). Child 0 is the param
+# type A; child 1 is the body type B. The `construct_vau_type` judgment op
+# synths child 0 for the param type and stores child 1's arena index in a
+# `body_closure` marker. The closure is applied lazily via `vau_apply`
+# (ADR-0054).
+- id: type.vau
+  node_kind: vau
+  synth: !Arr
+    op: construct_vau_type
+    args:
+    - !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    source: Judgment
+    lit: x
+
+# `call` — synth the callee (child 0) → type.function{param, body}, check
+# the arg (child 1) against the function's `param` type, then return the
+# function's `body` type. Uses `type_field` to extract `param`/`body` from
+# the function type value (ADR-0054 legacy migration).
 - id: type.call
   node_kind: call
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: funtype
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: type_field
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
+            source: Judgment
+            lit: param
+          source: Judgment
+          lit: 1
+        snd: !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: funtype
+          source: Judgment
+          lit: body
 
-# `let` — type.unknown (would need body child synthesis).
+# `let` — synth child 0 (value) → type T, get var name from
+# `payload_field("name")`, extend Γ with (name, T), synth child 1 (body)
+# → return body type. The `check` rule is the same but checks child 1
+# (body) against the expected type (preserved via `bind`/`result`),
+# enabling directed checking of `let` bodies (ADR-0054 legacy migration).
 - id: type.let
   node_kind: let
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: vartype
+      snd: !Seq
+        fst: !Arr
+          op: payload_field
+          args: []
+          source: Judgment
+          lit: name
+        snd: !Seq
+          fst: !Arr
+            op: extend
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: vartype
+            source: Judgment
+          snd: !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: synth_child
+        args: []
+        source: Judgment
+        lit: 0
+      snd: !Seq
+        fst: !Arr
+          op: bind
+          args: []
+          source: Judgment
+          lit: vartype
+        snd: !Seq
+          fst: !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+          snd: !Seq
+            fst: !Arr
+              op: extend
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: vartype
+              source: Judgment
+            snd: !Arr
+              op: check_child
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: expected
+              source: Judgment
+              lit: 1
 
-# `bind` — type.unknown.
+# `bind` — same structure as `let`: synth child 0 (value) → type T, get var
+# name from `payload_field("name")`, extend Γ with (name, T), synth child 1
+# (body) → return body type. The `check` rule checks child 1 (body) against
+# the expected type (preserved via `bind`/`result`), mirroring `let`
+# (ADR-0054 legacy migration).
 - id: type.bind
   node_kind: bind
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: vartype
+      snd: !Seq
+        fst: !Arr
+          op: payload_field
+          args: []
+          source: Judgment
+          lit: name
+        snd: !Seq
+          fst: !Arr
+            op: extend
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: vartype
+            source: Judgment
+          snd: !Arr
+            op: synth_child
+            args: []
+            source: Judgment
+            lit: 1
+  check: !Seq
+    fst: !Arr
+      op: bind
+      args: []
+      source: Judgment
+      lit: expected
+    snd: !Seq
+      fst: !Arr
+        op: synth_child
+        args: []
+        source: Judgment
+        lit: 0
+      snd: !Seq
+        fst: !Arr
+          op: bind
+          args: []
+          source: Judgment
+          lit: vartype
+        snd: !Seq
+          fst: !Arr
+            op: payload_field
+            args: []
+            source: Judgment
+            lit: name
+          snd: !Seq
+            fst: !Arr
+              op: extend
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: vartype
+              source: Judgment
+            snd: !Arr
+              op: check_child
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: expected
+              source: Judgment
+              lit: 1
 
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown
 # ---------------------------------------------------------------------------
 
+# `field-access` — synth child 0 (the target object) → type.record, bind
+# it, extract the field name from `payload.field`, then look up the
+# field's type in the record type via `record_field_type`. The field name
+# is threaded as `incoming` from `payload_field`; the record type is
+# recalled from the bound result (ADR-0054).
 - id: type.field-access
   node_kind: field-access
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: record_type
+      snd: !Seq
+        fst: !Arr
+          op: payload_field
+          args: []
+          source: Judgment
+          lit: field
+        snd: !Arr
+          op: record_field_type
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: record_type
+          source: Judgment
 
+# `index` — synth child 0 (the target array) → type.array{element: T},
+# then extract the element type via `array_element_type` (reads from
+# `incoming`). Returns T (ADR-0054).
 - id: type.index
   node_kind: index
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Arr
+      op: array_element_type
+      args: []
+      source: Judgment
 
+# `match` — multi-arm unification. The match node's children are
+# [scrutinee, arm1, arm2, ...]; each arm has children [pattern, body].
+# `synth_match_arms` synths each arm body and unifies them all, returning
+# the unified type (ADR-0054 — Scheme lacks iteration, so this is a
+# judgment op).
 - id: type.match
   node_kind: match
   synth: !Arr
-    op: construct
+    op: synth_match_arms
     args: []
     source: Judgment
-    lit: type.unknown
 
 - id: type.handle
   node_kind: handle
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
 
+# `flow` — like `pipe`. `flow` has children [input(0), function(1)].
+# Eval is `App(callee=child[1], args=[child[0]])` — i.e., apply child 1
+# (function) to child 0 (input). Synth child 1 (the function)
+# → type.function{param, body}, check child 0 (the input) against `param`,
+# then return `body` (ADR-0054 legacy migration).
 - id: type.flow
   node_kind: flow
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: funtype
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: type_field
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
+            source: Judgment
+            lit: param
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: funtype
+          source: Judgment
+          lit: body
 
+# `pipe` — like `call` but reversed. `pipe` has children [input(0),
+# function(1)]. Eval is `App(callee=child[1], args=[child[0]])` — i.e.,
+# apply child 1 (function) to child 0 (input). Synth child 1 (the
+# function) → type.function{param, body}, check child 0 (the input)
+# against `param`, then return `body` (ADR-0054 legacy migration).
 - id: type.pipe
   node_kind: pipe
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: funtype
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: type_field
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
+            source: Judgment
+            lit: param
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: funtype
+          source: Judgment
+          lit: body
 
+# `fanout` — function combinator: takes two functions f, g and produces a
+# function that applies both. The result is a function; without a product/
+# record type for the combined output, the param and body are type.unknown.
+# This is more precise than type.unknown because it at least says "function".
 - id: type.fanout
   node_kind: fanout
   synth: !Arr
     op: construct
-    args: []
+    args:
+    - !Arr
+      op: field
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.unknown
+      source: Judgment
+      lit: param
+    - !Arr
+      op: field
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.unknown
+      source: Judgment
+      lit: body
     source: Judgment
-    lit: type.unknown
+    lit: type.function
 
+# `apply` — has children; the eval scheme is `proj_child(0)`. It's a
+# passthrough (the first child is the result): synth child 0
+# (ADR-0054 legacy migration).
 - id: type.apply
   node_kind: apply
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
 
+# `proc` — has 1 child (children array with maxItems: 1). Eval is
+# `proj_child(0)`. Passthrough: synth child 0 (ADR-0054 legacy migration).
 - id: type.proc
   node_kind: proc
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
 
+# `typeof` — synth child 0 (the expression) and return its type
+# (ADR-0054 legacy migration).
 - id: type.typeof
   node_kind: typeof
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
 
+# `type-annot` — a typed binding `x: T = body`. The `synth` rule synths
+# child 0 (the body) and returns its type. The `check` rule checks child 0
+# (the body) against the expected type (incoming), enabling directed
+# checking of annotated expressions (ADR-0054 legacy migration).
 - id: type.type-annot
   node_kind: type-annot
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
+  check: !Arr
+    op: check_child
+    args: []
+    source: Judgment
+    lit: 0
 
+# `template` — template literals always produce strings. The eval scheme
+# uses `eval_template` (a foreign op); the type is always `type.string`
+# (ADR-0054 legacy migration).
 - id: type.template
   node_kind: template
   synth: !Arr
     op: construct
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: type.string
 
+# `json` — dynamic JSON path evaluation. The result type depends on the
+# `expr` string and cannot be determined statically. Returns type.unknown.
 - id: type.json
   node_kind: json
   synth: !Arr
@@ -1093,14 +2550,18 @@
     source: Judgment
     lit: type.unknown
 
+# `assign` — assignment is a statement with side effects, returns unit
+# (ADR-0054 legacy migration).
 - id: type.assign
   node_kind: assign
   synth: !Arr
     op: construct
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: type.unit
 
+# `resolve` — dynamic module loading. The result type depends on the
+# module's contents and cannot be determined statically. Returns type.unknown.
 - id: type.resolve
   node_kind: resolve
   synth: !Arr
@@ -1109,65 +2570,209 @@
     source: Judgment
     lit: type.unknown
 
+# `rest` — has 1 child; eval is `proj_child(0)`. Passthrough: synth child 0
+# (ADR-0054 legacy migration).
 - id: type.rest
   node_kind: rest
   synth: !Arr
-    op: construct
+    op: synth_child
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: 0
 
+# `loop` — loops are imperative statements returning unit
+# (ADR-0054 legacy migration).
 - id: type.loop
   node_kind: loop
   synth: !Arr
     op: construct
     args: []
     source: Judgment
-    lit: type.unknown
+    lit: type.unit
 
 # ---------------------------------------------------------------------------
 # Mood kinds
 # ---------------------------------------------------------------------------
 
+# `mood.cnd` — conditional modal op (3 numeric children → type.number).
 - id: type.mood.cnd
   node_kind: mood.cnd
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: check_child
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+        lit: 1
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: construct
+            args: []
+            source: Judgment
+            lit: type.number
+          source: Judgment
+          lit: 2
+        snd: !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
 
+# `mood.int` — like `pipe`/`flow`. Eval is `App(callee=child[1],
+# args=[child[0]])` — i.e., apply child 1 (function) to child 0 (input).
+# Synth child 1 (the function) → type.function{param, body}, check child 0
+# (the input) against `param`, then return `body` (ADR-0054 legacy migration).
 - id: type.mood.int
   node_kind: mood.int
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 1
+    snd: !Seq
+      fst: !Arr
+        op: bind
+        args: []
+        source: Judgment
+        lit: funtype
+      snd: !Seq
+        fst: !Arr
+          op: check_child
+          args:
+          - !Arr
+            op: type_field
+            args:
+            - !Arr
+              op: result
+              args: []
+              source: Judgment
+              lit: funtype
+            source: Judgment
+            lit: param
+          source: Judgment
+          lit: 0
+        snd: !Arr
+          op: type_field
+          args:
+          - !Arr
+            op: result
+            args: []
+            source: Judgment
+            lit: funtype
+          source: Judgment
+          lit: body
 
+# `mood.neg` — negative modal op (2 numeric children → type.number).
 - id: type.mood.neg
   node_kind: mood.neg
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: check_child
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+        lit: 1
+      snd: !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
 
+# `mood.norm` — norm modal op (2 numeric children → type.number).
 - id: type.mood.norm
   node_kind: mood.norm
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: check_child
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+        lit: 1
+      snd: !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
 
+# `mood.pot` — potential modal op (2 numeric children → type.number).
 - id: type.mood.pot
   node_kind: mood.pot
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unknown
+  synth: !Seq
+    fst: !Arr
+      op: check_child
+      args:
+      - !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: check_child
+        args:
+        - !Arr
+          op: construct
+          args: []
+          source: Judgment
+          lit: type.number
+        source: Judgment
+        lit: 1
+      snd: !Arr
+        op: construct
+        args: []
+        source: Judgment
+        lit: type.number
 
 # ---------------------------------------------------------------------------
 # Statement kinds

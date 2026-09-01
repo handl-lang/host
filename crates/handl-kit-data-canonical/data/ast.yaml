@@ -320,6 +320,19 @@
     - target
     - field
     type: object
+- id: ast.forall
+  node_kind: forall
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
 - id: ast.function
   node_kind: function
   payload_schema:

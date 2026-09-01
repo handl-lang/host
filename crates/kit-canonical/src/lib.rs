@@ -987,10 +987,10 @@ mod tests {
 
     #[test]
     fn typecheck_number_returns_type_value() {
-        // The `value` type rule returns `type.value` (a tagged type value).
+        // The `value` type rule dispatches on JSON type: 42 → type.number.
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("42").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.value"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
         assert_eq!(typ["__registry__"], serde_json::json!("handl.canonical"));
     }
 
