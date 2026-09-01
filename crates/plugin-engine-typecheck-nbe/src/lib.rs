@@ -77,6 +77,12 @@
 //!   type, field is `kind`) and `type.vau` (unevaluated-parameter functions —
 //!   like `type.pi` but marked as fexpr). Both reuse the same
 //!   `body_closure`/`apply_type_closure` machinery as Pi/Sigma (ADR-0054).
+//! - Equality type support (`construct_eq`, `construct_empty`, `check_refl`,
+//!   `eq_reduce`) brings propositional equality into the data-driven engine
+//!   (ADR-0054): `Eq(a, b)` is the equality type (inhabited by `Refl` iff
+//!   `a == b`), `Refl` is the proof, and `Empty` is the empty type
+//!   (contradiction, used when equality fails). These mirror the legacy
+//!   `Value::Eq`, `Value::Refl`, `Value::Empty`.
 
 #![warn(missing_docs)]
 
@@ -884,11 +890,12 @@ impl NbeTypecheckEngine {
             }
             "synth_match_arms" => {
                 // Multi-arm unification for `match` nodes. The match node's
-                // children are: [scrutinee, arm1, arm2, ...]. Each arm is a
-                // node with children [pattern, body]. We synth the body of
-                // each arm (child 1 of each arm node) and unify them all,
-                // returning the unified type. With fewer than 2 children
-                // (no arms), returns `type.unknown`
+                // children are: [scrutinee, block] where the block's children
+                // are the arm nodes. Each arm is a node with children
+                // [pattern, body]. We synth the body of each arm (child 1 of
+                // each arm node) and unify them all, returning the unified
+                // type. With fewer than 2 children (no arms), returns
+                // `type.unknown`
                 // (ADR-0054 — Scheme lacks iteration, so this is a judgment op).
                 let node = ast.get(node_ref).ok_or_else(|| {
                     LangError::Engine(format!(
@@ -911,12 +918,57 @@ impl NbeTypecheckEngine {
                         )
                     });
                 }
-                // Skip child 0 (scrutinee), iterate over arms (children 1..)
+                // Child 1 is a `block` node whose children are the arms.
+                // If it is a block, iterate its children; otherwise iterate
+                // match's children 1.. directly (legacy form).
+                let block_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_match_arms: arm child index is not a u64".into())
+                })? as usize;
+                let block_ref = AstRef::new(block_idx);
+                let arm_indices: Vec<usize> = {
+                    let block_node = ast.get(block_ref).ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "synth_match_arms: block node {} out of bounds",
+                            block_idx
+                        ))
+                    })?;
+                    if block_node.kind == "block" {
+                        block_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "synth_match_arms: block node has no children array".into(),
+                                )
+                            })?
+                            .iter()
+                            .map(|v| {
+                                v.as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "synth_match_arms: arm index is not a u64".into(),
+                                    )
+                                }) as Result<u64, LangError>
+                            })
+                            .map(|r| r.map(|v| v as usize))
+                            .collect::<Result<Vec<_>, _>>()?
+                    } else {
+                        // Legacy: arms are direct children of match (1..)
+                        children[1..]
+                            .iter()
+                            .map(|v| {
+                                v.as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "synth_match_arms: arm index is not a u64".into(),
+                                    )
+                                }) as Result<u64, LangError>
+                            })
+                            .map(|r| r.map(|v| v as usize))
+                            .collect::<Result<Vec<_>, _>>()?
+                    }
+                };
                 let mut arm_types: Vec<Value> = Vec::new();
-                for arm_child_idx in 1..children.len() {
-                    let arm_idx = children[arm_child_idx].as_u64().ok_or_else(|| {
-                        LangError::Engine("synth_match_arms: arm child index is not a u64".into())
-                    })? as usize;
+                for arm_idx in arm_indices {
                     let arm_ref = AstRef::new(arm_idx);
                     let arm_node = ast.get(arm_ref).ok_or_else(|| {
                         LangError::Engine(format!(
@@ -963,6 +1015,163 @@ impl NbeTypecheckEngine {
                     // type (metas are solved in-place).
                 }
                 Ok(unified)
+            }
+            "synth_let" => {
+                // Typecheck a `stmt.let` node. The node has children
+                // [assign, body] where `assign` has children [var(name),
+                // value]. We synth the value type, extend Γ with
+                // (name, value-type), then synth the body and return its
+                // type (ADR-0054 — the DSL can't navigate grandchildren, so
+                // this is a judgment op).
+                let node = ast.get(node_ref).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_let: node {} out of bounds",
+                        node_ref.index()
+                    ))
+                })?;
+                let children = node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("synth_let: node has no children array".into())
+                    })?;
+                if children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "synth_let: node needs at least 2 children (assign, body)".into(),
+                    ));
+                }
+                let assign_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_let: assign child index is not a u64".into())
+                })? as usize;
+                let body_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_let: body child index is not a u64".into())
+                })? as usize;
+                let assign_node = ast.get(AstRef::new(assign_idx)).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_let: assign node {} out of bounds",
+                        assign_idx
+                    ))
+                })?;
+                let assign_children = assign_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("synth_let: assign node has no children array".into())
+                    })?;
+                if assign_children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "synth_let: assign node needs at least 2 children (var, value)".into(),
+                    ));
+                }
+                let var_idx = assign_children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_let: var child index is not a u64".into())
+                })? as usize;
+                let value_idx = assign_children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_let: value child index is not a u64".into())
+                })? as usize;
+                let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_let: var node {} out of bounds",
+                        var_idx
+                    ))
+                })?;
+                let name = var_node.payload.as_str().ok_or_else(|| {
+                    LangError::Engine("synth_let: var node payload is not a string".into())
+                })?;
+                let value_type = self.synth_node(lang, ast, AstRef::new(value_idx), ctx)?;
+                ctx.extend(name.to_string(), value_type);
+                self.synth_node(lang, ast, AstRef::new(body_idx), ctx)
+            }
+            "synth_function" => {
+                // Typecheck a `function` node. The node has children
+                // [paren, body] where `paren` has children [var(name)]. We
+                // bind the parameter name to a fresh metavariable (unknown
+                // type) in Γ, synth the body, then construct
+                // type.function{param: meta, body: body-type}
+                // (ADR-0054 — the DSL can't navigate grandchildren or create
+                // metas, so this is a judgment op).
+                let node = ast.get(node_ref).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_function: node {} out of bounds",
+                        node_ref.index()
+                    ))
+                })?;
+                let children = node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("synth_function: node has no children array".into())
+                    })?;
+                if children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "synth_function: node needs at least 2 children (params, body)".into(),
+                    ));
+                }
+                let params_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_function: params child index is not a u64".into())
+                })? as usize;
+                let body_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_function: body child index is not a u64".into())
+                })? as usize;
+                // Navigate paren → child 0 (var) → payload (name).
+                let params_node = ast.get(AstRef::new(params_idx)).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_function: params node {} out of bounds",
+                        params_idx
+                    ))
+                })?;
+                let param_name = if params_node.kind == "paren" {
+                    let params_children = params_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "synth_function: paren node has no children array".into(),
+                            )
+                        })?;
+                    if params_children.is_empty() {
+                        return Err(LangError::Engine(
+                            "synth_function: paren node has no param children".into(),
+                        ));
+                    }
+                    let var_idx = params_children[0].as_u64().ok_or_else(|| {
+                        LangError::Engine("synth_function: var index is not a u64".into())
+                    })? as usize;
+                    let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "synth_function: var node {} out of bounds",
+                            var_idx
+                        ))
+                    })?;
+                    var_node.payload.as_str().ok_or_else(|| {
+                        LangError::Engine(
+                            "synth_function: var node payload is not a string".into(),
+                        )
+                    })?
+                } else if params_node.kind == "var" {
+                    params_node.payload.as_str().ok_or_else(|| {
+                        LangError::Engine(
+                            "synth_function: var node payload is not a string".into(),
+                        )
+                    })?
+                } else {
+                    return Err(LangError::Engine(format!(
+                        "synth_function: expected paren or var for params, got '{}'",
+                        params_node.kind
+                    )));
+                };
+                let param_meta = ctx.fresh_meta();
+                let param_type = meta_value(param_meta);
+                ctx.extend(param_name.to_string(), param_type.clone());
+                let body_type = self.synth_node(lang, ast, AstRef::new(body_idx), ctx)?;
+                let payload = serde_json::json!({"param": param_type, "body": body_type});
+                ctx.registry.construct("type.function", &payload).ok_or_else(|| {
+                    LangError::Engine("synth_function: construct failed for type.function".into())
+                })
             }
             "synth_first_child_or_unknown" => {
                 // Synthesize the type of the first child of the current node.
@@ -1654,6 +1863,379 @@ impl NbeTypecheckEngine {
                 self.unify(&body_a, &body_b, ctx)?;
                 Ok(Value::Null)
             }
+            // --- ADR-0054 equality type support (Eq, Refl, Empty) ---
+            //
+            // These ops bring propositional equality into the data-driven
+            // engine. `Eq(a, b)` is the equality type — inhabited (by `Refl`)
+            // iff `a == b`. `Refl` is the proof of equality. `Empty` is the
+            // empty type (contradiction), used when equality fails
+            // (ADR-0054 legacy migration — mirrors legacy `Value::Eq`,
+            // `Value::Refl`, `Value::Empty`).
+
+            "construct_eq" => {
+                // Construct a `type.eq` tagged value with `left` and `right`
+                // fields. `args[0]` is the left side sub-scheme; `args[1]` is
+                // the right side sub-scheme (ADR-0054).
+                if args.len() < 2 {
+                    return Err(LangError::Engine(
+                        "construct_eq: requires 2 args (left, right)".into(),
+                    ));
+                }
+                let left = self.eval_type_scheme(
+                    lang,
+                    ast,
+                    node_ref,
+                    &args[0],
+                    ctx,
+                    incoming.clone(),
+                )?;
+                let right = self.eval_type_scheme(
+                    lang,
+                    ast,
+                    node_ref,
+                    &args[1],
+                    ctx,
+                    incoming.clone(),
+                )?;
+                let payload = serde_json::json!({"left": left, "right": right});
+                ctx.registry.construct("type.eq", &payload).ok_or_else(|| {
+                    LangError::Engine("construct_eq: construct failed".into())
+                })
+            }
+            "construct_empty" => {
+                // Construct a `type.empty` tagged value (the empty type /
+                // contradiction). It carries no fields (ADR-0054).
+                ctx.registry.construct("type.empty", &Value::Null).ok_or_else(|| {
+                    LangError::Engine("construct_empty: construct failed".into())
+                })
+            }
+            "check_refl" => {
+                // Check a `refl` node against an expected `type.eq` type. The
+                // check succeeds iff the two sides are equal. The expected
+                // type comes from `incoming` (threaded by the `check` scheme)
+                // or `args[0]` (ADR-0054).
+                let expected = if let Some(arg) = args.first() {
+                    self.eval_type_scheme(
+                        lang,
+                        ast,
+                        node_ref,
+                        arg,
+                        ctx,
+                        incoming.clone(),
+                    )?
+                } else {
+                    incoming.clone().unwrap_or(Value::Null)
+                };
+                // Check that expected is a type.eq.
+                let tag = ctx.registry.as_type_tag(&expected).ok_or_else(|| {
+                    LangError::Engine(
+                        "check_refl: expected type is not a tagged type value".into(),
+                    )
+                })?;
+                if tag != "type.eq" {
+                    return Err(LangError::Engine(format!(
+                        "check_refl: expected type {} is not type.eq",
+                        tag
+                    )));
+                }
+                // Extract left and right sides.
+                let left = expected.get("left").unwrap_or(&Value::Null);
+                let right = expected.get("right").unwrap_or(&Value::Null);
+                // Check that left == right (they must be equal for refl to be
+                // a valid proof).
+                if left == right {
+                    Ok(Value::Null)
+                } else {
+                    Err(LangError::Engine(format!(
+                        "check_refl: cannot prove {:?} == {:?}",
+                        left, right
+                    )))
+                }
+            }
+            "eq_reduce" => {
+                // Reduce an `Eq(a, b)` type: if `a == b`, returns `type.refl`
+                // (the inhabited case); otherwise returns `type.empty`
+                // (ADR-0054). The Eq type value comes from `args[0]` or
+                // `incoming`.
+                let eq_val = if let Some(arg) = args.first() {
+                    self.eval_type_scheme(
+                        lang,
+                        ast,
+                        node_ref,
+                        arg,
+                        ctx,
+                        incoming.clone(),
+                    )?
+                } else {
+                    incoming.clone().unwrap_or(Value::Null)
+                };
+                let left = eq_val.get("left").unwrap_or(&Value::Null);
+                let right = eq_val.get("right").unwrap_or(&Value::Null);
+                if left == right {
+                    // Equality holds — return type.refl (the inhabited case).
+                    ctx.registry.construct("type.refl", &Value::Null).ok_or_else(|| {
+                        LangError::Engine("eq_reduce: construct failed for type.refl".into())
+                    })
+                } else {
+                    // Equality fails — return type.empty.
+                    ctx.registry.construct("type.empty", &Value::Null).ok_or_else(|| {
+                        LangError::Engine("eq_reduce: construct failed for type.empty".into())
+                    })
+                }
+            }
+            // --- ADR-0054 universe level support ---
+            //
+            // Universe types `Type_n` are types whose elements are types of
+            // level < n. The cumulative hierarchy is `Type_0 ⊆ Type_1 ⊆ ...`
+            // (mirrors the legacy `plugin-typecheck-nbe` `Level` type). These
+            // ops let type rules construct universes, extract their levels,
+            // and compute `max` levels for Pi/Sigma result universes.
+
+            "construct_universe" => {
+                // Construct a `type.universe` value carrying a `level` field.
+                // `lit` is the level (u64), or `args[0]` is a sub-scheme
+                // evaluating to the level (u64). Defaults to 0 when neither is
+                // present (base universe `Type_0`).
+                let level = if let Some(lit_val) = lit {
+                    lit_val.as_u64().ok_or_else(|| {
+                        LangError::Engine(
+                            "construct_universe: lit must be a u64 level".into(),
+                        )
+                    })? as u32
+                } else if let Some(arg) = args.first() {
+                    self.eval_type_scheme(lang, ast, node_ref, arg, ctx, incoming.clone())?
+                        .as_u64()
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "construct_universe: arg must evaluate to a u64 level".into(),
+                            )
+                        })? as u32
+                } else {
+                    0
+                };
+                let mut payload = serde_json::Map::new();
+                payload.insert("level".to_string(), Value::from(level));
+                ctx.registry
+                    .construct("type.universe", &Value::Object(payload))
+                    .ok_or_else(|| {
+                        LangError::Engine(
+                            "construct_universe: construct failed for type.universe".into(),
+                        )
+                    })
+            }
+            "universe_level" => {
+                // Extract the universe level of a type value. For a
+                // `type.universe` value, returns its `level` field. For other
+                // type values (base types like `type.number`), returns 0
+                // (base types live in `Type_0`). The type value comes from
+                // `args[0]` (a sub-scheme) or `incoming`.
+                let type_val = if let Some(arg) = args.first() {
+                    self.eval_type_scheme(lang, ast, node_ref, arg, ctx, incoming.clone())?
+                } else {
+                    incoming.clone().unwrap_or(Value::Null)
+                };
+                if let Some(tag) = ctx.registry.as_type_tag(&type_val) {
+                    if tag == "type.universe" {
+                        let level =
+                            type_val.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+                        return Ok(Value::from(level));
+                    }
+                }
+                // For other type values, return 0 (base types live in Type_0).
+                Ok(Value::from(0u64))
+            }
+            "universe_max" => {
+                // Compute the max of two universe levels (u64). `args[0]` and
+                // `args[1]` are sub-schemes evaluating to levels. Used by
+                // Pi/Sigma rules to compute the result universe as
+                // `max(param_universe, body_universe)`.
+                if args.len() < 2 {
+                    return Err(LangError::Engine(
+                        "universe_max requires 2 args (two level sub-schemes)".into(),
+                    ));
+                }
+                let level_a = self
+                    .eval_type_scheme(lang, ast, node_ref, &args[0], ctx, incoming.clone())?
+                    .as_u64()
+                    .ok_or_else(|| {
+                        LangError::Engine("universe_max: arg 0 is not a u64".into())
+                    })?;
+                let level_b = self
+                    .eval_type_scheme(lang, ast, node_ref, &args[1], ctx, incoming)?
+                    .as_u64()
+                    .ok_or_else(|| {
+                        LangError::Engine("universe_max: arg 1 is not a u64".into())
+                    })?;
+                Ok(Value::from(level_a.max(level_b)))
+            }
+            // --- ADR-0054 Membership types (Is, Collection, Membership) ---
+            //
+            // Membership types model the proposition `value ∈ collection`.
+            // `Collection(name)` is a named collection (e.g. `type.number`,
+            // `type.string`). `Membership(value, collection)` is the type of
+            // `value ∈ collection`. `IsEvidence` is the proof when membership
+            // holds; `Empty` is the result when it doesn't. The core
+            // operation is `primitive_member(value, collection)` — it checks
+            // if a JSON value is a member of a primitive collection
+            // (type.number ↔ JSON number, etc.), mirroring the legacy
+            // `plugin-typecheck-nbe` `primitive_member` function.
+
+            "construct_membership" => {
+                // Create a `type.membership` tagged value with `value` and
+                // `collection` fields. `args[0]` is the value sub-scheme;
+                // `args[1]` is the collection type sub-scheme.
+                if args.len() < 2 {
+                    return Err(LangError::Engine(
+                        "construct_membership: requires 2 args (value, collection)".into(),
+                    ));
+                }
+                let value = self.eval_type_scheme(
+                    lang, ast, node_ref, &args[0], ctx, incoming.clone(),
+                )?;
+                let collection = self.eval_type_scheme(
+                    lang, ast, node_ref, &args[1], ctx, incoming.clone(),
+                )?;
+                let payload = serde_json::json!({"value": value, "collection": collection});
+                ctx.registry
+                    .construct("type.membership", &payload)
+                    .ok_or_else(|| {
+                        LangError::Engine("construct_membership: construct failed".into())
+                    })
+            }
+            "check_membership" => {
+                // Check if a JSON value is a member of a collection type.
+                // This is the core membership oracle. `args[0]` is the JSON
+                // value sub-scheme (or `incoming`); `args[1]` is the
+                // collection type sub-scheme (or `lit` is the collection tag
+                // string). Returns `type.is_evidence` if membership holds,
+                // `type.empty` otherwise.
+                let value = if let Some(arg) = args.first() {
+                    self.eval_type_scheme(
+                        lang, ast, node_ref, arg, ctx, incoming.clone(),
+                    )?
+                } else {
+                    incoming.clone().unwrap_or(Value::Null)
+                };
+                let collection = if args.len() > 1 {
+                    self.eval_type_scheme(
+                        lang, ast, node_ref, &args[1], ctx, incoming.clone(),
+                    )?
+                } else if let Some(lit_val) = lit {
+                    // lit is the collection tag string.
+                    ctx.registry
+                        .construct(
+                            lit_val.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "check_membership: lit must be a collection tag string".into(),
+                                )
+                            })?,
+                            &Value::Null,
+                        )
+                        .ok_or_else(|| {
+                            LangError::Engine("check_membership: construct failed".into())
+                        })?
+                } else {
+                    return Err(LangError::Engine(
+                        "check_membership: no collection specified".into(),
+                    ));
+                };
+                // Get the collection tag.
+                let collection_tag = ctx.registry.as_type_tag(&collection).ok_or_else(|| {
+                    LangError::Engine(
+                        "check_membership: collection is not a tagged type value".into(),
+                    )
+                })?;
+                // Check membership (mirrors legacy `primitive_member`).
+                let is_member = match collection_tag {
+                    "type.number" => value.is_number(),
+                    "type.string" => value.is_string(),
+                    "type.bool" => value.is_boolean(),
+                    "type.null" => value.is_null(),
+                    "type.array" => value.is_array(),
+                    "type.object" => value.is_object(),
+                    _ => false,
+                };
+                if is_member {
+                    // Return IsEvidence (proof that membership holds).
+                    ctx.registry
+                        .construct("type.is_evidence", &Value::Null)
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "check_membership: construct failed for type.is_evidence".into(),
+                            )
+                        })
+                } else {
+                    // Return Empty (membership doesn't hold).
+                    ctx.registry
+                        .construct("type.empty", &Value::Null)
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "check_membership: construct failed for type.empty".into(),
+                            )
+                        })
+                }
+            }
+            "eval_membership" => {
+                // Reduce a `type.membership` value to either
+                // `type.is_evidence` (if membership holds) or `type.empty`
+                // (if not). `args[0]` or `incoming` is the membership type
+                // value.
+                let membership_val = if let Some(arg) = args.first() {
+                    self.eval_type_scheme(
+                        lang, ast, node_ref, arg, ctx, incoming.clone(),
+                    )?
+                } else {
+                    incoming.clone().unwrap_or(Value::Null)
+                };
+                let value = membership_val.get("value").unwrap_or(&Value::Null);
+                let collection = membership_val.get("collection").unwrap_or(&Value::Null);
+                let collection_tag = ctx.registry.as_type_tag(collection).ok_or_else(|| {
+                    LangError::Engine(
+                        "eval_membership: collection is not a tagged type value".into(),
+                    )
+                })?;
+                let is_member = match collection_tag {
+                    "type.number" => value.is_number(),
+                    "type.string" => value.is_string(),
+                    "type.bool" => value.is_boolean(),
+                    "type.null" => value.is_null(),
+                    "type.array" => value.is_array(),
+                    "type.object" => value.is_object(),
+                    _ => false,
+                };
+                if is_member {
+                    ctx.registry
+                        .construct("type.is_evidence", &Value::Null)
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_membership: construct failed for type.is_evidence".into(),
+                            )
+                        })
+                } else {
+                    ctx.registry
+                        .construct("type.empty", &Value::Null)
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_membership: construct failed for type.empty".into(),
+                            )
+                        })
+                }
+            }
+            "construct_collection" => {
+                // Create a `type.collection` tagged value with a `name`
+                // field. `lit` is the collection name string.
+                let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
+                    LangError::Engine(
+                        "construct_collection: lit must be a collection name string".into(),
+                    )
+                })?;
+                let payload = serde_json::json!({"name": name});
+                ctx.registry
+                    .construct("type.collection", &payload)
+                    .ok_or_else(|| {
+                        LangError::Engine("construct_collection: construct failed".into())
+                    })
+            }
             other => Err(LangError::Engine(format!(
                 "typecheck: unknown judgment op '{}'",
                 other
@@ -1776,6 +2358,24 @@ impl NbeTypecheckEngine {
             (ctx.registry.as_type_tag(a), ctx.registry.as_type_tag(b))
         {
             if tag_a == tag_b {
+                // Universe cumulativity (ADR-0054): two `type.universe` values
+                // unify iff their levels are equal. The cumulative hierarchy
+                // is `Type_0 ⊆ Type_1 ⊆ ...`; for unification we require
+                // equality (mirrors the legacy `l1.le(l2) && l2.le(l1)`).
+                // Subtyping (`Type_n ⊆ Type_m` if `n ≤ m`) is reserved for a
+                // future subtyping judgment.
+                if tag_a == "type.universe" {
+                    let level_a = a.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let level_b = b.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+                    if level_a == level_b {
+                        return Ok(());
+                    } else {
+                        return Err(LangError::Engine(format!(
+                            "typecheck: cannot unify Type_{} with Type_{}",
+                            level_a, level_b
+                        )));
+                    }
+                }
                 // Both are type values with the same tag — unify payload
                 // fields.  We use `get` (not `as_object`) because the type
                 // value is always a JSON object (the registry guarantees

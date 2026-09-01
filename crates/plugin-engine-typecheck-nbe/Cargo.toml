@@ -13,4 +13,8 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-module = { workspace = true }
+handl-kit-data-canonical = { workspace = true }

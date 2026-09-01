@@ -5808,3 +5808,980 @@ fn vau_apply_returns_body_type() {
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
 }
+
+// ===========================================================================
+// ADR-0054 universe level support
+// ===========================================================================
+
+/// The expected tagged type value for `type.universe` with a given level.
+fn type_universe(level: u64) -> Value {
+    json!({
+        "__tag__": "type.universe",
+        "__registry__": "handl.canonical",
+        "level": level
+    })
+}
+
+// ---------------------------------------------------------------------------
+// construct_universe(0) → {__tag__: "type.universe", level: 0}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_universe_creates_type_universe() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(lit=0)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_universe(0));
+    assert!(result.diagnostics.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// construct_universe(3) → {__tag__: "type.universe", level: 3}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_universe_with_level() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(lit=3)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(3u64)),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_universe(3));
+}
+
+// ---------------------------------------------------------------------------
+// construct_universe via arg sub-scheme (not lit)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_universe_with_arg() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(args=[const(2)])
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "construct_universe",
+                vec![Scheme::arr_native_lit("const", vec![], Value::from(2u64))],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_universe(2));
+}
+
+// ---------------------------------------------------------------------------
+// unify Type_0 with Type_0 → succeeds
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_same_level_universes_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(0) >>> unify(lit=Type_0) >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("unify", vec![], type_universe(0)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// unify Type_0 with Type_1 → fails
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_different_level_universes_fails() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(0) >>> unify(lit=Type_1) → fails
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                Scheme::arr_judgment_lit("unify", vec![], type_universe(1)),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify Type_0 with Type_1")),
+        "expected universe level mismatch, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// unify Type_1 with Type_1 (same non-zero level) → succeeds
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_same_nonzero_level_universes_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(2) >>> unify(lit=Type_2) >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("unify", vec![], type_universe(2)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// universe_level(construct_universe(2)) → 2
+// ---------------------------------------------------------------------------
+
+#[test]
+fn universe_level_extracts_from_universe() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_universe(2) >>> universe_level(args=[id])
+    // The id passes incoming (the Type_2 value) through to universe_level.
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                Scheme::arr_judgment(
+                    "universe_level",
+                    vec![Scheme::arr_native("id", vec![])],
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::from(2u64));
+}
+
+// ---------------------------------------------------------------------------
+// universe_level(type.number) → 0 (base types live in Type_0)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn universe_level_returns_zero_for_base_type() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct(type.number) >>> universe_level(args=[id])
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                Scheme::arr_judgment(
+                    "universe_level",
+                    vec![Scheme::arr_native("id", vec![])],
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::from(0u64));
+}
+
+// ---------------------------------------------------------------------------
+// universe_max(1, 3) → 3
+// ---------------------------------------------------------------------------
+
+#[test]
+fn universe_max_computes_max() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: universe_max(args=[const(1), const(3)])
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "universe_max",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(1u64)),
+                    Scheme::arr_native_lit("const", vec![], Value::from(3u64)),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::from(3u64));
+}
+
+// ---------------------------------------------------------------------------
+// universe_max(5, 2) → 5 (order independence)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn universe_max_computes_max_reversed() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: universe_max(args=[const(5), const(2)])
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "universe_max",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(5u64)),
+                    Scheme::arr_native_lit("const", vec![], Value::from(2u64)),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::from(5u64));
+}
+
+// ---------------------------------------------------------------------------
+// universe_max with universe_level: max(level(Type_2), level(Type_4)) → 4
+// ---------------------------------------------------------------------------
+
+#[test]
+fn universe_max_with_universe_levels() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: universe_max(
+    //   universe_level(construct_universe(2)),
+    //   universe_level(construct_universe(4)),
+    // )
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "universe_max",
+                vec![
+                    Scheme::arr_judgment(
+                        "universe_level",
+                        vec![Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(2u64),
+                        )],
+                    ),
+                    Scheme::arr_judgment(
+                        "universe_level",
+                        vec![Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(4u64),
+                        )],
+                    ),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::from(4u64));
+}
+
+// ===========================================================================
+// Membership type tests (Is, Collection, Membership) — ADR-0054
+// ===========================================================================
+
+/// The expected tagged type value for `type.is_evidence` in `handl.canonical`.
+fn type_is_evidence() -> Value {
+    json!({"__tag__":"type.is_evidence","__registry__":"handl.canonical"})
+}
+
+// ---------------------------------------------------------------------------
+// construct_membership_creates_type_membership — construct_membership(42,
+// type.number) → {__tag__: "type.membership", value: 42, collection:
+// type.number}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_membership_creates_type_membership() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_membership(const(42), construct(type.number))
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "construct_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(42)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(
+        result.typ,
+        json!({
+            "__tag__": "type.membership",
+            "__registry__": "handl.canonical",
+            "value": 42,
+            "collection": type_number()
+        })
+    );
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_number_in_type_number — check_membership(42,
+// type.number) → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_number_in_type_number() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(42)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_string_in_type_number — check_membership("hello",
+// type.number) → type.empty
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_string_in_type_number() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from("hello")),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_empty());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_number_in_type_string — check_membership(42,
+// type.string) → type.empty
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_number_in_type_string() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(42)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_empty());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_string_in_type_string — check_membership("hello",
+// type.string) → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_string_in_type_string() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from("hello")),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_bool_in_type_bool — check_membership(true, type.bool)
+// → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_bool_in_type_bool() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::from(true)),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_null_in_type_null — check_membership(null, type.null)
+// → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_null_in_type_null() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], Value::Null),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.null")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_array_in_type_array — check_membership([1,2],
+// type.array) → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_array_in_type_array() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], json!([1, 2])),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.array")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// check_membership_object_in_type_object — check_membership({},
+// type.object) → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_membership_object_in_type_object() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_membership",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], json!({})),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.object")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// eval_membership_reduces_to_evidence — eval_membership(
+// type.membership{value: 42, collection: type.number}) → type.is_evidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eval_membership_reduces_to_evidence() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: eval_membership(construct_membership(const(42),
+    // construct(type.number)))
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "eval_membership",
+                vec![Scheme::arr_judgment(
+                    "construct_membership",
+                    vec![
+                        Scheme::arr_native_lit("const", vec![], Value::from(42)),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    ],
+                )],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_is_evidence());
+}
+
+// ---------------------------------------------------------------------------
+// eval_membership_reduces_to_empty — eval_membership(
+// type.membership{value: "hello", collection: type.number}) → type.empty
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eval_membership_reduces_to_empty() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "eval_membership",
+                vec![Scheme::arr_judgment(
+                    "construct_membership",
+                    vec![
+                        Scheme::arr_native_lit("const", vec![], Value::from("hello")),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    ],
+                )],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_empty());
+}
+
+// ---------------------------------------------------------------------------
+// construct_collection_creates_type_collection — construct_collection(
+// "type.number") → {__tag__: "type.collection", name: "type.number"}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_collection_creates_type_collection() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment_lit("construct_collection", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(
+        result.typ,
+        json!({
+            "__tag__": "type.collection",
+            "__registry__": "handl.canonical",
+            "name": "type.number"
+        })
+    );
+}
+
+// ===========================================================================
+// ADR-0054 equality type support (Eq, Refl, Empty)
+// ===========================================================================
+
+/// The expected tagged type value for `type.eq` with given left/right fields.
+fn type_eq(left: Value, right: Value) -> Value {
+    json!({
+        "__tag__": "type.eq",
+        "__registry__": "handl.canonical",
+        "left": left,
+        "right": right
+    })
+}
+
+/// The expected tagged type value for `type.empty` (no fields).
+fn type_empty() -> Value {
+    json!({"__tag__":"type.empty","__registry__":"handl.canonical"})
+}
+
+/// The expected tagged type value for `type.refl` (no fields).
+fn type_refl() -> Value {
+    json!({"__tag__":"type.refl","__registry__":"handl.canonical"})
+}
+
+// ---------------------------------------------------------------------------
+// construct_eq_creates_type_eq — construct_eq(type.number, type.number)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_eq_creates_type_eq() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct_eq(construct(type.number), construct(type.number))
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "construct_eq",
+                vec![
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_eq(type_number(), type_number()));
+}
+
+// ---------------------------------------------------------------------------
+// construct_empty_creates_type_empty — construct_empty()
+// ---------------------------------------------------------------------------
+
+#[test]
+fn construct_empty_creates_type_empty() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment("construct_empty", vec![]),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_empty());
+}
+
+// ---------------------------------------------------------------------------
+// check_refl_succeeds_when_sides_equal — check_refl against
+// type.eq{left: 42, right: 42} succeeds
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_refl_succeeds_when_sides_equal() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: check_refl(const(type.eq{left: 42, right: 42})) >>> construct(type.number)
+    let eq_type = type_eq(Value::from(42), Value::from(42));
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "check_refl",
+                    vec![Scheme::arr_native_lit("const", vec![], eq_type)],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ---------------------------------------------------------------------------
+// check_refl_fails_when_sides_differ — check_refl against
+// type.eq{left: 42, right: "hello"} fails
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_refl_fails_when_sides_differ() {
+    let engine = engine();
+    let mut lang = Language::new();
+    let eq_type = type_eq(Value::from(42), Value::from("hello"));
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "check_refl",
+                vec![Scheme::arr_native_lit("const", vec![], eq_type)],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("check_refl: cannot prove")),
+        "expected check_refl failure, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// eq_reduce_returns_refl_when_equal — eq_reduce(type.eq{left: 42, right: 42})
+// → type.refl
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eq_reduce_returns_refl_when_equal() {
+    let engine = engine();
+    let mut lang = Language::new();
+    let eq_type = type_eq(Value::from(42), Value::from(42));
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "eq_reduce",
+                vec![Scheme::arr_native_lit("const", vec![], eq_type)],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_refl());
+}
+
+// ---------------------------------------------------------------------------
+// eq_reduce_returns_empty_when_not_equal —
+// eq_reduce(type.eq{left: 42, right: "hello"}) → type.empty
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eq_reduce_returns_empty_when_not_equal() {
+    let engine = engine();
+    let mut lang = Language::new();
+    let eq_type = type_eq(Value::from(42), Value::from("hello"));
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "eq_reduce",
+                vec![Scheme::arr_native_lit("const", vec![], eq_type)],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_empty());
+}
+
+// ---------------------------------------------------------------------------
+// unify_eq_types_unifies_both_sides — unify two identical type.eq values
+// succeeds
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_eq_types_unifies_both_sides() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: unify(eq_a, eq_b) >>> construct(type.number)
+    // Both eq values have left=type.number, right=type.string.
+    let eq_a = type_eq(type_number(), type_string());
+    let eq_b = type_eq(type_number(), type_string());
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "unify",
+                    vec![
+                        Scheme::arr_native_lit("const", vec![], eq_a),
+                        Scheme::arr_native_lit("const", vec![], eq_b),
+                    ],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ---------------------------------------------------------------------------
+// unify_eq_types_fails_on_mismatch — unify type.eq values whose right sides
+// differ fails
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_eq_types_fails_on_mismatch() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // eq_a: left=type.number, right=type.string
+    // eq_b: left=type.number, right=type.number  (right sides differ)
+    let eq_a = type_eq(type_number(), type_string());
+    let eq_b = type_eq(type_number(), type_number());
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "unify",
+                vec![
+                    Scheme::arr_native_lit("const", vec![], eq_a),
+                    Scheme::arr_native_lit("const", vec![], eq_b),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        "expected unification failure, got {:?}",
+        err
+    );
+}
