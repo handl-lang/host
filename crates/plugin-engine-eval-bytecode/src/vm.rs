@@ -61,6 +61,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
+use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 
 use crate::compile::compile;
 use crate::instr::Instr;
@@ -283,6 +284,25 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     pub(crate) fn define_global(&mut self, name: &str, value: Value) {
         self.scopes.define(name, value);
     }
+}
+
+/// `PatternMatchCtx` impl for the bytecode VM (ADR-0061).
+///
+/// The VM implements the trait directly: `define_binding` delegates to
+/// the scope stack, and `eval_pattern_node` delegates to `exec_node`
+/// (which uses `self.ast` internally; the `ast` parameter from the trait
+/// is the same AST).
+impl<'a, 'h> PatternMatchCtx for VmFrame<'a, 'h> {
+    fn define_binding(&mut self, name: &str, value: Value) {
+        self.scopes.define(name, value);
+    }
+
+    fn eval_pattern_node(&mut self, _ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
+        self.exec_node(node_ref)
+    }
+}
+
+impl<'a, 'h> VmFrame<'a, 'h> {
 
     /// Compile (if not cached) and execute a single node using v2 bytecode.
     ///
@@ -1416,9 +1436,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))?
                 as usize;
 
-            // Interpret the pattern node structurally.
+            // Interpret the pattern node structurally (ADR-0061: shared
+            // pattern matching logic).
             self.scopes.push_scope();
-            let matched = self.try_pattern(AstRef::new(pattern_idx), &scrut_val);
+            let matched = pattern_match::try_pattern(
+                self.ast,
+                AstRef::new(pattern_idx),
+                &scrut_val,
+                self,
+            );
             if let Ok(true) = matched {
                 let result = self.exec_node(AstRef::new(body_idx));
                 self.scopes.pop_scope();
@@ -1496,7 +1522,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 as usize;
 
             self.scopes.push_scope();
-            let matched = self.try_pattern(AstRef::new(pattern_idx), &body_val);
+            let matched = pattern_match::try_pattern(
+                self.ast,
+                AstRef::new(pattern_idx),
+                &body_val,
+                self,
+            );
             if let Ok(true) = matched {
                 let result = self.exec_node(AstRef::new(handler_idx));
                 self.scopes.pop_scope();
@@ -1508,214 +1539,6 @@ impl<'a, 'h> VmFrame<'a, 'h> {
 
         // No clause matched — return the body value as-is.
         Ok(body_val)
-    }
-
-    /// Interpret a pattern AST node structurally against a scrutinee value.
-    ///
-    /// Mirrors the v2 tree-walk's `try_pattern` and cranelift's `try_pattern`:
-    /// - `var` node named `_` or `_*` → wildcard (always matches).
-    /// - `var` node with another name → binder (binds name → scrut, always
-    ///   matches).
-    /// - `array` node → array destructuring with optional `...rest` capture.
-    /// - `object` node → object destructuring with optional `...rest` capture.
-    /// - Any other node → literal: evaluate the pattern as a value and
-    ///   compare by equality.
-    ///
-    /// Bindings are inserted into `self.scopes` (the caller is responsible
-    /// for push/pop scope).
-    fn try_pattern(&mut self, pattern_ref: AstRef, scrut: &Value) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        // `var` node (identifier pattern).
-        if pattern_node.kind == "var" {
-            if let Some(name) = pattern_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
-                    return Ok(true);
-                }
-                self.scopes.define(name, scrut.clone());
-                return Ok(true);
-            }
-        }
-        if pattern_node.kind == "array" {
-            return self.try_array_pattern(pattern_ref, scrut);
-        }
-        if pattern_node.kind == "object" {
-            return self.try_object_pattern(pattern_ref, scrut);
-        }
-        // Literal pattern — evaluate and compare by equality.
-        let pat_val = self.exec_node(pattern_ref)?;
-        Ok(pat_val == *scrut)
-    }
-
-    /// Extract the binder name from a `rest` pattern node (`...name`).
-    /// Returns `Some(name)` for a named rest, `None` for a wildcard rest
-    /// (`..._` / `..._*`), or `Err` if malformed.
-    fn rest_binder_name(&self, rest_ref: AstRef) -> Result<Option<String>, LangError> {
-        let rest_node = self.ast.at(rest_ref)?;
-        let children = rest_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("rest pattern: missing children".to_string()))?;
-        let var_idx = children
-            .first()
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("rest pattern: missing binder".to_string()))?
-            as usize;
-        let var_node = self.ast.at(AstRef::new(var_idx))?;
-        if var_node.kind == "var" {
-            if let Some(name) = var_node.payload.as_str() {
-                if name == "_" || name.starts_with('_') {
-                    return Ok(None);
-                }
-                return Ok(Some(name.to_string()));
-            }
-        }
-        Err(LangError::Engine("rest pattern: binder is not a var".to_string()))
-    }
-
-    /// Array destructuring: `[a, b, ...rest]`. Positional sub-patterns are
-    /// matched left-to-right; a `...rest` element captures the remaining
-    /// scrutinee elements as an array. Without a rest, lengths must match.
-    fn try_array_pattern(
-        &mut self,
-        pattern_ref: AstRef,
-        scrut: &Value,
-    ) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        let children = pattern_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("array pattern: missing children".to_string()))?;
-        let scrut_arr = match scrut.as_array() {
-            Some(a) => a,
-            None => return Ok(false),
-        };
-        let mut rest_idx: Option<usize> = None;
-        let mut positional: Vec<usize> = Vec::new();
-        for child in children {
-            let idx = child
-                .as_u64()
-                .ok_or_else(|| LangError::Engine("array pattern: bad child index".to_string()))?
-                as usize;
-            let child_node = self.ast.at(AstRef::new(idx))?;
-            if child_node.kind == "rest" {
-                if rest_idx.is_some() {
-                    return Err(LangError::Engine(
-                        "array pattern: multiple rest patterns".to_string(),
-                    ));
-                }
-                rest_idx = Some(idx);
-            } else {
-                positional.push(idx);
-            }
-        }
-        let n = positional.len();
-        if rest_idx.is_none() && scrut_arr.len() != n {
-            return Ok(false);
-        }
-        if scrut_arr.len() < n {
-            return Ok(false);
-        }
-        for (i, &pat_idx) in positional.iter().enumerate() {
-            if !self.try_pattern(AstRef::new(pat_idx), &scrut_arr[i])? {
-                return Ok(false);
-            }
-        }
-        if let Some(ridx) = rest_idx {
-            if let Some(name) = self.rest_binder_name(AstRef::new(ridx))? {
-                let rest_vals: Vec<Value> = scrut_arr[n..].to_vec();
-                self.scopes.define(&name, Value::Array(rest_vals));
-            }
-        }
-        Ok(true)
-    }
-
-    /// Object destructuring: `{ x: a, y: b, ...rest }`. Each `entry`'s key is
-    /// a field name (from a `var` or evaluated to a string); the value is a
-    /// sub-pattern matched against the corresponding field. A `...rest`
-    /// element captures the unmatched keys as an object.
-    fn try_object_pattern(
-        &mut self,
-        pattern_ref: AstRef,
-        scrut: &Value,
-    ) -> Result<bool, LangError> {
-        let pattern_node = self.ast.at(pattern_ref)?;
-        let children = pattern_node
-            .payload
-            .get("children")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("object pattern: missing children".to_string()))?;
-        let scrut_obj = match scrut.as_object() {
-            Some(o) => o,
-            None => return Ok(false),
-        };
-        let mut rest_idx: Option<usize> = None;
-        let mut entries: Vec<(String, usize)> = Vec::new();
-        for child in children {
-            let idx = child
-                .as_u64()
-                .ok_or_else(|| LangError::Engine("object pattern: bad child index".to_string()))?
-                as usize;
-            let child_node = self.ast.at(AstRef::new(idx))?;
-            if child_node.kind == "rest" {
-                if rest_idx.is_some() {
-                    return Err(LangError::Engine(
-                        "object pattern: multiple rest patterns".to_string(),
-                    ));
-                }
-                rest_idx = Some(idx);
-            } else if child_node.kind == "entry" {
-                let entry_children = child_node
-                    .payload
-                    .get("children")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: malformed entry".to_string())
-                    })?;
-                let key_idx = entry_children[0]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry key index".to_string())
-                    })? as usize;
-                let val_idx = entry_children[1]
-                    .as_u64()
-                    .ok_or_else(|| {
-                        LangError::Engine("object pattern: bad entry val index".to_string())
-                    })? as usize;
-                let key_node = self.ast.at(AstRef::new(key_idx))?;
-                let key = if key_node.kind == "var" {
-                    key_node.payload.as_str().unwrap_or("").to_string()
-                } else {
-                    let key_val = self.exec_node(AstRef::new(key_idx))?;
-                    key_val.as_str().unwrap_or("").to_string()
-                };
-                entries.push((key, val_idx));
-            }
-        }
-        let mut matched_keys: Vec<String> = Vec::new();
-        for (key, val_idx) in &entries {
-            match scrut_obj.get(key) {
-                Some(scrut_val) => {
-                    matched_keys.push(key.clone());
-                    if !self.try_pattern(AstRef::new(*val_idx), scrut_val)? {
-                        return Ok(false);
-                    }
-                }
-                None => return Ok(false),
-            }
-        }
-        if let Some(ridx) = rest_idx {
-            if let Some(name) = self.rest_binder_name(AstRef::new(ridx))? {
-                let rest_obj: serde_json::Map<String, Value> = scrut_obj
-                    .iter()
-                    .filter(|(k, _)| !matched_keys.contains(k))
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                self.scopes.define(&name, Value::Object(rest_obj));
-            }
-        }
-        Ok(true)
     }
 
     /// Apply an `App` callee: closure application only (ADR-0060).
