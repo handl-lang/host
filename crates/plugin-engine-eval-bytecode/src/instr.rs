@@ -238,4 +238,11 @@ pub enum Instr {
     ///
     /// Every compiled program ends with `Return`.
     Return,
+
+    /// Pop a value, compare its type tag to `tag`, and push
+    /// `either_left(value)` if it matches or `either_right(value)` if not
+    /// (ADR-0060).
+    ///
+    /// Emitted by `Arr { op: "route_on_type", lit: Some(tag), .. }`.
+    RouteOnType(String),
 }

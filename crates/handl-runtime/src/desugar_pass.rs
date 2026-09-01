@@ -125,7 +125,7 @@ fn build_desugar(
     let children: Vec<Value> = rule
         .children
         .iter()
-        .map(|spec| build_child(spec, original, ast, out, remap))
+        .flat_map(|spec| build_child(spec, original, ast, out, remap))
         .collect();
     let mut payload = Map::new();
     if !children.is_empty() {
@@ -139,14 +139,17 @@ fn build_desugar(
     out.push(node)
 }
 
-/// Build a single child of a desugar replacement node.
+/// Build children of a desugar replacement node from a single spec.
+///
+/// Returns a `Vec<Value>` because `KeepRest` expands to multiple children.
+/// All other variants produce exactly one child.
 fn build_child(
     spec: &AstDesugarChild,
     original: &AstNode,
     ast: &Ast,
     out: &mut Ast,
     remap: &[Option<usize>],
-) -> Value {
+) -> Vec<Value> {
     match spec {
         AstDesugarChild::Keep(i) => {
             // Look up original node's child i and remap it.
@@ -158,8 +161,8 @@ fn build_child(
                 .and_then(|v| v.as_u64())
                 .map(|v| v as usize);
             match old_idx.and_then(|idx| remap.get(idx).copied().flatten()) {
-                Some(new_idx) => Value::from(new_idx),
-                None => Value::Null,
+                Some(new_idx) => vec![Value::from(new_idx)],
+                None => vec![Value::Null],
             }
         }
         AstDesugarChild::KeepPath(path) => {
@@ -182,15 +185,15 @@ fn build_child(
                         current_idx = Some(idx);
                         match ast.get(AstRef::new(idx)) {
                             Some(n) => current_node = n,
-                            None => return Value::Null,
+                            None => return vec![Value::Null],
                         }
                     }
-                    None => return Value::Null,
+                    None => return vec![Value::Null],
                 }
             }
             match current_idx.and_then(|idx| remap.get(idx).copied().flatten()) {
-                Some(new_idx) => Value::from(new_idx),
-                None => Value::Null,
+                Some(new_idx) => vec![Value::from(new_idx)],
+                None => vec![Value::Null],
             }
         }
         AstDesugarChild::Create {
@@ -200,7 +203,7 @@ fn build_child(
         } => {
             let child_indices: Vec<Value> = children
                 .iter()
-                .map(|c| build_child(c, original, ast, out, remap))
+                .flat_map(|c| build_child(c, original, ast, out, remap))
                 .collect();
             let node_payload = if child_indices.is_empty() {
                 payload.clone().unwrap_or(Value::Null)
@@ -222,7 +225,25 @@ fn build_child(
                 payload: node_payload,
             };
             let new_ref = out.push(node);
-            Value::from(new_ref.index())
+            vec![Value::from(new_ref.index())]
+        }
+        AstDesugarChild::KeepRest(start) => {
+            // Keep all children from index `start` onward, each remapped
+            // into the output arena (ADR-0060).
+            let children = original
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array());
+            match children {
+                Some(arr) => arr
+                    .iter()
+                    .skip(*start)
+                    .filter_map(|v| v.as_u64().map(|i| i as usize))
+                    .filter_map(|idx| remap.get(idx).copied().flatten())
+                    .map(|new_idx| Value::from(new_idx))
+                    .collect(),
+                None => vec![],
+            }
         }
     }
 }
@@ -512,5 +533,80 @@ mod tests {
         let key = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(key.kind, "var", "non-array key should pass through unchanged");
         assert_eq!(key.payload, json!("n"));
+    }
+
+    #[test]
+    fn keep_rest_preserves_variable_length_tail() {
+        // ADR-0060: KeepRest(N) expands to all children from index N
+        // onward, each remapped into the output arena.
+        let mut lang = Language::new();
+        let shape = AstShapeDef::new("ast.call", "call").with_desugar(AstDesugarRule {
+            target_kind: "json".to_string(),
+            children: vec![
+                AstDesugarChild::Keep(0),
+                AstDesugarChild::KeepRest(1),
+            ],
+            when: None,
+        });
+        lang.ast.merge(shape).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.json", "json")).unwrap();
+
+        // Build: call { children: [0, 1, 2] }
+        //   0: json("{\"a\": $0}")  (template)
+        //   1: lit(42)             (arg1)
+        //   2: lit("hello")        (arg2)
+        //   3: call{[0,1,2]}       (the call to desugar)
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("json").with_payload(json!("{\"a\": $0}"))); // 0
+        ast.push(AstNode::new("lit").with_payload(json!(42))); // 1
+        ast.push(AstNode::new("lit").with_payload(json!("hello"))); // 2
+        ast.push(AstNode::new("call").with_payload(json!({"children": [0, 1, 2]}))); // 3
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "json");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // Should have 3 children: [template, arg1, arg2]
+        assert_eq!(children.len(), 3);
+        // Child 0 is the json template
+        let template = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(template.kind, "json");
+        // Children 1 and 2 are the args
+        let arg1 = out.get(AstRef::new(children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(arg1.kind, "lit");
+        assert_eq!(arg1.payload, json!(42));
+        let arg2 = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(arg2.kind, "lit");
+        assert_eq!(arg2.payload, json!("hello"));
+    }
+
+    #[test]
+    fn keep_rest_zero_tail() {
+        // ADR-0060: KeepRest(N) with no children from N onward produces
+        // zero children in the output.
+        let mut lang = Language::new();
+        let shape = AstShapeDef::new("ast.call", "call").with_desugar(AstDesugarRule {
+            target_kind: "json".to_string(),
+            children: vec![
+                AstDesugarChild::Keep(0),
+                AstDesugarChild::KeepRest(1),
+            ],
+            when: None,
+        });
+        lang.ast.merge(shape).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.lit", "lit")).unwrap();
+        lang.ast.merge(AstShapeDef::new("ast.json", "json")).unwrap();
+
+        let mut ast = Ast::new();
+        ast.push(AstNode::new("json").with_payload(json!("{}"))); // 0
+        ast.push(AstNode::new("call").with_payload(json!({"children": [0]}))); // 1
+
+        let out = apply_desugar(&lang, &ast);
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "json");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // Only child 0 (the template); KeepRest(1) produces nothing
+        assert_eq!(children.len(), 1);
     }
 }

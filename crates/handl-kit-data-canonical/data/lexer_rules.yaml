@@ -149,11 +149,13 @@
   pattern: !Literal
     text: import
   priority: 15
-- id: lex.keyword.let
-  token_kind: token.keyword.let
-  pattern: !Literal
-    text: let
-  priority: 15
+# NOTE: `lex.keyword.let` was removed to resolve the lex collision with
+# `lex.let` (both matched the text `let` at priority 15). The expression
+# form `let x = 42 in x` uses `lex.let` → `token.let` → `grammar.let.prefix`
+# → node kind `let` (which threads the binding type). The statement form
+# `stmt.let` is for block-context `let` (desugared-only, not surface syntax).
+# The `token.keyword.let` token definition remains in tokens.yaml for
+# semantic-token classification and test assertions.
 - id: lex.keyword.match
   token_kind: token.keyword.match
   pattern: !Literal

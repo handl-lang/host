@@ -6785,3 +6785,291 @@ fn unify_eq_types_fails_on_mismatch() {
         err
     );
 }
+
+// ===========================================================================
+// ADR-0054 subtyping: universe cumulativity (Type_n ⊆ Type_m if n ≤ m)
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// subtype(type.number, type.number) → succeeds (same type)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_same_type_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct(type.number), construct(type.number))
+    //       >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "subtype",
+                    vec![
+                        Scheme::arr_judgment_lit(
+                            "construct",
+                            vec![],
+                            Value::from("type.number"),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "construct",
+                            vec![],
+                            Value::from("type.number"),
+                        ),
+                    ],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// subtype(Type_0, Type_1) → succeeds (cumulativity: lower ⊆ higher)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_universe_lower_to_higher_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct_universe(0), construct_universe(1))
+    //       >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "subtype",
+                    vec![
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(0u64),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(1u64),
+                        ),
+                    ],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// subtype(Type_2, Type_2) → succeeds (same level)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_universe_same_level_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct_universe(2), construct_universe(2))
+    //       >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "subtype",
+                    vec![
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(2u64),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(2u64),
+                        ),
+                    ],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// subtype(Type_1, Type_0) → fails (higher is not a subtype of lower)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_universe_higher_to_lower_fails() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct_universe(1), construct_universe(0)) → fails
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "subtype",
+                vec![
+                    Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
+                    Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("Type_1 is not a subtype of Type_0")),
+        "expected cumulativity failure, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// subtype(Type_0, Type_2) → succeeds (cumulativity across multiple levels)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_universe_zero_to_two_succeeds() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct_universe(0), construct_universe(2))
+    //       >>> construct(type.string)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment(
+                    "subtype",
+                    vec![
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(0u64),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "construct_universe",
+                            vec![],
+                            Value::from(2u64),
+                        ),
+                    ],
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// subtype(type.number, type.string) → fails (different base types)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_different_base_types_fails() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: subtype(construct(type.number), construct(type.string)) → fails
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::arr_judgment(
+                "subtype",
+                vec![
+                    Scheme::arr_judgment_lit(
+                        "construct",
+                        vec![],
+                        Value::from("type.number"),
+                    ),
+                    Scheme::arr_judgment_lit(
+                        "construct",
+                        vec![],
+                        Value::from("type.string"),
+                    ),
+                ],
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("is not a subtype of")),
+        "expected subtyping failure, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// subtype(meta, type.number) → solves meta to type.number, succeeds
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subtype_meta_solves() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: fresh_meta >>> subtype(id, construct(type.number))
+    //       >>> construct(type.string)
+    // The subtype solves the fresh meta to type.number (no error). Result is
+    // type.string.
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("fresh_meta", vec![], Value::Null),
+                Scheme::seq(
+                    Scheme::arr_judgment(
+                        "subtype",
+                        vec![
+                            Scheme::arr_native("id", vec![]),
+                            Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![],
+                                Value::from("type.number"),
+                            ),
+                        ],
+                    ),
+                    Scheme::arr_judgment_lit(
+                        "construct",
+                        vec![],
+                        Value::from("type.string"),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}

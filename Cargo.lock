@@ -1300,10 +1300,14 @@ dependencies = [
 name = "handl-plugin-engine-typecheck-nbe"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-typecheck",
  "handl-plugin-lib-tag",
  "handl-plugin-module",

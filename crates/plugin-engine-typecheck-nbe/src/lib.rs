@@ -426,6 +426,25 @@ impl NbeTypecheckEngine {
                 }
                 Ok(Value::Null)
             }
+            "subtype" => {
+                // Check if type `a` (sub) is a subtype of type `b` (super).
+                // Supports universe cumulativity: `Type_n ⊆ Type_m` if `n ≤ m`
+                // (ADR-0054). `args[0]` is the sub-type sub-scheme; `args[1]`
+                // is the super-type sub-scheme.
+                if args.len() < 2 {
+                    return Err(LangError::Engine(
+                        "subtype: requires 2 args (sub, super)".into(),
+                    ));
+                }
+                let sub = self.eval_type_scheme(
+                    lang, ast, node_ref, &args[0], ctx, incoming.clone(),
+                )?;
+                let sup = self.eval_type_scheme(
+                    lang, ast, node_ref, &args[1], ctx, incoming,
+                )?;
+                self.check_subtype(&sub, &sup, ctx)?;
+                Ok(Value::Null)
+            }
             "extend" => {
                 // Read the name from `lit` when a non-null literal is present;
                 // otherwise read from `incoming` (a string `Value`), mirroring
@@ -1172,6 +1191,47 @@ impl NbeTypecheckEngine {
                 ctx.registry.construct("type.function", &payload).ok_or_else(|| {
                     LangError::Engine("synth_function: construct failed for type.function".into())
                 })
+            }
+            "synth_type_annot" => {
+                // Typecheck a `type-annot` node (`expr: T`). Child 0 is the
+                // annotated expression, child 1 is the type expression (e.g.
+                // `type.number` parses as `field-access(var("type"), "number")`).
+                // We synth child 0, interpret child 1 as a type value, unify
+                // them, and return the annotation type.
+                let node = ast.get(node_ref).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_type_annot: node {} out of bounds",
+                        node_ref.index()
+                    ))
+                })?;
+                let children = node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine("synth_type_annot: node has no children array".into())
+                    })?;
+                if children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "synth_type_annot: node needs 2 children (expr, type)".into(),
+                    ));
+                }
+                let expr_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_type_annot: expr child index is not a u64".into())
+                })? as usize;
+                let type_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_type_annot: type child index is not a u64".into())
+                })? as usize;
+                let expr_type = self.synth_node(lang, ast, AstRef::new(expr_idx), ctx)?;
+                let type_node = ast.get(AstRef::new(type_idx)).ok_or_else(|| {
+                    LangError::Engine(format!(
+                        "synth_type_annot: type node {} out of bounds",
+                        type_idx
+                    ))
+                })?;
+                let annotation_type = interpret_type_expr(ast, type_node, &ctx.registry)?;
+                self.unify(&expr_type, &annotation_type, ctx)?;
+                Ok(annotation_type)
             }
             "synth_first_child_or_unknown" => {
                 // Synthesize the type of the first child of the current node.
@@ -2311,6 +2371,67 @@ impl NbeTypecheckEngine {
         false
     }
 
+    /// Check if type `sub` is a subtype of type `sup` (ADR-0054 subtyping).
+    ///
+    /// This is the subtyping judgment. Unlike [`Self::unify`] (which requires
+    /// equality), `check_subtype` supports **universe cumulativity**:
+    /// `Type_n ⊆ Type_m` if `n ≤ m` (the cumulative hierarchy
+    /// `Type_0 ⊆ Type_1 ⊆ …`). For metavariables, it solves them (same as
+    /// `unify`). For other same-tag type values, it falls back to structural
+    /// equality via [`Self::unify`] (covariant structural subtyping is a
+    /// future extension).
+    fn check_subtype(
+        &self,
+        sub: &Value,
+        sup: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
+        // If equal, trivially a subtype.
+        if sub == sup {
+            return Ok(());
+        }
+        // Metavariable solving (same as unify).
+        if let Some(id) = extract_meta_id(sub) {
+            if !self.occurs_in(id as usize, sup) {
+                ctx.solve_meta(id, sup.clone());
+            }
+            return Ok(());
+        }
+        if let Some(id) = extract_meta_id(sup) {
+            if !self.occurs_in(id as usize, sub) {
+                ctx.solve_meta(id, sub.clone());
+            }
+            return Ok(());
+        }
+        // Universe cumulativity: Type_n ⊆ Type_m if n ≤ m.
+        if let (Some(tag_sub), Some(tag_sup)) =
+            (ctx.registry.as_type_tag(sub), ctx.registry.as_type_tag(sup))
+        {
+            if tag_sub == "type.universe" && tag_sup == "type.universe" {
+                let level_sub = sub.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+                let level_sup = sup.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+                if level_sub <= level_sup {
+                    return Ok(());
+                } else {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: Type_{} is not a subtype of Type_{} (cumulativity requires n ≤ m)",
+                        level_sub, level_sup
+                    )));
+                }
+            }
+            // For same-tag non-universe types, use structural equality
+            // (covariant structural subtyping is a future extension).
+            if tag_sub == tag_sup {
+                return self.unify(sub, sup, ctx);
+            }
+        }
+        // Default: not a subtype.
+        Err(LangError::Engine(format!(
+            "typecheck: {:?} is not a subtype of {:?}",
+            sub, sup
+        )))
+    }
+
     /// Unify two type values (structural equality + metavariable solving +
     /// recursive structural unification of tagged type values).
     ///
@@ -2655,6 +2776,58 @@ fn extract_meta_id(v: &Value) -> Option<u64> {
         return None;
     }
     obj.get(META_KEY).and_then(|id| id.as_u64())
+}
+
+/// Interpret a type-expression AST node (e.g. `type.number` parsed as
+/// `field-access` with children [var("type"), value("number")]) into a
+/// concrete type value via the registry.
+fn interpret_type_expr(
+    ast: &Ast,
+    node: &handl_language::AstNode,
+    registry: &TypeRegistry,
+) -> Result<Value, LangError> {
+    if node.kind == "field-access" {
+        let children = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("interpret_type_expr: field-access has no children".into())
+            })?;
+        if children.len() < 2 {
+            return Err(LangError::Engine(
+                "interpret_type_expr: field-access needs 2 children".into(),
+            ));
+        }
+        let field_idx = children[1].as_u64().ok_or_else(|| {
+            LangError::Engine("interpret_type_expr: field child index is not a u64".into())
+        })? as usize;
+        let field_node = ast.get(AstRef::new(field_idx)).ok_or_else(|| {
+            LangError::Engine(format!(
+                "interpret_type_expr: field node {} out of bounds",
+                field_idx
+            ))
+        })?;
+        let field = field_node.payload.get("name").and_then(|v| v.as_str()).or_else(|| {
+            field_node.payload.get("value").and_then(|v| v.as_str())
+        }).or_else(|| {
+            field_node.payload.as_str().map(|s| s)
+        }).ok_or_else(|| {
+            LangError::Engine("interpret_type_expr: field node has no name/value string".into())
+        })?;
+        let tag = format!("type.{}", field);
+        registry.construct(&tag, &Value::Null).ok_or_else(|| {
+            LangError::Engine(format!(
+                "interpret_type_expr: failed to construct type '{}'",
+                tag
+            ))
+        })
+    } else {
+        Err(LangError::Engine(format!(
+            "interpret_type_expr: unsupported type-expr kind '{}'",
+            node.kind
+        )))
+    }
 }
 
 #[cfg(test)]

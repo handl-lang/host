@@ -32,7 +32,7 @@ use std::cell::RefCell;
 
 use handl_language::{
     Ast, AstNode, AstRef, ChildSeparator, DelimitedShape, GrammarPosition, LangError, Language,
-    LiteralKind, Token, Value,
+    LiteralKind, PayloadTokenSpec, Token, Value,
 };
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 
@@ -225,7 +225,7 @@ impl PrattEngine {
         let delim = shape.delimited.as_ref();
 
         // 2. Build the prefix (null-denotation) node.
-        let left = if arity == 0 && delim.is_none() {
+        let left = if arity == 0 && delim.is_none() && shape.payload_tokens.is_empty() {
             // Atom: payload is the token's interpreted value (dispatches on
             // LiteralKind — no substring matching).
             let payload = self.atom_payload(lang, &token);
@@ -235,6 +235,24 @@ impl PrattEngine {
             // Prefix operator: parse normal children + optional delimited block.
             let prefix_rbp = prefix_row.binding_power.map(|(l, _)| l).unwrap_or(0);
             let mut children: Vec<usize> = Vec::with_capacity(arity);
+
+            // Consume payload tokens (e.g. binding name, `=` sign) before
+            // parsing children. Each token is consumed and, when `field` is
+            // set, its text is stored in the payload (ADR-0053 §7b).
+            let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
+            for spec in &shape.payload_tokens {
+                let tok = cursor.advance()?;
+                if tok.kind != spec.token {
+                    return Err(LangError::Engine(format!(
+                        "expected payload token {}, got {}",
+                        spec.token, tok.kind
+                    )));
+                }
+                if let Some(field) = &spec.field {
+                    payload_fields.insert(field.clone(), Value::from(tok.text.as_str()));
+                }
+            }
+
             // When delimited is set, the last child slot is the delimited
             // block (flatten just controls whether a container node is emitted
             // or elements are spliced — the slot count is the same).
@@ -260,7 +278,11 @@ impl PrattEngine {
                     DelimitedResult::Elements(indices) => children.extend(indices),
                 }
             }
-            let payload = serde_json::json!({ "children": children });
+            // Build payload: start with extracted fields, then add children.
+            payload_fields.insert("children".to_string(), Value::Array(
+                children.iter().map(|i| Value::from(*i)).collect(),
+            ));
+            let payload = Value::Object(payload_fields);
             let node = AstNode::new(kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
         };

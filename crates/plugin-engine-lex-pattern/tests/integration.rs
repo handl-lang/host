@@ -44,7 +44,7 @@ fn lex_let_binding() {
         toks,
         vec![
             Token {
-                kind: "token.keyword.let".into(),
+                kind: "token.let".into(),
                 text: "let".into()
             },
             Token {

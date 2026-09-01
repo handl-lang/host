@@ -1864,55 +1864,10 @@
 # (ADR-0054 legacy migration).
 - id: type.function
   node_kind: function
-  synth: !Seq
-    fst: !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: bind
-        args: []
-        source: Judgment
-        lit: paramtype
-      snd: !Seq
-        fst: !Arr
-          op: synth_child
-          args: []
-          source: Judgment
-          lit: 1
-        snd: !Seq
-          fst: !Arr
-            op: bind
-            args: []
-            source: Judgment
-            lit: bodytype
-          snd: !Arr
-            op: construct
-            args:
-            - !Arr
-              op: field
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: paramtype
-              source: Judgment
-              lit: param
-            - !Arr
-              op: field
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: bodytype
-              source: Judgment
-              lit: body
-            source: Judgment
-            lit: type.function
+  synth: !Arr
+    op: synth_function
+    args: []
+    source: Judgment
   check: !Seq
     fst: !Arr
       op: bind
@@ -2119,168 +2074,10 @@
 # enabling directed checking of `let` bodies (ADR-0054 legacy migration).
 - id: type.let
   node_kind: let
-  synth: !Seq
-    fst: !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: bind
-        args: []
-        source: Judgment
-        lit: vartype
-      snd: !Seq
-        fst: !Arr
-          op: payload_field
-          args: []
-          source: Judgment
-          lit: name
-        snd: !Seq
-          fst: !Arr
-            op: extend
-            args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: vartype
-            source: Judgment
-          snd: !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
-  check: !Seq
-    fst: !Arr
-      op: bind
-      args: []
-      source: Judgment
-      lit: expected
-    snd: !Seq
-      fst: !Arr
-        op: synth_child
-        args: []
-        source: Judgment
-        lit: 0
-      snd: !Seq
-        fst: !Arr
-          op: bind
-          args: []
-          source: Judgment
-          lit: vartype
-        snd: !Seq
-          fst: !Arr
-            op: payload_field
-            args: []
-            source: Judgment
-            lit: name
-          snd: !Seq
-            fst: !Arr
-              op: extend
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: vartype
-              source: Judgment
-            snd: !Arr
-              op: check_child
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: expected
-              source: Judgment
-              lit: 1
-
-# `bind` — same structure as `let`: synth child 0 (value) → type T, get var
-# name from `payload_field("name")`, extend Γ with (name, T), synth child 1
-# (body) → return body type. The `check` rule checks child 1 (body) against
-# the expected type (preserved via `bind`/`result`), mirroring `let`
-# (ADR-0054 legacy migration).
-- id: type.bind
-  node_kind: bind
-  synth: !Seq
-    fst: !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: bind
-        args: []
-        source: Judgment
-        lit: vartype
-      snd: !Seq
-        fst: !Arr
-          op: payload_field
-          args: []
-          source: Judgment
-          lit: name
-        snd: !Seq
-          fst: !Arr
-            op: extend
-            args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: vartype
-            source: Judgment
-          snd: !Arr
-            op: synth_child
-            args: []
-            source: Judgment
-            lit: 1
-  check: !Seq
-    fst: !Arr
-      op: bind
-      args: []
-      source: Judgment
-      lit: expected
-    snd: !Seq
-      fst: !Arr
-        op: synth_child
-        args: []
-        source: Judgment
-        lit: 0
-      snd: !Seq
-        fst: !Arr
-          op: bind
-          args: []
-          source: Judgment
-          lit: vartype
-        snd: !Seq
-          fst: !Arr
-            op: payload_field
-            args: []
-            source: Judgment
-            lit: name
-          snd: !Seq
-            fst: !Arr
-              op: extend
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: vartype
-              source: Judgment
-            snd: !Arr
-              op: check_child
-              args:
-              - !Arr
-                op: result
-                args: []
-                source: Judgment
-                lit: expected
-              source: Judgment
-              lit: 1
+  synth: !Arr
+    op: synth_let
+    args: []
+    source: Judgment
 
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown
@@ -2512,22 +2309,19 @@
     source: Judgment
     lit: 0
 
-# `type-annot` — a typed binding `x: T = body`. The `synth` rule synths
-# child 0 (the body) and returns its type. The `check` rule checks child 0
-# (the body) against the expected type (incoming), enabling directed
-# checking of annotated expressions (ADR-0054 legacy migration).
+# `type-annot` — a typed expression `expr: T`. The `synth` rule synths the
+# expression, interprets the type annotation, unifies them, and returns the
+# annotation type (ADR-0054).
 - id: type.type-annot
   node_kind: type-annot
   synth: !Arr
-    op: synth_child
+    op: synth_type_annot
     args: []
     source: Judgment
-    lit: 0
   check: !Arr
-    op: check_child
+    op: synth_type_annot
     args: []
     source: Judgment
-    lit: 0
 
 # `template` — template literals always produce strings. The eval scheme
 # uses `eval_template` (a foreign op); the type is always `type.string`
@@ -2781,10 +2575,9 @@
 - id: type.stmt.let
   node_kind: stmt.let
   synth: !Arr
-    op: construct
+    op: synth_let
     args: []
     source: Judgment
-    lit: type.unit
 
 - id: type.stmt.const
   node_kind: stmt.const

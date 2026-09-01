@@ -1002,4 +1002,74 @@ mod tests {
         let res = kit.typecheck("x");
         assert!(res.is_err(), "expected typecheck error for unbound var");
     }
+
+    #[test]
+    fn typecheck_arithmetic_returns_type_number() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("1 + 2").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+    }
+
+    #[test]
+    fn typecheck_bool_returns_type_bool() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("true").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.bool"));
+    }
+
+    #[test]
+    fn typecheck_if_with_bool_cond_returns_branch_type() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("if true then 1 else 2").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+    }
+
+    #[test]
+    fn typecheck_if_with_non_bool_cond_errors() {
+        let kit = Kit::new().unwrap();
+        let res = kit.typecheck("if 42 then 1 else 2");
+        assert!(res.is_err(), "expected typecheck error for non-bool if condition");
+    }
+
+    #[test]
+    fn typecheck_let_binds_var_and_returns_body_type() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("let x = 1 x").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+    }
+
+    #[test]
+    fn typecheck_fn_binds_param_and_returns_function_type() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("(x) -> x").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.function"));
+    }
+
+    #[test]
+    fn typecheck_match_returns_arm_body_type() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("match 1 { 1: 2, _: 3 }").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+    }
+
+    #[test]
+    fn typecheck_type_annot_checks_against_annotation() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("2: type.number").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+    }
+
+    #[test]
+    fn typecheck_type_annot_rejects_mismatch() {
+        let kit = Kit::new().unwrap();
+        let res = kit.typecheck("2: type.string");
+        assert!(res.is_err(), "expected typecheck error for type mismatch");
+    }
+
+    #[test]
+    fn typecheck_type_annot_bool() {
+        let kit = Kit::new().unwrap();
+        let typ = kit.typecheck("true: type.bool").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.bool"));
+    }
 }
