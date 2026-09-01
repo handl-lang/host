@@ -2067,11 +2067,9 @@
           source: Judgment
           lit: body
 
-# `let` — synth child 0 (value) → type T, get var name from
-# `payload_field("name")`, extend Γ with (name, T), synth child 1 (body)
-# → return body type. The `check` rule is the same but checks child 1
-# (body) against the expected type (preserved via `bind`/`result`),
-# enabling directed checking of `let` bodies (ADR-0054 legacy migration).
+# `let` — delegates to the `synth_let` judgment, which synth child 0
+# (value) → type T, reads the var name from `payload_field("name")`,
+# extends Γ with (name, T), and synth child 1 (body) → return body type.
 - id: type.let
   node_kind: let
   synth: !Arr

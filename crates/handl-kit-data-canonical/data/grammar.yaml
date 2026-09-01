@@ -245,15 +245,6 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
-- id: grammar.stmt-let.prefix
-  token: token.keyword.let
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: stmt.let
-    arity: 2
 - id: grammar.match.prefix
   token: token.keyword.match
   position: Prefix
@@ -346,6 +337,8 @@
   child_shape:
     node_kind: let
     arity: 2
+    child_separators:
+    - !Required token.keyword.in
 - id: grammar.call.infix
   token: token.lparen
   position: Infix
@@ -489,6 +482,8 @@
   child_shape:
     node_kind: ternary
     arity: 3
+    child_separators:
+    - !Required token.colon
 - id: grammar.div.infix
   token: token.slash
   position: Infix

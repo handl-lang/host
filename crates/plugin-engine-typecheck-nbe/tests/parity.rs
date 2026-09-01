@@ -272,30 +272,28 @@ fn parity_if_bool() {
 }
 
 // ===========================================================================
-// Part B-7: Let expressions (skipped — see note below)
+// Part B-7: Let expressions
 // ===========================================================================
-//
-// The canonical `let` syntax (`let x = 42; x`) cannot be typechecked through
-// the Pratt parser for two reasons:
-//
-// 1. **No separator**: `grammar.let.prefix` has arity 2 with no
-//    `child_separators`. The `;` token (`token.semicolon`) has no grammar
-//    row at all, so `let x = 42; x` fails at parse with "unexpected token:
-//    token.semicolon". The form `let x = 42 x` (no semicolon) does parse,
-//    but…
-// 2. **Lex collision**: both `lex.keyword.let` (`token.keyword.let`) and
-//    `lex.let` (`token.let`) match the text `let` with priority 15. The
-//    stable sort preserves YAML insertion order, so `token.keyword.let`
-//    (which appears first) wins. This maps to `grammar.stmt-let.prefix`
-//    → node kind `stmt.let`, whose type rule (`type.stmt.let`) returns
-//    `type.unit` — not the `type.let` rule that threads the binding's type
-//    into the body. Additionally, the Pratt parser does not extract the
-//    binding name into the node payload (`payload_field("name")` in
-//    `type.let` would fail because the payload only has `children`).
-//
-// The `handl-defining-handl` corpus tests build `let` ASTs manually (bypassing
-// the parser), which is why they work. Through the full lex → parse →
-// typecheck pipeline, `let` is not yet supported.
+
+#[test]
+fn parity_let_number() {
+    assert_eq!(tc("let x = 42 in x"), t_number());
+}
+
+#[test]
+fn parity_let_string() {
+    assert_eq!(tc("let x = 42 in \"hello\""), t_string());
+}
+
+#[test]
+fn parity_let_nested() {
+    assert_eq!(tc("let x = 42 in let y = \"hello\" in y"), t_string());
+}
+
+#[test]
+fn parity_let_shadow() {
+    assert_eq!(tc("let x = 1 in let x = \"hello\" in x"), t_string());
+}
 
 // ===========================================================================
 // Part B-8: Typeof
@@ -345,17 +343,23 @@ fn parity_unary_not() {
 }
 
 // ===========================================================================
-// Part B-11: Ternary (skipped — see note below)
+// Part B-11: Ternary
 // ===========================================================================
-//
-// The ternary syntax `cond ? then : else` cannot be parsed by the Pratt
-// parser because `:` (`token.colon`) is an infix operator
-// (`grammar.type-annot.infix`, lbp 12), not a child separator for the
-// ternary. `grammar.ternary.infix` (arity 3) has no `child_separators`, so
-// after parsing the `then` child, the parser tries to parse the `else` child
-// but encounters `:` which has no prefix row → "unexpected token:
-// token.colon". The `if` expression covers the same semantics and is tested
-// above.
+
+#[test]
+fn parity_ternary_number() {
+    assert_eq!(tc("true ? 42 : 0"), t_number());
+}
+
+#[test]
+fn parity_ternary_string() {
+    assert_eq!(tc("false ? \"a\" : \"b\""), t_string());
+}
+
+#[test]
+fn parity_ternary_bool() {
+    assert_eq!(tc("true ? false : true"), t_bool());
+}
 
 // ===========================================================================
 // Part D: Error cases

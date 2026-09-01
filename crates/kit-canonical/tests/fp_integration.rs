@@ -8,6 +8,7 @@
 
 use handl_kit_canonical::Kit;
 use handl_language::{Ast, AstNode};
+use handl_runtime::desugar_pass;
 use serde_json::json;
 
 /// Build a `Kit` for testing.
@@ -293,8 +294,9 @@ fn json_prim_parses_literal_string() {
 #[test]
 fn json_prim_with_placeholder_substitution() {
     let kit = kit();
-    // ADR-0053: json{...}(args) is parsed as call { children: [json_node, arg_node] }.
-    // prim_call checks if callee is json and does placeholder substitution.
+    // ADR-0053/0060: json{...}(args) is parsed as call { children: [json_node, arg_node] }.
+    // The desugar pass rewrites call(json, args...) → json node with children,
+    // which the json eval op uses for $0/$1/… placeholder substitution.
     let mut ast = Ast::new();
     // Node 0: literal 42 (value to substitute into $0).
     let lit_node = AstNode::new("lit").with_payload(json!(42));
@@ -306,6 +308,9 @@ fn json_prim_with_placeholder_substitution() {
     let call_node = AstNode::new("call")
         .with_payload(json!({ "children": [json_idx, lit_idx] }));
     ast.push(call_node);
+    // Apply the desugar pass (same as Runtime::parse does) so the call
+    // node is rewritten into a json node before evaluation.
+    let ast = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
     let result = kit
         .runtime()
         .eval(&ast)

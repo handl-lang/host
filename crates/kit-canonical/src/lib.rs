@@ -1034,7 +1034,7 @@ mod tests {
     #[test]
     fn typecheck_let_binds_var_and_returns_body_type() {
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("let x = 1 x").unwrap();
+        let typ = kit.typecheck("let x = 1 in x").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -1076,14 +1076,14 @@ mod tests {
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("let x: type.number = 2 x").unwrap();
+        let typ = kit.typecheck("let x: type.number = 2 in x").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
     fn typecheck_let_with_annotation_rejects_mismatch() {
         let kit = Kit::new().unwrap();
-        let res = kit.typecheck("let x: type.string = 2 x");
+        let res = kit.typecheck("let x: type.string = 2 in x");
         assert!(res.is_err(), "expected typecheck error for let annotation mismatch");
     }
 }

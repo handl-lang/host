@@ -140,7 +140,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.when.infix",
         "grammar.template.prefix",
         "grammar.type-annot.infix",
-        "grammar.stmt-let.prefix",
         "grammar.stmt-const.prefix",
         "grammar.stmt-import.prefix",
         "grammar.stmt-export.prefix",
