@@ -1090,17 +1090,62 @@ impl NbeTypecheckEngine {
                 let value_idx = assign_children[1].as_u64().ok_or_else(|| {
                     LangError::Engine("synth_let: value child index is not a u64".into())
                 })? as usize;
-                let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
+                let lhs_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
                     LangError::Engine(format!(
                         "synth_let: var node {} out of bounds",
                         var_idx
                     ))
                 })?;
-                let name = var_node.payload.as_str().ok_or_else(|| {
-                    LangError::Engine("synth_let: var node payload is not a string".into())
-                })?;
+                let (name, annotated_type) = if lhs_node.kind == "type-annot" {
+                    let ta_children = lhs_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                        .ok_or_else(|| {
+                            LangError::Engine("synth_let: type-annot has no children".into())
+                        })?;
+                    if ta_children.len() < 2 {
+                        return Err(LangError::Engine(
+                            "synth_let: type-annot needs 2 children".into(),
+                        ));
+                    }
+                    let inner_var_idx = ta_children[0].as_u64().ok_or_else(|| {
+                        LangError::Engine("synth_let: type-annot var index is not a u64".into())
+                    })? as usize;
+                    let type_expr_idx = ta_children[1].as_u64().ok_or_else(|| {
+                        LangError::Engine("synth_let: type-annot type index is not a u64".into())
+                    })? as usize;
+                    let inner_var = ast.get(AstRef::new(inner_var_idx)).ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "synth_let: inner var node {} out of bounds",
+                            inner_var_idx
+                        ))
+                    })?;
+                    let n = inner_var.payload.as_str().ok_or_else(|| {
+                        LangError::Engine("synth_let: inner var payload is not a string".into())
+                    })?;
+                    let type_expr_node = ast.get(AstRef::new(type_expr_idx)).ok_or_else(|| {
+                        LangError::Engine(format!(
+                            "synth_let: type-expr node {} out of bounds",
+                            type_expr_idx
+                        ))
+                    })?;
+                    let ann = interpret_type_expr(ast, type_expr_node, &ctx.registry)?;
+                    (n.to_string(), Some(ann))
+                } else {
+                    let n = lhs_node.payload.as_str().ok_or_else(|| {
+                        LangError::Engine("synth_let: var node payload is not a string".into())
+                    })?;
+                    (n.to_string(), None)
+                };
                 let value_type = self.synth_node(lang, ast, AstRef::new(value_idx), ctx)?;
-                ctx.extend(name.to_string(), value_type);
+                let bound_type = if let Some(ann) = annotated_type {
+                    self.unify(&value_type, &ann, ctx)?;
+                    ann
+                } else {
+                    value_type
+                };
+                ctx.extend(name, bound_type);
                 self.synth_node(lang, ast, AstRef::new(body_idx), ctx)
             }
             "synth_function" => {
