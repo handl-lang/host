@@ -11,7 +11,7 @@ derivations are finite by construction (Lean inductive types are finite),
 so the meaningful theorem is not "the loop terminates" (trivially true)
 but "the number of non-fixpoint steps is bounded by the initial measure."
 
-## Results (all zero `sorry`):
+## Results (1 `sorry` — genuine model limitation):
 
 1. **`measure_decreasing`** — definition: a measure `m` is decreasing
    for `G` if every non-fixpoint step strictly decreases `m` on the
@@ -20,16 +20,19 @@ but "the number of non-fixpoint steps is bounded by the initial measure."
 2. **`loop_iter_count`** — counts the number of `eLoopIter` steps in an
    `EvalIter (loop G)` derivation.
 
-3. **`decreasing_measure_bounds_iterations`** — if `m` is decreasing
-   for `G`, then the number of `eLoopIter` steps in any
-   `EvalIter (loop G) a v` derivation is at most `m c₀` (where `c₀` is
-   the initial feedback value). This is the meaningful termination
-   theorem: the loop reaches a fixpoint in at most `m(c₀)` steps.
+3. **`decreasing_measure_terminates`** — all `EvalIter` derivations are
+   finite by construction (inductive types are finite). Proven.
 
-4. **`Nested_ListLength_termination`** — the specific instance: if the
-   feedback channel is a list and the measure is list length, then the
-   loop terminates in at most `listLength(c₀)` steps. This connects to
-   the Rust implementation's `Nested(ListLength)` termination check.
+4. **`fixpoint_step_bounded`** — the base case (`eLoopZero`): iter count
+   is 0, trivially bounded by `m cₙ + 1`. Proven.
+
+5. **`decreasing_measure_bounds_iterations`** — the ideal theorem: iter
+   count bounded by `m c₀ + 1`. **Unprovable** due to a model limitation
+   in `EvalIter.eLoopIter` (the recursive call doesn't thread `c_next`
+   as its starting feedback). See theorem docstring for details.
+
+6. **`list_length_termination`** — connects to the Rust implementation's
+   `Nested(ListLength)` termination check. Proven (finiteness).
 -/
 
 import ArrowMinimalityLib.ProofGraphs
@@ -105,14 +108,47 @@ theorem decreasing_measure_terminates
   -- The iter count is a Nat, so it's trivially bounded by itself.
   exact ⟨loop_iter_count den G a v e, Nat.le_refl _⟩
 
+/-- **Fixpoint steps are trivially bounded.**
+
+For `eLoopZero` (the fixpoint/base case), the iter count is 0, which is
+trivially bounded by `m cₙ + 1` for any measure `m` and feedback `cₙ`. -/
+theorem fixpoint_step_bounded
+    {A B C : Ty Atom} (G : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
+    (m : TerminationMeasure C)
+    (a v cₙ : Val) (hcₙ : HasType cₙ C)
+    (eStep : EvalIter den G (Val.pair a cₙ) (Val.pair v cₙ))
+    : loop_iter_count den G a v (EvalIter.eLoopZero G a v cₙ hcₙ eStep) ≤ m cₙ + 1 := by
+  simp [loop_iter_count]
+
 /-- **Decreasing measure bounds iterations by initial measure.**
 
-For the `eLoopIter` case: the recursive count is bounded by `m c_next`
-(by recursion), and `m c_next < m cₙ` (by the decreasing hypothesis),
-so `1 + m c_next ≤ m cₙ + 1`.
+IDEAL THEOREM (currently unprovable due to a model limitation):
 
-The bound is: `loop_iter_count ≤ m cₙ + 1` where `cₙ` is the feedback
-value at the current step. -/
+  If `m` is a decreasing measure for `G`, then `loop_iter_count e ≤ m c₀ + 1`
+  where `c₀` is the initial feedback value.
+
+The proof strategy would be induction on `e : EvalIter (loop G) a v`:
+  - `eLoopZero`: count = 0 ≤ m cₙ + 1 (trivial, see `fixpoint_step_bounded`).
+  - `eLoopIter`: count = 1 + count(eRec). By IH, count(eRec) ≤ m c_next + 1.
+    By `hdecreasing`, m c_next < m cₙ. So 1 + (m c_next + 1) ≤ m cₙ + 1.
+
+**Model limitation**: The `EvalIter.eLoopIter` constructor is:
+  `eLoopIter G a v v' cₙ c_next hcₙ hne eStep eRec`
+  where `eRec : EvalIter (Graph.loop G) a v`.
+
+The recursive call `eRec` uses the same `a` but does NOT thread `c_next`
+as its starting feedback. In a properly-threaded loop semantics, `eRec`
+would be `EvalIter (Graph.loop G) a v` with feedback starting at `c_next`,
+allowing the IH to give `count(eRec) ≤ m c_next + 1`. Without this
+threading, we cannot connect `eRec`'s feedback to `c_next`, so the
+decreasing measure argument is inapplicable.
+
+**Fix required**: Strengthen `EvalIter.eLoopIter` to thread `c_next`:
+  `eRec : EvalIter (Graph.loop G) a v`  -- current (unthreaded)
+  → `eRec : EvalIterFrom (Graph.loop G) a c_next v`  -- threaded
+
+This is left as future work. The `fixpoint_step_bounded` theorem above
+proves the base case unconditionally. -/
 theorem decreasing_measure_bounds_iterations
     {A B C : Ty Atom} (G : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
     (m : TerminationMeasure C)
@@ -121,11 +157,9 @@ theorem decreasing_measure_bounds_iterations
     (cₙ : Val) (hcₙ : HasType cₙ C)
     (hinit : ∃ v', Nonempty (Eval den G (Val.pair a cₙ) (Val.pair v' cₙ)))
     : loop_iter_count den G a v e ≤ m cₙ + 1 := by
-  -- This theorem requires knowing the initial feedback value cₙ.
-  -- The bound follows by induction on EvalIter, using hdecreasing
-  -- in the eLoopIter case.
-  -- For a complete proof, we'd need to connect cₙ to the EvalIter
-  -- derivation's first step. This is left as future work.
+  -- See docstring: unprovable without threading c_next into eRec.
+  -- The base case (eLoopZero) is proven in `fixpoint_step_bounded`.
+  -- The inductive case (eLoopIter) requires a model fix.
   sorry
 
 -- ============================================================================
