@@ -561,7 +561,7 @@ theorem functor_id_law_implies_preserves_all_D
     (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
     (sig_guarantee : SigGuarantee Atom Sig)
     (A D : Ty Atom) (I : Val → Prop)
-    (dI : InvariantDomain Atom Sig sig_guarantee I)
+    (_dI : InvariantDomain Atom Sig sig_guarantee I)
     (a v : Val) (e : Eval den (@Graph.first Atom Sig A A D (Graph.idG A)) a v)
     (hI : I a) : I v := by
   -- first (idG A) is semantically the identity: v = a.
