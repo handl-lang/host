@@ -71,13 +71,13 @@ fn escape_handl_string(s: &str) -> String {
     out
 }
 
-/// Strip `//` comment lines from `greet.hnl` so the embedded source parses
+/// Strip `--` comment lines from `greet.hnl` so the embedded source parses
 /// as a bare expression. The data file's header comment documents the
 /// definition but is not valid inside the applied `(greet)(name)` form the
 /// Pratt parser evaluates, so it is removed before evaluation.
 fn strip_comment_lines(src: &str) -> String {
     src.lines()
-        .filter(|line| !line.trim_start().starts_with("//"))
+        .filter(|line| !line.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
         .join("\n")
 }

@@ -1,10 +1,10 @@
-// Atoms for token-based parsing.
-//
-// These model the primitive operations of a Pratt parser (top-down
-// operator-precedence parser). The key atom is parse.consume, which
-// removes one token from the token list — its LengthSubOne guarantee
-// and decrements_length termination effect let the inference engine
-// derive that the parser consumes tokens and terminates.
+-- Atoms for token-based parsing.
+--
+-- These model the primitive operations of a Pratt parser (top-down
+-- operator-precedence parser). The key atom is parse.consume, which
+-- removes one token from the token list — its LengthSubOne guarantee
+-- and decrements_length termination effect let the inference engine
+-- derive that the parser consumes tokens and terminates.
 
 axiom parse.peek : TokenList → Token
   guarantee: True
@@ -25,9 +25,9 @@ axiom parse.make_node : (Token × (AST × AST)) → AST
 axiom parse.atom_value : Token → AST
   guarantee: True
 
-// Backtracking parser atoms — Result-type modeling (ADR-0071).
-// These model backtracking via sum types (Result AST + Error) using
-// existing Choice/left machinery. No new calculus primitives.
+-- Backtracking parser atoms — Result-type modeling (ADR-0071).
+-- These model backtracking via sum types (Result AST + Error) using
+-- existing Choice/left machinery. No new calculus primitives.
 
 axiom parse.try_atom : TokenList → Result
   guarantee: IsSuccess(output) ∨ IsError(output)

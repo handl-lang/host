@@ -81,7 +81,7 @@ fn rename_updates_references_across_files() {
     fs::create_dir_all(&collection_dir).expect("create arrows/collection");
 
     // The arrow file being referenced.
-    fs::write(fn_dir.join("insert.hnl"), "// insert arrow\n").expect("write insert.hnl");
+    fs::write(fn_dir.join("insert.hnl"), "-- insert arrow\n").expect("write insert.hnl");
     // Current file references `insert`.
     let sort_path = collection_dir.join("sort.hnl");
     let sort_source = "insert(input)";
@@ -136,7 +136,7 @@ fn rename_renames_arrow_file() {
     fs::create_dir_all(&fn_dir).expect("create arrows/fn");
     fs::create_dir_all(&collection_dir).expect("create arrows/collection");
 
-    fs::write(fn_dir.join("insert.hnl"), "// insert arrow\n").expect("write insert.hnl");
+    fs::write(fn_dir.join("insert.hnl"), "-- insert arrow\n").expect("write insert.hnl");
     let sort_path = collection_dir.join("sort.hnl");
     fs::write(&sort_path, "insert(input)").expect("write sort.hnl");
 
@@ -205,7 +205,7 @@ fn rename_returns_valid_workspace_edit_json() {
     fs::create_dir_all(&fn_dir).expect("create arrows/fn");
     fs::create_dir_all(&collection_dir).expect("create arrows/collection");
 
-    fs::write(fn_dir.join("insert.hnl"), "// insert arrow\n").expect("write insert.hnl");
+    fs::write(fn_dir.join("insert.hnl"), "-- insert arrow\n").expect("write insert.hnl");
     let sort_path = collection_dir.join("sort.hnl");
     fs::write(&sort_path, "insert(input)").expect("write sort.hnl");
 

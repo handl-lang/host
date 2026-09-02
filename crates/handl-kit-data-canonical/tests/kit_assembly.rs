@@ -14,44 +14,47 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // token.template) + 3 operator tokens (token.and, token.or,
     // token.percent) + 1 vau keyword token (token.vau) + 3 mood keyword
     // tokens (token.keyword.may, token.keyword.must, token.keyword.when)
-    // + 2 new tokens (token.json, token.ellipsis) + 1 proc keyword token
-    // (token.keyword.proc) + 1 loop keyword token (token.keyword.loop)
+    // + 2 new tokens (token.json, token.ellipsis)
+    // + 1 loop keyword token (token.keyword.loop)
     // + 2 keyword tokens (token.keyword.then, token.keyword.in)
     // + 1 choice operator token (token.choice)
     // + 1 do keyword token (token.keyword.do)
     // + 3 Paterson notation tokens (token.arrow_app, token.arrow_bind,
     // token.keyword.returnA).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
+    // token.keyword.proc removed (proc syntax migrated to `~>` arrow).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 73);
+    assert_eq!(lang.tokens.len(), 72);
 
     // Grammar rows: 57 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
     // value literal rules (string, bool, null), 1 pow rule, 4 new operator
     // rules (and.infix, or.infix, mod.infix, neg.prefix), 1 vau prefix
     // rule, 1 is infix rule, 4 mood infix rules (may, must, not.infix,
-    // when), 2 new rules (json.prefix, ellipsis.prefix), 1 proc prefix
-    // rule (grammar.proc.prefix), 1 loop prefix rule (grammar.loop.prefix),
+    // when), 2 new rules (json.prefix, ellipsis.prefix),
+    // 1 loop prefix rule (grammar.loop.prefix),
     // 1 choice infix rule (grammar.choice.infix), 1 do-block prefix rule
     // (grammar.do-block.prefix),
     // and 3 Paterson notation rules (grammar.arrow-app.infix,
     // grammar.arrow-bind.infix, grammar.returnA.prefix).
     // grammar.mood.postfix removed (stale placeholder).
-    assert_eq!(lang.grammar.len(), 60);
+    // grammar.proc.prefix removed (proc syntax migrated to `~>` arrow).
+    assert_eq!(lang.grammar.len(), 59);
 
     // Eval schemes: 56 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
     // primitive), plus the `binary.pow` eval scheme,
     // 4 new operator eval schemes (binary.and, binary.or, binary.mod,
     // unary.neg), 1 is eval scheme, 4 mood eval schemes (may, mood.neg,
-    // must, when), 1 proc eval scheme (eval.proc), 1 loop eval scheme
+    // must, when), 1 loop eval scheme
     // (eval.loop), 1 rest eval scheme (eval.rest), 1 bind eval scheme
     // (eval.bind), 1 choice eval scheme (eval.choice),
     // and 1 arrow_bind eval scheme (eval.arrow_bind).
     // `eval.vau` is intentionally omitted (ADR-0052: Vau is removed from the
     // kernel — it is a handler concern, not a kernel combinator).
     // eval.mood removed (stale placeholder).
-    assert_eq!(lang.eval.len(), 58);
+    // eval.proc removed (proc syntax migrated to `~>` arrow).
+    assert_eq!(lang.eval.len(), 57);
 
     // AST shapes: 57 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
@@ -59,12 +62,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // + 4 new operator shapes (binary.and, binary.or, binary.mod,
     // unary.neg) + 1 is shape + 4 mood shapes (may, mood.neg, must, when)
     // + 2 delimited-block shapes (arm, block) from match/handle parsing
-    // + 1 proc shape (ast.proc) + 1 loop shape (ast.loop)
+    // + 1 loop shape (ast.loop)
     // + 1 rest shape (ast.rest) + 1 bind shape (ast.bind)
     // + 3 Paterson notation shapes (ast.arrow_app, ast.arrow_bind,
     // ast.returnA).
+    // ast.proc removed (proc syntax migrated to `~>` arrow).
     // Duplicates are union (idempotent).
-    assert_eq!(lang.ast.len(), 60);
+    assert_eq!(lang.ast.len(), 59);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -97,8 +101,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 73);
-    assert_eq!(rt.lang().grammar.len(), 60);
+    assert_eq!(rt.lang().tokens.len(), 72);
+    assert_eq!(rt.lang().grammar.len(), 59);
 }
 
 #[test]

@@ -51,11 +51,11 @@
 //! All four derived step ops from ADR-0052 are supported by the v2 bytecode VM:
 //!
 //! - **`loop_step`** (the ergonomic `loop` surface lowering): its carried
-//!   sub-scheme arg (the body proc) is compiled inline like any other
+//!   sub-scheme arg (the body closure) is compiled inline like any other
 //!   `Arr.arg`; the `NativeOp` handler recognizes `loop_step` via
 //!   [`op_is_derived_step`] and additionally pops the loop pair `(in, state)`
 //!   left on the operand stack by the enclosing `Loop`, passing it as
-//!   `incoming` to [`VmFrame::apply_native_v2`]. The body proc is then
+//!   `incoming` to [`VmFrame::apply_native_v2`]. The body closure is then
 //!   applied via [`VmFrame::apply_app`] (recursive `exec_node`).
 //!
 //! - **`while_step`/`for_step`/`fix_step`** (from `plugin-lib-arrow-iter`):
@@ -229,7 +229,7 @@ pub enum Instr {
     /// as incoming, then dispatches to [`VmFrame::apply_native_v2`] with
     /// the fresh results. The produced `Either` is pushed for `LoopCheck`.
     ///
-    /// (`loop_step` is handled by [`NativeOp`] instead — its body proc arg
+    /// (`loop_step` is handled by [`NativeOp`] instead — its body arg
     /// is a closure evaluated once, then applied per iteration via
     /// [`VmFrame::apply_app`].)
     DerivedStepOp(String, Vec<(usize, usize)>),

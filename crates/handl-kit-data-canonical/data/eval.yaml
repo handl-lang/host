@@ -597,13 +597,6 @@
       args: []
       source: Native
       lit: 0
-- id: eval.proc
-  node_kind: proc
-  scheme: !Arr
-    op: proj_child
-    args: []
-    source: Native
-    lit: 0
 - id: eval.rest
   node_kind: rest
   scheme: !Arr

@@ -1,5 +1,5 @@
-// Axioms for irreducible Rust primitives.
-// These are the foundation — everything else is derived.
+-- Axioms for irreducible Rust primitives.
+-- These are the foundation — everything else is derived.
 
 axiom prim.add : (Int × Int) → Int
   guarantee: True

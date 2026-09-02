@@ -13,7 +13,7 @@ fn sample_rules() -> Vec<GrammarRule> {
             40,
         ),
         GrammarRule::match_rule("nulls", "constant.language.null", r"\b(null)\b", 41),
-        GrammarRule::match_rule("operators", "keyword.operator", r"(\+|->)", 55),
+        GrammarRule::match_rule("operators", "keyword.operator", r"(\+|~>)", 55),
         GrammarRule::match_rule("delimiters", "punctuation", r"[\(\)]", 58),
         GrammarRule::match_with_captures(
             "function_calls",
@@ -145,7 +145,7 @@ fn grammar_rules_from_language_keywords_include_required() {
         .expect("keywords rule exists");
     let pattern = kw_rule.r#match.as_ref().expect("keywords has a match pattern");
     for required in [
-        "proc", "loop", "if", "then", "else", "match", "where", "in", "typeof", "not", "import",
+        "loop", "if", "then", "else", "match", "where", "in", "typeof", "not", "import",
         "export", "module", "axiom", "as", "handle",
     ] {
         assert!(

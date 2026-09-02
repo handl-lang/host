@@ -185,7 +185,7 @@ impl<'a> Iterator for AxiomIter<'a> {
         while self.idx < self.lines.len() {
             let raw = self.lines[self.idx];
             let trimmed = raw.trim();
-            if trimmed.is_empty() || trimmed.starts_with("//") {
+            if trimmed.is_empty() || trimmed.starts_with("--") {
                 self.idx += 1;
                 continue;
             }
@@ -221,7 +221,7 @@ impl<'a> Iterator for AxiomIter<'a> {
         while self.idx < self.lines.len() {
             let raw = self.lines[self.idx];
             let trimmed = raw.trim();
-            if trimmed.is_empty() || trimmed.starts_with("//") {
+            if trimmed.is_empty() || trimmed.starts_with("--") {
                 self.idx += 1;
                 continue;
             }

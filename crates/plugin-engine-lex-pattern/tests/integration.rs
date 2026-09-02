@@ -172,9 +172,9 @@ fn lex_longest_match_operators() {
 fn lex_line_comment_produces_token() {
     // A line comment produces a token.comment (the engine does not discard
     // comments — that is a parse-time concern).
-    let toks = lex("// hello\n42");
+    let toks = lex("-- hello\n42");
     assert_eq!(toks[0].kind, "token.comment");
-    assert!(toks[0].text.starts_with("//"));
+    assert!(toks[0].text.starts_with("--"));
     assert_eq!(toks[1].kind, "token.number");
 }
 

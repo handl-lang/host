@@ -1,1 +1,1 @@
-self |> proc lang -> eval(lang, parse(lang, lex(lang, "1 + 2")))
+self |> lang ~> eval(lang, parse(lang, lex(lang, "1 + 2")))

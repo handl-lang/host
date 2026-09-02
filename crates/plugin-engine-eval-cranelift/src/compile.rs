@@ -43,10 +43,10 @@
 //! All four derived step ops from ADR-0052 are supported:
 //!
 //! - **`loop_step`** (the ergonomic `loop` surface lowering): its carried
-//!   sub-scheme arg (the body proc) is compiled inline like any other
+//!   sub-scheme arg (the body closure) is compiled inline like any other
 //!   `Arr.arg`; the `Loop` combinator passes the current pair `(in, state)`
 //!   as `incoming` to `apply_native`, which dispatches to
-//!   `prim_v2_loop_step`. That helper applies the body proc closure via
+//!   `prim_v2_loop_step`. That helper applies the body closure via
 //!   `apply_closure_value` (a recursive call into the closure body's
 //!   compiled native function).
 //!
@@ -1215,7 +1215,7 @@ fn compile_arr(
 /// `while_step`/`for_step`/`fix_step` — derived step ops that carry
 /// cond/body sub-schemes as args and need per-iteration re-evaluation
 /// with the current value (extracted from the loop pair) as incoming.
-/// (`loop_step` is NOT here — its body proc arg is a closure evaluated
+/// (`loop_step` is NOT here — its body arg is a closure evaluated
 /// once, then applied per iteration via `apply_closure_value`.)
 fn is_derived_step_op(op: &str) -> bool {
     matches!(op, "while_step" | "for_step" | "fix_step")

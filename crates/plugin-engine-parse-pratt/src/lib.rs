@@ -1529,7 +1529,7 @@ mod tests {
             tok("token.comma", ","),
             tok("token.identifier", "y"),
             tok("token.rparen", ")"),
-            tok("token.arrow", "->"),
+            tok("token.arrow", "~>"),
             tok("token.identifier", "x"),
             tok("token.plus", "+"),
             tok("token.identifier", "y"),

@@ -145,11 +145,11 @@
       open_is_operator_token: false
       flatten: true
 
-# `loop { ... } ( proc ... )` — rich-loop syntax. Arity 2: the first child
-# is the `{ ... }` declaration block (parsed as a normal expression via the
-# `lbrace` prefix rule), the second child is the `( proc ... )` expression
-# (parsed as a delimited `(...)` block, flattened so the proc expression
-# splices directly into the loop node's children).
+# `loop { ... } ( params ~> body )` — rich-loop syntax. Arity 2: the first
+# child is the `{ ... }` declaration block (parsed as a normal expression via
+# the `lbrace` prefix rule), the second child is the `( params ~> body )`
+# expression (parsed as a delimited `(...)` block, flattened so the proc
+# expression splices directly into the loop node's children).
 #
 # NOTE: This replaces the simple `loop(body)` form. The simple form now
 # falls through to the legacy ad-hoc parser (the data-driven Pratt parser
@@ -263,7 +263,7 @@
       flatten: true
 
 # --- Rich-loop syntax grammar -------------------------------------------
-# These rows handle the `loop { ... } ( proc (state) -> match ... )` syntax.
+# These rows handle the `loop { ... } ( state ~> match ... )` syntax.
 # The rich-loop is SUGAR: the `loop_rich` node is special-cased in
 # `ast_to_scheme` (arrow_parser.rs) which pattern-matches on the proc body
 # AST to determine the corresponding `Scheme` graph. The eval schemes for
@@ -331,20 +331,19 @@
     node_kind: arrow_rest
     arity: 1
 
-# `proc ( params ) -> body` — proc expression. Arity 2: params and body,
-# separated by `->`. The params are typically `( state )` (a paren group
-# that flattens to the `state` identifier).
-- id: grammar.arrow.proc.prefix
-  token: token.arrow.proc
-  position: Prefix
+# `params ~> body` — proc/lambda expression. Arity 2: params (left operand)
+# and body (right operand). The params are either a bare identifier
+# (`state ~> ...`) or an array (`[xs, acc] ~> ...`). The `~>` infix operator
+# has low binding power so the body extends as far right as possible.
+- id: grammar.arrow.arrow.infix
+  token: token.arrow.arrow
+  position: Infix
   binding_power:
-  - 0
+  - 1
   - 0
   child_shape:
     node_kind: arrow_proc
     arity: 2
-    child_separators:
-    - !Required token.arrow.arrow
 
 # `match scrutinee { arms }` — match expression. Arity 2: scrutinee (normal
 # child) and arms block (delimited `{ }` with pair separator `:` creating

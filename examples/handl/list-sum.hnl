@@ -1,5 +1,5 @@
 loop { xs: [1, 2, 3, 4, 5], acc: 0 } (
-  proc (xs, acc) -> match xs {
+  [xs, acc] ~> match xs {
     []: returnA -< { out: acc },
 
     [h, ...t]: returnA -< { state: { xs: t, acc: acc + h } }

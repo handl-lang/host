@@ -10,7 +10,7 @@ fn pipe_expr(n: usize) -> String {
 }
 
 fn pipe_module(n: usize) -> String {
-    format!("f(x) -> x; {}", pipe_expr(n))
+    format!("f = x ~> x; {}", pipe_expr(n))
 }
 
 fn bench_parse(c: &mut Criterion) {

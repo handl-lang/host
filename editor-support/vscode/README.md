@@ -8,7 +8,7 @@ Language support for [handl](https://handl-lang.org) — a language for authorin
 - **Refinement inference** — hover over any arrow file to see its inferred input/output types and guarantee predicate
 - **Per-property hover** — hover over `state.acc` or `state.remaining` to see the inferred type for that specific field
 - **Cross-arrow hover** — hover over an arrow reference (e.g. `insert` in `sort.hnl`) to see that arrow's doc comments and inferred contract
-- **Doc comment hover** — `///` doc comments at the top of a file are shown when hovering over `loop` or `proc`
+- **Doc comment hover** — `///` doc comments at the top of a file are shown when hovering over `loop` or `~>`
 - **Signature help** — parameter hints for arrow combinators (`arr`, `comp`, `first`, `choice`, etc.)
 - **Go to definition** — jump to arrow files and axiom definitions across the workspace
 - **Document symbols** — outline view of arrows, axioms, and bindings in a file
@@ -16,12 +16,12 @@ Language support for [handl](https://handl-lang.org) — a language for authorin
 - **Formatting** — auto-indent, colon alignment, and trailing whitespace cleanup on save
 - **Inlay hints** — inferred refinement types shown inline next to loop state fields
 - **Rename** — rename arrows across all files, including renaming the file itself
-- **Folding ranges** — collapse `loop`, `proc`, `match`, and object blocks
+- **Folding ranges** — collapse `loop`, `match`, and object blocks
 - **Document highlight** — highlight all occurrences of a symbol under the cursor
 - **Selection ranges** — `Shift+Alt+→` smart selection expansion (bracket-aware)
 - **Code actions** — quick fixes: add missing `returnA`, wrap in `do`, convert `//` to `///`
 - **Context-aware completion** — keyword snippets, field names, combinators, and match patterns
-- **Snippets** — templates for `loop`, `proc`, `match`, `do`, `returnA`, `arr`, `seq`, `choice`, `axiom`, and more
+- **Snippets** — templates for `loop`, `match`, `do`, `returnA`, `arr`, `seq`, `choice`, `axiom`, and more
 
 ## Installation
 

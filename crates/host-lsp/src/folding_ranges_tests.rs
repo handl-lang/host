@@ -28,7 +28,7 @@ loop {
   remaining: input,
   acc:       []
 } (
-  proc (state) -> match state.remaining {
+  state ~> match state.remaining {
     []: returnA -< {
       out: state.acc
     }
@@ -44,15 +44,15 @@ loop {
 }
 
 #[test]
-fn folding_ranges_for_proc_block() {
-    // The `proc (state) -> match ... {` body opens on line 4 and closes on
+fn folding_ranges_for_arrow_block() {
+    // The `state ~> match ... {` body opens on line 4 and closes on
     // line 8.
     let src = "\
 loop {
   remaining: input,
   acc:       []
 } (
-  proc (state) -> match state.remaining {
+  state ~> match state.remaining {
     []: returnA -< {
       out: state.acc
     }
@@ -63,7 +63,7 @@ loop {
     // The match body `{ ... }` spans lines 4..=8.
     assert!(
         find_range(&ranges, 4, 8, "region").is_some(),
-        "expected a region folding range for the proc/match body covering lines 4..=8, got: {ranges:?}"
+        "expected a region folding range for the arrow/match body covering lines 4..=8, got: {ranges:?}"
     );
 }
 
@@ -118,9 +118,9 @@ returnA -< {
 fn folding_ranges_for_doc_comments() {
     // A run of three doc-comment lines at the top of the file.
     let src = "\
-/// sort: insertion sort over a list.
-///
-/// This is the second line of the doc comment.
+--- sort: insertion sort over a list.
+---
+--- This is the second line of the doc comment.
 loop {
   acc: []
 }
@@ -172,7 +172,7 @@ loop {
   remaining: input,
   acc:       []
 } (
-  proc (state) -> match state.remaining {
+  state ~> match state.remaining {
     []: returnA -< {
       out: state.acc
     }

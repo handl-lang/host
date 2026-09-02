@@ -1,5 +1,5 @@
 loop { n: 27, steps: 0 } (
-  proc (n, steps) -> if n == 1 then
+  [n, steps] ~> if n == 1 then
     returnA -< { out: steps }
   else if n % 2 == 0 then
     returnA -< { state: { n: n / 2, steps: steps + 1 } }

@@ -1,5 +1,5 @@
 loop { n: 29, d: 2 } (
-  proc (n, d) -> if d * d > n then
+  [n, d] ~> if d * d > n then
     returnA -< { out: true }
   else if n % d == 0 then
     returnA -< { out: false }

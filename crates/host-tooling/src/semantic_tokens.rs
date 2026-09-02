@@ -145,8 +145,6 @@ impl CanonicalTokenClassifier {
             "constant"
         } else if is_keyword_kind(kind) {
             "keyword"
-        } else if kind == "token.arrow_app" || kind == "token.arrow_bind" {
-            "operator"
         } else if is_operator_kind(kind) {
             "operator"
         } else if is_delimiter_kind(kind) {
@@ -196,11 +194,6 @@ impl ContextClassifier for CanonicalTokenClassifier {
                 || kind == "token.lparen" || kind == "token.rparen"
             {
                 let ty = legend.token_type_index("punctuation")?;
-                return Some((ty, 0));
-            }
-            // Spread/rest `...` is an operator.
-            if kind == "token.ellipsis" {
-                let ty = legend.token_type_index("operator")?;
                 return Some((ty, 0));
             }
             return self.classify_simple(kind, legend);

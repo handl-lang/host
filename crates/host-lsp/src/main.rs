@@ -9,9 +9,11 @@ mod document_symbols;
 mod folding_ranges;
 mod formatting;
 mod handlers;
+mod on_type_formatting;
 mod hover;
 mod inlay_hints;
 mod protocol;
+mod range_formatting;
 mod refinement;
 mod selection_ranges;
 mod signature_help;
@@ -41,11 +43,15 @@ mod formatting_tests;
 #[cfg(test)]
 mod handlers_tests;
 #[cfg(test)]
+mod on_type_formatting_tests;
+#[cfg(test)]
 mod hover_tests;
 #[cfg(test)]
 mod inlay_hints_tests;
 #[cfg(test)]
 mod protocol_tests;
+#[cfg(test)]
+mod range_formatting_tests;
 #[cfg(test)]
 mod refinement_tests;
 #[cfg(test)]
@@ -69,9 +75,10 @@ use handlers::{
     handle_code_actions, handle_code_lens, handle_completion, handle_definition,
     handle_document_highlight, handle_document_symbols, handle_folding_ranges,
     handle_formatting, handle_hover, handle_inlay_hints, handle_initialize,
-    handle_prepare_rename, handle_publish_diagnostics, handle_references, handle_rename,
-    handle_selection_ranges, handle_semantic_tokens_full, handle_semantic_tokens_range,
-    handle_signature_help, handle_shutdown, handle_unknown, handle_workspace_symbols,
+    handle_on_type_formatting, handle_prepare_rename, handle_publish_diagnostics,
+    handle_range_formatting, handle_references, handle_rename, handle_selection_ranges,
+    handle_semantic_tokens_full, handle_semantic_tokens_range, handle_signature_help,
+    handle_shutdown, handle_unknown, handle_workspace_symbols,
 };
 use protocol::{Message, send_log_message};
 use refinement::RefinementEngine;
@@ -151,6 +158,12 @@ fn main() {
             }
             "textDocument/formatting" => {
                 handle_formatting(&mut writer, id, &msg, &store);
+            }
+            "textDocument/onTypeFormatting" => {
+                handle_on_type_formatting(&mut writer, id, &msg, &store);
+            }
+            "textDocument/rangeFormatting" => {
+                handle_range_formatting(&mut writer, id, &msg, &store);
             }
             "textDocument/foldingRange" => {
                 handle_folding_ranges(&mut writer, id, &msg, &store);

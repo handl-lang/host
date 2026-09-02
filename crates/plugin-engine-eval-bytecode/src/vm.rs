@@ -49,7 +49,7 @@
 //! - `loop_step` (the ergonomic `loop` surface lowering): the `NativeOp`
 //!   handler pops the loop pair from the operand stack (below the
 //!   inline-compiled args) and passes it as `incoming` to
-//!   [`VmFrame::apply_native_v2`], which applies the body proc via
+//!   [`VmFrame::apply_native_v2`], which applies the body closure via
 //!   [`VmFrame::apply_app`].
 //! - `while_step`/`for_step`/`fix_step`: the `DerivedStepOp` instruction
 //!   re-evaluates the arg sub-programs per iteration with the current value
@@ -517,7 +517,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // For other ops: pop n args, use current_incoming.
                     //
                     // Derived step ops (`loop_step`) are a hybrid: they carry
-                    // sub-scheme args (the body proc) compiled inline, but
+                    // sub-scheme args (the body closure) compiled inline, but
                     // they also consume the loop pair `(in, state)` that the
                     // enclosing `Loop` left on the stack below those args.
                     // Pop the args first, then pop the pair as `incoming`.
@@ -747,18 +747,20 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             LangError::Engine("closure: missing body child".to_string())
                         })? as usize;
                     let param_node = self.ast.at(AstRef::new(param_idx))?;
-                    let param_names: Vec<String> = if param_node.kind == "paren" {
-                        let paren_children = param_node
+                    let param_names: Vec<String> = if param_node.kind == "paren"
+                        || param_node.kind == "array"
+                    {
+                        let param_children = param_node
                             .payload
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
                                 LangError::Engine(
-                                    "closure: paren params missing children".to_string(),
+                                    "closure: params missing children".to_string(),
                                 )
                             })?;
-                        let mut names = Vec::with_capacity(paren_children.len());
-                        for pc in paren_children {
+                        let mut names = Vec::with_capacity(param_children.len());
+                        for pc in param_children {
                             let pidx = pc.as_u64().ok_or_else(|| {
                                 LangError::Engine(
                                     "closure: param index must be a number".to_string(),
@@ -1166,14 +1168,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Ok(either_right(b))
             }
             // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
-            // — the body proc closure, evaluated from the carried sub-scheme
+            // — the body closure, evaluated from the carried sub-scheme
             // arg. `incoming` is the loop pair `(in, state)` popped from the
             // operand stack by the `NativeOp` handler (see `op_is_derived_step`).
-            // The body proc is applied to the current state (in on the first
+            // The body closure is applied to the current state (in on the first
             // step, state thereafter); it returns an object:
             //   { out: v }    → either_left(v)  (terminate)
             //   { state: v }  → either_right(v) (continue)
-            // Param destructuring: if the body proc has >1 params and the
+            // Param destructuring: if the body closure has >1 params and the
             // current state is an object, bind each param to the corresponding
             // field by name. Mirrors the v2 tree-walk's `eval_derived_step`
             // `loop_step` arm exactly.
@@ -1182,7 +1184,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
                 let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
                 let body_proc = args.first().ok_or_else(|| {
-                    LangError::Engine("loop_step: missing body proc".to_string())
+                    LangError::Engine("loop_step: missing body closure".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
                 let call_args: Vec<Value> = if let Some(obj_state) = current.as_object() {
@@ -1619,7 +1621,7 @@ fn op_uses_incoming(op: &str) -> bool {
 /// `incoming`, before dispatching to [`VmFrame::apply_native_v2`].
 ///
 /// Only `loop_step` (the ergonomic `loop` surface lowering) is handled here
-/// — its body proc arg is a closure evaluated once, then applied per
+/// — its body arg is a closure evaluated once, then applied per
 /// iteration via [`VmFrame::apply_app`]. The remaining derived step ops
 /// (`while_step`/`for_step`/`fix_step`) use the [`Instr::DerivedStepOp`]
 /// instruction instead, which re-evaluates their cond/body sub-programs
@@ -1878,11 +1880,11 @@ mod tests {
     // 8c. `loop_step` derived op — the ergonomic `loop` surface lowering
     // (ADR-0052). These tests build the canonical `loop` lowering
     // `Seq(proj_child(0), Loop(loop_step(proj_child(1))))` by hand with a
-    // real `proc` body, exercising param destructuring, `if`, arithmetic,
+    // real arrow body, exercising param destructuring, `if`, arithmetic,
     // and object construction — the same shape `hnl` source parses to.
 
     /// Wire the eval schemes needed for the `loop` surface: `var`, arithmetic,
-    /// `if`, `object`, `function` (closure), `proc`, and `loop`.
+    /// `if`, `object`, `function` (closure), and `loop`.
     fn loop_lang() -> Language {
         let mut lang = Language::new();
         // var -> proj_env $payload (looks up the var name in the env)
@@ -1946,14 +1948,6 @@ mod tests {
                 Scheme::arr_native("closure", vec![]),
             ))
             .unwrap();
-        // proc -> proj_child(0)
-        lang.eval
-            .merge(EvalSchemeDef::new(
-                "e.proc",
-                "proc",
-                Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
-            ))
-            .unwrap();
         // loop -> Seq(proj_child(0), Loop(loop_step(proj_child(1))))
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -1971,7 +1965,7 @@ mod tests {
         lang
     }
 
-    /// `loop 42 (proc (x) -> { out: x })` — single-step terminate,
+    /// `loop 42 (x ~> { out: x })` — single-step terminate,
     /// one param (no destructuring), scalar state. Expected: 42.
     #[test]
     fn loop_step_single_step_terminate() {
@@ -1980,24 +1974,22 @@ mod tests {
         //   0: lit "out"      1: var "x"
         //   2: entry [0, 1]   3: object {children: [2]}
         //   4: function {params: ["x"], body: 3}
-        //   5: proc {children: [4]}
-        //   6: lit 42         7: loop {children: [6, 5]}
+        //   5: lit 42         6: loop {children: [5, 4]}
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!("out")),            // 0
             AstNode::new("var").with_payload(json!("x")),              // 1
             AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
             AstNode::new("object").with_payload(json!({"children": [2]})),   // 3
             AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
-            AstNode::new("proc").with_payload(json!({"children": [4]})),    // 5
-            AstNode::new("lit").with_payload(json!(42)),                    // 6
-            AstNode::new("loop").with_payload(json!({"children": [6, 5]})), // 7
+            AstNode::new("lit").with_payload(json!(42)),                    // 5
+            AstNode::new("loop").with_payload(json!({"children": [5, 4]})), // 6
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
-        let result = frame.exec_node(AstRef::new(7)).unwrap();
+        let result = frame.exec_node(AstRef::new(6)).unwrap();
         assert_eq!(result, json!(42));
     }
 
-    /// `loop { n: 3, acc: 1 }(proc (n, acc) -> if n == 0 then { out: acc }
+    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then { out: acc }
     /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
     /// destructuring, `if`, arithmetic, nested object construction.
     /// Computes 3! = 6.
@@ -2020,9 +2012,8 @@ mod tests {
         //  17: object {children: [16]}       (else {state: {...}})
         //  18: if {children: [8, 15, 17]}
         //  19: function {params: ["n","acc"], body: 18}
-        //  20: proc {children: [19]}
-        //  21: lit {n: 3, acc: 1}
-        //  22: loop {children: [21, 20]}
+        //  20: lit {n: 3, acc: 1}
+        //  21: loop {children: [20, 19]}
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!("n")),              // 0
             AstNode::new("lit").with_payload(json!("acc")),            // 1
@@ -2044,12 +2035,11 @@ mod tests {
             AstNode::new("object").with_payload(json!({"children": [16]})),        // 17
             AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),     // 18
             AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
-            AstNode::new("proc").with_payload(json!({"children": [19]})),          // 20
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 21
-            AstNode::new("loop").with_payload(json!({"children": [21, 20]})),      // 22
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 20
+            AstNode::new("loop").with_payload(json!({"children": [20, 19]})),      // 21
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
-        let result = frame.exec_node(AstRef::new(22)).unwrap();
+        let result = frame.exec_node(AstRef::new(21)).unwrap();
         assert_eq!(result, json!(6));
     }
 

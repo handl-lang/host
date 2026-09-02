@@ -1,5 +1,5 @@
 loop { n: 1, out: 0 } (
-  proc (n, out) -> if n > 15 then
+  [n, out] ~> if n > 15 then
     returnA -< { out: out }
   else if n % 15 == 0 then
     returnA -< { state: { n: n + 1, out: 15 } }

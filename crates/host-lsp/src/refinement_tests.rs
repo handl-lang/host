@@ -3,12 +3,12 @@ use crate::refinement::{
 };
 
 const INSERT_HNL: &str = r#"
-// insert: insert an element into a sorted list, maintaining sorted order.
+-- insert: insert an element into a sorted list, maintaining sorted order.
 loop {
   elem: input.0,
   acc:  input.1
 } (
-  proc (state) -> match state.acc {
+  state ~> match state.acc {
     []: returnA -< {
       out: [state.elem]
     },
@@ -31,7 +31,7 @@ loop {
 )
 "#;
 
-const SIMPLE_COMP: &str = r#"comp(arr("id"), arr("id"))"#;
+const SIMPLE_COMP: &str = r#"id >>> id"#;
 
 const NON_ARROW_HNL: &str = r#"@@@ this is not valid handl syntax @@@
 "#;

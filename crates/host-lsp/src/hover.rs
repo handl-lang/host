@@ -78,9 +78,9 @@ pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) 
     }))
 }
 
-/// Extract the leading `///` doc comments from a source file as markdown text.
+/// Extract the leading `---` doc comments from a source file as markdown text.
 ///
-/// Strips the `///` prefix and one optional leading space from each line.
+/// Strips the `---` prefix and one optional leading space from each line.
 /// Returns `None` if there are no doc comments at the top of the file.
 pub fn extract_doc_comments(source: &str) -> Option<String> {
     let kit = Kit::new().ok()?;
@@ -89,8 +89,8 @@ pub fn extract_doc_comments(source: &str) -> Option<String> {
     let mut doc_lines: Vec<String> = Vec::new();
     for token in &tokens {
         if is_doc_comment_kind(token.kind.as_str()) {
-            // Strip the `///` prefix and one optional leading space.
-            let text = token.text.strip_prefix("///").unwrap_or(&token.text);
+            // Strip the `---` prefix and one optional leading space.
+            let text = token.text.strip_prefix("---").unwrap_or(&token.text);
             let text = text.strip_prefix(' ').unwrap_or(text);
             doc_lines.push(text.to_string());
         } else if is_comment_kind(token.kind.as_str()) {
@@ -112,7 +112,7 @@ pub fn extract_doc_comments(source: &str) -> Option<String> {
 /// Try to produce a hover based on doc comments:
 /// 1. If hovering over an identifier that matches an arrow file name, read
 ///    that file's doc comments and display them.
-/// 2. If hovering over the `loop` keyword in an arrow file, show the current
+/// 2. If hovering over the `rec` keyword in an arrow file, show the current
 ///    file's own doc comments.
 fn doc_comment_hover(
     tokens: &[SpannedToken],
@@ -121,8 +121,8 @@ fn doc_comment_hover(
     source: &str,
     file_path: Option<&str>,
 ) -> Option<String> {
-    // Case 2: hovering over `loop` or `proc` keyword → show this file's doc comments.
-    if is_keyword_kind(token.kind.as_str()) && (token.text == "loop" || token.text == "proc") {
+    // Case 2: hovering over `rec` or `while` keyword → show this file's doc comments.
+    if is_keyword_kind(token.kind.as_str()) && (token.text == "rec" || token.text == "while") {
         if let Some(docs) = extract_doc_comments(source) {
             return Some(format_doc_comment_hover(&docs, &token.text));
         }
@@ -311,34 +311,34 @@ fn arrow_combinator_hover(
     let name = token.text.as_str();
     let (title, doc, sig) = match name {
         "arr" => (
-            "Arrow combinator: `arr`",
-            "Lift a named pure function into the arrow. The function runs on the arrow's input; `arr` wraps it as a pure step.",
-            "arr(\"op\", args…)",
+            "Arrow combinator: `arr` (kernel)",
+            "Lift a named pure function into the arrow. Kernel concept — in v0.1 surface syntax, named arrows are used directly (e.g. `name args`).",
+            "arr(\"op\", args…)  —  kernel form; surface: `name args`",
         ),
         "comp" | "seq" => (
             "Arrow combinator: `comp` (sequential composition)",
-            "Compose two arrows: the output of `a` feeds the input of `b`. Written as `a >>> b` in mathematical notation.",
-            "comp(a, b)  —  a >>> b",
+            "Compose two arrows: the output of `a` feeds the input of `b`. Written as `a >>> b` in v0.1 surface syntax.",
+            "comp(a, b)  —  kernel form; surface: `a >>> b`",
         ),
         "first" => (
-            "Arrow combinator: `first`",
-            "Run `inner` on the first component of a pair, passing the second through unchanged. Fan-out / parallel wiring.",
+            "Arrow combinator: `first` (kernel)",
+            "Run `inner` on the first component of a pair, passing the second through unchanged. Kernel concept for fan-out / parallel wiring.",
             "first(inner)  —  (a, b) ~> (f(a), b)",
         ),
         "choice" => (
             "Arrow combinator: `choice`",
-            "Route on `Either`: `l` handles `Left`, `r` handles `Right`. ArrowChoice — conditional branching.",
-            "choice(l, r)  —  Either a b ~> c",
+            "Route on `Either`: `l` handles `Left`, `r` handles `Right`. ArrowChoice — conditional branching. Written as `l ||| r` in v0.1 surface syntax.",
+            "choice(l, r)  —  kernel form; surface: `l ||| r`",
         ),
         "app" => (
-            "Arrow combinator: `app`",
-            "Dynamic / higher-order arrow application. Given `f : A ~> B` and `x : A`, `app(f, x)` invokes `f` on `x`.",
+            "Arrow combinator: `app` (kernel)",
+            "Dynamic / higher-order arrow application. Kernel concept — given `f : A ~> B` and `x : A`, `app(f, x)` invokes `f` on `x`.",
             "app(\"name\", args…)  —  (A ~> B, A) ~> B",
         ),
         "loop" => (
-            "Arrow combinator: `loop`",
-            "Feedback channel (NOT iteration). `body` has shape `(In, State) ~> (Out, State)`; `Loop` hides `State`, exposing `In ~> Out`. Recursion, `while`, `for`, state machines are derived patterns over `Loop` + `Choice`.",
-            "loop { state }( body )  —  (In, State) ~> (Out, State)",
+            "Arrow combinator: `loop` (kernel)",
+            "Feedback channel (NOT iteration). `body` has shape `(In, State) ~> (Out, State)`; `Loop` hides `State`, exposing `In ~> Out`. Kernel concept — v0.1 surface uses `rec` (feedback loop) or `while`/`for` (derived patterns).",
+            "loop { state }( body )  —  kernel; surface: `rec { … }`",
         ),
         "id" => (
             "Arrow combinator: `id`",
@@ -464,47 +464,67 @@ fn keyword_hover(kind: &str, text: &str) -> String {
     let (synopsis, syntax) = match kind {
         "token.keyword.match" => (
             "Pattern-match on a value",
-            "match `expr` { `pat`: `body`, … }",
+            "match `expr` { `pat` { `body` }, … }",
         ),
         "token.keyword.if" => (
             "Conditional expression",
-            "if `cond` then `a` else `b`",
+            "if `cond` { `a` } else { `b` }",
         ),
-        "token.keyword.then" => ("Then-branch of `if`", "then `expr`"),
-        "token.keyword.else" => ("Else-branch of `if`", "else `expr`"),
-        "token.keyword.loop" => (
-            "Arrow loop combinator — iterate over a feedback channel",
-            "loop { `state` }( proc (`s`) -> match `s`.`f` { … } )",
+        "token.keyword.else" => ("Else-branch of `if`", "else { `expr` }"),
+        "token.keyword.rec" => (
+            "Feedback loop — arrow `Loop` combinator in surface syntax",
+            "rec { `state` } { `body` }",
         ),
-        "token.keyword.proc" => (
-            "Procedure — the body of a `loop`",
-            "proc (`state`) -> `body`",
+        "token.keyword.while" => (
+            "While loop — iterate while a condition holds",
+            "while `cond` { `body` }",
         ),
-        "token.keyword.where" => (
-            "Where-binding — introduce a local name",
-            "`expr` where `name` = `def`",
+        "token.keyword.for" => (
+            "For loop — iterate over a collection",
+            "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.axiom" => (
-            "Axiom declaration — assert a contract signature",
-            "axiom `name` : `signature`",
+        "token.keyword.do" => (
+            "Do-while loop body",
+            "do { `body` } while `cond`",
         ),
         "token.keyword.in" => (
-            "Let-in expression — scope a binding",
-            "`name` = `val` in `body`",
+            "Iterator binding — used with `for`",
+            "for `x` in `coll` { `body` }",
         ),
-        "token.keyword.handle" => ("Handle an effect", "handle `expr` { `cases` }"),
-        "token.keyword.as" => ("Type ascription", "`expr` as `Type`"),
-        "token.keyword.typeof" => ("Type query", "typeof `expr`"),
-        "token.keyword.not" => ("Boolean negation", "not `b`"),
-        "token.keyword.import" => ("Import a module", "import `module`"),
-        "token.keyword.export" => ("Export a binding", "export `name`"),
-        "token.keyword.module" => ("Module declaration", "module `name` { `body` }"),
-        "token.keyword.const" => ("Constant binding", "const `name` = `value`"),
-        "token.keyword.is" => ("Type check", "`expr` is `Type`"),
-        "token.keyword.may" => ("Capability: may", "may `cap`"),
-        "token.keyword.must" => ("Capability: must", "must `cap`"),
-        "token.keyword.when" => ("Guard clause", "when `cond`"),
-        "token.keyword.do" => ("Do-block", "do `expr`"),
+        "token.keyword.return" => (
+            "Return a value from an arrow",
+            "return `expr`",
+        ),
+        "token.keyword.import" => (
+            "Import a module / arrow",
+            "import `name` from `module`",
+        ),
+        "token.keyword.from" => (
+            "Module source for an import",
+            "import `name` from `module`",
+        ),
+        "token.keyword.infer" => (
+            "Infer a type or contract",
+            "infer `name` : `signature`",
+        ),
+        "token.keyword.type" => (
+            "Type declaration",
+            "type `Name` = `definition`",
+        ),
+        "token.keyword.trait" => (
+            "Trait declaration — a set of laws / operations",
+            "trait `Name` { `members` }",
+        ),
+        "token.keyword.impl" => (
+            "Implementation of a trait",
+            "impl `Trait` for `Type` { `members` }",
+        ),
+        "token.keyword.law" => (
+            "Law declaration — assert a contract signature",
+            "law `name` : `signature`",
+        ),
+        "token.keyword.true" => ("Boolean literal", "true"),
+        "token.keyword.false" => ("Boolean literal", "false"),
         _ => return format!("`keyword` — `{}`", text),
     };
     format!("**{}** `{}`\n\n```\n{}\n```", synopsis, text, syntax)
@@ -550,8 +570,13 @@ fn operator_hover(text: &str) -> String {
         "**" => "power",
         "&&" => "logical-and",
         "||" => "logical-or",
-        "->" => "arrow (function type / match arm)",
-        "|>" => "pipe",
+        "~>" => "arrow operator (function definition / type signature)",
+        ">>>" => "sequential composition",
+        "***" => "parallel product",
+        "&&&" => "fan-out",
+        "|||" => "choice",
+        "??" => "nullish coalescing",
+        "?." => "optional chaining",
         ":" => "type annotation / key separator",
         "." => "field access",
         "..." => "spread / rest",

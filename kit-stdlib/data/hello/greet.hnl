@@ -1,8 +1,8 @@
-/// hello.greet — the canonical handl greeting.
-///
-/// Single source of truth for the `hello.greet(name)` logic. The Rust bridge
-/// in `kit-canonical` (and `plugin-lib-hello`) loads this file via
-/// `include_str!`, evaluates it to obtain the greet closure, and applies it
-/// to the caller's argument. Handl's `+` operator natively concatenates
-/// strings (`prim.add` / `bin_add`), so no module registry is required.
-proc (name) -> "Hello, " + name + "!"
+--- hello.greet — the canonical handl greeting.
+---
+--- Single source of truth for the `hello.greet(name)` logic. The Rust bridge
+--- in `kit-canonical` (and `plugin-lib-hello`) loads this file via
+--- `include_str!`, evaluates it to obtain the greet closure, and applies it
+--- to the caller's argument. Handl's `+` operator natively concatenates
+--- strings (`prim.add` / `bin_add`), so no module registry is required.
+name ~> "Hello, " + name + "!"

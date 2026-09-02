@@ -10,10 +10,10 @@
 //! not implement `EvalEngine`; it is invoked via the same adapter pattern
 //! used in `v2_parity.rs` (fresh `ScopeStack`, root = last arena node).
 //!
-//! ADR-0052 Phase D also adds the `proc`-authored corpus
-//! ([`proc_corpus`]): programs authored using `proc x -> ...` notation.
+//! ADR-0052 Phase D also adds the arrow-authored corpus
+//! ([`proc_corpus`]): programs authored using `x ~> body` notation.
 //! The `v2_futamura_proc_corpus` test runs these through
-//! `CraneliftEngineV2`, proving the proc-authored bootstrap works on the
+//! `CraneliftEngineV2`, proving the arrow-authored bootstrap works on the
 //! v2 arrow kernel.
 
 use handl_defining_handl::{corpus, language, proc_corpus};
@@ -141,13 +141,12 @@ fn v2_futamura_specialization_persists_across_calls() {
     }
 }
 
-/// The `proc`-authored corpus runs through `CraneliftEngineV2` and
-/// produces the expected results. This proves the proc-authored bootstrap
+/// The arrow-authored corpus runs through `CraneliftEngineV2` and
+/// produces the expected results. This proves the arrow-authored bootstrap
 /// (arrow-calculus authoring surface) works on the v2 arrow kernel.
 ///
-/// Each `proc` case uses a `proc` node (eval scheme `!Child 0`) wrapping a
-/// `function` node, applied via `pipe`. The v2 cranelift engine must
-/// compile and evaluate these correctly.
+/// Each arrow case uses a `function` node applied via `pipe`. The v2
+/// cranelift engine must compile and evaluate these correctly.
 #[test]
 fn v2_futamura_proc_corpus() {
     let lang = language();
@@ -157,7 +156,7 @@ fn v2_futamura_proc_corpus() {
     let cases = proc_corpus();
     assert!(
         !cases.is_empty(),
-        "proc corpus should have at least one case",
+        "arrow corpus should have at least one case",
     );
 
     for case in &cases {
@@ -166,13 +165,13 @@ fn v2_futamura_proc_corpus() {
         let tw_result = eval_v2_tree_walk(&tree_walk, &lang, &req);
         assert_eq!(
             cl_result, tw_result,
-            "v2 futamura proc: case '{}' ({}) — cranelift diverged from tree-walk",
+            "v2 futamura arrow: case '{}' ({}) — cranelift diverged from tree-walk",
             case.name, case.source,
         );
         assert_eq!(
             cl_result.unwrap(),
             case.expected,
-            "v2 futamura proc: case '{}' ({}) — result does not match expected",
+            "v2 futamura arrow: case '{}' ({}) — result does not match expected",
             case.name,
             case.source,
         );

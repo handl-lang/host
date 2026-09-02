@@ -1,12 +1,12 @@
-// Protocol state machine: idle → active → done.
-//
-// A simple protocol state machine that transitions between states based
-// on events. Uses choice to handle different event types: either
-// idle_to_active or active_to_done.
-//
-// Both transitions have True guarantees (no structural invariant beyond
-// state validity), so the fixpoint converges with True as the invariant.
-//
-// Termination: Constant (side-channel; event stream passes through).
+-- Protocol state machine: idle → active → done.
+--
+-- A simple protocol state machine that transitions between states based
+-- on events. Uses choice to handle different event types: either
+-- idle_to_active or active_to_done.
+--
+-- Both transitions have True guarantees (no structural invariant beyond
+-- state validity), so the fixpoint converges with True as the invariant.
+--
+-- Termination: Constant (side-channel; event stream passes through).
 
 loop(comp(choice(arr("state.idle_to_active"), arr("state.active_to_done")), first(id)))

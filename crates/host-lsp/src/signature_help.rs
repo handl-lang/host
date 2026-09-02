@@ -21,7 +21,8 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
             label: "arr(\"op\", args…)",
             documentation:
                 "Lift a named pure function into the arrow. The function runs on the arrow's \
-                 input; `arr` wraps it as a pure step.",
+                 input; `arr` wraps it as a pure step. In v0.1 surface, named arrows are used \
+                 directly (e.g. `parse.consume` instead of `arr(\"parse.consume\")`).",
             parameters: &[
                 ("op", "the named operation to lift into the arrow"),
                 ("args…", "additional arguments forwarded to the operation"),
@@ -31,7 +32,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
             label: "comp(a, b)",
             documentation:
                 "Compose two arrows: the output of `a` feeds the input of `b`. Written as \
-                 `a >>> b` in mathematical notation.",
+                 `a >>> b` in v0.1 surface syntax.",
             parameters: &[
                 ("a (first arrow)", "the first arrow to run"),
                 ("b (second arrow)", "the second arrow, fed by the output of the first"),
@@ -41,14 +42,15 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
             label: "first(inner)",
             documentation:
                 "Run `inner` on the first component of a pair, passing the second through \
-                 unchanged. Fan-out / parallel wiring.",
+                 unchanged. Fan-out / parallel wiring. A kernel concept that may appear in \
+                 arrow-graph files but is not commonly used in v0.1 surface.",
             parameters: &[("inner", "the arrow to apply to the first component of the pair")],
         }),
         "choice" => Some(CombinatorInfo {
             label: "choice(l, r)",
             documentation:
                 "Route on `Either`: `l` handles `Left`, `r` handles `Right`. ArrowChoice — \
-                 conditional branching.",
+                 conditional branching. Written as `l ||| r` in v0.1 surface syntax.",
             parameters: &[
                 ("l (Left case)", "arrow handling the Left case"),
                 ("r (Right case)", "arrow handling the Right case"),
@@ -58,10 +60,21 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
             label: "app(\"name\", args…)",
             documentation:
                 "Dynamic / higher-order arrow application. Given `f : A ~> B` and `x : A`, \
-                 `app(f, x)` invokes `f` on `x`.",
+                 `app(f, x)` invokes `f` on `x`. In v0.1 surface, application is \
+                 juxtaposition: `f x`.",
             parameters: &[
                 ("name", "the named arrow to apply"),
                 ("args…", "arguments passed to the arrow"),
+            ],
+        }),
+        "rec" => Some(CombinatorInfo {
+            label: "rec { state, body }",
+            documentation:
+                "Feedback loop (replaces `loop`). The body sees state wires as bindings; use \
+                 `return` to exit or update state wires to continue.",
+            parameters: &[
+                ("state", "initial state bindings"),
+                ("body", "match or if to determine exit vs continue"),
             ],
         }),
         "insert" => Some(CombinatorInfo {

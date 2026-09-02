@@ -1,9 +1,9 @@
-// Axioms for list primitives.
-//
-// These carry conditional contracts with real semantic content so that
-// inference can derive non-trivial guarantees like Sorted and LengthEq.
+-- Axioms for list primitives.
+--
+-- These carry conditional contracts with real semantic content so that
+-- inference can derive non-trivial guarantees like Sorted and LengthEq.
 
-// -- Constructors ----------------------------------------------------
+-- -- Constructors ----------------------------------------------------
 
 axiom list.cons : (a * List a) -> List a
   requires:  Sorted(tail) && Le(head, head_of_tail)
@@ -13,7 +13,7 @@ axiom cons : (a * List a) -> List a
   requires:  Sorted(tail) && Le(head, head_of_tail)
   guarantee: Sorted(output) && LengthPlusOne(output, tail) && IsPerm(output, output)
 
-// -- Accessors -------------------------------------------------------
+-- -- Accessors -------------------------------------------------------
 
 axiom list.head : List a -> a
   requires:  Sorted(input)
@@ -32,7 +32,7 @@ axiom list.length : List a -> Int
 axiom list.nth : (List a * Int) -> a
   guarantee: True
 
-// -- Transformations -------------------------------------------------
+-- -- Transformations -------------------------------------------------
 
 axiom list.append : (List a * List a) -> List a
   requires:  True
@@ -41,7 +41,7 @@ axiom list.append : (List a * List a) -> List a
 axiom list.reverse : List a -> List a
   guarantee: LengthEq(output, input)
 
-// -- Identity & application ------------------------------------------
+-- -- Identity & application ------------------------------------------
 
 axiom id : a -> a
   guarantee: True
@@ -49,7 +49,7 @@ axiom id : a -> a
 axiom fn.apply : (a * a) -> a
   guarantee: True
 
-// -- Loop-step atoms (used by fn/* and collection/* arrows) ----------
+-- -- Loop-step atoms (used by fn/* and collection/* arrows) ----------
 
 axiom filter_step : List a -> List a
   guarantee: AllSatisfy(output, predicate) && LengthLe(output, input)

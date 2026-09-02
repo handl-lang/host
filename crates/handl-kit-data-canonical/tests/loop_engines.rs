@@ -38,7 +38,7 @@ fn manifest_with_eval(eval: &str) -> DataKitManifest {
 
 /// Build a runtime over the full canonical language with the requested eval
 /// engine bound. The module chain is `None` — the `loop` examples only use
-/// core ops (`if`, `proc`, `loop`, object/array literals, arithmetic) and no
+/// core ops (`if`, `loop`, object/array literals, arithmetic) and no
 /// foreign host functions.
 fn runtime_with_eval(eval: &str) -> handl_runtime::Runtime {
     let reg = handl_kit_data_canonical::registry();

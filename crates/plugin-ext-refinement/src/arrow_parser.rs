@@ -21,10 +21,10 @@
 //!    desugars to `choice(a, b)` (`Scheme::Choice`). `|||` binds tighter
 //!    than `>>>`, so `a >>> b ||| c` parses as `comp(a, choice(b, c))`.
 //!
-//! 2. **Rich `loop { ... } ( proc ... )` syntax** — the surface syntax
+//! 2. **Rich `loop { ... } ( params ~> body )` syntax** — the surface syntax
 //!    actually used in the stdlib `.hnl` files. The YAML grammar tokenizes
 //!    and parses this syntax into a `loop_rich` AST node. The
-//!    `ast_to_scheme` materializer then pattern-matches on the proc body's
+//!    `ast_to_scheme` materializer then pattern-matches on the arrow body's
 //!    recursive match arm to determine the corresponding `Scheme` graph —
 //!    the same heuristic as the legacy ad-hoc parser, but operating on the
 //!    AST instead of raw text.
@@ -67,7 +67,7 @@ pub enum ParsedFile {
 ///
 /// Tries the data-driven parser first (lex + Pratt parse + materialize),
 /// falling back to the legacy ad-hoc parser on failure. Rich-loop syntax
-/// (`loop { ... } ( proc ... )`) is handled by the data-driven parser:
+/// (`loop { ... } ( params ~> body )`) is handled by the data-driven parser:
 /// the YAML grammar tokenizes and parses it into a `loop_rich` AST node,
 /// which `ast_to_scheme` pattern-matches to determine the corresponding
 /// `Scheme` graph.
@@ -114,15 +114,15 @@ pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
 ///
 /// Dispatches to named-arrow parsing (multi-line `name = expr`) or
 /// single-expression parsing. Rich-loop syntax (`loop { ... }`) is always
-/// treated as a single expression (not named arrows) because the proc body
-/// may contain ` = ` in let-bindings that would falsely trigger the
-/// named-arrow heuristic.
+/// treated as a single expression (not named arrows) because the arrow body
+/// may contain ` = ` in let-bindings (`cmp = expr in body`) that would
+/// falsely trigger the named-arrow heuristic.
 fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
     let lang = arrow_language();
     let trimmed = src.trim();
 
     // Rich-loop syntax starts with `loop` followed by `{`. Parse it as a
-    // single expression — do NOT check for named arrows, because the proc
+    // single expression — do NOT check for named arrows, because the
     // body may contain ` = ` in let-bindings (`cmp = expr in body`).
     if is_rich_loop(trimmed) {
         let scheme = parse_arrow_expr_data_driven(trimmed, lang)?;
@@ -265,10 +265,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
 
     // Special-case `loop_rich`: the rich-loop syntax is SUGAR. The YAML
     // grammar parses it into a `loop_rich` AST node, but the actual `Scheme`
-    // graph is determined by pattern-matching on the proc body structure
+    // graph is determined by pattern-matching on the arrow body structure
     // (which primitives are called, what the state transitions are) — the
     // same heuristic as the legacy `analyze_branch`, but operating on the
-    // AST instead of raw text.
+    // AST instead of raw text. The `arrow_proc` node (from `params ~> body`)
+    // has children [params, body].
     if kind == "loop_rich" {
         return rich_loop_to_scheme(ast, node);
     }
@@ -449,19 +450,19 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
 }
 
 // ============================================================================
-// Rich-loop AST-to-Scheme conversion (pattern matching on proc body)
+// Rich-loop AST-to-Scheme conversion (pattern matching on arrow body)
 // ============================================================================
 //
-// The rich-loop syntax (`loop { ... } ( proc (state) -> match ... )`) is
+// The rich-loop syntax (`loop { ... } ( state ~> match ... )`) is
 // SUGAR. The YAML grammar tokenizes and parses it into a `loop_rich` AST
 // node, but the actual `Scheme` graph is determined by recognizing the
-// structural patterns in the `proc` body's recursive match arm — the same
+// structural patterns in the arrow body's recursive match arm — the same
 // heuristic as the legacy `analyze_branch`, but operating on the AST
 // instead of raw text.
 //
 // AST structure of a rich-loop:
-//   loop_rich (children: [decl_block, proc_expr])
-//     └─ proc_expr: arrow_proc (children: [params, body])
+//   loop_rich (children: [decl_block, arrow_expr])
+//     └─ arrow_expr: arrow_proc (children: [params, body])
 //        └─ body: arrow_match (children: [scrutinee, arms_container])
 //           └─ arms_container: block (children: [arm1, arm2, ...])
 //              ├─ arm1: arrow_arm (children: [pattern, body])  — base case
@@ -471,7 +472,7 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
 //                  └─ body: ...                                 — recursive body
 
 /// Convert a `loop_rich` AST node into a [`Scheme`] by pattern-matching on
-/// the proc body's recursive match arm.
+/// the arrow body's recursive match arm.
 ///
 /// This navigates the AST to find the `[h, ...t]:` arm (the recursive case),
 /// then calls [`analyze_branch_ast`] to determine which `Scheme` graph the
@@ -479,29 +480,29 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
 fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
     let children = get_children(&node.payload)?;
 
-    // Child 1 is the proc expression (child 0 is the declaration block).
-    let proc_idx = children
+    // Child 1 is the arrow expression (child 0 is the declaration block).
+    let arrow_idx = children
         .get(1)
         .and_then(|v| v.as_u64())
-        .ok_or("loop_rich: missing proc child")? as usize;
-    let proc_node = ast
+        .ok_or("loop_rich: missing arrow child")? as usize;
+    let arrow_node = ast
         .nodes()
-        .get(proc_idx)
-        .ok_or("loop_rich: proc node out of bounds")?;
+        .get(arrow_idx)
+        .ok_or("loop_rich: arrow node out of bounds")?;
 
-    if proc_node.kind != "arrow_proc" {
+    if arrow_node.kind != "arrow_proc" {
         return Err(format!(
             "loop_rich: expected arrow_proc, got {}",
-            proc_node.kind
+            arrow_node.kind
         ));
     }
 
-    let proc_children = get_children(&proc_node.payload)?;
-    // Child 1 of proc is the body (child 0 is params).
-    let body_idx = proc_children
+    let arrow_children = get_children(&arrow_node.payload)?;
+    // Child 1 of arrow is the body (child 0 is params).
+    let body_idx = arrow_children
         .get(1)
         .and_then(|v| v.as_u64())
-        .ok_or("loop_rich: missing proc body")? as usize;
+        .ok_or("loop_rich: missing arrow body")? as usize;
     let body_node = ast
         .nodes()
         .get(body_idx)
@@ -1052,10 +1053,10 @@ fn parse_arrow_expr_legacy(src: &str) -> Result<Scheme, String> {
 // Comment stripping
 // ============================================================================
 
-/// Remove `//` comment lines from the source.
+/// Remove `--` comment lines from the source.
 fn strip_comments(src: &str) -> String {
     src.lines()
-        .filter(|line| !line.trim_start().starts_with("//"))
+        .filter(|line| !line.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
         .join("\n")
 }

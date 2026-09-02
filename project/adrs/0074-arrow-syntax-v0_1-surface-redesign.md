@@ -113,9 +113,9 @@ draft:
 2. **`rec` introduces a recursive region, not a recursive arrow.** It follows
    Paterson-style recursive bindings, consistent with `loop` in the kernel.
 3. **Control-flow and construction sugar** is added: `while`, `do while`,
-   `for x in xs`, `??`, `?.`, and object/positional spread. All six desugar
-   to forms already in the calculus (`rec`, `match`, `|||`, structural
-   construction); none introduce new kernel combinators.
+   `for x in xs`, `??`, `?.`, multi-way `if`, and object/positional spread.
+   All seven desugar to forms already in the calculus (`rec`, `match`,
+   `|||`, structural construction); none introduce new kernel combinators.
 
 Everything else in the draft — `~>`, `>>>` / `***` / `&&&` / `|||`, graph
 blocks, `if` / `match`, positional and record structures, rest destructuring,
@@ -310,7 +310,7 @@ surface syntax for the same idea.
 ### Addendum — Control-flow and construction sugar
 
 The v0.1 draft specified `if`, `match`, and `rec` as the only control-flow
-forms. Review against typical TypeScript patterns surfaced six additional
+forms. Review against typical TypeScript patterns surfaced seven additional
 forms that programmers expect and that the calculus already supports via
 desugaring. They are added here as **surface sugar** — none introduce new
 kernel combinators (ADR-0052), and none change the type system. Each desugars
@@ -618,6 +618,62 @@ prompt = input ~> {
 The result is the last expression in the body, evaluated on the final
 iteration (same semantics as `while`, ID.5).
 
+#### A.7 Multi-way `if` — flat guard chains
+
+For three or more conditional branches, nested `else if` chains shift
+right and become hard to read. Multi-way `if` provides a flat form,
+mirroring `match` syntax with braces:
+
+```text
+if {
+  x > 0: "positive"
+  x < 0: "negative"
+  x == 0: "zero"
+  _: "unknown"
+}
+```
+
+Each arm is a condition expression followed by `:` and a result
+expression. The `_` arm is the catch-all (else). This mirrors `match`
+syntax exactly — same `{ }` delimiters, same `:` separator, same `_`
+wildcard — but each arm is a guard condition rather than a pattern. The
+`if` keyword (vs `match`) signals the difference.
+
+The parser distinguishes multi-way `if` from regular `if` by the token
+immediately following `if`: if it is `{`, the form is multi-way; if it
+is an expression, the form is the regular `if cond body`.
+
+For two branches, the existing `if/else` form is cleaner and remains
+preferred:
+
+```text
+if x > 0
+  "positive"
+else
+  "non-positive"
+```
+
+Multi-way `if` desugars to nested `if/else`:
+
+```text
+if {
+  c1: e1
+  c2: e2
+  _: e3
+}
+
+-- desugars to:
+if c1
+  e1
+else if c2
+  e2
+else
+  e3
+```
+
+Exhaustiveness: like `match`, the compiler requires a catch-all `_` or
+proof that the conditions cover all cases (ID.13).
+
 ### What is accepted unchanged from the draft
 
 The following from the v0.1 draft are accepted as-is:
@@ -651,8 +707,8 @@ The following from the v0.1 draft are accepted as-is:
   position (value/pattern position → record; after `~>` or a control-flow
   construct → block).
 - **Control flow**: `if` / `match` / `rec` from the draft, plus `while`,
-  `do while`, `for x in xs`, `??`, `?.` added by Addendum A.1–A.4, A.6. All
-  desugar to `rec` / `match` / `|||`.
+  `do while`, `for x in xs`, `??`, `?.`, multi-way `if` added by Addendum
+  A.1–A.4, A.6–A.7. All desugar to `rec` / `match` / `|||`.
 - **Types**: explicit `name: Type`, `type.Str` / `type.Int` / etc.
   namespace, structural inference, `infer x` and `infer (parse _)` to name
   inferred types, `_` as inferred placeholder.
@@ -660,9 +716,9 @@ The following from the v0.1 draft are accepted as-is:
   order, independent nodes may run concurrently, control flow is graph
   structure, errors are early-exit paths.
 - **Minimal core**: `~>` / `>>>` / `***` / `&&&` / `|||` / `rec`. Everything
-  else — including `while`, `do while`, `for`, `??`, `?.`, spread — is
-  structure, data, control flow, patterns, or type constraints, and desugars
-  to the core.
+  else — including `while`, `do while`, `for`, `??`, `?.`, multi-way `if`,
+  spread — is structure, data, control flow, patterns, or type constraints,
+  and desugars to the core.
 
 ## Consequences
 
@@ -687,12 +743,12 @@ The following from the v0.1 draft are accepted as-is:
 - **Optional punctuation** (semicolons, commas) keeps common code compact
   while permitting dense one-liners, without introducing ambiguity given
   the contextual `{}` rule.
-- **Control-flow sugar (`while`, `do while`, `for`, `??`, `?.`)** closes the
-  expressiveness gap with TypeScript for the most common imperative and
-  option-handling patterns, without growing the kernel. Programmers
-  migrating from TS find familiar forms; the calculus stays at six
-  combinators. `do while` covers the post-test loop case that `while`
-  alone misses.
+- **Control-flow sugar (`while`, `do while`, `for`, `??`, `?.`, multi-way
+  `if`)** closes the expressiveness gap with TypeScript for the most common
+  imperative and option-handling patterns, without growing the kernel.
+  Programmers migrating from TS find familiar forms; the calculus stays at
+  six combinators. `do while` covers the post-test loop case that `while`
+  alone misses. Multi-way `if` avoids rightward drift in guard chains.
 - **Spread** completes the destructuring/construction duality. Immutable
   record update — the single most common TS pattern written as
   `{ ...obj, field: value }` — now has a direct equivalent, and the
@@ -925,10 +981,11 @@ with full autonomy. The expected follow-ups are:
    categorical combinators carry their input/output arity in the type
    system rather than only in the term grammar.
 4. A desugaring specification for the Addendum forms (`while`, `do while`,
-   `for`, `??`, `?.`, spread), defining precisely how each expands into `rec` /
-   `match` / `|||` / structural construction, including the feedback-wire
-   naming rule for `while` / `do while` / `for`, and the structural override
-   rule for spread.
+   `for`, `??`, `?.`, multi-way `if`, spread), defining precisely how each
+   expands into `rec` / `match` / `|||` / structural construction, including
+   the feedback-wire naming rule for `while` / `do while` / `for`, the
+   nested `if/else` expansion for multi-way `if`, and the structural
+   override rule for spread.
 5. Row variable support in the type solver (ID.7 above), building on
    [ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md).
 6. A reference parser and pretty-printer for the v0.1 surface, targeting

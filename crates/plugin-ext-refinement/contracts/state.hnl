@@ -1,54 +1,54 @@
-// Atoms for state machine transitions.
-//
-// These model the primitive operations of state machines: counters that
-// maintain a non-negative invariant, buffers that push/pop items, and
-// protocol state transitions (idle -> active -> done).
-//
-// The key atoms are state.inc / state.dec (counter) and state.push /
-// state.pop (buffer).  state.dec has a conditional contract with
-// Le(0, input) precondition and Le(0, output) guarantee, so the fixpoint
-// can discover Count >= 0 as the loop invariant.
+-- Atoms for state machine transitions.
+--
+-- These model the primitive operations of state machines: counters that
+-- maintain a non-negative invariant, buffers that push/pop items, and
+-- protocol state transitions (idle -> active -> done).
+--
+-- The key atoms are state.inc / state.dec (counter) and state.push /
+-- state.pop (buffer).  state.dec has a conditional contract with
+-- Le(0, input) precondition and Le(0, output) guarantee, so the fixpoint
+-- can discover Count >= 0 as the loop invariant.
 
-// -- Counter ---------------------------------------------------------
+-- -- Counter ---------------------------------------------------------
 
-// Increment a counter: Count -> Count + 1
+-- Increment a counter: Count -> Count + 1
 axiom state.inc : Int -> Int
   guarantee:  Le(input, output)
   termination: constant
 
-// Decrement a counter: Count -> Count - 1  (only valid if Count > 0)
+-- Decrement a counter: Count -> Count - 1  (only valid if Count > 0)
 axiom state.dec : Int -> Int
   requires:  Le(0, input)
   guarantee: Le(0, output)
   termination: constant
 
-// -- Buffer ----------------------------------------------------------
+-- -- Buffer ----------------------------------------------------------
 
-// Add to buffer: (Buffer * Item) -> Buffer
+-- Add to buffer: (Buffer * Item) -> Buffer
 axiom state.push : (List a * a) -> List a
   guarantee:  LengthPlusOne(output, input)
   termination: constant
 
-// Remove from buffer: List a -> List a  (only valid if buffer non-empty)
+-- Remove from buffer: List a -> List a  (only valid if buffer non-empty)
 axiom state.pop : List a -> List a
   requires:  Le(0, input)
   guarantee: LengthSubOne(output, input) && Le(0, output)
   termination: constant
 
-// Check if buffer is empty
+-- Check if buffer is empty
 axiom state.is_empty : List a -> Bool
   guarantee:  True
   termination: constant
 
-// -- Protocol transitions --------------------------------------------
+-- -- Protocol transitions --------------------------------------------
 
-// Transition: idle -> active
+-- Transition: idle -> active
 axiom state.idle_to_active : State -> State
   requires:  True
   guarantee: True
   termination: constant
 
-// Transition: active -> done
+-- Transition: active -> done
 axiom state.active_to_done : State -> State
   requires:  True
   guarantee: True

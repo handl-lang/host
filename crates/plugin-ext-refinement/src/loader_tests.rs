@@ -108,7 +108,7 @@ fn test_parse_axiom_with_product_input() {
 
 #[test]
 fn test_parse_comments_and_blank_lines_ignored() {
-    let src = "// a comment\n\naxiom id : a -> a\n  // inline comment\n  guarantee: True\n\n// trailing comment\n";
+    let src = "-- a comment\n\naxiom id : a -> a\n  -- inline comment\n  guarantee: True\n\n-- trailing comment\n";
     let reg = parse_contracts(src).expect("must parse");
     assert!(reg.contains("id", &ArrSource::Native));
     assert_eq!(reg.len(), 1);

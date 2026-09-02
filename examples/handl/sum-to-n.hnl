@@ -1,5 +1,5 @@
 loop { n: 100, acc: 0 } (
-  proc (n, acc) -> if n == 0 then
+  [n, acc] ~> if n == 0 then
     returnA -< { out: acc }
   else
     returnA -< { state: { n: n - 1, acc: acc + n } }

@@ -5,15 +5,13 @@
     { "include": "#comments" },
     { "include": "#block_comment" },
     { "include": "#strings" },
+    { "include": "#template_strings" },
     { "include": "#numbers" },
     { "include": "#booleans" },
     { "include": "#nulls" },
-    { "include": "#keyword_as" },
-    { "include": "#keyword_handle" },
     { "include": "#keywords" },
     { "include": "#spread" },
     { "include": "#arrow" },
-    { "include": "#pipe" },
     { "include": "#arrow_operators" },
     { "include": "#operators" },
     { "include": "#type_references" },
@@ -33,11 +31,11 @@
       "captures": {
         "1": { "name": "variable.other.readwrite" }
       },
-      "match": "^([a-zA-Z_.][a-zA-Z0-9_.]*)\\s*(?::|=)"
+      "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?::|=)"
     },
     "block_comment": {
-      "begin": "\\/\\*",
-      "end": "\\*\\/",
+      "begin": "/\\*",
+      "end": "\\*/",
       "name": "comment.block"
     },
     "booleans": {
@@ -49,14 +47,11 @@
       "name": "meta.brace.square"
     },
     "braces": {
-      "captures": {
-        "1": { "name": "meta.brace.curly" },
-        "2": { "name": "meta.brace.curly" }
-      },
-      "match": "(\\{)(\\})"
+      "match": "[{}]",
+      "name": "meta.brace.curly"
     },
     "comments": {
-      "match": "\\/\\/.*",
+      "match": "--.*",
       "name": "comment.line"
     },
     "delimiters": {
@@ -64,21 +59,21 @@
       "name": "punctuation.separator"
     },
     "doc_block_comment": {
-      "begin": "\\/\\*\\*",
-      "end": "\\*\\/",
+      "begin": "/\\*\\*",
+      "end": "\\*/",
       "name": "comment.documentation.block"
     },
     "doc_comments": {
-      "match": "\\/\\/\\/.*",
+      "match": "---.*",
       "name": "comment.documentation"
     },
     "arrow": {
-      "match": "->",
+      "match": "~>",
       "name": "keyword.operator.arrow"
     },
-    "pipe": {
-      "match": "\\|>",
-      "name": "keyword.operator.pipe"
+    "arrow_operators": {
+      "match": ">>>|\\|\\|\\||-<|<-",
+      "name": "keyword.operator.arrow"
     },
     "spread": {
       "match": "\\.\\.\\.",
@@ -95,16 +90,8 @@
       "match": "[a-zA-Z_][a-zA-Z0-9_]*",
       "name": "variable.other.readwrite"
     },
-    "keyword_as": {
-      "match": "\\b(as)\\b",
-      "name": "keyword.control"
-    },
-    "keyword_handle": {
-      "match": "\\b(handle)\\b",
-      "name": "keyword.control"
-    },
     "keywords": {
-      "match": "\\b(proc|loop|if|then|else|match|where|in|typeof|not|import|export|module|axiom|do|returnA|let|const|is|may|must|when)\\b",
+      "match": "\\b(loop|if|then|else|match|where|in|typeof|not|import|export|module|axiom|do|returnA|let|const|is|may|must|when|handle|as)\\b",
       "name": "keyword.control"
     },
     "nulls": {
@@ -121,12 +108,8 @@
       },
       "match": "(?<=\\{|,)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:"
     },
-    "arrow_operators": {
-      "match": "(>>>|\\|\\|\\||-<|<-)",
-      "name": "keyword.operator.arrow"
-    },
     "operators": {
-      "match": "(=|\\+|-|\\*|\\/|<|>|<=|>=|==|!=|&&|\\|\\||!)",
+      "match": "(=|\\+|-|\\*|\\/|<|>|<=|>=|==|!=|&&|\\|\\||!|\\?|\\^|%)",
       "name": "keyword.operator"
     },
     "parens": {
@@ -151,6 +134,17 @@
           "begin": "'",
           "end": "'",
           "name": "string.quoted.single"
+        }
+      ]
+    },
+    "template_strings": {
+      "begin": "`",
+      "end": "`",
+      "name": "string.template",
+      "patterns": [
+        {
+          "match": "\\$\\{[^}]*\\}",
+          "name": "variable.other.readwrite"
         }
       ]
     },

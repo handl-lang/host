@@ -108,7 +108,7 @@ impl Function for Tag {
 /// parameters and the payload is an object, each parameter is bound to the
 /// corresponding payload field by name (mirroring the `loop_step`
 /// destructuring in the eval engine): `match_tag({"__tag__":"unit","m":5,"s":1},
-/// {"unit": (m, s) -> ...})` binds `m=5, s=1`. Otherwise the payload is passed
+/// {"unit": (m, s) ~> ...})` binds `m=5, s=1`. Otherwise the payload is passed
 /// as a single argument.
 ///
 /// This is the inspection op: any code holding a tagged value can read its

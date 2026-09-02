@@ -1,7 +1,7 @@
-// Axioms for list primitives.
-//
-// These carry conditional contracts with real semantic content so that
-// inference can derive non-trivial guarantees like Sorted and LengthEq.
+-- Axioms for list primitives.
+--
+-- These carry conditional contracts with real semantic content so that
+-- inference can derive non-trivial guarantees like Sorted and LengthEq.
 
 axiom list.cons : (α × List α) → List α
   requires: Sorted(tail) ∧ Le(head, head_of_tail)

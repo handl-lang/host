@@ -30,7 +30,7 @@ fn find_cross_file_definition_finds_arrow_file() {
     let arrows_dir = dir.join("arrows").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let insert_path = arrows_dir.join("insert.hnl");
-    fs::write(&insert_path, "// insert arrow\n").expect("write insert.hnl");
+    fs::write(&insert_path, "-- insert arrow\n").expect("write insert.hnl");
 
     // The "current file" lives somewhere under arrows/ so that
     // find_arrows_root can locate the root.
@@ -39,7 +39,7 @@ fn find_cross_file_definition_finds_arrow_file() {
         .join("collection")
         .join("sort.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
-    fs::write(&current_file, "// sort arrow\n").expect("write sort.hnl");
+    fs::write(&current_file, "-- sort arrow\n").expect("write sort.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
     let found = find_cross_file_definition("insert", &current_str);
@@ -60,7 +60,7 @@ fn find_cross_file_definition_returns_none_for_nonexistent() {
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
 
     let current_file = dir.join("arrows").join("sort.hnl");
-    fs::write(&current_file, "// sort arrow\n").expect("write sort.hnl");
+    fs::write(&current_file, "-- sort arrow\n").expect("write sort.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
     let found = find_cross_file_definition("does_not_exist", &current_str);
@@ -83,11 +83,11 @@ fn find_cross_file_definition_uri_returns_location_json() {
     let arrows_dir = dir.join("arrows").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let map_path = arrows_dir.join("map.hnl");
-    fs::write(&map_path, "// map arrow\n").expect("write map.hnl");
+    fs::write(&map_path, "-- map arrow\n").expect("write map.hnl");
 
     let current_file = dir.join("arrows").join("collection").join("each.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
-    fs::write(&current_file, "// each arrow\n").expect("write each.hnl");
+    fs::write(&current_file, "-- each arrow\n").expect("write each.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
     let loc = find_cross_file_definition_uri("map", &current_str)
@@ -106,7 +106,7 @@ fn resolve_definition_falls_back_to_cross_file() {
     let arrows_dir = dir.join("arrows").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let insert_path = arrows_dir.join("insert.hnl");
-    fs::write(&insert_path, "// insert arrow\n").expect("write insert.hnl");
+    fs::write(&insert_path, "-- insert arrow\n").expect("write insert.hnl");
 
     // The current file references `insert` but does not define it locally,
     // so resolve_definition should fall back to cross-file resolution.
@@ -139,7 +139,7 @@ fn resolve_definition_prefers_in_file_definition() {
     // Create a cross-file target that should NOT be chosen because the
     // name is defined locally in the current file.
     let x_path = arrows_dir.join("x.hnl");
-    fs::write(&x_path, "// x arrow\n").expect("write x.hnl");
+    fs::write(&x_path, "-- x arrow\n").expect("write x.hnl");
 
     let current_file = dir.join("arrows").join("main.hnl");
     fs::write(&current_file, "").expect("write main.hnl");
@@ -171,10 +171,10 @@ fn find_cross_file_definition_finds_axiom_in_contracts() {
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
 
     let prim_path = contracts_dir.join("prim.hnl");
-    fs::write(&prim_path, "// contracts\naxiom prim.add\n").expect("write prim.hnl");
+    fs::write(&prim_path, "-- contracts\naxiom prim.add\n").expect("write prim.hnl");
 
     let current_file = arrows_dir.join("sort.hnl");
-    fs::write(&current_file, "// sort\n").expect("write sort.hnl");
+    fs::write(&current_file, "-- sort\n").expect("write sort.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
     let found = find_cross_file_definition("prim.add", &current_str);

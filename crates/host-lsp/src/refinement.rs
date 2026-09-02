@@ -142,11 +142,11 @@ impl RefinementEngine {
     }
 
     /// Build a markdown hover string for a specific property (field) of the
-    /// loop state, showing its inferred refinement type.
+    /// rec state, showing its inferred refinement type.
     ///
     /// `property_name` is the field name (e.g. `acc`, `remaining`) and
     /// `source` is the full file source. Returns `None` if the source is not
-    /// an arrow file, inference fails, or the property is not a known loop
+    /// an arrow file, inference fails, or the property is not a known rec
     /// state field.
     pub fn property_hover_markdown(
         &self,
@@ -156,9 +156,9 @@ impl RefinementEngine {
     ) -> Option<String> {
         let result = self.infer_document(source, file_path)?.ok()?;
 
-        // Parse the loop state declaration to get field names and their
+        // Parse the rec state declaration to get field names and their
         // positions in the product type.
-        let fields = parse_loop_state_fields(source)?;
+        let fields = parse_rec_state_fields(source)?;
 
         // Find the position of the property in the state product.
         let pos = fields.iter().position(|f| f == property_name)?;
@@ -370,26 +370,26 @@ pub(crate) fn find_arrows_root(path: &str) -> Option<String> {
     }
 }
 
-/// Parse the loop state declaration from an arrow file to extract field
+/// Parse the rec state declaration from an arrow file to extract field
 /// names in order.
 ///
 /// For example, given:
 /// ```text
-/// loop {
+/// rec {
 ///   remaining: input,
 ///   acc:       []
 /// } (
 /// ```
 ///
 /// Returns `Some(vec!["remaining", "acc"])`.
-fn parse_loop_state_fields(source: &str) -> Option<Vec<String>> {
-    // Find `loop {` and extract fields until the closing `}`.
-    let loop_start = source.find("loop")?;
-    let after_loop = &source[loop_start..];
+fn parse_rec_state_fields(source: &str) -> Option<Vec<String>> {
+    // Find `rec {` and extract fields until the closing `}`.
+    let rec_start = source.find("rec")?;
+    let after_rec = &source[rec_start..];
 
-    // Find the opening brace after `loop`.
-    let brace_start = after_loop.find('{')?;
-    let after_brace = &after_loop[brace_start + 1..];
+    // Find the opening brace after `rec`.
+    let brace_start = after_rec.find('{')?;
+    let after_brace = &after_rec[brace_start + 1..];
 
     // Find the closing brace.
     let brace_end = after_brace.find('}')?;

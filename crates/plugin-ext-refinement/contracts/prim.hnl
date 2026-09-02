@@ -1,9 +1,9 @@
-// Axioms for irreducible Rust primitives.
-//
-// These are the foundation -- everything else is derived.
-// Every axiom has a `guarantee:` clause; `requires:` defaults to True.
+-- Axioms for irreducible Rust primitives.
+--
+-- These are the foundation -- everything else is derived.
+-- Every axiom has a `guarantee:` clause; `requires:` defaults to True.
 
-// -- Arithmetic ------------------------------------------------------
+-- -- Arithmetic ------------------------------------------------------
 
 axiom prim.add : (Int * Int) -> Int
   guarantee: True
@@ -20,12 +20,12 @@ axiom prim.le : (Int * Int) -> Bool
 axiom prim.eq : (a * a) -> Bool
   guarantee: True
 
-// -- Comparison ------------------------------------------------------
+-- -- Comparison ------------------------------------------------------
 
 axiom prim.compare : (a * b) -> Int
   guarantee: Le(output, 1)
 
-// -- Allocation ------------------------------------------------------
+-- -- Allocation ------------------------------------------------------
 
 axiom prim.alloc : Int -> List a
   guarantee: LengthEq(output, 0)

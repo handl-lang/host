@@ -37,7 +37,7 @@ use std::rc::Rc;
 // ---------------------------------------------------------------------------
 //
 // The greet *logic* is handl-authored in `kit-stdlib/data/hello/greet.hnl`
-// (a single `proc (name) -> "Hello, " + name + "!"` expression). This Rust
+// (a single `name ~> "Hello, " + name + "!"` expression). This Rust
 // side is a thin loader/bridge: it `include_str!`s that data file, evaluates
 // it with a minimal module-free runtime (greet uses only the native `+`
 // string-concat op, so no `ModuleLookup` is needed), and applies the
@@ -103,13 +103,13 @@ fn escape_handl_string(s: &str) -> String {
     out
 }
 
-/// Strip `//` comment lines from `greet.hnl` so the embedded source parses
+/// Strip `--` comment lines from `greet.hnl` so the embedded source parses
 /// as a bare expression. The data file's header comment documents the
 /// definition but is not valid inside the applied `(greet)(name)` form the
 /// Pratt parser evaluates, so it is removed before evaluation.
 fn strip_comment_lines(src: &str) -> String {
     src.lines()
-        .filter(|line| !line.trim_start().starts_with("//"))
+        .filter(|line| !line.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -744,6 +744,15 @@ pub fn is_operator_kind(kind: &str) -> bool {
             | "token.fanout"
             | "token.pipe"
             | "token.arrow"
+            | "token.arrow_app"
+            | "token.arrow_bind"
+            | "token.and"
+            | "token.or"
+            | "token.bang"
+            | "token.choice"
+            | "token.percent"
+            | "token.question"
+            | "token.ellipsis"
     )
 }
 
@@ -1172,7 +1181,7 @@ mod tests {
     #[test]
     fn typecheck_fn_binds_param_and_returns_function_type() {
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("(x) -> x").unwrap();
+        let typ = kit.typecheck("x ~> x").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.function"));
     }
 

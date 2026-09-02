@@ -40,7 +40,7 @@ fn debug_parse_all() {
     // This test just prints parse output for debugging.
     debug_parse("1 &&& 2");
     debug_parse("1 + 1 &&& 2 * 3");
-    debug_parse("1 >>> x -> x + 1");
+    debug_parse("1 >>> x ~> x + 1");
     debug_parse("1.a");
 }
 
@@ -86,10 +86,10 @@ fn field_access_array_from_source() {
 #[test]
 fn flow_applies_closure_to_left() {
     let kit = kit();
-    // `1 >>> x -> x + 1` — flow applies the closure to 1, yielding 2.
-    // `>>>` (bp 20) binds looser than `->` (bp 31), so this parses as
-    // `1 >>> (x -> x + 1)`.
-    let result = kit.run("1 >>> x -> x + 1").expect("flow must eval");
+    // `1 >>> x ~> x + 1` — flow applies the closure to 1, yielding 2.
+    // `>>>` (bp 20) binds looser than `~>` (bp 31), so this parses as
+    // `1 >>> (x ~> x + 1)`.
+    let result = kit.run("1 >>> x ~> x + 1").expect("flow must eval");
     assert_eq!(result, json!(2));
 }
 
@@ -97,9 +97,9 @@ fn flow_applies_closure_to_left() {
 fn flow_chains_left_associative() {
     let kit = kit();
     // `>>>` is left-associative (bp [20, 21]), so this parses as
-    // `(1 >>> (x -> x + 1)) >>> (y -> y * 2)` == `2 >>> (y -> y * 2)` == 4.
+    // `(1 >>> (x ~> x + 1)) >>> (y ~> y * 2)` == `2 >>> (y ~> y * 2)` == 4.
     let result = kit
-        .run("1 >>> x -> x + 1 >>> y -> y * 2")
+        .run("1 >>> x ~> x + 1 >>> y ~> y * 2")
         .expect("chained flow must eval");
     assert_eq!(result, json!(4));
 }
@@ -109,7 +109,7 @@ fn flow_three_step_chain() {
     let kit = kit();
     // `1 >>> inc >>> double >>> inc` == `inc(1)=2 → double(2)=4 → inc(4)=5`.
     let result = kit
-        .run("1 >>> x -> x + 1 >>> y -> y * 2 >>> z -> z + 1")
+        .run("1 >>> x ~> x + 1 >>> y ~> y * 2 >>> z ~> z + 1")
         .expect("three-step flow must eval");
     assert_eq!(result, json!(5));
 }

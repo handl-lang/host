@@ -113,8 +113,8 @@ fn selection_ranges_expands_to_document() {
 
 #[test]
 fn selection_ranges_handles_nested_brackets() {
-    // Nested brackets: `loop { proc (state) -> { y } }` with the cursor on `y`.
-    let src = "loop { proc (state) -> { y } }";
+    // Nested brackets: `loop { state ~> { y } }` with the cursor on `y`.
+    let src = "loop { state ~> { y } }";
     let pos = src.find('y').unwrap();
     let ranges = collect_ranges(&selection_ranges(src, &[pos])[0]);
     // We expect: token `y`, inner-brace content, inner braces, outer-brace
@@ -184,7 +184,7 @@ fn selection_ranges_multiple_positions() {
 
 #[test]
 fn selection_ranges_returns_valid_json() {
-    let src = "loop { proc (state) -> { y } }";
+    let src = "loop { state ~> { y } }";
     let pos = src.find('y').unwrap();
     let result = selection_ranges(src, &[pos]);
     assert_eq!(result.len(), 1);

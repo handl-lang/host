@@ -606,7 +606,7 @@ impl TreeWalkEngine {
                 //
                 // Param destructuring: if the body proc has multiple params
                 // and the current state is an object, bind each field to a
-                // param by name (e.g. `proc (n, acc) -> ...` with state
+                // param by name (e.g. `[n, acc] ~> ...` with state
                 // `{ n: 5, acc: 1 }` binds n=5, acc=1).
                 let body_proc = raw_args.first().ok_or_else(|| {
                     LangError::Engine("loop_step: missing body proc".to_string())
@@ -802,18 +802,20 @@ impl TreeWalkEngine {
                             LangError::Engine("closure: missing body child".to_string())
                         })? as usize;
                     let param_node = ast.at(AstRef::new(param_idx))?;
-                    let param_names: Vec<String> = if param_node.kind == "paren" {
-                        let paren_children = param_node
+                    let param_names: Vec<String> = if param_node.kind == "paren"
+                        || param_node.kind == "array"
+                    {
+                        let param_children = param_node
                             .payload
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
                                 LangError::Engine(
-                                    "closure: paren params missing children".to_string(),
+                                    "closure: params missing children".to_string(),
                                 )
                             })?;
-                        let mut names = Vec::with_capacity(paren_children.len());
-                        for pc in paren_children {
+                        let mut names = Vec::with_capacity(param_children.len());
+                        for pc in param_children {
                             let pidx = pc.as_u64().ok_or_else(|| {
                                 LangError::Engine(
                                     "closure: param index must be a number".to_string(),
@@ -4137,7 +4139,7 @@ mod tests {
         // 5: value(5)
         // 6: entry{children:[4, 5]} (other: 5)
         // 7: object{children:[3, 6]}
-        // 8: var("k") (proc param)
+        // 8: var("k") (arrow param)
         // 9: object ref (7) — body
         // 10: function{children:[8, 7]}
         // 11: value("mykey")

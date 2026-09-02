@@ -1,5 +1,5 @@
 loop { n: 942, sum: 0 } (
-  proc (n, sum) -> if n == 0 then
+  [n, sum] ~> if n == 0 then
     if sum < 10 then
       returnA -< { out: sum }
     else

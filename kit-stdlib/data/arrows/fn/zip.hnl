@@ -1,15 +1,15 @@
-// zip: pair up corresponding elements of two lists.
-// Written as an arrow graph over list primitives.
-// Contract: inferred from the loop body.
-//
-// Graph structure:
-//   zip = loop(first(arr("list.head")) >>>
-//              (first(arr("list.tail")) >>> arr("list.cons")))
-//
-// The loop processes elements one at a time:
-//   - take the head of both lists (first component)
-//   - take the tail of both lists (advance both)
-//   - cons the pair onto the output
-//   - repeat until either list is exhausted
+-- zip: pair up corresponding elements of two lists.
+-- Written as an arrow graph over list primitives.
+-- Contract: inferred from the loop body.
+--
+-- Graph structure:
+--   zip = loop(first(arr("list.head")) >>>
+--              (first(arr("list.tail")) >>> arr("list.cons")))
+--
+-- The loop processes elements one at a time:
+--   - take the head of both lists (first component)
+--   - take the tail of both lists (advance both)
+--   - cons the pair onto the output
+--   - repeat until either list is exhausted
 
 zip = loop(first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")))

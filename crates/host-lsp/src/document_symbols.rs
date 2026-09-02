@@ -7,11 +7,11 @@
 //!
 //! Three flavours of `.hnl` file are recognised:
 //!
-//! * **Arrow files** — the first significant token is the `loop` keyword.
-//!   Symbols are produced for the loop/proc combinators, match-arm patterns,
-//!   object keys and `where` bindings.
-//! * **Contract files** — the source contains an `axiom` keyword. Each
-//!   `axiom name : signature` becomes an interface symbol.
+//! * **Arrow files** — the first significant token is the `rec` keyword.
+//!   Symbols are produced for the rec/while/for blocks, match-arm patterns,
+//!   object keys and bindings.
+//! * **Contract files** — the source contains a `law` keyword. Each
+//!   `law name : signature` becomes an interface symbol.
 //! * **General files** — everything else. Top-level bindings, `match` and `if`
 //!   expressions become symbols.
 
@@ -54,17 +54,17 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
     };
 
     // The first significant (non-comment) token decides whether this is an
-    // arrow file (it starts with the `loop` keyword).
+    // arrow file (it starts with the `rec` keyword).
     let is_arrow = tokens
         .iter()
         .find(|t| !is_comment_kind(&t.kind))
-        .map(|t| is_keyword_kind(&t.kind) && t.text == "loop")
+        .map(|t| is_keyword_kind(&t.kind) && t.text == "rec")
         .unwrap_or(false);
 
-    // Contract files are identified by the presence of an `axiom` keyword.
+    // Contract files are identified by the presence of a `law` keyword.
     let is_contract = tokens
         .iter()
-        .any(|t| is_keyword_kind(&t.kind) && t.text == "axiom");
+        .any(|t| is_keyword_kind(&t.kind) && t.text == "law");
 
     if is_arrow {
         arrow_symbols(source, &tokens)
@@ -114,18 +114,26 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
         // Keywords -----------------------------------------------------------
         if is_keyword_kind(kind) {
             match t.text.as_str() {
-                "loop" => out.push(sym(
-                    "loop",
+                "rec" => out.push(sym(
+                    "rec",
                     KIND_FUNCTION,
-                    "arrow loop combinator",
+                    "feedback loop",
                     source,
                     t.span.start,
                     t.span.end,
                 )),
-                "proc" => out.push(sym(
-                    "proc",
+                "while" => out.push(sym(
+                    "while",
                     KIND_FUNCTION,
-                    "procedure body",
+                    "while loop",
+                    source,
+                    t.span.start,
+                    t.span.end,
+                )),
+                "for" => out.push(sym(
+                    "for",
+                    KIND_FUNCTION,
+                    "for loop",
                     source,
                     t.span.start,
                     t.span.end,
@@ -135,23 +143,6 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     // files, but its body opens a match frame so that arm
                     // patterns can be collected.
                     expect_match_body = true;
-                }
-                "where" => {
-                    // `where name = def` — the next significant token is the
-                    // binding name.
-                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
-                        let nt = &tokens[ni];
-                        if is_identifier_kind(&nt.kind) {
-                            out.push(sym(
-                                &nt.text,
-                                KIND_VARIABLE,
-                                "where binding",
-                                source,
-                                nt.span.start,
-                                nt.span.end,
-                            ));
-                        }
-                    }
                 }
                 _ => {}
             }
@@ -259,8 +250,8 @@ fn contract_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut i = 0;
     while i < tokens.len() {
         let t = &tokens[i];
-        if is_keyword_kind(&t.kind) && t.text == "axiom" {
-            // Collect the axiom name (possibly dotted, e.g. `list.head`) up
+        if is_keyword_kind(&t.kind) && t.text == "law" {
+            // Collect the law name (possibly dotted, e.g. `list.head`) up
             // to the `:` that introduces the signature.
             let mut j = i + 1;
             let mut name_start: Option<usize> = None;
@@ -276,8 +267,8 @@ fn contract_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     colon_end = Some(tj.span.end);
                     break;
                 }
-                // Another `axiom` without a colon — bail out.
-                if is_keyword_kind(&tj.kind) && tj.text == "axiom" {
+                // Another `law` without a colon — bail out.
+                if is_keyword_kind(&tj.kind) && tj.text == "law" {
                     break;
                 }
                 if is_identifier_kind(&tj.kind) || tj.kind == "token.dot" {
@@ -341,6 +332,73 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     t.span.start,
                     t.span.end,
                 )),
+                "while" => out.push(sym(
+                    "while",
+                    KIND_FUNCTION,
+                    "while loop",
+                    source,
+                    t.span.start,
+                    t.span.end,
+                )),
+                "for" => out.push(sym(
+                    "for",
+                    KIND_FUNCTION,
+                    "for loop",
+                    source,
+                    t.span.start,
+                    t.span.end,
+                )),
+                "import" => {
+                    // `import name from module` — the next significant token
+                    // is the imported name.
+                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                        let nt = &tokens[ni];
+                        if is_identifier_kind(&nt.kind) {
+                            out.push(sym(
+                                &nt.text,
+                                KIND_VARIABLE,
+                                "import",
+                                source,
+                                nt.span.start,
+                                nt.span.end,
+                            ));
+                        }
+                    }
+                }
+                "trait" => {
+                    // `trait Name { … }` — the next significant token is the
+                    // trait name.
+                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                        let nt = &tokens[ni];
+                        if is_identifier_kind(&nt.kind) {
+                            out.push(sym(
+                                &nt.text,
+                                KIND_INTERFACE,
+                                "trait",
+                                source,
+                                nt.span.start,
+                                nt.span.end,
+                            ));
+                        }
+                    }
+                }
+                "impl" => {
+                    // `impl Trait for Type { … }` — the next significant token
+                    // is the trait being implemented.
+                    if let Some(ni) = next_sig_idx(tokens, i + 1) {
+                        let nt = &tokens[ni];
+                        if is_identifier_kind(&nt.kind) {
+                            out.push(sym(
+                                &nt.text,
+                                KIND_INTERFACE,
+                                "impl",
+                                source,
+                                nt.span.start,
+                                nt.span.end,
+                            ));
+                        }
+                    }
+                }
                 _ => {}
             }
             continue;
@@ -444,7 +502,7 @@ fn line_end_offset(source: &str, from: usize) -> usize {
     end
 }
 
-/// The trimmed text from `from` to the end of its line — used for axiom
+/// The trimmed text from `from` to the end of its line — used for law
 /// signatures.
 fn rest_of_line(source: &str, from: usize) -> String {
     let end = line_end_offset(source, from);

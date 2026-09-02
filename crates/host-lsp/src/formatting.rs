@@ -57,7 +57,7 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
         let stripped = line.trim_end();
         let trimmed = stripped.trim_start();
         let is_blank = trimmed.is_empty();
-        let is_comment = in_block_comment || trimmed.starts_with("//");
+        let is_comment = in_block_comment || trimmed.starts_with("--");
 
         let indent = if is_blank {
             0

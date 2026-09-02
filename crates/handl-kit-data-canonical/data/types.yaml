@@ -2288,16 +2288,6 @@
     source: Judgment
     lit: 0
 
-# `proc` — has 1 child (children array with maxItems: 1). Eval is
-# `proj_child(0)`. Passthrough: synth child 0 (ADR-0054 legacy migration).
-- id: type.proc
-  node_kind: proc
-  synth: !Arr
-    op: synth_child
-    args: []
-    source: Judgment
-    lit: 0
-
 # `typeof` — synth child 0 (the expression) and return its type
 # (ADR-0054 legacy migration).
 - id: type.typeof

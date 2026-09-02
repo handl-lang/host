@@ -14,7 +14,9 @@ use crate::folding_ranges;
 use crate::formatting;
 use crate::hover;
 use crate::inlay_hints;
+use crate::on_type_formatting;
 use crate::protocol::{Message, send_error, send_log_message, send_notification, send_response};
+use crate::range_formatting;
 use crate::refinement::RefinementEngine;
 use crate::selection_ranges;
 use crate::signature_help;
@@ -293,6 +295,45 @@ pub fn handle_formatting(
     let source = resolve_document_text(store, &msg.params);
     let result = formatting::format_document_json(&source);
     send_response(writer, id, result);
+}
+
+pub fn handle_on_type_formatting(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let (line, character) = position_line_char(&msg);
+    let ch = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("ch"))
+        .and_then(|c| c.as_str())
+        .unwrap_or("");
+    let edits = on_type_formatting::on_type_formatting(&source, (line, character), ch);
+    send_response(writer, id, json!(edits));
+}
+
+pub fn handle_range_formatting(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let (start_line, end_line) = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("range"))
+        .and_then(|r| {
+            let start = r.get("start")?.get("line")?.as_u64()? as u32;
+            let end = r.get("end")?.get("line")?.as_u64()? as u32;
+            Some((start, end))
+        })
+        .unwrap_or((0, 0));
+    let edits = range_formatting::range_format(&source, start_line, end_line);
+    send_response(writer, id, json!(edits));
 }
 
 pub fn handle_folding_ranges(
@@ -657,6 +698,11 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
             "codeLensProvider": true,
             "documentSymbolProvider": true,
             "documentFormattingProvider": true,
+            "documentRangeFormattingProvider": true,
+            "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": ["}", ")", "]"]
+            },
             "foldingRangeProvider": true,
             "documentHighlightProvider": true,
             "selectionRangeProvider": true,

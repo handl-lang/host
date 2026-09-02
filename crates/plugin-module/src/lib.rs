@@ -339,7 +339,7 @@ mod tests {
         }
     }
 
-    /// `greet(name) -> "hello, {name}"`
+    /// `greet(name) ~> "hello, {name}"`
     struct Greet;
     impl Function for Greet {
         fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {

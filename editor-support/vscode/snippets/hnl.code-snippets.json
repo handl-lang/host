@@ -1,143 +1,219 @@
 {
-  "loop arrow": {
-    "prefix": "loop",
+  "arrow (single arg)": {
+    "prefix": "~>",
     "body": [
-      "loop {",
-      "  remaining: input,",
-      "  acc:       []",
-      "} (",
-      "  proc (state) -> match state.remaining {",
-      "    []: returnA -< {",
-      "      out: state.acc",
-      "    },",
-      "",
-      "    [h, ...t]: do {",
-      "      ${1:// process h}",
-      "      returnA -< {",
-      "        state: {",
-      "          remaining: t,",
-      "          acc:       state.acc",
-      "        }",
-      "      }",
+      "${1:pattern} ~> ${2:body}"
+    ],
+    "description": "An arrow: pattern ~> body"
+  },
+  "arrow (multi arg)": {
+    "prefix": "~>args",
+    "body": [
+      "[${1:args}] ~> ${2:body}"
+    ],
+    "description": "A multi-arg arrow: [args] ~> body (no currying, ID.2)"
+  },
+  "rec block": {
+    "prefix": "rec",
+    "body": [
+      "rec {",
+      "  ${1:// state bindings}",
+      "  ${2:// match or if to exit/continue}",
+      "}"
+    ],
+    "description": "A rec block for feedback loops (replaces loop)"
+  },
+  "rec with match": {
+    "prefix": "rec-match",
+    "body": [
+      "rec {",
+      "  remaining = ${1:input},",
+      "  acc = ${2:[]},",
+      "  match remaining {",
+      "    []: return acc,",
+      "    [h, ...t]: {",
+      "      ${3:// process h}",
+      "      remaining = t,",
+      "      acc = ${4:// update acc}",
       "    }",
       "  }",
-      ")"
+      "}"
     ],
-    "description": "A loop arrow with match on remaining list"
+    "description": "A rec block with match on a list (common fold pattern)"
   },
-  "loop with multiple fields": {
-    "prefix": "loop-fields",
+  "while loop": {
+    "prefix": "while",
     "body": [
-      "loop {",
-      "  ${1:field1}: ${2:input},",
-      "  ${3:field2}: ${4:[]}",
-      "} (",
-      "  proc (state) -> match state.${1:field1} {",
-      "    []: returnA -< {",
-      "      out: state.${3:field2}",
-      "    },",
-      "",
-      "    [h, ...t]: do {",
-      "      ${5:// process element}",
-      "      returnA -< {",
-      "        state: {",
-      "          ${1:field1}: t,",
-      "          ${3:field2}:       state.${3:field2}",
-      "        }",
-      "      }",
-      "    }",
-      "  }",
-      ")"
+      "while ${1:cond} {",
+      "  ${2:// body}",
+      "}"
     ],
-    "description": "A loop arrow with custom state fields"
+    "description": "A while loop: while cond { body }"
   },
-  "proc arrow": {
-    "prefix": "proc",
+  "do while": {
+    "prefix": "do-while",
     "body": [
-      "proc (${1:args}) -> ${2:expr}"
+      "do {",
+      "  ${1:// body}",
+      "} while ${2:cond}"
     ],
-    "description": "A proc arrow: proc (args) -> expr"
+    "description": "A do-while loop: do { body } while cond"
+  },
+  "for map": {
+    "prefix": "for",
+    "body": [
+      "for ${1:x} in ${2:xs} {",
+      "  ${3:// body}",
+      "}"
+    ],
+    "description": "A for map: for x in xs { body }"
+  },
+  "for fold": {
+    "prefix": "for-fold",
+    "body": [
+      "for ${1:x} in ${2:xs}, ${3:acc} = ${4:init} {",
+      "  ${5:// body}",
+      "}"
+    ],
+    "description": "A for fold: for x in xs, acc = init { body }"
+  },
+  "if else": {
+    "prefix": "if",
+    "body": [
+      "if ${1:cond} {",
+      "  ${2:// then branch}",
+      "} else {",
+      "  ${3:// else branch}",
+      "}"
+    ],
+    "description": "An if/else expression: if cond { then } else { else }"
   },
   "match block": {
     "prefix": "match",
     "body": [
-      "match ${1:state.field} {",
+      "match ${1:expr} {",
+      "  ${2:pat}: ${3:body}",
+      "}"
+    ],
+    "description": "A match expression: match expr { pat: body }"
+  },
+  "match list": {
+    "prefix": "match-list",
+    "body": [
+      "match ${1:xs} {",
       "  []: ${2:// base case},",
-      "",
       "  [h, ...t]: ${3:// recursive case}",
       "}"
     ],
-    "description": "A match block with empty and cons patterns"
+    "description": "A match on a list with empty and cons patterns"
   },
-  "do block": {
-    "prefix": "do",
+  "return": {
+    "prefix": "return",
     "body": [
-      "do {",
-      "  ${1:result} <- ${2:arrow} -< ${3:input};",
-      "  returnA -< {",
-      "    ${4:// output}",
-      "  }",
-      "}"
+      "return ${1:expr}"
     ],
-    "description": "A do block with a binding and return"
-  },
-  "returnA": {
-    "prefix": "returnA",
-    "body": [
-      "returnA -< {",
-      "  ${1:out}: ${2:value}",
-      "}"
-    ],
-    "description": "returnA -< { ... }"
-  },
-  "arrow combinator": {
-    "prefix": "arr",
-    "body": [
-      "arr(\"${1:op}\")"
-    ],
-    "description": "arr(\"op\") — lift a primitive operation"
+    "description": "Return a value from a rec block"
   },
   "sequence": {
     "prefix": "seq",
     "body": [
       "${1:first} >>> ${2:second}"
     ],
-    "description": "a >>> b — sequence two arrows"
+    "description": "Sequential composition: a >>> b"
+  },
+  "product": {
+    "prefix": "prod",
+    "body": [
+      "${1:left} *** ${2:right}"
+    ],
+    "description": "Parallel product: a *** b"
+  },
+  "fanout": {
+    "prefix": "fan",
+    "body": [
+      "${1:left} &&& ${2:right}"
+    ],
+    "description": "Fan-out: a &&& b"
   },
   "choice": {
     "prefix": "choice",
     "body": [
       "${1:left} ||| ${2:right}"
     ],
-    "description": "a ||| b — choice between two arrows"
+    "description": "Choice: a ||| b"
   },
-  "comp": {
-    "prefix": "comp",
+  "nullish": {
+    "prefix": "nullish",
     "body": [
-      "comp(${1:first}, ${2:second})"
+      "${1:expr} ?? ${2:default}"
     ],
-    "description": "comp(a, b) — compose two arrows"
+    "description": "Nullish coalescing: expr ?? default"
   },
-  "first": {
-    "prefix": "first",
+  "optional chain": {
+    "prefix": "opt-chain",
     "body": [
-      "first(${1:arrow})"
+      "${1:expr}?.${2:field}"
     ],
-    "description": "first(a) — apply arrow to first component"
+    "description": "Optional chaining: expr?.field"
   },
-  "named arrow": {
-    "prefix": "named",
+  "spread": {
+    "prefix": "spread",
     "body": [
-      "${1:name} = ${2:arrow}"
+      "...${1:expr}"
     ],
-    "description": "A named arrow definition: name = expr"
+    "description": "Spread: ...expr"
   },
-  "axiom": {
-    "prefix": "axiom",
+  "record": {
+    "prefix": "record",
     "body": [
-      "axiom ${1:name} : ${2:type}"
+      "{",
+      "  ${1:field}: ${2:value}",
+      "}"
     ],
-    "description": "An axiom declaration"
+    "description": "A record literal: { field: value }"
+  },
+  "tuple": {
+    "prefix": "tuple",
+    "body": [
+      "[${1:items}]"
+    ],
+    "description": "A tuple/positional: [items]"
+  },
+  "binding": {
+    "prefix": "binding",
+    "body": [
+      "${1:name} = ${2:expr}"
+    ],
+    "description": "A binding: name = expr"
+  },
+  "typed binding": {
+    "prefix": "binding-typed",
+    "body": [
+      "${1:name}: ${2:Type} = ${3:expr}"
+    ],
+    "description": "A typed binding: name: Type = expr"
+  },
+  "import": {
+    "prefix": "import",
+    "body": [
+      "import ${1:name} from \"${2:path}\""
+    ],
+    "description": "An import: import name from \"path\""
+  },
+  "law": {
+    "prefix": "law",
+    "body": [
+      "law ${1:name} : ${2:Type}",
+      "  guarantee: ${3:True}"
+    ],
+    "description": "A law declaration (replaces axiom)"
+  },
+  "infer": {
+    "prefix": "infer",
+    "body": [
+      "infer ${1:name}"
+    ],
+    "description": "Infer a name: infer name"
   },
   "doc comment": {
     "prefix": "doc",
@@ -147,30 +223,5 @@
       "/// ${3:details}"
     ],
     "description": "A doc comment block"
-  },
-  "if-then-else": {
-    "prefix": "if",
-    "body": [
-      "if ${1:cond} then",
-      "  ${2:// then branch}",
-      "else",
-      "  ${3:// else branch}"
-    ],
-    "description": "if/then/else expression"
-  },
-  "where binding": {
-    "prefix": "where",
-    "body": [
-      "${1:expr} where",
-      "  ${2:name} = ${3:definition}"
-    ],
-    "description": "A where binding: expr where name = def"
-  },
-  "let binding in do": {
-    "prefix": "bind",
-    "body": [
-      "${1:result} <- ${2:arrow} -< ${3:input};"
-    ],
-    "description": "A binding inside a do block: x <- arrow -< input"
   }
 }

@@ -1625,35 +1625,102 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
         }
         "closure" => {
             // Create a closure from the current node's payload.
+            // Supports two payload shapes:
+            //   1. Rich: {"params": ["x", ...], "body": idx}
+            //   2. Pratt-parsed: {"children": [param_idx, body_idx]}
             let node = match ctx.current_node() {
                 Ok(n) => n,
                 Err(e) => return ctx.set_error(e),
             };
             let payload = &node.payload;
-            let params = match payload.get("params").and_then(|v| v.as_array()) {
-                Some(arr) => arr,
-                None => {
-                    return ctx.set_error(LangError::Engine(
-                        "closure prim: missing params in payload".to_string(),
-                    ));
+            if let (Some(p), Some(b)) = (
+                payload.get("params").and_then(|v| v.as_array()),
+                payload.get("body").and_then(|v| v.as_u64()),
+            ) {
+                let env = ctx.env.capture();
+                Ok(serde_json::json!({
+                    "__arrow__": true,
+                    "params": p,
+                    "body": b,
+                    "env": env,
+                }))
+            } else if let Some(children) =
+                payload.get("children").and_then(|c| c.as_array())
+            {
+                let param_idx = match children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                {
+                    Some(idx) => idx as usize,
+                    None => return ctx.set_error(LangError::Engine(
+                        "closure: missing param child".to_string(),
+                    )),
+                };
+                let body_idx = match children
+                    .get(1)
+                    .and_then(|v| v.as_u64())
+                {
+                    Some(idx) => idx as usize,
+                    None => return ctx.set_error(LangError::Engine(
+                        "closure: missing body child".to_string(),
+                    )),
+                };
+                let param_node = match ctx.ast_at(AstRef::new(param_idx)) {
+                    Ok(n) => n,
+                    Err(e) => return ctx.set_error(e),
+                };
+                let mut param_names: Vec<serde_json::Value> = Vec::new();
+                if param_node.kind == "paren" || param_node.kind == "array" {
+                    let param_children = match param_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                    {
+                        Some(c) => c,
+                        None => return ctx.set_error(LangError::Engine(
+                            "closure: params missing children".to_string(),
+                        )),
+                    };
+                    for pc in param_children {
+                        let pidx = match pc.as_u64() {
+                            Some(idx) => idx as usize,
+                            None => return ctx.set_error(LangError::Engine(
+                                "closure: param index must be a number".to_string(),
+                            )),
+                        };
+                        let pnode = match ctx.ast_at(AstRef::new(pidx)) {
+                            Ok(n) => n,
+                            Err(e) => return ctx.set_error(e),
+                        };
+                        let pname = match pnode.payload.as_str() {
+                            Some(s) => s,
+                            None => return ctx.set_error(LangError::Engine(
+                                "closure: param must be a var with string payload".to_string(),
+                            )),
+                        };
+                        param_names.push(serde_json::Value::String(pname.to_string()));
+                    }
+                } else {
+                    let pname = match param_node.payload.as_str() {
+                        Some(s) => s,
+                        None => return ctx.set_error(LangError::Engine(
+                            "closure: param node must be a var with string payload".to_string(),
+                        )),
+                    };
+                    param_names.push(serde_json::Value::String(pname.to_string()));
                 }
-            };
-            let body = match payload.get("body").and_then(|v| v.as_u64()) {
-                Some(b) => b,
-                None => {
-                    return ctx.set_error(LangError::Engine(
-                        "closure prim: missing body in payload".to_string(),
-                    ));
-                }
-            };
-            let env = ctx.env.capture();
-            let closure = serde_json::json!({
-                "__arrow__": true,
-                "params": params,
-                "body": body,
-                "env": env,
-            });
-            Ok(closure)
+                let env = ctx.env.capture();
+                Ok(serde_json::json!({
+                    "__arrow__": true,
+                    "params": param_names,
+                    "body": body_idx,
+                    "env": env,
+                }))
+            } else {
+                return ctx.set_error(LangError::Engine(
+                    "closure prim: missing params/body in payload".to_string(),
+                ));
+            }
         }
         "array" => {
             let node = match ctx.current_node() {
@@ -2358,16 +2425,16 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut Value {
 }
 
 /// `loop_step` derived step op (ADR-0052 §"Derived forms"): the ergonomic
-/// `loop` surface lowering. `args = [body_proc]` is the body proc closure
+/// `loop` surface lowering. `args = [body_proc]` is the body closure
 /// (evaluated from the carried sub-scheme arg); `incoming` is the loop pair
 /// `(in, state)` from the enclosing `Loop` combinator.
 ///
-/// The body proc is applied to the current state (`in` on the first step,
+/// The body closure is applied to the current state (`in` on the first step,
 /// `state` thereafter) via [`apply_closure_value`]. It must return an object:
 /// - `{ out: v }`    → `either_left(v)`  (terminate with `v`)
 /// - `{ state: v }`  → `either_right(v)` (continue with new state `v`)
 ///
-/// Param destructuring: if the body proc has >1 params and the current state
+/// Param destructuring: if the body closure has >1 params and the current state
 /// is an object, bind each param to the corresponding field by name. Mirrors
 /// the v2 tree-walk's `eval_derived_step` `loop_step` arm exactly.
 fn prim_v2_loop_step(
@@ -2392,7 +2459,7 @@ fn prim_v2_loop_step(
         Some(b) => b.clone(),
         None => {
             return ctx.set_error(LangError::Engine(
-                "loop_step: missing body proc".to_string(),
+                "loop_step: missing body closure".to_string(),
             ));
         }
     };
@@ -2786,16 +2853,18 @@ fn resolve_closure_params_body(
         as usize;
     let ast = unsafe { &*ctx.ast };
     let param_node = ast.at(AstRef::new(param_idx))?;
-    let param_names: Vec<String> = if param_node.kind == "paren" {
-        let paren_children = param_node
+    let param_names: Vec<String> = if param_node.kind == "paren"
+        || param_node.kind == "array"
+    {
+        let param_children = param_node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| {
-                LangError::Engine("closure: paren params missing children".to_string())
+                LangError::Engine("closure: params missing children".to_string())
             })?;
-        let mut names = Vec::with_capacity(paren_children.len());
-        for pc in paren_children {
+        let mut names = Vec::with_capacity(param_children.len());
+        for pc in param_children {
             let pidx = pc
                 .as_u64()
                 .ok_or_else(|| {
@@ -3150,9 +3219,9 @@ fn apply_native_v2(
         }
         "bind" => return prim_v2_bind(ctx),
         // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
-        // — the body proc closure, evaluated from the carried sub-scheme
+        // — the body closure, evaluated from the carried sub-scheme
         // arg. `incoming` is the loop pair `(in, state)` passed by the
-        // enclosing `Loop` combinator. The body proc is applied to the
+        // enclosing `Loop` combinator. The body closure is applied to the
         // current state (in on the first step, state thereafter); it returns
         // an object `{ out: v }` (terminate) or `{ state: v }` (continue).
         // Param destructuring mirrors the v2 tree-walk's `loop_step` arm.
@@ -5301,7 +5370,7 @@ mod tests {
     // 11b. `loop_step` derived op — the ergonomic `loop` surface lowering
     // (ADR-0052). Builds the canonical `loop` lowering
     // `Seq(proj_child(0), Loop(loop_step(proj_child(1))))` by hand with a
-    // real `proc` body, exercising param destructuring, `if`, arithmetic,
+    // real arrow body, exercising param destructuring, `if`, arithmetic,
     // and object construction under native compilation.
 
     /// Wire the eval schemes needed for the `loop` surface.
@@ -5352,9 +5421,6 @@ mod tests {
             .merge(EvalSchemeDef::new("e.function", "function", Scheme::arr_native("closure", vec![])))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.proc", "proc", Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))))
-            .unwrap();
-        lang.eval
             .merge(EvalSchemeDef::new(
                 "e.loop",
                 "loop",
@@ -5370,7 +5436,7 @@ mod tests {
         lang
     }
 
-    /// `loop 42 (proc (x) -> { out: x })` — single-step terminate, scalar
+    /// `loop 42 (x ~> { out: x })` — single-step terminate, scalar
     /// state, one param. Expected: 42.
     #[test]
     fn v2_loop_step_single_step_terminate() {
@@ -5381,16 +5447,15 @@ mod tests {
             AstNode::new("entry").with_payload(json!({"children": [0, 1]})),      // 2
             AstNode::new("object").with_payload(json!({"children": [2]})),        // 3
             AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
-            AstNode::new("proc").with_payload(json!({"children": [4]})),          // 5
-            AstNode::new("lit").with_payload(json!(42)),                          // 6
-            AstNode::new("loop").with_payload(json!({"children": [6, 5]})),       // 7
+            AstNode::new("lit").with_payload(json!(42)),                          // 5
+            AstNode::new("loop").with_payload(json!({"children": [5, 4]})),       // 6
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
     }
 
-    /// `loop { n: 3, acc: 1 }(proc (n, acc) -> if n == 0 then { out: acc }
+    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then { out: acc }
     /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
     /// destructuring, `if`, arithmetic, nested object construction.
     /// Computes 3! = 6.
@@ -5418,9 +5483,8 @@ mod tests {
             AstNode::new("object").with_payload(json!({"children": [16]})),      // 17
             AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),   // 18
             AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
-            AstNode::new("proc").with_payload(json!({"children": [19]})),        // 20
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 21
-            AstNode::new("loop").with_payload(json!({"children": [21, 20]})),    // 22
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 20
+            AstNode::new("loop").with_payload(json!({"children": [20, 19]})),    // 21
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);

@@ -101,8 +101,8 @@ fn strip_comments(source: &str) -> String {
     let bytes = source.as_bytes();
 
     while let Some((i, ch)) = chars.next() {
-        // Line comment: // ... end of line
-        if ch == '/' && bytes.get(i + 1) == Some(&b'/') {
+        // Line comment: -- ... end of line
+        if ch == '-' && bytes.get(i + 1) == Some(&b'-') {
             // Replace the rest of the line with spaces
             result.push(' ');
             result.push(' ');

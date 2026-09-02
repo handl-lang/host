@@ -1,22 +1,22 @@
-// map: apply a function to every element of a list.
-//
-// Written as an arrow graph over list primitives.
-// Contract: LengthEq(input, output) — INFERRED (side-channel pattern).
-//
-// Graph structure:
-//   loop (first(fn.apply))
-//
-// The loop processes elements one at a time:
-//   - apply f to head of remaining input
-//   - cons result onto output
-//   - repeat until input is exhausted
+-- map: apply a function to every element of a list.
+--
+-- Written as an arrow graph over list primitives.
+-- Contract: LengthEq(input, output) — INFERRED (side-channel pattern).
+--
+-- Graph structure:
+--   loop (first(fn.apply))
+--
+-- The loop processes elements one at a time:
+--   - apply f to head of remaining input
+--   - cons result onto output
+--   - repeat until input is exhausted
 
 loop {
   remaining: input.0,
   f:         input.1,
   acc:       []
 } (
-  proc (state) -> match state.remaining {
+  state ~> match state.remaining {
     []: returnA -< {
       out: state.acc
     },

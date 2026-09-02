@@ -13,7 +13,7 @@ use crate::inference::infer_refinement;
 ///
 /// In handl syntax:
 ///   loop { elem, acc }(
-///     proc (state) -> match state.acc {
+///     state ~> match state.acc {
 ///       []: { out: [elem] },
 ///       [h, ...t]: if compare(elem, h) <= 0 then { out: [elem, ...acc] }
 ///                  else { state: { elem, acc: [h, ...insert(elem, t)] } }

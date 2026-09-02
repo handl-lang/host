@@ -1,15 +1,15 @@
 //! Inlay hints for the `textDocument/inlayHint` LSP request.
 //!
 //! Surfaces inferred refinement types inline next to bindings in arrow files:
-//! - Each loop state field declaration gets a hint with its inferred component type.
-//! - The end of the `loop` line gets a hint showing the overall `In ~> Out` signature.
-//! - Each `proc` keyword gets a hint showing the proc's input type.
+//! - Each rec state field declaration gets a hint with its inferred component type.
+//! - The end of the `rec` line gets a hint showing the overall `In ~> Out` signature.
+//! - Each `~>` operator gets a hint showing the arrow's input type.
 //!
 //! Non-arrow files and inference failures produce an empty result.
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind, is_operator_kind};
 use handl_plugin_ext_refinement::{RefTy, RefinementResult};
 
 use crate::diagnostics::offset_to_position;
@@ -55,7 +55,7 @@ pub fn inlay_hints(
             }
         }
 
-        // Loop signature hint at the end of the `loop` line.
+        // Loop signature hint at the end of the `rec` line.
         if let Some(loop_line_end) = find_loop_line_end(source) {
             let (line, character) = offset_to_position(source, loop_line_end);
             hints.push(json!({
@@ -66,9 +66,9 @@ pub fn inlay_hints(
         }
     }
 
-    // Proc keyword hints: show the proc's input type.
+    // Arrow operator hints: show the arrow's input type at each `~>`.
     for token in &tokens {
-        if is_keyword_kind(token.kind.as_str()) && token.text == "proc" {
+        if is_operator_kind(token.kind.as_str()) && token.text == "~>" {
             let (line, character) = offset_to_position(source, token.span.end);
             hints.push(json!({
                 "position": { "line": line, "character": character },
@@ -86,15 +86,15 @@ pub fn inlay_hints(
 ///
 /// For example, given:
 /// ```text
-/// loop {
+/// rec {
 ///   remaining: input,
 ///   acc:       []
-/// } (
+/// } {
 /// ```
 ///
 /// Returns `Some(vec![("remaining", <offset after line>), ("acc", <offset after line>)])`.
 fn parse_loop_state_fields_with_spans(source: &str) -> Option<Vec<(String, usize)>> {
-    let loop_start = source.find("loop")?;
+    let loop_start = source.find("rec")?;
     let after_loop = &source[loop_start..];
 
     let brace_start = after_loop.find('{')?;
@@ -130,9 +130,9 @@ fn parse_loop_state_fields_with_spans(source: &str) -> Option<Vec<(String, usize
     }
 }
 
-/// Find the byte offset of the end of the line containing the `loop` keyword.
+/// Find the byte offset of the end of the line containing the `rec` keyword.
 fn find_loop_line_end(source: &str) -> Option<usize> {
-    let loop_start = source.find("loop")?;
+    let loop_start = source.find("rec")?;
     let after_loop_start = &source[loop_start..];
     let newline_rel = after_loop_start.find('\n')?;
     Some(loop_start + newline_rel)

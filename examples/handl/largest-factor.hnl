@@ -1,5 +1,5 @@
 loop { n: 2, target: 84, best: 1 } (
-  proc (n, target, best) -> if n * n > target then
+  [n, target, best] ~> if n * n > target then
     returnA -< { out: best }
   else if target % n == 0 then
     returnA -< { state: { n: n + 1, target: target, best: n } }

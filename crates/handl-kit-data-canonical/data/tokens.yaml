@@ -1,7 +1,7 @@
 - id: token.and
   label: '&&'
 - id: token.arrow
-  label: ->
+  label: ~>
 - id: token.arrow_app
   label: '-<'
 - id: token.arrow_bind
@@ -79,8 +79,6 @@
   label: must
 - id: token.keyword.not
   label: not
-- id: token.keyword.proc
-  label: proc
 - id: token.keyword.returnA
   label: returnA
 - id: token.keyword.loop

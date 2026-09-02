@@ -54,6 +54,7 @@ left-to-right in dataflow direction.
 | Multi-stmt | `if (ok) { log(x); save(x) }` | `if ok {\n  log x\n  save x\n}` |
 | Early return | `if (!ok) return err("x")` | `if !ok\n  return error "x"` |
 | switch | `switch (x) { case 0: ...; default: ... }` | `match x {\n  0: ...\n  _: ...\n}` |
+| Multi-way if | `if (a) ... else if (b) ... else ...` | `if {\n  a: ...\n  b: ...\n  _: ...\n}` |
 | Discriminated union | `switch (r.kind) { case "ok": ... }` | `match r {\n  ok: ...\n  error: ...\n  _: ...\n}` |
 | while | `while (n > 0) { n = n - 1 }` | `while n > 0 {\n  n = n - 1\n}` |
 | do while | `do { n = step(n) } while (!done)` | `do {\n  n = step n\n} while !done` |

@@ -6,7 +6,7 @@
 - id: lex.arrow
   token_kind: token.arrow
   pattern: !Literal
-    text: ->
+    text: '~>'
   priority: 10
 - id: lex.arrow.unicode
   token_kind: token.arrow
@@ -51,7 +51,7 @@
 - id: lex.comment
   token_kind: token.comment
   pattern: !Delimited
-    open: //
+    open: --
     close: |2+
 
     escape: false
@@ -61,7 +61,7 @@
 - id: lex.doc_comment
   token_kind: token.doc_comment
   pattern: !Delimited
-    open: ///
+    open: ---
     close: |2+
 
     escape: false
@@ -200,11 +200,6 @@
   token_kind: token.keyword.not
   pattern: !Literal
     text: not
-  priority: 15
-- id: lex.keyword.proc
-  token_kind: token.keyword.proc
-  pattern: !Literal
-    text: proc
   priority: 15
 - id: lex.keyword.returnA
   token_kind: token.keyword.returnA

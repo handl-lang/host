@@ -2,7 +2,7 @@
 //!
 //! This module lexes a `.hnl` source file and produces a flat list of
 //! [`FoldingRange`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_foldingRange)
-//! JSON objects so that VSCode can collapse `loop`, `proc`, `match` and
+//! JSON objects so that VSCode can collapse `loop`, `match` and
 //! object-literal blocks.
 //!
 //! Two sources of folding ranges are emitted:

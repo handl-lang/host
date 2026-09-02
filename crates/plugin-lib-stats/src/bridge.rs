@@ -2,7 +2,7 @@
 //!
 //! The stats *logic* (sum, avg, product, min, max, median, stddev) is
 //! defined once in handl source (`kit-stdlib/data/stats/stats.hnl`) as a
-//! record of procs; this module is the thin Rust loader/bridge shared by
+//! record of arrows; this module is the thin Rust loader/bridge shared by
 //! every `Function` in [`crate::module`] and the platform plugin. It
 //! `include_str!`s the data file, evaluates it with a minimal runtime that
 //! carries `MathModule` (for `math.sqrt` in `stddev`) and `TypeModule` (for
@@ -73,13 +73,13 @@ fn build_stats_runtime() -> Result<Runtime, handl_language::LangError> {
     Runtime::from_registry_with_globals(lang, &registry, &config, Some(modules), None)
 }
 
-/// Strip `//` comment lines from `stats.hnl` so the embedded source parses
+/// Strip `--` comment lines from `stats.hnl` so the embedded source parses
 /// as a bare expression. The data file's header comment documents the
 /// definitions but is not valid inside the applied `(stats_src).func(input)`
 /// form the Pratt parser evaluates, so it is removed before evaluation.
 fn strip_comment_lines(src: &str) -> String {
     src.lines()
-        .filter(|line| !line.trim_start().starts_with("//"))
+        .filter(|line| !line.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
         .join("\n")
 }

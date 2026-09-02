@@ -93,6 +93,18 @@ path = "src/trait_catalog.rs"
 name = "trait_inference_sqlite"
 path = "src/trait_catalog_sqlite.rs"
 
+[[bin]]
+name = "v0_1_surface"
+path = "src/v0_1_surface.rs"
+
+[[bin]]
+name = "v0_1_surface_tests"
+path = "src/v0_1_surface_tests.rs"
+
+[[bin]]
+name = "modules"
+path = "src/modules.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess

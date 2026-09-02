@@ -3,7 +3,7 @@
 //! Statistical aggregate functions for the handl runtime.
 //!
 //! The stats *logic* is handl-authored in
-//! `kit-stdlib/data/stats/stats.hnl` (a record of procs: `sum`, `avg`,
+//! `kit-stdlib/data/stats/stats.hnl` (a record of arrows: `sum`, `avg`,
 //! `product`, `min`, `max`, `median`, `stddev`); this crate only loads +
 //! evaluates + bridges that definition (see [`bridge`]). The `Module`/
 //! `Plugin` trait scaffolding is retained as the registration boundary.

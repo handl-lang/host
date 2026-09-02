@@ -35,8 +35,8 @@
 //! 2. Provides a **self-hosting corpus** ([`corpus`]) of subset programs used
 //!    by the integration tests (`self_host.rs`, `bootstrap.rs`,
 //!    `futamura.rs`) to prove the self-hosting *mechanism*. ADR-0052 Phase D
-//!    adds a **`proc`-authored corpus** ([`proc_corpus`]) demonstrating the
-//!    arrow-calculus authoring surface (`proc x -> ...`).
+//!    adds an **arrow-authored corpus** ([`proc_corpus`]) demonstrating the
+//!    arrow-calculus authoring surface (`x ~> body`).
 //!
 //! What is **proven**: a `Language` value can describe a language and be
 //! evaluated under itself (across all three eval engines: tree-walk,
@@ -147,8 +147,8 @@ pub struct CorpusCase {
 /// | `ternary_false`      | `false ? 1 : 2`                       | value, ternary                      |
 /// | `paren`              | `(42)`                                | value, paren                        |
 /// | `apply`              | `apply 42`                            | value, apply                        |
-/// | `function_call`      | `let f = (x, y) -> x + y in f(3, 4)`    | function, call, let, var, binary.add|
-/// | `pipe_call`          | `let f = (x) -> x + 1 in 5 | f`         | function, pipe, let, var, binary.add|
+/// | `function_call`      | `let f = [x, y] ~> x + y in f(3, 4)`    | function, call, let, var, binary.add|
+/// | `pipe_call`          | `let f = (x ~> x + 1) in 5 | f`         | function, pipe, let, var, binary.add|
 /// | `nested_let`         | `let x = 3 in let y = 4 in x + y`         | let, var, binary.add                |
 /// | `if_with_let`        | `if (true) (let x = 1 in x) else 0`     | if, let, var, value                 |
 /// | `array_literal`      | `[1, 2, 3]`                           | array                               |
@@ -467,12 +467,12 @@ pub fn corpus() -> Vec<CorpusCase> {
         // `not`, `when`). The `mood` node kind no longer exists; only
         // `mood.int`, `mood.pot`, `mood.norm`, `mood.neg`, `mood.cnd` remain.
         // This case is intentionally omitted from the corpus.
-        // 23. Function + call: let f = (x, y) -> x + y in f(3, 4)
+        // 23. Function + call: let f = [x, y] ~> x + y in f(3, 4)
         //     The canonical call emitter targets 2-arg calls, so the function
         //     takes two params.
         CorpusCase {
             name: "function_call",
-            source: "let f = (x, y) -> x + y in f(3, 4)",
+            source: "let f = [x, y] ~> x + y in f(3, 4)",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -501,12 +501,12 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(7),
             tree_walk_only: false,
         },
-        // 24. Pipe: let f = (x) -> x + 1 in 5 | f
+        // 24. Pipe: let f = (x ~> x + 1) in 5 | f
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
         //     applies the right child (function) to the left child (value).
         CorpusCase {
             name: "pipe_call",
-            source: "let f = (x) -> x + 1 in 5 | f",
+            source: "let f = (x ~> x + 1) in 5 | f",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0
@@ -828,24 +828,22 @@ pub fn corpus() -> Vec<CorpusCase> {
 }
 
 // ---------------------------------------------------------------------------
-// proc-notation corpus (ADR-0052 Phase D)
+// arrow-notation corpus (ADR-0052 Phase D)
 // ---------------------------------------------------------------------------
 
-/// Build the `proc`-authored corpus: a set of programs authored using
-/// `proc` notation (arrow calculus / `proc x -> ...`), the authoring surface
-/// introduced in ADR-0052 Phase C.
+/// Build the arrow-authored corpus: a set of programs authored using
+/// arrow notation (`x ~> body`), the authoring surface introduced in
+/// ADR-0052 Phase C.
 ///
-/// `proc x -> body` parses as `proc(function(params, body))` — a `proc` node
-/// wrapping a `function` node. The `proc` eval scheme is `!Child 0` (evaluate
-/// the function child → closure), so `proc` is a surface marker that
-/// evaluates to the same closure as the equivalent `function` expression.
+/// `x ~> body` parses as `function(params, body)` — a `function` node
+/// with params and body. The `function` eval scheme produces a closure.
 ///
 /// Each case's [`Ast`] is constructed manually using the canonical
-/// data-driven node kinds. The `proc` node has payload `{"children":
-/// [func_idx]}`; the `function` node has payload `{"params": [...], "body":
-/// idx}` (matching the existing corpus convention). Cases that apply a
-/// `proc` to a value use the `pipe` construct (`App { callee: Child 1,
-/// args: [Child 0] }` — applies the right child to the left child).
+/// data-driven node kinds. The `function` node has payload `{"params":
+/// [...], "body": idx}` (matching the existing corpus convention). Cases
+/// that apply a function to a value use the `pipe` construct
+/// (`App { callee: Child 1, args: [Child 0] }` — applies the right child
+/// to the left child).
 ///
 /// All cases produce **concrete values** (numbers), not closures, so they
 /// can be run through every engine (v1 and v2, tree-walk and compiled) for
@@ -853,18 +851,18 @@ pub fn corpus() -> Vec<CorpusCase> {
 ///
 /// | Case               | Source model                                  | Expected |
 /// |--------------------|-----------------------------------------------|----------|
-/// | `proc_increment`   | `41 \| proc x -> x + 1`                       | 42       |
-/// | `proc_double`      | `21 \| proc x -> x * 2`                       | 42       |
-/// | `proc_const`       | `99 \| proc x -> 42`                          | 42       |
-/// | `proc_pipe_chain`  | `5 \| proc x -> x + 1 \| proc y -> y * 2`    | 12       |
-/// | `proc_let_body`    | `3 \| proc x -> (let y = x + 1 in y * 2)`      | 8        |
+/// | `proc_increment`   | `41 \| (x ~> x + 1)`                          | 42       |
+/// | `proc_double`      | `21 \| (x ~> x * 2)`                          | 42       |
+/// | `proc_const`       | `99 \| (x ~> 42)`                             | 42       |
+/// | `proc_pipe_chain`  | `5 \| (x ~> x + 1) \| (y ~> y * 2)`          | 12       |
+/// | `proc_let_body`    | `3 \| (x ~> (let y = x + 1 in y * 2))`         | 8        |
 pub fn proc_corpus() -> Vec<CorpusCase> {
     vec![
-        // 1. proc_increment: 41 | proc x -> x + 1  →  42
-        //    The pipe applies the proc (right) to 41 (left).
+        // 1. proc_increment: 41 | (x ~> x + 1)  →  42
+        //    The pipe applies the function (right) to 41 (left).
         CorpusCase {
             name: "proc_increment",
-            source: "41 | proc x -> x + 1",
+            source: "41 | (x ~> x + 1)",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0: param x
@@ -874,27 +872,23 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [0, 1]})),
                 );
                 a.push(
-                    AstNode::new("function") // 3: (x) -> x + 1
+                    AstNode::new("function") // 3: x ~> x + 1
                         .with_payload(json!({"params": ["x"], "body": 2})),
                 );
+                a.push(AstNode::new("value").with_payload(json!(41))); // 4: left of pipe
                 a.push(
-                    AstNode::new("proc") // 4: proc x -> x + 1
-                        .with_payload(json!({"children": [3]})),
-                );
-                a.push(AstNode::new("value").with_payload(json!(41))); // 5: left of pipe
-                a.push(
-                    AstNode::new("pipe") // 6: 41 | proc  →  App(proc, [41])
-                        .with_payload(json!({"children": [5, 4]})),
+                    AstNode::new("pipe") // 5: 41 | fn  →  App(fn, [41])
+                        .with_payload(json!({"children": [4, 3]})),
                 );
                 a
             },
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 2. proc_double: 21 | proc x -> x * 2  →  42
+        // 2. proc_double: 21 | (x ~> x * 2)  →  42
         CorpusCase {
             name: "proc_double",
-            source: "21 | proc x -> x * 2",
+            source: "21 | (x ~> x * 2)",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0: param x
@@ -904,58 +898,50 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [0, 1]})),
                 );
                 a.push(
-                    AstNode::new("function") // 3: (x) -> x * 2
+                    AstNode::new("function") // 3: x ~> x * 2
                         .with_payload(json!({"params": ["x"], "body": 2})),
                 );
+                a.push(AstNode::new("value").with_payload(json!(21))); // 4: left of pipe
                 a.push(
-                    AstNode::new("proc") // 4: proc x -> x * 2
-                        .with_payload(json!({"children": [3]})),
-                );
-                a.push(AstNode::new("value").with_payload(json!(21))); // 5: left of pipe
-                a.push(
-                    AstNode::new("pipe") // 6: 21 | proc  →  42
-                        .with_payload(json!({"children": [5, 4]})),
+                    AstNode::new("pipe") // 5: 21 | fn  →  42
+                        .with_payload(json!({"children": [4, 3]})),
                 );
                 a
             },
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 3. proc_const: 99 | proc x -> 42  →  42
-        //    The proc ignores its argument and returns 42.
+        // 3. proc_const: 99 | (x ~> 42)  →  42
+        //    The function ignores its argument and returns 42.
         CorpusCase {
             name: "proc_const",
-            source: "99 | proc x -> 42",
+            source: "99 | (x ~> 42)",
             ast: {
                 let mut a = Ast::new();
                 a.push(AstNode::new("value").with_payload(json!(42))); // 0: body (constant)
                 a.push(
-                    AstNode::new("function") // 1: (x) -> 42
+                    AstNode::new("function") // 1: x ~> 42
                         .with_payload(json!({"params": ["x"], "body": 0})),
                 );
+                a.push(AstNode::new("value").with_payload(json!(99))); // 2: left of pipe
                 a.push(
-                    AstNode::new("proc") // 2: proc x -> 42
-                        .with_payload(json!({"children": [1]})),
-                );
-                a.push(AstNode::new("value").with_payload(json!(99))); // 3: left of pipe
-                a.push(
-                    AstNode::new("pipe") // 4: 99 | proc  →  42
-                        .with_payload(json!({"children": [3, 2]})),
+                    AstNode::new("pipe") // 3: 99 | fn  →  42
+                        .with_payload(json!({"children": [2, 1]})),
                 );
                 a
             },
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 4. proc_pipe_chain: 5 | proc x -> x + 1 | proc y -> y * 2  →  12
-        //    Pipe is left-associative: (5 | proc x -> x + 1) | proc y -> y * 2
-        //    Inner: 5 | proc x -> x + 1  →  6.  Outer: 6 | proc y -> y * 2  →  12.
+        // 4. proc_pipe_chain: 5 | (x ~> x + 1) | (y ~> y * 2)  →  12
+        //    Pipe is left-associative: (5 | (x ~> x + 1)) | (y ~> y * 2)
+        //    Inner: 5 | (x ~> x + 1)  →  6.  Outer: 6 | (y ~> y * 2)  →  12.
         CorpusCase {
             name: "proc_pipe_chain",
-            source: "5 | proc x -> x + 1 | proc y -> y * 2",
+            source: "5 | (x ~> x + 1) | (y ~> y * 2)",
             ast: {
                 let mut a = Ast::new();
-                // --- inner proc: proc x -> x + 1 ---
+                // --- inner function: x ~> x + 1 ---
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0: param x
                 a.push(AstNode::new("value").with_payload(json!(1))); // 1: literal 1
                 a.push(
@@ -963,51 +949,43 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"children": [0, 1]})),
                 );
                 a.push(
-                    AstNode::new("function") // 3: (x) -> x + 1
+                    AstNode::new("function") // 3: x ~> x + 1
                         .with_payload(json!({"params": ["x"], "body": 2})),
                 );
+                // --- outer function: y ~> y * 2 ---
+                a.push(AstNode::new("var").with_payload(json!("y"))); // 4: param y
+                a.push(AstNode::new("value").with_payload(json!(2))); // 5: literal 2
                 a.push(
-                    AstNode::new("proc") // 4: proc x -> x + 1
-                        .with_payload(json!({"children": [3]})),
-                );
-                // --- outer proc: proc y -> y * 2 ---
-                a.push(AstNode::new("var").with_payload(json!("y"))); // 5: param y
-                a.push(AstNode::new("value").with_payload(json!(2))); // 6: literal 2
-                a.push(
-                    AstNode::new("binary.mul") // 7: body y * 2
-                        .with_payload(json!({"children": [5, 6]})),
+                    AstNode::new("binary.mul") // 6: body y * 2
+                        .with_payload(json!({"children": [4, 5]})),
                 );
                 a.push(
-                    AstNode::new("function") // 8: (y) -> y * 2
-                        .with_payload(json!({"params": ["y"], "body": 7})),
-                );
-                a.push(
-                    AstNode::new("proc") // 9: proc y -> y * 2
-                        .with_payload(json!({"children": [8]})),
+                    AstNode::new("function") // 7: y ~> y * 2
+                        .with_payload(json!({"params": ["y"], "body": 6})),
                 );
                 // --- pipe chain ---
-                a.push(AstNode::new("value").with_payload(json!(5))); // 10: leftmost value
+                a.push(AstNode::new("value").with_payload(json!(5))); // 8: leftmost value
                 a.push(
-                    AstNode::new("pipe") // 11: inner pipe  5 | proc(x->x+1)  →  6
-                        .with_payload(json!({"children": [10, 4]})),
+                    AstNode::new("pipe") // 9: inner pipe  5 | (x ~> x+1)  →  6
+                        .with_payload(json!({"children": [8, 3]})),
                 );
                 a.push(
-                    AstNode::new("pipe") // 12: outer pipe  6 | proc(y->y*2)  →  12
-                        .with_payload(json!({"children": [11, 9]})),
+                    AstNode::new("pipe") // 10: outer pipe  6 | (y ~> y*2)  →  12
+                        .with_payload(json!({"children": [9, 7]})),
                 );
                 a
             },
             expected: json!(12),
             tree_walk_only: false,
         },
-        // 5. proc_let_body: 3 | proc x -> (let y = x + 1 in y * 2)  →  8
-        //    The proc body uses a let-binding: y = x + 1 = 4, then y * 2 = 8.
+        // 5. proc_let_body: 3 | (x ~> (let y = x + 1 in y * 2))  →  8
+        //    The function body uses a let-binding: y = x + 1 = 4, then y * 2 = 8.
         CorpusCase {
             name: "proc_let_body",
-            source: "3 | proc x -> (let y = x + 1 in y * 2)",
+            source: "3 | (x ~> (let y = x + 1 in y * 2))",
             ast: {
                 let mut a = Ast::new();
-                // --- proc body: let y = x + 1 in y * 2 ---
+                // --- function body: let y = x + 1 in y * 2 ---
                 a.push(AstNode::new("var").with_payload(json!("x"))); // 0: param x
                 a.push(AstNode::new("value").with_payload(json!(1))); // 1: literal 1
                 a.push(
@@ -1025,17 +1003,13 @@ pub fn proc_corpus() -> Vec<CorpusCase> {
                         .with_payload(json!({"name": "y", "children": [2, 5]})),
                 );
                 a.push(
-                    AstNode::new("function") // 7: (x) -> let y = x + 1 in y * 2
+                    AstNode::new("function") // 7: x ~> let y = x + 1 in y * 2
                         .with_payload(json!({"params": ["x"], "body": 6})),
                 );
+                a.push(AstNode::new("value").with_payload(json!(3))); // 8: left of pipe
                 a.push(
-                    AstNode::new("proc") // 8: proc x -> ...
-                        .with_payload(json!({"children": [7]})),
-                );
-                a.push(AstNode::new("value").with_payload(json!(3))); // 9: left of pipe
-                a.push(
-                    AstNode::new("pipe") // 10: 3 | proc  →  8
-                        .with_payload(json!({"children": [9, 8]})),
+                    AstNode::new("pipe") // 9: 3 | fn  →  8
+                        .with_payload(json!({"children": [8, 7]})),
                 );
                 a
             },
@@ -1059,13 +1033,13 @@ mod tests {
         }
     }
 
-    /// The proc corpus is non-empty and every case has a non-empty AST.
+    /// The arrow corpus is non-empty and every case has a non-empty AST.
     #[test]
     fn proc_corpus_is_nonempty() {
         let c = proc_corpus();
-        assert!(!c.is_empty(), "proc corpus should have at least one case");
+        assert!(!c.is_empty(), "arrow corpus should have at least one case");
         for case in &c {
-            assert!(!case.ast.is_empty(), "proc case '{}' has empty ast", case.name);
+            assert!(!case.ast.is_empty(), "arrow case '{}' has empty ast", case.name);
         }
     }
 }

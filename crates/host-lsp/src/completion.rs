@@ -27,27 +27,21 @@ struct KeywordEntry {
 /// All handl keywords, with optional snippet bodies for structural forms.
 const KEYWORDS: &[KeywordEntry] = &[
     KeywordEntry { text: "match", detail: "keyword: match expression", snippet: Some("match ${1:expr} {\n  ${2:pat}: ${3:body}\n}") },
-    KeywordEntry { text: "if", detail: "keyword: conditional", snippet: Some("if ${1:cond} then ${2:a} else ${3:b}") },
-    KeywordEntry { text: "then", detail: "keyword: then-branch of if", snippet: None },
+    KeywordEntry { text: "if", detail: "keyword: conditional", snippet: Some("if ${1:cond} {\n  ${2:then}\n} else {\n  ${3:else}\n}") },
     KeywordEntry { text: "else", detail: "keyword: else-branch of if", snippet: None },
-    KeywordEntry { text: "loop", detail: "keyword: arrow loop combinator", snippet: Some("loop { ${1:state} }(\n  proc (${2:state}) -> match ${2:state}.${3:field} {\n    []: { out: ${4:acc} },\n    [h, ...t]: { state: ${5:next} }\n  }\n)") },
-    KeywordEntry { text: "proc", detail: "keyword: procedure (arrow body)", snippet: Some("proc (${1:state}) -> ${2:body}") },
-    KeywordEntry { text: "where", detail: "keyword: where-binding", snippet: Some("where\n  ${1:name} = ${2:expr}") },
-    KeywordEntry { text: "axiom", detail: "keyword: axiom declaration", snippet: Some("axiom ${1:name} : ${2:signature}") },
-    KeywordEntry { text: "in", detail: "keyword: let-in expression", snippet: None },
-    KeywordEntry { text: "handle", detail: "keyword: handle effect", snippet: Some("handle ${1:expr} { ${2:cases} }") },
-    KeywordEntry { text: "as", detail: "keyword: type ascription", snippet: None },
-    KeywordEntry { text: "typeof", detail: "keyword: type query", snippet: None },
-    KeywordEntry { text: "not", detail: "keyword: boolean negation", snippet: None },
-    KeywordEntry { text: "import", detail: "keyword: module import", snippet: Some("import ${1:module}") },
-    KeywordEntry { text: "export", detail: "keyword: module export", snippet: None },
-    KeywordEntry { text: "module", detail: "keyword: module declaration", snippet: Some("module ${1:name} { ${2:body} }") },
-    KeywordEntry { text: "const", detail: "keyword: constant binding", snippet: Some("const ${1:name} = ${2:value}") },
-    KeywordEntry { text: "is", detail: "keyword: type check", snippet: None },
-    KeywordEntry { text: "may", detail: "keyword: capability (may)", snippet: None },
-    KeywordEntry { text: "must", detail: "keyword: capability (must)", snippet: None },
-    KeywordEntry { text: "when", detail: "keyword: when-guard", snippet: None },
-    KeywordEntry { text: "do", detail: "keyword: do-block", snippet: None },
+    KeywordEntry { text: "rec", detail: "keyword: rec block (feedback loop)", snippet: Some("rec {\n  ${1:// state bindings}\n  ${2:// body}\n}") },
+    KeywordEntry { text: "while", detail: "keyword: while loop", snippet: Some("while ${1:cond} {\n  ${2:// body}\n}") },
+    KeywordEntry { text: "do", detail: "keyword: do-while loop", snippet: Some("do {\n  ${1:// body}\n} while ${2:cond}") },
+    KeywordEntry { text: "for", detail: "keyword: for loop", snippet: Some("for ${1:x} in ${2:xs} {\n  ${3:// body}\n}") },
+    KeywordEntry { text: "in", detail: "keyword: for-in iterator", snippet: None },
+    KeywordEntry { text: "return", detail: "keyword: return from rec block", snippet: Some("return ${1:expr}") },
+    KeywordEntry { text: "import", detail: "keyword: module import", snippet: Some("import ${1:name} from \"${2:path}\"") },
+    KeywordEntry { text: "from", detail: "keyword: import source", snippet: None },
+    KeywordEntry { text: "infer", detail: "keyword: type inference directive", snippet: Some("infer ${1:name}") },
+    KeywordEntry { text: "type", detail: "keyword: type namespace", snippet: None },
+    KeywordEntry { text: "trait", detail: "keyword: trait declaration", snippet: Some("trait ${1:name} {\n  ${2:// laws}\n}") },
+    KeywordEntry { text: "impl", detail: "keyword: trait implementation", snippet: Some("impl ${1:trait} {\n  ${2:// methods}\n}") },
+    KeywordEntry { text: "law", detail: "keyword: law declaration (replaces axiom)", snippet: Some("law ${1:name} : ${2:Type}\n  guarantee: ${3:True}") },
     KeywordEntry { text: "true", detail: "boolean literal", snippet: None },
     KeywordEntry { text: "false", detail: "boolean literal", snippet: None },
     KeywordEntry { text: "null", detail: "null literal", snippet: None },
@@ -55,28 +49,25 @@ const KEYWORDS: &[KeywordEntry] = &[
 
 /// Arrow combinator snippets — useful inside arrow-graph expressions.
 const ARROW_SNIPPETS: &[(&str, &str, &str)] = &[
-    ("arr", "arrow: arr(name) — lift native op", "arr(\"${1:op}\")"),
-    ("comp", "arrow: comp(a, b) — sequential composition", "comp(${1:a}, ${2:b})"),
-    ("first", "arrow: first(a) — process first of pair", "first(${1:a})"),
-    ("choice", "arrow: choice(l, r) — branch", "choice(${1:l}, ${2:r})"),
-    ("app", "arrow: app(name, args) — call named arrow", "app(\"${1:name}\", ${2:args})"),
-    ("id", "arrow: identity", "id"),
+    (">>>", "arrow: a >>> b — sequential composition", "${1:a} >>> ${2:b}"),
+    ("***", "arrow: a *** b — parallel product", "${1:a} *** ${2:b}"),
+    ("&&&", "arrow: a &&& b — fan-out", "${1:a} &&& ${2:b}"),
+    ("|||", "arrow: a ||| b — choice", "${1:a} ||| ${2:b}"),
+    ("~>", "arrow: pat ~> body — arrow definition", "${1:pat} ~> ${2:body}"),
 ];
 
 /// All known arrow combinators, offered when the cursor sits at a position
 /// where an arrow expression is expected (after `=`, `<-`, or at the start of
-/// a line inside a `do {}` block). Includes the Paterson-notation terminators
-/// `loop`, `insert`, and `returnA` alongside the pure combinators.
+/// a line inside a `do {}` or `rec {}` block). In v0.1 arrows are written with
+/// `~>` and composed with `>>>`, `***`, `&&&`, `|||`; `rec` is the feedback
+/// loop combinator.
 const COMBINATORS: &[(&str, &str, &str)] = &[
-    ("arr", "arrow: arr(name) — lift native op", "arr(\"${1:op}\")"),
-    ("comp", "arrow: comp(a, b) — sequential composition", "comp(${1:a}, ${2:b})"),
-    ("first", "arrow: first(a) — process first of pair", "first(${1:a})"),
-    ("choice", "arrow: choice(l, r) — branch", "choice(${1:l}, ${2:r})"),
-    ("app", "arrow: app(name, args) — call named arrow", "app(\"${1:name}\", ${2:args})"),
-    ("loop", "arrow: loop(state) — feedback loop", "loop { ${1:state} }"),
+    (">>>", "arrow: a >>> b — sequential composition", "${1:a} >>> ${2:b}"),
+    ("***", "arrow: a *** b — parallel product", "${1:a} *** ${2:b}"),
+    ("&&&", "arrow: a &&& b — fan-out", "${1:a} &&& ${2:b}"),
+    ("|||", "arrow: a ||| b — choice", "${1:a} ||| ${2:b}"),
+    ("rec", "arrow: rec block — feedback loop", "rec {\n  ${1:// state}\n}"),
     ("id", "arrow: identity", "id"),
-    ("insert", "arrow: insert(value) — inject a value", "insert(${1:value})"),
-    ("returnA", "arrow: returnA — terminate with a value", "returnA -< ${1:expr}"),
 ];
 
 /// Classify an identifier token by its syntactic role, returning
@@ -169,14 +160,12 @@ fn enclosing_open_delim(tokens: &[SpannedToken], index: usize) -> Option<&'stati
 /// file looks like an arrow file). If so, arrow combinator snippets are
 /// offered alongside keywords.
 fn looks_like_arrow_file(source: &str) -> bool {
-    let trimmed = source.trim_start();
-    trimmed.starts_with("loop {")
-        || trimmed.starts_with("comp(")
-        || trimmed.starts_with("arr(")
-        || trimmed.starts_with("first(")
-        || trimmed.starts_with("choice(")
-        || trimmed.starts_with("app(")
-        || trimmed.starts_with("id")
+    source.contains("~>")
+        || source.contains("rec")
+        || source.contains(">>>")
+        || source.contains("|||")
+        || source.contains("***")
+        || source.contains("&&&")
 }
 
 pub fn completions(source: &str) -> Vec<Value> {
@@ -260,18 +249,16 @@ pub fn completions(source: &str) -> Vec<Value> {
 enum Context {
     /// No specific context recognised — fall back to the full completion set.
     None,
-    /// Cursor right after the `loop` keyword — suggest the state block `{ ... }`.
-    AfterLoop,
-    /// Cursor right after the `proc` keyword — suggest `(state) -> body`.
-    AfterProc,
-    /// Cursor right after the `match` keyword — suggest `state.field { ... }`.
+    /// Cursor right after the `rec` keyword — suggest the state block `{ ... }`.
+    AfterRec,
+    /// Cursor right after the `match` keyword — suggest `expr { ... }`.
     AfterMatch,
-    /// Cursor right after the `do` keyword — suggest the block `{ ... }`.
+    /// Cursor right after the `do` keyword — suggest the `do { ... } while` body.
     AfterDo,
-    /// Cursor right after the `returnA` keyword — suggest `-< expr`.
-    AfterReturnA,
-    /// Cursor right after `state.` (or after the `{` of a loop state block) —
-    /// suggest the field names declared in the loop state.
+    /// Cursor right after the `return` keyword — suggest `expr`.
+    AfterReturn,
+    /// Cursor right after `state.` (or after the `{` of a rec state block) —
+    /// suggest the field names declared in the rec state.
     StateField,
     /// Cursor at a position where an arrow expression is expected — suggest
     /// the known combinators.
@@ -339,10 +326,12 @@ fn keyword_before_brace(tokens: &[SpannedToken], brace_idx: usize, kw: &str) -> 
     false
 }
 
-/// Whether the cursor sits inside a `do { … }` block.
+/// Whether the cursor sits inside a `do { … }` or `rec { … }` block.
 fn inside_do_block(tokens: &[SpannedToken], offset: usize) -> bool {
     enclosing_lbrace_index_before(tokens, offset)
-        .map(|lb| keyword_before_brace(tokens, lb, "do"))
+        .map(|lb| {
+            keyword_before_brace(tokens, lb, "do") || keyword_before_brace(tokens, lb, "rec")
+        })
         .unwrap_or(false)
 }
 
@@ -362,17 +351,17 @@ fn is_match_pattern_colon(tokens: &[SpannedToken], colon_idx: usize) -> bool {
         .unwrap_or(false)
 }
 
-/// Extract the field names declared in a loop state block
-/// (`loop { name: value, … }`). Scans every `loop` keyword in the source and
-/// collects the identifiers that are immediately followed by `:` inside the
-/// state block's braces.
-fn loop_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
+/// Extract the field names declared in a rec state block
+/// (`rec { name = value, … }`). Scans every `rec` keyword in the source and
+/// collects the identifiers that are immediately followed by `=` inside the
+/// state block's braces. (v0.1 uses `=` for bindings, not `:`.)
+fn rec_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
     let mut fields: Vec<String> = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
-        let is_loop = is_keyword_kind(&tokens[i].kind) && tokens[i].text == "loop";
+        let is_rec = is_keyword_kind(&tokens[i].kind) && tokens[i].text == "rec";
         let next_is_brace = tokens.get(i + 1).map(|t| t.kind == "token.lbrace").unwrap_or(false);
-        if is_loop && next_is_brace {
+        if is_rec && next_is_brace {
             let mut j = i + 2;
             let mut depth: i32 = 1;
             while j < tokens.len() && depth > 0 {
@@ -382,11 +371,11 @@ fn loop_state_fields(tokens: &[SpannedToken]) -> Vec<String> {
                     _ => {}
                 }
                 if depth > 0 && is_identifier_kind(&tokens[j].kind) {
-                    let followed_by_colon = tokens
+                    let followed_by_equal = tokens
                         .get(j + 1)
-                        .map(|t| t.kind == "token.colon")
+                        .map(|t| t.kind == "token.equal")
                         .unwrap_or(false);
-                    if followed_by_colon {
+                    if followed_by_equal {
                         let name = tokens[j].text.clone();
                         if !fields.contains(&name) {
                             fields.push(name);
@@ -421,16 +410,15 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
     // 1. Right after a structural keyword.
     if is_keyword_kind(kind) {
         match text {
-            "loop" => return Context::AfterLoop,
-            "proc" => return Context::AfterProc,
+            "rec" => return Context::AfterRec,
             "match" => return Context::AfterMatch,
             "do" => return Context::AfterDo,
-            "returnA" => return Context::AfterReturnA,
+            "return" => return Context::AfterReturn,
             _ => {}
         }
     }
 
-    // 2. Field access `state.` → suggest in-scope loop state fields.
+    // 2. Field access `state.` → suggest in-scope rec state fields.
     if kind == "token.dot"
         && idx > 0
         && is_identifier_kind(&tokens[idx - 1].kind)
@@ -439,11 +427,11 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
         return Context::StateField;
     }
 
-    // 2b. Right after the `{` opening a loop state block → field names.
+    // 2b. Right after the `{` opening a rec state block → field names.
     if kind == "token.lbrace"
         && idx > 0
         && is_keyword_kind(&tokens[idx - 1].kind)
-        && tokens[idx - 1].text == "loop"
+        && tokens[idx - 1].text == "rec"
     {
         return Context::StateField;
     }
@@ -463,14 +451,14 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
         return Context::ArrowExpr;
     }
 
-    // 4b. Start of a new line inside a `do {}` block (after `;`, `}`, or the
-    //     block's opening `{`) → arrow expression position.
+    // 4b. Start of a new line inside a `do {}` or `rec {}` block (after `;`,
+    //     `}`, or the block's opening `{`) → arrow expression position.
     if (kind == "token.semicolon" || kind == "token.rbrace" || kind == "token.lbrace")
         && inside_do_block(tokens, offset)
         && !(kind == "token.lbrace"
             && idx > 0
             && is_keyword_kind(&tokens[idx - 1].kind)
-            && tokens[idx - 1].text == "loop")
+            && tokens[idx - 1].text == "rec")
     {
         return Context::ArrowExpr;
     }
@@ -494,47 +482,40 @@ pub fn completion(source: &str, offset: usize) -> Value {
 
     match detect_context(&tokens, offset, source) {
         Context::None => {}
-        Context::AfterLoop => items.push(json!({
+        Context::AfterRec => items.push(json!({
             "label": "{",
             "kind": KIND_SNIPPET,
-            "detail": "loop state block",
-            "insertText": "{ ${1:remaining}: ${2:input}, ${3:acc}: [] }",
-            "insertTextFormat": 2,
-        })),
-        Context::AfterProc => items.push(json!({
-            "label": "(state) ->",
-            "kind": KIND_SNIPPET,
-            "detail": "proc parameter and arrow body",
-            "insertText": "(${1:state}) -> ${2:body}",
+            "detail": "rec state block",
+            "insertText": "{\n  ${1:remaining} = ${2:input},\n  ${3:acc} = []\n}",
             "insertTextFormat": 2,
         })),
         Context::AfterMatch => items.push(json!({
-            "label": "state.",
+            "label": "expr {",
             "kind": KIND_SNIPPET,
-            "detail": "match on a state field",
-            "insertText": "state.${1:field} {\n  []: { out: ${2:acc} },\n  [h, ...t]: { state: ${3:next} }\n}",
+            "detail": "match scrutinee and arms",
+            "insertText": "${1:expr} {\n  []: ${2:base},\n  [h, ...t]: ${3:step}\n}",
             "insertTextFormat": 2,
         })),
         Context::AfterDo => items.push(json!({
             "label": "{",
             "kind": KIND_SNIPPET,
-            "detail": "do-block body",
-            "insertText": "{\n  ${1:stmts}\n}",
+            "detail": "do-while body",
+            "insertText": "{\n  ${1:body}\n} while ${2:cond}",
             "insertTextFormat": 2,
         })),
-        Context::AfterReturnA => items.push(json!({
-            "label": "-<",
+        Context::AfterReturn => items.push(json!({
+            "label": "expr",
             "kind": KIND_SNIPPET,
-            "detail": "returnA input expression",
-            "insertText": "-< ${1:expr}",
+            "detail": "return value expression",
+            "insertText": "${1:expr}",
             "insertTextFormat": 2,
         })),
         Context::StateField => {
-            for field in loop_state_fields(&tokens) {
+            for field in rec_state_fields(&tokens) {
                 items.push(json!({
                     "label": field,
                     "kind": KIND_PROPERTY,
-                    "detail": "loop state field",
+                    "detail": "rec state field",
                 }));
             }
         }

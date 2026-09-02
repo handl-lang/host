@@ -1,22 +1,22 @@
-// sort_demo: end-to-end demonstration of annotation-free inference.
-//
-// sort is defined as an arrow graph over insert, which is defined over
-// prim.compare. The refinement engine infers:
-//   - insert: Sorted(output) — from the Choice WP branching
-//   - sort:   Sorted(output) — from insert's inferred contract
-//
-// Only 3 Rust atoms carry contracts: prim.add, prim.compare, prim.alloc.
+-- sort_demo: end-to-end demonstration of annotation-free inference.
+--
+-- sort is defined as an arrow graph over insert, which is defined over
+-- prim.compare. The refinement engine infers:
+--   - insert: Sorted(output) — from the Choice WP branching
+--   - sort:   Sorted(output) — from insert's inferred contract
+--
+-- Only 3 Rust atoms carry contracts: prim.add, prim.compare, prim.alloc.
 
 {
   sorted: sort([3, 1, 4, 1, 5, 9, 2, 6]),
-  // Expected inference: Sorted(sorted) → Sorted([1, 1, 2, 3, 4, 5, 6, 9])
+  -- Expected inference: Sorted(sorted) → Sorted([1, 1, 2, 3, 4, 5, 6, 9])
 
-  mapped: map([1, 2, 3], proc (x) -> x * 2),
-  // Expected inference: LengthEq([1,2,3], mapped) → LengthEq holds
+  mapped: map([1, 2, 3], x ~> x * 2),
+  -- Expected inference: LengthEq([1,2,3], mapped) → LengthEq holds
 
-  filtered: filter([1, 2, 3, 4, 5], proc (x) -> x > 2),
-  // Expected inference: AllSatisfy(filtered, x > 2) ∧ LengthLe(filtered, [1..5])
+  filtered: filter([1, 2, 3, 4, 5], x ~> x > 2),
+  -- Expected inference: AllSatisfy(filtered, x > 2) ∧ LengthLe(filtered, [1..5])
 
-  summed: fold([1, 2, 3, 4, 5], proc (acc, x) -> acc + x, 0)
-  // Expected inference: from step function's guarantee
+  summed: fold([1, 2, 3, 4, 5], [acc, x] ~> acc + x, 0)
+  -- Expected inference: from step function's guarantee
 }

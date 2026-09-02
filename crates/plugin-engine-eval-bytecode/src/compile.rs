@@ -291,7 +291,7 @@ fn compile_arr(
 
 /// `while_step`/`for_step`/`fix_step` — derived step ops that carry
 /// cond/body sub-schemes as args and need per-iteration re-evaluation.
-/// (`loop_step` is NOT here — its body proc arg is a closure evaluated
+/// (`loop_step` is NOT here — its body arg is a closure evaluated
 /// once, then applied per iteration via `apply_app`.)
 fn is_derived_step_op_with_sub_schemes(op: &str) -> bool {
     matches!(op, "while_step" | "for_step" | "fix_step")

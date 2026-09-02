@@ -207,9 +207,9 @@
 # which pattern-matches on the proc body AST to determine the `Scheme`.
 # The other node kinds are structural — their eval schemes are placeholders.
 
-# `loop_rich` — `loop { ... } ( proc ... )`. Two children:
+# `loop_rich` — `loop { ... } ( params ~> body )`. Two children:
 # [decl_block, proc_expr]. The decl_block is the `{ ... }` block; the
-# proc_expr is the `proc (state) -> match ...` expression.
+# proc_expr is the `state ~> match ...` expression.
 - id: ast.arrow.loop_rich
   node_kind: loop_rich
   payload_schema:
@@ -282,7 +282,7 @@
     - children
     type: object
 
-# `arrow_proc` — `proc ( params ) -> body`. Two children: [params, body].
+# `arrow_proc` — `params ~> body`. Two children: [params, body].
 - id: ast.arrow.arrow_proc
   node_kind: arrow_proc
   payload_schema:

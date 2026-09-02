@@ -1,16 +1,16 @@
-// Counter state machine: maintains Count ≥ 0.
-//
-// A state machine is State × Event ⇝ State. As an arrow graph:
-//   state_machine = loop(comp(handle_event, first(id)))
-//
-// where handle_event updates the state based on the event, and first(id)
-// passes the event stream through unchanged (side channel).
-//
-// The counter processes events that either increment or decrement the count.
-// The state.dec atom has requires: Le(0, input) and guarantee: Le(0, output),
-// so the fixpoint discovers Le(0, count) (Count ≥ 0) as the invariant.
-//
-// Invariant: Le(0, count) — INFERRED (Count ≥ 0, discovered by fixpoint).
-// Termination: Constant (side-channel; event stream passes through).
+-- Counter state machine: maintains Count ≥ 0.
+--
+-- A state machine is State × Event ⇝ State. As an arrow graph:
+--   state_machine = loop(comp(handle_event, first(id)))
+--
+-- where handle_event updates the state based on the event, and first(id)
+-- passes the event stream through unchanged (side channel).
+--
+-- The counter processes events that either increment or decrement the count.
+-- The state.dec atom has requires: Le(0, input) and guarantee: Le(0, output),
+-- so the fixpoint discovers Le(0, count) (Count ≥ 0) as the invariant.
+--
+-- Invariant: Le(0, count) — INFERRED (Count ≥ 0, discovered by fixpoint).
+-- Termination: Constant (side-channel; event stream passes through).
 
 loop(comp(choice(arr("state.inc"), arr("state.dec")), first(id)))

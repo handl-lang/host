@@ -1,5 +1,5 @@
 loop { n: 3, moves: 0 } (
-  proc (n, moves) -> if n == 0 then
+  [n, moves] ~> if n == 0 then
     returnA -< { out: moves }
   else
     returnA -< { state: { n: n - 1, moves: moves * 2 + 1 } }

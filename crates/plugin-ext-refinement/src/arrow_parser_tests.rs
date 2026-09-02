@@ -2,7 +2,7 @@
 //!
 //! These tests verify:
 //! - Simple arrow-graph syntax parses correctly
-//! - Rich `loop { ... } ( proc ... )` syntax parses correctly
+//! - Rich `loop { ... } ( params ~> body )` syntax parses correctly
 //! - Actual `.hnl` stdlib files parse successfully
 //! - Inference from parsed `.hnl` files matches hand-built Scheme results
 

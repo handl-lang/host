@@ -25,15 +25,6 @@
   child_shape:
     node_kind: unary.not
     arity: 1
-- id: grammar.proc.prefix
-  token: token.keyword.proc
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: proc
-    arity: 1
 - id: grammar.returnA.prefix
   token: token.keyword.returnA
   position: Prefix

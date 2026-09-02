@@ -1,13 +1,13 @@
-// scan: prefix sums — accumulate and output each intermediate.
-// Written as an arrow graph over list primitives.
-// Contract: inferred from the step function's guarantee.
-//
-// Graph structure:
-//   scan = loop(arr("fold_step") >>> first(arr("list.cons")))
-//
-// The loop processes elements one at a time:
-//   - apply step function to (current accumulator, head of remaining)
-//   - cons the intermediate accumulator value onto the output list
-//   - repeat until input is exhausted
+-- scan: prefix sums — accumulate and output each intermediate.
+-- Written as an arrow graph over list primitives.
+-- Contract: inferred from the step function's guarantee.
+--
+-- Graph structure:
+--   scan = loop(arr("fold_step") >>> first(arr("list.cons")))
+--
+-- The loop processes elements one at a time:
+--   - apply step function to (current accumulator, head of remaining)
+--   - cons the intermediate accumulator value onto the output list
+--   - repeat until input is exhausted
 
 scan = loop(arr("fold_step") >>> first(arr("list.cons")))

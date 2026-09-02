@@ -1,14 +1,14 @@
-// scan: prefix sums — accumulate and output each intermediate.
-// Rich-loop version of scan, written as an arrow graph over list primitives.
-// Contract: inferred from the step function's guarantee.
-//
-// Graph structure:
-//   loop (fold_step >>> first(list.cons))
-//
-// The loop processes elements one at a time:
-//   - apply step function f to (current accumulator, head of remaining)
-//   - cons the intermediate accumulator value onto the output list
-//   - repeat until input is exhausted
+-- scan: prefix sums — accumulate and output each intermediate.
+-- Rich-loop version of scan, written as an arrow graph over list primitives.
+-- Contract: inferred from the step function's guarantee.
+--
+-- Graph structure:
+--   loop (fold_step >>> first(list.cons))
+--
+-- The loop processes elements one at a time:
+--   - apply step function f to (current accumulator, head of remaining)
+--   - cons the intermediate accumulator value onto the output list
+--   - repeat until input is exhausted
 
 loop {
   remaining: input.0,
@@ -16,7 +16,7 @@ loop {
   acc:       input.2,
   out:       []
 } (
-  proc (state) -> match state.remaining {
+  state ~> match state.remaining {
     []: returnA -< {
       out: state.out
     },

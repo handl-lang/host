@@ -2,18 +2,19 @@
 //!
 //! Provides quick fixes for common arrow-file issues:
 //!
-//! * **Wrap in `do` block** — a `<-` binding that is not already inside a
-//!   `do { … }` block can be wrapped so that subsequent bindings are sequenced.
-//! * **Add missing `returnA`** — a match-arm body that is a bare object literal
-//!   `{ … }` (without a `returnA -<` prefix) gets the prefix inserted.
+//! * **Wrap in `do { } while` block** — a binding that is not already inside a
+//!   `do { … } while` block can be wrapped so that subsequent bindings are
+//!   sequenced.
+//! * **Add missing `return`** — a match-arm body that is a bare object literal
+//!   `{ … }` (without a `return` prefix) gets the prefix inserted.
 //! * **Convert `//` to `///` doc comment** — a regular line comment at the top
 //!   of the file (before any code) can be promoted to a doc comment.
 //! * **Extract to named arrow** — a complex selection containing `>>>`, `|||`,
-//!   or a nested `proc` can be extracted into a named arrow binding.
+//!   or a nested `~>` arrow can be extracted into a named arrow binding.
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_keyword_kind};
 
 use crate::diagnostics::offset_to_position;
 
@@ -58,16 +59,13 @@ pub fn code_actions(
     actions.extend(add_returnA_actions(source, &tokens, range_start, range_end));
     actions.extend(convert_comment_actions(source, &tokens, range_start, range_end));
 
-    // Diagnostic-based actions: if a diagnostic message mentions "returnA" or
-    // "do", offer the corresponding fix at the diagnostic's location.
+    // Diagnostic-based actions: if a diagnostic message mentions "return",
+    // offer the corresponding fix at the diagnostic's location.
     for diag in diagnostics {
         let msg = diag.get("message").and_then(|m| m.as_str()).unwrap_or("");
         if let Some((ds, de)) = diag_range_to_offsets(source, diag) {
-            if msg.contains("returnA") {
+            if msg.contains("return") {
                 actions.extend(add_returnA_actions(source, &tokens, ds, de));
-            }
-            if msg.contains("do") {
-                actions.extend(wrap_in_do_actions(source, &tokens, ds, de));
             }
         }
     }
@@ -236,15 +234,15 @@ fn wrap_in_do_actions(
 }
 
 // ---------------------------------------------------------------------------
-// b. Add missing `returnA`
+// b. Add missing `return`
 // ---------------------------------------------------------------------------
 
-/// Offer to insert `returnA -< ` before a match-arm object literal `{ … }`
+/// Offer to insert `return ` before a match-arm object literal `{ … }`
 /// that lacks the prefix.
 ///
 /// A `{` is considered a match-arm body when the immediately preceding token
-/// is `:` (the arm separator) and the two preceding tokens are not
-/// `returnA` (identifier) followed by `-<` (arrow_app).
+/// is `:` (the arm separator) and the preceding token is not already a
+/// `return` keyword.
 #[allow(non_snake_case)]
 fn add_returnA_actions(
     source: &str,
@@ -262,14 +260,12 @@ fn add_returnA_actions(
             continue;
         }
         let prev1 = if i > 0 { tokens.get(i - 1) } else { None };
-        let prev2 = if i > 1 { tokens.get(i - 2) } else { None };
 
-        // Already has `returnA -<` prefix → skip.
-        #[allow(non_snake_case)]
-        let has_returnA = prev1.map(|p| p.kind.as_str()) == Some("token.arrow_app")
-            && prev2.map(|p| is_identifier_kind(p.kind.as_str()) && p.text == "returnA")
-                == Some(true);
-        if has_returnA {
+        // Already has `return` prefix → skip.
+        let has_return = prev1
+            .map(|p| is_keyword_kind(p.kind.as_str()) && p.text == "return")
+            == Some(true);
+        if has_return {
             continue;
         }
 
@@ -279,11 +275,11 @@ fn add_returnA_actions(
         }
 
         actions.push(make_action(
-            "Add missing returnA",
+            "Add missing return",
             source,
             t.span.start,
             t.span.start,
-            "returnA -< ",
+            "return ",
         ));
         // Only one per line.
         break;
@@ -304,7 +300,7 @@ fn is_top_of_file_comment(tokens: &[SpannedToken], index: usize) -> bool {
         .all(|t| is_comment_kind(t.kind.as_str()))
 }
 
-/// Offer to convert a top-of-file `//` comment into a `///` doc comment.
+/// Offer to convert a top-of-file `--` comment into a `---` doc comment.
 fn convert_comment_actions(
     source: &str,
     tokens: &[SpannedToken],
@@ -325,13 +321,13 @@ fn convert_comment_actions(
         if !range_touches_line(source, range_start, range_end, t.span.start) {
             continue;
         }
-        // Replace the leading `//` with `///`.
+        // Replace the leading `--` with `---`.
         actions.push(make_action(
-            "Convert `//` to `///` doc comment",
+            "Convert `--` to `---` doc comment",
             source,
             t.span.start,
             t.span.start + 2,
-            "///",
+            "---",
         ));
         break;
     }
@@ -346,7 +342,7 @@ fn convert_comment_actions(
 /// prepending `name = ` to the selection.
 ///
 /// A selection is "complex" when it contains `>>>`, `|||`, or a nested
-/// `proc`.  This action requires a non-empty selection.
+/// `~>` expression.  This action requires a non-empty selection.
 fn extract_to_named_arrow_actions(
     source: &str,
     range_start: usize,
@@ -374,7 +370,7 @@ fn extract_to_named_arrow_actions(
         return Vec::new();
     }
     let selection = &source[start..end];
-    if selection.contains(">>>") || selection.contains("|||") || selection.contains("proc") {
+    if selection.contains(">>>") || selection.contains("|||") || selection.contains("~>") {
         vec![make_action(
             "Extract to named arrow",
             source,

@@ -5,8 +5,8 @@
 //!
 //! - `f -< x`  — arrow application: apply arrow `f` to input `x`.
 //!   Desugars to `call(f, x)`.
-//! - `returnA` — the identity arrow. Desugars to `function x -> x`.
-//!   Used as `returnA -< e` to return `e` from a `proc`/`do` block.
+//! - `returnA` — the identity arrow. Desugars to `function x ~> x`.
+//!   Used as `returnA -< e` to return `e` from a `do` block.
 //! - `y <- f -< x` — arrow bind: evaluate `f -< x` and bind the
 //!   result to `y` in the current scope. Used inside `do` blocks.
 
@@ -186,9 +186,9 @@ fn return_a_applied_to_value_returns_value() {
 #[test]
 fn arrow_app_calls_closure() {
     let rt = full_runtime();
-    // (x -> x + 1) -< 41  →  call(\x -> x+1, 41)  →  42
+    // (x ~> x + 1) -< 41  →  call(\x ~> x+1, 41)  →  42
     let result = rt
-        .run(&Source::new("(x -> x + 1) -< 41"))
+        .run(&Source::new("(x ~> x + 1) -< 41"))
         .expect("eval");
     assert_eq!(result, serde_json::json!(42));
 }
@@ -196,9 +196,9 @@ fn arrow_app_calls_closure() {
 #[test]
 fn do_block_with_bind_and_return_a() {
     let rt = full_runtime();
-    // do { y <- (x -> x + 1) -< 41; returnA -< y }
+    // do { y <- (x ~> x + 1) -< 41; returnA -< y }
     // → bind y = 42, then return y = 42
-    let src = "do { y <- (x -> x + 1) -< 41; returnA -< y }";
+    let src = "do { y <- (x ~> x + 1) -< 41; returnA -< y }";
     let result = rt.run(&Source::new(src)).expect("eval");
     assert_eq!(result, serde_json::json!(42));
 }
@@ -207,30 +207,30 @@ fn do_block_with_bind_and_return_a() {
 fn do_block_with_multiple_binds() {
     let rt = full_runtime();
     // do {
-    //   y <- (x -> x + 1) -< 41;
-    //   z <- (x -> x * 2) -< y;
+    //   y <- (x ~> x + 1) -< 41;
+    //   z <- (x ~> x * 2) -< y;
     //   returnA -< z
     // }
     // → y = 42, z = 84, return 84
-    let src = "do { y <- (x -> x + 1) -< 41; z <- (x -> x * 2) -< y; returnA -< z }";
+    let src = "do { y <- (x ~> x + 1) -< 41; z <- (x ~> x * 2) -< y; returnA -< z }";
     let result = rt.run(&Source::new(src)).expect("eval");
     assert_eq!(result, serde_json::json!(84));
 }
 
 #[test]
-fn proc_with_do_block() {
+fn arrow_with_do_block() {
     let rt = full_runtime();
-    // proc n -> do {
-    //   y <- (x -> x + 1) -< n;
+    // n ~> do {
+    //   y <- (x ~> x + 1) -< n;
     //   returnA -< y
     // }
     // This evaluates to a closure. Call it with 41 → 42.
-    let src = "proc n -> do { y <- (x -> x + 1) -< n; returnA -< y }";
+    let src = "n ~> do { y <- (x ~> x + 1) -< n; returnA -< y }";
     let closure = rt.run(&Source::new(src)).expect("eval closure");
     assert_eq!(
         closure["__arrow__"],
         serde_json::Value::Bool(true),
-        "proc should evaluate to a closure",
+        "closure should evaluate correctly",
     );
 }
 
@@ -238,9 +238,9 @@ fn proc_with_do_block() {
 fn arrow_app_with_arithmetic_input() {
     let rt = full_runtime();
     // f -< x + 1  should parse as f -< (x + 1), not (f -< x) + 1
-    // (x -> x) -< 40 + 2  →  call(id, 42)  →  42
+    // (x ~> x) -< 40 + 2  →  call(id, 42)  →  42
     let result = rt
-        .run(&Source::new("(x -> x) -< 40 + 2"))
+        .run(&Source::new("(x ~> x) -< 40 + 2"))
         .expect("eval");
     assert_eq!(result, serde_json::json!(42));
 }

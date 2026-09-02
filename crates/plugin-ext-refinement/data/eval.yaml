@@ -242,7 +242,7 @@
 # `proj_child 0` pass-through that would materialize the first child if
 # ever reached (e.g. during debugging or future direct use).
 
-# `loop_rich` — `loop { ... } ( proc ... )`. Placeholder: the actual Scheme
+# `loop_rich` — `loop { ... } ( params ~> body )`. Placeholder: the actual Scheme
 # is produced by the `loop_rich` special case in `materialize_node`, not by
 # walking this eval scheme. This scheme is a fallback that produces
 # `Scheme::Loop { body: proj_child(1) }` (the proc expression).
@@ -291,7 +291,7 @@
     source: Native
     lit: 0
 
-# `arrow_proc` — `proc ( params ) -> body`. Placeholder: pass through child 1 (body).
+# `arrow_proc` — `params ~> body`. Placeholder: pass through child 1 (body).
 - id: eval.arrow.arrow_proc
   node_kind: arrow_proc
   scheme: !Arr

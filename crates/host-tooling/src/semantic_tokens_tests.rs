@@ -414,9 +414,9 @@ fn context_classifier_default_identifier_is_variable() {
 
 #[test]
 fn context_classifier_function_definition_binding() {
-    // make_flag = (name: type.string, short: type.string): Flag ->
+    // make_flag = (name: type.string, short: type.string): Flag ~>
     //   { name: name, short: short };
-    let source = "make_flag = (name: type.string, short: type.string): Flag ->\n  { name: name, short: short };";
+    let source = "make_flag = (name: type.string, short: type.string): Flag ~>\n  { name: name, short: short };";
     let all = classify_all_identifiers(source);
     let legend = SemanticTokenLegend::default();
     let var_idx = legend.token_type_index("variable").unwrap();
