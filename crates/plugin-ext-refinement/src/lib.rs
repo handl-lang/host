@@ -34,6 +34,8 @@
 //! println!("Guarantee: {}", result.guarantee.pretty());
 //! ```
 
+pub mod arrow_loader;
+pub mod arrow_parser;
 pub mod contracts;
 pub mod inference;
 pub mod loader;
@@ -44,6 +46,8 @@ pub mod termination;
 pub mod types;
 
 // Re-export the most commonly used items at the crate root.
+pub use arrow_loader::{infer_file, load_all_arrows, load_arrow_file, load_arrow_file_named, resolve_apps};
+pub use arrow_parser::{parse_arrow_expr, parse_arrow_file, ParsedFile};
 pub use contracts::ContractRegistry;
 pub use inference::{format_scheme, infer_r, infer_refinement};
 pub use loader::{load_dir, load_standard_axioms, parse_contracts};
@@ -63,3 +67,6 @@ mod e2e_tests;
 
 #[cfg(test)]
 mod loader_tests;
+
+#[cfg(test)]
+mod arrow_parser_tests;

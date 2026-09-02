@@ -32,7 +32,7 @@ fn arr(op: &str) -> Scheme {
 }
 
 /// The total number of axioms across the bundled `prim.hnl` and `list.hnl`.
-const STANDARD_AXIOM_COUNT: usize = 12;
+const STANDARD_AXIOM_COUNT: usize = 20;
 
 // ============================================================================
 // 1. Parse a simple axiom file → correct Contract
@@ -343,7 +343,8 @@ fn test_load_standard_axioms_cons_conditional_contract() {
         .expect("cons present");
     // Enriched: cons has a conditional contract.
     // requires: Sorted(tail) ∧ Le(head, head_of_tail)
-    // guarantee: Sorted(output) ∧ LengthPlusOne(output, tail)
+    // guarantee: Sorted(output) ∧ LengthPlusOne(output, tail) ∧ IsPerm(output, output)
+    // (Parser is left-associative: A ∧ B ∧ C → And(And(A, B), C))
     assert_eq!(
         c.precondition,
         Pred::And(
@@ -354,8 +355,11 @@ fn test_load_standard_axioms_cons_conditional_contract() {
     assert_eq!(
         c.guarantee,
         Pred::And(
-            Box::new(Pred::Sorted("output".to_string())),
-            Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+            Box::new(Pred::And(
+                Box::new(Pred::Sorted("output".to_string())),
+                Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+            )),
+            Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
     );
 }
@@ -367,6 +371,7 @@ fn test_load_standard_axioms_list_cons_conditional_contract() {
         .lookup("list.cons", &ArrSource::Native)
         .expect("list.cons present");
     // Same conditional contract as cons.
+    // (Parser is left-associative: A ∧ B ∧ C → And(And(A, B), C))
     assert_eq!(
         c.precondition,
         Pred::And(
@@ -377,8 +382,11 @@ fn test_load_standard_axioms_list_cons_conditional_contract() {
     assert_eq!(
         c.guarantee,
         Pred::And(
-            Box::new(Pred::Sorted("output".to_string())),
-            Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+            Box::new(Pred::And(
+                Box::new(Pred::Sorted("output".to_string())),
+                Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+            )),
+            Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
     );
 }
@@ -391,13 +399,17 @@ fn test_load_standard_axioms_list_tail_conditional_contract() {
         .expect("list.tail present");
     // Enriched: list.tail preserves sortedness and decrements length.
     // requires: Sorted(input)
-    // guarantee: Sorted(output) ∧ LengthSubOne(output, input)
+    // guarantee: Sorted(output) ∧ LengthSubOne(output, input) ∧ IsPerm(output, output)
+    // (Parser is left-associative: A ∧ B ∧ C → And(And(A, B), C))
     assert_eq!(c.precondition, Pred::Sorted("input".to_string()));
     assert_eq!(
         c.guarantee,
         Pred::And(
-            Box::new(Pred::Sorted("output".to_string())),
-            Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+            Box::new(Pred::And(
+                Box::new(Pred::Sorted("output".to_string())),
+                Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+            )),
+            Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
         )
     );
 }

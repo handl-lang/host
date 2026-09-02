@@ -129,7 +129,7 @@ fn pred_to_z3<'ctx>(ctx: &'ctx Context, p: &Pred) -> Bool<'ctx> {
             let sym = atom_symbol(p).unwrap();
             Bool::new_const(ctx, sym.as_str())
         }
-        Pred::Le(_, _) | Pred::HeadOf(_, _) => {
+        Pred::Le(_, _) | Pred::HeadOf(_, _) | Pred::IsPerm(_, _) => {
             let sym = atom_symbol(p).unwrap();
             Bool::new_const(ctx, sym.as_str())
         }
@@ -302,6 +302,7 @@ pub fn pred_to_smt(p: &Pred) -> String {
         Pred::Forall(_, _, _) => atom_symbol(p).unwrap(),
         Pred::Le(_, _) => atom_symbol(p).unwrap(),
         Pred::HeadOf(_, _) => atom_symbol(p).unwrap(),
+        Pred::IsPerm(_, _) => atom_symbol(p).unwrap(),
         Pred::LengthEq(a, b) => format!("(= {} {})", var_to_len(a), var_to_len(b)),
         Pred::LengthLe(a, b) => format!("(<= {} {})", var_to_len(a), var_to_len(b)),
         Pred::LengthPlusOne(a, b) => {
@@ -434,6 +435,8 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         (Pred::LengthPlusOne(a, b), Pred::LengthPlusOne(c, d)) if a == c && b == d => true,
         // LengthSubOne reflexivity
         (Pred::LengthSubOne(a, b), Pred::LengthSubOne(c, d)) if a == c && b == d => true,
+        // IsPerm reflexivity
+        (Pred::IsPerm(a, b), Pred::IsPerm(c, d)) if a == c && b == d => true,
         // LengthPlusOne(a, b) ⟹ LengthLe(b, a)  (|a| = |b|+1 ⟹ |b| <= |a|)
         (Pred::LengthPlusOne(a, b), Pred::LengthLe(c, d)) if b == c && a == d => true,
         // LengthSubOne(a, b) ⟹ LengthLe(a, b)  (|a| = |b|-1 ⟹ |a| <= |b|)
@@ -456,6 +459,7 @@ fn atom_symbol(p: &Pred) -> Option<String> {
         Pred::Forall(var, list, pred) => Some(format!("|forall_{}_{}_{}|", var, list, pred)),
         Pred::Le(a, b) => Some(format!("|le_{}_{}|", a, b)),
         Pred::HeadOf(elem, list) => Some(format!("|head_of_{}_{}|", elem, list)),
+        Pred::IsPerm(a, b) => Some(format!("|is_perm_{}_{}|", a, b)),
         _ => None,
     }
 }
@@ -473,7 +477,7 @@ fn var_to_len(v: &str) -> String {
 fn collect_atoms(p: &Pred, atoms: &mut Vec<String>) {
     match p {
         Pred::Sorted(_) | Pred::AllSatisfy(_, _) | Pred::Forall(_, _, _) | Pred::Le(_, _)
-        | Pred::HeadOf(_, _) => {
+        | Pred::HeadOf(_, _) | Pred::IsPerm(_, _) => {
             if let Some(a) = atom_symbol(p) {
                 if !atoms.contains(&a) {
                     atoms.push(a);

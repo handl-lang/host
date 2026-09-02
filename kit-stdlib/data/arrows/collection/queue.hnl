@@ -1,0 +1,14 @@
+// queue: FIFO queue using list primitives.
+// enqueue to the back, dequeue from the front.
+// This is a multi-name file.
+// Contracts: inferred from the underlying list primitives with zero annotations.
+//
+// Graph structure:
+//   enqueue = arr("list.append")
+//   dequeue = arr("list.head")
+
+// enqueue : (List α × List α) → List α — append to the back.
+enqueue = arr("list.append")
+
+// dequeue : List α → α — take from the front (head).
+dequeue = arr("list.head")

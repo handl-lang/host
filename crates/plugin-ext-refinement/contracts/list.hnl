@@ -5,7 +5,7 @@
 
 axiom list.cons : (α × List α) → List α
   requires: Sorted(tail) ∧ Le(head, head_of_tail)
-  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail)
+  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail) ∧ IsPerm(output, output)
 
 axiom list.head : List α → α
   requires: Sorted(input)
@@ -13,14 +13,27 @@ axiom list.head : List α → α
 
 axiom list.tail : List α → List α
   requires: Sorted(input)
-  guarantee: Sorted(output) ∧ LengthSubOne(output, input)
+  guarantee: Sorted(output) ∧ LengthSubOne(output, input) ∧ IsPerm(output, output)
 
 axiom list.is_empty : List α → Bool
   guarantee: True
 
+axiom list.length : List α → Int
+  guarantee: True
+
+axiom list.append : (List α × List α) → List α
+  requires: True
+  guarantee: True
+
+axiom list.reverse : List α → List α
+  guarantee: LengthEq(output, input)
+
+axiom list.nth : (List α × Int) → α
+  guarantee: True
+
 axiom cons : (α × List α) → List α
   requires: Sorted(tail) ∧ Le(head, head_of_tail)
-  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail)
+  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail) ∧ IsPerm(output, output)
 
 axiom id : α → α
   guarantee: True

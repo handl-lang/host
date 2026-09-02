@@ -152,6 +152,58 @@ impl ContractRegistry {
             },
         );
 
+        // prim.sub : (Int × Int) → Int — integer subtraction.
+        reg.register(
+            "prim.sub",
+            ArrSource::Native,
+            Contract {
+                input: prod_int_int(),
+                output: int(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // prim.mul : (Int × Int) → Int — integer multiplication.
+        reg.register(
+            "prim.mul",
+            ArrSource::Native,
+            Contract {
+                input: prod_int_int(),
+                output: int(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // prim.le : (Int × Int) → Bool — less-than-or-equal comparison.
+        reg.register(
+            "prim.le",
+            ArrSource::Native,
+            Contract {
+                input: prod_int_int(),
+                output: RefTy::Plain(BaseTy::Bool),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // prim.eq : (α × α) → Bool — equality test (polymorphic).
+        reg.register(
+            "prim.eq",
+            ArrSource::Native,
+            Contract {
+                input: RefTy::Prod(Box::new(alpha()), Box::new(alpha())),
+                output: RefTy::Plain(BaseTy::Bool),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
         // list.cons : (α × List α) → List α — prepend element to list.
         // Conditional contract: if the tail is sorted AND the head is ≤ the
         // first element of the tail, then the output is sorted. The output
@@ -168,8 +220,11 @@ impl ContractRegistry {
                     Box::new(Pred::Le("head".to_string(), "head_of_tail".to_string())),
                 ),
                 Pred::And(
-                    Box::new(Pred::Sorted("output".to_string())),
-                    Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                    Box::new(Pred::And(
+                        Box::new(Pred::Sorted("output".to_string())),
+                        Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                    )),
+                    Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
                 None,
             ),
@@ -199,8 +254,11 @@ impl ContractRegistry {
                 list_alpha(),
                 Pred::Sorted("input".to_string()),
                 Pred::And(
-                    Box::new(Pred::Sorted("output".to_string())),
-                    Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                    Box::new(Pred::And(
+                        Box::new(Pred::Sorted("output".to_string())),
+                        Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                    )),
+                    Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
                 None,
             ),
@@ -213,6 +271,62 @@ impl ContractRegistry {
             Contract {
                 input: list_alpha(),
                 output: RefTy::Plain(BaseTy::Bool),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // list.length : List α → Int — list length.
+        reg.register(
+            "list.length",
+            ArrSource::Native,
+            Contract {
+                input: list_alpha(),
+                output: int(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // list.append : (List α × List α) → List α — list concatenation.
+        // NOTE: the ideal guarantee is LengthEq(output, input.0 + input.1),
+        // but the contract-file parser does not yet support arithmetic
+        // expressions in predicate arguments, so we record True here.
+        reg.register(
+            "list.append",
+            ArrSource::Native,
+            Contract {
+                input: RefTy::Prod(Box::new(list_alpha()), Box::new(list_alpha())),
+                output: list_alpha(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // list.reverse : List α → List α — list reversal.
+        // Guarantee: the output has the same length as the input.
+        reg.register(
+            "list.reverse",
+            ArrSource::Native,
+            Contract {
+                input: list_alpha(),
+                output: list_alpha(),
+                precondition: Pred::True,
+                guarantee: Pred::LengthEq("output".to_string(), "input".to_string()),
+                termination_effect: None,
+            },
+        );
+
+        // list.nth : (List α × Int) → α — element at index.
+        reg.register(
+            "list.nth",
+            ArrSource::Native,
+            Contract {
+                input: RefTy::Prod(Box::new(list_alpha()), Box::new(int())),
+                output: alpha(),
                 precondition: Pred::True,
                 guarantee: Pred::True,
                 termination_effect: None,
@@ -245,8 +359,11 @@ impl ContractRegistry {
                     Box::new(Pred::Le("head".to_string(), "head_of_tail".to_string())),
                 ),
                 Pred::And(
-                    Box::new(Pred::Sorted("output".to_string())),
-                    Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                    Box::new(Pred::And(
+                        Box::new(Pred::Sorted("output".to_string())),
+                        Box::new(Pred::LengthPlusOne("output".to_string(), "tail".to_string())),
+                    )),
+                    Box::new(Pred::IsPerm("output".to_string(), "output".to_string())),
                 ),
                 None,
             ),

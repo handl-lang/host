@@ -41,6 +41,7 @@
 //! HeadOf(elem, list)             → HeadOf("elem", "list")
 //! LengthPlusOne(a, b)            → LengthPlusOne("a", "b")
 //! LengthSubOne(a, b)             → LengthSubOne("a", "b")
+//! IsPerm(a, b)                   → IsPerm("a", "b")
 //! p ∧ q                          → And(p, q)
 //! p ∨ q                          → Or(p, q)
 //! p ⟹ q                          → Implies(p, q)
@@ -691,6 +692,10 @@ fn parse_named_pred(p: &mut Parser, name: &str) -> Result<Pred, String> {
         "LengthSubOne" => {
             two_args(name, &args)?;
             Ok(Pred::LengthSubOne(args[0].clone(), args[1].clone()))
+        }
+        "IsPerm" => {
+            two_args(name, &args)?;
+            Ok(Pred::IsPerm(args[0].clone(), args[1].clone()))
         }
         other => Err(format!("unknown predicate `{}`", other)),
     }

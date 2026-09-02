@@ -60,6 +60,8 @@ pub enum Pred {
     LengthPlusOne(String, String),
     /// |a| = |b| - 1 — output is one shorter than input.
     LengthSubOne(String, String),
+    /// IsPerm(a, b) — list a is a permutation of list b (same elements, possibly different order).
+    IsPerm(String, String),
     /// Conjunction.
     And(Box<Pred>, Box<Pred>),
     /// Disjunction.
@@ -84,6 +86,7 @@ impl Pred {
             Pred::HeadOf(elem, list) => format!("HeadOf({}, {})", elem, list),
             Pred::LengthPlusOne(a, b) => format!("|{}| = |{}| + 1", a, b),
             Pred::LengthSubOne(a, b) => format!("|{}| = |{}| - 1", a, b),
+            Pred::IsPerm(a, b) => format!("Perm({}, {})", a, b),
             Pred::And(a, b) => format!("({} ∧ {})", a.pretty(), b.pretty()),
             Pred::Or(a, b) => format!("({} ∨ {})", a.pretty(), b.pretty()),
             Pred::Implies(a, b) => format!("({} ⟹ {})", a.pretty(), b.pretty()),
@@ -125,6 +128,7 @@ impl Pred {
             | Pred::HeadOf(_, _)
             | Pred::LengthPlusOne(_, _)
             | Pred::LengthSubOne(_, _)
+            | Pred::IsPerm(_, _)
             | Pred::Forall(_, _, _) => self.clone(),
 
             Pred::And(a, b) => {

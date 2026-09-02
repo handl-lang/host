@@ -9,3 +9,15 @@ axiom prim.compare : (α × β) → Int
 
 axiom prim.alloc : Int → List α
   guarantee: LengthEq(output, 0)
+
+axiom prim.sub : (Int × Int) → Int
+  guarantee: True
+
+axiom prim.mul : (Int × Int) → Int
+  guarantee: True
+
+axiom prim.le : (Int × Int) → Bool
+  guarantee: True
+
+axiom prim.eq : (α × α) → Bool
+  guarantee: True

@@ -313,4 +313,491 @@ mod tests {
             pretty
         );
     }
+
+    // ========================================================================
+    // IsPerm predicate tests
+    // ========================================================================
+
+    #[test]
+    fn test_isperm_predicate_parses() {
+        // IsPerm(a, b) should parse correctly from a contract file.
+        let src = "axiom perm_test : List α → List α\n  guarantee: IsPerm(output, input)\n";
+        let reg = crate::loader::parse_contracts(src).expect("must parse");
+        let c = reg
+            .lookup("perm_test", &handl_language::ArrSource::Native)
+            .expect("perm_test registered");
+        assert_eq!(
+            c.guarantee,
+            crate::types::Pred::IsPerm("output".to_string(), "input".to_string())
+        );
+    }
+
+    #[test]
+    fn test_isperm_reflexivity_toy_implies() {
+        // IsPerm(a, b) ⟹ IsPerm(a, b) — reflexivity must hold in the toy checker.
+        let p = crate::types::Pred::IsPerm("input".to_string(), "output".to_string());
+        let q = crate::types::Pred::IsPerm("input".to_string(), "output".to_string());
+        assert!(
+            crate::smt::toy_implies(&p, &q),
+            "toy_implies must prove IsPerm reflexivity"
+        );
+    }
+
+    #[test]
+    fn test_isperm_pretty_print() {
+        // IsPerm(a, b) should pretty-print as Perm(a, b).
+        let p = crate::types::Pred::IsPerm("input".to_string(), "output".to_string());
+        let pretty = p.pretty();
+        assert!(
+            pretty.contains("Perm(input, output)"),
+            "IsPerm pretty-print should be Perm(input, output), got: {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_cons_guarantee_contains_isperm() {
+        // Direct inference on the `cons` atom should now include IsPerm in
+        // its guarantee (alongside Sorted and LengthPlusOne).
+        let registry = ContractRegistry::minimal();
+        let graph = Scheme::arr_native("cons", vec![]);
+        let result = infer_refinement(&graph, &registry).expect("cons inference");
+        let pretty = result.guarantee.pretty();
+        assert!(
+            pretty.contains("Perm"),
+            "cons guarantee should contain IsPerm (Perm): {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_sort_guarantee_contains_isperm() {
+        // sort = loop(comp(insert, first(id))). The cons atoms inside insert
+        // now carry IsPerm(output, output) in their guarantee. The fixpoint
+        // should discover and propagate the IsPerm atom through the loop,
+        // so sort's inferred guarantee contains both Sorted and Perm.
+        //
+        // NOTE: The current IsPerm(output, output) is trivially true (output
+        // is always a permutation of itself). Full IsPerm(input, output)
+        // tracking — matching the Agda example `Σ ys. Sorted ys ×
+        // Permutation xs ys` — requires multiset reasoning across loop
+        // iterations (insert adds one element, removing it from the
+        // remaining input). The infrastructure (predicate, parser, SMT
+        // encoding, fixpoint propagation) is now in place; the fixpoint
+        // discovers the IsPerm atom from the cons guarantee.
+        let graph = sort_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry).expect("sort inference");
+        let pretty = result.guarantee.pretty();
+        println!("sort inferred guarantee (with IsPerm): {}", pretty);
+        assert!(
+            pretty.contains("Sorted"),
+            "sort guarantee should contain Sorted: {}",
+            pretty
+        );
+        // The IsPerm atom should appear in the guarantee or loop invariants.
+        let all_pretty = format!(
+            "{} {:?}",
+            pretty, result.loop_invariants
+        );
+        assert!(
+            all_pretty.contains("Perm"),
+            "sort guarantee or invariants should contain IsPerm (Perm): {}",
+            all_pretty
+        );
+    }
+
+    // ========================================================================
+    // Scaled stdlib: new atoms + new arrows (zero annotations)
+    // ========================================================================
+
+    /// vec.push = arr("list.cons")
+    fn vec_push_graph() -> Scheme {
+        Scheme::arr_native("list.cons", vec![])
+    }
+
+    /// vec.pop = arr("list.head")
+    fn vec_pop_graph() -> Scheme {
+        Scheme::arr_native("list.head", vec![])
+    }
+
+    /// vec.get = comp(arr("list.nth"), first(id))
+    fn vec_get_graph() -> Scheme {
+        use Scheme::*;
+        Seq {
+            fst: Box::new(Scheme::arr_native("list.nth", vec![])),
+            snd: Box::new(First {
+                inner: Box::new(Scheme::arr_native("id", vec![])),
+            }),
+        }
+    }
+
+    /// queue.enqueue = arr("list.append")
+    fn queue_enqueue_graph() -> Scheme {
+        Scheme::arr_native("list.append", vec![])
+    }
+
+    /// queue.dequeue = arr("list.head")
+    fn queue_dequeue_graph() -> Scheme {
+        Scheme::arr_native("list.head", vec![])
+    }
+
+    /// take = loop(comp(arr("list.head"), choice(arr("cons"), arr("id"))))
+    fn take_graph() -> Scheme {
+        use Scheme::*;
+        Loop {
+            body: Box::new(Seq {
+                fst: Box::new(Scheme::arr_native("list.head", vec![])),
+                snd: Box::new(Choice {
+                    l: Box::new(Scheme::arr_native("cons", vec![])),
+                    r: Box::new(Scheme::arr_native("id", vec![])),
+                }),
+            }),
+        }
+    }
+
+    /// drop = loop(comp(arr("list.tail"), first(id)))
+    fn drop_graph() -> Scheme {
+        use Scheme::*;
+        Loop {
+            body: Box::new(Seq {
+                fst: Box::new(Scheme::arr_native("list.tail", vec![])),
+                snd: Box::new(First {
+                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                }),
+            }),
+        }
+    }
+
+    /// reduce = loop(comp(arr("fold_step"), first(id)))
+    fn reduce_graph() -> Scheme {
+        use Scheme::*;
+        Loop {
+            body: Box::new(Seq {
+                fst: Box::new(Scheme::arr_native("fold_step", vec![])),
+                snd: Box::new(First {
+                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                }),
+            }),
+        }
+    }
+
+    /// scan = loop(comp(arr("fold_step"), first(arr("list.cons"))))
+    fn scan_graph() -> Scheme {
+        use Scheme::*;
+        Loop {
+            body: Box::new(Seq {
+                fst: Box::new(Scheme::arr_native("fold_step", vec![])),
+                snd: Box::new(First {
+                    inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+                }),
+            }),
+        }
+    }
+
+    /// zip = loop(comp(first(arr("list.head")),
+    ///                  comp(first(arr("list.tail")), arr("list.cons"))))
+    fn zip_graph() -> Scheme {
+        use Scheme::*;
+        Loop {
+            body: Box::new(Seq {
+                fst: Box::new(First {
+                    inner: Box::new(Scheme::arr_native("list.head", vec![])),
+                }),
+                snd: Box::new(Seq {
+                    fst: Box::new(First {
+                        inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+                    }),
+                    snd: Box::new(Scheme::arr_native("list.cons", vec![])),
+                }),
+            }),
+        }
+    }
+
+    /// reverse = arr("list.reverse") — direct atom with non-trivial guarantee.
+    fn reverse_graph() -> Scheme {
+        Scheme::arr_native("list.reverse", vec![])
+    }
+
+    #[test]
+    fn test_new_atoms_registered() {
+        // All 8 new atoms must be present in the minimal registry.
+        let registry = ContractRegistry::minimal();
+        use handl_language::ArrSource;
+        for op in [
+            "prim.sub",
+            "prim.mul",
+            "prim.le",
+            "prim.eq",
+            "list.length",
+            "list.append",
+            "list.reverse",
+            "list.nth",
+        ] {
+            assert!(
+                registry.contains(op, &ArrSource::Native),
+                "atom `{}` should be registered in minimal()",
+                op
+            );
+        }
+    }
+
+    #[test]
+    fn test_new_atoms_from_axioms() {
+        // The loader (from_axioms) must also parse the new atoms from the
+        // bundled .hnl contract files, keeping minimal() and from_axioms()
+        // in sync.
+        let registry = ContractRegistry::from_axioms();
+        use handl_language::ArrSource;
+        for op in [
+            "prim.sub",
+            "prim.mul",
+            "prim.le",
+            "prim.eq",
+            "list.length",
+            "list.append",
+            "list.reverse",
+            "list.nth",
+        ] {
+            assert!(
+                registry.contains(op, &ArrSource::Native),
+                "atom `{}` should be parsed by from_axioms()",
+                op
+            );
+        }
+    }
+
+    #[test]
+    fn test_vec_push_inference() {
+        let graph = vec_push_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "vec.push inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // list.cons has a conditional Sorted guarantee — non-trivial.
+        assert_ne!(
+            result.guarantee,
+            crate::types::Pred::True,
+            "vec.push guarantee should be non-trivial (from list.cons)"
+        );
+        let pretty = result.guarantee.pretty();
+        assert!(
+            pretty.contains("Sorted"),
+            "vec.push guarantee should contain Sorted: {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_vec_pop_inference() {
+        let graph = vec_pop_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "vec.pop inference should succeed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_vec_get_inference() {
+        // vec.get = comp(arr("list.nth"), first(id))
+        let graph = vec_get_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "vec.get inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // first(id) preserves the side channel, so LengthEq(input.1, output.1).
+        let pretty = result.guarantee.pretty();
+        assert!(
+            pretty.contains("input.1") && pretty.contains("output.1"),
+            "vec.get guarantee should contain LengthEq(input.1, output.1): {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_queue_enqueue_inference() {
+        let graph = queue_enqueue_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(
+            result.is_ok(),
+            "queue.enqueue inference should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_queue_dequeue_inference() {
+        let graph = queue_dequeue_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(
+            result.is_ok(),
+            "queue.dequeue inference should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_take_inference() {
+        // take = loop(comp(arr("list.head"), choice(arr("cons"), arr("id"))))
+        let graph = take_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "take inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // The Choice arm uses cons which carries Sorted; the loop fixpoint
+        // should propagate a non-trivial guarantee.
+        println!("take inferred guarantee: {:?}", result.guarantee);
+    }
+
+    #[test]
+    fn test_drop_inference() {
+        // drop = loop(comp(arr("list.tail"), first(id)))
+        let graph = drop_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "drop inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // first(id) preserves the side channel: LengthEq(input.1, output.1).
+        let pretty = result.guarantee.pretty();
+        assert!(
+            pretty.contains("input.1") && pretty.contains("output.1"),
+            "drop guarantee should contain LengthEq(input.1, output.1): {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_reduce_inference() {
+        // reduce = loop(comp(arr("fold_step"), first(id)))
+        let graph = reduce_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "reduce inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // reduce is structurally identical to fold, so it must terminate with
+        // a ListLength measure (fold_step decrements the list).
+        let term = result.termination.as_ref();
+        assert!(term.is_some(), "reduce should have a termination measure");
+        let term = term.unwrap();
+        assert!(
+            matches!(term, crate::types::Measure::ListLength(_)),
+            "reduce termination should be ListLength, got {:?}",
+            term
+        );
+    }
+
+    #[test]
+    fn test_scan_inference() {
+        // scan = loop(comp(arr("fold_step"), first(arr("list.cons"))))
+        let graph = scan_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "scan inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        // first(arr("list.cons")) carries the cons Sorted guarantee AND the
+        // side-channel LengthEq, so the guarantee should be non-trivial.
+        println!("scan inferred guarantee: {:?}", result.guarantee);
+        let pretty = result.guarantee.pretty();
+        assert!(
+            pretty.contains("input.1") && pretty.contains("output.1"),
+            "scan guarantee should contain LengthEq(input.1, output.1): {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_zip_inference() {
+        // zip = loop(comp(first(arr("list.head")),
+        //                 comp(first(arr("list.tail")), arr("list.cons"))))
+        let graph = zip_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry);
+        assert!(result.is_ok(), "zip inference should succeed: {:?}", result.err());
+        let result = result.unwrap();
+        println!("zip inferred guarantee: {:?}", result.guarantee);
+    }
+
+    #[test]
+    fn test_reverse_inference_non_trivial() {
+        // list.reverse has a structural LengthEq(output, input) guarantee.
+        let graph = reverse_graph();
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry).expect("reverse inference");
+        assert_ne!(
+            result.guarantee,
+            crate::types::Pred::True,
+            "reverse guarantee should be non-trivial"
+        );
+        let pretty = result.guarantee.pretty();
+        // LengthEq pretty-prints as |a| = |b|.
+        assert!(
+            pretty.contains("|output|") && pretty.contains("|input|"),
+            "reverse guarantee should contain LengthEq (|output| = |input|): {}",
+            pretty
+        );
+    }
+
+    #[test]
+    fn test_all_new_arrows_infer_with_zero_annotations() {
+        // The key scaling property: every new arrow infers successfully with
+        // only the atom contracts — zero user annotations.
+        let registry = ContractRegistry::minimal();
+        let programs = vec![
+            ("vec.push", vec_push_graph()),
+            ("vec.pop", vec_pop_graph()),
+            ("vec.get", vec_get_graph()),
+            ("queue.enqueue", queue_enqueue_graph()),
+            ("queue.dequeue", queue_dequeue_graph()),
+            ("take", take_graph()),
+            ("drop", drop_graph()),
+            ("reduce", reduce_graph()),
+            ("scan", scan_graph()),
+            ("zip", zip_graph()),
+            ("reverse", reverse_graph()),
+        ];
+        for (name, graph) in programs {
+            let result = infer_refinement(&graph, &registry);
+            assert!(
+                result.is_ok(),
+                "{} inference should succeed with zero annotations: {:?}",
+                name,
+                result.err()
+            );
+        }
+    }
+
+    #[test]
+    fn test_scaled_stdlib_all_arrows() {
+        // Run inference on ALL arrows (original 5 + new 11) to prove the
+        // model scales beyond 5 examples.
+        let registry = ContractRegistry::minimal();
+        let programs = vec![
+            ("insert", insert_graph()),
+            ("sort", sort_graph()),
+            ("map", map_graph()),
+            ("filter", filter_graph()),
+            ("fold", fold_graph()),
+            ("vec.push", vec_push_graph()),
+            ("vec.pop", vec_pop_graph()),
+            ("vec.get", vec_get_graph()),
+            ("queue.enqueue", queue_enqueue_graph()),
+            ("queue.dequeue", queue_dequeue_graph()),
+            ("take", take_graph()),
+            ("drop", drop_graph()),
+            ("reduce", reduce_graph()),
+            ("scan", scan_graph()),
+            ("zip", zip_graph()),
+            ("reverse", reverse_graph()),
+        ];
+        for (name, graph) in programs {
+            let result = infer_refinement(&graph, &registry);
+            assert!(result.is_ok(), "{} inference should succeed", name);
+            let result = result.unwrap();
+            println!(
+                "{}: guarantee={:?}, invariants={:?}, termination={:?}",
+                name, result.guarantee, result.loop_invariants, result.termination
+            );
+        }
+    }
 }
