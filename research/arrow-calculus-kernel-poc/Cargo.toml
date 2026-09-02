@@ -98,6 +98,10 @@ name = "decoupled_traits"
 path = "src/decoupled_traits.rs"
 
 [[bin]]
+name = "bundled_effects"
+path = "src/bundled_effects.rs"
+
+[[bin]]
 name = "v0_1_surface"
 path = "src/v0_1_surface.rs"
 
