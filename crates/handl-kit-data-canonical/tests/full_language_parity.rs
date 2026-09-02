@@ -1,10 +1,10 @@
 //! Full-language parity test for `handl-kit-data-canonical`.
 //!
-//! Assembles the complete data-driven canonical kit (all Phase 4 emitters)
-//! and verifies the merged [`Language`] covers the full Handl dialect: eval
-//! schemes for every major node kind, grammar rows for every major construct,
-//! and token kinds for every major token. This is the ADR-0044 Phase 5
-//! "full data-driven language" coverage check.
+//! Assembles the complete data-driven canonical kit and verifies the merged
+//! [`Language`] covers the full Handl dialect: eval schemes for every major
+//! node kind, grammar rows for every major construct, and token kinds for
+//! every major token. This is the v0.1 surface syntax coverage check
+//! (ADR-0074).
 
 use handl_kit_data_canonical;
 use handl_language::Language;
@@ -17,10 +17,9 @@ fn full_language() -> Language {
 
 #[test]
 fn full_kit_assembles_without_collisions() {
-    // The primary guarantee: merging all Phase 4 emitters (with union
-    // semantics for token/AST-shape declarations and excludes for the
-    // non-canonical duplicate behavioral fragments) succeeds with no
-    // collision errors.
+    // The primary guarantee: merging all emitters (with union semantics for
+    // token/AST-shape declarations and excludes for the non-canonical
+    // duplicate behavioral fragments) succeeds with no collision errors.
     let _lang = full_language();
 }
 
@@ -50,10 +49,8 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "array",
         "object",
         "match",
-        "handle",
         "index",
         "field-access",
-        "pipe",
         "assign",
         "flow",
         "fanout",
@@ -61,24 +58,29 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "ternary",
         "unary.not",
         "unary.neg",
-        "mood.int",
-        "mood.pot",
-        "mood.norm",
-        "mood.neg",
-        "mood.cnd",
         "paren",
-        "typeof",
         "template",
         "type-annot",
         "resolve",
         "apply",
         "stmt.let",
-        "stmt.const",
         "stmt.import",
         "stmt.export",
-        "stmt.module",
         "hello.greet",
         "json",
+        // v0.1 new eval schemes (ADR-0074)
+        "rec",
+        "while",
+        "for",
+        "return",
+        "law",
+        "trait",
+        "impl",
+        "infer",
+        "type",
+        "product",
+        "nullish",
+        "opt-chain",
     ];
     for kind in eval_node_kinds {
         assert!(
@@ -109,7 +111,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.let.prefix",
         "grammar.call.infix",
         "grammar.if.prefix",
-        "grammar.is.infix",
         "grammar.arrow.infix",
         "grammar.eq.infix",
         "grammar.neq.infix",
@@ -119,7 +120,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.gte.infix",
         "grammar.compare.infix",
         "grammar.assign.infix",
-        "grammar.pipe.infix",
         "grammar.flow.infix",
         "grammar.fanout.infix",
         "grammar.choice.infix",
@@ -127,25 +127,31 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.not.prefix",
         "grammar.neg.prefix",
         "grammar.paren.prefix",
-        "grammar.typeof.prefix",
         "grammar.array.prefix",
         "grammar.object.prefix",
         "grammar.match.prefix",
-        "grammar.handle.prefix",
         "grammar.json.prefix",
         "grammar.ellipsis.prefix",
         "grammar.field-access.postfix",
         "grammar.index.postfix",
-        "grammar.may.infix",
-        "grammar.must.infix",
-        "grammar.not.infix",
-        "grammar.when.infix",
         "grammar.template.prefix",
         "grammar.type-annot.infix",
-        "grammar.stmt-const.prefix",
         "grammar.stmt-import.prefix",
         "grammar.stmt-export.prefix",
-        "grammar.stmt-module.prefix",
+        "grammar.do-block.prefix",
+        // v0.1 new grammar rules (ADR-0074)
+        "grammar.product.infix",
+        "grammar.nullish.infix",
+        "grammar.opt-chain.postfix",
+        "grammar.rec.prefix",
+        "grammar.while.prefix",
+        "grammar.for.prefix",
+        "grammar.return.prefix",
+        "grammar.law.prefix",
+        "grammar.trait.prefix",
+        "grammar.impl.prefix",
+        "grammar.infer.prefix",
+        "grammar.type.prefix",
     ];
     for id in grammar_ids {
         assert!(
@@ -161,7 +167,6 @@ fn language_has_token_kinds_for_all_major_tokens() {
     let lang = full_language();
     let token_ids: &[&str] = &[
         // Operators.
-        "token.pipe",
         "token.arrow",
         "token.equal",
         "token.plus",
@@ -182,6 +187,10 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.and",
         "token.or",
         "token.percent",
+        // v0.1 new operators (ADR-0074)
+        "token.product",
+        "token.nullish",
+        "token.opt_chain",
         // Delimiters.
         "token.lparen",
         "token.rparen",
@@ -202,21 +211,26 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.identifier",
         // Keywords.
         "token.keyword.let",
-        "token.keyword.const",
         "token.keyword.if",
-        "token.keyword.is",
         "token.keyword.else",
         "token.keyword.match",
-        "token.keyword.handle",
         "token.keyword.as",
         "token.keyword.import",
         "token.keyword.export",
-        "token.keyword.module",
-        "token.keyword.typeof",
-        "token.keyword.not",
-        "token.keyword.may",
-        "token.keyword.must",
-        "token.keyword.when",
+        "token.keyword.in",
+        "token.keyword.do",
+        "token.keyword.axiom",
+        // v0.1 new keywords (ADR-0074)
+        "token.keyword.rec",
+        "token.keyword.while",
+        "token.keyword.for",
+        "token.keyword.return",
+        "token.keyword.law",
+        "token.keyword.trait",
+        "token.keyword.impl",
+        "token.keyword.infer",
+        "token.keyword.type",
+        "token.keyword.from",
         // Tokens declared only by grammar/eval emitters (not the foundation).
         "token.let",
         "token.if",
@@ -247,14 +261,11 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "value",
         "call",
         "let",
-        "const",
         "array",
         "object",
         "index",
         "field-access",
         "match",
-        "handle",
-        "pipe",
         "assign",
         "apply",
         "function",
@@ -266,22 +277,28 @@ fn language_has_ast_shapes_for_all_major_node_kinds() {
         "binary.mod",
         "unary.not",
         "unary.neg",
-        "mood.int",
-        "mood.pot",
-        "mood.norm",
-        "mood.neg",
-        "mood.cnd",
         "if",
         "paren",
-        "typeof",
         "import",
         "export",
-        "module",
         "template",
         "type-annot",
         "resolve",
         "hello.greet",
         "json",
+        // v0.1 new AST shapes (ADR-0074)
+        "rec",
+        "while",
+        "for",
+        "return",
+        "law",
+        "trait",
+        "impl",
+        "infer",
+        "type",
+        "product",
+        "nullish",
+        "opt-chain",
     ];
     for kind in ast_node_kinds {
         assert!(

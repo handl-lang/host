@@ -1,3 +1,8 @@
+# Lexer rule definitions — v0.1 surface syntax (ADR-0074).
+# Removed: arrow_app, arrow_bind, pipe, returnA, loop, then, where, handle,
+#   typeof, module, const, is, may, must, when, not (keyword), vau.
+# Added: rec, while, for, return, law, trait, impl, infer, type, from,
+#   product (***), nullish (??), opt_chain (?.).
 - id: lex.and
   token_kind: token.and
   pattern: !Literal
@@ -12,16 +17,6 @@
   token_kind: token.arrow
   pattern: !Literal
     text: →
-  priority: 10
-- id: lex.arrow_app
-  token_kind: token.arrow_app
-  pattern: !Literal
-    text: '-<'
-  priority: 10
-- id: lex.arrow_bind
-  token_kind: token.arrow_bind
-  pattern: !Literal
-    text: '<-'
   priority: 10
 - id: lex.bang
   token_kind: token.bang
@@ -134,10 +129,15 @@
   pattern: !Literal
     text: as
   priority: 15
-- id: lex.keyword.const
-  token_kind: token.keyword.const
+- id: lex.keyword.axiom
+  token_kind: token.keyword.axiom
   pattern: !Literal
-    text: const
+    text: axiom
+  priority: 15
+- id: lex.keyword.do
+  token_kind: token.keyword.do
+  pattern: !Literal
+    text: do
   priority: 15
 - id: lex.keyword.else
   token_kind: token.keyword.else
@@ -149,20 +149,25 @@
   pattern: !Literal
     text: export
   priority: 15
-- id: lex.keyword.handle
-  token_kind: token.keyword.handle
+- id: lex.keyword.for
+  token_kind: token.keyword.for
   pattern: !Literal
-    text: handle
+    text: for
+  priority: 15
+- id: lex.keyword.from
+  token_kind: token.keyword.from
+  pattern: !Literal
+    text: from
   priority: 15
 - id: lex.keyword.if
   token_kind: token.keyword.if
   pattern: !Literal
     text: if
   priority: 15
-- id: lex.keyword.is
-  token_kind: token.keyword.is
+- id: lex.keyword.impl
+  token_kind: token.keyword.impl
   pattern: !Literal
-    text: is
+    text: impl
   priority: 15
 - id: lex.keyword.import
   token_kind: token.keyword.import
@@ -176,75 +181,50 @@
 # `stmt.let` is for block-context `let` (desugared-only, not surface syntax).
 # The `token.keyword.let` token definition remains in tokens.yaml for
 # semantic-token classification and test assertions.
-- id: lex.keyword.match
-  token_kind: token.keyword.match
-  pattern: !Literal
-    text: match
-  priority: 15
-- id: lex.keyword.may
-  token_kind: token.keyword.may
-  pattern: !Literal
-    text: may
-  priority: 15
-- id: lex.keyword.module
-  token_kind: token.keyword.module
-  pattern: !Literal
-    text: module
-  priority: 15
-- id: lex.keyword.must
-  token_kind: token.keyword.must
-  pattern: !Literal
-    text: must
-  priority: 15
-- id: lex.keyword.not
-  token_kind: token.keyword.not
-  pattern: !Literal
-    text: not
-  priority: 15
-- id: lex.keyword.returnA
-  token_kind: token.keyword.returnA
-  pattern: !Literal
-    text: returnA
-  priority: 15
-- id: lex.keyword.loop
-  token_kind: token.keyword.loop
-  pattern: !Literal
-    text: loop
-  priority: 15
-- id: lex.keyword.do
-  token_kind: token.keyword.do
-  pattern: !Literal
-    text: do
-  priority: 15
-- id: lex.keyword.then
-  token_kind: token.keyword.then
-  pattern: !Literal
-    text: then
-  priority: 15
 - id: lex.keyword.in
   token_kind: token.keyword.in
   pattern: !Literal
     text: in
   priority: 15
-- id: lex.keyword.typeof
-  token_kind: token.keyword.typeof
+- id: lex.keyword.infer
+  token_kind: token.keyword.infer
   pattern: !Literal
-    text: typeof
+    text: infer
   priority: 15
-- id: lex.keyword.when
-  token_kind: token.keyword.when
+- id: lex.keyword.law
+  token_kind: token.keyword.law
   pattern: !Literal
-    text: when
+    text: law
   priority: 15
-- id: lex.keyword.where
-  token_kind: token.keyword.where
+- id: lex.keyword.match
+  token_kind: token.keyword.match
   pattern: !Literal
-    text: where
+    text: match
   priority: 15
-- id: lex.keyword.axiom
-  token_kind: token.keyword.axiom
+- id: lex.keyword.rec
+  token_kind: token.keyword.rec
   pattern: !Literal
-    text: axiom
+    text: rec
+  priority: 15
+- id: lex.keyword.return
+  token_kind: token.keyword.return
+  pattern: !Literal
+    text: return
+  priority: 15
+- id: lex.keyword.trait
+  token_kind: token.keyword.trait
+  pattern: !Literal
+    text: trait
+  priority: 15
+- id: lex.keyword.type
+  token_kind: token.keyword.type
+  pattern: !Literal
+    text: type
+  priority: 15
+- id: lex.keyword.while
+  token_kind: token.keyword.while
+  pattern: !Literal
+    text: while
   priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
@@ -291,10 +271,20 @@
   pattern: !Literal
     text: 'null'
   priority: 15
+- id: lex.nullish
+  token_kind: token.nullish
+  pattern: !Literal
+    text: '??'
+  priority: 10
 - id: lex.number
   token_kind: token.number
   pattern: Number
   priority: 40
+- id: lex.opt_chain
+  token_kind: token.opt_chain
+  pattern: !Literal
+    text: '?.'
+  priority: 10
 - id: lex.or
   token_kind: token.or
   pattern: !Literal
@@ -305,11 +295,6 @@
   pattern: !Literal
     text: '%'
   priority: 20
-- id: lex.pipe
-  token_kind: token.pipe
-  pattern: !Literal
-    text: '|>'
-  priority: 10
 - id: lex.plus
   token_kind: token.plus
   pattern: !Literal
@@ -319,6 +304,11 @@
   token_kind: token.pow
   pattern: !Literal
     text: '**'
+  priority: 10
+- id: lex.product
+  token_kind: token.product
+  pattern: !Literal
+    text: '***'
   priority: 10
 - id: lex.question
   token_kind: token.question
@@ -383,8 +373,3 @@
     interpolation: true
     close_at_eof: false
   priority: 40
-- id: lex.vau
-  token_kind: token.vau
-  pattern: !Literal
-    text: vau
-  priority: 15

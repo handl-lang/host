@@ -443,7 +443,8 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
 
     // 4. Arrow expression position: after `<-` (always arrow-specific) or
     //    after `=` when in an arrow context.
-    if kind == "token.arrow_bind" {
+    // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
+    if kind == "token.minus" && idx > 0 && tokens[idx - 1].kind == "token.lt" {
         return Context::ArrowExpr;
     }
     if kind == "token.equal" && (looks_like_arrow_file(source) || inside_do_block(tokens, offset))

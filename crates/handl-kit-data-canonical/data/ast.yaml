@@ -1,3 +1,8 @@
+# AST shape definitions — v0.1 surface syntax (ADR-0074).
+# Removed: arrow_app, arrow_bind, returnA, loop, pipe, handle, typeof,
+#   const, module, mood.int, mood.pot, mood.norm, mood.neg, mood.cnd, vau.
+# Added: rec, while, for, return, law, trait, impl, infer, type,
+#   product, nullish, opt-chain.
 - id: ast.apply
   node_kind: apply
   payload_schema:
@@ -12,52 +17,6 @@
     - callee
     - args
     type: object
-- id: ast.arrow_app
-  node_kind: arrow_app
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-  desugar:
-    target_kind: call
-    children:
-    - !Keep 0
-    - !Keep 1
-- id: ast.arrow_bind
-  node_kind: arrow_bind
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-- id: ast.returnA
-  node_kind: returnA
-  payload_schema:
-    type: object
-  desugar:
-    target_kind: function
-    children:
-    - !Create
-      kind: var
-      payload: 'x'
-      children: []
-    - !Create
-      kind: var
-      payload: 'x'
-      children: []
 - id: ast.array
   node_kind: array
   payload_schema:
@@ -343,18 +302,6 @@
     children:
     - !Keep 0
     - !KeepRest 1
-- id: ast.const
-  node_kind: const
-  payload_schema:
-    properties:
-      name:
-        type: string
-      value:
-        type: object
-    required:
-    - name
-    - value
-    type: object
 - id: ast.export
   node_kind: export
   payload_schema:
@@ -406,20 +353,6 @@
     - params
     - body
     type: object
-- id: ast.handle
-  node_kind: handle
-  payload_schema:
-    properties:
-      body:
-        type: object
-      clauses:
-        items:
-          type: object
-        type: array
-    required:
-    - body
-    - clauses
-    type: object
 - id: ast.hello.greet
   node_kind: hello.greet
   payload_schema:
@@ -453,19 +386,6 @@
     required:
     - path
     type: object
-- id: ast.loop
-  node_kind: loop
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
 - id: ast.index
   node_kind: index
   payload_schema:
@@ -477,56 +397,6 @@
     required:
     - target
     - index
-    type: object
-- id: ast.mood.int
-  node_kind: mood.int
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: number
-        type: array
-    required:
-    - children
-    type: object
-- id: ast.mood.pot
-  node_kind: mood.pot
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: number
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-- id: ast.mood.neg
-  node_kind: mood.neg
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: number
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-- id: ast.mood.norm
-  node_kind: mood.norm
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: number
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
     type: object
 - id: ast.json
   node_kind: json
@@ -570,20 +440,6 @@
     required:
     - scrutinee
     - arms
-    type: object
-- id: ast.module
-  node_kind: module
-  payload_schema:
-    properties:
-      body:
-        items:
-          type: object
-        type: array
-      name:
-        type: string
-    required:
-    - name
-    - body
     type: object
 - id: ast.object
   node_kind: object
@@ -643,18 +499,6 @@
     required:
     - children
     type: object
-- id: ast.pipe
-  node_kind: pipe
-  payload_schema:
-    properties:
-      stages:
-        items:
-          type: object
-        type: array
-    required:
-    - stages
-    type: object
-
 - id: ast.rest
   node_kind: rest
   payload_schema:
@@ -695,32 +539,6 @@
     required:
     - type
     type: object
-- id: ast.typeof
-  node_kind: typeof
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 1
-        minItems: 1
-        type: array
-    required:
-    - children
-    type: object
-- id: ast.mood.cnd
-  node_kind: mood.cnd
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: number
-        maxItems: 3
-        minItems: 3
-        type: array
-    required:
-    - children
-    type: object
 - id: ast.unary.neg
   node_kind: unary.neg
   payload_schema:
@@ -747,18 +565,6 @@
     required:
     - children
     type: object
-- id: ast.vau
-  node_kind: vau
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        minItems: 1
-        type: array
-    required:
-    - children
-    type: object
 - id: ast.value
   node_kind: value
   payload_schema:
@@ -775,4 +581,175 @@
         type: string
     required:
     - name
+    type: object
+# ---------------------------------------------------------------------------
+# v0.1 new node kinds (ADR-0074)
+# ---------------------------------------------------------------------------
+# `rec` — recursive region (like `loop` but with 1 child: the block).
+- id: ast.rec
+  node_kind: rec
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `while` — pre-test loop (2 children: condition + body).
+- id: ast.while
+  node_kind: while
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+# `for` — iteration (3 children: iterator + collection + body).
+- id: ast.for
+  node_kind: for
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+    - children
+    type: object
+# `return` — early exit (1 child: the value).
+- id: ast.return
+  node_kind: return
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `law` — compile-time law declaration (2 children: name + body).
+- id: ast.law
+  node_kind: law
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+# `trait` — compile-time trait declaration (1 child).
+- id: ast.trait
+  node_kind: trait
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `impl` — compile-time impl declaration (1 child).
+- id: ast.impl
+  node_kind: impl
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `infer` — name an inferred type (1 child).
+- id: ast.infer
+  node_kind: infer
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `type` — compile-time type declaration (1 child).
+- id: ast.type
+  node_kind: type
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+# `product` — categorical product `***` (2 children, like fanout).
+- id: ast.product
+  node_kind: product
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+# `nullish` — nullish coalescing `??` (2 children, like choice).
+- id: ast.nullish
+  node_kind: nullish
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+# `opt-chain` — optional chaining `?.` (2 children, like field-access).
+- id: ast.opt-chain
+  node_kind: opt-chain
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
     type: object

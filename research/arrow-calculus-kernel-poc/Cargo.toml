@@ -109,6 +109,10 @@ path = "src/modules.rs"
 name = "examples_check"
 path = "src/examples_check.rs"
 
+[[bin]]
+name = "cascade_check"
+path = "src/cascade_check.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess

@@ -4,6 +4,7 @@ use handl_host_tooling::{SemanticTokenLegend, SemanticTokensPlugin, SemanticToke
 
 use crate::code_actions;
 use crate::call_hierarchy;
+use crate::color_provider;
 use crate::completion;
 use crate::completion_resolve;
 use crate::cross_file_def;
@@ -31,6 +32,7 @@ use crate::selection_ranges;
 use crate::signature_help;
 use crate::symbols;
 use crate::type_definition;
+use crate::type_hierarchy;
 use crate::workspace_symbols;
 use std::io::Write;
 
@@ -455,6 +457,102 @@ pub fn handle_call_hierarchy_outgoing(
         .and_then(|s| s.strip_prefix("file://"));
     let calls = call_hierarchy::outgoing_calls(name, file_path);
     send_response(writer, id, json!(calls));
+}
+
+pub fn handle_prepare_type_hierarchy(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let items = type_hierarchy::prepare_type_hierarchy(&source, offset, file_path);
+    send_response(writer, id, json!(items));
+}
+
+pub fn handle_type_hierarchy_supertypes(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let items = type_hierarchy::supertypes(&source, offset, file_path);
+    send_response(writer, id, json!(items));
+}
+
+pub fn handle_type_hierarchy_subtypes(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let items = type_hierarchy::subtypes(&source, offset, file_path);
+    send_response(writer, id, json!(items));
+}
+
+pub fn handle_document_color(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let colors = color_provider::document_colors(&source, file_path);
+    send_response(writer, id, json!(colors));
+}
+
+pub fn handle_color_presentation(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let color = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("color"))
+        .cloned()
+        .unwrap_or(json!({}));
+    let range = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("range"))
+        .cloned()
+        .unwrap_or(json!({}));
+    let presentations = color_provider::color_presentations(&color, &range);
+    send_response(writer, id, json!(presentations));
 }
 
 #[allow(dead_code)]
@@ -928,6 +1026,8 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
             "monikerProvider": true,
             "documentLinkProvider": true,
             "callHierarchyProvider": true,
+            "typeHierarchyProvider": true,
+            "colorProvider": true,
             "completionProvider": {
                 "triggerCharacters": [".", ">", "|", "-", " "],
                 "resolveProvider": true

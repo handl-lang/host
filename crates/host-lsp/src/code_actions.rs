@@ -201,8 +201,11 @@ fn wrap_in_do_actions(
     range_end: usize,
 ) -> Vec<Value> {
     let mut actions = Vec::new();
-    for t in tokens {
-        if t.kind != "token.arrow_bind" {
+    for i in 0..tokens.len() {
+        // `<-` is lexed as two tokens: `token.lt` followed by `token.minus`.
+        let t = &tokens[i];
+        if !(t.kind == "token.lt" && i + 1 < tokens.len() && tokens[i + 1].kind == "token.minus")
+        {
             continue;
         }
         // The binding must be on the cursor / selection's line.

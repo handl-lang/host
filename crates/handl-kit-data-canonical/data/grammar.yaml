@@ -1,3 +1,10 @@
+# Grammar rule definitions — v0.1 surface syntax (ADR-0074).
+# Removed: arrow-app, arrow-bind, returnA, loop, pipe, handle, typeof,
+#   stmt-const, stmt-module, is, may, must, not.infix, when, vau.
+# Added: product, nullish, opt-chain, rec, while, for, return, law, trait,
+#   impl, infer, type.
+# Updated: if.prefix — removed `then` from child_separators (v0.1 uses braces).
+# Retained: axiom token (no grammar rule — alias for law).
 - id: grammar.and.infix
   token: token.and
   position: Infix
@@ -16,6 +23,8 @@
   child_shape:
     node_kind: function
     arity: 2
+# `not.prefix` uses `token.bang` (`!`) — the v0.1 negation operator.
+# The `not` keyword infix (`grammar.not.infix`) is removed in v0.1.
 - id: grammar.not.prefix
   token: token.bang
   position: Prefix
@@ -25,39 +34,6 @@
   child_shape:
     node_kind: unary.not
     arity: 1
-- id: grammar.returnA.prefix
-  token: token.keyword.returnA
-  position: Prefix
-  child_shape:
-    node_kind: returnA
-    arity: 0
-- id: grammar.arrow-app.infix
-  token: token.arrow_app
-  position: Infix
-  binding_power:
-  - 18
-  - 19
-  child_shape:
-    node_kind: arrow_app
-    arity: 2
-- id: grammar.arrow-bind.infix
-  token: token.arrow_bind
-  position: Infix
-  binding_power:
-  - 15
-  - 16
-  child_shape:
-    node_kind: arrow_bind
-    arity: 2
-- id: grammar.loop.prefix
-  token: token.keyword.loop
-  position: Prefix
-  binding_power:
-  - 91
-  - 0
-  child_shape:
-    node_kind: loop
-    arity: 2
 - id: grammar.value.bool
   token: token.bool
   position: Prefix
@@ -136,6 +112,33 @@
   child_shape:
     node_kind: flow
     arity: 2
+- id: grammar.product.infix
+  token: token.product
+  position: Infix
+  binding_power:
+  - 50
+  - 50
+  child_shape:
+    node_kind: product
+    arity: 2
+- id: grammar.nullish.infix
+  token: token.nullish
+  position: Infix
+  binding_power:
+  - 60
+  - 60
+  child_shape:
+    node_kind: nullish
+    arity: 2
+- id: grammar.opt-chain.postfix
+  token: token.opt_chain
+  position: Infix
+  binding_power:
+  - 90
+  - 91
+  child_shape:
+    node_kind: opt-chain
+    arity: 2
 - id: grammar.gt.infix
   token: token.gt
   position: Infix
@@ -166,6 +169,13 @@
   child_shape:
     node_kind: json
     arity: 0
+# v0.1: `if cond body else body` or `if cond { body } else { body }`.
+# The `then` keyword is removed (ADR-0074). The `else` keyword remains
+# as the separator between then-branch and else-branch.
+# NOTE: multi-way `if { c1: e1, _: e2 }` is distinguished by the token
+# after `if` — if `{`, it's multi-way. This contextual disambiguation
+# is not expressible in the declarative Pratt grammar; it requires
+# parser-level lookahead (implementation task).
 - id: grammar.if.prefix
   token: token.keyword.if
   position: Prefix
@@ -176,62 +186,7 @@
     node_kind: if
     arity: 3
     child_separators:
-    - !Required token.keyword.then
     - !Required token.keyword.else
-- id: grammar.is.infix
-  token: token.keyword.is
-  position: Infix
-  binding_power:
-  - 55
-  - 56
-  child_shape:
-    node_kind: mood.int
-    arity: 2
-- id: grammar.may.infix
-  token: token.keyword.may
-  position: Infix
-  binding_power:
-  - 55
-  - 56
-  child_shape:
-    node_kind: mood.pot
-    arity: 2
-- id: grammar.must.infix
-  token: token.keyword.must
-  position: Infix
-  binding_power:
-  - 55
-  - 56
-  child_shape:
-    node_kind: mood.norm
-    arity: 2
-- id: grammar.not.infix
-  token: token.keyword.not
-  position: Infix
-  binding_power:
-  - 55
-  - 56
-  child_shape:
-    node_kind: mood.neg
-    arity: 2
-- id: grammar.when.infix
-  token: token.keyword.when
-  position: Infix
-  binding_power:
-  - 15
-  - 16
-  child_shape:
-    node_kind: mood.cnd
-    arity: 3
-- id: grammar.stmt-const.prefix
-  token: token.keyword.const
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: stmt.const
-    arity: 2
 - id: grammar.stmt-export.prefix
   token: token.keyword.export
   position: Prefix
@@ -241,25 +196,6 @@
   child_shape:
     node_kind: stmt.export
     arity: 1
-- id: grammar.handle.prefix
-  token: token.keyword.handle
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: handle
-    arity: 2
-    delimited:
-      open: token.lbrace
-      close: token.rbrace
-      separator: token.comma
-      container_kind: block
-      pair:
-        separator: token.colon
-        node_kind: arm
-      open_is_operator_token: false
-      flatten: false
 - id: grammar.stmt-import.prefix
   token: token.keyword.import
   position: Prefix
@@ -288,23 +224,106 @@
         node_kind: arm
       open_is_operator_token: false
       flatten: false
-- id: grammar.stmt-module.prefix
-  token: token.keyword.module
+# `rec` introduces a recursive region (ADR-0074 Correction 2).
+# Like `do-block` but with recursive feedback semantics.
+- id: grammar.rec.prefix
+  token: token.keyword.rec
   position: Prefix
   binding_power:
   - 0
   - 0
   child_shape:
-    node_kind: stmt.module
+    node_kind: rec
+    arity: 1
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.semicolon
+      container_kind: block
+      open_is_operator_token: false
+      flatten: true
+# `while cond body` — sugar over `rec` (ADR-0074 A.1).
+- id: grammar.while.prefix
+  token: token.keyword.while
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: while
     arity: 2
-- id: grammar.typeof.prefix
-  token: token.keyword.typeof
+# `for x in xs body` — sugar over `rec` + destructuring (ADR-0074 A.2).
+- id: grammar.for.prefix
+  token: token.keyword.for
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: for
+    arity: 3
+    child_separators:
+    - !Required token.keyword.in
+# `return expr` — early exit (ADR-0074).
+- id: grammar.return.prefix
+  token: token.keyword.return
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: return
+    arity: 1
+# `law name body` — compile-time law declaration (ADR-0074).
+# `axiom` is retained as a compatible alias (no grammar rule needed).
+- id: grammar.law.prefix
+  token: token.keyword.law
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: law
+    arity: 2
+# `trait name body` — compile-time trait declaration (ADR-0074).
+- id: grammar.trait.prefix
+  token: token.keyword.trait
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: trait
+    arity: 1
+# `impl name body` — compile-time impl declaration (ADR-0074).
+- id: grammar.impl.prefix
+  token: token.keyword.impl
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: impl
+    arity: 1
+# `infer expr` — name an inferred type (ADR-0074).
+- id: grammar.infer.prefix
+  token: token.keyword.infer
   position: Prefix
   binding_power:
   - 70
   - 0
   child_shape:
-    node_kind: typeof
+    node_kind: infer
+    arity: 1
+# `type name body` — compile-time type declaration (ADR-0074).
+- id: grammar.type.prefix
+  token: token.keyword.type
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: type
     arity: 1
 - id: grammar.object.prefix
   token: token.lbrace
@@ -486,15 +505,6 @@
   child_shape:
     node_kind: binary.mod
     arity: 2
-- id: grammar.pipe.infix
-  token: token.pipe
-  position: Infix
-  binding_power:
-  - 30
-  - 31
-  child_shape:
-    node_kind: pipe
-    arity: 2
 - id: grammar.add.infix
   token: token.plus
   position: Infix
@@ -563,12 +573,3 @@
   child_shape:
     node_kind: template
     arity: 0
-- id: grammar.vau.prefix
-  token: token.vau
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: vau
-    arity: 1

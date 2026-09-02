@@ -1,6 +1,7 @@
 mod code_action_resolve;
 mod code_lens_resolve;
 mod call_hierarchy;
+mod color_provider;
 mod code_actions;
 mod completion;
 mod completion_resolve;
@@ -31,6 +32,7 @@ mod selection_ranges;
 mod signature_help;
 mod symbols;
 mod type_definition;
+mod type_hierarchy;
 mod workspace_symbols;
 
 #[cfg(test)]
@@ -39,6 +41,8 @@ mod call_hierarchy_tests;
 mod cancellation_tests;
 #[cfg(test)]
 mod code_action_resolve_tests;
+#[cfg(test)]
+mod color_provider_tests;
 #[cfg(test)]
 mod code_actions_tests;
 #[cfg(test)]
@@ -98,6 +102,8 @@ mod symbols_tests;
 #[cfg(test)]
 mod type_definition_tests;
 #[cfg(test)]
+mod type_hierarchy_tests;
+#[cfg(test)]
 mod document_symbols_tests;
 #[cfg(test)]
 mod workspace_symbols_tests;
@@ -116,10 +122,12 @@ use handlers::{
     handle_initialize, handle_linked_editing, handle_moniker, handle_on_type_formatting,
     handle_prepare_call_hierarchy, handle_call_hierarchy_incoming,
     handle_call_hierarchy_outgoing, handle_document_link, handle_prepare_rename,
-    handle_publish_diagnostics, handle_range_formatting,
+    handle_prepare_type_hierarchy, handle_publish_diagnostics, handle_range_formatting,
     handle_references, handle_rename, handle_selection_ranges, handle_semantic_tokens_full,
     handle_semantic_tokens_range, handle_signature_help, handle_shutdown, handle_type_definition,
-    handle_unknown, handle_workspace_symbols,
+    handle_type_hierarchy_subtypes, handle_type_hierarchy_supertypes,
+    handle_document_color, handle_color_presentation, handle_unknown,
+    handle_workspace_symbols,
 };
 use protocol::{Message, send_log_message};
 use refinement::RefinementEngine;
@@ -256,6 +264,21 @@ fn main() {
             }
             "callHierarchy/outgoingCalls" => {
                 handle_call_hierarchy_outgoing(&mut writer, id, &msg);
+            }
+            "textDocument/prepareTypeHierarchy" => {
+                handle_prepare_type_hierarchy(&mut writer, id, &msg, &store);
+            }
+            "typeHierarchy/supertypes" => {
+                handle_type_hierarchy_supertypes(&mut writer, id, &msg, &store);
+            }
+            "typeHierarchy/subtypes" => {
+                handle_type_hierarchy_subtypes(&mut writer, id, &msg, &store);
+            }
+            "textDocument/documentColor" => {
+                handle_document_color(&mut writer, id, &msg, &store);
+            }
+            "textDocument/colorPresentation" => {
+                handle_color_presentation(&mut writer, id, &msg);
             }
             "textDocument/references" => {
                 handle_references(&mut writer, id, &msg, &store);

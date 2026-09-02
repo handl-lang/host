@@ -1,14 +1,13 @@
-# Eval scheme definitions (ADR-0052 arrow-calculus kernel).
+# Eval scheme definitions — v0.1 surface syntax (ADR-0074).
 #
 # The canonical eval schemes: every node kind maps to an arrow-calculus
 # `Scheme` (the six primitives `arr`/`Seq`/`First`/`Choice`/`Loop`/`App`).
-# Engines consume these directly. The former v1 lambda-flavored `Scheme`
-# combinator set has been removed (ADR-0052 big-bang cutover).
+# Engines consume these directly.
 #
-# The 52 entries below are the arrow-calculus lowering of the language's
-# node kinds. `eval.vau` (node_kind `vau`) is intentionally omitted: Vau is
-# removed from the kernel (ADR-0052) and is a handler concern, not a kernel
-# combinator.
+# Removed: arrow_bind, returnA, loop, pipe, handle, typeof, stmt-const,
+#   stmt-module, mood.cnd, mood.int, mood.neg, mood.norm, mood.pot.
+# Added: rec, while, for, return, law, trait, impl, infer, type,
+#   product, nullish, opt-chain.
 - id: eval.apply
   node_kind: apply
   scheme: !Arr
@@ -16,12 +15,6 @@
     args: []
     source: Native
     lit: 0
-- id: eval.arrow_bind
-  node_kind: arrow_bind
-  scheme: !Arr
-    op: arrow_bind
-    args: []
-    source: Native
 - id: eval.array
   node_kind: array
   scheme: !Arr
@@ -284,7 +277,7 @@
 # `[callee, arg1, arg2, ...]` (the parser appends one child per comma-
 # separated argument, ADR-0041 Phase 2). The fixed-arity `App` scheme
 # cannot express this, so `call` lowers to a native op (like `match`/
-# `handle`/`json`): the handler evaluates child 0 as the callee, the
+# `json`): the handler evaluates child 0 as the callee, the
 # remaining children as the argument list, and dispatches via
 # `apply_app` (host-function string callee or closure value).
 # ADR-0060 Generic Call Dispatch: eval.call is now data-driven.
@@ -390,12 +383,6 @@
     op: closure
     args: []
     source: Native
-- id: eval.handle
-  node_kind: handle
-  scheme: !Arr
-    op: handle
-    args: []
-    source: Native
 - id: eval.hello.greet
   node_kind: hello.greet
   scheme: !Arr
@@ -438,24 +425,6 @@
     op: json
     args: []
     source: Native
-- id: eval.loop
-  node_kind: loop
-  scheme: !Seq
-    fst: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    snd: !Loop
-      body: !Arr
-        op: loop_step
-        args:
-        - !Arr
-          op: proj_child
-          args: []
-          source: Native
-          lit: 1
-        source: Native
 - id: eval.block
   node_kind: block
   scheme: !Arr
@@ -487,89 +456,6 @@
     op: match
     args: []
     source: Native
-- id: eval.mood.cnd
-  node_kind: mood.cnd
-  scheme: !Arr
-    op: mood.cnd
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 2
-    source: !Foreign mood.cnd
-- id: eval.mood.int
-  node_kind: mood.int
-  scheme: !App
-    callee: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-- id: eval.mood.neg
-  node_kind: mood.neg
-  scheme: !Arr
-    op: mood.neg
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    source: !Foreign mood.neg
-- id: eval.mood.norm
-  node_kind: mood.norm
-  scheme: !Arr
-    op: mood.norm
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    source: !Foreign mood.norm
-- id: eval.mood.pot
-  node_kind: mood.pot
-  scheme: !Arr
-    op: mood.pot
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    source: !Foreign mood.pot
 - id: eval.object
   node_kind: object
   scheme: !Arr
@@ -583,20 +469,6 @@
     args: []
     source: Native
     lit: 0
-- id: eval.pipe
-  node_kind: pipe
-  scheme: !App
-    callee: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
 - id: eval.rest
   node_kind: rest
   scheme: !Arr
@@ -610,25 +482,6 @@
     op: resolve
     args: []
     source: !Foreign resolve
-- id: eval.stmt-const
-  node_kind: stmt.const
-  scheme: !Seq
-    fst: !Seq
-      fst: !Arr
-        op: proj_child
-        args: []
-        source: Native
-        lit: 0
-      snd: !Arr
-        op: extend_env
-        args: []
-        source: Native
-        lit: $payload
-    snd: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
 - id: eval.stmt-export
   node_kind: stmt.export
   scheme: !Arr
@@ -670,22 +523,6 @@
       args: []
       source: Native
       lit: 1
-- id: eval.stmt-module
-  node_kind: stmt.module
-  scheme: !Arr
-    op: module
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
-    source: !Foreign module
 - id: eval.template
   node_kind: template
   scheme: !Arr
@@ -735,17 +572,6 @@
       args: []
       source: Native
       lit: 0
-- id: eval.typeof
-  node_kind: typeof
-  scheme: !Arr
-    op: typeof
-    args:
-    - !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 0
-    source: Native
 - id: eval.unary.neg
   node_kind: unary.neg
   scheme: !Arr
@@ -775,3 +601,154 @@
     args: []
     source: Native
     lit: $payload
+# ---------------------------------------------------------------------------
+# v0.1 new eval schemes (ADR-0074)
+# ---------------------------------------------------------------------------
+# `rec` — recursive region. Like `loop` but with 1 child (the block).
+# Full recursive region semantics require runtime support (task 4).
+# Best-effort: evaluate the block child with a Loop context.
+- id: eval.rec
+  node_kind: rec
+  scheme: !Arr
+    op: eval_block
+    args: []
+    source: Native
+# `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
+# Children: [condition(0), body(1)]. Like `loop` with condition as init.
+- id: eval.while
+  node_kind: while
+  scheme: !Seq
+    fst: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Loop
+      body: !Arr
+        op: loop_step
+        args:
+        - !Arr
+          op: proj_child
+          args: []
+          source: Native
+          lit: 1
+        source: Native
+# `for` — iteration, desugars to `rec` + destructuring (ADR-0074 A.2).
+# Children: [iterator(0), collection(1), body(2)].
+- id: eval.for
+  node_kind: for
+  scheme: !Arr
+    op: eval_block
+    args: []
+    source: Native
+# `return` — early exit (ADR-0074). Returns the child value.
+- id: eval.return
+  node_kind: return
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `law` — compile-time law declaration (ADR-0074). Identity/no-op.
+- id: eval.law
+  node_kind: law
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `trait` — compile-time trait declaration (ADR-0074). Identity/no-op.
+- id: eval.trait
+  node_kind: trait
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `impl` — compile-time impl declaration (ADR-0074). Identity/no-op.
+- id: eval.impl
+  node_kind: impl
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `infer` — name an inferred type (ADR-0074). Identity passthrough.
+- id: eval.infer
+  node_kind: infer
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `type` — compile-time type declaration (ADR-0074). Identity/no-op.
+- id: eval.type
+  node_kind: type
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+# `product` — categorical product `***` (ADR-0074).
+# Like fanout (&&&) but pairs inputs rather than duplicating.
+- id: eval.product
+  node_kind: product
+  scheme: !Arr
+    op: product
+    args:
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+    source: Native
+# `nullish` — nullish coalescing `??` (ADR-0074 A.3).
+# Desugars to match over option: if left is some, return its value;
+# otherwise return right. Like `if`/`ternary` eval.
+- id: eval.nullish
+  node_kind: nullish
+  scheme: !Seq
+    fst: !Seq
+      fst: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      snd: !Arr
+        op: tag
+        args: []
+        source: Native
+    snd: !Choice
+      l: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      r: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
+# `opt-chain` — optional chaining `?.` (ADR-0074 A.4).
+# Short-circuits on none. Like field-access but with null propagation.
+- id: eval.opt-chain
+  node_kind: opt-chain
+  scheme: !Arr
+    op: opt_chain
+    args:
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+    source: Native

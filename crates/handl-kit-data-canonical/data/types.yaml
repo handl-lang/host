@@ -2003,25 +2003,6 @@
     source: Judgment
     lit: x
 
-# `vau` — a vau (fexpr) type `Vau (x: A) → B(x)`. Like `pi` but the parameter
-# is NOT evaluated before substitution (fexpr semantics). Child 0 is the param
-# type A; child 1 is the body type B. The `construct_vau_type` judgment op
-# synths child 0 for the param type and stores child 1's arena index in a
-# `body_closure` marker. The closure is applied lazily via `vau_apply`
-# (ADR-0054).
-- id: type.vau
-  node_kind: vau
-  synth: !Arr
-    op: construct_vau_type
-    args:
-    - !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 0
-    source: Judgment
-    lit: x
-
 # `call` — synth the callee (child 0) → type.function{param, body}, check
 # the arg (child 1) against the function's `param` type, then return the
 # function's `body` type. Uses `type_field` to extract `param`/`body` from
@@ -2145,14 +2126,6 @@
     args: []
     source: Judgment
 
-- id: type.handle
-  node_kind: handle
-  synth: !Arr
-    op: synth_child
-    args: []
-    source: Judgment
-    lit: 0
-
 # `flow` — like `pipe`. `flow` has children [input(0), function(1)].
 # Eval is `App(callee=child[1], args=[child[0]])` — i.e., apply child 1
 # (function) to child 0 (input). Synth child 1 (the function)
@@ -2160,52 +2133,6 @@
 # then return `body` (ADR-0054 legacy migration).
 - id: type.flow
   node_kind: flow
-  synth: !Seq
-    fst: !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 1
-    snd: !Seq
-      fst: !Arr
-        op: bind
-        args: []
-        source: Judgment
-        lit: funtype
-      snd: !Seq
-        fst: !Arr
-          op: check_child
-          args:
-          - !Arr
-            op: type_field
-            args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: funtype
-            source: Judgment
-            lit: param
-          source: Judgment
-          lit: 0
-        snd: !Arr
-          op: type_field
-          args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: funtype
-          source: Judgment
-          lit: body
-
-# `pipe` — like `call` but reversed. `pipe` has children [input(0),
-# function(1)]. Eval is `App(callee=child[1], args=[child[0]])` — i.e.,
-# apply child 1 (function) to child 0 (input). Synth child 1 (the
-# function) → type.function{param, body}, check child 0 (the input)
-# against `param`, then return `body` (ADR-0054 legacy migration).
-- id: type.pipe
-  node_kind: pipe
   synth: !Seq
     fst: !Arr
       op: synth_child
@@ -2288,16 +2215,6 @@
     source: Judgment
     lit: 0
 
-# `typeof` — synth child 0 (the expression) and return its type
-# (ADR-0054 legacy migration).
-- id: type.typeof
-  node_kind: typeof
-  synth: !Arr
-    op: synth_child
-    args: []
-    source: Judgment
-    lit: 0
-
 # `type-annot` — a typed expression `expr: T`. The `synth` rule synths the
 # expression, interprets the type annotation, unifies them, and returns the
 # annotation type (ADR-0054).
@@ -2363,199 +2280,139 @@
     source: Judgment
     lit: 0
 
-# `loop` — loops are imperative statements returning unit
-# (ADR-0054 legacy migration).
-- id: type.loop
-  node_kind: loop
+# ---------------------------------------------------------------------------
+# v0.1 new node kinds (ADR-0074)
+# ---------------------------------------------------------------------------
+
+# `rec` — recursive region. Like `loop` (returns type.unit).
+- id: type.rec
+  node_kind: rec
   synth: !Arr
     op: construct
     args: []
     source: Judgment
     lit: type.unit
 
-# ---------------------------------------------------------------------------
-# Mood kinds
-# ---------------------------------------------------------------------------
+# `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
+- id: type.while
+  node_kind: while
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
 
-# `mood.cnd` — conditional modal op (3 numeric children → type.number).
-- id: type.mood.cnd
-  node_kind: mood.cnd
-  synth: !Seq
-    fst: !Arr
-      op: check_child
+# `for` — iteration, desugars to `rec` (ADR-0074 A.2).
+- id: type.for
+  node_kind: for
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `return` — early exit. Synth child 0 (the return value).
+- id: type.return
+  node_kind: return
+  synth: !Arr
+    op: synth_child
+    args: []
+    source: Judgment
+    lit: 0
+
+# `law` — compile-time law declaration (ADR-0074). Returns type.unit.
+- id: type.law
+  node_kind: law
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `trait` — compile-time trait declaration (ADR-0074). Returns type.unit.
+- id: type.trait
+  node_kind: trait
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `impl` — compile-time impl declaration (ADR-0074). Returns type.unit.
+- id: type.impl
+  node_kind: impl
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `infer` — name an inferred type (ADR-0074). Synth child 0.
+- id: type.infer
+  node_kind: infer
+  synth: !Arr
+    op: synth_child
+    args: []
+    source: Judgment
+    lit: 0
+
+# `type` — compile-time type declaration (ADR-0074). Returns type.unit.
+- id: type.type
+  node_kind: type
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unit
+
+# `product` — categorical product `***` (ADR-0074).
+# Like `fanout`: returns a function type with unknown param/body.
+- id: type.product
+  node_kind: product
+  synth: !Arr
+    op: construct
+    args:
+    - !Arr
+      op: field
       args:
       - !Arr
         op: construct
         args: []
         source: Judgment
-        lit: type.number
+        lit: type.unknown
       source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: check_child
-        args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
-        source: Judgment
-        lit: 1
-      snd: !Seq
-        fst: !Arr
-          op: check_child
-          args:
-          - !Arr
-            op: construct
-            args: []
-            source: Judgment
-            lit: type.number
-          source: Judgment
-          lit: 2
-        snd: !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
-
-# `mood.int` — like `pipe`/`flow`. Eval is `App(callee=child[1],
-# args=[child[0]])` — i.e., apply child 1 (function) to child 0 (input).
-# Synth child 1 (the function) → type.function{param, body}, check child 0
-# (the input) against `param`, then return `body` (ADR-0054 legacy migration).
-- id: type.mood.int
-  node_kind: mood.int
-  synth: !Seq
-    fst: !Arr
-      op: synth_child
-      args: []
-      source: Judgment
-      lit: 1
-    snd: !Seq
-      fst: !Arr
-        op: bind
-        args: []
-        source: Judgment
-        lit: funtype
-      snd: !Seq
-        fst: !Arr
-          op: check_child
-          args:
-          - !Arr
-            op: type_field
-            args:
-            - !Arr
-              op: result
-              args: []
-              source: Judgment
-              lit: funtype
-            source: Judgment
-            lit: param
-          source: Judgment
-          lit: 0
-        snd: !Arr
-          op: type_field
-          args:
-          - !Arr
-            op: result
-            args: []
-            source: Judgment
-            lit: funtype
-          source: Judgment
-          lit: body
-
-# `mood.neg` — negative modal op (2 numeric children → type.number).
-- id: type.mood.neg
-  node_kind: mood.neg
-  synth: !Seq
-    fst: !Arr
-      op: check_child
+      lit: param
+    - !Arr
+      op: field
       args:
       - !Arr
         op: construct
         args: []
         source: Judgment
-        lit: type.number
+        lit: type.unknown
       source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: check_child
-        args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
-        source: Judgment
-        lit: 1
-      snd: !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.number
+      lit: body
+    source: Judgment
+    lit: type.function
 
-# `mood.norm` — norm modal op (2 numeric children → type.number).
-- id: type.mood.norm
-  node_kind: mood.norm
-  synth: !Seq
-    fst: !Arr
-      op: check_child
-      args:
-      - !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.number
-      source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: check_child
-        args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
-        source: Judgment
-        lit: 1
-      snd: !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.number
+# `nullish` — nullish coalescing `??` (ADR-0074 A.3).
+# Like `if`/`ternary`: synth both children, unify, return the type.
+- id: type.nullish
+  node_kind: nullish
+  synth: !Arr
+    op: synth_first_child_or_unknown
+    args: []
+    source: Judgment
 
-# `mood.pot` — potential modal op (2 numeric children → type.number).
-- id: type.mood.pot
-  node_kind: mood.pot
-  synth: !Seq
-    fst: !Arr
-      op: check_child
-      args:
-      - !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.number
-      source: Judgment
-      lit: 0
-    snd: !Seq
-      fst: !Arr
-        op: check_child
-        args:
-        - !Arr
-          op: construct
-          args: []
-          source: Judgment
-          lit: type.number
-        source: Judgment
-        lit: 1
-      snd: !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.number
+# `opt-chain` — optional chaining `?.` (ADR-0074 A.4).
+# Like `field-access`: returns type.unknown (dynamic field access).
+- id: type.opt-chain
+  node_kind: opt-chain
+  synth: !Arr
+    op: construct
+    args: []
+    source: Judgment
+    lit: type.unknown
 
 # ---------------------------------------------------------------------------
 # Statement kinds
@@ -2568,14 +2425,6 @@
     args: []
     source: Judgment
 
-- id: type.stmt.const
-  node_kind: stmt.const
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unit
-
 - id: type.stmt.export
   node_kind: stmt.export
   synth: !Arr
@@ -2586,14 +2435,6 @@
 
 - id: type.stmt.import
   node_kind: stmt.import
-  synth: !Arr
-    op: construct
-    args: []
-    source: Judgment
-    lit: type.unit
-
-- id: type.stmt.module
-  node_kind: stmt.module
   synth: !Arr
     op: construct
     args: []

@@ -1,16 +1,20 @@
+# Token kind definitions — v0.1 surface syntax (ADR-0074).
+# Removed: arrow_app, arrow_bind, pipe, returnA, loop, then, where, handle,
+#   typeof, module, const, is, may, must, when, not (keyword), vau.
+# Added: rec, while, for, return, law, trait, impl, infer, type, from,
+#   product (***), nullish (??), opt_chain (?.).
+# Retained: axiom (compatible alias for law).
 - id: token.and
   label: '&&'
 - id: token.arrow
   label: ~>
-- id: token.arrow_app
-  label: '-<'
-- id: token.arrow_bind
-  label: '<-'
 - id: token.bang
   label: null
 - id: token.bool
   label: bool
   literal: Bool
+- id: token.choice
+  label: '|||'
 - id: token.colon
   label: ':'
 - id: token.comma
@@ -31,8 +35,6 @@
   label: =
 - id: token.fanout
   label: '&&&'
-- id: token.choice
-  label: '|||'
 - id: token.flow
   label: '>>>'
 - id: token.gt
@@ -41,6 +43,8 @@
   label: '>='
 - id: token.identifier
   label: identifier
+- id: token.if
+  label: null
 - id: token.json
   label: json
   literal: !StripAffix
@@ -49,54 +53,46 @@
     wrap:
     - '{'
     - '}'
-- id: token.if
-  label: null
 - id: token.keyword.as
   label: as
-- id: token.keyword.const
-  label: const
+- id: token.keyword.axiom
+  label: axiom
+- id: token.keyword.do
+  label: do
 - id: token.keyword.else
   label: else
 - id: token.keyword.export
   label: export
-- id: token.keyword.handle
-  label: handle
+- id: token.keyword.for
+  label: for
+- id: token.keyword.from
+  label: from
 - id: token.keyword.if
   label: if
-- id: token.keyword.is
-  label: is
+- id: token.keyword.impl
+  label: impl
 - id: token.keyword.import
   label: import
+- id: token.keyword.in
+  label: in
+- id: token.keyword.infer
+  label: infer
+- id: token.keyword.law
+  label: law
 - id: token.keyword.let
   label: let
 - id: token.keyword.match
   label: match
-- id: token.keyword.may
-  label: may
-- id: token.keyword.module
-  label: module
-- id: token.keyword.must
-  label: must
-- id: token.keyword.not
-  label: not
-- id: token.keyword.returnA
-  label: returnA
-- id: token.keyword.loop
-  label: loop
-- id: token.keyword.do
-  label: do
-- id: token.keyword.then
-  label: then
-- id: token.keyword.in
-  label: in
-- id: token.keyword.typeof
-  label: typeof
-- id: token.keyword.when
-  label: when
-- id: token.keyword.where
-  label: where
-- id: token.keyword.axiom
-  label: axiom
+- id: token.keyword.rec
+  label: rec
+- id: token.keyword.return
+  label: return
+- id: token.keyword.trait
+  label: trait
+- id: token.keyword.type
+  label: type
+- id: token.keyword.while
+  label: while
 - id: token.lbrace
   label: '{'
 - id: token.lbracket
@@ -116,19 +112,23 @@
 - id: token.null
   label: 'null'
   literal: 'Null'
+- id: token.nullish
+  label: '??'
 - id: token.number
   label: number
   literal: Number
+- id: token.opt_chain
+  label: '?.'
 - id: token.or
   label: '||'
 - id: token.percent
   label: '%'
-- id: token.pipe
-  label: '|>'
 - id: token.plus
   label: +
 - id: token.pow
   label: '**'
+- id: token.product
+  label: '***'
 - id: token.question
   label: null
 - id: token.rbrace
@@ -159,6 +159,4 @@
     - - '\\'
       - '\'
 - id: token.template
-  label: null
-- id: token.vau
   label: null
