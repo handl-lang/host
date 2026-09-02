@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 Builds on [ADR-0070 — Refinement Inference Scope](./0070-refinement-inference-scope.md).
 
@@ -14,98 +14,114 @@ deterministic choice (if-then-else, pattern matching) but not for
 **backtracking** — where the parser tries branch A, and if it fails,
 falls back to branch B.
 
-Backtracking parsers need **failure as a first-class effect**:
+Backtracking parsers need **failure as a first-class notion**:
 - `parse_A` may fail (the input doesn't match)
 - On failure, the parser backtracks and tries `parse_B`
 - The output is either a successful parse or a failure value
 
-The current arrow calculus has no notion of failure. `Choice { l, r }`
-runs one arm or the other, but neither arm can "fail" and trigger the
-other. This means:
+The question is whether backtracking requires extending the arrow
+calculus with a new combinator, or whether the existing combinators
+already suffice.
 
 - Recursive descent parsers without backtracking work (ADR-0070 proves
   this with the Pratt parser)
-- Context-free grammars with arbitrary backtracking don't work
-- PEG (parsing expression grammar) parsers with ordered choice don't
-  work
+- Context-free grammars with arbitrary backtracking appear to need
+  something beyond plain `Choice`
+- PEG (parsing expression grammar) parsers with ordered choice appear
+  to need the same
 
 ## Decision
 
-Extend the arrow calculus with **failure-tracking arrows** to support
-backtracking parsers. This is a research extension, not an engineering
-task — it requires new calculus primitives and new inference rules.
+Do NOT extend the arrow calculus. Model failure as a value using sum
+types, which the calculus already supports via `left` (Choice).
 
-### Proposed extension
+### Result-type modeling
 
-Add a `Try` combinator to the arrow calculus:
+Model parser output as a sum type `Result AST + Error`:
 
-```
-try(A, B) : X ⇝ Y
-  -- Run A. If A succeeds, return its output.
-  -- If A fails, run B on the original input.
-```
-
-This is different from `Choice`:
-- `Choice { l, r }` — the branch decision is external (part of the input)
-- `Try { l, r }` — the branch decision is internal (A fails → try B)
-
-### Inference implications
-
-The inference engine needs to handle `Try`:
-- `wp(try(A, B), post) = wp(A, post) ∧ wp(B, post)` — both arms must
-  establish the postcondition (since either could run)
-- The guarantee of `try(A, B)` is `guarantee(A) ∨ guarantee(B)` —
-  disjunction, not conjunction
-- Failure propagation: if A fails, its guarantee doesn't apply; only
-  B's guarantee holds
-
-This requires the inference engine to handle **disjunctive guarantees**,
-which the current engine doesn't support (it conjoins via Seq, branches
-via Choice, but doesn't disjoin).
-
-### Alternative: model failure as a value
-
-Instead of extending the calculus, model failure as a sum type:
 ```
 parse_A : Input ⇝ Result AST + Error
 ```
 
-Then backtracking is:
+Backtracking is then expressed entirely with existing combinators:
+
 ```
 backtrack = comp(parse_A, choice(extract_success, comp(extract_error, parse_B)))
 ```
 
-This stays within the current calculus but requires:
-- Sum types in the refinement type system
-- Pattern matching on Result
-- Contracts that distinguish success from failure
+Concretely: run `parse_A`, then use `left` (Choice) to branch on the
+result — `inl(success)` returns the AST, `inr(error)` runs `parse_B`
+on the original input. This is plain `Choice` over a sum-typed output,
+not a new combinator.
 
-This is more engineering than research, but still significant.
+This stays entirely within the existing 5 combinators (Seq, First,
+Choice/left, Loop, App). No new calculus primitives are introduced.
+
+### Contracts
+
+Contracts distinguish success from failure. `parse_A` guarantees:
+
+```
+IsSuccess(output) ∨ IsError(output)
+```
+
+The success branch carries the actual parse guarantee (e.g., "the
+output AST is well-formed and consumes a valid prefix of the input").
+The error branch carries the failure guarantee (e.g., "the error
+records the position where parsing failed").
+
+### Inference implications
+
+The inference engine already handles `left` via WP branching through
+Choice. When the output is a sum type, WP branches:
+
+- `inl` branch: `wp` assumes the success invariant and propagates the
+  parse guarantee
+- `inr` branch: `wp` assumes the error invariant and propagates into
+  the backtrack arm
+
+No new inference rules are needed. The disjunction `IsSuccess ∨ IsError`
+is handled by the existing Choice branching mechanism — the same
+mechanism that handles if-then-else and pattern matching. The fixpoint
+computation is unchanged: it discovers invariants over the sum-typed
+feedback channel, same as any other Loop.
 
 ## Consequences
 
 ### Positive
 
-- Enables backtracking parsers (PEG, context-free grammars)
-- Failure as a first-class effect is useful beyond parsers (error
-  handling, optional values, partial functions)
+- No new calculus primitives — backtracking uses only Seq, First,
+  Choice/left, Loop, App
+- No new inference rules — WP branching through Choice already handles
+  the disjunction
+- Failure is a value, not an effect — the graph remains deterministic
+  dataflow, fully within the scope defined by ADR-0070
+- Leverages existing Choice/left machinery — sum types are already part
+  of the calculus
+- Generalizes beyond parsers: any computation with a success/failure
+  outcome (error handling, optional values, partial functions) uses the
+  same pattern
 
 ### Negative
 
-- New calculus primitive (`Try`) or new type machinery (Result + pattern
-  matching)
-- Inference engine needs disjunctive guarantee support
-- More complex fixpoint computation (disjunction in the invariant domain)
-- Research risk: may not terminate or may produce weak results
+- More verbose graph structure — each backtracking point requires an
+  explicit `choice` with success/error extraction, rather than a single
+  combinator
+- The parser author must manage the `Result` type explicitly (construct
+  it on success/failure, destructure it at branch points)
+- Sum types in the refinement type system must be well-supported
+  (ADR-0068 covers predicates as types; sum types with contracts are
+  the natural extension)
 
 ## Status
 
-This is a research direction, not an implementation plan. The current
-architecture handles recursive descent parsers without backtracking
-(proven by the Pratt parser). Full backtracking support requires this
-extension.
+Accepted. The approach is to model failure as a value using sum types
+and existing Choice/left machinery. No calculus extension is required.
+Backtracking parsers are expressible within the current architecture.
 
 ## Related ADRs
 
 - [ADR-0070 — Refinement Inference Scope](./0070-refinement-inference-scope.md)
 - [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md)
+- [ADR-0073 — State Machines as Loops](./0073-state-machines-as-loops.md)
+- [ADR-0069 — Modules](./0069-modules.md)
