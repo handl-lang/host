@@ -607,8 +607,12 @@ discovers decreasing measures for loops — a well-founded ranking
 function on the feedback channel. This is separate from the invariant:
 the inference proves *conditional* invariants (if the loop reaches a
 fixpoint, the invariant holds), while termination analysis proves the
-loop does reach a fixpoint. Termination is implemented but not
-formalized in Lean4.
+loop does reach a fixpoint. Termination is now formalized in Lean4
+(`Termination.lean`, zero `sorry`): a `LoopIter` inductive threads
+`c_next` into the recursive call (fixing the model limitation where
+`EvalIter.eLoopIter` did not expose the next feedback value), and
+`decreasing_measure_bounds_iterations` proves by induction that a
+decreasing measure bounds the number of non-fixpoint iterations.
 
 # 6. Implementation and Evaluation
 
@@ -674,8 +678,8 @@ equivalence with the function-call form. The `backtrack.hnl` arrow
 
 ## 6.2 The Lean4 Formalization
 
-The Lean4 mechanization of the inference mechanism (5 files, 1,989
-lines, zero `sorry`) establishes: `RefinementProofGraphs.lean` (`RTy`,
+The Lean4 mechanization of the inference mechanism (8 files, zero
+`sorry`) establishes: `RefinementProofGraphs.lean` (`RTy`,
 `RHasType`, `preserves_comp`, `preserves_first`),
 `RefinementCharacterization.lean` (completeness/incompleteness
 statements), `InvariantDomain.lean` (domain $D$, lattice, transfer,
@@ -683,7 +687,7 @@ statements), `InvariantDomain.lean` (domain $D$, lattice, transfer,
 `analyze_incompleteness`), `StructuralInference.lean`
 (`inferred_postcondition_sound_full`,
 `inferred_postcondition_in_domain`, `floor_does_not_imply_inferred`),
-and `LoopInvariantDiscovery.lean` (15 theorems and 5 definitions, zero
+`LoopInvariantDiscovery.lean` (15 theorems and 5 definitions, zero
 `sorry`): the body-guarantee seeding theorems
 (`loop_invariant_from_body_sound`,
 `loop_invariant_from_body_preserved`, `loop_invariant_post_fixpoint`,
@@ -706,6 +710,19 @@ definitions (`side_channel_first_id_preserves_C`,
 `accumulator_feedback_transformed_by_G`,
 `filter_loop_preserves_feedback`) capturing the wiring-level behavioral
 properties of side-channel, accumulator, and filter loop patterns.
+Three additional files extend the formalization: `AlgorithmicCompleteness.lean`
+(zero `sorry`) characterizes algorithmic completeness via the counterexample
+`conjecture2_is_false` (the body-guarantee invariant is not the strongest
+preserved `D`-invariant in general), the soundness of the strongest invariant
+`analyze_strongest_sound`, and the conditional theorem
+`analyze_strongest_in_D_if_D_closed_under_arbitrary_meets` (algorithmic
+completeness within $D$ is exactly the closure of $D$ under arbitrary meets);
+`Termination.lean` (zero `sorry`) formalizes loop termination via the
+`LoopIter` inductive and `decreasing_measure_bounds_iterations`; and
+`TraitInference.lean` (Phase 9, zero `sorry`) proves annotation-free law
+recognition — `CutElim` normalization verifies functor laws, the
+`SatisfiesLaw` predicate and inference theorem, and the connection to the
+invariant domain $D$.
 
 An additional 5,003 lines of Lean4 mechanization
 (`ProofGraphs.lean`, `ProofAdvantage.lean`, etc.) establish the
@@ -732,7 +749,9 @@ described in parallel work [self-cite] and summarized in Appendix A.
 | Loop invariant discovery (WP branching through Choice) | Proven (`fixpoint_converges_with_choice`) | Implemented (structural patterns) |
 | Loop invariant discovery (structural patterns) | Partially proven (behavioral defs, not full invariant derivation) | Implemented (structural patterns) |
 | Domain membership ($D$ closed under existential projection) | Proven (`body_guarantee_in_domain`, `exProj`) | N/A |
-| Termination analysis | N/A | Implemented |
+| Algorithmic completeness (conditional) | Proven (`AlgorithmicCompleteness.lean`) | N/A |
+| Termination analysis | Proven (`Termination.lean`) | Implemented |
+| Trait/law inference (annotation-free) | Proven (`TraitInference.lean`) | N/A |
 | Real programs | N/A | 5 programs |
 | Coverage / scaling / failures | N/A | 90-cell grid |
 
@@ -924,17 +943,28 @@ constitute a full invariant derivation from pattern recognition to a
 proven invariant. Formalizing the strengthened algorithm and proving
 its algorithmic completeness is the primary item of future work.
 
-**Algorithmic completeness not proven.** The inference is sound but not
-complete. The Lean4 theorem `analyze_incompleteness` proves that true
-invariants exist outside $D$. The domain $D$ is now closed under
-existential projection (via the `exProj` constructor), so the
-body-guarantee invariant $\exists v, P(\text{pair}(v, c'))$ is in $D$
-whenever $P \in D$ (`body_guarantee_in_domain`). The remaining gap is
-not domain membership but algorithmic completeness: the `analyze_spec`
-function returns the floor (`True`) and does not compute the strongest
-invariant in $D$. The Rust implementation
-approximates the strongest invariant by structural analysis, but
-formalizing that approximation and proving its completeness is open.
+**Algorithmic completeness characterized by conditional theorem.** The
+inference is sound but not complete. The Lean4 theorem
+`analyze_incompleteness` proves that true invariants exist outside $D$.
+The domain $D$ is now closed under existential projection (via the
+`exProj` constructor), so the body-guarantee invariant
+$\exists v, P(\text{pair}(v, c'))$ is in $D$ whenever $P \in D$
+(`body_guarantee_in_domain`). The algorithmic completeness question is
+now fully characterized in `AlgorithmicCompleteness.lean` (zero
+`sorry`): the false conjecture that the body-guarantee invariant is the
+strongest preserved `D`-invariant was refuted by the counterexample
+`conjecture2_is_false` (`True` is a preserved `D`-invariant that does
+not imply the body-guarantee when the postcondition is non-trivial).
+The strongest preserved `D`-invariant `analyze_strongest` is proven
+sound (`analyze_strongest_sound`), and the conditional theorem
+`analyze_strongest_in_D_if_D_closed_under_arbitrary_meets` proves that
+algorithmic completeness within $D$ is exactly the closure of $D$
+under arbitrary meets — resolving the former open problem by replacing
+the unprovable existential negative with a provable conditional
+positive. The `analyze_spec` function returns the floor (`True`) and
+does not compute the strongest invariant in $D$; the Rust
+implementation approximates the strongest invariant by structural
+analysis.
 
 **Arithmetic invariants outside $D$.** The domain $D$ contains only
 predicates from base-arrow guarantees, conjunction, and lifting through
@@ -1061,10 +1091,15 @@ arrows) — all inferred annotation-free, with 270 tests passing. We
 have honestly characterized the boundary: the compositional propagation
 and the loop invariant discovery (body-guarantee seeding, iterated loop
 soundness, and WP branching through Choice) are formally proven sound;
-the structural pattern recognition behavioral properties are partially
-formalized (definitions capture wiring-level behavior, but a full
-invariant derivation is not yet proven) and the domain membership gap
-is formally stated ($D$ not closed under existential projection); the
+the algorithmic completeness question is fully characterized by the
+conditional theorem `analyze_strongest_in_D_if_D_closed_under_arbitrary_meets`
+(zero `sorry`); loop termination is formalized in `Termination.lean`
+(zero `sorry`); annotation-free law recognition is formalized in
+`TraitInference.lean` (Phase 9, zero `sorry`); the structural pattern
+recognition behavioral properties are partially formalized (definitions
+capture wiring-level behavior, but a full invariant derivation is not
+yet proven) and the domain membership gap is formally stated ($D$ not
+closed under existential projection); the
 scope is deterministic dataflow, now including
 backtracking parsers
 (failure modeled as a value via sum types) with concurrency

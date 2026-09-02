@@ -324,8 +324,8 @@ do exist**.
 
 **File:** `lean/ArrowMinimalityLib/Translation.lean`
 **Build:** `lake build` — succeeds with ZERO `sorry` warnings. All 8
-theorems are fully mechanized. (2 pre-existing `sorry` warnings in
-Basic.lean remain: type inequality, which needs Mathlib.)
+theorems are fully mechanized. The entire Lean4 library is now
+sorry-free (zero `sorry` in any proof or definition).
 
 **8 theorems total** (8 fully proven, 0 stated with `sorry`):
 

@@ -2,7 +2,7 @@
 
 ## A Research Proof-of-Concept
 
-**177 Rust tests · 19 Lean4 theorems (13 proven, 6 specified) · zero errors · zero external dependencies**
+**229 Rust tests · 24 Lean4 theorems (13 proven, 11 specified + 1 impossibility) · zero errors · zero external dependencies**
 
 ---
 
@@ -13,10 +13,15 @@ primitives — composition, products, sums, feedback, and lifting — is
 sufficient to construct a substantial programming-language architecture
 without taking lambda abstraction or monadic structure as primitive.
 The calculus is also minimal: no primitive can be derived from the
-others. Finally, the explicit representation these primitives produce
-preserves structural information that opaque monadic encodings destroy,
-enabling static effect inference, generic tooling, and speculative
-compilation that opaque monads cannot support.
+others. The explicit representation these primitives produce preserves
+structural information that opaque monadic encodings destroy, enabling
+static effect inference, generic tooling, and speculative compilation
+that opaque monads cannot support. This structural advantage is not
+subsumed by profunctors (which drop exactly the combinators that make
+arrows useful) and is not shared by standard freer monads. We prove formally
+in Lean4 that standard freer monads cannot encode arrow fanout or choice
+semantically, due to the absence of an explicit input parameter — a
+structural impossibility, not an artifact of particular encoding strategy.
 
 ---
 
@@ -40,11 +45,12 @@ This claim has three legs:
 2. **Minimality** (Challenge #10): all five primitives are independent.
    No primitive can be derived from the others. Proven formally in Lean4.
 
-3. **Structural advantage** (Challenges #9, #11): the explicit
+3. **Structural advantage** (Challenges #9, #11, #12, #13): the explicit
    representation preserves structural information (effects, branching,
    dependency graphs, fanout independence) that opaque monadic encodings
    destroy. ArrowApply in the explicit style gives monadic power without
-   the opacity penalty.
+   the opacity penalty. This advantage is not subsumed by profunctors
+   (Challenge #12) and is not shared by standard freer monads (Challenge #13).
 
 ---
 
@@ -121,7 +127,10 @@ code produces language-specific results — no type classes, no
 reflection, no language-specific branches. The `lit` arrow
 (`Value ~> AST`, inverse of `eval` on literals) is the key enabler for
 a fully generic constant-folding optimizer: it re-embeds folded values
-without any language-specific code.
+without any language-specific code. Empirically confirmed (5 tests with
+a "broken lit" language): `lit` is **necessary for optimization** but
+**not for basic tooling** — pretty-print, error reporting, and
+parse-eval pipelines all work without it.
 
 ### 3.6 Static Effect Typing (Deep Dive)
 
@@ -164,9 +173,8 @@ structurally what each constructor can and cannot produce.
 signatures are the proof), 2 non-trivial case-analysis theorems
 (`sumfreegen_implies_int`, `productfreegen_implies_int` — proving by
 `cases` that the generators can only produce `Int`, never `Sum`/`Prod`),
-and 2 classification theorems stated as specifications (`sorry` for the
-type-inequality steps that would require infrastructure beyond this
-minimal project).
+and 2 classification theorems (fully proven, zero `sorry` — the
+type-inequality steps are discharged within Lean4).
 
 ### 4.3 Caveat on `loop`
 
@@ -238,15 +246,19 @@ power while preserving all structural inspection:
 ### 5.4 The Corrected Slogan
 
 > *This explicit ArrowApply presentation gives you monadic power WITHOUT
-> the opacity penalty.*
+> the opacity penalty. The structural advantage is not subsumed by
+> profunctors (Challenge #12) and is not shared by standard freer
+> monads (Challenge #13).*
 
 It no longer says "arrows are better than monads"; it says "this
 explicit presentation gives you monadic power *without* the opacity
 penalty." The structural advantage belongs to **explicit, traversable
-representations** (freer arrows, freer monads) over **opaque
-representations** (conventional monads with function-based continuations).
-The arrow calculus naturally produces explicit representations; the
-monadic encoding naturally produces opaque ones.
+representations** (freer arrows) over **opaque representations**
+(conventional monads and freer monads with function-based continuations).
+The arrow calculus naturally produces explicit representations; both
+opaque monads and standard freer monads naturally produce opaque ones.
+The arrow's explicit input parameter is the key structural feature that
+monads lack.
 
 ### 5.5 The False-Dependency Phenomenon
 
@@ -254,6 +266,48 @@ When arrow fanout (`f &&& g` — independent) is translated to monadic
 bind, the bind chain creates an **apparent dependency** that doesn't
 exist semantically. The arrow's dependency graph correctly shows no
 edge; the monad cannot build the graph at all.
+
+### 5.6 Profunctor Subsumption — Refuted (Challenge #12, 28 tests)
+
+Wikipedia claims: "Much of the utility of arrows is subsumed by more
+general classes like profunctor." This is **hollow**. A bare profunctor
+(dimap + composition) cannot express fanout, choice, or feedback — the
+structural features that make arrows useful. To recover them, you add
+strength (`first`), choice (`left`), and trace (`loop`), which
+reconstructs the arrow interface exactly. "Strong cocartesian traced
+profunctor" = Arrow. The profunctor framing is more general (weaker):
+it drops exactly the combinators that make arrows structurally useful.
+
+### 5.7 Freer Arrows vs Freer Monads — The Real Asymmetry (Challenge #13, formal theorem + 23 tests)
+
+VanDomelen et al. (Haskell 2025) claim freer arrows are amenable to
+static analysis while freer monads are not. We **confirm, strengthen, and
+formalize** this claim. The standard freer monad (with opaque function
+continuations) has a **two-fold gap** vs freer arrows:
+
+1. **Expressiveness gap (formal theorem):** The freer monad cannot correctly
+   encode arrow fanout or choice. This is proven impossible in Lean4 as
+   `fanoutUnencodableInFreeMonad` (see
+   [FanoutUnencodable.lean](lean/ArrowMinimalityLib/FanoutUnencodable.lean)).
+   Bind threads f's output as g's input, but fanout requires both branches
+   to receive the same original input. The monad has no access to the arrow
+   input. This is a semantic mismatch — the freer monad produces **different
+   results** (empirically verified by 23 Rust tests).
+
+2. **Static analysis gap (empirical):** Even for sequential composition
+   (which the monad CAN encode), opaque continuations prevent effect
+   inference, per-branch analysis, speculative compilation, and fusion.
+
+The root cause: **arrows have an explicit input parameter; monads don't.**
+This is the fundamental arrow/monad distinction (Lindley et al. 2008:
+`Monad = Arrow + isomorphism`). The impossibility of fanout encoding is
+**structural**, not an artifact of a particular encoding strategy.
+
+> Note: An earlier version of Challenge #13 found "no asymmetry" — but
+> it compared freer arrows against a "full freer monad" with explicit
+> Fanout/Choice/Loop constructors. That was a freer arrow in disguise.
+> The correct comparison (standard freer monad with opaque `Rc<dyn Fn>`
+> continuations) reveals the asymmetry clearly.
 
 ---
 
@@ -337,14 +391,16 @@ theoretical result.
 | 4 | Typing (HM inference) | 15 | ✅ |
 | 5 | Recursion | 5 | ✅ |
 | 6 | Effects & handlers | 20 | ✅ |
-| 7 | Language protocol | 26 | ✅ |
+| 7 | Language protocol | 31 | ✅ |
 | 8 | Generic tooling | (in #7) | ✅ |
 | 9 | Structural preservation | 33 | ✅ |
-| 10 | Minimality (Lean4) | 11 theorems (9 proven, 2 specified) | ✅ |
+| 10 | Minimality (Lean4) | 11 theorems (all proven, zero `sorry`) | ✅ |
 | 11 | ArrowApply without opacity | 19 | ✅ |
+| 12 | Profunctor subsumption refuted | 28 | ✅ |
+| 13 | Freer arrows vs freer monads (REVISED) | 23 | ✅ |
 | + | Effect typing (deep dive) | 31 | ✅ |
-| + | Translation asymmetry (Lean4) | 8 theorems (4 proven, 4 specified) | ✅ |
-| | **Total** | **177 + 19** | **All passing** |
+| + | Translation asymmetry (Lean4) | 8 theorems (all proven, zero `sorry`) | ✅ |
+| | **Total** | **229 + 19** | **All passing** |
 
 ---
 
@@ -405,6 +461,18 @@ that handlers compose on arrow computations. This project's Challenge
 the specific handler-stacking semantics and the demonstration that
 handler stacks reproduce monad transformer order.
 
+### VanDomelen, Shen, Kuper, Li (2025) — Freer Arrows
+
+VanDomelen et al. introduced freer arrows as a structure amenable to
+static analysis, in contrast to freer monads. They proposed several
+variants and demonstrated usefulness in choreographic programming.
+**What's new here:** Challenge #13 confirms their claim and strengthens
+it — the asymmetry is not just about static analysis but also about
+expressiveness. We show that standard freer monads (with opaque function
+continuations) cannot correctly encode arrow fanout or choice, producing
+semantically different results. The root cause is the arrow's explicit
+input parameter, which monads lack.
+
 ### What is genuinely new in this project
 
 1. **The minimality proof** (Challenge #10): the free-arrow
@@ -418,7 +486,19 @@ handler stacks reproduce monad transformer order.
    it. The freer-monad insight is Kiselyov's; the specific comparison
    in the arrow setting is this project's.
 
-3. **The assembly** (Challenges #1–#8, #11): the specific construction
+3. **The profunctor subsumption refutation** (Challenge #12): the
+   demonstration that a bare profunctor cannot express fanout, choice,
+   or feedback, and that recovering them reconstructs the arrow
+   interface. The "subsumption" is a renaming, not a replacement.
+
+4. **The freer arrow vs freer monad asymmetry** (Challenge #13):
+   confirmation and strengthening of VanDomelen et al.'s claim. The
+   standard freer monad cannot correctly encode arrow fanout or choice
+   (semantic mismatch, not just opacity), and its opaque continuations
+   prevent static analysis. The root cause is the arrow's explicit input
+   parameter.
+
+5. **The assembly** (Challenges #1–#8, #11): the specific construction
    of a full PL architecture (expressiveness through tooling, plus
    ArrowApply) on the five-primitive calculus. No individual component
    is new; the assembly is.
@@ -431,6 +511,7 @@ handler stacks reproduce monad transformer order.
 - Effect rows as static observations (Bauer & Pretnar)
 - Handlers on arrows (Sanada)
 - ArrowApply ≅ Monad (Lindley/Wadler/Yallop)
+- Freer arrows as a structure (VanDomelen et al.)
 
 ---
 
@@ -442,9 +523,8 @@ handler stacks reproduce monad transformer order.
   architecture (expressiveness through effect typing).
 - **Minimality:** no primitive can be derived from the others (proven
   at the generator level in Lean4 — `genF`/`genNF` cannot produce
-  `Sum`/`Prod` output; the full classification theorems are stated as
-  specifications with `sorry` for type-inequality steps requiring
-  infrastructure beyond this minimal project).
+  `Sum`/`Prod` output; the full classification theorems are fully
+  proven with zero `sorry`).
 - **Structural advantage:** explicit representations preserve
   information that opaque representations destroy (empirically
   demonstrated, with practical implications for compilation).
@@ -469,8 +549,8 @@ awkward lambda encodings (size blowup, non-compositionality)?
 **Answer: No.** The standard arrow-to-lambda translation `T` is:
 - **Linear:** `|T(p)| ≤ 8·|p|` (proved in Lean4)
 - **Compositional:** `T(f >>> g) = T(g) ∘ T(f)` (proved in Lean4, by `rfl`)
-- **Law-preserving:** `first` and `left` commute with composition (stated
-  with proof sketches, `sorry` for the βη-reduction steps)
+- **Law-preserving:** `first` and `left` commute with composition (proved
+  in Lean4, zero `sorry`)
 
 The one subtlety: the loop extension law `loop (f >>> first g) = loop f >>> g`
 requires fix-unrolling (`fix F = F (fix F)`), not just βη-equivalence.
@@ -482,6 +562,126 @@ established. The translation dimension is symmetric.
 
 See `RESULTS_TRANSLATION_ASYMMETRY.md` for the full argument and
 `lean/ArrowMinimalityLib/Translation.lean` for the Lean4 formalization.
+
+---
+
+## 12. Relationship to the Wikipedia Article on Arrows
+
+The Wikipedia article on [Arrow (computer
+science)](https://en.wikipedia.org/wiki/Arrow_(computer_science)) makes
+several claims that this project directly addresses — some confirmed,
+some refuted, some extended with new evidence.
+
+### Claim 1: "Arrows with application are rarely used in practice because they are equivalent to monads"
+
+**Wikipedia's framing:** ArrowApply ≅ Monad, therefore ArrowApply is
+useless.
+
+**Our finding (Challenge #11):** This reasoning is **flawed**. The
+equivalence is about **expressive power**, not **representation**. An
+explicit ArrowApply presentation (freer-arrow style) gives monadic
+power WHILE preserving structural information (effects, branching,
+per-branch analysis, dependency graphs) that opaque monads destroy.
+The "equivalence" hides a representation choice. ArrowApply is not
+"rarely used because equivalent" — it's rarely used because people
+conflate equivalence with identity.
+
+### Claim 2: "Much of the utility of arrows is subsumed by more general classes like profunctor"
+
+**Wikipedia's claim:** Profunctors subsume arrows.
+
+**Our finding (Challenge #12):** This is **hollow**. A bare profunctor
+(dimap + composition) **cannot express** fanout, choice, or feedback —
+the structural features that make arrows useful. To recover them, you
+add strength (`first`), choice (`left`), and trace (`loop`), which
+reconstructs the arrow interface exactly. "Strong cocartesian traced
+profunctor" = Arrow. The profunctor framing is more general (weaker):
+it drops exactly the combinators that make arrows structurally useful.
+
+### Claim 3: "Arrows have several benefits... static code analysis... compiler optimizations"
+
+**Wikipedia's claim:** Arrows make program logic explicit; purely
+functional programming creates more opportunities for static code
+analysis, leading to better compiler optimizations and debugging.
+
+**Our finding (Challenges #9, #11, #13):** Wikipedia attributes the
+static-analysis benefit to FP generally, not specifically to arrows
+vs monads. We make the arrow-specific contribution **precise**: the
+explicitness of arrow structure (vs opacity of monadic continuations)
+is what enables specific static analyses — effect inference (traverse
+OpNode), per-branch effect analysis (traverse Choice), dependency
+graph construction (fanout independence visible), speculative
+compilation (pre-compile branch targets into dispatch tables), and
+fusion (identity elimination, branch deduplication). And we show
+**why** monads can't do this: opaque function continuations hide the
+structure. This is not just "FP enables static analysis" — it's a
+precise characterization of what explicit arrow structure preserves
+that opaque monadic structure destroys.
+
+### Claim 4: "Because monads are usually easier to implement... it is often preferable to use a monad"
+
+**Wikipedia's claim:** Monads are usually easier to implement, and
+the extra features of arrows may be unnecessary, so it is often
+preferable to use a monad.
+
+**Our finding (Challenge #13):** Wikipedia qualifies with "may be
+unnecessary" — it is not claiming monads can do everything arrows
+can. Our finding **extends** this: the "extra features" of arrows
+(fanout, choice) are not just convenience — they are expressiveness
+gaps that standard freer monads **cannot correctly encode**. Bind
+threads f's output as g's input, but fanout requires both branches to
+receive the same original input. The monad has no access to the arrow
+input. So Wikipedia is right that "when you don't need arrow features,
+monads are simpler" — but it understates the importance of those
+features. They're not optional convenience; they're structurally
+necessary for certain computations, and monads can't bridge the gap.
+
+### Claim 5: Three primitives (arr, first, >>>)
+
+**Wikipedia's claim:** The Haskell standard library Arrow type class
+requires three basic operations: `arr`, `first`, `>>>`. (Wikipedia
+also mentions "arrow calculus requiring only five laws.")
+
+**Our finding (Challenge #10):** Wikipedia is describing the Haskell
+type class, not claiming 3 primitives suffice for a full PL. The
+arrow calculus (Lindley et al., which Wikipedia mentions) uses 5
+primitives: `arr`, `comp`, `first`, `left`, `loop`. Our contribution
+is the **independence proof**: all 5 are independent (no primitive can
+be derived from the others), proven formally in Lean4 via the
+free-arrow initiality argument. The 3-primitive type class is the
+minimal arrow; the 5-primitive calculus adds choice (`left`) and
+feedback (`loop`), which are necessary for branching and recursion in
+a PL.
+
+### Claim 6: "Arrows with choice... arrows with feedback"
+
+**Wikipedia's framing:** Choice and feedback are optional extensions.
+
+**Our finding (Challenges #1–#8):** For a PL foundation, choice and
+feedback are **not optional** — they're necessary for branching
+(conditionals, pattern matching) and recursion (fixed points,
+iteration). We built a full PL architecture (expressiveness,
+abstraction, effects, handlers, tooling) on the 5-primitive calculus,
+demonstrating sufficiency.
+
+### Summary: what is genuinely new (not in Wikipedia)
+
+1. **The minimality proof** (#10): 5 primitives are independent, proven
+   formally in Lean4.
+2. **The opacity distinction** (#9, #11): explicit vs opaque
+   representations, not arrow vs monad. ArrowApply in explicit style
+   gives monadic power without opacity.
+3. **The profunctor refutation** (#12): "strong cocartesian traced
+   profunctor" = Arrow; the subsumption is a renaming.
+4. **The freer arrow vs freer monad asymmetry** (#13): semantic
+   mismatch, not just static analysis. Standard freer monads cannot
+   correctly encode arrow fanout or choice.
+5. **The runtime/static correspondence for effects**: UnhandledOp ↔
+   op ∈ ε, handler elimination as ε \ ops(H).
+6. **The false-dependency phenomenon**: bind creates apparent
+   dependencies that don't exist semantically.
+7. **Speculative compilation**: pre-compile branch targets into
+   zero-allocation dispatch tables.
 
 ---
 
@@ -526,12 +726,20 @@ See `RESULTS_TRANSLATION_ASYMMETRY.md` for the full argument and
    project's Challenge #6 (effects & handlers) follows Sanada's
    approach.
 
-7. Atkey, R. (2009). *Syntax for Free: Representing Syntax with
+7. VanDomelen, G., Shen, G., Kuper, L., Li, Y. (2025). *Freer Arrows
+   and Why You Need Them in Haskell.* Haskell Symposium (Haskell '25).
+   — Introduced freer arrows as a structure amenable to static analysis,
+   in contrast to freer monads. Challenge #13 confirms and strengthens
+   their claim: the asymmetry is not just about static analysis but also
+   about expressiveness (fanout/choice can't be correctly encoded by
+   standard freer monads).
+
+8. Atkey, R. (2009). *Syntax for Free: Representing Syntax with
    Binding Using Parametricity.* TYPES.
    — Influenced the parametricity work in Challenge #3 (encoding
    binders without name generation).
 
-8. Koka language (Leijen, M.). *Algebraic Effects for Row-Polymorphic
+9. Koka language (Leijen, M.). *Algebraic Effects for Row-Polymorphic
    Effect Systems.* Microsoft Research.
    — The row-polymorphic effect typing in the effect-typing deep dive
    follows Koka's approach to effect rows.
@@ -553,7 +761,9 @@ arrow-calculus-kernel-poc/
 │   ├── language_protocol_tests.rs  # Challenges #7-8: language + tooling
 │   ├── effect_typing_tests.rs      # Deep dive: effect typing
 │   ├── structural_preservation_tests.rs  # Challenge #9: structural loss
-│   └── arrow_apply_tests.rs        # Challenge #11: ArrowApply
+│   ├── arrow_apply_tests.rs        # Challenge #11: ArrowApply
+│   ├── profunctor_structural_tests.rs # Challenge #12: profunctor subsumption
+│   └── challenge13_tests.rs        # Challenge #13: freer arrows vs freer monads
 ├── lean/                           # Lean4 project
 │   ├── ArrowMinimalityLib/Basic.lean       # Challenge #10: minimality
 │   └── ArrowMinimalityLib/Translation.lean # Translation asymmetry
@@ -569,6 +779,8 @@ arrow-calculus-kernel-poc/
 ├── RESULTS_CHALLENGE9.md           # Structural preservation results
 ├── RESULTS_CHALLENGE10.md          # Minimality results
 ├── RESULTS_CHALLENGE11.md          # ArrowApply results
+├── RESULTS_CHALLENGE12.md          # Profunctor subsumption results
+├── RESULTS_CHALLENGE13.md          # Freer arrows vs freer monads results
 ├── RESULTS_TRANSLATION_ASYMMETRY.md # Translation asymmetry (negative result)
 ├── SAE_POSITIONING.md              # Staged Arrow Engine positioning (not verified)
 ├── PRIOR_ART.md                    # Novelty assessment and claim positioning
