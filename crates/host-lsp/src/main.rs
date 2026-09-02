@@ -22,6 +22,7 @@ mod hover;
 mod implementation;
 mod inlay_hints;
 mod inlay_hint_resolve;
+mod kit_resolver;
 mod line_map;
 mod linked_editing;
 mod moniker;
@@ -84,6 +85,8 @@ mod implementation_tests;
 #[cfg(test)]
 mod inlay_hint_resolve_tests;
 #[cfg(test)]
+mod kit_resolver_tests;
+#[cfg(test)]
 mod linked_editing_tests;
 #[cfg(test)]
 mod moniker_tests;
@@ -114,6 +117,7 @@ use std::io::{self, BufRead};
 use handl_host_tooling::{SemanticTokensPlugin, TextContentChange, canonical_semantic_tokens};
 
 use document::DocumentStore;
+use kit_resolver::KitResolver;
 use handlers::{
     handle_code_actions, handle_code_lens, handle_completion, handle_completion_resolve,
     handle_definition, handle_document_highlight, handle_document_symbols,
@@ -162,6 +166,12 @@ fn main() {
     let tokens_provider = canonical_semantic_tokens();
     let legend = tokens_provider.legend();
     let refinement_engine = RefinementEngine::new();
+    // Per-workspace kit resolver (ADR 0003). Resolves which language kit to
+    // use for a given file by walking up to find a `.handl.toml` manifest.
+    // The actual per-file kit loading in each LSP handler is a follow-up; for
+    // now the resolver is available alongside the document store and
+    // refinement engine.
+    let _kit_resolver = KitResolver::new();
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
