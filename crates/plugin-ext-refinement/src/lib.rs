@@ -70,3 +70,6 @@ mod loader_tests;
 
 #[cfg(test)]
 mod arrow_parser_tests;
+
+#[cfg(test)]
+mod parse_tests;

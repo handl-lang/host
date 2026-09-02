@@ -32,6 +32,7 @@ fn main() {
         ("map", "fn/map.hnl"),
         ("filter", "fn/filter.hnl"),
         ("fold", "fn/fold.hnl"),
+        ("pratt", "parse/pratt.hnl"),
     ];
 
     for (name, rel_path) in files {

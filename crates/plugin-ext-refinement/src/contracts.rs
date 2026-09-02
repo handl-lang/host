@@ -420,6 +420,104 @@ impl ContractRegistry {
             },
         );
 
+        // ==================================================================
+        // Parse atoms — token-based parsing primitives (Pratt parser).
+        //
+        // These model the primitive operations of a Pratt parser (top-down
+        // operator-precedence parser). The key atom is parse.consume, which
+        // removes one token from the token list — its LengthSubOne guarantee
+        // and decrements_length termination effect let the inference engine
+        // derive that the parser consumes tokens and terminates.
+        // ==================================================================
+
+        let token_list = || RefTy::Plain(BaseTy::Var("TokenList".to_string()));
+        let token = || RefTy::Plain(BaseTy::Var("Token".to_string()));
+        let ast = || RefTy::Plain(BaseTy::Var("AST".to_string()));
+
+        // parse.peek : TokenList → Token — look at the next token without consuming.
+        reg.register(
+            "parse.peek",
+            ArrSource::Native,
+            Contract {
+                input: token_list(),
+                output: token(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.consume : TokenList → TokenList — consume one token.
+        // Guarantee: the output token list is one element shorter than the input.
+        // Termination: each consume decrements the token list length by 1.
+        reg.register(
+            "parse.consume",
+            ArrSource::Native,
+            Contract {
+                input: token_list(),
+                output: token_list(),
+                precondition: Pred::True,
+                guarantee: Pred::LengthSubOne("output".to_string(), "input".to_string()),
+                termination_effect: Some("decrements_length".to_string()),
+            },
+        );
+
+        // parse.is_op : Token → Bool — test whether a token is an operator.
+        reg.register(
+            "parse.is_op",
+            ArrSource::Native,
+            Contract {
+                input: token(),
+                output: RefTy::Plain(BaseTy::Bool),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.prec : Token → Int — get the precedence of an operator token.
+        reg.register(
+            "parse.prec",
+            ArrSource::Native,
+            Contract {
+                input: token(),
+                output: int(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.make_node : (Token × AST × AST) → AST — build an AST node
+        // from an operator and two sub-expressions.
+        reg.register(
+            "parse.make_node",
+            ArrSource::Native,
+            Contract {
+                input: RefTy::Prod(
+                    Box::new(token()),
+                    Box::new(RefTy::Prod(Box::new(ast()), Box::new(ast()))),
+                ),
+                output: ast(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.atom_value : Token → AST — convert a token to an AST leaf node.
+        reg.register(
+            "parse.atom_value",
+            ArrSource::Native,
+            Contract {
+                input: token(),
+                output: ast(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
         reg
     }
 

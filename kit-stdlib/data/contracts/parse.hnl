@@ -1,0 +1,26 @@
+// Atoms for token-based parsing.
+//
+// These model the primitive operations of a Pratt parser (top-down
+// operator-precedence parser). The key atom is parse.consume, which
+// removes one token from the token list — its LengthSubOne guarantee
+// and decrements_length termination effect let the inference engine
+// derive that the parser consumes tokens and terminates.
+
+axiom parse.peek : TokenList → Token
+  guarantee: True
+
+axiom parse.consume : TokenList → TokenList
+  guarantee: LengthSubOne(output, input)
+  termination: decrements_length
+
+axiom parse.is_op : Token → Bool
+  guarantee: True
+
+axiom parse.prec : Token → Int
+  guarantee: True
+
+axiom parse.make_node : (Token × (AST × AST)) → AST
+  guarantee: True
+
+axiom parse.atom_value : Token → AST
+  guarantee: True

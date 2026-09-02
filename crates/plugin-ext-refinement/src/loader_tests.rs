@@ -31,8 +31,9 @@ fn arr(op: &str) -> Scheme {
     }
 }
 
-/// The total number of axioms across the bundled `prim.hnl` and `list.hnl`.
-const STANDARD_AXIOM_COUNT: usize = 20;
+/// The total number of axioms across the bundled `prim.hnl`, `list.hnl`, and
+/// `parse.hnl`.
+const STANDARD_AXIOM_COUNT: usize = 26;
 
 // ============================================================================
 // 1. Parse a simple axiom file → correct Contract
