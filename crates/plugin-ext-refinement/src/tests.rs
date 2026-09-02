@@ -64,9 +64,9 @@ fn choice(l: Scheme, r: Scheme) -> Scheme {
 ///
 /// State threaded by the loop: (remaining_input, sorted_accumulator).
 /// Each iteration:
-///   1. first(head_and_tail) — split remaining input into (head, tail)
-///   2. first(insert)         — insert head into the sorted accumulator
-///   3. consume_one           — consume one element from the input (|C|--)
+///   1. first(head_and_tail) -- split remaining input into (head, tail)
+///   2. first(insert)         -- insert head into the sorted accumulator
+///   3. consume_one           -- consume one element from the input (|C|--)
 ///
 /// The loop terminates because consume_one decrements |remaining_input|.
 /// The accumulator stays sorted because insert's guarantee is Sorted(output).
@@ -84,9 +84,9 @@ fn insertion_sort() -> Scheme {
 ///
 /// State: (remaining_input, output_accumulator).
 /// Each iteration:
-///   1. first(head_and_tail)  — split remaining into (head, tail)
-///   2. first(apply_f)         — apply f to head
-///   3. comp(first(consume_one), append_to_output) — consume input, append to output
+///   1. first(head_and_tail)  -- split remaining into (head, tail)
+///   2. first(apply_f)         -- apply f to head
+///   3. comp(first(consume_one), append_to_output) -- consume input, append to output
 fn map_impl() -> Scheme {
     loop_fb(seq(
         seq(
@@ -104,10 +104,10 @@ fn map_impl() -> Scheme {
 ///
 /// State: (remaining_input, output_accumulator).
 /// Each iteration:
-///   1. first(head_and_tail)     — split remaining into (head, tail)
-///   2. first(test_predicate)    — test if head satisfies predicate
-///   3. left(append_to_output)   — if predicate true, append to output; if false, skip
-///   4. consume_one              — consume one element from remaining input (|C|--)
+///   1. first(head_and_tail)     -- split remaining into (head, tail)
+///   2. first(test_predicate)    -- test if head satisfies predicate
+///   3. left(append_to_output)   -- if predicate true, append to output; if false, skip
+///   4. consume_one              -- consume one element from remaining input (|C|--)
 fn filter_impl() -> Scheme {
     loop_fb(seq(
         seq(
@@ -125,9 +125,9 @@ fn filter_impl() -> Scheme {
 ///
 /// State: (remaining_input, accumulator).
 /// Each iteration:
-///   1. first(head_and_tail)  — split remaining into (head, tail)
-///   2. first(add_to_acc)      — add head to accumulator
-///   3. consume_one            — consume one element from the input
+///   1. first(head_and_tail)  -- split remaining into (head, tail)
+///   2. first(add_to_acc)      -- add head to accumulator
+///   3. consume_one            -- consume one element from the input
 fn sum_impl() -> Scheme {
     loop_fb(seq(
         seq(
@@ -306,7 +306,7 @@ fn test_pipeline() {
 
 #[test]
 fn test_loop_invariant_side_channel() {
-    // loop(first(id)) — C passes through unchanged.
+    // loop(first(id)) -- C passes through unchanged.
     let registry = ContractRegistry::standard();
     let body = first(arr("id"));
     let (inv, how, _verified) = discover_invariant_fixpoint(&body, &registry);
@@ -318,19 +318,19 @@ fn test_loop_invariant_side_channel() {
 
 #[test]
 fn test_loop_invariant_accumulator() {
-    // loop(seq(f, id)) — accumulator pattern, id leaves C unchanged.
+    // loop(seq(f, id)) -- accumulator pattern, id leaves C unchanged.
     let registry = ContractRegistry::standard();
     let body = seq(arr("f"), arr("id"));
     let (inv, _how, _verified) = discover_invariant_fixpoint(&body, &registry);
     // The invariant should be True (f has guarantee True, id is True)
     // wp(seq(f, id), True) = wp(f, wp(id, True)) = wp(f, True) = True
-    // So I_0 = True, wp = True, I_1 = True ∧ True = True → fixpoint at 0
+    // So I_0 = True, wp = True, I_1 = True && True = True -> fixpoint at 0
     assert_eq!(inv, Pred::True);
 }
 
 #[test]
 fn test_loop_invariant_consume_pattern() {
-    // loop(seq(insert, consume_one)) — consume pattern
+    // loop(seq(insert, consume_one)) -- consume pattern
     let registry = ContractRegistry::standard();
     let body = seq(arr("insert"), arr("consume_one"));
     let (inv, how, _verified) = discover_invariant_fixpoint(&body, &registry);
@@ -378,7 +378,7 @@ fn test_weakest_precondition_arr_guarantee_does_not_imply_post() {
     let registry = ContractRegistry::standard();
     let post = Pred::Sorted("output".to_string());
     // wp(map, Sorted) = True (map's guarantee LengthEq doesn't imply Sorted,
-    // so the WP is conservative — True, imposing no constraint).
+    // so the WP is conservative -- True, imposing no constraint).
     let wp = weakest_precondition(&arr("map"), &registry, &post);
     // With the new WP rule, when the guarantee does not imply the post,
     // we conservatively return True (no constraint from this branch).
@@ -409,7 +409,7 @@ fn test_weakest_precondition_first() {
 
 #[test]
 fn test_termination_side_channel_loop() {
-    // loop(first(id)) — C passes through unchanged.
+    // loop(first(id)) -- C passes through unchanged.
     let registry = ContractRegistry::standard();
     let g = loop_fb(first(arr("id")));
     let result = analyze_termination(&g, &registry);
@@ -419,7 +419,7 @@ fn test_termination_side_channel_loop() {
 
 #[test]
 fn test_termination_list_consuming_loop() {
-    // loop(seq(process_one, consume_one)) — C is a list, consume_one removes one element.
+    // loop(seq(process_one, consume_one)) -- C is a list, consume_one removes one element.
     let registry = ContractRegistry::standard();
     let g = loop_fb(seq(arr("process_one"), arr("consume_one")));
     let result = analyze_termination(&g, &registry);
@@ -429,7 +429,7 @@ fn test_termination_list_consuming_loop() {
 
 #[test]
 fn test_termination_counter_loop() {
-    // loop(seq(step, decrement)) — C is a counter, decrement decrements by 1.
+    // loop(seq(step, decrement)) -- C is a counter, decrement decrements by 1.
     let registry = ContractRegistry::standard();
     let g = loop_fb(seq(arr("step"), arr("decrement")));
     let result = analyze_termination(&g, &registry);
@@ -439,7 +439,7 @@ fn test_termination_counter_loop() {
 
 #[test]
 fn test_termination_fixed_point_loop() {
-    // loop(seq(f, id)) — C updated by f, id leaves it; no decreasing measure.
+    // loop(seq(f, id)) -- C updated by f, id leaves it; no decreasing measure.
     let registry = ContractRegistry::standard();
     let g = loop_fb(seq(arr("f"), arr("id")));
     let result = analyze_termination(&g, &registry);
@@ -478,7 +478,7 @@ fn test_termination_nested_loop_nonterminating() {
 
 #[test]
 fn test_termination_map_no_loop() {
-    // arr(map) — no loop, direct termination.
+    // arr(map) -- no loop, direct termination.
     let registry = ContractRegistry::standard();
     let g = arr("map");
     let result = analyze_termination(&g, &registry);
@@ -487,7 +487,7 @@ fn test_termination_map_no_loop() {
 
 #[test]
 fn test_termination_sort_via_loop() {
-    // loop(seq(insert, remove_one)) — C is a list, remove_one decrements |C|.
+    // loop(seq(insert, remove_one)) -- C is a list, remove_one decrements |C|.
     let registry = ContractRegistry::standard();
     let g = loop_fb(seq(arr("insert"), arr("remove_one")));
     let result = analyze_termination(&g, &registry);
@@ -530,9 +530,9 @@ fn test_implies_and_decomposition() {
     let alls = Pred::AllSatisfy("output".to_string(), "predicate".to_string());
     let sorted = Pred::Sorted("output".to_string());
     let combined = Pred::And(Box::new(alls.clone()), Box::new(sorted.clone()));
-    // (AllSatisfy ∧ Sorted) ⟹ AllSatisfy
+    // (AllSatisfy && Sorted) ==> AllSatisfy
     assert!(implies(&combined, &alls));
-    // (AllSatisfy ∧ Sorted) ⟹ Sorted
+    // (AllSatisfy && Sorted) ==> Sorted
     assert!(implies(&combined, &sorted));
 }
 
@@ -559,34 +559,34 @@ fn test_implies_with_report() {
 }
 
 // ----------------------------------------------------------------------------
-// toy_implies simplify fix: True ⟹ And(True, True) and related
+// toy_implies simplify fix: True ==> And(True, True) and related
 // ----------------------------------------------------------------------------
 
 #[test]
 fn test_toy_implies_true_implies_and_true_true() {
     // This was the failing case before the simplify fix.
-    // True ⟹ And(True, True) — And(True, True) simplifies to True.
+    // True ==> And(True, True) -- And(True, True) simplifies to True.
     assert!(
         toy_implies(&Pred::True, &Pred::And(Box::new(Pred::True), Box::new(Pred::True))),
-        "True ⟹ And(True, True) must hold after simplify fix"
+        "True ==> And(True, True) must hold after simplify fix"
     );
 }
 
 #[test]
 fn test_implies_true_implies_and_true_true() {
-    // Full implies checker (may use Z3 or toy): True ⟹ And(True, True).
+    // Full implies checker (may use Z3 or toy): True ==> And(True, True).
     assert!(
         implies(&Pred::True, &Pred::And(Box::new(Pred::True), Box::new(Pred::True))),
-        "True ⟹ And(True, True) must hold"
+        "True ==> And(True, True) must hold"
     );
 }
 
 #[test]
 fn test_toy_implies_true_implies_or_true_false() {
-    // True ⟹ Or(True, False) — Or(True, False) simplifies to True.
+    // True ==> Or(True, False) -- Or(True, False) simplifies to True.
     assert!(
         toy_implies(&Pred::True, &Pred::Or(Box::new(Pred::True), Box::new(Pred::False))),
-        "True ⟹ Or(True, False) must hold after simplify fix"
+        "True ==> Or(True, False) must hold after simplify fix"
     );
 }
 
@@ -594,38 +594,38 @@ fn test_toy_implies_true_implies_or_true_false() {
 fn test_implies_true_implies_or_true_false() {
     assert!(
         implies(&Pred::True, &Pred::Or(Box::new(Pred::True), Box::new(Pred::False))),
-        "True ⟹ Or(True, False) must hold"
+        "True ==> Or(True, False) must hold"
     );
 }
 
 #[test]
 fn test_toy_implies_and_true_true_implies_true() {
-    // And(True, True) ⟹ True — trivially true (anything implies True).
+    // And(True, True) ==> True -- trivially true (anything implies True).
     assert!(
         toy_implies(&Pred::And(Box::new(Pred::True), Box::new(Pred::True)), &Pred::True),
-        "And(True, True) ⟹ True must hold"
+        "And(True, True) ==> True must hold"
     );
 }
 
 #[test]
 fn test_toy_implies_and_true_true_equivalence() {
-    // After simplification, And(True, True) ≡ True, so both directions hold.
+    // After simplification, And(True, True) == True, so both directions hold.
     let tt = Pred::And(Box::new(Pred::True), Box::new(Pred::True));
-    assert!(toy_implies(&Pred::True, &tt), "True ⟹ And(True, True)");
-    assert!(toy_implies(&tt, &Pred::True), "And(True, True) ⟹ True");
+    assert!(toy_implies(&Pred::True, &tt), "True ==> And(True, True)");
+    assert!(toy_implies(&tt, &Pred::True), "And(True, True) ==> True");
 }
 
 #[test]
 fn test_toy_implies_nested_simplify() {
-    // True ⟹ And(And(True, True), Or(True, False))
-    // And(True, True) → True, Or(True, False) → True, And(True, True) → True
+    // True ==> And(And(True, True), Or(True, False))
+    // And(True, True) -> True, Or(True, False) -> True, And(True, True) -> True
     let q = Pred::And(
         Box::new(Pred::And(Box::new(Pred::True), Box::new(Pred::True))),
         Box::new(Pred::Or(Box::new(Pred::True), Box::new(Pred::False))),
     );
     assert!(
         toy_implies(&Pred::True, &q),
-        "True ⟹ And(And(True,True), Or(True,False)) must hold after simplify"
+        "True ==> And(And(True,True), Or(True,False)) must hold after simplify"
     );
 }
 
@@ -635,7 +635,7 @@ fn test_toy_implies_nested_simplify() {
 
 #[test]
 fn test_toy_implies_length_plus_one_implies_length_le() {
-    // LengthPlusOne(a, b) ⟹ LengthLe(b, a)  (|a| = |b|+1 ⟹ |b| <= |a|)
+    // LengthPlusOne(a, b) ==> LengthLe(b, a)  (|a| = |b|+1 ==> |b| <= |a|)
     let p = Pred::LengthPlusOne("output".to_string(), "input".to_string());
     let q = Pred::LengthLe("input".to_string(), "output".to_string());
     assert!(toy_implies(&p, &q));
@@ -643,7 +643,7 @@ fn test_toy_implies_length_plus_one_implies_length_le() {
 
 #[test]
 fn test_toy_implies_length_sub_one_implies_length_le() {
-    // LengthSubOne(a, b) ⟹ LengthLe(a, b)  (|a| = |b|-1 ⟹ |a| <= |b|)
+    // LengthSubOne(a, b) ==> LengthLe(a, b)  (|a| = |b|-1 ==> |a| <= |b|)
     let p = Pred::LengthSubOne("output".to_string(), "input".to_string());
     let q = Pred::LengthLe("output".to_string(), "input".to_string());
     assert!(toy_implies(&p, &q));
@@ -709,7 +709,7 @@ fn test_implies_head_of_reflexivity() {
 
 #[test]
 fn test_implies_conditional_contract_sorted_cons() {
-    // Sorted(tail) ∧ Le(head, head_of(tail)) ⟹ Sorted(cons(head, tail))
+    // Sorted(tail) && Le(head, head_of(tail)) ==> Sorted(cons(head, tail))
     // This is a conditional contract implication. The toy checker cannot
     // prove this (Sorted(cons(...)) is a different atom from Sorted(tail)),
     // but it should not return true for a false one either. We verify that
@@ -727,10 +727,10 @@ fn test_implies_conditional_contract_sorted_cons() {
 
 #[test]
 fn test_implies_length_arithmetic_transitivity() {
-    // LengthPlusOne(a, b) ∧ LengthSubOne(b, c) ⟹ LengthEq(a, c)
-    // |a| = |b| + 1, |b| = |c| - 1 → |a| = (|c| - 1) + 1 = |c|
+    // LengthPlusOne(a, b) && LengthSubOne(b, c) ==> LengthEq(a, c)
+    // |a| = |b| + 1, |b| = |c| - 1 -> |a| = (|c| - 1) + 1 = |c|
     // The toy checker handles this via the And-decomposition arm:
-    // And(LengthPlusOne(a,b), LengthSubOne(b,c)) ⟹ LengthEq(a,c)
+    // And(LengthPlusOne(a,b), LengthSubOne(b,c)) ==> LengthEq(a,c)
     // requires either conjunct to imply LengthEq(a,c), which neither does
     // individually. So the toy checker returns false (sound but incomplete).
     // Z3 (native or subprocess) can prove this via integer arithmetic.
@@ -753,16 +753,16 @@ fn test_implies_length_arithmetic_transitivity() {
 #[cfg(feature = "native-z3")]
 #[test]
 fn test_z3_native_true_implies_and_true_true() {
-    // Z3 native should prove True ⟹ And(True, True) trivially.
+    // Z3 native should prove True ==> And(True, True) trivially.
     assert!(implies(&Pred::True, &Pred::And(Box::new(Pred::True), Box::new(Pred::True))));
 }
 
 #[cfg(feature = "native-z3")]
 #[test]
 fn test_z3_native_length_arithmetic_transitivity() {
-    // LengthPlusOne(a, b) ∧ LengthSubOne(b, c) ⟹ LengthEq(a, c)
+    // LengthPlusOne(a, b) && LengthSubOne(b, c) ==> LengthEq(a, c)
     // Z3 can prove this via integer arithmetic: |a| = |b|+1, |b| = |c|-1
-    // → |a| = (|c|-1)+1 = |c|.
+    // -> |a| = (|c|-1)+1 = |c|.
     let p = Pred::And(
         Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
@@ -782,32 +782,32 @@ fn test_z3_native_length_eq_implies_length_le() {
 #[cfg(feature = "native-z3")]
 #[test]
 fn test_z3_native_invalid_implication() {
-    // LengthLe(a, b) does NOT imply LengthEq(a, b) — Z3 should find a
+    // LengthLe(a, b) does NOT imply LengthEq(a, b) -- Z3 should find a
     // counterexample (e.g. |a|=0, |b|=1).
     let lle = Pred::LengthLe("input".to_string(), "output".to_string());
     let leq = Pred::LengthEq("input".to_string(), "output".to_string());
-    // Z3 should say this is invalid (SAT for P ∧ ¬Q).
+    // Z3 should say this is invalid (SAT for P && !Q).
     // The full implies checker returns false only if both Z3 and toy say no.
-    // Z3 says invalid, toy says false → implies returns false.
+    // Z3 says invalid, toy says false -> implies returns false.
     assert!(!implies(&lle, &leq), "LengthLe does not imply LengthEq");
 }
 
 #[cfg(feature = "native-z3")]
 #[test]
 fn test_z3_native_length_plus_one_arithmetic() {
-    // LengthPlusOne(a, b) ⟹ LengthLe(b, a): |a| = |b|+1 ⟹ |b| <= |a|
+    // LengthPlusOne(a, b) ==> LengthLe(b, a): |a| = |b|+1 ==> |b| <= |a|
     let p = Pred::LengthPlusOne("output".to_string(), "input".to_string());
     let q = Pred::LengthLe("input".to_string(), "output".to_string());
-    assert!(implies(&p, &q), "Z3 native should prove |a|=|b|+1 ⟹ |b|<=|a|");
+    assert!(implies(&p, &q), "Z3 native should prove |a|=|b|+1 ==> |b|<=|a|");
 }
 
 #[cfg(feature = "native-z3")]
 #[test]
 fn test_z3_native_length_sub_one_arithmetic() {
-    // LengthSubOne(a, b) ⟹ LengthLe(a, b): |a| = |b|-1 ⟹ |a| <= |b|
+    // LengthSubOne(a, b) ==> LengthLe(a, b): |a| = |b|-1 ==> |a| <= |b|
     let p = Pred::LengthSubOne("output".to_string(), "input".to_string());
     let q = Pred::LengthLe("output".to_string(), "input".to_string());
-    assert!(implies(&p, &q), "Z3 native should prove |a|=|b|-1 ⟹ |a|<=|b|");
+    assert!(implies(&p, &q), "Z3 native should prove |a|=|b|-1 ==> |a|<=|b|");
 }
 
 // ============================================================================
@@ -945,9 +945,9 @@ fn test_contract_conditional_constructor() {
     // A conditional contract: guarantee Sorted(output) only when the input
     // list is already sorted.
     let c = Contract::conditional(
-        RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("α".to_string())))),
+        RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("a".to_string())))),
         RefTy::Refine(
-            BaseTy::Var("α".to_string()),
+            BaseTy::Var("a".to_string()),
             Pred::Sorted("output".to_string()),
         ),
         Pred::Sorted("input".to_string()),
@@ -982,9 +982,9 @@ fn test_conditional_contract_inference_optimistic() {
         "cond_sort",
         ArrSource::Native,
         crate::types::Contract::conditional(
-            RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("α".to_string())))),
+            RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("a".to_string())))),
             RefTy::Refine(
-                BaseTy::Var("α".to_string()),
+                BaseTy::Var("a".to_string()),
                 Pred::Sorted("output".to_string()),
             ),
             Pred::Sorted("input".to_string()), // non-trivial precondition
@@ -1006,9 +1006,9 @@ fn test_unconditional_contract_inference_uses_guarantee() {
         "uncond_sort",
         ArrSource::Native,
         crate::types::Contract::new(
-            RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("α".to_string())))),
+            RefTy::List(Box::new(RefTy::Plain(BaseTy::Var("a".to_string())))),
             RefTy::Refine(
-                BaseTy::Var("α".to_string()),
+                BaseTy::Var("a".to_string()),
                 Pred::Sorted("output".to_string()),
             ),
             Pred::Sorted("output".to_string()),
@@ -1035,7 +1035,7 @@ fn test_contract_registry_minimal_has_three_atoms() {
 #[test]
 fn test_contract_registry_minimal_atoms() {
     let reg = ContractRegistry::minimal();
-    // prim.add : (Int × Int) → Int
+    // prim.add : (Int * Int) -> Int
     let c = reg.lookup("prim.add", &ArrSource::Native);
     assert!(c.is_some(), "prim.add must be registered");
     let c = c.unwrap();
@@ -1043,13 +1043,13 @@ fn test_contract_registry_minimal_atoms() {
     assert_eq!(c.guarantee, Pred::True);
     assert_eq!(c.termination_effect, None);
 
-    // prim.compare : (α × β) → Int
+    // prim.compare : (a * b) -> Int
     let c = reg.lookup("prim.compare", &ArrSource::Native);
     assert!(c.is_some(), "prim.compare must be registered");
     let c = c.unwrap();
     assert_eq!(c.precondition, Pred::True);
 
-    // prim.alloc : Int → List α, guarantee LengthEq(output, 0)
+    // prim.alloc : Int -> List a, guarantee LengthEq(output, 0)
     let c = reg.lookup("prim.alloc", &ArrSource::Native);
     assert!(c.is_some(), "prim.alloc must be registered");
     let c = c.unwrap();
@@ -1096,8 +1096,8 @@ fn test_weakest_precondition_choice_branches_both_arms() {
 #[test]
 fn test_weakest_precondition_choice_both_arms_contribute() {
     // wp(choice(map, sort), Sorted):
-    //   wp(map, Sorted) = True  (map guarantee LengthEq doesn't imply Sorted → conservative)
-    //   wp(sort, Sorted) = True  (sort guarantee Sorted implies Sorted → precondition True)
+    //   wp(map, Sorted) = True  (map guarantee LengthEq doesn't imply Sorted -> conservative)
+    //   wp(sort, Sorted) = True  (sort guarantee Sorted implies Sorted -> precondition True)
     //   = And(True, True) = True after simplify
     //
     // With the new WP rule, both arms return True (one conservatively, one
@@ -1113,7 +1113,7 @@ fn test_weakest_precondition_choice_both_arms_contribute() {
 #[test]
 fn test_weakest_precondition_choice_id_id_is_post() {
     // wp(choice(id, id), I) = And(I, I). The toy simplify does not dedupe
-    // identical conjuncts, so the result is And(post, post) — both arms
+    // identical conjuncts, so the result is And(post, post) -- both arms
     // contribute symmetrically.
     let registry = ContractRegistry::standard();
     let post = Pred::Sorted("output".to_string());
@@ -1127,24 +1127,24 @@ fn test_weakest_precondition_choice_id_id_is_post() {
 
 #[test]
 fn test_fixpoint_choice_branching_converges() {
-    // loop(choice(id, id)) — both arms are identity, so the invariant is True.
+    // loop(choice(id, id)) -- both arms are identity, so the invariant is True.
     let registry = ContractRegistry::standard();
     let body = choice(arr("id"), arr("id"));
     let (inv, how, verified) = discover_invariant_fixpoint(&body, &registry);
     // wp(choice(id, id), True) = And(True, True), which simplifies to True,
     // so the fixpoint is True at iteration 0.
     // The toy checker now simplifies both sides before checking, so
-    // `True ⟹ And(True, True)` is recognised (both simplify to True).
+    // `True ==> And(True, True)` is recognised (both simplify to True).
     assert_eq!(inv, Pred::True);
     assert!(how.contains("fixpoint"));
-    assert!(verified, "True ⟹ And(True, True) should be verified after simplify fix");
+    assert!(verified, "True ==> And(True, True) should be verified after simplify fix");
 }
 
 #[test]
 fn test_fixpoint_choice_with_guarantee_converges() {
-    // loop(choice(sort, id)) — sort has guarantee Sorted, id is identity.
+    // loop(choice(sort, id)) -- sort has guarantee Sorted, id is identity.
     // wp(choice(sort, id), True) = And(wp(sort, True), wp(id, True))
-    //   = And(True, True) = True → fixpoint at 0.
+    //   = And(True, True) = True -> fixpoint at 0.
     let registry = ContractRegistry::standard();
     let body = choice(arr("sort"), arr("id"));
     let (inv, _how, verified) = discover_invariant_fixpoint(&body, &registry);
@@ -1161,7 +1161,7 @@ fn test_fixpoint_choice_real_iteration_trace() {
     let (inv, how, trace, verified) =
         discover_invariant_fixpoint_real(&body, &registry, &Pred::True, 20);
     // Converges to True. The toy checker now simplifies both sides before
-    // checking, so `True ⟹ And(True, True)` is recognised as valid.
+    // checking, so `True ==> And(True, True)` is recognised as valid.
     assert_eq!(inv, Pred::True);
     assert!(how.contains("converged"));
     assert!(!trace.is_empty());
@@ -1178,7 +1178,7 @@ fn test_fixpoint_choice_in_seq_with_consume() {
     let body = seq(choice(arr("append_to_output"), arr("id")), arr("consume_one"));
     let (inv, how, verified) = discover_invariant_fixpoint(&body, &registry);
     // All guarantees are True, so the fixpoint is True. The toy checker now
-    // simplifies both sides, so `True ⟹ And(True, True)` is recognised.
+    // simplifies both sides, so `True ==> And(True, True)` is recognised.
     assert_eq!(inv, Pred::True);
     assert!(how.contains("fixpoint"));
     assert!(verified, "invariant should be verified after simplify fix");
@@ -1194,50 +1194,50 @@ fn test_fixpoint_choice_in_seq_with_consume() {
 
 #[test]
 fn test_implies_length_plus_one_and_sub_one_cancellation() {
-    // LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)
-    // |a| = |b| + 1, |b| = |c| - 1  →  |a| = |c|
+    // LengthPlusOne(a,b) && LengthSubOne(b,c) ==> LengthEq(a,c)
+    // |a| = |b| + 1, |b| = |c| - 1  ->  |a| = |c|
     let p = Pred::And(
         Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
     );
     let q = Pred::LengthEq("a".to_string(), "c".to_string());
-    assert!(implies(&p, &q), "LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)");
+    assert!(implies(&p, &q), "LengthPlusOne(a,b) && LengthSubOne(b,c) ==> LengthEq(a,c)");
 }
 
 #[test]
 fn test_implies_length_sub_one_and_plus_one_cancellation() {
-    // LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)
-    // |a| = |b| - 1, |b| = |c| + 1  →  |a| = |c|
+    // LengthSubOne(a,b) && LengthPlusOne(b,c) ==> LengthEq(a,c)
+    // |a| = |b| - 1, |b| = |c| + 1  ->  |a| = |c|
     let p = Pred::And(
         Box::new(Pred::LengthSubOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthPlusOne("b".to_string(), "c".to_string())),
     );
     let q = Pred::LengthEq("a".to_string(), "c".to_string());
-    assert!(implies(&p, &q), "LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)");
+    assert!(implies(&p, &q), "LengthSubOne(a,b) && LengthPlusOne(b,c) ==> LengthEq(a,c)");
 }
 
 #[test]
 fn test_implies_length_eq_transitivity() {
-    // LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)
+    // LengthEq(a,b) && LengthEq(b,c) ==> LengthEq(a,c)
     let p = Pred::And(
         Box::new(Pred::LengthEq("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthEq("b".to_string(), "c".to_string())),
     );
     let q = Pred::LengthEq("a".to_string(), "c".to_string());
-    assert!(implies(&p, &q), "LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)");
+    assert!(implies(&p, &q), "LengthEq(a,b) && LengthEq(b,c) ==> LengthEq(a,c)");
 }
 
 #[test]
 fn test_implies_length_eq_symmetry() {
-    // LengthEq(a,b) ⟹ LengthEq(b,a)
+    // LengthEq(a,b) ==> LengthEq(b,a)
     let p = Pred::LengthEq("a".to_string(), "b".to_string());
     let q = Pred::LengthEq("b".to_string(), "a".to_string());
-    assert!(implies(&p, &q), "LengthEq(a,b) ⟹ LengthEq(b,a)");
+    assert!(implies(&p, &q), "LengthEq(a,b) ==> LengthEq(b,a)");
 }
 
 #[test]
 fn test_implies_length_eq_chain_three() {
-    // LengthEq(a,b) ∧ LengthEq(b,c) ∧ LengthEq(c,d) ⟹ LengthEq(a,d)
+    // LengthEq(a,b) && LengthEq(b,c) && LengthEq(c,d) ==> LengthEq(a,d)
     let p = Pred::And(
         Box::new(Pred::And(
             Box::new(Pred::LengthEq("a".to_string(), "b".to_string())),
@@ -1246,12 +1246,12 @@ fn test_implies_length_eq_chain_three() {
         Box::new(Pred::LengthEq("c".to_string(), "d".to_string())),
     );
     let q = Pred::LengthEq("a".to_string(), "d".to_string());
-    assert!(implies(&p, &q), "LengthEq chain of 3 ⟹ LengthEq(a,d)");
+    assert!(implies(&p, &q), "LengthEq chain of 3 ==> LengthEq(a,d)");
 }
 
 #[test]
 fn test_implies_length_plus_one_implies_length_le_via_arithmetic() {
-    // LengthPlusOne(a,b) ⟹ LengthLe(b,a)  (|a| = |b|+1 ⟹ |b| <= |a|)
+    // LengthPlusOne(a,b) ==> LengthLe(b,a)  (|a| = |b|+1 ==> |b| <= |a|)
     // Already handled by toy_implies directly, but verify arithmetic path too.
     let p = Pred::LengthPlusOne("a".to_string(), "b".to_string());
     let q = Pred::LengthLe("b".to_string(), "a".to_string());
@@ -1260,21 +1260,21 @@ fn test_implies_length_plus_one_implies_length_le_via_arithmetic() {
 
 #[test]
 fn test_implies_length_plus_one_transitivity_to_length_le() {
-    // LengthPlusOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthLe(a,c)
-    // |a| = |b|+1, |b| = |c|+1  →  |a| = |c|+2  →  |c| <= |a| and |a| > |c|
+    // LengthPlusOne(a,b) && LengthPlusOne(b,c) ==> LengthLe(a,c)
+    // |a| = |b|+1, |b| = |c|+1  ->  |a| = |c|+2  ->  |c| <= |a| and |a| > |c|
     // So LengthLe(c, a) holds, but LengthLe(a, c) does NOT.
     let p = Pred::And(
         Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthPlusOne("b".to_string(), "c".to_string())),
     );
     let q = Pred::LengthLe("c".to_string(), "a".to_string());
-    assert!(implies(&p, &q), "two LengthPlusOne ⟹ LengthLe(c, a)");
+    assert!(implies(&p, &q), "two LengthPlusOne ==> LengthLe(c, a)");
 }
 
 #[test]
 fn test_simplify_with_arithmetic_derives_length_eq() {
     // Direct unit test: simplify_with_arithmetic should derive LengthEq(a,c)
-    // from LengthPlusOne(a,b) ∧ LengthSubOne(b,c).
+    // from LengthPlusOne(a,b) && LengthSubOne(b,c).
     let p = Pred::And(
         Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
@@ -1311,13 +1311,13 @@ fn test_simplify_with_arithmetic_preserves_non_arithmetic() {
 
 #[test]
 fn test_implies_length_sub_one_chain_to_length_le() {
-    // LengthSubOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthLe(a,c)
-    // |a| = |b|-1, |b| = |c|-1  →  |a| = |c|-2  →  |a| <= |c|
+    // LengthSubOne(a,b) && LengthSubOne(b,c) ==> LengthLe(a,c)
+    // |a| = |b|-1, |b| = |c|-1  ->  |a| = |c|-2  ->  |a| <= |c|
     let p = Pred::And(
         Box::new(Pred::LengthSubOne("a".to_string(), "b".to_string())),
         Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
     );
     let q = Pred::LengthLe("a".to_string(), "c".to_string());
-    assert!(implies(&p, &q), "two LengthSubOne ⟹ LengthLe(a, c)");
+    assert!(implies(&p, &q), "two LengthSubOne ==> LengthLe(a, c)");
 }
 

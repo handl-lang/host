@@ -4,7 +4,7 @@
 //! - Backtracking parser atoms are registered in both `minimal()` and `from_axioms()`
 //! - The backtrack.hnl arrow file parses to the correct Scheme IR
 //! - Inference succeeds on the backtracking parser graph
-//! - The inferred guarantee includes IsSuccess ∨ IsError (the parser always
+//! - The inferred guarantee includes IsSuccess || IsError (the parser always
 //!   produces a valid Result)
 //! - The Choice branching mechanism conjoins both arms' guarantees correctly
 //! - End-to-end load and infer from disk works
@@ -28,14 +28,14 @@ const BACKTRACK_HNL: &str =
 /// Build the backtracking parser arrow graph as a Scheme:
 ///   backtrack = parse.try_atom >>> (parse.extract_success ||| (parse.extract_error >>> parse.try_op))
 ///
-/// - parse.try_atom : TokenList → Result (IsSuccess ∨ IsError)
+/// - parse.try_atom : TokenList -> Result (IsSuccess || IsError)
 /// - parse.extract_success ||| (parse.extract_error >>> parse.try_op):
-///   - inl(success) → extract_success → AST
-///   - inr(error)   → extract_error → parse.try_op → Result
+///   - inl(success) -> extract_success -> AST
+///   - inr(error)   -> extract_error -> parse.try_op -> Result
 ///
 /// The inference engine conjoins both Choice arms' guarantees.
 fn backtrack_graph() -> Scheme {
-    // extract_error → parse.try_op
+    // extract_error -> parse.try_op
     let retry = Scheme::Seq {
         fst: Box::new(Scheme::arr_native("parse.extract_error", vec![])),
         snd: Box::new(Scheme::arr_native("parse.try_op", vec![])),
@@ -164,7 +164,7 @@ fn test_backtrack_hnl_parses() {
 }
 
 // ============================================================================
-// 4. Inference succeeds and produces IsSuccess ∨ IsError
+// 4. Inference succeeds and produces IsSuccess || IsError
 // ============================================================================
 
 #[test]
@@ -225,7 +225,7 @@ fn test_choice_conjoins_backtrack_arms() {
     println!("choice part guarantee: {}", pretty);
 
     // extract_success has guarantee True, try_op has Or(IsSuccess, IsError).
-    // Choice conjoins: True ∧ Or(IsSuccess, IsError) = Or(IsSuccess, IsError).
+    // Choice conjoins: True && Or(IsSuccess, IsError) = Or(IsSuccess, IsError).
     assert!(
         pretty.contains("IsSuccess"),
         "choice guarantee should contain IsSuccess from try_op: {}",
@@ -306,7 +306,7 @@ fn test_is_error_reflexivity_toy_implies() {
 
 #[test]
 fn test_is_success_implies_or_with_success() {
-    // IsSuccess(x) ⟹ IsSuccess(x) ∨ IsError(x)
+    // IsSuccess(x) ==> IsSuccess(x) || IsError(x)
     let p = Pred::IsSuccess("output".to_string());
     let q = Pred::Or(
         Box::new(Pred::IsSuccess("output".to_string())),
@@ -314,13 +314,13 @@ fn test_is_success_implies_or_with_success() {
     );
     assert!(
         crate::smt::toy_implies(&p, &q),
-        "IsSuccess ⟹ Or(IsSuccess, IsError) should hold"
+        "IsSuccess ==> Or(IsSuccess, IsError) should hold"
     );
 }
 
 #[test]
 fn test_is_error_implies_or_with_error() {
-    // IsError(x) ⟹ IsSuccess(x) ∨ IsError(x)
+    // IsError(x) ==> IsSuccess(x) || IsError(x)
     let p = Pred::IsError("output".to_string());
     let q = Pred::Or(
         Box::new(Pred::IsSuccess("output".to_string())),
@@ -328,6 +328,6 @@ fn test_is_error_implies_or_with_error() {
     );
     assert!(
         crate::smt::toy_implies(&p, &q),
-        "IsError ⟹ Or(IsSuccess, IsError) should hold"
+        "IsError ==> Or(IsSuccess, IsError) should hold"
     );
 }

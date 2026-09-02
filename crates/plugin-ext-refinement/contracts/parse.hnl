@@ -1,48 +1,53 @@
 // Atoms for token-based parsing.
 //
 // These model the primitive operations of a Pratt parser (top-down
-// operator-precedence parser). The key atom is parse.consume, which
-// removes one token from the token list — its LengthSubOne guarantee
+// operator-precedence parser).  The key atom is parse.consume, which
+// removes one token from the token list -- its LengthSubOne guarantee
 // and decrements_length termination effect let the inference engine
 // derive that the parser consumes tokens and terminates.
 
-axiom parse.peek : TokenList → Token
+// -- Token inspection ------------------------------------------------
+
+axiom parse.peek : TokenList -> Token
   guarantee: True
 
-axiom parse.consume : TokenList → TokenList
-  guarantee: LengthSubOne(output, input)
+axiom parse.is_op : Token -> Bool
+  guarantee: True
+
+axiom parse.prec : Token -> Int
+  guarantee: True
+
+// -- Token consumption & AST construction ----------------------------
+
+axiom parse.consume : TokenList -> TokenList
+  guarantee:  LengthSubOne(output, input)
   termination: decrements_length
 
-axiom parse.is_op : Token → Bool
+axiom parse.make_node : (Token * (AST * AST)) -> AST
   guarantee: True
 
-axiom parse.prec : Token → Int
+axiom parse.atom_value : Token -> AST
   guarantee: True
 
-axiom parse.make_node : (Token × (AST × AST)) → AST
-  guarantee: True
-
-axiom parse.atom_value : Token → AST
-  guarantee: True
-
-// Backtracking parser atoms — Result-type modeling (ADR-0071).
+// -- Backtracking atoms (Result-type modeling, ADR-0071) -------------
+//
 // These model backtracking via sum types (Result AST + Error) using
-// existing Choice/left machinery. No new calculus primitives.
+// existing Choice / left machinery.  No new calculus primitives.
 
-axiom parse.try_atom : TokenList → Result
-  guarantee: IsSuccess(output) ∨ IsError(output)
+axiom parse.try_atom : TokenList -> Result
+  guarantee: IsSuccess(output) || IsError(output)
 
-axiom parse.try_op : TokenList → Result
-  guarantee: IsSuccess(output) ∨ IsError(output)
+axiom parse.try_op : TokenList -> Result
+  guarantee: IsSuccess(output) || IsError(output)
 
-axiom parse.extract_success : Result → AST
+axiom parse.extract_success : Result -> AST
   guarantee: True
 
-axiom parse.extract_error : Result → TokenList
+axiom parse.extract_error : Result -> TokenList
   guarantee: True
 
-axiom parse.succeed : AST → Result
+axiom parse.succeed : AST -> Result
   guarantee: IsSuccess(output)
 
-axiom parse.fail : TokenList → Result
+axiom parse.fail : TokenList -> Result
   guarantee: IsError(output)

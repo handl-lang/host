@@ -4,19 +4,19 @@
 //! `analyze_loop_termination`, and `analyze_comp_loop_termination` functions,
 //! adapted to operate over handl's `Scheme` IR.
 //!
-//! The `Loop` combinator `loop G : A ~> B` where `G : A×C ~> B×C` repeatedly
+//! The `Loop` combinator `loop G : A ~> B` where `G : A*C ~> B*C` repeatedly
 //! applies `G`, threading `C` through as feedback. Termination requires that
 //! `C` has a well-founded measure that decreases each iteration.
 //!
 //! Cases handled:
-//! 1. Side-channel loop (`loop(first(G))`) — C unchanged → NOT GUARANTEED
-//! 2. List-consuming loop (`loop(seq(process, consume_one))`) — |C| decreases → GUARANTEED
-//! 3. Counter loop (`loop(seq(step, decrement))`) — C decreases → GUARANTEED
-//! 4. Fixed-point loop (`loop(seq(f, id))`) — no decreasing measure → NOT GUARANTEED
-//! 5. Nested loop (`loop(seq(loop(inner), first(id)))`) — depends on inner
-//! 6. Nested loop with non-terminating inner — NOT GUARANTEED
-//! 7. Map (no loop) — direct termination
-//! 8. Sort via loop (`loop(seq(insert, remove_one))`) — |C| decreases → GUARANTEED
+//! 1. Side-channel loop (`loop(first(G))`) -- C unchanged -> NOT GUARANTEED
+//! 2. List-consuming loop (`loop(seq(process, consume_one))`) -- |C| decreases -> GUARANTEED
+//! 3. Counter loop (`loop(seq(step, decrement))`) -- C decreases -> GUARANTEED
+//! 4. Fixed-point loop (`loop(seq(f, id))`) -- no decreasing measure -> NOT GUARANTEED
+//! 5. Nested loop (`loop(seq(loop(inner), first(id)))`) -- depends on inner
+//! 6. Nested loop with non-terminating inner -- NOT GUARANTEED
+//! 7. Map (no loop) -- direct termination
+//! 8. Sort via loop (`loop(seq(insert, remove_one))`) -- |C| decreases -> GUARANTEED
 
 use crate::contracts::ContractRegistry;
 use crate::types::Measure;
@@ -56,9 +56,9 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
                 Measure::None
             };
             let reason = if terminates {
-                format!("composition terminates ({} ∧ {})", tg.reason, th.reason)
+                format!("composition terminates ({} && {})", tg.reason, th.reason)
             } else {
-                format!("composition may not terminate ({} ∨ {})", tg.reason, th.reason)
+                format!("composition may not terminate ({} || {})", tg.reason, th.reason)
             };
             TerminationResult {
                 terminates,
@@ -73,7 +73,7 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
             TerminationResult {
                 terminates: ti.terminates,
                 measure: Measure::None,
-                reason: format!("first — {}", ti.reason),
+                reason: format!("first -- {}", ti.reason),
             }
         }
 
@@ -84,7 +84,7 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
             TerminationResult {
                 terminates: tl.terminates && tr.terminates,
                 measure: Measure::None,
-                reason: format!("choice — {} ∧ {}", tl.reason, tr.reason),
+                reason: format!("choice -- {} && {}", tl.reason, tr.reason),
             }
         }
 
@@ -95,10 +95,10 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
                 terminates: true,
                 measure: Measure::None,
                 reason: if known {
-                    format!("base arrow {} — direct termination (no loop)", op)
+                    format!("base arrow {} -- direct termination (no loop)", op)
                 } else {
                     format!(
-                        "base arrow {} (unknown) — assumed direct termination",
+                        "base arrow {} (unknown) -- assumed direct termination",
                         op
                     )
                 },
@@ -108,23 +108,23 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
         Scheme::App { .. } => TerminationResult {
             terminates: true,
             measure: Measure::None,
-            reason: "app — direct termination (no loop)".to_string(),
+            reason: "app -- direct termination (no loop)".to_string(),
         },
     }
 }
 
 /// Analyze termination of a `loop G` by discovering a decreasing measure on
-/// the feedback channel `C`. The body `G` has type `A×C ~> B×C`; we examine
+/// the feedback channel `C`. The body `G` has type `A*C ~> B*C`; we examine
 /// `G`'s structure to find what it does to `C`.
 fn analyze_loop_termination(body: &Scheme, registry: &ContractRegistry) -> TerminationResult {
     match body {
         // --- Case 1: Side-channel loop ---
         // loop(first(G)): G only touches A, C passes through unchanged.
-        // Measure = constant → does not decrease → NOT GUARANTEED.
+        // Measure = constant -> does not decrease -> NOT GUARANTEED.
         Scheme::First { inner } => {
             let inner_term = analyze_termination(inner, registry);
             TerminationResult {
-                terminates: false, // C unchanged → no decreasing measure
+                terminates: false, // C unchanged -> no decreasing measure
                 measure: Measure::Constant,
                 reason: format!(
                     "side-channel: C unchanged by first, no decreasing measure on C{}",
@@ -169,7 +169,7 @@ fn analyze_loop_termination(body: &Scheme, registry: &ContractRegistry) -> Termi
                         terminates: false,
                         measure: Measure::None,
                         reason: format!(
-                            "arrow {} has no termination effect — no decreasing measure",
+                            "arrow {} has no termination effect -- no decreasing measure",
                             op
                         ),
                     }
@@ -178,7 +178,7 @@ fn analyze_loop_termination(body: &Scheme, registry: &ContractRegistry) -> Termi
                 TerminationResult {
                     terminates: false,
                     measure: Measure::None,
-                    reason: format!("unknown arrow {} — no decreasing measure found", op),
+                    reason: format!("unknown arrow {} -- no decreasing measure found", op),
                 }
             }
         }
@@ -207,7 +207,7 @@ fn analyze_comp_loop_termination(
     registry: &ContractRegistry,
 ) -> TerminationResult {
     match right {
-        // right is arr(id): seq(G, id) — id leaves C unchanged. The decrease
+        // right is arr(id): seq(G, id) -- id leaves C unchanged. The decrease
         // (if any) must come from `left`. So recurse into left as the loop body.
         // This is the "fixed-point / accumulator" pattern.
         // Note: id is encoded as Scheme::Arr { op: "id", ... }
@@ -218,7 +218,7 @@ fn analyze_comp_loop_termination(
                 terminates: left_result.terminates,
                 measure: left_result.measure,
                 reason: format!(
-                    "seq(_, id): id leaves C unchanged — {}",
+                    "seq(_, id): id leaves C unchanged -- {}",
                     left_result.reason
                 ),
             }
@@ -245,7 +245,7 @@ fn analyze_comp_loop_termination(
                         terminates: false,
                         measure: Measure::None,
                         reason: format!(
-                            "arrow {} has no termination effect — no decreasing measure",
+                            "arrow {} has no termination effect -- no decreasing measure",
                             op
                         ),
                     }
@@ -254,13 +254,13 @@ fn analyze_comp_loop_termination(
                 TerminationResult {
                     terminates: false,
                     measure: Measure::None,
-                    reason: format!("unknown arrow {} — no decreasing measure found", op),
+                    reason: format!("unknown arrow {} -- no decreasing measure found", op),
                 }
             }
         }
 
-        // right is first(inner): seq(G, first(H)) — first threads C through.
-        // C is unchanged by first → side-channel on C. The decrease (if any)
+        // right is first(inner): seq(G, first(H)) -- first threads C through.
+        // C is unchanged by first -> side-channel on C. The decrease (if any)
         // must come from `left`. We check both the loop-termination analysis
         // of `left` and a structural scan for any consuming arrow (e.g.
         // fold_step with `decrements_length`) buried inside `left`.
@@ -306,7 +306,7 @@ fn analyze_comp_loop_termination(
                 terminates,
                 measure: Measure::Nested(Box::new(inner_result.measure.clone())),
                 reason: format!(
-                    "seq(_, loop): inner loop {} — {}",
+                    "seq(_, loop): inner loop {} -- {}",
                     if inner_result.terminates {
                         "terminates"
                     } else {
@@ -331,7 +331,7 @@ fn analyze_comp_loop_termination(
                 (
                     inner.terminates && left_term.terminates,
                     inner.measure,
-                    format!("seq(_, seq(_, _)): right composition — {}", inner.reason),
+                    format!("seq(_, seq(_, _)): right composition -- {}", inner.reason),
                 )
             } else if let Some((m, why)) = find_decreasing_measure_in(right, registry) {
                 let t = left_term.terminates;
@@ -339,7 +339,7 @@ fn analyze_comp_loop_termination(
                     t,
                     m,
                     format!(
-                        "seq(_, seq(_, _)): decreasing measure found in right side — {}",
+                        "seq(_, seq(_, _)): decreasing measure found in right side -- {}",
                         why
                     ),
                 )
@@ -347,7 +347,7 @@ fn analyze_comp_loop_termination(
                 (
                     false,
                     inner.measure,
-                    format!("seq(_, seq(_, _)): right composition — {}", inner.reason),
+                    format!("seq(_, seq(_, _)): right composition -- {}", inner.reason),
                 )
             };
             TerminationResult {
@@ -369,7 +369,7 @@ fn analyze_comp_loop_termination(
                     terminates: left_term.terminates,
                     measure: m,
                     reason: format!(
-                        "seq(_, choice): choice alone does not decrease C, but a consuming arrow was found — {}",
+                        "seq(_, choice): choice alone does not decrease C, but a consuming arrow was found -- {}",
                         why
                     ),
                 }

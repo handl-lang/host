@@ -2,15 +2,15 @@
 //!
 //! The implication checker delegates to Z3 (an industrial SMT solver) for
 //! genuine validity checking, using the native `z3` Rust crate (with Z3
-//! statically linked via the `static-link-z3` feature — no system library or
+//! statically linked via the `static-link-z3` feature -- no system library or
 //! Python subprocess required). Predicates are translated directly into Z3
 //! ASTs and the validity query is encoded as a satisfiability check of the
-//! negation: `P ⟹ Q` is VALID iff `(P ∧ ¬Q)` is UNSAT.
+//! negation: `P ==> Q` is VALID iff `(P && !Q)` is UNSAT.
 //!
 //! Arithmetic refinements (`LengthEq`, `LengthLe`) are encoded with real Int
 //! arithmetic, so Z3 performs genuine linear-integer reasoning. Custom
 //! refinements (`Sorted`, `AllSatisfy`, `Forall`) are encoded as distinct
-//! Boolean atoms — one per ground predicate — which is sound: Z3 only reports
+//! Boolean atoms -- one per ground predicate -- which is sound: Z3 only reports
 //! UNSAT (valid) when the implication holds for *every* interpretation of those
 //! atoms, and never proves a false implication by conflating two distinct
 //! predicates.
@@ -36,9 +36,9 @@ use z3::{Config, Context, SatResult, Solver};
 /// Detailed outcome of a Z3 validity query, for reporting purposes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Z3Verdict {
-    /// `(P ∧ ¬Q)` is UNSAT → `P ⟹ Q` is VALID.
+    /// `(P && !Q)` is UNSAT -> `P ==> Q` is VALID.
     Valid,
-    /// `(P ∧ ¬Q)` is SAT → a counterexample exists, `P ⟹ Q` is INVALID.
+    /// `(P && !Q)` is SAT -> a counterexample exists, `P ==> Q` is INVALID.
     Invalid,
     /// Z3 returned `unknown`, or the subprocess could not be run.
     Unknown,
@@ -48,7 +48,7 @@ pub enum Z3Verdict {
 // Main verdict dispatcher
 // ============================================================================
 
-/// Run Z3 on the query "is `(P ∧ ¬Q)` satisfiable?" and classify the result.
+/// Run Z3 on the query "is `(P && !Q)` satisfiable?" and classify the result.
 ///
 /// Primary path: native Z3 Rust bindings (statically linked) via
 /// [`z3_implies_native`]. If native Z3 returns `None` (unknown), falls back
@@ -73,7 +73,7 @@ pub fn z3_verdict(p: &Pred, q: &Pred) -> Z3Verdict {
 // ============================================================================
 
 /// Native Z3 implication check: translate predicates to Z3 ASTs and check
-/// whether `(P ∧ ¬Q)` is UNSAT (meaning `P ⟹ Q` is valid).
+/// whether `(P && !Q)` is UNSAT (meaning `P ==> Q` is valid).
 ///
 /// Returns `Some(true)` if the implication is valid (UNSAT), `Some(false)`
 /// if a counterexample exists (SAT), and `None` if Z3 returns `unknown`.
@@ -97,7 +97,7 @@ fn z3_implies_native(p: &Pred, q: &Pred) -> Option<bool> {
 
     let p_z3 = pred_to_z3(&ctx, p);
     let q_z3 = pred_to_z3(&ctx, q);
-    // P ⟹ Q is valid  iff  (P ∧ ¬Q) is UNSAT.
+    // P ==> Q is valid  iff  (P && !Q) is UNSAT.
     solver.assert(&p_z3.and(&[&q_z3.not()]));
 
     match solver.check() {
@@ -118,7 +118,7 @@ fn z3_implies_native(_p: &Pred, _q: &Pred) -> Option<bool> {
 ///
 /// Arithmetic predicates (`LengthEq`/`LengthLe`) become real integer
 /// constraints over per-variable length constants. Custom predicates
-/// (`Sorted`/`AllSatisfy`/`Forall`) become distinct Boolean atoms — each
+/// (`Sorted`/`AllSatisfy`/`Forall`) become distinct Boolean atoms -- each
 /// ground predicate gets a unique symbol (e.g. `|sorted_output|`), so Z3
 /// reasons about them as independent propositional variables.
 #[cfg(feature = "native-z3")]
@@ -281,7 +281,7 @@ fn z3_verdict_subprocess(p: &Pred, q: &Pred) -> Z3Verdict {
 // Public API
 // ============================================================================
 
-/// Check if `P ⟹ Q` is VALID using Z3.
+/// Check if `P ==> Q` is VALID using Z3.
 /// Returns `true` if VALID, `false` if UNKNOWN/INVALID.
 /// Uses native Z3 Rust bindings (with a subprocess fallback).
 pub fn z3_implies(p: &Pred, q: &Pred) -> bool {
@@ -292,7 +292,7 @@ pub fn z3_implies(p: &Pred, q: &Pred) -> bool {
 ///
 /// Arithmetic predicates (`LengthEq`/`LengthLe`) become real integer
 /// constraints. Custom predicates (`Sorted`/`AllSatisfy`/`Forall`) become
-/// distinct Boolean atoms — each ground predicate gets a unique symbol
+/// distinct Boolean atoms -- each ground predicate gets a unique symbol
 /// (e.g. `|sorted_output|`), so Z3 reasons about them as independent
 /// propositional variables.
 pub fn pred_to_smt(p: &Pred) -> String {
@@ -325,8 +325,8 @@ pub fn pred_to_smt(p: &Pred) -> String {
 /// decided the query and why.
 pub fn implies_with_report(p: &Pred, q: &Pred) -> (bool, String) {
     match z3_verdict(p, q) {
-        Z3Verdict::Valid => (true, "Z3: unsat — P ⟹ Q is valid".to_string()),
-        Z3Verdict::Invalid => (false, "Z3: sat — counterexample exists".to_string()),
+        Z3Verdict::Valid => (true, "Z3: unsat -- P ==> Q is valid".to_string()),
+        Z3Verdict::Invalid => (false, "Z3: sat -- counterexample exists".to_string()),
         Z3Verdict::Unknown => {
             let r = toy_implies(p, q);
             let report = if r {
@@ -347,15 +347,15 @@ pub fn implies_with_report(p: &Pred, q: &Pred) -> (bool, String) {
 /// `LengthLe` facts from length-arithmetic relationships (transitivity and
 /// cancellation of `LengthEq`, `LengthPlusOne`, `LengthSubOne`). This lets the
 /// structural toy checker prove implications such as
-/// `LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)` that it otherwise
+/// `LengthPlusOne(a,b) && LengthSubOne(b,c) ==> LengthEq(a,c)` that it otherwise
 /// could not. The strengthening is sound: every derived fact is a logical
-/// consequence of `p`, so `p ∧ derived ≡ p` and no false implication is ever
+/// consequence of `p`, so `p && derived == p` and no false implication is ever
 /// proved.
 pub fn implies(p: &Pred, q: &Pred) -> bool {
     if z3_implies(p, q) {
         true
     } else {
-        // Z3 said invalid or unknown — strengthen p with length-arithmetic
+        // Z3 said invalid or unknown -- strengthen p with length-arithmetic
         // reasoning, then fall back to the conservative toy checker.
         let p_strong = simplify_with_arithmetic(p);
         toy_implies(&p_strong, q)
@@ -371,19 +371,19 @@ pub fn implies(p: &Pred, q: &Pred) -> bool {
 /// Collects every `LengthEq`, `LengthPlusOne`, and `LengthSubOne` fact in `pred`
 /// (flattening conjunctions), builds a union-find of length relationships with
 /// offsets, and derives all entailed `LengthEq` (equal offset) and `LengthLe`
-/// (strictly smaller offset) facts. The result is `pred ∧ derived`, simplified.
+/// (strictly smaller offset) facts. The result is `pred && derived`, simplified.
 ///
 /// This is sound: every derived fact is a logical consequence of the input
-/// facts, so `pred ∧ derived ≡ pred`. It only makes the premise *structurally
+/// facts, so `pred && derived == pred`. It only makes the premise *structurally
 /// richer*, enabling the conservative toy checker to prove implications it
 /// otherwise could not (e.g. transitivity and cancellation of length
 /// relations).
 ///
 /// Examples handled:
-/// - `LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)` (transitivity)
-/// - `LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)` (cancellation)
-/// - `LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)` (cancellation)
-/// - `LengthEq(a,b) ⟹ LengthEq(b,a)` (symmetry)
+/// - `LengthEq(a,b) && LengthEq(b,c) ==> LengthEq(a,c)` (transitivity)
+/// - `LengthPlusOne(a,b) && LengthSubOne(b,c) ==> LengthEq(a,c)` (cancellation)
+/// - `LengthSubOne(a,b) && LengthPlusOne(b,c) ==> LengthEq(a,c)` (cancellation)
+/// - `LengthEq(a,b) ==> LengthEq(b,a)` (symmetry)
 pub fn simplify_with_arithmetic(pred: &Pred) -> Pred {
     // Collect length-arithmetic facts (flattening And).
     let mut facts: Vec<Pred> = Vec::new();
@@ -395,9 +395,9 @@ pub fn simplify_with_arithmetic(pred: &Pred) -> Pred {
     for f in &facts {
         match f {
             Pred::LengthEq(a, b) => graph.union(a, b, 0),
-            // |a| = |b| + 1  →  |a| - |b| = 1
+            // |a| = |b| + 1  ->  |a| - |b| = 1
             Pred::LengthPlusOne(a, b) => graph.union(a, b, 1),
-            // |a| = |b| - 1  →  |a| - |b| = -1
+            // |a| = |b| - 1  ->  |a| - |b| = -1
             Pred::LengthSubOne(a, b) => graph.union(a, b, -1),
             _ => {}
         }
@@ -420,7 +420,7 @@ pub fn simplify_with_arithmetic(pred: &Pred) -> Pred {
     // Derive new LengthEq / LengthLe facts for every pair in the same
     // equivalence class. Skip facts already present in `pred` (dedup via the
     // collected facts set) to avoid needless blow-up; `simplify` will also
-    // dedup And(x, x) → x.
+    // dedup And(x, x) -> x.
     let existing: Vec<Pred> = facts.clone();
     let mut derived: Vec<Pred> = Vec::new();
     for i in 0..entries.len() {
@@ -560,11 +560,11 @@ impl LenGraph {
         if ra == rb {
             // Already in the same class; the relationship is either consistent
             // (oa - ob == delta) or redundant. We do not detect contradictions
-            // here — the input is assumed consistent.
+            // here -- the input is assumed consistent.
             return;
         }
-        // |a| = |b| + delta  →  |ra| + oa = |rb| + ob + delta
-        //                  →  |ra| = |rb| + (ob + delta - oa)
+        // |a| = |b| + delta  ->  |ra| + oa = |rb| + ob + delta
+        //                  ->  |ra| = |rb| + (ob + delta - oa)
         // Attach ra under rb with offset (ob + delta - oa).
         self.parent.insert(ra.clone(), rb.clone());
         self.offset.insert(ra, ob + delta - oa);
@@ -585,7 +585,7 @@ impl LenGraph {
 /// Both `p` and `q` are simplified before checking. This is essential for
 /// fixpoint convergence detection when Z3 is not available: without
 /// simplification, `And(True, True)` is structurally distinct from `True`,
-/// so the checker cannot determine that `True ⟹ And(True, True)`, and the
+/// so the checker cannot determine that `True ==> And(True, True)`, and the
 /// fixpoint never converges.
 pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
     // Simplify both sides first. This ensures that And(True, True) collapses
@@ -594,10 +594,10 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
     let p = p.simplify();
     let q = q.simplify();
 
-    // Reflexivity first — handles all equal predicates, including
-    // And(a,b) ⟹ And(a,b) which the decomposition arms below would
+    // Reflexivity first -- handles all equal predicates, including
+    // And(a,b) ==> And(a,b) which the decomposition arms below would
     // otherwise mishandle. After simplification, this also catches
-    // True ⟹ And(True, True) (both simplify to True).
+    // True ==> And(True, True) (both simplify to True).
     if p == q {
         return true;
     }
@@ -610,11 +610,11 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         // False implies anything (ex falso)
         (Pred::False, _) => true,
         // Both sides are conjunctions: try both decompositions.
-        // And(a,b) ⟹ And(c,d) iff either a conjunct of p implies q,
+        // And(a,b) ==> And(c,d) iff either a conjunct of p implies q,
         // OR p implies both conjuncts of q. The first decomposition
         // (And-on-left) is tried first for short-circuit efficiency;
         // the second (And-on-right) catches cases like
-        // And(X,Y) ⟹ And(And(X,Y), And(X,Y)) where neither X nor Y
+        // And(X,Y) ==> And(And(X,Y), And(X,Y)) where neither X nor Y
         // alone implies the full conjunction but the whole does.
         (Pred::And(a, b), Pred::And(c, d)) => {
             toy_implies(a, &q)
@@ -629,20 +629,20 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         (_, Pred::Or(a, b)) => toy_implies(&p, a) || toy_implies(&p, b),
         // Disjunction on the left: need both to imply q
         (Pred::Or(a, b), _) => toy_implies(a, &q) && toy_implies(b, &q),
-        // Implication on the right: P ⟹ (A ⟹ B) means (P ∧ A) ⟹ B
+        // Implication on the right: P ==> (A ==> B) means (P && A) ==> B
         (_, Pred::Implies(a, b)) => {
             toy_implies(&Pred::And(Box::new(p.clone()), a.clone()), b)
         }
-        // Implication on the left: (A ⟹ B) ⟹ Q means (¬A ∨ B) ⟹ Q,
-        // conservatively: if B ⟹ Q
+        // Implication on the left: (A ==> B) ==> Q means (!A || B) ==> Q,
+        // conservatively: if B ==> Q
         (Pred::Implies(_, b), _) => toy_implies(b, &q),
-        // Sorted(x) ⟹ Sorted(x)
+        // Sorted(x) ==> Sorted(x)
         (Pred::Sorted(x), Pred::Sorted(y)) if x == y => true,
-        // LengthEq(a,b) ⟹ LengthLe(a,b)
+        // LengthEq(a,b) ==> LengthLe(a,b)
         (Pred::LengthEq(a, b), Pred::LengthLe(c, d)) if a == c && b == d => true,
-        // LengthEq(a,b) ⟹ LengthLe(b,a) (symmetry)
+        // LengthEq(a,b) ==> LengthLe(b,a) (symmetry)
         (Pred::LengthEq(a, b), Pred::LengthLe(c, d)) if a == d && b == c => true,
-        // LengthEq(a,b) ⟹ LengthEq(a,b)
+        // LengthEq(a,b) ==> LengthEq(a,b)
         (Pred::LengthEq(a, b), Pred::LengthEq(c, d)) if a == c && b == d => true,
         // AllSatisfy reflexivity
         (Pred::AllSatisfy(l1, p1), Pred::AllSatisfy(l2, p2)) if l1 == l2 && p1 == p2 => true,
@@ -666,17 +666,17 @@ pub fn toy_implies(p: &Pred, q: &Pred) -> bool {
         (Pred::IsSuccess(a), Pred::IsSuccess(b)) if a == b => true,
         // IsError reflexivity
         (Pred::IsError(a), Pred::IsError(b)) if a == b => true,
-        // IsSuccess(x) ⟹ IsSuccess(x) ∨ anything
+        // IsSuccess(x) ==> IsSuccess(x) || anything
         (Pred::IsSuccess(a), Pred::Or(l, r))
             if matches!(l.as_ref(), Pred::IsSuccess(b) if a == b)
                || matches!(r.as_ref(), Pred::IsSuccess(b) if a == b) => true,
-        // IsError(x) ⟹ IsError(x) ∨ anything
+        // IsError(x) ==> IsError(x) || anything
         (Pred::IsError(a), Pred::Or(l, r))
             if matches!(l.as_ref(), Pred::IsError(b) if a == b)
                || matches!(r.as_ref(), Pred::IsError(b) if a == b) => true,
-        // LengthPlusOne(a, b) ⟹ LengthLe(b, a)  (|a| = |b|+1 ⟹ |b| <= |a|)
+        // LengthPlusOne(a, b) ==> LengthLe(b, a)  (|a| = |b|+1 ==> |b| <= |a|)
         (Pred::LengthPlusOne(a, b), Pred::LengthLe(c, d)) if b == c && a == d => true,
-        // LengthSubOne(a, b) ⟹ LengthLe(a, b)  (|a| = |b|-1 ⟹ |a| <= |b|)
+        // LengthSubOne(a, b) ==> LengthLe(a, b)  (|a| = |b|-1 ==> |a| <= |b|)
         (Pred::LengthSubOne(a, b), Pred::LengthLe(c, d)) if a == c && b == d => true,
         // Unknown
         _ => false,

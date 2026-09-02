@@ -5,13 +5,13 @@
 //! `Scheme` IR instead of `RGraph`.
 //!
 //! The algorithm:
-//! 1. Start with `I₀ = True` (the trivial invariant — everything is in D).
+//! 1. Start with `I_0 = True` (the trivial invariant -- everything is in D).
 //! 2. Compute the WEAKEST PRECONDITION of the loop body on the feedback
 //!    channel: `wp(G, I)` = the weakest predicate on `c` such that after `G`
 //!    executes, `I(c')` holds.
-//! 3. The invariant must be a FIXPOINT: `I = wp(G, I) ∩ I` (conjunction).
-//! 4. Iterate: `I_{n+1} = I_n ∧ wp(G, I_n)`.
-//! 5. Stop when `I_{n+1} ≡ I_n` (fixpoint reached) or after `max_iterations`.
+//! 3. The invariant must be a FIXPOINT: `I = wp(G, I) & I` (conjunction).
+//! 4. Iterate: `I_{n+1} = I_n && wp(G, I_n)`.
+//! 5. Stop when `I_{n+1} == I_n` (fixpoint reached) or after `max_iterations`.
 
 use crate::contracts::ContractRegistry;
 use crate::smt::implies;
@@ -29,18 +29,18 @@ pub const FIXPOINT_MAX_ITERATIONS: usize = 20;
 /// Discover a loop invariant by fixpoint iteration.
 ///
 /// Algorithm:
-/// 1. Start with `I₀ = initial` (typically the body's guarantee, or `True`
+/// 1. Start with `I_0 = initial` (typically the body's guarantee, or `True`
 ///    for the trivial starting point).
 /// 2. Compute the WEAKEST PRECONDITION of the loop body on the feedback channel:
 ///    `wp(G, I)` = the weakest predicate on `c` such that after `G` executes, `I(c')` holds.
-/// 3. The invariant must be a FIXPOINT: `I = wp(G, I) ∩ I` (conjunction).
-/// 4. Iterate: `I_{n+1} = I_n ∧ wp(G, I_n)`.
+/// 3. The invariant must be a FIXPOINT: `I = wp(G, I) & I` (conjunction).
+/// 4. Iterate: `I_{n+1} = I_n && wp(G, I_n)`.
 /// 5. Stop when `I_{n+1} = I_n` (fixpoint reached) or after `max_iterations`.
 ///
 /// Returns: `(final_invariant, how_discovered, iteration_trace, verified)`
 /// where `iteration_trace` records every `I_n` so the algorithm is transparent
 /// and auditable, and `verified` is `true` iff the final invariant is preserved
-/// by one more step of the body (i.e. `I ⟹ wp(G, I)`).
+/// by one more step of the body (i.e. `I ==> wp(G, I)`).
 pub fn discover_invariant_fixpoint_real(
     body: &Scheme,
     registry: &ContractRegistry,
@@ -52,8 +52,8 @@ pub fn discover_invariant_fixpoint_real(
     // candidate invariants. The pattern recognizer detects structural shapes
     // (e.g. list-consuming + output-building loops) and adds candidate
     // invariants like IsPerm(input, output) that capture multiset-preservation
-    // across loop iterations — matching the Agda example
-    // `Σ ys. Sorted ys × Permutation xs ys`.
+    // across loop iterations -- matching the Agda example
+    // `S ys. Sorted ys * Permutation xs ys`.
     let pattern_cands = pattern_candidates(body);
     let seeded = if pattern_cands.is_empty() {
         initial.clone()
@@ -64,7 +64,7 @@ pub fn discover_invariant_fixpoint_real(
         }
         acc
     };
-    let mut current = seeded; // I_0 = seeded (initial ∧ pattern candidates)
+    let mut current = seeded; // I_0 = seeded (initial && pattern candidates)
 
     for i in 0..max_iterations {
         iterations.push(current.clone());
@@ -72,20 +72,20 @@ pub fn discover_invariant_fixpoint_real(
         // Compute wp(G, current): what must hold before G for current to hold after
         let wp = weakest_precondition(body, registry, &current);
 
-        // Strengthen: I_{n+1} = I_n ∧ wp(G, I_n), then simplify.
+        // Strengthen: I_{n+1} = I_n && wp(G, I_n), then simplify.
         // Simplification is essential for convergence detection when Z3 is
         // not available: And(True, True) must simplify to True so the toy
         // implication checker can detect the fixpoint.
         let next = simplify(&Pred::And(Box::new(current.clone()), Box::new(wp.clone())));
 
         // Check fixpoint: is next equivalent to current?
-        // Use the implies checker: if next ⟹ current AND current ⟹ next,
+        // Use the implies checker: if next ==> current AND current ==> next,
         // it's a fixpoint (the two predicates are logically equivalent).
         let imp1 = implies(&next, &current);
         let imp2 = implies(&current, &next);
         if imp1 && imp2 {
             // Fixpoint reached. The invariant is *preserved* by the body iff
-            // current ⟹ wp(G, current) (running one more step keeps it true).
+            // current ==> wp(G, current) (running one more step keeps it true).
             let verified = implies(&current, &wp);
             return (
                 current,
@@ -98,7 +98,7 @@ pub fn discover_invariant_fixpoint_real(
         current = next;
     }
 
-    // Didn't converge — return the strongest we found.
+    // Didn't converge -- return the strongest we found.
     let verified = implies(&current, &weakest_precondition(body, registry, &current));
     (
         current,
@@ -127,17 +127,17 @@ pub fn discover_invariant_fixpoint(
 /// output. `wp(G, I)` = the weakest predicate on the input such that after `G`
 /// executes, `I` holds.
 ///
-/// This is computed *structurally* by recursion over the `Scheme` — not
+/// This is computed *structurally* by recursion over the `Scheme` -- not
 /// hardcoded per test case. Each graph combinator has a well-defined
 /// weakest-precondition transformer:
 ///
 /// * `arr(id)` / `arr(op)` with no contract : `wp = I`
-/// * `arr(φ)` with contract                 : `wp = precondition(φ)` if `guarantee(φ) ⟹ I`,
-///                                           else `True` (conservative — cannot prove)
+/// * `arr(f)` with contract                 : `wp = precondition(f)` if `guarantee(f) ==> I`,
+///                                           else `True` (conservative -- cannot prove)
 /// * `seq(g, h)`                            : `wp(g, wp(h, I))` (backwards composition)
 /// * `first(g)`                             : `I` (the feedback channel C passes
 ///                                           through unchanged on the second component)
-/// * `choice(l, r)`                         : `wp(l, I) ∧ wp(r, I)` (the
+/// * `choice(l, r)`                         : `wp(l, I) && wp(r, I)` (the
 ///                                           invariant must hold on *both*
 ///                                           branches, so the weakest
 ///                                           precondition is the conjunction
@@ -145,7 +145,7 @@ pub fn discover_invariant_fixpoint(
 /// * `loop(g)`                              : `I` (the loop's invariant *is* the
 ///                                           fixpoint, so the weakest precondition
 ///                                           is the invariant itself)
-/// * `app(callee, args)`                    : `I` (conservative — not used by inference)
+/// * `app(callee, args)`                    : `I` (conservative -- not used by inference)
 pub fn weakest_precondition(
     scheme: &Scheme,
     registry: &ContractRegistry,
@@ -153,8 +153,8 @@ pub fn weakest_precondition(
 ) -> Pred {
     match scheme {
         // arr(id) is identity: wp(id, I) = I
-        // arr(φ) with contract: wp = precondition(φ) if guarantee(φ) ⟹ I,
-        //                       else True (conservative — cannot prove the
+        // arr(f) with contract: wp = precondition(f) if guarantee(f) ==> I,
+        //                       else True (conservative -- cannot prove the
         //                       postcondition follows from the guarantee, so
         //                       this branch contributes no constraint).
         //
@@ -162,7 +162,7 @@ pub fn weakest_precondition(
         // when the guarantee implies the post, the *precondition* must hold
         // on the input (e.g. cons requires Sorted(tail) to guarantee
         // Sorted(output)). When the guarantee does not imply the post, we
-        // conservatively return True — the branch simply does not strengthen
+        // conservatively return True -- the branch simply does not strengthen
         // the invariant.
         Scheme::Arr {
             op,
@@ -181,7 +181,7 @@ pub fn weakest_precondition(
                     // guarantee to fire).
                     c.precondition.clone()
                 } else {
-                    // Cannot prove the post from the guarantee — be
+                    // Cannot prove the post from the guarantee -- be
                     // conservative and impose no constraint (True).
                     Pred::True
                 }
@@ -212,7 +212,7 @@ pub fn weakest_precondition(
         // loop(g): the loop's invariant is the fixpoint, so wp = I
         Scheme::Loop { .. } => post.clone(),
 
-        // app(callee, args): conservative — not used by inference
+        // app(callee, args): conservative -- not used by inference
         Scheme::App { .. } => post.clone(),
     }
 }
@@ -284,17 +284,17 @@ pub fn graph_contains(scheme: &Scheme, op: &str) -> bool {
 /// body contains `cons` (the list constructor), it adds
 /// `IsPerm(input, output)` as a candidate invariant. This captures the
 /// multiset-preservation property of loops that consume an input list and
-/// build an output list from its elements — most notably insertion sort,
+/// build an output list from its elements -- most notably insertion sort,
 /// where each iteration moves one element from the remaining input into the
 /// accumulator, so the accumulator is always a permutation of the original
 /// input.
 ///
-/// Matching the Agda example `Σ ys. Sorted ys × Permutation xs ys`, this lets
-/// sort derive `Sorted(output) ∧ IsPerm(input, output)`.
+/// Matching the Agda example `S ys. Sorted ys * Permutation xs ys`, this lets
+/// sort derive `Sorted(output) && IsPerm(input, output)`.
 ///
 /// The list consumption may be implicit (the loop's feedback channel shrinks
 /// each iteration) rather than an explicit `tail` arrow, so we only require
-/// `cons` to be present — the presence of a list constructor in a loop body
+/// `cons` to be present -- the presence of a list constructor in a loop body
 /// is a strong signal that the loop is building an output list from the
 /// input's elements.
 fn pattern_candidates(body: &Scheme) -> Vec<Pred> {

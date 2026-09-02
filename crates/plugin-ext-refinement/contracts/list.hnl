@@ -3,47 +3,57 @@
 // These carry conditional contracts with real semantic content so that
 // inference can derive non-trivial guarantees like Sorted and LengthEq.
 
-axiom list.cons : (α × List α) → List α
-  requires: Sorted(tail) ∧ Le(head, head_of_tail)
-  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail) ∧ IsPerm(output, output)
+// -- Constructors ----------------------------------------------------
 
-axiom list.head : List α → α
-  requires: Sorted(input)
+axiom list.cons : (a * List a) -> List a
+  requires:  Sorted(tail) && Le(head, head_of_tail)
+  guarantee: Sorted(output) && LengthPlusOne(output, tail) && IsPerm(output, output)
+
+axiom cons : (a * List a) -> List a
+  requires:  Sorted(tail) && Le(head, head_of_tail)
+  guarantee: Sorted(output) && LengthPlusOne(output, tail) && IsPerm(output, output)
+
+// -- Accessors -------------------------------------------------------
+
+axiom list.head : List a -> a
+  requires:  Sorted(input)
   guarantee: True
 
-axiom list.tail : List α → List α
-  requires: Sorted(input)
-  guarantee: Sorted(output) ∧ LengthSubOne(output, input) ∧ IsPerm(output, output)
+axiom list.tail : List a -> List a
+  requires:  Sorted(input)
+  guarantee: Sorted(output) && LengthSubOne(output, input) && IsPerm(output, output)
 
-axiom list.is_empty : List α → Bool
+axiom list.is_empty : List a -> Bool
   guarantee: True
 
-axiom list.length : List α → Int
+axiom list.length : List a -> Int
   guarantee: True
 
-axiom list.append : (List α × List α) → List α
-  requires: True
+axiom list.nth : (List a * Int) -> a
   guarantee: True
 
-axiom list.reverse : List α → List α
+// -- Transformations -------------------------------------------------
+
+axiom list.append : (List a * List a) -> List a
+  requires:  True
+  guarantee: True
+
+axiom list.reverse : List a -> List a
   guarantee: LengthEq(output, input)
 
-axiom list.nth : (List α × Int) → α
+// -- Identity & application ------------------------------------------
+
+axiom id : a -> a
   guarantee: True
 
-axiom cons : (α × List α) → List α
-  requires: Sorted(tail) ∧ Le(head, head_of_tail)
-  guarantee: Sorted(output) ∧ LengthPlusOne(output, tail) ∧ IsPerm(output, output)
-
-axiom id : α → α
+axiom fn.apply : (a * a) -> a
   guarantee: True
 
-axiom fn.apply : (α × α) → α
-  guarantee: True
+// -- Loop-step atoms (used by fn/* and collection/* arrows) ----------
 
-axiom filter_step : List α → List α
-  guarantee: AllSatisfy(output, predicate) ∧ LengthLe(output, input)
+axiom filter_step : List a -> List a
+  guarantee: AllSatisfy(output, predicate) && LengthLe(output, input)
 
-axiom fold_step : (α × α) → α
-  guarantee: True
+axiom fold_step : (a * a) -> a
+  guarantee:  True
   termination: decrements_length

@@ -1,4 +1,4 @@
-//! `handl-plugin-ext-refinement` — annotation-free refinement inference for
+//! `handl-plugin-ext-refinement` -- annotation-free refinement inference for
 //! handl's `Scheme` IR.
 //!
 //! This crate ports the research prototype's refinement inference engine
@@ -8,17 +8,17 @@
 //!
 //! # Architecture
 //!
-//! - [`types`] — core refinement types: `Pred`, `RefTy`, `BaseTy`, `Contract`,
+//! - [`types`] -- core refinement types: `Pred`, `RefTy`, `BaseTy`, `Contract`,
 //!   `RefinementResult`, `LoopInvariant`, `Measure`.
-//! - [`smt`] — SMT-style implication checker (Z3 native + subprocess + toy fallback).
-//! - [`contracts`] — contract registry for base arrows (separate from `Scheme`,
+//! - [`smt`] -- SMT-style implication checker (Z3 native + subprocess + toy fallback).
+//! - [`contracts`] -- contract registry for base arrows (separate from `Scheme`,
 //!   per ADR-0052).
-//! - [`inference`] — the main inference engine: `infer_refinement`, `infer_r`.
-//! - [`loop_invariant`] — fixpoint loop invariant discovery via weakest
+//! - [`inference`] -- the main inference engine: `infer_refinement`, `infer_r`.
+//! - [`loop_invariant`] -- fixpoint loop invariant discovery via weakest
 //!   precondition computation.
-//! - [`termination`] — structural termination analysis with decreasing measure
+//! - [`termination`] -- structural termination analysis with decreasing measure
 //!   discovery.
-//! - [`plugin`] — plugin integration: `Refine` operation, `RefinementBehavior`,
+//! - [`plugin`] -- plugin integration: `Refine` operation, `RefinementBehavior`,
 //!   `BasicRefiner`, `RefinementCore`.
 //!
 //! # Usage
@@ -34,6 +34,7 @@
 //! println!("Guarantee: {}", result.guarantee.pretty());
 //! ```
 
+pub mod arrow_lang;
 pub mod arrow_loader;
 pub mod arrow_parser;
 pub mod contracts;

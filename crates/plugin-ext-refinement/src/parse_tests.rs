@@ -34,8 +34,8 @@ const PRATT_HNL: &str =
 /// The outer loop parses atoms (consuming one token each), the inner loop
 /// applies operators (consuming one token per operator). The nested loop
 /// structure lets the inference engine derive:
-///   - LengthSubOne(output, input) — tokens are consumed
-///   - Nested(ListLength) — termination via token list decrease
+///   - LengthSubOne(output, input) -- tokens are consumed
+///   - Nested(ListLength) -- termination via token list decrease
 fn pratt_graph() -> Scheme {
     use Scheme::*;
 
@@ -279,12 +279,12 @@ fn test_pratt_termination_list_length() {
     assert_ne!(
         *term,
         Measure::Constant,
-        "pratt termination must NOT be Constant — tokens are consumed"
+        "pratt termination must NOT be Constant -- tokens are consumed"
     );
     assert_ne!(
         *term,
         Measure::None,
-        "pratt termination must NOT be None — a measure was found"
+        "pratt termination must NOT be None -- a measure was found"
     );
 }
 

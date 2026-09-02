@@ -10,7 +10,7 @@
 //! When a `.hnl` file references a named arrow (e.g. `sort.hnl` calls
 //! `insert(...)`), the parser produces an `App { callee: arr("insert") }`
 //! node. The loader resolves these by loading the referenced arrow's file
-//! and inlining its `Scheme` graph — matching the hand-built graphs in
+//! and inlining its `Scheme` graph -- matching the hand-built graphs in
 //! `e2e_tests.rs` where `sort` inlines `insert`'s full graph.
 
 use std::collections::HashMap;
@@ -73,7 +73,7 @@ pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Scheme>, Stri
     }
 }
 
-/// Load and infer: parse `.hnl` → `Scheme` → resolve references → `infer_refinement`.
+/// Load and infer: parse `.hnl` -> `Scheme` -> resolve references -> `infer_refinement`.
 ///
 /// This is the end-to-end path from a `.hnl` source file to an inferred
 /// contract. Cross-file references (e.g. `sort` referencing `insert`) are
@@ -96,9 +96,9 @@ pub fn infer_file(path: &str, registry: &ContractRegistry) -> Result<RefinementR
 }
 
 /// Load all `.hnl` arrow files from a directory (recursively) and return a
-/// name → `Scheme` graph map.
+/// name -> `Scheme` graph map.
 ///
-/// The key is the file stem (e.g. `insert.hnl` → `"insert"`).
+/// The key is the file stem (e.g. `insert.hnl` -> `"insert"`).
 pub fn load_all_arrows(dir: &str) -> Result<HashMap<String, Scheme>, String> {
     let mut map = HashMap::new();
     walk_dir(dir, &mut map)?;
@@ -158,7 +158,7 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Scheme>) -> Result<(), String> 
                 Ok(c) => c,
                 Err(_) => continue, // skip unreadable files
             };
-            // Parse — skip files that fail (the parser is minimal)
+            // Parse -- skip files that fail (the parser is minimal)
             if let Ok(parsed) = parse_arrow_file(&content) {
                 match parsed {
                     ParsedFile::Single(scheme) => {

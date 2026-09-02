@@ -4,7 +4,7 @@
 //! - State atoms are registered correctly in both `minimal()` and `from_axioms()`
 //! - `state.dec` has a conditional contract with `Le(0, input)` precondition
 //! - Counter state machine arrow file parses to the correct `Scheme` IR
-//! - Counter inference succeeds and discovers `Le(0, ...)` (Count ≥ 0)
+//! - Counter inference succeeds and discovers `Le(0, ...)` (Count >= 0)
 //! - Buffer state machine inference succeeds with length-related predicates
 //! - Protocol state machine inference succeeds
 //! - All state machines infer with zero annotations
@@ -145,7 +145,7 @@ fn test_state_dec_conditional_contract() {
         .lookup("state.dec", &ArrSource::Native)
         .expect("state.dec registered");
 
-    // The precondition must be Le(0, input) — not True.
+    // The precondition must be Le(0, input) -- not True.
     assert_ne!(
         contract.precondition,
         Pred::True,
@@ -157,7 +157,7 @@ fn test_state_dec_conditional_contract() {
         "state.dec precondition should be Le(0, input)"
     );
 
-    // The guarantee must be Le(0, output) — Count stays ≥ 0 after decrement.
+    // The guarantee must be Le(0, output) -- Count stays >= 0 after decrement.
     assert_eq!(
         contract.guarantee,
         Pred::Le("0".to_string(), "output".to_string()),
@@ -202,7 +202,7 @@ fn test_state_pop_conditional_contract() {
         .lookup("state.pop", &ArrSource::Native)
         .expect("state.pop registered");
 
-    // The precondition must be Le(0, input) — buffer non-empty.
+    // The precondition must be Le(0, input) -- buffer non-empty.
     assert_ne!(
         contract.precondition,
         Pred::True,
@@ -298,7 +298,7 @@ fn test_counter_inference_from_hnl() {
 
 #[test]
 fn test_counter_guarantee_contains_le_zero() {
-    // The key test: can the fixpoint discover Le(0, ...) (Count ≥ 0)?
+    // The key test: can the fixpoint discover Le(0, ...) (Count >= 0)?
     //
     // The counter state machine is:
     //   loop(comp(choice(arr("state.inc"), arr("state.dec")), first(id)))
@@ -308,10 +308,10 @@ fn test_counter_guarantee_contains_le_zero() {
     // guarantees). The fixpoint is seeded with the body's guarantee, so
     // Le(0, output) appears in the invariant.
     //
-    // The invariant contains Le(0, output) — representing Count ≥ 0 on
+    // The invariant contains Le(0, output) -- representing Count >= 0 on
     // the state (feedback) channel. In a loop, the output of one iteration
     // becomes the input of the next, so Le(0, output) means the count is
-    // always ≥ 0.
+    // always >= 0.
     let graph = counter_graph();
     let registry = ContractRegistry::minimal();
     let result = infer_refinement(&graph, &registry).expect("counter inference");
@@ -322,7 +322,7 @@ fn test_counter_guarantee_contains_le_zero() {
     let pretty = result.guarantee.pretty();
     assert!(
         pretty.contains("0 <= output"),
-        "counter guarantee should contain Le(0, output) (Count ≥ 0): {}",
+        "counter guarantee should contain Le(0, output) (Count >= 0): {}",
         pretty
     );
 }
@@ -362,7 +362,7 @@ fn test_counter_loop_invariant_contains_le_zero() {
     let pretty = inv.invariant.pretty();
     assert!(
         pretty.contains("0 <= output"),
-        "counter loop invariant should contain Le(0, output) (Count ≥ 0): {}",
+        "counter loop invariant should contain Le(0, output) (Count >= 0): {}",
         pretty
     );
 }
@@ -416,7 +416,7 @@ fn test_buffer_guarantee_contains_le_zero() {
     let pretty = result.guarantee.pretty();
     assert!(
         pretty.contains("0 <= output"),
-        "buffer guarantee should contain Le(0, output) (buffer ≥ 0): {}",
+        "buffer guarantee should contain Le(0, output) (buffer >= 0): {}",
         pretty
     );
 }
@@ -514,7 +514,7 @@ fn test_all_state_machines_zero_annotations() {
 }
 
 // ============================================================================
-// 8. Termination analysis (side-channel loops → Constant)
+// 8. Termination analysis (side-channel loops -> Constant)
 // ============================================================================
 
 #[test]
@@ -534,7 +534,7 @@ fn test_counter_termination_constant() {
     );
     let term = term.unwrap();
     println!("counter termination: {:?}", term);
-    // Side-channel loop: C unchanged → Constant measure.
+    // Side-channel loop: C unchanged -> Constant measure.
     assert_eq!(
         *term,
         Measure::Constant,

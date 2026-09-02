@@ -175,7 +175,7 @@ fn test_parse_nested_loop_comp() {
         Scheme::Loop { body } => {
             match body.as_ref() {
                 Scheme::Seq { fst, snd } => {
-                    // insert is a bare identifier → App reference
+                    // insert is a bare identifier -> App reference
                     assert!(
                         matches!(fst.as_ref(), Scheme::App { .. }),
                         "expected App for bare identifier 'insert', got {:?}",
@@ -222,7 +222,7 @@ fn test_parse_bare_identifier_is_app_reference() {
 
 #[test]
 fn test_parse_seq_operator() {
-    // a >>> b should produce Seq(a, b) — same as comp(a, b)
+    // a >>> b should produce Seq(a, b) -- same as comp(a, b)
     let scheme =
         parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
@@ -236,7 +236,7 @@ fn test_parse_seq_operator() {
 
 #[test]
 fn test_parse_choice_operator() {
-    // a ||| b should produce Choice(a, b) — same as choice(a, b)
+    // a ||| b should produce Choice(a, b) -- same as choice(a, b)
     let scheme =
         parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
     match scheme {
@@ -482,7 +482,7 @@ fn test_parse_sort_hnl() {
             if let Scheme::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
                 if let Scheme::Seq { fst, snd } = body.as_ref() {
-                    // fst should be App(insert) — a reference to the insert arrow
+                    // fst should be App(insert) -- a reference to the insert arrow
                     assert!(
                         matches!(fst.as_ref(), Scheme::App { .. }),
                         "fst should be App(insert)"
@@ -635,7 +635,7 @@ fn test_parsed_fold_matches_handbuilt() {
 
 #[test]
 fn test_parsed_sort_resolved_matches_handbuilt() {
-    // sort.hnl references insert via App — after resolution, it should match
+    // sort.hnl references insert via App -- after resolution, it should match
     let parsed = parse_arrow_file(SORT_HNL).expect("parse sort");
     let handbuilt = sort_graph();
 
@@ -658,7 +658,7 @@ fn test_parsed_sort_resolved_matches_handbuilt() {
 }
 
 // ============================================================================
-// End-to-end: infer from parsed .hnl → same results as hand-built Scheme
+// End-to-end: infer from parsed .hnl -> same results as hand-built Scheme
 // ============================================================================
 
 #[test]

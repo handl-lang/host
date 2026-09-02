@@ -10,8 +10,14 @@ native-z3 = ["dep:z3"]
 [dependencies]
 handl-platform = { workspace = true }
 handl-language = { workspace = true }
+handl-kit-data-canonical = { workspace = true }
+handl-plugin-engine-lex = { workspace = true }
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 
 [dev-dependencies]

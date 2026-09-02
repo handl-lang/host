@@ -1,8 +1,8 @@
 //! End-to-end test: inference on handl stdlib arrows built from 3 Rust atoms.
 //!
 //! This test demonstrates the minimal proof: 3 Rust atoms (prim.add,
-//! prim.compare, prim.alloc) → handl arrow graphs (insert, sort, map,
-//! filter, fold) → inferred contracts with zero annotations.
+//! prim.compare, prim.alloc) -> handl arrow graphs (insert, sort, map,
+//! filter, fold) -> inferred contracts with zero annotations.
 
 use handl_language::Scheme;
 use crate::contracts::ContractRegistry;
@@ -153,7 +153,7 @@ mod tests {
         println!("sort loop invariants: {:?}", result.loop_invariants);
         // sort = loop(comp(insert, first(id))). insert's fixpoint discovers
         // Sorted(output) as the invariant, and sort's loop propagates it
-        // through. The guarantee must contain Sorted — not just Le or True.
+        // through. The guarantee must contain Sorted -- not just Le or True.
         let pretty = result.guarantee.pretty();
         assert!(
             pretty.contains("Sorted"),
@@ -173,7 +173,7 @@ mod tests {
         let result = result.unwrap();
         println!("map inferred guarantee: {:?}", result.guarantee);
 
-        // map = loop(first(fn.apply)) — the side channel (the list) passes
+        // map = loop(first(fn.apply)) -- the side channel (the list) passes
         // through `first` unchanged, so |input.1| = |output.1|. The guarantee
         // must contain a LengthEq atom.
         let pretty = result.guarantee.pretty();
@@ -212,7 +212,7 @@ mod tests {
         let result = result.unwrap();
         println!("fold inferred guarantee: {:?}", result.guarantee);
 
-        // fold = loop(comp(fold_step, first(id))) — fold_step consumes one
+        // fold = loop(comp(fold_step, first(id))) -- fold_step consumes one
         // element from the list (feedback channel C) each iteration, so the
         // termination measure must be ListLength, NOT Constant.
         let term = result.termination.as_ref();
@@ -224,7 +224,7 @@ mod tests {
         assert_ne!(
             *term,
             crate::types::Measure::Constant,
-            "fold termination must NOT be Constant — the list decreases each iteration"
+            "fold termination must NOT be Constant -- the list decreases each iteration"
         );
         assert!(
             matches!(term, crate::types::Measure::ListLength(_)),
@@ -280,7 +280,7 @@ mod tests {
         let registry = ContractRegistry::minimal();
         let graph = Scheme::arr_native("cons", vec![]);
         let result = infer_refinement(&graph, &registry).expect("cons inference");
-        // The guarantee is Sorted(output) ∧ LengthPlusOne(output, tail).
+        // The guarantee is Sorted(output) && LengthPlusOne(output, tail).
         assert_ne!(
             result.guarantee,
             crate::types::Pred::True,
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_filter_inference_non_trivial() {
-        // filter uses filter_step which now has AllSatisfy ∧ LengthLe.
+        // filter uses filter_step which now has AllSatisfy && LengthLe.
         let graph = filter_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("filter inference");
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn test_isperm_predicate_parses() {
         // IsPerm(a, b) should parse correctly from a contract file.
-        let src = "axiom perm_test : List α → List α\n  guarantee: IsPerm(output, input)\n";
+        let src = "axiom perm_test : List a -> List a\n  guarantee: IsPerm(output, input)\n";
         let reg = crate::loader::parse_contracts(src).expect("must parse");
         let c = reg
             .lookup("perm_test", &handl_language::ArrSource::Native)
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_isperm_reflexivity_toy_implies() {
-        // IsPerm(a, b) ⟹ IsPerm(a, b) — reflexivity must hold in the toy checker.
+        // IsPerm(a, b) ==> IsPerm(a, b) -- reflexivity must hold in the toy checker.
         let p = crate::types::Pred::IsPerm("input".to_string(), "output".to_string());
         let q = crate::types::Pred::IsPerm("input".to_string(), "output".to_string());
         assert!(
@@ -377,8 +377,8 @@ mod tests {
         // pattern recognizer detects the "output-building loop" pattern
         // (body contains cons) and seeds IsPerm(input, output) as a candidate
         // invariant. This matches the Agda example
-        // `Σ ys. Sorted ys × Permutation xs ys`: sort derives
-        // `Sorted(output) ∧ IsPerm(input, output)`.
+        // `S ys. Sorted ys * Permutation xs ys`: sort derives
+        // `Sorted(output) && IsPerm(input, output)`.
         let graph = sort_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("sort inference");
@@ -390,7 +390,7 @@ mod tests {
             pretty
         );
         // The guarantee must contain IsPerm with non-trivial arguments
-        // (input, output) — not just the trivial IsPerm(output, output).
+        // (input, output) -- not just the trivial IsPerm(output, output).
         assert!(
             pretty.contains("Perm(input, output)"),
             "sort guarantee should contain IsPerm(input, output) (non-trivial): {}",
@@ -533,7 +533,7 @@ mod tests {
         }
     }
 
-    /// reverse = arr("list.reverse") — direct atom with non-trivial guarantee.
+    /// reverse = arr("list.reverse") -- direct atom with non-trivial guarantee.
     fn reverse_graph() -> Scheme {
         Scheme::arr_native("list.reverse", vec![])
     }
@@ -593,7 +593,7 @@ mod tests {
         let result = infer_refinement(&graph, &registry);
         assert!(result.is_ok(), "vec.push inference should succeed: {:?}", result.err());
         let result = result.unwrap();
-        // list.cons has a conditional Sorted guarantee — non-trivial.
+        // list.cons has a conditional Sorted guarantee -- non-trivial.
         assert_ne!(
             result.guarantee,
             crate::types::Pred::True,
@@ -760,7 +760,7 @@ mod tests {
     #[test]
     fn test_all_new_arrows_infer_with_zero_annotations() {
         // The key scaling property: every new arrow infers successfully with
-        // only the atom contracts — zero user annotations.
+        // only the atom contracts -- zero user annotations.
         let registry = ContractRegistry::minimal();
         let programs = vec![
             ("vec.push", vec_push_graph()),

@@ -17,7 +17,7 @@ pub enum BaseTy {
     Int,
     /// Boolean type.
     Bool,
-    /// A type variable (e.g. `α`, `β`).
+    /// A type variable (e.g. `a`, `b`).
     Var(String),
 }
 
@@ -44,27 +44,27 @@ pub enum Pred {
     True,
     /// Always false.
     False,
-    /// Sorted(var) — the list `var` is sorted.
+    /// Sorted(var) -- the list `var` is sorted.
     Sorted(String),
-    /// |a| = |b| — length equality.
+    /// |a| = |b| -- length equality.
     LengthEq(String, String),
-    /// |a| <= |b| — length inequality.
+    /// |a| <= |b| -- length inequality.
     LengthLe(String, String),
-    /// forall x in list, pred(x) — all elements satisfy a predicate.
+    /// forall x in list, pred(x) -- all elements satisfy a predicate.
     AllSatisfy(String, String),
-    /// a <= b — numeric less-than-or-equal.
+    /// a <= b -- numeric less-than-or-equal.
     Le(String, String),
     /// elem is the head (first element) of list.
     HeadOf(String, String),
-    /// |a| = |b| + 1 — output is one longer than input.
+    /// |a| = |b| + 1 -- output is one longer than input.
     LengthPlusOne(String, String),
-    /// |a| = |b| - 1 — output is one shorter than input.
+    /// |a| = |b| - 1 -- output is one shorter than input.
     LengthSubOne(String, String),
-    /// IsPerm(a, b) — list a is a permutation of list b (same elements, possibly different order).
+    /// IsPerm(a, b) -- list a is a permutation of list b (same elements, possibly different order).
     IsPerm(String, String),
-    /// IsSuccess(var) — the value is a successful Result (inl).
+    /// IsSuccess(var) -- the value is a successful Result (inl).
     IsSuccess(String),
-    /// IsError(var) — the value is a failed Result (inr).
+    /// IsError(var) -- the value is a failed Result (inr).
     IsError(String),
     /// Conjunction.
     And(Box<Pred>, Box<Pred>),
@@ -93,10 +93,10 @@ impl Pred {
             Pred::IsPerm(a, b) => format!("Perm({}, {})", a, b),
             Pred::IsSuccess(x) => format!("IsSuccess({})", x),
             Pred::IsError(x) => format!("IsError({})", x),
-            Pred::And(a, b) => format!("({} ∧ {})", a.pretty(), b.pretty()),
-            Pred::Or(a, b) => format!("({} ∨ {})", a.pretty(), b.pretty()),
-            Pred::Implies(a, b) => format!("({} ⟹ {})", a.pretty(), b.pretty()),
-            Pred::Forall(var, list, pred) => format!("∀{}. {}({})", var, pred, list),
+            Pred::And(a, b) => format!("({} && {})", a.pretty(), b.pretty()),
+            Pred::Or(a, b) => format!("({} || {})", a.pretty(), b.pretty()),
+            Pred::Implies(a, b) => format!("({} ==> {})", a.pretty(), b.pretty()),
+            Pred::Forall(var, list, pred) => format!("forall{}. {}({})", var, pred, list),
         }
     }
 }
@@ -113,16 +113,16 @@ impl Pred {
     /// This is essential for fixpoint convergence detection when Z3 is not
     /// available: without simplification, `And(True, True)` is structurally
     /// distinct from `True`, so the toy implication checker cannot determine
-    /// that `True ⟹ And(True, True)`, and the fixpoint never converges.
+    /// that `True ==> And(True, True)`, and the fixpoint never converges.
     ///
     /// Simplifications applied:
-    /// - `And(True, x)` → `x`, `And(x, True)` → `x`
-    /// - `And(False, _)` → `False`, `And(_, False)` → `False`
-    /// - `Or(False, x)` → `x`, `Or(x, False)` → `x`
-    /// - `Or(True, _)` → `True`, `Or(_, True)` → `True`
-    /// - `Implies(True, x)` → `x`
-    /// - `Implies(x, True)` → `True`
-    /// - `Implies(False, _)` → `True`
+    /// - `And(True, x)` -> `x`, `And(x, True)` -> `x`
+    /// - `And(False, _)` -> `False`, `And(_, False)` -> `False`
+    /// - `Or(False, x)` -> `x`, `Or(x, False)` -> `x`
+    /// - `Or(True, _)` -> `True`, `Or(_, True)` -> `True`
+    /// - `Implies(True, x)` -> `x`
+    /// - `Implies(x, True)` -> `True`
+    /// - `Implies(False, _)` -> `True`
     pub fn simplify(&self) -> Pred {
         match self {
             Pred::True | Pred::False => self.clone(),
@@ -146,11 +146,11 @@ impl Pred {
                     (Pred::True, _) => b,
                     (_, Pred::True) => a,
                     (Pred::False, _) | (_, Pred::False) => Pred::False,
-                    // Dedup: And(x, x) → x (idempotence of conjunction).
+                    // Dedup: And(x, x) -> x (idempotence of conjunction).
                     // This is essential for fixpoint convergence when the
                     // toy_implies checker is used: without dedup, And(sc, sc)
                     // is structurally distinct from sc, and the toy checker
-                    // cannot prove sc ⟹ And(sc, sc) because it decomposes
+                    // cannot prove sc ==> And(sc, sc) because it decomposes
                     // the left side first (And-decomposition) before the
                     // right side, and no single conjunct of sc implies the
                     // full And(sc, sc).
@@ -211,7 +211,7 @@ impl RefTy {
             RefTy::Refine(b, p) => {
                 format!("{{ x : {} | {} }}", b, p.pretty())
             }
-            RefTy::Prod(a, b) => format!("({} × {})", a.pretty(), b.pretty()),
+            RefTy::Prod(a, b) => format!("({} * {})", a.pretty(), b.pretty()),
             RefTy::Sum(a, b) => format!("({} + {})", a.pretty(), b.pretty()),
             RefTy::List(e) => format!("List {}", e.pretty()),
         }
@@ -297,15 +297,15 @@ impl Contract {
 /// each iteration and is bounded below.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Measure {
-    /// No measure discovered — termination not guaranteed.
+    /// No measure discovered -- termination not guaranteed.
     None,
     /// Length of a list: |c| decreases each iteration, bounded below by 0.
     ListLength(String),
     /// Integer counter: c decreases by `decrement` each iteration, bounded below by 0.
     Counter(String, i64),
-    /// Constant (side-channel) — measure doesn't change, so no decrease.
+    /// Constant (side-channel) -- measure doesn't change, so no decrease.
     Constant,
-    /// Nested — termination depends on inner loop's measure.
+    /// Nested -- termination depends on inner loop's measure.
     Nested(Box<Measure>),
 }
 
@@ -315,10 +315,10 @@ impl Measure {
         match self {
             Measure::None => "None".to_string(),
             Measure::ListLength(v) => {
-                format!("ListLength({}) — |{}| decreases by 1 each iteration", v, v)
+                format!("ListLength({}) -- |{}| decreases by 1 each iteration", v, v)
             }
             Measure::Counter(v, d) => {
-                format!("Counter({}, -{}) — {} decreases by {} each iteration", v, d, v, d)
+                format!("Counter({}, -{}) -- {} decreases by {} each iteration", v, d, v, d)
             }
             Measure::Constant => "Constant (C unchanged)".to_string(),
             Measure::Nested(inner) => format!("Nested({})", inner.pretty()),

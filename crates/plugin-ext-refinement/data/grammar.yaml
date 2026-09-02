@@ -36,12 +36,15 @@
 
 # `|||` — choice. Left-associative: `a ||| b ||| c` becomes
 # `Choice(Choice(a, b), c)`. Binds tighter than `>>>`.
+# Right BP is left BP + 1 for left-associativity (the Pratt engine consumes
+# the next operator when lbp >= rbp, so rbp = lbp + 1 prevents the inner
+# call from grabbing the next `|||`).
 - id: grammar.arrow.choice_op.infix
   token: token.arrow.choice_op
   position: Infix
   binding_power:
   - 23
-  - 23
+  - 24
   child_shape:
     node_kind: choice_op
     arity: 2

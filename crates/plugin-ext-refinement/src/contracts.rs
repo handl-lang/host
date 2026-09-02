@@ -1,15 +1,15 @@
-//! Contract registry — the separate registry for base-arrow contracts.
+//! Contract registry -- the separate registry for base-arrow contracts.
 //!
 //! Per ADR-0052, contracts do NOT go in `Scheme`. They live in a separate
 //! registry keyed by `(op, source)`, mirroring the research prototype's
 //! `RefSigEntry` table but adapted to handl's `ArrSource` discipline.
 //!
 //! Two registries are provided:
-//! - [`ContractRegistry::minimal`] — the reduced 3-atom registry modelling
+//! - [`ContractRegistry::minimal`] -- the reduced 3-atom registry modelling
 //!   only the irreducible Rust primitives (`prim.add`, `prim.compare`,
 //!   `prim.alloc`). This is the minimal setup used by the extended
 //!   refinement plugin for Choice WP branching and conditional contracts.
-//! - [`ContractRegistry::standard`] — the legacy 18-contract registry ported
+//! - [`ContractRegistry::standard`] -- the legacy 18-contract registry ported
 //!   from the research prototype. Retained for backward compatibility with
 //!   the existing test suite; new code should prefer `minimal()`.
 
@@ -90,25 +90,25 @@ impl ContractRegistry {
     /// This is the reduced registry for the minimal 3-atom setup. It models
     /// the primitive operations that cannot be decomposed further:
     ///
-    /// - `prim.add`     : `(Int × Int) → Int` — integer addition.
-    /// - `prim.compare` : `(α × β) → Int`    — comparison, yields a boolean-ish
+    /// - `prim.add`     : `(Int * Int) -> Int` -- integer addition.
+    /// - `prim.compare` : `(a * b) -> Int`    -- comparison, yields a boolean-ish
     ///   result (treated as a comparison result).
-    /// - `prim.alloc`   : `Int → List α`     — allocation, yields an empty list.
+    /// - `prim.alloc`   : `Int -> List a`     -- allocation, yields an empty list.
     ///
     /// All three carry an unconditional (`True`) precondition and a structural
     /// guarantee about their output. Higher-level operations (sort, insert,
-    /// map, filter, …) are built compositionally from these atoms rather than
+    /// map, filter, ...) are built compositionally from these atoms rather than
     /// being registered directly.
     pub fn minimal() -> Self {
         let mut reg = Self::new();
 
-        let alpha = || RefTy::Plain(BaseTy::Var("α".to_string()));
-        let beta = || RefTy::Plain(BaseTy::Var("β".to_string()));
+        let alpha = || RefTy::Plain(BaseTy::Var("a".to_string()));
+        let beta = || RefTy::Plain(BaseTy::Var("b".to_string()));
         let int = || RefTy::Plain(BaseTy::Int);
         let prod_int_int = || RefTy::Prod(Box::new(int()), Box::new(int()));
         let prod_ab = || RefTy::Prod(Box::new(alpha()), Box::new(beta()));
 
-        // prim.add : (Int × Int) → Int — integer addition.
+        // prim.add : (Int * Int) -> Int -- integer addition.
         // Guarantee: the output is an integer (trivially true for the base
         // type, but recorded so the inference engine can reason about it).
         reg.register(
@@ -123,8 +123,8 @@ impl ContractRegistry {
             },
         );
 
-        // prim.compare : (α × β) → Int — comparison.
-        // Returns -1/0/1. Guarantee: the output is ≤ 1 (a comparison result).
+        // prim.compare : (a * b) -> Int -- comparison.
+        // Returns -1/0/1. Guarantee: the output is <= 1 (a comparison result).
         reg.register(
             "prim.compare",
             ArrSource::Native,
@@ -137,7 +137,7 @@ impl ContractRegistry {
             },
         );
 
-        // prim.alloc : Int → List α — allocation.
+        // prim.alloc : Int -> List a -- allocation.
         // Allocates a fresh empty list of the requested capacity.
         // Guarantee: the output list has length 0.
         reg.register(
@@ -152,7 +152,7 @@ impl ContractRegistry {
             },
         );
 
-        // prim.sub : (Int × Int) → Int — integer subtraction.
+        // prim.sub : (Int * Int) -> Int -- integer subtraction.
         reg.register(
             "prim.sub",
             ArrSource::Native,
@@ -165,7 +165,7 @@ impl ContractRegistry {
             },
         );
 
-        // prim.mul : (Int × Int) → Int — integer multiplication.
+        // prim.mul : (Int * Int) -> Int -- integer multiplication.
         reg.register(
             "prim.mul",
             ArrSource::Native,
@@ -178,7 +178,7 @@ impl ContractRegistry {
             },
         );
 
-        // prim.le : (Int × Int) → Bool — less-than-or-equal comparison.
+        // prim.le : (Int * Int) -> Bool -- less-than-or-equal comparison.
         reg.register(
             "prim.le",
             ArrSource::Native,
@@ -191,7 +191,7 @@ impl ContractRegistry {
             },
         );
 
-        // prim.eq : (α × α) → Bool — equality test (polymorphic).
+        // prim.eq : (a * a) -> Bool -- equality test (polymorphic).
         reg.register(
             "prim.eq",
             ArrSource::Native,
@@ -204,8 +204,8 @@ impl ContractRegistry {
             },
         );
 
-        // list.cons : (α × List α) → List α — prepend element to list.
-        // Conditional contract: if the tail is sorted AND the head is ≤ the
+        // list.cons : (a * List a) -> List a -- prepend element to list.
+        // Conditional contract: if the tail is sorted AND the head is <= the
         // first element of the tail, then the output is sorted. The output
         // length is always one more than the tail's length.
         let list_alpha = || RefTy::List(Box::new(alpha()));
@@ -230,7 +230,7 @@ impl ContractRegistry {
             ),
         );
 
-        // list.head : List α → α — get first element.
+        // list.head : List a -> a -- get first element.
         reg.register(
             "list.head",
             ArrSource::Native,
@@ -243,7 +243,7 @@ impl ContractRegistry {
             },
         );
 
-        // list.tail : List α → List α — get rest of list.
+        // list.tail : List a -> List a -- get rest of list.
         // Conditional: if the input is sorted, the tail is sorted and one
         // element shorter.
         reg.register(
@@ -264,7 +264,7 @@ impl ContractRegistry {
             ),
         );
 
-        // list.is_empty : List α → Bool — test if list is empty.
+        // list.is_empty : List a -> Bool -- test if list is empty.
         reg.register(
             "list.is_empty",
             ArrSource::Native,
@@ -277,7 +277,7 @@ impl ContractRegistry {
             },
         );
 
-        // list.length : List α → Int — list length.
+        // list.length : List a -> Int -- list length.
         reg.register(
             "list.length",
             ArrSource::Native,
@@ -290,7 +290,7 @@ impl ContractRegistry {
             },
         );
 
-        // list.append : (List α × List α) → List α — list concatenation.
+        // list.append : (List a * List a) -> List a -- list concatenation.
         // NOTE: the ideal guarantee is LengthEq(output, input.0 + input.1),
         // but the contract-file parser does not yet support arithmetic
         // expressions in predicate arguments, so we record True here.
@@ -306,7 +306,7 @@ impl ContractRegistry {
             },
         );
 
-        // list.reverse : List α → List α — list reversal.
+        // list.reverse : List a -> List a -- list reversal.
         // Guarantee: the output has the same length as the input.
         reg.register(
             "list.reverse",
@@ -320,7 +320,7 @@ impl ContractRegistry {
             },
         );
 
-        // list.nth : (List α × Int) → α — element at index.
+        // list.nth : (List a * Int) -> a -- element at index.
         reg.register(
             "list.nth",
             ArrSource::Native,
@@ -333,7 +333,7 @@ impl ContractRegistry {
             },
         );
 
-        // id : α → α — identity (used as pass-through in loops).
+        // id : a -> a -- identity (used as pass-through in loops).
         reg.register(
             "id",
             ArrSource::Native,
@@ -346,7 +346,7 @@ impl ContractRegistry {
             },
         );
 
-        // cons : (α × List α) → List α — alias for list.cons (used in arrow graphs).
+        // cons : (a * List a) -> List a -- alias for list.cons (used in arrow graphs).
         // Same conditional contract as list.cons.
         reg.register(
             "cons",
@@ -369,7 +369,7 @@ impl ContractRegistry {
             ),
         );
 
-        // fn.apply : (α → β) × α → β — function application (used by map).
+        // fn.apply : (a -> b) * a -> b -- function application (used by map).
         // Treated as an opaque atom; its guarantee depends on the applied function.
         reg.register(
             "fn.apply",
@@ -383,7 +383,7 @@ impl ContractRegistry {
             },
         );
 
-        // filter_step : List α → List α — one step of filtering (used by filter).
+        // filter_step : List a -> List a -- one step of filtering (used by filter).
         // Guarantee: the output satisfies the predicate and is no longer than
         // the input.
         reg.register(
@@ -401,7 +401,7 @@ impl ContractRegistry {
             },
         );
 
-        // fold_step : (α × β) → α — one step of folding (used by fold).
+        // fold_step : (a * b) -> a -- one step of folding (used by fold).
         // Opaque atom; guarantee depends on the step function. However, the
         // *termination* behaviour is structural: each fold step consumes one
         // element from the input list (the feedback channel C), so |C|
@@ -421,11 +421,11 @@ impl ContractRegistry {
         );
 
         // ==================================================================
-        // Parse atoms — token-based parsing primitives (Pratt parser).
+        // Parse atoms -- token-based parsing primitives (Pratt parser).
         //
         // These model the primitive operations of a Pratt parser (top-down
         // operator-precedence parser). The key atom is parse.consume, which
-        // removes one token from the token list — its LengthSubOne guarantee
+        // removes one token from the token list -- its LengthSubOne guarantee
         // and decrements_length termination effect let the inference engine
         // derive that the parser consumes tokens and terminates.
         // ==================================================================
@@ -434,7 +434,7 @@ impl ContractRegistry {
         let token = || RefTy::Plain(BaseTy::Var("Token".to_string()));
         let ast = || RefTy::Plain(BaseTy::Var("AST".to_string()));
 
-        // parse.peek : TokenList → Token — look at the next token without consuming.
+        // parse.peek : TokenList -> Token -- look at the next token without consuming.
         reg.register(
             "parse.peek",
             ArrSource::Native,
@@ -447,7 +447,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.consume : TokenList → TokenList — consume one token.
+        // parse.consume : TokenList -> TokenList -- consume one token.
         // Guarantee: the output token list is one element shorter than the input.
         // Termination: each consume decrements the token list length by 1.
         reg.register(
@@ -462,7 +462,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.is_op : Token → Bool — test whether a token is an operator.
+        // parse.is_op : Token -> Bool -- test whether a token is an operator.
         reg.register(
             "parse.is_op",
             ArrSource::Native,
@@ -475,7 +475,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.prec : Token → Int — get the precedence of an operator token.
+        // parse.prec : Token -> Int -- get the precedence of an operator token.
         reg.register(
             "parse.prec",
             ArrSource::Native,
@@ -488,7 +488,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.make_node : (Token × AST × AST) → AST — build an AST node
+        // parse.make_node : (Token * AST * AST) -> AST -- build an AST node
         // from an operator and two sub-expressions.
         reg.register(
             "parse.make_node",
@@ -505,7 +505,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.atom_value : Token → AST — convert a token to an AST leaf node.
+        // parse.atom_value : Token -> AST -- convert a token to an AST leaf node.
         reg.register(
             "parse.atom_value",
             ArrSource::Native,
@@ -519,20 +519,20 @@ impl ContractRegistry {
         );
 
         // ==================================================================
-        // State machine atoms — transitions for counters, buffers, and
+        // State machine atoms -- transitions for counters, buffers, and
         // protocol state machines.
         //
         // These model the primitive operations of state machines. The key
         // atoms are state.inc/state.dec (counter) and state.push/state.pop
         // (buffer). state.dec has a conditional contract with Le(0, input)
         // precondition and Le(0, output) guarantee, so the fixpoint can
-        // discover Count ≥ 0 as the loop invariant.
+        // discover Count >= 0 as the loop invariant.
         // ==================================================================
 
         let state_ty = || RefTy::Plain(BaseTy::Var("State".to_string()));
 
-        // state.inc : Int → Int — increment a counter.
-        // Guarantee: output ≥ input (Count increases by 1).
+        // state.inc : Int -> Int -- increment a counter.
+        // Guarantee: output >= input (Count increases by 1).
         reg.register(
             "state.inc",
             ArrSource::Native,
@@ -545,9 +545,9 @@ impl ContractRegistry {
             },
         );
 
-        // state.dec : Int → Int — decrement a counter (only valid if Count > 0).
-        // Conditional contract: requires Le(0, input) (Count ≥ 0),
-        // guarantees Le(0, output) (Count stays ≥ 0 after decrement).
+        // state.dec : Int -> Int -- decrement a counter (only valid if Count > 0).
+        // Conditional contract: requires Le(0, input) (Count >= 0),
+        // guarantees Le(0, output) (Count stays >= 0 after decrement).
         // This lets the fixpoint discover Le(0, count) as the invariant.
         reg.register(
             "state.dec",
@@ -561,7 +561,7 @@ impl ContractRegistry {
             ),
         );
 
-        // state.push : (List α × α) → List α — add item to buffer.
+        // state.push : (List a * a) -> List a -- add item to buffer.
         // Guarantee: output is one element longer than input.
         reg.register(
             "state.push",
@@ -575,9 +575,9 @@ impl ContractRegistry {
             },
         );
 
-        // state.pop : List α → List α — remove item from buffer.
+        // state.pop : List a -> List a -- remove item from buffer.
         // Conditional contract: requires Le(0, input) (buffer non-empty),
-        // guarantees LengthSubOne(output, input) ∧ Le(0, output)
+        // guarantees LengthSubOne(output, input) && Le(0, output)
         // (buffer shrinks by 1 and stays non-negative).
         reg.register(
             "state.pop",
@@ -594,7 +594,7 @@ impl ContractRegistry {
             ),
         );
 
-        // state.is_empty : List α → Bool — check if buffer is empty.
+        // state.is_empty : List a -> Bool -- check if buffer is empty.
         reg.register(
             "state.is_empty",
             ArrSource::Native,
@@ -607,7 +607,7 @@ impl ContractRegistry {
             },
         );
 
-        // state.idle_to_active : State → State — protocol transition.
+        // state.idle_to_active : State -> State -- protocol transition.
         reg.register(
             "state.idle_to_active",
             ArrSource::Native,
@@ -620,7 +620,7 @@ impl ContractRegistry {
             },
         );
 
-        // state.active_to_done : State → State — protocol transition.
+        // state.active_to_done : State -> State -- protocol transition.
         reg.register(
             "state.active_to_done",
             ArrSource::Native,
@@ -634,28 +634,28 @@ impl ContractRegistry {
         );
 
         // ==================================================================
-        // Backtracking parser atoms — Result-type modeling (ADR-0071).
+        // Backtracking parser atoms -- Result-type modeling (ADR-0071).
         //
         // These model backtracking parsers using sum types (Result AST + Error)
         // via existing Choice/left machinery. No new calculus primitives.
         //
-        // parse.try_atom : TokenList → Result — try to parse an atom.
-        //   Guarantee: IsSuccess(output) ∨ IsError(output) (always produces a Result)
-        // parse.try_op : TokenList → Result — try to parse an operator.
-        //   Guarantee: IsSuccess(output) ∨ IsError(output)
-        // parse.extract_success : Result → AST — extract AST from success (inl branch).
+        // parse.try_atom : TokenList -> Result -- try to parse an atom.
+        //   Guarantee: IsSuccess(output) || IsError(output) (always produces a Result)
+        // parse.try_op : TokenList -> Result -- try to parse an operator.
+        //   Guarantee: IsSuccess(output) || IsError(output)
+        // parse.extract_success : Result -> AST -- extract AST from success (inl branch).
         //   Guarantee: True (the AST is already validated)
-        // parse.extract_error : Result → TokenList — recover input from failure (inr branch).
+        // parse.extract_error : Result -> TokenList -- recover input from failure (inr branch).
         //   Guarantee: True (the input is recovered for retry)
-        // parse.succeed : AST → Result — wrap a value as success.
+        // parse.succeed : AST -> Result -- wrap a value as success.
         //   Guarantee: IsSuccess(output)
-        // parse.fail : TokenList → Result — wrap as failure.
+        // parse.fail : TokenList -> Result -- wrap as failure.
         //   Guarantee: IsError(output)
         // ==================================================================
 
         let result_ty = || RefTy::Plain(BaseTy::Var("Result".to_string()));
 
-        // parse.try_atom : TokenList → Result
+        // parse.try_atom : TokenList -> Result
         reg.register(
             "parse.try_atom",
             ArrSource::Native,
@@ -671,7 +671,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.try_op : TokenList → Result
+        // parse.try_op : TokenList -> Result
         reg.register(
             "parse.try_op",
             ArrSource::Native,
@@ -687,7 +687,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.extract_success : Result → AST (inl branch)
+        // parse.extract_success : Result -> AST (inl branch)
         reg.register(
             "parse.extract_success",
             ArrSource::Native,
@@ -700,7 +700,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.extract_error : Result → TokenList (inr branch)
+        // parse.extract_error : Result -> TokenList (inr branch)
         reg.register(
             "parse.extract_error",
             ArrSource::Native,
@@ -713,7 +713,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.succeed : AST → Result
+        // parse.succeed : AST -> Result
         reg.register(
             "parse.succeed",
             ArrSource::Native,
@@ -726,7 +726,7 @@ impl ContractRegistry {
             },
         );
 
-        // parse.fail : TokenList → Result
+        // parse.fail : TokenList -> Result
         reg.register(
             "parse.fail",
             ArrSource::Native,
@@ -771,8 +771,8 @@ impl ContractRegistry {
     pub fn standard() -> Self {
         let mut reg = Self::new();
 
-        let alpha = || RefTy::Plain(BaseTy::Var("α".to_string()));
-        let beta = || RefTy::Plain(BaseTy::Var("β".to_string()));
+        let alpha = || RefTy::Plain(BaseTy::Var("a".to_string()));
+        let beta = || RefTy::Plain(BaseTy::Var("b".to_string()));
         let list_a = || RefTy::List(Box::new(alpha()));
         let list_b = || RefTy::List(Box::new(beta()));
         let prod_aa = || RefTy::Prod(Box::new(alpha()), Box::new(list_a()));
@@ -781,7 +781,7 @@ impl ContractRegistry {
             Box::new(RefTy::Plain(BaseTy::Int)),
         );
 
-        // head_and_tail : List α → (α × List α) — split list into head and tail
+        // head_and_tail : List a -> (a * List a) -- split list into head and tail
         reg.register(
             "head_and_tail",
             ArrSource::Native,
@@ -794,7 +794,7 @@ impl ContractRegistry {
             },
         );
 
-        // insert : (α × List α) → List α — insert element into sorted list
+        // insert : (a * List a) -> List a -- insert element into sorted list
         // Guarantee: output is sorted.
         reg.register(
             "insert",
@@ -802,7 +802,7 @@ impl ContractRegistry {
             Contract {
                 input: prod_aa(),
                 output: RefTy::Refine(
-                    BaseTy::Var("α".to_string()),
+                    BaseTy::Var("a".to_string()),
                     Pred::Sorted("output".to_string()),
                 ),
                 precondition: Pred::True,
@@ -811,7 +811,7 @@ impl ContractRegistry {
             },
         );
 
-        // append : (α × List α) → List α — append element to list
+        // append : (a * List a) -> List a -- append element to list
         reg.register(
             "append",
             ArrSource::Native,
@@ -824,7 +824,7 @@ impl ContractRegistry {
             },
         );
 
-        // apply_f : α → β — apply function f
+        // apply_f : a -> b -- apply function f
         reg.register(
             "apply_f",
             ArrSource::Native,
@@ -837,7 +837,7 @@ impl ContractRegistry {
             },
         );
 
-        // test_predicate : α → Bool — test predicate
+        // test_predicate : a -> Bool -- test predicate
         reg.register(
             "test_predicate",
             ArrSource::Native,
@@ -850,7 +850,7 @@ impl ContractRegistry {
             },
         );
 
-        // add_to_acc : (Int × Int) → Int — add two integers
+        // add_to_acc : (Int * Int) -> Int -- add two integers
         reg.register(
             "add_to_acc",
             ArrSource::Native,
@@ -863,7 +863,7 @@ impl ContractRegistry {
             },
         );
 
-        // consume_one : List α → List α — remove one element (termination effect)
+        // consume_one : List a -> List a -- remove one element (termination effect)
         reg.register(
             "consume_one",
             ArrSource::Native,
@@ -876,7 +876,7 @@ impl ContractRegistry {
             },
         );
 
-        // remove_one : List α → List α — removes one element (sort helper)
+        // remove_one : List a -> List a -- removes one element (sort helper)
         reg.register(
             "remove_one",
             ArrSource::Native,
@@ -889,14 +889,14 @@ impl ContractRegistry {
             },
         );
 
-        // sort : List α → List α — sort, guarantee: Sorted
+        // sort : List a -> List a -- sort, guarantee: Sorted
         reg.register(
             "sort",
             ArrSource::Native,
             Contract {
                 input: list_a(),
                 output: RefTy::Refine(
-                    BaseTy::Var("α".to_string()),
+                    BaseTy::Var("a".to_string()),
                     Pred::Sorted("output".to_string()),
                 ),
                 precondition: Pred::True,
@@ -905,7 +905,7 @@ impl ContractRegistry {
             },
         );
 
-        // id : α → α — identity
+        // id : a -> a -- identity
         reg.register(
             "id",
             ArrSource::Native,
@@ -918,7 +918,7 @@ impl ContractRegistry {
             },
         );
 
-        // map : List α → List β — length-preserving map
+        // map : List a -> List b -- length-preserving map
         reg.register(
             "map",
             ArrSource::Native,
@@ -931,7 +931,7 @@ impl ContractRegistry {
             },
         );
 
-        // map_step : List α → List β — one map step (length-preserving)
+        // map_step : List a -> List b -- one map step (length-preserving)
         reg.register(
             "map_step",
             ArrSource::Native,
@@ -944,14 +944,14 @@ impl ContractRegistry {
             },
         );
 
-        // filter : List α → List α — filter, guarantee: AllSatisfy ∧ LengthLe
+        // filter : List a -> List a -- filter, guarantee: AllSatisfy && LengthLe
         reg.register(
             "filter",
             ArrSource::Native,
             Contract {
                 input: list_a(),
                 output: RefTy::Refine(
-                    BaseTy::Var("α".to_string()),
+                    BaseTy::Var("a".to_string()),
                     Pred::AllSatisfy("output".to_string(), "predicate".to_string()),
                 ),
                 precondition: Pred::True,
@@ -966,14 +966,14 @@ impl ContractRegistry {
             },
         );
 
-        // filter_step : List α → List α — one filter step
+        // filter_step : List a -> List a -- one filter step
         reg.register(
             "filter_step",
             ArrSource::Native,
             Contract {
                 input: list_a(),
                 output: RefTy::Refine(
-                    BaseTy::Var("α".to_string()),
+                    BaseTy::Var("a".to_string()),
                     Pred::AllSatisfy("output".to_string(), "predicate".to_string()),
                 ),
                 precondition: Pred::True,
@@ -988,7 +988,7 @@ impl ContractRegistry {
             },
         );
 
-        // append_to_output : (α × List α) → List α — append to output accumulator
+        // append_to_output : (a * List a) -> List a -- append to output accumulator
         reg.register(
             "append_to_output",
             ArrSource::Native,
@@ -1001,7 +1001,7 @@ impl ContractRegistry {
             },
         );
 
-        // decrement : Int → Int — decrement counter by 1
+        // decrement : Int -> Int -- decrement counter by 1
         reg.register(
             "decrement",
             ArrSource::Native,
@@ -1014,7 +1014,7 @@ impl ContractRegistry {
             },
         );
 
-        // step : (α × Int) → (β × Int) — step function (does not touch C's measure)
+        // step : (a * Int) -> (b * Int) -- step function (does not touch C's measure)
         reg.register(
             "step",
             ArrSource::Native,
@@ -1033,7 +1033,7 @@ impl ContractRegistry {
             },
         );
 
-        // process_one : (α × List β) → (γ × List β) — process one element
+        // process_one : (a * List b) -> (c * List b) -- process one element
         reg.register(
             "process_one",
             ArrSource::Native,
@@ -1043,7 +1043,7 @@ impl ContractRegistry {
                     Box::new(RefTy::List(Box::new(beta()))),
                 ),
                 output: RefTy::Prod(
-                    Box::new(RefTy::Plain(BaseTy::Var("γ".to_string()))),
+                    Box::new(RefTy::Plain(BaseTy::Var("c".to_string()))),
                     Box::new(RefTy::List(Box::new(beta()))),
                 ),
                 precondition: Pred::True,
@@ -1052,7 +1052,7 @@ impl ContractRegistry {
             },
         );
 
-        // inner_terminating : (Int × Int) → (Int × Int) — inner loop body that terminates
+        // inner_terminating : (Int * Int) -> (Int * Int) -- inner loop body that terminates
         reg.register(
             "inner_terminating",
             ArrSource::Native,
@@ -1065,7 +1065,7 @@ impl ContractRegistry {
             },
         );
 
-        // f : α → α — generic function (no decrease, for fixed-point loops)
+        // f : a -> a -- generic function (no decrease, for fixed-point loops)
         reg.register(
             "f",
             ArrSource::Native,

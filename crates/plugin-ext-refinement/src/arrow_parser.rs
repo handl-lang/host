@@ -1,7 +1,11 @@
 //! A minimal arrow-graph parser for `.hnl` arrow files (ADR-0069).
 //!
 //! This parser reads the arrow-graph syntax used in `kit-stdlib/data/arrows/`
-//! and produces `Scheme` IR. It handles two syntaxes:
+//! and produces `Scheme` IR. It uses the **data-driven** lexer + Pratt parser
+//! (driven by the YAML language definition in `data/`) to build an AST, then
+//! materializes the AST into a `Scheme` via [`ast_to_scheme`].
+//!
+//! # Two syntaxes
 //!
 //! 1. **Simple arrow-graph syntax** — the combinator expressions described in
 //!    ADR-0069. Supports both function-call syntax and infix operator syntax:
@@ -18,17 +22,25 @@
 //!    than `>>>`, so `a >>> b ||| c` parses as `comp(a, choice(b, c))`.
 //!
 //! 2. **Rich `loop { ... } ( proc ... )` syntax** — the surface syntax
-//!    actually used in the stdlib `.hnl` files. The parser recognises the
-//!    structural patterns in the `proc` body and maps them to the
-//!    corresponding `Scheme` graph, matching the hand-built graphs in
-//!    `e2e_tests.rs`.
+//!    actually used in the stdlib `.hnl` files. The YAML grammar does not
+//!    handle this syntax, so the parser falls back to a heuristic that
+//!    recognises the structural patterns in the `proc` body and maps them to
+//!    the corresponding `Scheme` graph.
 //!
-//! The parser is deliberately minimal — it handles only the constructs needed
-//! for arrow expressions, not the full handl language.
+//! # Fallback strategy
+//!
+//! The data-driven parser is tried first. If it fails (e.g. for rich-loop
+//! syntax or unsupported constructs), the legacy ad-hoc recursive-descent
+//! parser is used as a fallback. This ensures existing `.hnl` files continue
+//! to parse correctly.
 
 use std::collections::HashMap;
 
-use handl_language::Scheme;
+use handl_language::{Ast, AstNode, Language, Scheme, Value};
+use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
+use handl_plugin_engine_parse_pratt::PrattEngine;
+
+use crate::arrow_lang::arrow_language;
 
 // ============================================================================
 // Public API
@@ -49,8 +61,10 @@ pub enum ParsedFile {
 
 /// Parse a `.hnl` arrow file's content.
 ///
-/// Dispatches to the rich-loop parser or the simple arrow-graph parser based
-/// on the file's syntax.
+/// Tries the data-driven parser first (lex + Pratt parse + materialize),
+/// falling back to the legacy ad-hoc parser on failure. Rich-loop syntax
+/// (`loop { ... } ( proc ... )`) always uses the legacy heuristic because
+/// the YAML grammar does not handle it.
 pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     let stripped = strip_comments(src);
     let trimmed = stripped.trim();
@@ -60,9 +74,356 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     }
 
     // Rich loop syntax: loop { ... } ( proc (state) -> match ... )
+    // The YAML grammar doesn't handle this syntax, so use the heuristic.
     if trimmed.starts_with("loop {") {
         let scheme = parse_rich_loop(trimmed)?;
         return Ok(ParsedFile::Single(scheme));
+    }
+
+    // Try the data-driven parser first.
+    if let Ok(result) = parse_arrow_file_data_driven(&stripped) {
+        return Ok(result);
+    }
+
+    // Fall back to the legacy ad-hoc parser.
+    parse_arrow_file_legacy(&stripped)
+}
+
+/// Parse a simple arrow expression (the combinator syntax).
+///
+/// Tries the data-driven parser first, falling back to the legacy ad-hoc
+/// parser on failure.
+///
+/// Handles: `arr("name")`, `comp(a, b)`, `first(a)`, `choice(a, b)`,
+/// `loop(a)`, `id`, `app("name", args)`, and bare identifiers (references
+/// to named arrows). Also supports infix operator syntax: `a >>> b`
+/// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
+/// `choice(a, b)`).
+pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
+    let lang = arrow_language();
+    if let Ok(scheme) = parse_arrow_expr_data_driven(src, lang) {
+        return Ok(scheme);
+    }
+    parse_arrow_expr_legacy(src)
+}
+
+// ============================================================================
+// Data-driven parsing (lex + Pratt + materialize)
+// ============================================================================
+
+/// Parse an arrow file using the data-driven parser.
+///
+/// Dispatches to named-arrow parsing (multi-line `name = expr`) or
+/// single-expression parsing.
+fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
+    let lang = arrow_language();
+    let trimmed = src.trim();
+
+    // Named arrows: lines with ` = `
+    if has_named_arrows(trimmed) {
+        let map = parse_named_arrows_data_driven(trimmed, lang)?;
+        return Ok(ParsedFile::Named(map));
+    }
+
+    // Single expression
+    let scheme = parse_arrow_expr_data_driven(trimmed, lang)?;
+    Ok(ParsedFile::Single(scheme))
+}
+
+/// Parse a single arrow expression using the data-driven lexer + Pratt parser.
+fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Scheme, String> {
+    let tokens = handl_plugin_engine_lex_pattern::lex(lang, src)
+        .map_err(|e| format!("lex error: {}", e))?;
+
+    if tokens.0.is_empty() {
+        return Err("no tokens produced by lexer".to_string());
+    }
+
+    let engine = PrattEngine::new();
+    let req = ParserRequest::new(tokens);
+    let ast = engine
+        .parse(lang, &req)
+        .map_err(|e| format!("parse error: {}", e))?;
+
+    ast_to_scheme(&ast, lang)
+}
+
+/// Parse named arrows (`name = expr` lines) using the data-driven parser.
+///
+/// Splits the source into lines, and for each line containing ` = `, parses
+/// the expression part with the data-driven parser.
+fn parse_named_arrows_data_driven(
+    src: &str,
+    lang: &Language,
+) -> Result<HashMap<String, Scheme>, String> {
+    let mut map = HashMap::new();
+
+    for line in src.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Find ` = ` (top-level assignment)
+        if let Some(eq_idx) = trimmed.find(" = ") {
+            let name = trimmed[..eq_idx].trim().to_string();
+            let expr_str = trimmed[eq_idx + 3..].trim();
+            let scheme = parse_arrow_expr_data_driven(expr_str, lang)?;
+            map.insert(name, scheme);
+        }
+    }
+
+    if map.is_empty() {
+        return Err("no named arrows found".to_string());
+    }
+
+    Ok(map)
+}
+
+// ============================================================================
+// AST-to-Scheme materializer
+// ============================================================================
+
+/// Materialize an [`Ast`] (produced by the Pratt parser) into a [`Scheme`].
+///
+/// The root node is the last node in the arena (Pratt convention: children
+/// are pushed before parents). For each node, the eval scheme is looked up
+/// via `lang.eval.get_by_identity(&node.kind)`, then walked to produce a
+/// concrete `Scheme` with `proj_child(N)` placeholders replaced by the
+/// materialized Nth child.
+///
+/// # Special placeholders
+///
+/// - `proj_child` (with `lit: N`): recursively materialize child N.
+/// - `$str_child0` (as `op`): the op name is child 0's payload string
+///   (used by `arr_call` / `app_call` for `arr("name")`).
+/// - `$payload` (as `op`): the op name is the current node's payload string
+///   (used by `arrow_var` for bare identifiers).
+/// - `proj_rest` (in `args`): expand to the materialized children 1..N
+///   (the argument expressions after the string name in `arr(...)` / `app(...)`).
+/// - `$payload` (as `lit`): the literal value is the node's payload.
+///
+/// # Errors
+///
+/// Returns a `String` error if a node kind has no eval scheme, a placeholder
+/// cannot be resolved, or a child index is out of bounds.
+pub fn ast_to_scheme(ast: &Ast, lang: &Language) -> Result<Scheme, String> {
+    if ast.is_empty() {
+        return Err("empty AST — no root node".to_string());
+    }
+    // Root is the last node pushed (Pratt convention).
+    let root_idx = ast.len() - 1;
+    materialize_node(ast, root_idx, lang)
+}
+
+/// Materialize the node at arena index `idx` into a [`Scheme`].
+fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, String> {
+    let node = ast.nodes().get(idx).ok_or_else(|| {
+        format!(
+            "materialize_node: arena index {} out of bounds (len {})",
+            idx,
+            ast.len()
+        )
+    })?;
+    let kind = &node.kind;
+
+    // Special-case `named_arrow`: the eval scheme uses `extend_env` for
+    // runtime evaluation, but for static materialization we just materialize
+    // the expression (child 1). The name binding is handled at the file level.
+    if kind == "named_arrow" {
+        let children = get_children(&node.payload)?;
+        let expr_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or("named_arrow: missing expression child")? as usize;
+        return materialize_node(ast, expr_idx, lang);
+    }
+
+    // Look up the eval scheme for this node kind.
+    let eval_def = lang
+        .eval
+        .get_by_identity(kind)
+        .ok_or_else(|| format!("no eval scheme for node kind: {}", kind))?;
+
+    walk_scheme(&eval_def.scheme, ast, node, lang)
+}
+
+/// Walk a [`Scheme`] template (from the eval definition), substituting
+/// `proj_child(N)` placeholders with materialized children and resolving
+/// `$str_child0` / `$payload` / `proj_rest` conventions.
+fn walk_scheme(
+    scheme: &Scheme,
+    ast: &Ast,
+    node: &AstNode,
+    lang: &Language,
+) -> Result<Scheme, String> {
+    match scheme {
+        Scheme::Arr {
+            op,
+            args,
+            source,
+            lit,
+        } => match op.as_str() {
+            "proj_child" => {
+                // Recurse into child N of the current node.
+                let idx = lit
+                    .as_ref()
+                    .and_then(|v| v.as_u64())
+                    .ok_or("proj_child: missing index literal")? as usize;
+                let children = get_children(&node.payload)?;
+                let child_arena_idx = children
+                    .get(idx)
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| format!("proj_child: child {} not found", idx))? as usize;
+                materialize_node(ast, child_arena_idx, lang)
+            }
+            "$str_child0" => {
+                // The op name is child 0's payload string (arr("name") / app("name")).
+                let children = get_children(&node.payload)?;
+                let child0_idx = children
+                    .first()
+                    .and_then(|v| v.as_u64())
+                    .ok_or("$str_child0: missing child 0")? as usize;
+                let child0 = ast
+                    .nodes()
+                    .get(child0_idx)
+                    .ok_or("$str_child0: child 0 out of bounds")?;
+                let name = child0
+                    .payload
+                    .as_str()
+                    .ok_or("$str_child0: child 0 payload is not a string")?
+                    .to_string();
+                let materialized_args = walk_args(args, ast, node, lang)?;
+                Ok(Scheme::Arr {
+                    op: name,
+                    args: materialized_args,
+                    source: source.clone(),
+                    lit: None,
+                })
+            }
+            "$payload" => {
+                // The op name is the current node's payload string (bare identifier).
+                let name = node
+                    .payload
+                    .as_str()
+                    .ok_or("$payload: node payload is not a string")?
+                    .to_string();
+                let materialized_args = walk_args(args, ast, node, lang)?;
+                Ok(Scheme::Arr {
+                    op: name,
+                    args: materialized_args,
+                    source: source.clone(),
+                    lit: None,
+                })
+            }
+            "proj_rest" => {
+                // proj_rest should only appear inside an args list (handled by
+                // walk_args). If reached here, it's a malformed eval scheme.
+                Err("proj_rest: should only appear in an args list".to_string())
+            }
+            _ => {
+                // Normal arr: walk args recursively, resolve $payload in lit.
+                let materialized_args = walk_args(args, ast, node, lang)?;
+                let materialized_lit = resolve_lit(lit, node);
+                Ok(Scheme::Arr {
+                    op: op.clone(),
+                    args: materialized_args,
+                    source: source.clone(),
+                    lit: materialized_lit,
+                })
+            }
+        },
+
+        Scheme::Seq { fst, snd } => Ok(Scheme::Seq {
+            fst: Box::new(walk_scheme(fst, ast, node, lang)?),
+            snd: Box::new(walk_scheme(snd, ast, node, lang)?),
+        }),
+
+        Scheme::First { inner } => Ok(Scheme::First {
+            inner: Box::new(walk_scheme(inner, ast, node, lang)?),
+        }),
+
+        Scheme::Choice { l, r } => Ok(Scheme::Choice {
+            l: Box::new(walk_scheme(l, ast, node, lang)?),
+            r: Box::new(walk_scheme(r, ast, node, lang)?),
+        }),
+
+        Scheme::Loop { body } => Ok(Scheme::Loop {
+            body: Box::new(walk_scheme(body, ast, node, lang)?),
+        }),
+
+        Scheme::App { callee, args } => {
+            let materialized_callee = walk_scheme(callee, ast, node, lang)?;
+            let materialized_args = walk_args(args, ast, node, lang)?;
+            Ok(Scheme::App {
+                callee: Box::new(materialized_callee),
+                args: materialized_args,
+            })
+        }
+    }
+}
+
+/// Walk a list of argument schemes, expanding `proj_rest` placeholders into
+/// the materialized children 1..N of the current node.
+fn walk_args(
+    args: &[Scheme],
+    ast: &Ast,
+    node: &AstNode,
+    lang: &Language,
+) -> Result<Vec<Scheme>, String> {
+    let mut result = Vec::new();
+    for arg in args {
+        if let Scheme::Arr { op, .. } = arg {
+            if op == "proj_rest" {
+                // Expand to materialized children 1..N (all children after
+                // the string-name child 0).
+                let children = get_children(&node.payload)?;
+                for i in 1..children.len() {
+                    let child_idx = children[i]
+                        .as_u64()
+                        .ok_or("proj_rest: child index not a number")? as usize;
+                    result.push(materialize_node(ast, child_idx, lang)?);
+                }
+                continue;
+            }
+        }
+        result.push(walk_scheme(arg, ast, node, lang)?);
+    }
+    Ok(result)
+}
+
+/// Resolve a `lit` payload that may contain the `$payload` placeholder.
+///
+/// If `lit` is the string `"$payload"`, it is replaced with the node's actual
+/// payload value. Otherwise, the literal is passed through unchanged.
+fn resolve_lit(lit: &Option<Value>, node: &AstNode) -> Option<Value> {
+    lit.as_ref().and_then(|v| {
+        if v == &Value::String("$payload".to_string()) {
+            Some(node.payload.clone())
+        } else {
+            Some(v.clone())
+        }
+    })
+}
+
+/// Extract the `children` array from a node's payload.
+fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
+    payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .ok_or("expected 'children' array in node payload".to_string())
+}
+
+// ============================================================================
+// Legacy ad-hoc parser (fallback)
+// ============================================================================
+
+/// Legacy: parse a `.hnl` arrow file using the ad-hoc recursive-descent parser.
+fn parse_arrow_file_legacy(src: &str) -> Result<ParsedFile, String> {
+    let trimmed = src.trim();
+
+    if trimmed.is_empty() {
+        return Err("empty file (after stripping comments)".to_string());
     }
 
     // Named arrows: lines with `name = expr`
@@ -72,18 +433,13 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     }
 
     // Simple single-expression file
-    let scheme = parse_arrow_expr(trimmed)?;
+    let scheme = parse_arrow_expr_legacy(trimmed)?;
     Ok(ParsedFile::Single(scheme))
 }
 
-/// Parse a simple arrow expression (the combinator syntax).
-///
-/// Handles: `arr("name")`, `comp(a, b)`, `first(a)`, `choice(a, b)`,
-/// `loop(a)`, `id`, `app("name", args)`, and bare identifiers (references
-/// to named arrows). Also supports infix operator syntax: `a >>> b`
-/// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
-/// `choice(a, b)`).
-pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
+/// Legacy: parse a simple arrow expression using the ad-hoc tokenizer +
+/// recursive-descent parser.
+fn parse_arrow_expr_legacy(src: &str) -> Result<Scheme, String> {
     let tokens = tokenize(src)?;
     let mut parser = Parser::new(&tokens);
     let scheme = parser.parse_expr()?;
@@ -109,7 +465,7 @@ fn strip_comments(src: &str) -> String {
 }
 
 // ============================================================================
-// Named arrow detection and parsing
+// Named arrow detection and parsing (legacy)
 // ============================================================================
 
 /// Check if the source contains named arrow definitions (`name = expr`).
@@ -120,7 +476,7 @@ fn has_named_arrows(src: &str) -> bool {
     })
 }
 
-/// Parse named arrows: `name = expr` on each line.
+/// Legacy: parse named arrows: `name = expr` on each line.
 fn parse_named_arrows(src: &str) -> Result<HashMap<String, Scheme>, String> {
     let mut map = HashMap::new();
 
@@ -134,7 +490,7 @@ fn parse_named_arrows(src: &str) -> Result<HashMap<String, Scheme>, String> {
         if let Some(eq_idx) = trimmed.find(" = ") {
             let name = trimmed[..eq_idx].trim().to_string();
             let expr_str = trimmed[eq_idx + 3..].trim();
-            let scheme = parse_arrow_expr(expr_str)?;
+            let scheme = parse_arrow_expr_legacy(expr_str)?;
             map.insert(name, scheme);
         }
     }
@@ -147,7 +503,7 @@ fn parse_named_arrows(src: &str) -> Result<HashMap<String, Scheme>, String> {
 }
 
 // ============================================================================
-// Tokenizer (for simple arrow-graph syntax)
+// Tokenizer (for simple arrow-graph syntax — legacy fallback)
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -241,7 +597,7 @@ fn tokenize(src: &str) -> Result<Vec<Token>, String> {
 }
 
 // ============================================================================
-// Recursive descent parser (for simple arrow-graph syntax)
+// Recursive descent parser (for simple arrow-graph syntax — legacy fallback)
 // ============================================================================
 
 struct Parser<'a> {
@@ -273,26 +629,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a full arrow expression (top-level entry point).
-    ///
-    /// Grammar:
-    /// ```text
-    /// expr   := seq
-    /// seq    := choice_expr (">>>" choice_expr)*   -- left-assoc, produces Seq
-    /// choice_expr := atom ("|||" atom)*             -- left-assoc, produces Choice
-    /// atom   := "arr" "(" string ")" | "first" "(" expr ")"
-    ///         | "loop" "(" expr ")" | "app" "(" string ")"
-    ///         | "comp" "(" expr "," expr ")" | "choice" "(" expr "," expr ")"
-    ///         | "id" | identifier
-    /// ```
     fn parse_expr(&mut self) -> Result<Scheme, String> {
         self.parse_seq()
     }
 
     /// Parse a sequence expression: `choice_expr (">>>" choice_expr)*`.
-    ///
-    /// Left-associative — `a >>> b >>> c` becomes `Seq(Seq(a, b), c)`.
-    /// `>>>` has lower precedence than `|||`, so `a >>> b ||| c` parses as
-    /// `Seq(a, Choice(b, c))`.
     fn parse_seq(&mut self) -> Result<Scheme, String> {
         let mut left = self.parse_choice_expr()?;
         while self.peek() == Some(&Token::Flow) {
@@ -307,9 +648,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a choice expression: `atom ("|||" atom)*`.
-    ///
-    /// Left-associative — `a ||| b ||| c` becomes `Choice(Choice(a, b), c)`.
-    /// `|||` has higher precedence than `>>>`.
     fn parse_choice_expr(&mut self) -> Result<Scheme, String> {
         let mut left = self.parse_atom()?;
         while self.peek() == Some(&Token::ChoiceOp) {
@@ -324,14 +662,9 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an atom: the simplest unit of an arrow expression.
-    ///
-    /// This handles function-call syntax (`comp(a, b)`, `choice(a, b)`,
-    /// `first(a)`, `loop(a)`, `arr("name")`, `app("name", args)`) and bare
-    /// identifiers (including `id`).
     fn parse_atom(&mut self) -> Result<Scheme, String> {
         match self.next() {
             Some(Token::LParen) => {
-                // Parenthesized expression: (expr)
                 let inner = self.parse_expr()?;
                 self.expect(&Token::RParen)?;
                 Ok(inner)
@@ -437,7 +770,7 @@ impl<'a> Parser<'a> {
 }
 
 // ============================================================================
-// Rich loop syntax parser
+// Rich loop syntax parser (heuristic — always used for `loop { ... }` syntax)
 // ============================================================================
 
 /// Parse the rich `loop { ... } ( proc (state) -> match ... { ... } )` syntax.
@@ -474,19 +807,10 @@ fn parse_rich_loop(src: &str) -> Result<Scheme, String> {
 /// The patterns recognised (in order of specificity):
 ///
 /// 1. `prim.compare` + `if/else` → `comp(prim.compare, choice(cons, cons))`
-///    (insert: compare element with head, then choice of cons arms)
-///
-/// 2. `state.p(` + `if/else` → `comp(filter_step, id)`
-///    (filter: test predicate on head, keep or skip)
-///
+/// 2. `state.p(` or `state.p -<` + `if/else` → `comp(filter_step, id)`
 /// 3. `state.f(state.acc` → `comp(fold_step, first(id))`
-///    (fold: apply step to accumulator and head, list passes through)
-///
-/// 4. `insert(` (named call) → `comp(app(insert), first(id))`
-///    (sort: insert element into accumulator, list passes through)
-///
-/// 5. `state.f(` → `first(fn.apply)`
-///    (map: apply function to head, list is side channel)
+/// 4. `insert(` or `insert -<` → `comp(app(insert), first(id))`
+/// 5. `state.f(` or `state.f -<` → `first(fn.apply)`
 fn analyze_branch(body: &str) -> Result<Scheme, String> {
     // 1. prim.compare + if/else → insert pattern
     if body.contains("prim.compare") {
@@ -501,8 +825,8 @@ fn analyze_branch(body: &str) -> Result<Scheme, String> {
         });
     }
 
-    // 2. state.p( + if/else → filter pattern
-    if body.contains("state.p(") {
+    // 2. state.p( or state.p -< + if/else → filter pattern
+    if body.contains("state.p(") || body.contains("state.p -<") {
         let step = Scheme::arr_native("filter_step", vec![]);
         let rest = Scheme::arr_native("id", vec![]);
         return Ok(Scheme::Seq {
@@ -523,8 +847,8 @@ fn analyze_branch(body: &str) -> Result<Scheme, String> {
         });
     }
 
-    // 4. insert( (named function call) → sort pattern
-    if body.contains("insert(") {
+    // 4. insert( or insert -< (named function call) → sort pattern
+    if body.contains("insert(") || body.contains("insert -<") {
         let step = Scheme::App {
             callee: Box::new(Scheme::arr_native("insert", vec![])),
             args: vec![],
@@ -538,14 +862,12 @@ fn analyze_branch(body: &str) -> Result<Scheme, String> {
         });
     }
 
-    // 5. state.f( → map pattern
-    if body.contains("state.f(") {
+    // 5. state.f( or state.f -< → map pattern
+    if body.contains("state.f(") || body.contains("state.f -<") {
         return Ok(Scheme::First {
             inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
         });
     }
 
-    Err(format!(
-        "could not analyze branch body — no recognised pattern found"
-    ))
+    Err("could not analyze branch body — no recognised pattern found".to_string())
 }
