@@ -1,7 +1,7 @@
 {
   "name": "handl",
   "displayName": "handl",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "description": "Language support for handl: syntax highlighting, refinement inference, code navigation, formatting, and more for .hnl files",
   "categories": [
     "Programming Languages"

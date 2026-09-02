@@ -715,18 +715,18 @@ The following from the v0.1 draft are accepted as-is:
   This is accepted because the alternative — distinct delimiters for
   records and blocks — was rejected as syntactic noise in an
   expression-oriented language.
-- **Operator precedence and associativity for `>>>` / `***` / `&&&` /
-  `|||` are not yet fixed.** The v0.1 spec is a syntax spec, not a
-  compiler-ready specification. Precedence, arrow kind signatures for
-  `***` / `&&&` / `|||`, the exact `rec` typing rule, and the full type
-  system are the next pieces of work, called out explicitly in §44 of the
-  draft.
-- **`return` semantics across `rec` regions and nested blocks** need
-  careful definition: a `return` inside a `rec` region exits the
-  innermost enclosing arrow path, not just the region. This is consistent
-  with `return` in graph blocks but must be specified precisely.
-- **`while` and `for` desugaring must specify feedback-wire naming.**
-  Because `while` and `for` desugar to `rec` regions with implicit
+- **Operator precedence and associativity** are fixed in ID.1, but arrow
+  kind signatures for `***` / `&&&` / `|||` are still open — the
+  combinators carry their input/output arity in the term grammar but not
+  yet in the type system. This is follow-up task #3.
+- **`return` semantics across `rec` regions and nested blocks** are fixed
+  in ID.14 (innermost enclosing `~>` only). The remaining subtlety is
+  how `return` interacts with `while` / `do while` / `for` bodies, which
+  are sugar over `rec` — a `return` inside a `while` body should exit
+  the enclosing arrow, not just the loop. This needs to be specified in
+  the desugaring (follow-up task #4).
+- **`while`, `do while`, and `for` desugaring must specify feedback-wire
+  naming.** Because these forms desugar to `rec` regions with implicit
   feedback, the compiler must define how shadowed bindings in the body
   connect across iterations (e.g. `n = n - 1` inside `while`). The rule
   is "last binding of a given name feeds back to the next iteration", but
@@ -740,8 +740,8 @@ The following from the v0.1 draft are accepted as-is:
 - **`??` and `?.` commit to `some` / `none` as the option vocabulary.**
   This is consistent with the spec's lowercase pattern style, but it
   forecloses alternative option encodings (e.g. `Result` with `ok` /
-  `error`). If `Result` is later added as a distinct sum, `??` and `?.`
-  may need to generalize or be joined by a `Result`-specific operator.
+  `err`). If `Result` is later given its own sugar, `??` and `?.` may
+  need to generalize or be joined by a `Result`-specific operator.
 - **Spread typing with conflicting field types** requires the solver to
   pick the later operand's type on conflict. This is a structural
   override rule, not a subtyping rule, and may surprise programmers who
