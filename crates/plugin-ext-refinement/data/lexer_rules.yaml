@@ -88,6 +88,120 @@
     text: '='
   priority: 20
 
+# --- Rich-loop punctuation ----------------------------------------------
+# `{`, `}`, `[`, `]`, `:`, `;` — same priority as `(`, `)`, `,`.
+- id: lex.arrow.lbrace
+  token_kind: token.arrow.lbrace
+  pattern: !Literal
+    text: '{'
+  priority: 30
+- id: lex.arrow.rbrace
+  token_kind: token.arrow.rbrace
+  pattern: !Literal
+    text: '}'
+  priority: 30
+- id: lex.arrow.lbracket
+  token_kind: token.arrow.lbracket
+  pattern: !Literal
+    text: '['
+  priority: 30
+- id: lex.arrow.rbracket
+  token_kind: token.arrow.rbracket
+  pattern: !Literal
+    text: ']'
+  priority: 30
+- id: lex.arrow.colon
+  token_kind: token.arrow.colon
+  pattern: !Literal
+    text: ':'
+  priority: 30
+- id: lex.arrow.semicolon
+  token_kind: token.arrow.semicolon
+  pattern: !Literal
+    text: ';'
+  priority: 30
+
+# --- Rich-loop multi-char operators --------------------------------------
+# `->`, `-<`, `<-`, `<=`, `...` — priority 10 (same as `>>>`, `|||`).
+# `...` is 3 chars and sorts before any shorter literal at the same priority.
+- id: lex.arrow.arrow
+  token_kind: token.arrow.arrow
+  pattern: !Literal
+    text: '->'
+  priority: 10
+- id: lex.arrow.arrow_app
+  token_kind: token.arrow.arrow_app
+  pattern: !Literal
+    text: '-<'
+  priority: 10
+- id: lex.arrow.arrow_bind
+  token_kind: token.arrow.arrow_bind
+  pattern: !Literal
+    text: '<-'
+  priority: 10
+- id: lex.arrow.le
+  token_kind: token.arrow.le
+  pattern: !Literal
+    text: '<='
+  priority: 10
+- id: lex.arrow.ellipsis
+  token_kind: token.arrow.ellipsis
+  pattern: !Literal
+    text: '...'
+  priority: 10
+
+# --- Rich-loop keywords --------------------------------------------------
+# Same priority as other keywords (15) — matched before the identifier rule
+# (50). Word-boundary check prevents prefix matching (e.g. `in` won't match
+# inside `input`).
+- id: lex.arrow.proc
+  token_kind: token.arrow.proc
+  pattern: !Literal
+    text: proc
+  priority: 15
+- id: lex.arrow.match
+  token_kind: token.arrow.match
+  pattern: !Literal
+    text: match
+  priority: 15
+- id: lex.arrow.if
+  token_kind: token.arrow.if
+  pattern: !Literal
+    text: if
+  priority: 15
+- id: lex.arrow.then
+  token_kind: token.arrow.then
+  pattern: !Literal
+    text: then
+  priority: 15
+- id: lex.arrow.else
+  token_kind: token.arrow.else
+  pattern: !Literal
+    text: else
+  priority: 15
+- id: lex.arrow.do
+  token_kind: token.arrow.do
+  pattern: !Literal
+    text: do
+  priority: 15
+- id: lex.arrow.returnA
+  token_kind: token.arrow.returnA
+  pattern: !Literal
+    text: returnA
+  priority: 15
+- id: lex.arrow.in
+  token_kind: token.arrow.in
+  pattern: !Literal
+    text: in
+  priority: 15
+
+# --- Rich-loop literals --------------------------------------------------
+# Number literal — for comparison values like `cmp <= 0`.
+- id: lex.arrow.number
+  token_kind: token.arrow.number
+  pattern: Number
+  priority: 40
+
 # --- Literals -----------------------------------------------------------
 - id: lex.arrow.string
   token_kind: token.arrow.string

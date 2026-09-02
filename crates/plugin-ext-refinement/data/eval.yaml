@@ -230,3 +230,183 @@
       args: []
       source: Native
       lit: 1
+
+# ============================================================================
+# Rich-loop syntax eval schemes (placeholders)
+# ============================================================================
+# The `loop_rich` node is special-cased in `ast_to_scheme` (arrow_parser.rs)
+# which pattern-matches on the proc body AST to determine the `Scheme` graph.
+# The eval schemes below for the rich-loop structural node kinds are
+# placeholders — they exist so the Language loads without "no eval scheme"
+# errors, but they are not walked for `loop_rich` nodes. They use a simple
+# `proj_child 0` pass-through that would materialize the first child if
+# ever reached (e.g. during debugging or future direct use).
+
+# `loop_rich` — `loop { ... } ( proc ... )`. Placeholder: the actual Scheme
+# is produced by the `loop_rich` special case in `materialize_node`, not by
+# walking this eval scheme. This scheme is a fallback that produces
+# `Scheme::Loop { body: proj_child(1) }` (the proc expression).
+- id: eval.arrow.loop_rich
+  node_kind: loop_rich
+  scheme: !Loop
+    body: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+
+# `arrow_block` — `{ ... }` block. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_block
+  node_kind: arrow_block
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `arrow_entry` — `key: value` pair. Placeholder: pass through child 1 (value).
+- id: eval.arrow.arrow_entry
+  node_kind: arrow_entry
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_array` — `[ ... ]` array. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_array
+  node_kind: arrow_array
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `arrow_rest` — `...expr` spread. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_rest
+  node_kind: arrow_rest
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `arrow_proc` — `proc ( params ) -> body`. Placeholder: pass through child 1 (body).
+- id: eval.arrow.arrow_proc
+  node_kind: arrow_proc
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_match` — `match scrut { arms }`. Placeholder: pass through child 1 (arms).
+- id: eval.arrow.arrow_match
+  node_kind: arrow_match
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_arm` — `pattern : body` match arm. Placeholder: pass through child 1 (body).
+- id: eval.arrow.arrow_arm
+  node_kind: arrow_arm
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_if` — `if cond then body else body`. Placeholder: pass through child 1.
+- id: eval.arrow.arrow_if
+  node_kind: arrow_if
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_do` — `do { stmt; stmt }`. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_do
+  node_kind: arrow_do
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `arrow_return` — `returnA` keyword. Placeholder: identity.
+- id: eval.arrow.arrow_return
+  node_kind: arrow_return
+  scheme: !Arr
+    op: id
+    args: []
+    source: Native
+
+# `arrow_number` — a number literal. Placeholder: const with payload value.
+- id: eval.arrow.arrow_number
+  node_kind: arrow_number
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit: $payload
+
+# `arrow_call` — `callee( args... )` function call. Placeholder: pass through
+# child 0 (callee). In the rich-loop context, calls like `prim.compare(...)`
+# and `state.f(...)` are recognized by the `loop_rich` pattern matcher, not
+# by walking this eval scheme.
+- id: eval.arrow.arrow_call
+  node_kind: arrow_call
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `arrow_colon` — `:` infix (placeholder; pair elements use `arrow_entry`/
+# `arrow_arm` instead). Pass through child 1.
+- id: eval.arrow.arrow_colon
+  node_kind: arrow_colon
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_app` — `-<` arrow application. Placeholder: pass through child 1.
+- id: eval.arrow.arrow_app
+  node_kind: arrow_app
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_bind` — `<-` arrow bind. Placeholder: pass through child 1.
+- id: eval.arrow.arrow_bind
+  node_kind: arrow_bind
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_let_in` — `expr in body` let-in. Placeholder: pass through child 1 (body).
+- id: eval.arrow.arrow_let_in
+  node_kind: arrow_let_in
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 1
+
+# `arrow_le` — `<=` comparison. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_le
+  node_kind: arrow_le
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0

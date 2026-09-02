@@ -145,16 +145,26 @@
       open_is_operator_token: false
       flatten: true
 
-# `loop(a)` — feedback loop. Children: [body].
+# `loop { ... } ( proc ... )` — rich-loop syntax. Arity 2: the first child
+# is the `{ ... }` declaration block (parsed as a normal expression via the
+# `lbrace` prefix rule), the second child is the `( proc ... )` expression
+# (parsed as a delimited `(...)` block, flattened so the proc expression
+# splices directly into the loop node's children).
+#
+# NOTE: This replaces the simple `loop(body)` form. The simple form now
+# falls through to the legacy ad-hoc parser (the data-driven Pratt parser
+# fails because after consuming the `( body )` paren group as child 0, it
+# expects a second `( ... )` delimited block which isn't there). This is
+# acceptable — the legacy parser handles `loop(body)` correctly.
 - id: grammar.arrow.loop.prefix
   token: token.arrow.loop
   position: Prefix
   binding_power:
-  - 0
+  - 91
   - 0
   child_shape:
-    node_kind: loop_call
-    arity: 1
+    node_kind: loop_rich
+    arity: 2
     delimited:
       open: token.arrow.lparen
       close: token.arrow.rparen
@@ -230,3 +240,246 @@
       container_kind: paren
       open_is_operator_token: true
       flatten: true
+
+# `(` as an infix for function calls: `callee( args... )`. The open delimiter
+# IS the infix token itself (open_is_operator_token: true). flatten: true so
+# the callee and args splice directly into the `call` node's children.
+# This enables `prim.compare(state.elem, h)` and `state.f(state.acc, h)`.
+- id: grammar.arrow.call.infix
+  token: token.arrow.lparen
+  position: Infix
+  binding_power:
+  - 90
+  - 91
+  child_shape:
+    node_kind: arrow_call
+    arity: 2
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: true
+      flatten: true
+
+# --- Rich-loop syntax grammar -------------------------------------------
+# These rows handle the `loop { ... } ( proc (state) -> match ... )` syntax.
+# The rich-loop is SUGAR: the `loop_rich` node is special-cased in
+# `ast_to_scheme` (arrow_parser.rs) which pattern-matches on the proc body
+# AST to determine the corresponding `Scheme` graph. The eval schemes for
+# these node kinds are placeholders — they exist so the Language loads
+# without errors, but they are not walked for `loop_rich` nodes.
+
+# `{ ... }` — block/object prefix. Used for declaration blocks
+# (`{ elem: input.0, acc: input.1 }`), return value objects
+# (`{ out: [state.elem] }`), and nested state objects. The open delimiter
+# IS the prefix token (open_is_operator_token: true). Pair separator `:`
+# creates `entry` nodes. flatten: true so entries splice into the parent.
+# rest_token `...` allows spread elements like `{ ...rest }`.
+- id: grammar.arrow.block.prefix
+  token: token.arrow.lbrace
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_block
+    arity: 1
+    delimited:
+      open: token.arrow.lbrace
+      close: token.arrow.rbrace
+      separator: token.arrow.comma
+      container_kind: block
+      pair:
+        separator: token.arrow.colon
+        node_kind: arrow_entry
+      open_is_operator_token: true
+      flatten: true
+      rest_token: token.arrow.ellipsis
+
+# `[ ... ]` — array/list prefix. Used for list patterns (`[]`, `[h, ...t]`)
+# and list literals (`[state.elem]`, `[y, ...state.acc]`). The open delimiter
+# IS the prefix token (open_is_operator_token: true). flatten: true so
+# elements splice into the parent. rest_token `...` allows spread.
+- id: grammar.arrow.array.prefix
+  token: token.arrow.lbracket
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_array
+    arity: 1
+    delimited:
+      open: token.arrow.lbracket
+      close: token.arrow.rbracket
+      separator: token.arrow.comma
+      container_kind: array
+      open_is_operator_token: true
+      flatten: true
+      rest_token: token.arrow.ellipsis
+
+# `...` — spread/rest prefix. Used in list patterns (`[h, ...t]`) and list
+# literals (`[y, ...state.acc]`). One child: the spread expression.
+- id: grammar.arrow.ellipsis.prefix
+  token: token.arrow.ellipsis
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_rest
+    arity: 1
+
+# `proc ( params ) -> body` — proc expression. Arity 2: params and body,
+# separated by `->`. The params are typically `( state )` (a paren group
+# that flattens to the `state` identifier).
+- id: grammar.arrow.proc.prefix
+  token: token.arrow.proc
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_proc
+    arity: 2
+    child_separators:
+    - !Required token.arrow.arrow
+
+# `match scrutinee { arms }` — match expression. Arity 2: scrutinee (normal
+# child) and arms block (delimited `{ }` with pair separator `:` creating
+# `arrow_arm` nodes). The arms block is NOT flattened (container_kind: block)
+# so the match node has children [scrutinee, arms_container].
+- id: grammar.arrow.match.prefix
+  token: token.arrow.match
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_match
+    arity: 2
+    delimited:
+      open: token.arrow.lbrace
+      close: token.arrow.rbrace
+      separator: token.arrow.comma
+      container_kind: block
+      pair:
+        separator: token.arrow.colon
+        node_kind: arrow_arm
+      open_is_operator_token: false
+      flatten: false
+
+# `if cond then body else body` — conditional. Arity 3 with `then` and `else`
+# as child separators. Mirrors the main language's `grammar.if.prefix`.
+- id: grammar.arrow.if.prefix
+  token: token.arrow.if
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_if
+    arity: 3
+    child_separators:
+    - !Required token.arrow.then
+    - !Required token.arrow.else
+
+# `do { stmt; stmt }` — do block. Arity 1: a delimited `{ }` block with `;`
+# separator. flatten: true so statements splice into the `do` node.
+- id: grammar.arrow.do.prefix
+  token: token.arrow.do
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_do
+    arity: 1
+    delimited:
+      open: token.arrow.lbrace
+      close: token.arrow.rbrace
+      separator: token.arrow.semicolon
+      container_kind: block
+      open_is_operator_token: false
+      flatten: true
+
+# `returnA` — the return arrow keyword. Nullary (no arguments).
+- id: grammar.arrow.returnA.prefix
+  token: token.arrow.returnA
+  position: Prefix
+  child_shape:
+    node_kind: arrow_return
+    arity: 0
+
+# Number literal — for comparison values like `cmp <= 0`. Nullary; the
+# number value rides in the node payload.
+- id: grammar.arrow.number.prefix
+  token: token.arrow.number
+  position: Prefix
+  child_shape:
+    node_kind: arrow_number
+    arity: 0
+
+# --- Rich-loop infix operators ------------------------------------------
+
+# `:` — pair separator infix. Used by the delimited block pair parser to
+# determine the LHS binding power. BP (12, 13) — same as the main language's
+# `type-annot`. The node_kind is `arrow_colon` but pair elements use the
+# `arrow_entry`/`arrow_arm` node kinds from the delimited shape instead.
+- id: grammar.arrow.colon.infix
+  token: token.arrow.colon
+  position: Infix
+  binding_power:
+  - 12
+  - 13
+  child_shape:
+    node_kind: arrow_colon
+    arity: 2
+
+# `-<` — arrow application. `returnA -< { ... }`, `state.f -< h`.
+# BP (28, 29) — binds tighter than `<-` and `>>>`.
+- id: grammar.arrow.arrow_app.infix
+  token: token.arrow.arrow_app
+  position: Infix
+  binding_power:
+  - 28
+  - 29
+  child_shape:
+    node_kind: arrow_app
+    arity: 2
+
+# `<-` — arrow bind. `y <- state.f -< h`. BP (7, 8) — binds looser than
+# `-<` so `y <- state.f -< h` parses as `y <- (state.f -< h)`.
+- id: grammar.arrow.arrow_bind.infix
+  token: token.arrow.arrow_bind
+  position: Infix
+  binding_power:
+  - 7
+  - 8
+  child_shape:
+    node_kind: arrow_bind
+    arity: 2
+
+# `in` — let-in separator. `cmp = expr in body`. BP (3, 4) — binds looser
+# than `=` (5, 6) so the whole `cmp = expr` is the left operand.
+- id: grammar.arrow.in.infix
+  token: token.arrow.in
+  position: Infix
+  binding_power:
+  - 3
+  - 4
+  child_shape:
+    node_kind: arrow_let_in
+    arity: 2
+
+# `<=` — less-than-or-equal comparison. `cmp <= 0`. BP (15, 16).
+- id: grammar.arrow.le.infix
+  token: token.arrow.le
+  position: Infix
+  binding_power:
+  - 15
+  - 16
+  child_shape:
+    node_kind: arrow_le
+    arity: 2

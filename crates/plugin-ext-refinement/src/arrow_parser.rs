@@ -22,19 +22,23 @@
 //!    than `>>>`, so `a >>> b ||| c` parses as `comp(a, choice(b, c))`.
 //!
 //! 2. **Rich `loop { ... } ( proc ... )` syntax** — the surface syntax
-//!    actually used in the stdlib `.hnl` files. The YAML grammar does not
-//!    handle this syntax, so the parser falls back to a heuristic that
-//!    recognises the structural patterns in the `proc` body and maps them to
-//!    the corresponding `Scheme` graph.
+//!    actually used in the stdlib `.hnl` files. The YAML grammar tokenizes
+//!    and parses this syntax into a `loop_rich` AST node. The
+//!    `ast_to_scheme` materializer then pattern-matches on the proc body's
+//!    recursive match arm to determine the corresponding `Scheme` graph —
+//!    the same heuristic as the legacy ad-hoc parser, but operating on the
+//!    AST instead of raw text.
 //!
 //! # Fallback strategy
 //!
-//! The data-driven parser is tried first. If it fails (e.g. for rich-loop
-//! syntax or unsupported constructs), the legacy ad-hoc recursive-descent
-//! parser is used as a fallback. This ensures existing `.hnl` files continue
-//! to parse correctly.
+//! The data-driven parser is tried first. If it fails (e.g. for unsupported
+//! constructs), the legacy ad-hoc recursive-descent parser is used as a
+//! fallback. This ensures existing `.hnl` files continue to parse correctly.
+//! The simple `loop(body)` form now falls through to the legacy parser
+//! because the `loop` prefix grammar row was changed to handle the rich
+//! `loop { ... } ( ... )` form (arity 2 instead of 1).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use handl_language::{Ast, AstNode, Language, Scheme, Value};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
@@ -63,21 +67,16 @@ pub enum ParsedFile {
 ///
 /// Tries the data-driven parser first (lex + Pratt parse + materialize),
 /// falling back to the legacy ad-hoc parser on failure. Rich-loop syntax
-/// (`loop { ... } ( proc ... )`) always uses the legacy heuristic because
-/// the YAML grammar does not handle it.
+/// (`loop { ... } ( proc ... )`) is handled by the data-driven parser:
+/// the YAML grammar tokenizes and parses it into a `loop_rich` AST node,
+/// which `ast_to_scheme` pattern-matches to determine the corresponding
+/// `Scheme` graph.
 pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     let stripped = strip_comments(src);
     let trimmed = stripped.trim();
 
     if trimmed.is_empty() {
         return Err("empty file (after stripping comments)".to_string());
-    }
-
-    // Rich loop syntax: loop { ... } ( proc (state) -> match ... )
-    // The YAML grammar doesn't handle this syntax, so use the heuristic.
-    if trimmed.starts_with("loop {") {
-        let scheme = parse_rich_loop(trimmed)?;
-        return Ok(ParsedFile::Single(scheme));
     }
 
     // Try the data-driven parser first.
@@ -114,10 +113,21 @@ pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
 /// Parse an arrow file using the data-driven parser.
 ///
 /// Dispatches to named-arrow parsing (multi-line `name = expr`) or
-/// single-expression parsing.
+/// single-expression parsing. Rich-loop syntax (`loop { ... }`) is always
+/// treated as a single expression (not named arrows) because the proc body
+/// may contain ` = ` in let-bindings that would falsely trigger the
+/// named-arrow heuristic.
 fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
     let lang = arrow_language();
     let trimmed = src.trim();
+
+    // Rich-loop syntax starts with `loop` followed by `{`. Parse it as a
+    // single expression — do NOT check for named arrows, because the proc
+    // body may contain ` = ` in let-bindings (`cmp = expr in body`).
+    if is_rich_loop(trimmed) {
+        let scheme = parse_arrow_expr_data_driven(trimmed, lang)?;
+        return Ok(ParsedFile::Single(scheme));
+    }
 
     // Named arrows: lines with ` = `
     if has_named_arrows(trimmed) {
@@ -128,6 +138,20 @@ fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
     // Single expression
     let scheme = parse_arrow_expr_data_driven(trimmed, lang)?;
     Ok(ParsedFile::Single(scheme))
+}
+
+/// Check if the source is a rich-loop expression (`loop { ... }`).
+///
+/// Returns true if the trimmed source starts with the `loop` keyword
+/// followed by `{` (with possible whitespace between). This distinguishes
+/// the rich-loop form from the simple `loop(...)` form.
+fn is_rich_loop(src: &str) -> bool {
+    let trimmed = src.trim_start();
+    if let Some(rest) = trimmed.strip_prefix("loop") {
+        rest.trim_start().starts_with('{')
+    } else {
+        false
+    }
 }
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
@@ -237,6 +261,16 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
             .and_then(|v| v.as_u64())
             .ok_or("named_arrow: missing expression child")? as usize;
         return materialize_node(ast, expr_idx, lang);
+    }
+
+    // Special-case `loop_rich`: the rich-loop syntax is SUGAR. The YAML
+    // grammar parses it into a `loop_rich` AST node, but the actual `Scheme`
+    // graph is determined by pattern-matching on the proc body structure
+    // (which primitives are called, what the state transitions are) — the
+    // same heuristic as the legacy `analyze_branch`, but operating on the
+    // AST instead of raw text.
+    if kind == "loop_rich" {
+        return rich_loop_to_scheme(ast, node);
     }
 
     // Look up the eval scheme for this node kind.
@@ -412,6 +446,317 @@ fn get_children(payload: &Value) -> Result<&Vec<Value>, String> {
         .get("children")
         .and_then(|c| c.as_array())
         .ok_or("expected 'children' array in node payload".to_string())
+}
+
+// ============================================================================
+// Rich-loop AST-to-Scheme conversion (pattern matching on proc body)
+// ============================================================================
+//
+// The rich-loop syntax (`loop { ... } ( proc (state) -> match ... )`) is
+// SUGAR. The YAML grammar tokenizes and parses it into a `loop_rich` AST
+// node, but the actual `Scheme` graph is determined by recognizing the
+// structural patterns in the `proc` body's recursive match arm — the same
+// heuristic as the legacy `analyze_branch`, but operating on the AST
+// instead of raw text.
+//
+// AST structure of a rich-loop:
+//   loop_rich (children: [decl_block, proc_expr])
+//     └─ proc_expr: arrow_proc (children: [params, body])
+//        └─ body: arrow_match (children: [scrutinee, arms_container])
+//           └─ arms_container: block (children: [arm1, arm2, ...])
+//              ├─ arm1: arrow_arm (children: [pattern, body])  — base case
+//              │   └─ pattern: arrow_array (children: [])      — `[]`
+//              └─ arm2: arrow_arm (children: [pattern, body])  — recursive case
+//                  └─ pattern: arrow_array (children: [...])   — `[h, ...t]`
+//                  └─ body: ...                                 — recursive body
+
+/// Convert a `loop_rich` AST node into a [`Scheme`] by pattern-matching on
+/// the proc body's recursive match arm.
+///
+/// This navigates the AST to find the `[h, ...t]:` arm (the recursive case),
+/// then calls [`analyze_branch_ast`] to determine which `Scheme` graph the
+/// arm body corresponds to.
+fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
+    let children = get_children(&node.payload)?;
+
+    // Child 1 is the proc expression (child 0 is the declaration block).
+    let proc_idx = children
+        .get(1)
+        .and_then(|v| v.as_u64())
+        .ok_or("loop_rich: missing proc child")? as usize;
+    let proc_node = ast
+        .nodes()
+        .get(proc_idx)
+        .ok_or("loop_rich: proc node out of bounds")?;
+
+    if proc_node.kind != "arrow_proc" {
+        return Err(format!(
+            "loop_rich: expected arrow_proc, got {}",
+            proc_node.kind
+        ));
+    }
+
+    let proc_children = get_children(&proc_node.payload)?;
+    // Child 1 of proc is the body (child 0 is params).
+    let body_idx = proc_children
+        .get(1)
+        .and_then(|v| v.as_u64())
+        .ok_or("loop_rich: missing proc body")? as usize;
+    let body_node = ast
+        .nodes()
+        .get(body_idx)
+        .ok_or("loop_rich: body node out of bounds")?;
+
+    if body_node.kind != "arrow_match" {
+        return Err(format!(
+            "loop_rich: expected arrow_match body, got {}",
+            body_node.kind
+        ));
+    }
+
+    let match_children = get_children(&body_node.payload)?;
+    // Child 1 of match is the arms container (child 0 is scrutinee).
+    let arms_idx = match_children
+        .get(1)
+        .and_then(|v| v.as_u64())
+        .ok_or("loop_rich: missing arms container")? as usize;
+    let arms_node = ast
+        .nodes()
+        .get(arms_idx)
+        .ok_or("loop_rich: arms node out of bounds")?;
+
+    let arms_children = get_children(&arms_node.payload)?;
+
+    // Find the arm with a non-empty array pattern (the recursive case).
+    let mut recursive_body_idx: Option<usize> = None;
+    for arm_idx_val in arms_children {
+        let arm_idx = arm_idx_val
+            .as_u64()
+            .ok_or("loop_rich: arm index not a number")? as usize;
+        let arm_node = ast
+            .nodes()
+            .get(arm_idx)
+            .ok_or("loop_rich: arm node out of bounds")?;
+        if arm_node.kind != "arrow_arm" {
+            continue;
+        }
+        let arm_children = get_children(&arm_node.payload)?;
+        let pattern_idx = arm_children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or("loop_rich: missing pattern")? as usize;
+        let pattern_node = ast
+            .nodes()
+            .get(pattern_idx)
+            .ok_or("loop_rich: pattern node out of bounds")?;
+
+        // Check if the pattern is a non-empty array (`[h, ...t]`).
+        if pattern_node.kind == "arrow_array" {
+            if let Ok(pattern_children) = get_children(&pattern_node.payload) {
+                if !pattern_children.is_empty() {
+                    // This is the recursive case arm.
+                    let arm_body_idx = arm_children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("loop_rich: missing arm body")? as usize;
+                    recursive_body_idx = Some(arm_body_idx);
+                    break;
+                }
+            }
+        }
+    }
+
+    let body_idx = recursive_body_idx
+        .ok_or("loop_rich: no recursive case arm found")?;
+
+    // Analyze the recursive body AST to determine the Scheme graph.
+    let body_scheme = analyze_branch_ast(ast, body_idx)?;
+
+    Ok(Scheme::Loop {
+        body: Box::new(body_scheme),
+    })
+}
+
+/// Analyze the recursive case arm body AST and map it to a [`Scheme`] graph.
+///
+/// This mirrors the legacy `analyze_branch` heuristic but operates on the AST
+/// instead of raw text. The patterns recognized (in order of specificity):
+///
+/// 1. `prim.compare` identifier → `comp(prim.compare, choice(cons, cons))`
+/// 2. `state.p` in arrow_app (`-<`) → `comp(filter_step, id)`
+/// 3. `state.f` in call with `state.acc` argument → `comp(fold_step, first(id))`
+/// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))`
+/// 5. `state.f` in arrow_app (`-<`) → `first(fn.apply)`
+fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
+    let mut collector = PatternCollector::default();
+    collector.collect(ast, root_idx);
+
+    // 1. prim.compare → insert pattern
+    if collector.var_names.contains("prim.compare") {
+        let step = Scheme::arr_native("prim.compare", vec![]);
+        let choice = Scheme::Choice {
+            l: Box::new(Scheme::arr_native("cons", vec![])),
+            r: Box::new(Scheme::arr_native("cons", vec![])),
+        };
+        return Ok(Scheme::Seq {
+            fst: Box::new(step),
+            snd: Box::new(choice),
+        });
+    }
+
+    // 2. state.p in arrow_app → filter pattern
+    if collector.app_left_names.contains("state.p") {
+        let step = Scheme::arr_native("filter_step", vec![]);
+        let rest = Scheme::arr_native("id", vec![]);
+        return Ok(Scheme::Seq {
+            fst: Box::new(step),
+            snd: Box::new(rest),
+        });
+    }
+
+    // 3. state.f in call with state.acc → fold pattern
+    if let Some(call_args) = collector.call_callee_args.get("state.f") {
+        if call_args.contains(&"state.acc".to_string()) {
+            let step = Scheme::arr_native("fold_step", vec![]);
+            let rest = Scheme::First {
+                inner: Box::new(Scheme::arr_native("id", vec![])),
+            };
+            return Ok(Scheme::Seq {
+                fst: Box::new(step),
+                snd: Box::new(rest),
+            });
+        }
+    }
+
+    // 4. insert in arrow_app → sort pattern
+    if collector.app_left_names.contains("insert") {
+        let step = Scheme::App {
+            callee: Box::new(Scheme::arr_native("insert", vec![])),
+            args: vec![],
+        };
+        let rest = Scheme::First {
+            inner: Box::new(Scheme::arr_native("id", vec![])),
+        };
+        return Ok(Scheme::Seq {
+            fst: Box::new(step),
+            snd: Box::new(rest),
+        });
+    }
+
+    // 5. state.f in arrow_app → map pattern
+    if collector.app_left_names.contains("state.f") {
+        return Ok(Scheme::First {
+            inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+        });
+    }
+
+    Err("could not analyze branch body — no recognised pattern found".to_string())
+}
+
+/// Recursively collects structural patterns from the AST subtree for the
+/// rich-loop heuristic.
+#[derive(Default)]
+struct PatternCollector {
+    /// All `arrow_var` identifier names found in the subtree.
+    var_names: HashSet<String>,
+    /// Left-child names of `arrow_app` (`-<`) nodes where the left child is
+    /// an `arrow_var` (e.g. `state.f -< h` → `"state.f"`).
+    app_left_names: HashSet<String>,
+    /// Callee name → argument names for `arrow_call` nodes where the callee
+    /// is an `arrow_var` (e.g. `state.f(state.acc, h)` →
+    /// `"state.f" → ["state.acc", "h"]`).
+    call_callee_args: HashMap<String, Vec<String>>,
+}
+
+impl PatternCollector {
+    /// Recursively walk the AST from `idx`, collecting patterns.
+    fn collect(&mut self, ast: &Ast, idx: usize) {
+        let node = match ast.nodes().get(idx) {
+            Some(n) => n,
+            None => return,
+        };
+
+        match node.kind.as_str() {
+            "arrow_var" => {
+                // Identifier — record its name.
+                if let Some(name) = node.payload.as_str() {
+                    self.var_names.insert(name.to_string());
+                }
+                // No children to recurse into.
+                return;
+            }
+            "arrow_app" => {
+                // `-<` application: left child is the arrow being applied.
+                if let Ok(children) = get_children(&node.payload) {
+                    if let Some(left_idx) = children.first().and_then(|v| v.as_u64()) {
+                        if let Some(left_node) = ast.nodes().get(left_idx as usize) {
+                            if left_node.kind == "arrow_var" {
+                                if let Some(name) = left_node.payload.as_str() {
+                                    self.app_left_names.insert(name.to_string());
+                                }
+                            }
+                        }
+                    }
+                    // Recurse into all children.
+                    for child_val in children {
+                        if let Some(child_idx) = child_val.as_u64() {
+                            self.collect(ast, child_idx as usize);
+                        }
+                    }
+                }
+                return;
+            }
+            "arrow_call" => {
+                // `callee(args...)` function call: child 0 is callee,
+                // children 1..N are arguments.
+                if let Ok(children) = get_children(&node.payload) {
+                    if let Some(callee_idx) = children.first().and_then(|v| v.as_u64()) {
+                        if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
+                            if callee_node.kind == "arrow_var" {
+                                if let Some(callee_name) = callee_node.payload.as_str() {
+                                    let mut arg_names = Vec::new();
+                                    for i in 1..children.len() {
+                                        if let Some(arg_idx) = children[i].as_u64() {
+                                            if let Some(arg_node) =
+                                                ast.nodes().get(arg_idx as usize)
+                                            {
+                                                if arg_node.kind == "arrow_var" {
+                                                    if let Some(arg_name) =
+                                                        arg_node.payload.as_str()
+                                                    {
+                                                        arg_names.push(arg_name.to_string());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    self.call_callee_args
+                                        .insert(callee_name.to_string(), arg_names);
+                                }
+                            }
+                        }
+                    }
+                    // Recurse into all children.
+                    for child_val in children {
+                        if let Some(child_idx) = child_val.as_u64() {
+                            self.collect(ast, child_idx as usize);
+                        }
+                    }
+                }
+                return;
+            }
+            _ => {}
+        }
+
+        // Default: recurse into children for all other node kinds.
+        if let Ok(children) = get_children(&node.payload) {
+            for child_val in children {
+                if let Some(child_idx) = child_val.as_u64() {
+                    self.collect(ast, child_idx as usize);
+                }
+            }
+        }
+    }
 }
 
 // ============================================================================
@@ -767,107 +1112,4 @@ impl<'a> Parser<'a> {
             Ok(vec![])
         }
     }
-}
-
-// ============================================================================
-// Rich loop syntax parser (heuristic — always used for `loop { ... }` syntax)
-// ============================================================================
-
-/// Parse the rich `loop { ... } ( proc (state) -> match ... { ... } )` syntax.
-///
-/// The stdlib `.hnl` files use this surface syntax. The parser recognises the
-/// structural patterns in the `proc` body and maps them to the corresponding
-/// `Scheme` graph, matching the hand-built graphs in `e2e_tests.rs`.
-fn parse_rich_loop(src: &str) -> Result<Scheme, String> {
-    // Find the proc body: "proc (state) -> match"
-    let proc_idx = src
-        .find("proc (state) -> match")
-        .ok_or("expected 'proc (state) -> match' in rich loop syntax")?;
-
-    let proc_body = &src[proc_idx..];
-
-    // Find the [h, ...t]: branch (the recursive case)
-    let branch_marker = "[h, ...t]:";
-    let branch_idx = proc_body
-        .find(branch_marker)
-        .ok_or("expected '[h, ...t]:' branch in match")?;
-
-    let branch_body = &proc_body[branch_idx + branch_marker.len()..];
-
-    // Analyze the branch body to determine the graph structure
-    let body_scheme = analyze_branch(branch_body)?;
-
-    Ok(Scheme::Loop {
-        body: Box::new(body_scheme),
-    })
-}
-
-/// Analyze the `[h, ...t]:` branch body and map it to a `Scheme` graph.
-///
-/// The patterns recognised (in order of specificity):
-///
-/// 1. `prim.compare` + `if/else` → `comp(prim.compare, choice(cons, cons))`
-/// 2. `state.p(` or `state.p -<` + `if/else` → `comp(filter_step, id)`
-/// 3. `state.f(state.acc` → `comp(fold_step, first(id))`
-/// 4. `insert(` or `insert -<` → `comp(app(insert), first(id))`
-/// 5. `state.f(` or `state.f -<` → `first(fn.apply)`
-fn analyze_branch(body: &str) -> Result<Scheme, String> {
-    // 1. prim.compare + if/else → insert pattern
-    if body.contains("prim.compare") {
-        let step = Scheme::arr_native("prim.compare", vec![]);
-        let choice = Scheme::Choice {
-            l: Box::new(Scheme::arr_native("cons", vec![])),
-            r: Box::new(Scheme::arr_native("cons", vec![])),
-        };
-        return Ok(Scheme::Seq {
-            fst: Box::new(step),
-            snd: Box::new(choice),
-        });
-    }
-
-    // 2. state.p( or state.p -< + if/else → filter pattern
-    if body.contains("state.p(") || body.contains("state.p -<") {
-        let step = Scheme::arr_native("filter_step", vec![]);
-        let rest = Scheme::arr_native("id", vec![]);
-        return Ok(Scheme::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
-    }
-
-    // 3. state.f(state.acc → fold pattern
-    if body.contains("state.f(state.acc") {
-        let step = Scheme::arr_native("fold_step", vec![]);
-        let rest = Scheme::First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
-        };
-        return Ok(Scheme::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
-    }
-
-    // 4. insert( or insert -< (named function call) → sort pattern
-    if body.contains("insert(") || body.contains("insert -<") {
-        let step = Scheme::App {
-            callee: Box::new(Scheme::arr_native("insert", vec![])),
-            args: vec![],
-        };
-        let rest = Scheme::First {
-            inner: Box::new(Scheme::arr_native("id", vec![])),
-        };
-        return Ok(Scheme::Seq {
-            fst: Box::new(step),
-            snd: Box::new(rest),
-        });
-    }
-
-    // 5. state.f( or state.f -< → map pattern
-    if body.contains("state.f(") || body.contains("state.f -<") {
-        return Ok(Scheme::First {
-            inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
-        });
-    }
-
-    Err("could not analyze branch body — no recognised pattern found".to_string())
 }
