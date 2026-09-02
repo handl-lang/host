@@ -1,0 +1,9 @@
+# handl language manifest for the platform workspace
+[language]
+kit = "handl-kit-data-canonical"
+
+[editor]
+enableInlayHints = true
+enableCodeLens = true
+enableRefinementDiagnostics = true
+enableSemanticHighlighting = true
