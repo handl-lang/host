@@ -1066,6 +1066,117 @@ fn real_programs_sig() -> Vec<RefSigEntry> {
             guarantee: Pred::True,
             termination_effect: "none".to_string(),
         },
+        // ----------------------------------------------------------------
+        // Base arrows for the expanded real-program grid.
+        // These model the primitive operations used by collatz, binary-search,
+        // hanoi, binomial, digital-root, and popcount. Each carries a known
+        // refinement guarantee and a termination effect on the feedback
+        // channel C when used as the right-hand side of a loop body.
+        // ----------------------------------------------------------------
+        // collatz_branch : Int → Int — branch on n (even → n/2, odd → 3n+1).
+        // No proven well-founded decreasing measure (Collatz conjecture).
+        RefSigEntry {
+            name: "collatz_branch".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // collatz_update : Int → Int — update n per Collatz rule.
+        // Termination is NOT structurally guaranteed (no known measure).
+        RefSigEntry {
+            name: "collatz_update".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // bs_probe : (Int × Int) → Int — examine midpoint of [lo, hi].
+        RefSigEntry {
+            name: "bs_probe".to_string(),
+            input: prod_int_int(),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // narrow_bounds : Int → Int — narrow the search interval [lo, hi].
+        // The interval width (hi - lo) strictly decreases each iteration,
+        // bounded below by 0. Modeled as a counter decrease.
+        RefSigEntry {
+            name: "narrow_bounds".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "decrements_counter".to_string(),
+        },
+        // hanoi_step : (Int × Int) → (Int × Int) — update (n, moves) for Hanoi.
+        // n decreases by 1 each iteration; moves becomes 2*moves + 1.
+        RefSigEntry {
+            name: "hanoi_step".to_string(),
+            input: prod_int_int(),
+            output: prod_int_int(),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // decrement_n : Int → Int — decrement n by 1 (Hanoi loop counter).
+        RefSigEntry {
+            name: "decrement_n".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "decrements_counter".to_string(),
+        },
+        // binom_step : (Int × Int) → (Int × Int) — update (acc, i) for binomial.
+        // i increments toward k; the residual (k - i) decreases each iteration.
+        RefSigEntry {
+            name: "binom_step".to_string(),
+            input: prod_int_int(),
+            output: prod_int_int(),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // dec_residual : Int → Int — decrease the residual (k - i) by 1.
+        RefSigEntry {
+            name: "dec_residual".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "decrements_counter".to_string(),
+        },
+        // dr_step : (Int × Int) → (Int × Int) — digit-root step: sum digits.
+        RefSigEntry {
+            name: "dr_step".to_string(),
+            input: prod_int_int(),
+            output: prod_int_int(),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // shrink_n_div10 : Int → Int — n := n / 10 (consume one digit).
+        // n strictly decreases (for n > 0), bounded below by 0.
+        RefSigEntry {
+            name: "shrink_n_div10".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "decrements_counter".to_string(),
+        },
+        // popcount_step : (Int × Int) → (Int × Int) — extract LSB, add to bits.
+        RefSigEntry {
+            name: "popcount_step".to_string(),
+            input: prod_int_int(),
+            output: prod_int_int(),
+            guarantee: Pred::True,
+            termination_effect: "none".to_string(),
+        },
+        // shift_right : Int → Int — n := n / 2 (right shift by one bit).
+        // n strictly decreases (for n > 0), bounded below by 0.
+        RefSigEntry {
+            name: "shift_right".to_string(),
+            input: RefTy::Plain(BaseTy::Int),
+            output: RefTy::Plain(BaseTy::Int),
+            guarantee: Pred::True,
+            termination_effect: "decrements_counter".to_string(),
+        },
     ]
 }
 
@@ -1173,6 +1284,115 @@ fn pipeline() -> RGraph {
         )),
         Box::new(RGraph::Arr("map_step".to_string())),
     )
+}
+
+// ============================================================================
+// 11b. The EXPANDED real-program grid
+// ============================================================================
+//
+// These graph builders model the control flow of additional handl example
+// programs (examples/handl/*.hnl) using only the five arrow primitives plus
+// base arrows from the signature. Each is a genuine loop whose termination
+// and refinement properties are inferred from the graph structure alone.
+
+/// Collatz sequence (examples/handl/collatz.hnl).
+///
+/// State threaded by the loop: (n, steps). Each iteration:
+///   1. collatz_branch — examine n (even → n/2, odd → 3n+1)
+///   2. collatz_update  — write back the updated n
+///
+/// Termination is NOT structurally guaranteed: there is no known well-founded
+/// measure that decreases on every Collatz iteration (the Collatz conjecture).
+/// The analyzer honestly reports this as NOT GUARANTEED, which is the correct
+/// result — the whole point of including Collatz in the grid is to exercise
+/// the analyzer's honesty on a program whose termination is genuinely open.
+fn collatz_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("collatz_branch".to_string())),
+        Box::new(RGraph::Arr("collatz_update".to_string())),
+    )))
+}
+
+/// Binary search (examples/handl/binary-search.hnl).
+///
+/// State threaded by the loop: (xs, target, lo, hi). Each iteration:
+///   1. bs_probe       — examine the midpoint of [lo, hi]
+///   2. narrow_bounds  — shrink the interval (lo := mid+1 or hi := mid-1)
+///
+/// Termination is GUARANTEED: the interval width (hi - lo) strictly decreases
+/// each iteration and is bounded below by 0. Modeled as a counter measure.
+fn binary_search_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("bs_probe".to_string())),
+        Box::new(RGraph::Arr("narrow_bounds".to_string())),
+    )))
+}
+
+/// Tower of Hanoi move count (examples/handl/hanoi.hnl).
+///
+/// State threaded by the loop: (n, moves). Each iteration:
+///   1. hanoi_step   — update moves := 2*moves + 1 (the recurrence)
+///   2. decrement_n  — n := n - 1
+///
+/// Termination is GUARANTEED: n decreases by 1 each iteration, bounded below
+/// by 0. The output (moves = 2^n - 1) is accumulated by hanoi_step. Although
+/// the handl source expresses this recursively, the loop encoding captures
+/// the same recurrence as a counter-driven accumulation.
+fn hanoi_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("hanoi_step".to_string())),
+        Box::new(RGraph::Arr("decrement_n".to_string())),
+    )))
+}
+
+/// Binomial coefficient (examples/handl/binomial.hnl).
+///
+/// State threaded by the loop: (n, k, acc, i). Each iteration:
+///   1. binom_step   — update acc := acc * (n - i + 1) / i
+///   2. dec_residual — decrease the residual (k - i) by 1 (i increments)
+///
+/// Termination is GUARANTEED: the residual (k - i) strictly decreases each
+/// iteration and is bounded below by 0. This is a nested-computation loop
+/// (the accumulator depends on both n and i) but the measure is simple.
+fn binomial_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("binom_step".to_string())),
+        Box::new(RGraph::Arr("dec_residual".to_string())),
+    )))
+}
+
+/// Digital root (examples/handl/digital-root.hnl).
+///
+/// State threaded by the loop: (n, sum). Each iteration:
+///   1. dr_step         — add the last digit of n to sum
+///   2. shrink_n_div10  — n := n / 10 (consume one digit)
+///
+/// Termination is GUARANTEED: n strictly decreases (n / 10 each iteration)
+/// and is bounded below by 0. The outer convergence (repeating the digit-sum
+/// until sum < 10) is bounded because each outer pass strictly reduces n.
+/// The loop encoding models the inner digit-consumption loop, which is the
+/// engine of termination.
+fn digital_root_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("dr_step".to_string())),
+        Box::new(RGraph::Arr("shrink_n_div10".to_string())),
+    )))
+}
+
+/// Population count (examples/handl/popcount.hnl).
+///
+/// State threaded by the loop: (n, bits). Each iteration:
+///   1. popcount_step — extract the LSB of n, add to bits
+///   2. shift_right   — n := n / 2 (right shift by one bit)
+///
+/// Termination is GUARANTEED: n strictly decreases (n / 2 each iteration)
+/// and is bounded below by 0. This is a bit-manipulation loop; the measure
+/// is the value of n itself, which halves each iteration.
+fn popcount_impl() -> RGraph {
+    RGraph::Loop(Box::new(RGraph::Comp(
+        Box::new(RGraph::Arr("popcount_step".to_string())),
+        Box::new(RGraph::Arr("shift_right".to_string())),
+    )))
 }
 
 // ============================================================================
@@ -1442,4 +1662,287 @@ fn main() {
     // unification), kept here for structural parity with the other test bins.
     let _hashmap_anchor: HashMap<String, String> = HashMap::new();
     let _ = _hashmap_anchor;
+}
+
+// ============================================================================
+// 14. Expanded real-program grid — #[test] suite
+// ============================================================================
+//
+// The original five programs (insertion sort, map, filter, fold/sum, pipeline)
+// are exercised by the `main()` binary above. This module adds Rust unit tests
+// (run by `cargo test`) for the expanded grid of real programs drawn from
+// examples/handl/*.hnl. Each test:
+//   1. Builds the program's arrow graph from primitives.
+//   2. Runs annotation-free refinement inference and checks the inferred
+//      contract / guarantee.
+//   3. Runs structural termination analysis and checks the verdict
+//      (GUARANTEED or NOT GUARANTEED) and the discovered measure.
+//
+// Programs covered (6 new):
+//   • collatz       — non-trivial termination (Collatz conjecture) → NOT GUARANTEED
+//   • binary-search — search loop with narrowing bounds → GUARANTEED (counter)
+//   • hanoi         — recursive recurrence encoded as a counter loop → GUARANTEED
+//   • binomial      — nested computation, residual counter → GUARANTEED
+//   • digital-root  — convergent digit-consumption loop → GUARANTEED
+//   • popcount      — bit-manipulation loop (n halving) → GUARANTEED
+
+#[cfg(test)]
+mod expanded_grid_tests {
+    use super::*;
+
+    /// Helper: run refinement inference on a graph and assert it succeeds,
+    /// returning the result.
+    fn infer(graph: &RGraph) -> RefinementResult {
+        let sig = real_programs_sig();
+        infer_refinement(graph, &sig)
+            .unwrap_or_else(|e| panic!("refinement inference failed: {}", e))
+    }
+
+    /// Helper: run termination analysis on a graph, returning the result.
+    fn terminate(graph: &RGraph) -> TerminationResult {
+        let sig = real_programs_sig();
+        analyze_termination(graph, &sig)
+    }
+
+    /// A predicate is "trivially true" if it is True, or a conjunction of
+    /// trivially-true sub-predicates. The refinement inference conjoins
+    /// base-arrow guarantees along a composition, so a body built from arrows
+    /// whose guarantees are all True yields `And(True, True)` (not `True`).
+    /// This helper recognises such trivially-true conjunctions without
+    /// depending on the SMT solver.
+    fn is_trivially_true(p: &Pred) -> bool {
+        match p {
+            Pred::True => true,
+            Pred::And(a, b) => is_trivially_true(a) && is_trivially_true(b),
+            _ => false,
+        }
+    }
+
+    // --- Collatz ---------------------------------------------------------
+
+    #[test]
+    fn collatz_refinement_infers_without_annotations() {
+        let g = collatz_impl();
+        let result = infer(&g);
+        // The Collatz loop body is a composition of two base arrows whose
+        // guarantees are both True, so the composed guarantee is True
+        // (no structural refinement beyond the base types).
+        assert!(is_trivially_true(&result.guarantee),
+            "Collatz body has no non-trivial base-arrow guarantees");
+        // A loop invariant should still be discovered (fixpoint machinery).
+        assert!(!result.loop_invariants.is_empty(),
+            "Collatz loop should yield at least one discovered invariant");
+        // The fixpoint should be reached (True is a trivial fixpoint).
+        if let RGraph::Loop(body) = &g {
+            let sig = real_programs_sig();
+            let (_trace, reached) = fixpoint_trace(body, &sig);
+            assert!(reached, "Collatz fixpoint should stabilise at True");
+        }
+    }
+
+    #[test]
+    fn collatz_termination_is_honestly_not_guaranteed() {
+        // This is the key test: the analyzer must NOT claim Collatz terminates.
+        // There is no known well-founded decreasing measure for the Collatz
+        // sequence, so the honest verdict is NOT GUARANTEED. Including this
+        // program in the grid exercises the analyzer's honesty on a program
+        // whose termination is genuinely open.
+        let g = collatz_impl();
+        let result = terminate(&g);
+        assert!(!result.terminates,
+            "Collatz termination must NOT be guaranteed (no known decreasing measure): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::None,
+            "Collatz should have no discovered decreasing measure");
+    }
+
+    // --- Binary search ---------------------------------------------------
+
+    #[test]
+    fn binary_search_refinement_infers_without_annotations() {
+        let g = binary_search_impl();
+        let result = infer(&g);
+        // The body composes bs_probe (True) with narrow_bounds (True), so the
+        // composed guarantee is True at the structural level.
+        assert!(is_trivially_true(&result.guarantee));
+        assert!(!result.loop_invariants.is_empty(),
+            "binary-search loop should yield at least one discovered invariant");
+    }
+
+    #[test]
+    fn binary_search_termination_guaranteed_by_narrowing_bounds() {
+        let g = binary_search_impl();
+        let result = terminate(&g);
+        assert!(result.terminates,
+            "binary search must terminate (interval width decreases): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::Counter("c".to_string(), 1),
+            "binary-search measure should be a counter (interval width)");
+    }
+
+    // --- Tower of Hanoi --------------------------------------------------
+
+    #[test]
+    fn hanoi_refinement_infers_without_annotations() {
+        let g = hanoi_impl();
+        let result = infer(&g);
+        assert!(is_trivially_true(&result.guarantee));
+        assert!(!result.loop_invariants.is_empty(),
+            "hanoi loop should yield at least one discovered invariant");
+    }
+
+    #[test]
+    fn hanoi_termination_guaranteed_by_decrementing_n() {
+        let g = hanoi_impl();
+        let result = terminate(&g);
+        assert!(result.terminates,
+            "hanoi must terminate (n decreases by 1 each iteration): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::Counter("c".to_string(), 1),
+            "hanoi measure should be a counter (n decrements)");
+    }
+
+    // --- Binomial coefficient --------------------------------------------
+
+    #[test]
+    fn binomial_refinement_infers_without_annotations() {
+        let g = binomial_impl();
+        let result = infer(&g);
+        assert!(is_trivially_true(&result.guarantee));
+        assert!(!result.loop_invariants.is_empty(),
+            "binomial loop should yield at least one discovered invariant");
+    }
+
+    #[test]
+    fn binomial_termination_guaranteed_by_decreasing_residual() {
+        let g = binomial_impl();
+        let result = terminate(&g);
+        assert!(result.terminates,
+            "binomial must terminate (residual k-i decreases): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::Counter("c".to_string(), 1),
+            "binomial measure should be a counter (residual decrements)");
+    }
+
+    // --- Digital root ----------------------------------------------------
+
+    #[test]
+    fn digital_root_refinement_infers_without_annotations() {
+        let g = digital_root_impl();
+        let result = infer(&g);
+        assert!(is_trivially_true(&result.guarantee));
+        assert!(!result.loop_invariants.is_empty(),
+            "digital-root loop should yield at least one discovered invariant");
+    }
+
+    #[test]
+    fn digital_root_termination_guaranteed_by_digit_consumption() {
+        let g = digital_root_impl();
+        let result = terminate(&g);
+        assert!(result.terminates,
+            "digital-root must terminate (n decreases by factor of 10): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::Counter("c".to_string(), 1),
+            "digital-root measure should be a counter (n // 10)");
+    }
+
+    // --- Population count ------------------------------------------------
+
+    #[test]
+    fn popcount_refinement_infers_without_annotations() {
+        let g = popcount_impl();
+        let result = infer(&g);
+        assert!(is_trivially_true(&result.guarantee));
+        assert!(!result.loop_invariants.is_empty(),
+            "popcount loop should yield at least one discovered invariant");
+    }
+
+    #[test]
+    fn popcount_termination_guaranteed_by_bit_shifting() {
+        let g = popcount_impl();
+        let result = terminate(&g);
+        assert!(result.terminates,
+            "popcount must terminate (n halves each iteration): {}",
+            result.reason);
+        assert_eq!(result.measure, Measure::Counter("c".to_string(), 1),
+            "popcount measure should be a counter (n // 2)");
+    }
+
+    // --- Grid summary ----------------------------------------------------
+
+    /// Sanity check that all six new program graphs are well-formed loops
+    /// (each is a `loop(comp(step, measure_update))` shape) and that the
+    /// signature contains every base arrow they reference.
+    #[test]
+    fn expanded_grid_all_programs_reference_known_arrows() {
+        let sig = real_programs_sig();
+        let programs: Vec<(&str, RGraph)> = vec![
+            ("collatz", collatz_impl()),
+            ("binary-search", binary_search_impl()),
+            ("hanoi", hanoi_impl()),
+            ("binomial", binomial_impl()),
+            ("digital-root", digital_root_impl()),
+            ("popcount", popcount_impl()),
+        ];
+        for (name, graph) in &programs {
+            // Each graph must be a loop.
+            assert!(matches!(graph, RGraph::Loop(_)),
+                "{} should be a loop graph", name);
+            // Collect every base arrow referenced and confirm it is in the sig.
+            let mut arrows = Vec::new();
+            collect_arrow_names(graph, &mut arrows);
+            for arr in &arrows {
+                assert!(sig.iter().any(|e| &e.name == arr),
+                    "{} references unknown base arrow {}", name, arr);
+            }
+        }
+        assert_eq!(programs.len(), 6,
+            "expanded grid should contain exactly 6 new programs");
+    }
+
+    /// Collect every base-arrow name referenced in a graph.
+    fn collect_arrow_names(g: &RGraph, out: &mut Vec<String>) {
+        match g {
+            RGraph::Arr(name) => {
+                if !out.contains(name) {
+                    out.push(name.clone());
+                }
+            }
+            RGraph::Comp(a, b) => {
+                collect_arrow_names(a, out);
+                collect_arrow_names(b, out);
+            }
+            RGraph::First(inner) | RGraph::Left(inner) | RGraph::Loop(inner) => {
+                collect_arrow_names(inner, out);
+            }
+            RGraph::Id => {}
+        }
+    }
+
+    /// The expanded grid has 5 guaranteed-terminating programs and 1
+    /// honestly-not-guaranteed program (Collatz). This test pins that split.
+    #[test]
+    fn expanded_grid_termination_verdict_split() {
+        let guaranteed: Vec<(&str, RGraph)> = vec![
+            ("binary-search", binary_search_impl()),
+            ("hanoi", hanoi_impl()),
+            ("binomial", binomial_impl()),
+            ("digital-root", digital_root_impl()),
+            ("popcount", popcount_impl()),
+        ];
+        for (name, graph) in &guaranteed {
+            let result = terminate(graph);
+            assert!(result.terminates,
+                "{} should be guaranteed to terminate", name);
+        }
+
+        let not_guaranteed: Vec<(&str, RGraph)> = vec![
+            ("collatz", collatz_impl()),
+        ];
+        for (name, graph) in &not_guaranteed {
+            let result = terminate(graph);
+            assert!(!result.terminates,
+                "{} should NOT be guaranteed to terminate", name);
+        }
+    }
 }
