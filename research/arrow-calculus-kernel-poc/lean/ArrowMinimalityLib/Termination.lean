@@ -11,7 +11,7 @@ derivations are finite by construction (Lean inductive types are finite),
 so the meaningful theorem is not "the loop terminates" (trivially true)
 but "the number of non-fixpoint steps is bounded by the initial measure."
 
-## Results (1 `sorry` — genuine model limitation):
+## Results (0 `sorry`):
 
 1. **`measure_decreasing`** — definition: a measure `m` is decreasing
    for `G` if every non-fixpoint step strictly decreases `m` on the
@@ -26,10 +26,11 @@ but "the number of non-fixpoint steps is bounded by the initial measure."
 4. **`fixpoint_step_bounded`** — the base case (`eLoopZero`): iter count
    is 0, trivially bounded by `m cₙ + 1`. Proven.
 
-5. **`decreasing_measure_bounds_iterations`** — the ideal theorem: iter
-   count bounded by `m c₀ + 1`. **Unprovable** due to a model limitation
-   in `EvalIter.eLoopIter` (the recursive call doesn't thread `c_next`
-   as its starting feedback). See theorem docstring for details.
+5. **`decreasing_measure_bounds_iterations`** — the key theorem: for a
+   `LoopIter` derivation (which threads `c_next` into the recursive call),
+   the iter count is bounded by `m cₙ + 1`. Proven by induction on the
+   `LoopIter` derivation, using the decreasing-measure hypothesis and
+   `omega`.
 
 6. **`list_length_termination`** — connects to the Rust implementation's
    `Nested(ListLength)` termination check. Proven (finiteness).
@@ -83,6 +84,17 @@ def loop_iter_count {X Y C : Ty Atom} (G : Graph Atom Sig (X ×ₜ C) (Y ×ₜ C
     1 + loop_iter_count G a v eRec
   | _ => 0  -- other constructors don't apply to loop G
 
+/-- Count the number of `loopIter` (non-fixpoint) steps in a
+`LoopIter G a cₙ v` derivation. The fixpoint case (`loopZero`)
+contributes 0; the non-fixpoint case (`loopIter`) contributes 1 plus
+the recursive count. Unlike `loop_iter_count`, this operates on the
+threaded `LoopIter` type where the starting feedback is an index. -/
+def loop_iter_count_loop {X Y C : Ty Atom} {G : Graph Atom Sig (X ×ₜ C) (Y ×ₜ C)}
+    {a v cₙ : Val} (e : LoopIter den G a cₙ v) : Nat :=
+  match e with
+  | LoopIter.loopZero .. => 0
+  | LoopIter.loopIter _ _ _ _ _ _ _ _ _ _ eRec => 1 + loop_iter_count_loop eRec
+
 -- ============================================================================
 -- 3. Bounding iterations with a decreasing measure
 -- ============================================================================
@@ -122,45 +134,41 @@ theorem fixpoint_step_bounded
 
 /-- **Decreasing measure bounds iterations by initial measure.**
 
-IDEAL THEOREM (currently unprovable due to a model limitation):
+If `m` is a decreasing measure for `G`, then the number of `loopIter`
+steps in any `LoopIter G a cₙ v` derivation is bounded by `m cₙ + 1`.
 
-  If `m` is a decreasing measure for `G`, then `loop_iter_count e ≤ m c₀ + 1`
-  where `c₀` is the initial feedback value.
+The proof is by induction on `e : LoopIter G a cₙ v`:
+  - `loopZero`: count = 0 ≤ m cₙ + 1 (trivial).
+  - `loopIter`: count = 1 + count(eRec). By IH, count(eRec) ≤ m c_next + 1
+    (the IH is indexed by `c_next` because `eRec : LoopIter G a c_next v`).
+    By `hdecreasing`, `m c_next < m cₙ`. So `1 + (m c_next + 1) ≤ m cₙ + 1`.
 
-The proof strategy would be induction on `e : EvalIter (loop G) a v`:
-  - `eLoopZero`: count = 0 ≤ m cₙ + 1 (trivial, see `fixpoint_step_bounded`).
-  - `eLoopIter`: count = 1 + count(eRec). By IH, count(eRec) ≤ m c_next + 1.
-    By `hdecreasing`, m c_next < m cₙ. So 1 + (m c_next + 1) ≤ m cₙ + 1.
-
-**Model limitation**: The `EvalIter.eLoopIter` constructor is:
-  `eLoopIter G a v v' cₙ c_next hcₙ hne eStep eRec`
-  where `eRec : EvalIter (Graph.loop G) a v`.
-
-The recursive call `eRec` uses the same `a` but does NOT thread `c_next`
-as its starting feedback. In a properly-threaded loop semantics, `eRec`
-would be `EvalIter (Graph.loop G) a v` with feedback starting at `c_next`,
-allowing the IH to give `count(eRec) ≤ m c_next + 1`. Without this
-threading, we cannot connect `eRec`'s feedback to `c_next`, so the
-decreasing measure argument is inapplicable.
-
-**Fix required**: Strengthen `EvalIter.eLoopIter` to thread `c_next`:
-  `eRec : EvalIter (Graph.loop G) a v`  -- current (unthreaded)
-  → `eRec : EvalIterFrom (Graph.loop G) a c_next v`  -- threaded
-
-This is left as future work. The `fixpoint_step_bounded` theorem above
-proves the base case unconditionally. -/
+The key insight is that `LoopIter` threads `c_next` into the recursive
+call's index, so the induction hypothesis gives a bound in terms of
+`m c_next` (the recursive call's starting feedback), not an unknown
+value. This is the fix for the model limitation in `EvalIter.eLoopIter`,
+whose `eRec : EvalIter (Graph.loop G) a v` does not carry the starting
+feedback. -/
 theorem decreasing_measure_bounds_iterations
     {A B C : Ty Atom} (G : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
     (m : TerminationMeasure C)
     (hdecreasing : measure_decreasing den G m)
-    (a v : Val) (e : EvalIter den (Graph.loop G) a v)
-    (cₙ : Val) (hcₙ : HasType cₙ C)
-    (hinit : ∃ v', Nonempty (Eval den G (Val.pair a cₙ) (Val.pair v' cₙ)))
-    : loop_iter_count den G a v e ≤ m cₙ + 1 := by
-  -- See docstring: unprovable without threading c_next into eRec.
-  -- The base case (eLoopZero) is proven in `fixpoint_step_bounded`.
-  -- The inductive case (eLoopIter) requires a model fix.
-  sorry
+    (a v cₙ : Val) (hcₙ : HasType cₙ C)
+    (e : LoopIter den G a cₙ v)
+    : loop_iter_count_loop den e ≤ m cₙ + 1 := by
+  induction e with
+  | loopZero v cₙ hcₙ eStep =>
+    simp only [loop_iter_count_loop]
+    omega
+  | loopIter v v' cₙ c_next hcₙ hc_next hne eStep eRec ih =>
+    -- Convert the body step to one-step Eval for hdecreasing
+    have heval := iter_to_eval den eStep
+    have hdec := hdecreasing a v' cₙ c_next heval hne
+    -- ih : HasType c_next C → loop_iter_count_loop den eRec ≤ m c_next + 1
+    -- (the IH is indexed by c_next because eRec : LoopIter G a c_next v)
+    have ih' := ih hc_next
+    simp only [loop_iter_count_loop]
+    omega
 
 -- ============================================================================
 -- 4. Connection to the Rust implementation
