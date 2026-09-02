@@ -42,12 +42,6 @@
         ]
       }
     ],
-    "snippets": [
-      {
-        "language": "handl",
-        "path": "./snippets/hnl.code-snippets.json"
-      }
-    ],
     "configurationDefaults": {
       "[handl]": {
         "editor.defaultFormatter": "handl-lang.handl",

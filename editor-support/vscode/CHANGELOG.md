@@ -41,7 +41,7 @@ Initial release of the handl extension for VS Code.
 - **Context-aware completion** — keyword snippets after `loop`/`match`/`do`/`returnA`, field name completion after `state.`, combinator suggestions at expression positions, match pattern completion after `]:`
 - **Completion resolve** — lazy enrichment of completion items with documentation and type signatures
 - **Moniker** — stable cross-workspace symbol identifiers
-- **Snippets** — 18 templates including `loop`, `loop-fields`, `match`, `do`, `returnA`, `arr`, `seq`, `choice`, `comp`, `first`, `named`, `axiom`, `doc`, `if`, `where`, `bind`
+- **Snippets** — templates including `match`, `rec`, `do`, `if`, `seq`, `choice`, `record`, `doc`, and more, provided by the LSP server's completion provider (data-driven, no static snippets file)
 - **Parse diagnostics** — real syntax errors shown as you type (severity: Error)
 - **Refinement diagnostics** — refinement inference errors shown as warnings
 - **File watcher** — re-diagnostic affected files when `.hnl` files change externally

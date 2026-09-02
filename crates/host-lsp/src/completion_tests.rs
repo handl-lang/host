@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::completion::{completion, completions};
+use crate::completion::{completion, completions, snippet_completions};
 use crate::document::DocumentStore;
 use crate::handlers::handle_completion;
 use crate::protocol::Message;
@@ -14,11 +14,19 @@ fn extract_body(raw: &[u8]) -> String {
 /// Number of keyword entries in the KEYWORDS const (v0.1 surface syntax).
 const KEYWORD_COUNT: usize = 19;
 
+/// Number of snippet templates emitted by `snippet_completions()` (ADR 0002,
+/// Step 2). These are the templates whose triggers do not collide with the
+/// keyword completions; keyword-triggered templates (`match`, `if`, `rec`,
+/// `while`, `for`, `return`, `import`, `infer`, `law`) are already provided by
+/// the KEYWORDS const, so they are not duplicated here.
+const SNIPPET_COUNT: usize = 18;
+
 #[test]
 fn completions_empty_source_returns_only_keywords() {
     let items = completions("");
-    // Empty source: keywords only, no arrow snippets (doesn't look like arrow file), no identifiers.
-    assert_eq!(items.len(), KEYWORD_COUNT);
+    // Empty source: keywords + snippet templates, no arrow snippets (doesn't
+    // look like arrow file), no identifiers.
+    assert_eq!(items.len(), KEYWORD_COUNT + SNIPPET_COUNT);
     let match_item = items
         .iter()
         .find(|i| i["label"] == "match")
@@ -53,7 +61,9 @@ fn completions_includes_identifiers_classified_by_role() {
 #[test]
 fn completions_lex_error_still_returns_keywords() {
     let items = completions("x = \"unterminated");
-    assert_eq!(items.len(), KEYWORD_COUNT);
+    // Lex error → no identifiers; not an arrow file → no arrow snippets.
+    // Keywords + snippet templates are still returned.
+    assert_eq!(items.len(), KEYWORD_COUNT + SNIPPET_COUNT);
     assert!(items.iter().any(|i| i["label"] == "match"));
 }
 
@@ -72,9 +82,11 @@ fn completions_arrow_file_includes_arrow_snippets() {
 #[test]
 fn completions_non_arrow_file_no_arrow_snippets() {
     let items = completions("x = 42");
-    // No arrow snippets for non-arrow files
+    // The `>>>` combinator snippet is only offered in arrow-graph context, so
+    // it is absent for a plain binding. (The `~>` template is now an
+    // always-available snippet per ADR 0002, Step 2, so it IS present here.)
     assert!(!items.iter().any(|i| i["label"] == ">>>" && i["kind"] == 15));
-    assert!(!items.iter().any(|i| i["label"] == "~>" && i["kind"] == 15));
+    assert!(items.iter().any(|i| i["label"] == "~>" && i["kind"] == 15));
 }
 
 #[test]
@@ -135,8 +147,6 @@ fn find_item<'a>(items: &'a [serde_json::Value], label: &str) -> Option<&'a serd
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword; \
-            detect_context never reaches AfterRec until the lexer is updated to v0.1"]
 fn completion_after_rec_suggests_brace() {
     // Cursor right after the `rec` keyword.
     let src = "rec ";
@@ -172,8 +182,6 @@ fn completion_after_do_suggests_brace() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `return` as a keyword; \
-            detect_context never reaches AfterReturn until the lexer is updated to v0.1"]
 fn completion_after_return_suggests_expr() {
     let src = "return ";
     let result = completion(src, 7);
@@ -185,8 +193,6 @@ fn completion_after_return_suggests_expr() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            rec_state_fields never collects fields; needs lexer v0.1 update"]
 fn completion_after_state_dot_suggests_rec_fields() {
     // A rec state declares `remaining` and `acc`; cursor after `state.`.
     let src = "rec { remaining = input, acc = [] } match state.";
@@ -206,8 +212,6 @@ fn completion_after_state_dot_suggests_rec_fields() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            rec_state_fields never collects fields; needs lexer v0.1 update"]
 fn completion_after_rec_brace_suggests_fields() {
     // Cursor right after the `{` of a rec state block with no fields yet —
     // context is StateField but there is nothing to suggest (no crash).
@@ -316,5 +320,105 @@ fn completion_lex_error_falls_back_to_full_set() {
     let result = completion(src, src.len());
     let items = result.as_array().expect("array");
     assert!(items.iter().any(|i| i["label"] == "match"));
-    assert_eq!(items.len(), KEYWORD_COUNT); // KEYWORD_COUNT only (lex error → no identifiers)
+    // Lex error → no identifiers; keywords + snippet templates only.
+    assert_eq!(items.len(), KEYWORD_COUNT + SNIPPET_COUNT);
+}
+
+// ---------------------------------------------------------------------------
+// Snippet completion tests (ADR 0002, Step 2)
+// ---------------------------------------------------------------------------
+
+/// The trigger names of all snippet templates emitted by `snippet_completions`,
+/// in the order they are defined. These match the `prefix` values from the
+/// original static snippets file (`hnl.code-snippets.json`), excluding the
+/// triggers that are already provided as keyword completions.
+const SNIPPET_LABELS: &[&str] = &[
+    "~>",
+    "~>args",
+    "rec-match",
+    "do-while",
+    "for-fold",
+    "match-list",
+    "seq",
+    "prod",
+    "fan",
+    "choice",
+    "nullish",
+    "opt-chain",
+    "spread",
+    "record",
+    "tuple",
+    "binding",
+    "binding-typed",
+    "doc",
+];
+
+#[test]
+fn snippet_completions_returns_all_snippets() {
+    let items = snippet_completions();
+    assert_eq!(items.len(), SNIPPET_COUNT);
+    assert_eq!(items.len(), SNIPPET_LABELS.len());
+}
+
+#[test]
+fn snippet_completions_have_snippet_kind() {
+    let items = snippet_completions();
+    assert!(!items.is_empty());
+    for item in &items {
+        assert_eq!(
+            item["kind"], 15,
+            "snippet `{}` should have kind 15 (Snippet)",
+            item["label"].as_str().unwrap_or("?"),
+        );
+    }
+}
+
+#[test]
+fn snippet_completions_have_insert_text_format_2() {
+    let items = snippet_completions();
+    assert!(!items.is_empty());
+    for item in &items {
+        assert_eq!(
+            item["insertTextFormat"], 2,
+            "snippet `{}` should have insertTextFormat 2 (Snippet)",
+            item["label"].as_str().unwrap_or("?"),
+        );
+        // Every snippet must carry an insertText body.
+        assert!(
+            item.get("insertText").and_then(|v| v.as_str()).is_some(),
+            "snippet `{}` should have an insertText body",
+            item["label"].as_str().unwrap_or("?"),
+        );
+    }
+}
+
+#[test]
+fn snippet_completions_have_labels() {
+    let items = snippet_completions();
+    let labels: Vec<&str> = items
+        .iter()
+        .map(|i| i["label"].as_str().unwrap())
+        .collect();
+    assert_eq!(labels, SNIPPET_LABELS);
+    // Each label is unique.
+    let mut sorted = labels.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), labels.len(), "snippet labels must be unique");
+}
+
+#[test]
+fn completions_include_snippets() {
+    // The main completions() function must include the snippet templates
+    // alongside the existing keyword/identifier completions. Use an empty
+    // source so no identifier collides with a snippet trigger.
+    let items = completions("");
+    for &label in SNIPPET_LABELS {
+        let item = items
+            .iter()
+            .find(|i| i["label"] == label)
+            .unwrap_or_else(|| panic!("snippet `{}` should appear in completions()", label));
+        assert_eq!(item["kind"], 15, "snippet `{}` should have kind 15", label);
+        assert_eq!(item["insertTextFormat"], 2, "snippet `{}` should have insertTextFormat 2", label);
+    }
 }

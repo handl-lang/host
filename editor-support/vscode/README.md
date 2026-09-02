@@ -21,7 +21,7 @@ Language support for [handl](https://handl-lang.org) — a language for authorin
 - **Selection ranges** — `Shift+Alt+→` smart selection expansion (bracket-aware)
 - **Code actions** — quick fixes: add missing `returnA`, wrap in `do`, convert `//` to `///`
 - **Context-aware completion** — keyword snippets, field names, combinators, and match patterns
-- **Snippets** — templates for `loop`, `match`, `do`, `returnA`, `arr`, `seq`, `choice`, `axiom`, and more
+- **Snippets** — templates for `match`, `rec`, `do`, `if`, `seq`, `choice`, `record`, `doc`, and more, provided by the LSP server's completion provider (no static snippets file)
 
 ## Installation
 

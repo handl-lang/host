@@ -56,6 +56,62 @@ const ARROW_SNIPPETS: &[(&str, &str, &str)] = &[
     ("~>", "arrow: pat ~> body — arrow definition", "${1:pat} ~> ${2:body}"),
 ];
 
+/// Snippet templates moved from the VS Code extension's static snippets file
+/// (`snippets/hnl.code-snippets.json`) into the server's completion provider
+/// (ADR 0002, Step 2). Each entry is `(trigger, detail, body)`.
+///
+/// `body` uses VS Code snippet syntax (`$1`, `${1:placeholder}`, …) and is
+/// emitted with `insertTextFormat = 2` (Snippet), the same format used by both
+/// static snippets and LSP completion items.
+///
+/// Only triggers that do not collide with the keyword completions in
+/// [`KEYWORDS`] are listed here. Keyword-triggered templates (`match`, `if`,
+/// `rec`, `while`, `for`, `return`, `import`, `infer`, `law`) are already
+/// provided by [`KEYWORDS`] with their own snippet bodies, so they are not
+/// duplicated here. This keeps the full set of trigger names from the original
+/// static file available while avoiding duplicate completion items.
+const SNIPPETS: &[(&str, &str, &str)] = &[
+    ("~>", "An arrow: pattern ~> body", "${1:pattern} ~> ${2:body}"),
+    ("~>args", "A multi-arg arrow: [args] ~> body (no currying, ID.2)", "[${1:args}] ~> ${2:body}"),
+    ("rec-match", "A rec block with match on a list (common fold pattern)", "rec {\n  remaining = ${1:input},\n  acc = ${2:[]},\n  match remaining {\n    []: return acc,\n    [h, ...t]: {\n      ${3:// process h}\n      remaining = t,\n      acc = ${4:// update acc}\n    }\n  }\n}"),
+    ("do-while", "A do-while loop: do { body } while cond", "do {\n  ${1:// body}\n} while ${2:cond}"),
+    ("for-fold", "A for fold: for x in xs, acc = init { body }", "for ${1:x} in ${2:xs}, ${3:acc} = ${4:init} {\n  ${5:// body}\n}"),
+    ("match-list", "A match on a list with empty and cons patterns", "match ${1:xs} {\n  []: ${2:// base case},\n  [h, ...t]: ${3:// recursive case}\n}"),
+    ("seq", "Sequential composition: a >>> b", "${1:first} >>> ${2:second}"),
+    ("prod", "Parallel product: a *** b", "${1:left} *** ${2:right}"),
+    ("fan", "Fan-out: a &&& b", "${1:left} &&& ${2:right}"),
+    ("choice", "Choice: a ||| b", "${1:left} ||| ${2:right}"),
+    ("nullish", "Nullish coalescing: expr ?? default", "${1:expr} ?? ${2:default}"),
+    ("opt-chain", "Optional chaining: expr?.field", "${1:expr}?.${2:field}"),
+    ("spread", "Spread: ...expr", "...${1:expr}"),
+    ("record", "A record literal: { field: value }", "{\n  ${1:field}: ${2:value}\n}"),
+    ("tuple", "A tuple/positional: [items]", "[${1:items}]"),
+    ("binding", "A binding: name = expr", "${1:name} = ${2:expr}"),
+    ("binding-typed", "A typed binding: name: Type = expr", "${1:name}: ${2:Type} = ${3:expr}"),
+    ("doc", "A doc comment block", "/// ${1:name}: ${2:description}\n///\n/// ${3:details}"),
+];
+
+/// Return all snippet completion items (ADR 0002, Step 2).
+///
+/// Each snippet is returned as a completion item with `kind = 15` (Snippet),
+/// `insertTextFormat = 2` (Snippet), and the snippet body in VS Code snippet
+/// syntax. These items are available in every completion context — the user
+/// can type any trigger word anywhere and get the corresponding template.
+pub fn snippet_completions() -> Vec<Value> {
+    SNIPPETS
+        .iter()
+        .map(|&(label, detail, body)| {
+            json!({
+                "label": label,
+                "kind": KIND_SNIPPET,
+                "detail": detail,
+                "insertText": body,
+                "insertTextFormat": 2,
+            })
+        })
+        .collect()
+}
+
 /// All known arrow combinators, offered when the cursor sits at a position
 /// where an arrow expression is expected (after `=`, `<-`, or at the start of
 /// a line inside a `do {}` or `rec {}` block). In v0.1 arrows are written with
@@ -234,6 +290,21 @@ pub fn completions(source: &str) -> Vec<Value> {
             for (name, (kind, detail)) in seen {
                 items.push(json!({ "label": name, "kind": kind, "detail": detail }));
             }
+        }
+    }
+
+    // 4. Snippet templates (ADR 0002, Step 2) — available in every context.
+    //    Merged with the existing completions and deduplicated by label so that
+    //    a keyword or in-scope identifier with the same name takes precedence
+    //    (the keyword-triggered snippets are already emitted in step 1).
+    let existing_labels: std::collections::HashSet<String> = items
+        .iter()
+        .filter_map(|i| i["label"].as_str().map(|s| s.to_string()))
+        .collect();
+    for item in snippet_completions() {
+        let label = item["label"].as_str().unwrap_or("");
+        if !existing_labels.contains(label) {
+            items.push(item);
         }
     }
 
