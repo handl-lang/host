@@ -77,7 +77,7 @@ describe("constants", () => {
     expect(DOCUMENT_SELECTOR).toEqual([{ scheme: "file", language: "handl" }]);
   });
 
-  it("OUTPUT_CHANNEL_NAME is handl LSP", () => {
-    expect(OUTPUT_CHANNEL_NAME).toBe("handl LSP");
+  it("OUTPUT_CHANNEL_NAME is handl", () => {
+    expect(OUTPUT_CHANNEL_NAME).toBe("handl");
   });
 });
