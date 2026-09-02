@@ -3,11 +3,11 @@
 // Contract: inferred from the loop body with zero annotations.
 //
 // Graph structure:
-//   drop = loop(comp(arr("list.tail"), first(id)))
+//   drop = loop(arr("list.tail") >>> first(id))
 //
 // The loop processes elements one at a time:
 //   - take the tail of the remaining input (drop one element)
 //   - the counter (side channel) passes through unchanged via first(id)
 //   - repeat until n elements are dropped
 
-drop = loop(comp(arr("list.tail"), first(id)))
+drop = loop(arr("list.tail") >>> first(id))

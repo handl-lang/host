@@ -27,6 +27,8 @@
   label: =
 - id: token.fanout
   label: '&&&'
+- id: token.choice
+  label: '|||'
 - id: token.flow
   label: '>>>'
 - id: token.gt

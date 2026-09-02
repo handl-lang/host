@@ -16,20 +16,22 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // tokens (token.keyword.may, token.keyword.must, token.keyword.when)
     // + 2 new tokens (token.json, token.ellipsis) + 1 proc keyword token
     // (token.keyword.proc) + 1 loop keyword token (token.keyword.loop)
-    // + 2 keyword tokens (token.keyword.then, token.keyword.in).
+    // + 2 keyword tokens (token.keyword.then, token.keyword.in)
+    // + 1 choice operator token (token.choice).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 67);
+    assert_eq!(lang.tokens.len(), 68);
 
-    // Grammar rows: 56 — one per construct (after excluding the duplicate
+    // Grammar rows: 57 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
     // value literal rules (string, bool, null), 1 pow rule, 4 new operator
     // rules (and.infix, or.infix, mod.infix, neg.prefix), 1 vau prefix
     // rule, 1 is infix rule, 4 mood infix rules (may, must, not.infix,
     // when), 2 new rules (json.prefix, ellipsis.prefix), 1 proc prefix
-    // rule (grammar.proc.prefix), and 1 loop prefix rule (grammar.loop.prefix).
+    // rule (grammar.proc.prefix), 1 loop prefix rule (grammar.loop.prefix),
+    // and 1 choice infix rule (grammar.choice.infix).
     // grammar.mood.postfix removed (stale placeholder).
-    assert_eq!(lang.grammar.len(), 56);
+    assert_eq!(lang.grammar.len(), 57);
 
     // Eval schemes: 55 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
@@ -86,8 +88,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 67);
-    assert_eq!(rt.lang().grammar.len(), 56);
+    assert_eq!(rt.lang().tokens.len(), 68);
+    assert_eq!(rt.lang().grammar.len(), 57);
 }
 
 #[test]

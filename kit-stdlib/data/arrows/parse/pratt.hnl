@@ -8,10 +8,10 @@
 // 4. Repeat until no more operators or lower precedence
 //
 // As an arrow graph, this is a nested loop with choice:
-//   pratt       = loop(comp(parse_atom, parse_ops))
-//   parse_ops   = loop(comp(parse.peek, choice(apply_op, stop)))
-//   apply_op    = comp(parse.consume, parse.make_node)
-//   parse_atom  = comp(parse.consume, parse.atom_value)
+//   pratt       = loop(parse_atom >>> parse_ops)
+//   parse_ops   = loop(parse.peek >>> (apply_op ||| stop))
+//   apply_op    = parse.consume >>> parse.make_node
+//   parse_atom  = parse.consume >>> parse.atom_value
 //   stop        = id
 //
 // The recursive `pratt` call inside `apply_op` (to parse the right operand)
@@ -30,15 +30,12 @@
 // The single-expression form below is equivalent to the named-arrow
 // decomposition:
 //
-//   pratt = loop(comp(
-//     comp(arr("parse.consume"), arr("parse.atom_value")),
-//     loop(comp(
-//       arr("parse.peek"),
-//       choice(
-//         comp(arr("parse.consume"), arr("parse.make_node")),
-//         id
-//       )
-//     ))
-//   ))
+//   pratt = loop(
+//     (arr("parse.consume") >>> arr("parse.atom_value")) >>>
+//     loop(
+//       arr("parse.peek") >>>
+//       ((arr("parse.consume") >>> arr("parse.make_node")) ||| id)
+//     )
+//   )
 
-loop(comp(comp(arr("parse.consume"), arr("parse.atom_value")), loop(comp(arr("parse.peek"), choice(comp(arr("parse.consume"), arr("parse.make_node")), id)))))
+loop((arr("parse.consume") >>> arr("parse.atom_value")) >>> loop(arr("parse.peek") >>> ((arr("parse.consume") >>> arr("parse.make_node")) ||| id)))

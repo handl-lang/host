@@ -117,7 +117,7 @@
       "name": "keyword"
     },
     "keywords": {
-      "match": "\\b(match|typeof|not|import|export|module)\\b",
+      "match": "\\b(proc|loop|if|then|else|match|where|in|typeof|not|import|export|module)\\b",
       "name": "keyword"
     },
     "nulls": {

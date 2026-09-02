@@ -6,7 +6,7 @@
 // Graph structure:
 //   push = arr("list.cons")
 //   pop  = arr("list.head")
-//   get  = comp(arr("list.nth"), first(id))
+//   get  = arr("list.nth") >>> first(id)
 
 // push : (α × List α) → List α — prepend an element (cons).
 push = arr("list.cons")
@@ -15,6 +15,6 @@ push = arr("list.cons")
 pop = arr("list.head")
 
 // get : (List α × Int) → α — element at index.
-// comp(arr("list.nth"), first(id)) — nth on the first component,
+// arr("list.nth") >>> first(id) — nth on the first component,
 // the index (second component) passes through as a side channel.
-get = comp(arr("list.nth"), first(id))
+get = arr("list.nth") >>> first(id)

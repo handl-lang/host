@@ -78,6 +78,11 @@
   pattern: !Literal
     text: '&&&'
   priority: 10
+- id: lex.choice
+  token_kind: token.choice
+  pattern: !Literal
+    text: '|||'
+  priority: 10
 - id: lex.flow
   token_kind: token.flow
   pattern: !Literal

@@ -103,6 +103,15 @@
   child_shape:
     node_kind: fanout
     arity: 2
+- id: grammar.choice.infix
+  token: token.choice
+  position: Infix
+  binding_power:
+  - 23
+  - 23
+  child_shape:
+    node_kind: choice
+    arity: 2
 - id: grammar.flow.infix
   token: token.flow
   position: Infix

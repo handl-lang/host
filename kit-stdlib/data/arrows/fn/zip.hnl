@@ -3,8 +3,8 @@
 // Contract: inferred from the loop body with zero annotations.
 //
 // Graph structure:
-//   zip = loop(comp(first(arr("list.head")),
-//                   comp(first(arr("list.tail")), arr("list.cons"))))
+//   zip = loop(first(arr("list.head")) >>>
+//              (first(arr("list.tail")) >>> arr("list.cons")))
 //
 // The loop processes elements one at a time:
 //   - take the head of both lists (first component)
@@ -12,4 +12,4 @@
 //   - cons the pair onto the output
 //   - repeat until either list is exhausted
 
-zip = loop(comp(first(arr("list.head")), comp(first(arr("list.tail")), arr("list.cons"))))
+zip = loop(first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")))

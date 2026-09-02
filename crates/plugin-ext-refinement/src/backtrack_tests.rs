@@ -26,10 +26,10 @@ const BACKTRACK_HNL: &str =
 // ============================================================================
 
 /// Build the backtracking parser arrow graph as a Scheme:
-///   backtrack = comp(parse.try_atom, choice(extract_success, comp(extract_error, parse.try_op)))
+///   backtrack = parse.try_atom >>> (parse.extract_success ||| (parse.extract_error >>> parse.try_op))
 ///
 /// - parse.try_atom : TokenList → Result (IsSuccess ∨ IsError)
-/// - choice(extract_success, comp(extract_error, parse.try_op)):
+/// - parse.extract_success ||| (parse.extract_error >>> parse.try_op):
 ///   - inl(success) → extract_success → AST
 ///   - inr(error)   → extract_error → parse.try_op → Result
 ///
@@ -41,13 +41,13 @@ fn backtrack_graph() -> Scheme {
         snd: Box::new(Scheme::arr_native("parse.try_op", vec![])),
     };
 
-    // choice(extract_success, retry)
+    // extract_success ||| retry
     let branch = Scheme::Choice {
         l: Box::new(Scheme::arr_native("parse.extract_success", vec![])),
         r: Box::new(retry),
     };
 
-    // comp(parse.try_atom, branch)
+    // parse.try_atom >>> branch
     Scheme::Seq {
         fst: Box::new(Scheme::arr_native("parse.try_atom", vec![])),
         snd: Box::new(branch),
@@ -211,7 +211,7 @@ fn test_backtrack_inference_contains_result_property() {
 fn test_choice_conjoins_backtrack_arms() {
     let registry = ContractRegistry::minimal();
 
-    // Just the choice part: choice(extract_success, comp(extract_error, parse.try_op))
+    // Just the choice part: extract_success ||| (extract_error >>> parse.try_op)
     let choice_part = Scheme::Choice {
         l: Box::new(Scheme::arr_native("parse.extract_success", vec![])),
         r: Box::new(Scheme::Seq {

@@ -168,7 +168,7 @@ fn test_parse_loop() {
 
 #[test]
 fn test_parse_nested_loop_comp() {
-    // loop(comp(insert, first(id)))
+    // loop(insert >>> first(id))
     let scheme =
         parse_arrow_expr("loop(comp(insert, first(id)))").expect("parse nested");
     match scheme {
@@ -217,6 +217,191 @@ fn test_parse_bare_identifier_is_app_reference() {
 }
 
 // ============================================================================
+// Operator syntax tests (>>> and ||| as infix sugar)
+// ============================================================================
+
+#[test]
+fn test_parse_seq_operator() {
+    // a >>> b should produce Seq(a, b) — same as comp(a, b)
+    let scheme =
+        parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
+    match scheme {
+        Scheme::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_choice_operator() {
+    // a ||| b should produce Choice(a, b) — same as choice(a, b)
+    let scheme =
+        parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
+    match scheme {
+        Scheme::Choice { l, r } => {
+            assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+            assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+        }
+        other => panic!("expected Choice, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_seq_operator_left_assoc() {
+    // a >>> b >>> c should produce Seq(Seq(a, b), c)
+    let scheme =
+        parse_arrow_expr(r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
+    match scheme {
+        Scheme::Seq { fst, snd } => {
+            // snd should be arr("c")
+            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+            // fst should be Seq(arr("a"), arr("b"))
+            match fst.as_ref() {
+                Scheme::Seq { fst, snd } => {
+                    assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+                    assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                }
+                other => panic!("expected nested Seq, got {:?}", other),
+            }
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_choice_operator_left_assoc() {
+    // a ||| b ||| c should produce Choice(Choice(a, b), c)
+    let scheme =
+        parse_arrow_expr(r#"arr("a") ||| arr("b") ||| arr("c")"#).expect("parse choice left-assoc");
+    match scheme {
+        Scheme::Choice { l, r } => {
+            // r should be arr("c")
+            assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+            // l should be Choice(arr("a"), arr("b"))
+            match l.as_ref() {
+                Scheme::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                }
+                other => panic!("expected nested Choice, got {:?}", other),
+            }
+        }
+        other => panic!("expected Choice, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_mixed_precedence() {
+    // a >>> b ||| c should parse as Seq(a, Choice(b, c))
+    // because ||| binds tighter than >>>
+    let scheme =
+        parse_arrow_expr(r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
+    match scheme {
+        Scheme::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+            match snd.as_ref() {
+                Scheme::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+                }
+                other => panic!("expected Choice in snd, got {:?}", other),
+            }
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_operator_with_parens() {
+    // (a ||| b) >>> c should parse as Seq(Choice(a, b), c)
+    let scheme =
+        parse_arrow_expr(r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
+    match scheme {
+        Scheme::Seq { fst, snd } => {
+            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+            match fst.as_ref() {
+                Scheme::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+                    assert!(matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                }
+                other => panic!("expected Choice in fst, got {:?}", other),
+            }
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_operator_equivalent_to_comp() {
+    // a >>> b should produce the same Scheme as comp(a, b)
+    let op_scheme =
+        parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse operator");
+    let call_scheme =
+        parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
+    assert_eq!(
+        op_scheme, call_scheme,
+        "operator syntax should produce same Scheme as function-call syntax"
+    );
+}
+
+#[test]
+fn test_parse_operator_equivalent_to_choice() {
+    // a ||| b should produce the same Scheme as choice(a, b)
+    let op_scheme =
+        parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse operator");
+    let call_scheme =
+        parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
+    assert_eq!(
+        op_scheme, call_scheme,
+        "operator syntax should produce same Scheme as function-call syntax"
+    );
+}
+
+#[test]
+fn test_parse_operator_with_first_and_loop() {
+    // loop(insert >>> first(id)) should produce same as loop(comp(insert, first(id)))
+    let op_scheme =
+        parse_arrow_expr("loop(insert >>> first(id))").expect("parse operator with first/loop");
+    let call_scheme =
+        parse_arrow_expr("loop(comp(insert, first(id)))").expect("parse comp with first/loop");
+    assert_eq!(
+        op_scheme, call_scheme,
+        "operator syntax with first/loop should match function-call syntax"
+    );
+}
+
+#[test]
+fn test_parse_operator_complex_backtrack() {
+    // arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))
+    // should produce Seq(a, Choice(b, Seq(c, d)))
+    let scheme = parse_arrow_expr(
+        r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#,
+    )
+    .expect("parse complex backtrack");
+    match scheme {
+        Scheme::Seq { fst, snd } => {
+            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "a"));
+            match snd.as_ref() {
+                Scheme::Choice { l, r } => {
+                    assert!(matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "b"));
+                    match r.as_ref() {
+                        Scheme::Seq { fst, snd } => {
+                            assert!(matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "c"));
+                            assert!(matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "d"));
+                        }
+                        other => panic!("expected Seq in choice r, got {:?}", other),
+                    }
+                }
+                other => panic!("expected Choice in snd, got {:?}", other),
+            }
+        }
+        other => panic!("expected Seq, got {:?}", other),
+    }
+}
+
+// ============================================================================
 // Multi-name file parsing tests
 // ============================================================================
 
@@ -225,7 +410,7 @@ fn test_parse_multi_name_file() {
     let src = r#"
 cons = arr("list.cons")
 head = arr("list.head")
-sort = loop(comp(insert, first(id)))
+sort = loop(insert >>> first(id))
 "#;
     let parsed = parse_arrow_file(src).expect("parse multi-name");
     match parsed {
@@ -248,7 +433,7 @@ sort = loop(comp(insert, first(id)))
 
 #[test]
 fn test_parse_single_expr_file() {
-    let src = "loop(comp(insert, first(id)))";
+    let src = "loop(insert >>> first(id))";
     let parsed = parse_arrow_file(src).expect("parse single expr");
     match parsed {
         ParsedFile::Single(scheme) => {
@@ -267,7 +452,7 @@ fn test_parse_insert_hnl() {
     let parsed = parse_arrow_file(INSERT_HNL).expect("parse insert.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(comp(prim.compare, choice(cons, cons)))
+            // Should be: loop(prim.compare >>> (cons ||| cons))
             assert!(matches!(scheme, Scheme::Loop { .. }));
             if let Scheme::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
@@ -292,7 +477,7 @@ fn test_parse_sort_hnl() {
     let parsed = parse_arrow_file(SORT_HNL).expect("parse sort.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(comp(app(insert), first(id)))
+            // Should be: loop(app(insert) >>> first(id))
             assert!(matches!(scheme, Scheme::Loop { .. }));
             if let Scheme::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
@@ -343,7 +528,7 @@ fn test_parse_filter_hnl() {
     let parsed = parse_arrow_file(FILTER_HNL).expect("parse filter.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(comp(filter_step, id))
+            // Should be: loop(filter_step >>> id)
             assert!(matches!(scheme, Scheme::Loop { .. }));
             if let Scheme::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
@@ -368,7 +553,7 @@ fn test_parse_fold_hnl() {
     let parsed = parse_arrow_file(FOLD_HNL).expect("parse fold.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(comp(fold_step, first(id)))
+            // Should be: loop(fold_step >>> first(id))
             assert!(matches!(scheme, Scheme::Loop { .. }));
             if let Scheme::Loop { body } = &scheme {
                 assert!(matches!(body.as_ref(), Scheme::Seq { .. }));

@@ -25,11 +25,11 @@ const PRATT_HNL: &str =
 // ============================================================================
 
 /// Build the Pratt parser arrow graph as a Scheme:
-///   loop(comp(parse_atom, parse_ops))
+///   loop(parse_atom >>> parse_ops)
 /// where:
-///   parse_atom  = comp(arr("parse.consume"), arr("parse.atom_value"))
-///   parse_ops   = loop(comp(arr("parse.peek"), choice(apply_op, id)))
-///   apply_op    = comp(arr("parse.consume"), arr("parse.make_node"))
+///   parse_atom  = arr("parse.consume") >>> arr("parse.atom_value")
+///   parse_ops   = loop(arr("parse.peek") >>> (apply_op ||| id))
+///   apply_op    = arr("parse.consume") >>> arr("parse.make_node")
 ///
 /// The outer loop parses atoms (consuming one token each), the inner loop
 /// applies operators (consuming one token per operator). The nested loop
@@ -39,13 +39,13 @@ const PRATT_HNL: &str =
 fn pratt_graph() -> Scheme {
     use Scheme::*;
 
-    // apply_op = comp(arr("parse.consume"), arr("parse.make_node"))
+    // apply_op = arr("parse.consume") >>> arr("parse.make_node")
     let apply_op = Seq {
         fst: Box::new(Scheme::arr_native("parse.consume", vec![])),
         snd: Box::new(Scheme::arr_native("parse.make_node", vec![])),
     };
 
-    // parse_ops = loop(comp(arr("parse.peek"), choice(apply_op, id)))
+    // parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
     let parse_ops = Loop {
         body: Box::new(Seq {
             fst: Box::new(Scheme::arr_native("parse.peek", vec![])),
@@ -56,13 +56,13 @@ fn pratt_graph() -> Scheme {
         }),
     };
 
-    // parse_atom = comp(arr("parse.consume"), arr("parse.atom_value"))
+    // parse_atom = arr("parse.consume") >>> arr("parse.atom_value")
     let parse_atom = Seq {
         fst: Box::new(Scheme::arr_native("parse.consume", vec![])),
         snd: Box::new(Scheme::arr_native("parse.atom_value", vec![])),
     };
 
-    // pratt = loop(comp(parse_atom, parse_ops))
+    // pratt = loop(parse_atom >>> parse_ops)
     Loop {
         body: Box::new(Seq {
             fst: Box::new(parse_atom),
@@ -166,8 +166,8 @@ fn test_parse_pratt_hnl() {
     let parsed = parse_arrow_file(PRATT_HNL).expect("parse pratt.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(comp(comp(parse.consume, parse.atom_value),
-            //                       loop(comp(parse.peek, choice(comp(parse.consume, parse.make_node), id)))))
+            // Should be: loop((parse.consume >>> parse.atom_value) >>>
+            //                  loop(parse.peek >>> ((parse.consume >>> parse.make_node) ||| id)))
             assert!(matches!(scheme, Scheme::Loop { .. }), "top-level should be Loop");
         }
         other => panic!("expected Single, got {:?}", other),
@@ -363,8 +363,8 @@ fn test_infer_pratt_from_disk() {
 #[test]
 fn test_parse_ops_inner_loop_inference() {
     // Test the inner loop in isolation:
-    //   parse_ops = loop(comp(arr("parse.peek"), choice(apply_op, id)))
-    //   apply_op  = comp(arr("parse.consume"), arr("parse.make_node"))
+    //   parse_ops = loop(arr("parse.peek") >>> (apply_op ||| id))
+    //   apply_op  = arr("parse.consume") >>> arr("parse.make_node")
     use Scheme::*;
 
     let apply_op = Seq {

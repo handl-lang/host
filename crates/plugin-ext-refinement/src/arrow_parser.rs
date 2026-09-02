@@ -4,12 +4,18 @@
 //! and produces `Scheme` IR. It handles two syntaxes:
 //!
 //! 1. **Simple arrow-graph syntax** — the combinator expressions described in
-//!    ADR-0069:
+//!    ADR-0069. Supports both function-call syntax and infix operator syntax:
 //!    ```text
-//!    loop(comp(insert, first(id)))
+//!    loop(comp(insert, first(id)))       // function-call syntax
+//!    loop(insert >>> first(id))          // equivalent operator syntax
 //!    arr("sort")
-//!    comp(a, b)
+//!    comp(a, b)                          // same as: a >>> b
+//!    choice(a, b)                        // same as: a ||| b
 //!    ```
+//!    The infix operators `>>>` (sequence) and `|||` (choice) are sugar:
+//!    `a >>> b` desugars to `comp(a, b)` (`Scheme::Seq`), and `a ||| b`
+//!    desugars to `choice(a, b)` (`Scheme::Choice`). `|||` binds tighter
+//!    than `>>>`, so `a >>> b ||| c` parses as `comp(a, choice(b, c))`.
 //!
 //! 2. **Rich `loop { ... } ( proc ... )` syntax** — the surface syntax
 //!    actually used in the stdlib `.hnl` files. The parser recognises the
@@ -74,7 +80,9 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
 ///
 /// Handles: `arr("name")`, `comp(a, b)`, `first(a)`, `choice(a, b)`,
 /// `loop(a)`, `id`, `app("name", args)`, and bare identifiers (references
-/// to named arrows).
+/// to named arrows). Also supports infix operator syntax: `a >>> b`
+/// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
+/// `choice(a, b)`).
 pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
     let tokens = tokenize(src)?;
     let mut parser = Parser::new(&tokens);
@@ -149,6 +157,10 @@ enum Token {
     Comma,
     StringLit(String),
     Ident(String),
+    /// `>>>` — sequence (flow) operator, desugars to `Seq`.
+    Flow,
+    /// `|||` — choice operator, desugars to `Choice`.
+    ChoiceOp,
 }
 
 fn tokenize(src: &str) -> Result<Vec<Token>, String> {
@@ -171,6 +183,28 @@ fn tokenize(src: &str) -> Result<Vec<Token>, String> {
             ',' => {
                 tokens.push(Token::Comma);
                 chars.next();
+            }
+            '>' => {
+                // Expect ">>>" (the flow / sequence operator)
+                chars.next(); // consume first '>'
+                if chars.next() != Some('>') {
+                    return Err("expected '>>>' but got incomplete '>'".to_string());
+                }
+                if chars.next() != Some('>') {
+                    return Err("expected '>>>' but got '>>'".to_string());
+                }
+                tokens.push(Token::Flow);
+            }
+            '|' => {
+                // Expect "|||" (the choice operator)
+                chars.next(); // consume first '|'
+                if chars.next() != Some('|') {
+                    return Err("expected '|||' but got incomplete '|'".to_string());
+                }
+                if chars.next() != Some('|') {
+                    return Err("expected '|||' but got '||'".to_string());
+                }
+                tokens.push(Token::ChoiceOp);
             }
             '"' => {
                 chars.next(); // skip opening quote
@@ -238,8 +272,70 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse a full arrow expression (top-level entry point).
+    ///
+    /// Grammar:
+    /// ```text
+    /// expr   := seq
+    /// seq    := choice_expr (">>>" choice_expr)*   -- left-assoc, produces Seq
+    /// choice_expr := atom ("|||" atom)*             -- left-assoc, produces Choice
+    /// atom   := "arr" "(" string ")" | "first" "(" expr ")"
+    ///         | "loop" "(" expr ")" | "app" "(" string ")"
+    ///         | "comp" "(" expr "," expr ")" | "choice" "(" expr "," expr ")"
+    ///         | "id" | identifier
+    /// ```
     fn parse_expr(&mut self) -> Result<Scheme, String> {
+        self.parse_seq()
+    }
+
+    /// Parse a sequence expression: `choice_expr (">>>" choice_expr)*`.
+    ///
+    /// Left-associative — `a >>> b >>> c` becomes `Seq(Seq(a, b), c)`.
+    /// `>>>` has lower precedence than `|||`, so `a >>> b ||| c` parses as
+    /// `Seq(a, Choice(b, c))`.
+    fn parse_seq(&mut self) -> Result<Scheme, String> {
+        let mut left = self.parse_choice_expr()?;
+        while self.peek() == Some(&Token::Flow) {
+            self.next(); // consume >>>
+            let right = self.parse_choice_expr()?;
+            left = Scheme::Seq {
+                fst: Box::new(left),
+                snd: Box::new(right),
+            };
+        }
+        Ok(left)
+    }
+
+    /// Parse a choice expression: `atom ("|||" atom)*`.
+    ///
+    /// Left-associative — `a ||| b ||| c` becomes `Choice(Choice(a, b), c)`.
+    /// `|||` has higher precedence than `>>>`.
+    fn parse_choice_expr(&mut self) -> Result<Scheme, String> {
+        let mut left = self.parse_atom()?;
+        while self.peek() == Some(&Token::ChoiceOp) {
+            self.next(); // consume |||
+            let right = self.parse_atom()?;
+            left = Scheme::Choice {
+                l: Box::new(left),
+                r: Box::new(right),
+            };
+        }
+        Ok(left)
+    }
+
+    /// Parse an atom: the simplest unit of an arrow expression.
+    ///
+    /// This handles function-call syntax (`comp(a, b)`, `choice(a, b)`,
+    /// `first(a)`, `loop(a)`, `arr("name")`, `app("name", args)`) and bare
+    /// identifiers (including `id`).
+    fn parse_atom(&mut self) -> Result<Scheme, String> {
         match self.next() {
+            Some(Token::LParen) => {
+                // Parenthesized expression: (expr)
+                let inner = self.parse_expr()?;
+                self.expect(&Token::RParen)?;
+                Ok(inner)
+            }
             Some(Token::Ident(name)) => match name.as_str() {
                 "id" => Ok(Scheme::arr_native("id", vec![])),
                 "arr" => self.parse_arr(),

@@ -3,11 +3,11 @@
 // Contract: inferred from the step function's guarantee with zero annotations.
 //
 // Graph structure:
-//   reduce = loop(comp(arr("fold_step"), first(id)))
+//   reduce = loop(arr("fold_step") >>> first(id))
 //
 // The loop processes elements one at a time:
 //   - apply step function to (current accumulator, head of remaining)
 //   - update accumulator with result
 //   - repeat until input is exhausted
 
-reduce = loop(comp(arr("fold_step"), first(id)))
+reduce = loop(arr("fold_step") >>> first(id))
