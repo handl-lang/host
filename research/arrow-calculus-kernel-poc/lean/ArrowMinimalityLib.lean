@@ -14,3 +14,5 @@ import ArrowMinimalityLib.InvariantDomain
 import ArrowMinimalityLib.StructuralInference
 import ArrowMinimalityLib.LoopInvariantDiscovery
 import ArrowMinimalityLib.AlgorithmicCompleteness
+import ArrowMinimalityLib.Termination
+import ArrowMinimalityLib.TraitInference
