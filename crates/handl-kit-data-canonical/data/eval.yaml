@@ -319,6 +319,19 @@
           op: proj_rest
           args: []
           source: Native
+- id: eval.choice
+  node_kind: choice
+  scheme: !Choice
+    l: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    r: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
 - id: eval.fanout
   node_kind: fanout
   scheme: !Arr

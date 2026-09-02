@@ -57,6 +57,7 @@ fn language_has_eval_schemes_for_all_major_node_kinds() {
         "assign",
         "flow",
         "fanout",
+        "choice",
         "ternary",
         "unary.not",
         "unary.neg",

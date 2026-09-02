@@ -597,7 +597,7 @@ predicate algebra, mirroring the `RTy` inductive of
 `RefinementProofGraphs.lean`.
 
 The inference engine is also integrated as a plugin crate
-(`handl-plugin-ext-refinement`, 243 tests) in the handl platform. This
+(`handl-plugin-ext-refinement`, 270 tests) in the handl platform. This
 integration adds three domain-specific axiom sets and arrow libraries,
 all inferred annotation-free:
 
@@ -605,9 +605,22 @@ all inferred annotation-free:
   `insert`, `take`, `drop`, `zip`, `scan`, `reduce`, `vec`, `queue`,
   and others. Contracts include `Sorted`, `IsPerm`, `LengthEq`,
   `LengthPlusOne`, `LengthSubOne`.
-- **Parsers** (1 arrow): a Pratt parser (top-down operator-precedence)
-  implemented as arrow graphs, inferring `LengthSubOne` (tokens
-  consumed) and `Nested(ListLength)` (termination).
+- **Parsers** (1 recursive-descent arrow + 6 backtracking atoms): a
+  Pratt parser (top-down operator-precedence) implemented as arrow
+  graphs, inferring `LengthSubOne` (tokens consumed) and
+  `Nested(ListLength)` (termination); plus a backtracking parser using
+  Result-type modeling (ADR-0071). The backtracking parser is defined
+  in `backtrack.hnl` as
+  `parse.try_atom >>> (parse.extract_success ||| (parse.extract_error >>> parse.try_op))`,
+  built from six atoms (`parse.try_atom`, `parse.try_op`,
+  `parse.extract_success`, `parse.extract_error`, `parse.succeed`,
+  `parse.fail`). Failure is modeled as a value — the output is a sum
+  type `Result AST + Error` — so backtracking is expressed entirely
+  with existing combinators (Seq, Choice, App); no `Try` combinator or
+  calculus extension is required. The inference engine conjoins both
+  Choice arms' guarantees, deriving that the overall output is always a
+  valid `Result` (`IsSuccess ∨ IsError`). The backtracking parser is
+  covered by 17 tests.
 - **State machines** (3 arrows): `counter`, `buffer`, `protocol`,
   implemented as `loop(comp(choice(inc, dec), first(id)))`. The
   fixpoint discovers data invariants such as `Le(0, output)` (Count ≥
@@ -616,7 +629,20 @@ all inferred annotation-free:
 
 All 20 arrows across three domains infer with zero user annotations,
 demonstrating that the structural inference mechanism generalizes
-beyond list operations to parsers and state machines.
+beyond list operations to parsers (including backtracking) and state
+machines.
+
+### 6.1.1 Operator Syntax
+
+`.hnl` arrow files support two equivalent surface syntaxes. In addition
+to the function-call form (`comp(a, b)`, `choice(a, b)`), the parser
+accepts infix operator syntax: `>>>` (sequence, desugaring to
+`comp`/`Seq`) and `|||` (choice, desugaring to `choice`/`Choice`).
+`|||` binds tighter than `>>>`, so `a >>> b ||| c` parses as
+`comp(a, choice(b, c))`. The two forms produce identical `Scheme` IR;
+the operators are pure sugar, verified by 10 parser tests confirming
+equivalence with the function-call form. The `backtrack.hnl` arrow
+(above) is written in operator syntax.
 
 ## 6.2 The Lean4 Formalization
 
@@ -706,13 +732,14 @@ with the `Sorted` invariant inferred from `insert`'s signature (Section
 4.7).
 
 **Cross-domain validation.** The platform integration
-(`handl-plugin-ext-refinement`, 243 tests) extends the evaluation
+(`handl-plugin-ext-refinement`, 270 tests) extends the evaluation
 beyond list operations to three domains, all annotation-free:
 
 | Domain | Arrows | Key inferred properties |
 |---|---|---|
 | List operations | 16 | `Sorted`, `IsPerm`, `LengthEq`, `LengthPlusOne` |
 | Parsers (Pratt) | 1 | `LengthSubOne` (tokens consumed), `Nested(ListLength)` (terminates) |
+| Parsers (backtracking) | 6 atoms | `IsSuccess ∨ IsError` (valid `Result` on every branch) |
 | State machines | 3 | `Le(0, output)` (Count ≥ 0), length bounds (buffer) |
 
 The state machine results are notable: the fixpoint discovers data
@@ -722,6 +749,16 @@ without user-supplied invariants. A counter
 `Le(0, output)` because `state.dec` carries the precondition
 `Le(0, input)` and guarantee `Le(0, output)`; the fixpoint propagates
 the guarantee through the loop, establishing the invariant.
+
+The backtracking parser is a new benchmark category exercising
+Result-type modeling (ADR-0071). The graph
+`parse.try_atom >>> (extract_success ||| (extract_error >>> parse.try_op))`
+produces a sum-typed output (`Result AST + Error`); the Choice
+branching mechanism conjoins both arms' guarantees, and the inference
+derives `IsSuccess ∨ IsError` — the parser always produces a valid
+`Result` regardless of which branch is taken. This confirms that
+backtracking, previously out of scope, is handled by the existing
+Choice machinery once failure is modeled as a value.
 
 ## 6.5 Failure Cases (Out-of-Domain Invariants)
 
@@ -854,14 +891,49 @@ Allowing shared sub-graphs (DAG structure) for proof reuse.
 **Scope boundary: deterministic dataflow.** The inference mechanism
 applies to deterministic dataflow — programs where the graph structure
 fully determines behavior. This covers list operations, recursive-descent
-parsers (without backtracking), and state machine data invariants. It
-does not cover: (a) backtracking parsers, which require failure as a
-first-class effect (a `Try` combinator or sum-type modeling); (b)
-concurrent systems, which require reasoning over non-deterministic
-scheduling — the most promising direction is message-passing (CSP/actor)
-models, which stay within deterministic dataflow; (c) liveness
-properties, which are temporal rather than invariant. These boundaries
+parsers, backtracking parsers, and state machine data invariants.
+Backtracking is now in scope: ADR-0071 commits to Result-type modeling,
+where parser failure is a value (a sum type `Result AST + Error`) rather
+than an effect, so backtracking is expressed with the existing Choice
+combinator and no calculus extension is required (Section 6.1). The
+backtracking parser is implemented (`backtrack.hnl`, 6 atoms, 17 tests)
+and inferred annotation-free. Concurrency is now in scope: ADR-0072
+models concurrent systems as dataflow over event streams — a loop over
+an externally supplied event stream, with shared state as the feedback
+channel and event handlers as Choice branches. The graph remains
+deterministic; the non-determinism is external (which events arrive),
+and the fixpoint discovers invariants that hold for all event orderings
+using the same mechanism as state machines. What remains out of scope:
+(a) liveness properties, which are temporal rather than invariant; (b)
+global properties spanning multiple independent loops. These boundaries
 are documented in ADR-0070 through ADR-0073.
+
+**Backtracking parsers (ADR-0071): implemented, not proposed.**
+Result-type modeling is the committed approach: parser output is a sum
+type `Result AST + Error`, and backtracking is
+`parse_A >>> (extract_success ||| (extract_error >>> parse_B))` — plain
+Seq and Choice over a sum-typed output. The earlier `Try`-combinator
+option has been dropped. The inference engine handles this with its
+existing WP branching through Choice: the `inl` branch propagates the
+success guarantee, the `inr` branch propagates into the backtrack arm,
+and the conjoined guarantee is `IsSuccess ∨ IsError`. No new inference
+rules are needed. The implementation (6 atoms, `backtrack.hnl`, 17
+tests) confirms the approach end-to-end.
+
+**Concurrency (ADR-0072): in scope, architecturally clear.**
+Concurrency is modeled as dataflow over event streams. A concurrent
+system is `loop(comp(handle_event, first(id)))` where events arrive via
+the input stream and shared state is the feedback channel `C`;
+`handle_event` branches over event types via Choice. Shared-memory
+concurrency models each thread's operation as an event handler, and
+race-condition safety means the fixpoint invariant holds for all event
+orderings. Message-passing (CSP/actor) concurrency models channel state
+as the feedback channel, with `receive`/`send` atoms carrying
+pre-/post-conditions; deadlock freedom reduces to precondition
+preservation by the discovered invariant. No new calculus primitives or
+inference rules are required — the fixpoint mechanism from ADR-0073
+applies directly. Liveness properties and global multi-loop properties
+remain out of scope.
 
 **Module system: normalization as abstraction.** The arrow-native module
 system (ADR-0069) treats files as arrows and imports as projections. The
@@ -903,13 +975,16 @@ benchmark cells: every property the graph should prove is proven
 unknown (46/46), with zero false positives. This contrasts with 37
 annotations required by Liquid Types for 19 properties. The platform
 integration extends these results to three domains — list operations
-(16 arrows), parsers (1 arrow), and state machines (3 arrows) — all
-inferred annotation-free, with 243 tests passing. We have honestly
-characterized the boundary: the compositional propagation is formally
-proven sound; the loop-specific strengthening is implemented and
-empirically validated but not formally proven; the scope is
-deterministic dataflow (backtracking parsers and concurrent systems
-are out of scope); and complex non-structural invariants are not
+(16 arrows), parsers (1 recursive-descent arrow plus a backtracking
+parser with 6 atoms using Result-type modeling), and state machines (3
+arrows) — all inferred annotation-free, with 270 tests passing. We
+have honestly characterized the boundary: the compositional propagation
+is formally proven sound; the loop-specific strengthening is
+implemented and empirically validated but not formally proven; the
+scope is deterministic dataflow, now including backtracking parsers
+(failure modeled as a value via sum types) with concurrency
+architecturally clear (dataflow over event streams, awaiting
+implementation); and complex non-structural invariants are not
 inferable by this mechanism.
 
 The vision is **proof-carrying computation with minimal syntactic

@@ -20,7 +20,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // + 1 choice operator token (token.choice).
     // token.mood removed (stale placeholder replaced by ADR-0026 keywords).
     // All other re-declarations are union (idempotent) duplicates.
-    assert_eq!(lang.tokens.len(), 68);
+    assert_eq!(lang.tokens.len(), 69);
 
     // Grammar rows: 57 — one per construct (after excluding the duplicate
     // `grammar.call.postfix` and `grammar.apply.prefix`), plus 3 additional
@@ -33,18 +33,18 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // grammar.mood.postfix removed (stale placeholder).
     assert_eq!(lang.grammar.len(), 57);
 
-    // Eval schemes: 55 — one per node kind (after excluding the duplicate
+    // Eval schemes: 56 — one per node kind (after excluding the duplicate
     // `eval.call.postfix` and trimming `eval-core` to its unique `resolve`
     // primitive), plus the `binary.pow` eval scheme,
     // 4 new operator eval schemes (binary.and, binary.or, binary.mod,
     // unary.neg), 1 is eval scheme, 4 mood eval schemes (may, mood.neg,
     // must, when), 1 proc eval scheme (eval.proc), 1 loop eval scheme
-    // (eval.loop), 1 rest eval scheme (eval.rest), and 1 bind eval scheme
-    // (eval.bind).
+    // (eval.loop), 1 rest eval scheme (eval.rest), 1 bind eval scheme
+    // (eval.bind), and 1 choice eval scheme (eval.choice).
     // `eval.vau` is intentionally omitted (ADR-0052: Vau is removed from the
     // kernel — it is a handler concern, not a kernel combinator).
     // eval.mood removed (stale placeholder).
-    assert_eq!(lang.eval.len(), 56);
+    assert_eq!(lang.eval.len(), 57);
 
     // AST shapes: 57 — 36 from the `tokens` foundation + 3 unique shapes from
     // other emitters (ast.resolve, ast.hello.greet, ast.json) + the `vau`
@@ -88,7 +88,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 68);
+    assert_eq!(rt.lang().tokens.len(), 69);
     assert_eq!(rt.lang().grammar.len(), 57);
 }
 
