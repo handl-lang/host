@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use serde_json::json;
 
 use crate::document::DocumentStore;
@@ -56,8 +58,6 @@ fn hover_if_keyword_shows_conditional_syntax() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword; \
-            hover falls back to identifier hover, not keyword_hover, until lexer v0.1"]
 fn hover_rec_keyword_shows_arrow_syntax() {
     let value = hover_at("rec", 0).unwrap();
     let contents = contents_value(&value).as_str().unwrap();
@@ -341,9 +341,6 @@ fn extract_doc_comments_strips_prefix_and_space() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            doc_comment_hover (which checks is_keyword_kind for `rec`) never fires; \
-            needs lexer v0.1 update"]
 fn hover_rec_keyword_shows_file_doc_comments() {
     let source = "--- my arrow: does stuff.\n---\n--- More details here.\nrec { } (id)";
     // Hover over the `rec` keyword (offset after the doc comments).
@@ -366,10 +363,14 @@ fn hover_rec_keyword_without_doc_comments_falls_back() {
     assert!(!contents.contains("---"), "should not have doc separator: {contents}");
 }
 
+/// Monotonic counter for unique temp directories in hover tests.
+static HOVER_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 #[test]
 fn hover_arrow_reference_shows_cross_file_docs() {
-    // Create a temp arrows directory with a target arrow file.
-    let temp = std::env::temp_dir().join("handl_hover_doc_test");
+    // Create a unique temp arrows directory with a target arrow file.
+    let n = HOVER_TEMP_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let temp = std::env::temp_dir().join(format!("handl_hover_doc_test_{}", n));
     std::fs::create_dir_all(temp.join("arrows").join("fn")).unwrap();
     let target = temp.join("arrows").join("fn").join("myarrow.hnl");
     std::fs::write(&target, "--- myarrow: a test arrow.\n---\n--- It does things.\nrec { } (id)").unwrap();

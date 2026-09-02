@@ -6,6 +6,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::call_hierarchy::{incoming_calls, outgoing_calls, prepare_call_hierarchy};
 
@@ -13,20 +14,21 @@ use crate::call_hierarchy::{incoming_calls, outgoing_calls, prepare_call_hierarc
 // Temp-directory helper
 // ---------------------------------------------------------------------------
 
+/// Monotonic counter so each test gets a unique temp directory, even when
+/// tests run in parallel (where `SystemTime::now()` can return the same
+/// nanosecond on separate threads).
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 /// Create a unique temporary directory for a test, returning its path.
 fn make_temp_dir(prefix: &str) -> PathBuf {
+    let n = TEMP_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
     let mut base = std::env::temp_dir();
     base.push(format!(
-        "handl-lsp-call-hierarchy-{}-{}",
+        "handl-lsp-call-hierarchy-{}-{}-{}",
         prefix,
-        std::process::id()
+        std::process::id(),
+        n,
     ));
-    // Add a random-ish component to avoid collisions across runs.
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    base.push(format!("{}", nanos));
     fs::create_dir_all(&base).expect("create temp dir");
     base
 }
@@ -308,7 +310,7 @@ fn prepare_call_hierarchy_ignores_let_bindings_in_arrow_body() {
     // A rich-loop arrow body contains a let-binding `cmp = ...` that must NOT
     // be treated as a named-arrow definition. The only arrow here is the
     // unnamed file-stem arrow `insert`.
-    let source = "loop {\n  elem: input.0,\n  acc: input.1\n} (\n  state ~> match state.acc {\n    []: returnA -< { out: [state.elem] },\n    [h, ...t]:\n      cmp = prim.compare(state.elem, h) in\n      insert -< { elem: state.elem, acc: t }\n  }\n)\n";
+    let source = "rec {\n  elem: input.0,\n  acc: input.1\n} (\n  state ~> match state.acc {\n    []: return [state.elem],\n    [h, ...t]:\n      cmp = prim.compare(state.elem, h) in\n      insert({ elem: state.elem, acc: t })\n  }\n)\n";
     let file_path = "/tmp/handl-lsp-call-hierarchy-let/arrows/collection/insert.hnl";
 
     // Cursor on `cmp` (the let-binding name) — not an arrow definition.
@@ -322,7 +324,7 @@ fn prepare_call_hierarchy_ignores_let_bindings_in_arrow_body() {
 
     // Cursor on `insert` (a reference) — not the file-stem name `insert`...
     // actually `insert` IS the file stem, so this should return the item.
-    let insert_offset = source.find("insert -<").unwrap();
+    let insert_offset = source.find("insert(").unwrap();
     let items = prepare_call_hierarchy(source, insert_offset, Some(file_path));
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["name"].as_str().unwrap(), "insert");

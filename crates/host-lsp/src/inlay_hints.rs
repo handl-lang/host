@@ -9,8 +9,7 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind, is_operator_kind};
-use handl_plugin_ext_refinement::{RefTy, RefinementResult};
+use handl_plugin_ext_refinement::RefTy;
 
 use crate::diagnostics::offset_to_position;
 
@@ -29,15 +28,6 @@ pub fn inlay_hints(
     let result = match refinement.infer_document(source, file_path) {
         Some(Ok(r)) => r,
         _ => return Vec::new(),
-    };
-
-    let kit = match Kit::new() {
-        Ok(k) => k,
-        Err(_) => return Vec::new(),
-    };
-    let tokens = match kit.lex_with_spans(source) {
-        Ok(t) => t,
-        Err(_) => return Vec::new(),
     };
 
     let mut hints: Vec<Value> = Vec::new();
@@ -67,15 +57,29 @@ pub fn inlay_hints(
     }
 
     // Arrow operator hints: show the arrow's input type at each `~>`.
-    for token in &tokens {
-        if is_operator_kind(token.kind.as_str()) && token.text == "~>" {
-            let (line, character) = offset_to_position(source, token.span.end);
-            hints.push(json!({
-                "position": { "line": line, "character": character },
-                "label": format!(": {}", result.input.pretty()),
-                "kind": KIND_TYPE,
-            }));
+    // Scan the source text for `~>` occurrences, skipping comment lines
+    // (lines whose first non-whitespace content starts with `--`). This
+    // avoids constructing a full `Kit` runtime just to lex the source —
+    // the `~>` operator is unambiguous in arrow files and never appears
+    // inside identifiers, numbers, or delimiters.
+    let mut search_pos = 0;
+    while let Some(rel) = source[search_pos..].find("~>") {
+        let pos = search_pos + rel;
+        search_pos = pos + "~>".len();
+
+        // Skip occurrences inside comment lines.
+        let line_start = source[..pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_prefix = source[line_start..pos].trim_start();
+        if line_prefix.starts_with("--") {
+            continue;
         }
+
+        let (line, character) = offset_to_position(source, pos + "~>".len());
+        hints.push(json!({
+            "position": { "line": line, "character": character },
+            "label": format!(": {}", result.input.pretty()),
+            "kind": KIND_TYPE,
+        }));
     }
 
     hints
@@ -176,10 +180,3 @@ fn extract_component_helper(ty: &RefTy, pos: usize) -> Option<(RefTy, usize)> {
     }
 }
 
-#[allow(dead_code)]
-fn _unused_token_imports(_: &[SpannedToken]) {}
-
-#[allow(dead_code)]
-fn _unused_is_identifier(_: &str) -> bool {
-    is_identifier_kind("token.ident")
-}

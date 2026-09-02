@@ -7,6 +7,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::type_hierarchy::{prepare_type_hierarchy, subtypes, supertypes};
 
@@ -14,20 +15,21 @@ use crate::type_hierarchy::{prepare_type_hierarchy, subtypes, supertypes};
 // Temp-directory helper
 // ---------------------------------------------------------------------------
 
+/// Monotonic counter so each test gets a unique temp directory, even when
+/// tests run in parallel (where `SystemTime::now()` can return the same
+/// nanosecond on separate threads).
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 /// Create a unique temporary directory for a test, returning its path.
 fn make_temp_dir(prefix: &str) -> PathBuf {
+    let n = TEMP_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
     let mut base = std::env::temp_dir();
     base.push(format!(
-        "handl-lsp-type-hierarchy-{}-{}",
+        "handl-lsp-type-hierarchy-{}-{}-{}",
         prefix,
-        std::process::id()
+        std::process::id(),
+        n,
     ));
-    // Add a random-ish component to avoid collisions across runs.
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    base.push(format!("{}", nanos));
     fs::create_dir_all(&base).expect("create temp dir");
     base
 }

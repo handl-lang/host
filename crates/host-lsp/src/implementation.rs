@@ -42,8 +42,22 @@ use crate::refinement::{find_arrows_root, RefinementEngine};
 /// - no arrows root can be located, or
 /// - no arrow file's inferred guarantee references the axiom name.
 pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Value> {
+    // Lex the source once and reuse the token stream for both the identifier
+    // lookup and the axiom-name check. This avoids constructing two separate
+    // `Kit` runtimes (which are expensive — each assembles a full engine
+    // registry with lex/parse/eval/typecheck/compile engines and many module
+    // registries) for a single `implementation` request.
+    let kit = match Kit::new() {
+        Ok(k) => k,
+        Err(_) => return Vec::new(),
+    };
+    let tokens = match kit.lex_with_spans(source) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+
     // a. Find the identifier at the cursor position.
-    let name = match identifier_at_cursor(source, offset) {
+    let name = match identifier_at_cursor(&tokens, offset) {
         Some(n) => n,
         None => return Vec::new(),
     };
@@ -57,7 +71,7 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
     if !is_contract_file(&fs_path) {
         return Vec::new();
     }
-    if !is_axiom_name_at_cursor(source, offset) {
+    if !is_axiom_name_at_cursor(&tokens, offset) {
         return Vec::new();
     }
 
@@ -92,9 +106,7 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
 ///
 /// Returns `None` when the cursor is not within an identifier token (e.g. on
 /// whitespace, a keyword, or an operator).
-fn identifier_at_cursor(source: &str, offset: usize) -> Option<String> {
-    let kit = Kit::new().ok()?;
-    let tokens = kit.lex_with_spans(source).ok()?;
+fn identifier_at_cursor(tokens: &[SpannedToken], offset: usize) -> Option<String> {
     let token = tokens
         .iter()
         .find(|t| t.span.start <= offset && offset < t.span.end)?;
@@ -111,15 +123,7 @@ fn identifier_at_cursor(source: &str, offset: usize) -> Option<String> {
 /// `axiom` may be tokenized as either a keyword or a plain identifier
 /// depending on the data-driven lexer configuration, so the check is on the
 /// token *text* rather than its kind.
-fn is_axiom_name_at_cursor(source: &str, offset: usize) -> bool {
-    let kit = match Kit::new() {
-        Ok(k) => k,
-        Err(_) => return false,
-    };
-    let tokens = match kit.lex_with_spans(source) {
-        Ok(t) => t,
-        Err(_) => return false,
-    };
+fn is_axiom_name_at_cursor(tokens: &[SpannedToken], offset: usize) -> bool {
     let idx = match tokens
         .iter()
         .position(|t| t.span.start <= offset && offset < t.span.end)

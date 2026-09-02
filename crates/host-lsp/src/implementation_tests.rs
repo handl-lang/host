@@ -8,6 +8,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::implementation::implementation;
 
@@ -15,27 +16,23 @@ use crate::implementation::implementation;
 /// infers `Sorted(output)` for it (derived from the `cons` contract), making
 /// it an implementation of the `Sorted` axiom.
 const INSERT_HNL: &str = r#"-- insert: insert an element into a sorted list, maintaining sorted order.
-loop {
+rec {
   elem: input.0,
   acc:  input.1
 } (
   state ~> match state.acc {
-    []: returnA -< {
-      out: [state.elem]
-    },
+    []: return [state.elem],
 
     [h, ...t]:
       cmp = prim.compare(state.elem, h) in
-      if cmp <= 0 then
-        returnA -< { out: [state.elem, ...state.acc] }
+      if cmp <= 0
+        { out: [state.elem, ...state.acc] }
       else
-        do {
-          rest_inserted <- insert -< { elem: state.elem, acc: t };
-          returnA -< {
-            state: {
-              elem: state.elem,
-              acc:  [h, ...rest_inserted]
-            }
+        rest_inserted = insert({ elem: state.elem, acc: t }) in
+        {
+          state: {
+            elem: state.elem,
+            acc:  [h, ...rest_inserted]
           }
         }
   }
@@ -45,19 +42,21 @@ loop {
 /// A contract file declaring the `Sorted` axiom.
 const SORTED_CONTRACT: &str = "axiom Sorted : List a -> List a\n  guarantee: Sorted(output)\n";
 
+/// Monotonic counter so each test gets a unique temp directory, even when
+/// tests run in parallel (where `SystemTime::now()` can return the same
+/// nanosecond on separate threads).
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 /// Create a unique temporary directory for a test, returning its path.
 fn make_temp_dir(prefix: &str) -> PathBuf {
+    let n = TEMP_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
     let mut base = std::env::temp_dir();
     base.push(format!(
-        "handl-lsp-implementation-{}-{}",
+        "handl-lsp-implementation-{}-{}-{}",
         prefix,
-        std::process::id()
+        std::process::id(),
+        n,
     ));
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    base.push(format!("{}", nanos));
     fs::create_dir_all(&base).expect("create temp dir");
     base
 }
