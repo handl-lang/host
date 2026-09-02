@@ -85,6 +85,14 @@ path = "src/quantitative_comparison_tests.rs"
 name = "evaluation"
 path = "src/evaluation_tests.rs"
 
+[[bin]]
+name = "trait_inference"
+path = "src/trait_catalog.rs"
+
+[[bin]]
+name = "trait_inference_sqlite"
+path = "src/trait_catalog_sqlite.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess
@@ -96,3 +104,13 @@ native-z3 = ["dep:z3"]
 # feature. `static-link-z3` compiles Z3 from source via cmake; the default
 # build uses the pyz3 subprocess fallback instead.
 z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
+
+# Serialization for the SQLite catalog backend (ADR-0075 section 4).
+# `CatalogEntry` (and its `Ty`/`PolyGraph`/`LawEquation` fields) round-trip
+# through JSON blobs stored in SQLite TEXT columns.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# SQLite catalog storage backend (ADR-0075 section 4). `bundled` compiles
+# SQLite from C source so the build needs no system libsqlite3.
+rusqlite = { version = "0.31", features = ["bundled"] }
