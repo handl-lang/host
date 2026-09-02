@@ -70,6 +70,7 @@ export default defineConfig({
             { text: "Runtime", link: "/explanation/runtime" },
             { text: "Platform architecture", link: "/explanation/platform-architecture" },
             { text: "The composable host", link: "/explanation/composable-host" },
+            { text: "The arrow calculus kernel", link: "/explanation/arrow-calculus-kernel" },
             {
               text: "Plugins, rules, and operations",
               link: "/explanation/plugins-rules-operations",

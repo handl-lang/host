@@ -7,7 +7,7 @@
 //
 //   - ResolvedModule + ResolveError
 //   - ModuleResolver trait + FileResolver / MemoryResolver / ChainResolver / CachingResolver
-//   - Contract (minimal stub for the ADR-0070 refinement engine)
+//   - Contract (ADR-0070 real refinement inference via refinement_engine)
 //   - ModuleLoader (two caches: graph + contract, Strategy C)
 //   - normalize_compile_time  (Strategy A — eager, static IR)
 //   - flatten_program         (Strategy B — whole-program flattening)
@@ -19,14 +19,27 @@
 #[path = "v0_1_surface.rs"]
 mod v0_1_surface;
 
-use v0_1_surface::{Kernel, parse, desugar};
 use v0_1_surface::desugar::{DesugaredProgram, ExportSet};
 use v0_1_surface::ast::Lit;
+
+// Re-export Kernel, parse, desugar so downstream test binaries can
+// construct values compatible with kernel_to_rgraph (ADR-0070) and
+// parse source directly. Also used internally by this module.
+pub use v0_1_surface::Kernel;
+pub use v0_1_surface::parse;
+pub use v0_1_surface::desugar;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+
+// === Section 1b: refinement engine module (ADR-0070) ===
+
+#[path = "refinement_engine.rs"]
+pub mod refinement_engine;
+
+use refinement_engine::{RGraph, infer_refinement, standard_sig};
 
 // === Section 2: ResolvedModule and errors ===
 
@@ -247,55 +260,177 @@ impl ModuleResolver for CachingResolver {
     }
 }
 
-// === Section 4: Contract (minimal stub, ADR-0069 §4 / ADR-0070) ===
+// === Section 4: Contract (ADR-0069 §4 / ADR-0070 — real refinement inference) ===
 
-/// A minimal representative contract. The real contract system is the
-/// refinement inference engine (ADR-0070); this stub captures a signature
-/// string and a list of refinement predicates for demonstration purposes.
-/// Both caches in `ModuleLoader` (§4) are keyed by path; the contract cache
-/// stores these.
+/// A contract inferred by the refinement engine (ADR-0070). Captures a
+/// best-effort arrow type signature and a list of refinement predicates
+/// (guarantees + loop invariants). Both caches in `ModuleLoader` (§4) are
+/// keyed by path; the contract cache stores these.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Contract {
-    /// A best-effort arrow type signature, e.g. "List α ~> List α".
+    /// A best-effort arrow type signature, e.g. "List α ~> { x : α | Sorted(x) }".
     pub signature: String,
     /// Refinement predicates, e.g. ["Sorted(output)"].
     pub refinements: Vec<String>,
 }
 
-/// Infer a placeholder contract from a desugared program. This is a STUB for
-/// the real ADR-0070 refinement engine. The heuristic:
-/// - More than one binding => "Unit ~> Record(<names>)".
-/// - Exactly one binding => "? ~> ?" (no real type engine).
-/// - Zero bindings => "Unit ~> Unit".
-/// - If any top-level kernel contains a `Loop`, push "LoopInvariant(output)".
+/// Translate a Kernel graph to an RGraph for refinement inference.
+/// ModuleRef and Project should be resolved BEFORE calling this (use
+/// normalize_compile_time or flatten_program first). If they remain,
+/// they are treated as unknown arrows (RGraph::Arr with the field/path name).
 ///
-/// Documented as a placeholder — do not rely on these signatures for real
-/// verification.
-pub fn infer_contract(desugared: &DesugaredProgram) -> Contract {
-    let signature = if desugared.bindings.len() > 1 {
-        let names: Vec<String> = desugared.bindings.iter().map(|(n, _)| n.clone()).collect();
-        format!("Unit ~> Record({})", names.join(", "))
-    } else if desugared.bindings.len() == 1 {
-        "? ~> ?".to_string()
-    } else {
-        "Unit ~> Unit".to_string()
-    };
+/// The surface syntax uses `loop(...)`, `first(...)`, `choice(...)` as
+/// function-call syntax, which the desugar turns into `Seq(arg, Var(name))`.
+/// This function detects those patterns and translates them to the
+/// corresponding RGraph combinators (Loop, First, Left).
+pub fn kernel_to_rgraph(k: &Kernel) -> RGraph {
+    match k {
+        Kernel::Var(name) => RGraph::Arr(name.clone()),
+        Kernel::Const(_) => RGraph::Arr("const".to_string()),
+        Kernel::Arr { op, args } => {
+            // arr("arrow", [pat, body]) is a lambda — translate the body.
+            // arr("loop", ...) — shouldn't appear, Loop is a separate variant.
+            // arr(name, []) is a base arrow reference.
+            // arr(name, [arg]) is a base arrow applied to one arg — treat as
+            //   comp(arg, arr(name)) if arg is a graph, else just arr(name).
+            if args.is_empty() {
+                RGraph::Arr(op.clone())
+            } else if op == "arrow" && args.len() == 2 {
+                // Lambda: translate the body (args[1]).
+                kernel_to_rgraph(&args[1])
+            } else if args.len() == 1 {
+                // Single-arg arr: comp(arg, arr(op))
+                RGraph::Comp(
+                    Box::new(kernel_to_rgraph(&args[0])),
+                    Box::new(RGraph::Arr(op.clone())),
+                )
+            } else {
+                // Multi-arg or unknown: treat as a named arrow.
+                RGraph::Arr(op.clone())
+            }
+        }
+        Kernel::Seq { fst, snd } => {
+            // The desugar turns `f(x)` into `Seq(x, Var(f))`. When f is one
+            // of the kernel combinators (loop, first, choice), translate to
+            // the corresponding RGraph combinator instead of a composition.
+            if let Kernel::Var(name) = snd.as_ref() {
+                match name.as_str() {
+                    "loop" => return RGraph::Loop(Box::new(kernel_to_rgraph(fst))),
+                    "first" => return RGraph::First(Box::new(kernel_to_rgraph(fst))),
+                    "choice" => {
+                        // choice(arg) with one arg: treat as Left (conservative).
+                        // choice(a, b) desugars to Seq(b, Seq(a, Var("choice"))).
+                        // Detect the two-arg form and use the first arg.
+                        if let Kernel::Seq { fst: inner_a, snd: inner_b } = fst.as_ref() {
+                            if let Kernel::Var(inner_name) = inner_b.as_ref() {
+                                if inner_name == "choice" {
+                                    // Two-arg choice: choice(a, b) = Seq(b, Seq(a, Var("choice")))
+                                    // Use the first arg (a) as the left branch.
+                                    return RGraph::Left(Box::new(kernel_to_rgraph(inner_a)));
+                                }
+                            }
+                        }
+                        return RGraph::Left(Box::new(kernel_to_rgraph(fst)));
+                    }
+                    _ => {}
+                }
+            }
+            RGraph::Comp(
+                Box::new(kernel_to_rgraph(fst)),
+                Box::new(kernel_to_rgraph(snd)),
+            )
+        }
+        Kernel::First { inner } => RGraph::First(Box::new(kernel_to_rgraph(inner))),
+        Kernel::Choice { l, r } => {
+            // Choice ≈ Left in the refinement engine (both are sum routing).
+            // Use the left branch's refinement (conservative).
+            let _ = r;
+            RGraph::Left(Box::new(kernel_to_rgraph(l)))
+        }
+        Kernel::Loop { body } => RGraph::Loop(Box::new(kernel_to_rgraph(body))),
+        Kernel::App { callee, args } => {
+            // App to a Var(name): treat as comp(args, arr(name)).
+            if let Kernel::Var(name) = callee.as_ref() {
+                if args.len() == 1 {
+                    RGraph::Comp(
+                        Box::new(kernel_to_rgraph(&args[0])),
+                        Box::new(RGraph::Arr(name.clone())),
+                    )
+                } else {
+                    RGraph::Arr(name.clone())
+                }
+            } else {
+                // App to a non-Var callee: translate the callee.
+                kernel_to_rgraph(callee)
+            }
+        }
+        Kernel::ModuleRef { path } => {
+            // Should be resolved before inference. Treat as unknown arrow.
+            RGraph::Arr(path.clone())
+        }
+        Kernel::Project { field, .. } => {
+            // Should be resolved before inference. Treat as unknown arrow.
+            RGraph::Arr(field.clone())
+        }
+    }
+}
 
-    let mut refinements: Vec<String> = Vec::new();
-    for (_, k) in &desugared.bindings {
-        if contains_loop(k) {
-            refinements.push("LoopInvariant(output)".to_string());
-            break;
+/// Infer a REAL contract from a desugared program using the refinement engine
+/// (ADR-0070). Each binding's Kernel is translated to RGraph, then
+/// infer_refinement derives the guarantee and loop invariants.
+///
+/// For multi-binding programs (record modules), the contract is the record
+/// of each binding's contract. For single-binding programs, it's that
+/// binding's contract.
+pub fn infer_contract(desugared: &DesugaredProgram) -> Contract {
+    let sig = standard_sig();
+
+    if desugared.bindings.is_empty() {
+        return Contract { signature: "Unit ~> Unit".to_string(), refinements: vec![] };
+    }
+
+    let mut all_refinements: Vec<String> = Vec::new();
+    let mut signatures: Vec<String> = Vec::new();
+
+    for (name, kernel) in &desugared.bindings {
+        let rgraph = kernel_to_rgraph(kernel);
+        match infer_refinement(&rgraph, &sig) {
+            Ok(result) => {
+                // Format the signature.
+                let sig_str = format!("{}: {:?}", name, result.output_type);
+                signatures.push(sig_str);
+
+                // Collect refinements.
+                let guarantee_str = result.guarantee.pretty();
+                if guarantee_str != "True" {
+                    all_refinements.push(format!("{}: {}", name, guarantee_str));
+                }
+                for inv in &result.loop_invariants {
+                    all_refinements.push(format!("{}: loop invariant: {} ({})",
+                        name, inv.invariant.pretty(),
+                        if inv.verified_by_smt { "SMT-verified" } else { "unverified" }));
+                }
+            }
+            Err(_) => {
+                signatures.push(format!("{}: unknown", name));
+            }
         }
     }
 
+    let signature = if signatures.len() == 1 {
+        signatures[0].clone()
+    } else {
+        format!("Record({})", signatures.join(", "))
+    };
+
     Contract {
         signature,
-        refinements,
+        refinements: all_refinements,
     }
 }
 
 /// Helper: does this kernel tree contain a `Loop` node?
+#[allow(dead_code)]
 fn contains_loop(k: &Kernel) -> bool {
     match k {
         Kernel::Loop { body } => true || contains_loop(body),
@@ -399,7 +534,7 @@ impl ModuleLoader {
         // Desugar.
         let desugared = desugar(&program);
 
-        // Infer contract (stub).
+        // Infer contract (ADR-0070 refinement engine).
         let contract = infer_contract(&desugared);
 
         // Cache both.

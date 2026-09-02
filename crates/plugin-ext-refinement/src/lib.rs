@@ -52,8 +52,18 @@ pub mod trait_inference;
 pub mod types;
 
 // Re-export the most commonly used items at the crate root.
-pub use arrow_loader::{infer_file, load_all_arrows, load_arrow_file, load_arrow_file_named, resolve_apps};
-pub use arrow_parser::{parse_arrow_expr, parse_arrow_file, ParsedFile};
+pub use arrow_loader::{
+    infer_file, load_all_arrows, load_arrow_file, load_arrow_file_named, resolve_apps,
+    // Module system (ADR-0069):
+    CachingResolver, ChainResolver, FileResolver, LoadError, LoadedModule, MemoryResolver,
+    ModuleLoader, ModuleResolver, ResolvedModule, ResolveError, ResolveErrorKind,
+    contains_module_ref, contains_project, flatten_program, has_unresolved_apps,
+    normalize_compile_time,
+};
+pub use arrow_parser::{
+    parse_arrow_expr, parse_arrow_file, parse_arrow_module, ExportDecl, ImportDecl, ParsedFile,
+    ParsedModule,
+};
 pub use contracts::ContractRegistry;
 pub use inference::{format_scheme, infer_r, infer_refinement};
 pub use loader::{load_dir, load_standard_axioms, parse_contracts};

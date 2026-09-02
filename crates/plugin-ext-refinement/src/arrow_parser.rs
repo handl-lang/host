@@ -99,11 +99,283 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
 /// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
 /// `choice(a, b)`).
 pub fn parse_arrow_expr(src: &str) -> Result<Scheme, String> {
+    // Check for simple rec form: `rec { body }` (without `( ... )` after `}`).
+    // This is the v0.1 replacement for `loop(body)`.
+    if let Some(scheme) = try_parse_simple_rec(src) {
+        return Ok(scheme);
+    }
     let lang = arrow_language();
     if let Ok(scheme) = parse_arrow_expr_data_driven(src, lang) {
         return Ok(scheme);
     }
     parse_arrow_expr_legacy(src)
+}
+
+// ============================================================================
+// Module parsing: import/export declarations (ADR-0069)
+// ============================================================================
+
+/// A parsed import declaration.
+///
+/// Represents a single `import` line in a `.hnl` module file. Each import
+/// binds one or more names from a remote module path into the local scope.
+/// The `names` vector contains `(remote_name, local_name)` pairs; `local`
+/// equals `remote` when no `as` alias is given. For whole-module imports
+/// (`import "path" as alias`), the remote name is `"*"`.
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    /// `(remote_name, local_name)` pairs. `local == remote` when no `as`.
+    /// For whole-module imports, `remote_name` is `"*"`.
+    pub names: Vec<(String, String)>,
+    /// The module path being imported from.
+    pub path: String,
+}
+
+/// A parsed export declaration.
+///
+/// Controls which names a module makes public. An empty export list means
+/// all named arrows are public (ADR-0069 §1).
+#[derive(Debug, Clone)]
+pub enum ExportDecl {
+    /// Export specific names: `export name1, name2`.
+    Names(Vec<String>),
+    /// Export all public names: `export *`.
+    All,
+    /// Export specific names from another module: `export name1 from "path"`.
+    NamesFrom(Vec<String>, String),
+    /// Export all from another module: `export * from "path"`.
+    AllFrom(String),
+}
+
+/// The result of parsing an arrow module file with import/export declarations.
+///
+/// A `ParsedModule` carries the import/export metadata alongside the parsed
+/// arrow definitions. The `arrows` field is a [`ParsedFile`] — either a
+/// single expression or a named map of arrows.
+#[derive(Debug, Clone)]
+pub struct ParsedModule {
+    /// Import declarations: `(local_name, module_path)` pairs.
+    pub imports: Vec<ImportDecl>,
+    /// Export declarations. Empty = all names public.
+    pub exports: Vec<ExportDecl>,
+    /// The parsed arrows (single expression or named map).
+    pub arrows: ParsedFile,
+}
+
+/// Parse a `.hnl` arrow module file's content, extracting import/export
+/// declarations.
+///
+/// This is the module-aware counterpart to [`parse_arrow_file`]. It:
+/// 1. Strips comments (reuses [`strip_comments`]).
+/// 2. Scans for `import` and `export` lines at the top level.
+/// 3. Parses import lines: `import name from "path"`,
+///    `import name1, name2 from "path"`, `import name as local from "path"`,
+///    `import "path" as alias`.
+/// 4. Parses export lines: `export name`, `export *`,
+///    `export name from "path"`, `export * from "path"`.
+/// 5. Parses the remaining content as a [`ParsedFile`] (reuses
+///    [`parse_arrow_file`] on the non-import/non-export lines).
+///
+/// If the remaining content (after removing import/export lines) is empty,
+/// the `arrows` field is `ParsedFile::Named` with an empty map (a pure
+/// re-export module).
+pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
+    let stripped = strip_comments(src);
+    let mut imports: Vec<ImportDecl> = Vec::new();
+    let mut exports: Vec<ExportDecl> = Vec::new();
+    let mut arrow_lines: Vec<&str> = Vec::new();
+
+    for line in stripped.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            arrow_lines.push(line);
+            continue;
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("import") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_import_line(trimmed) {
+                    imports.push(decl);
+                    continue;
+                }
+            }
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("export") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_export_line(trimmed) {
+                    exports.push(decl);
+                    continue;
+                }
+            }
+        }
+
+        arrow_lines.push(line);
+    }
+
+    let arrow_src = arrow_lines.join("\n");
+    let arrows = if arrow_src.trim().is_empty() {
+        ParsedFile::Named(HashMap::new())
+    } else {
+        parse_arrow_file(&arrow_src)?
+    };
+
+    Ok(ParsedModule {
+        imports,
+        exports,
+        arrows,
+    })
+}
+
+/// Parse a single `import` line into an [`ImportDecl`].
+///
+/// Supported forms:
+/// - `import name from "path"`
+/// - `import name1, name2 from "path"`
+/// - `import name as local from "path"`
+/// - `import "path" as alias`
+fn parse_import_line(line: &str) -> Option<ImportDecl> {
+    let rest = line.strip_prefix("import")?.trim();
+
+    // Case: import "path" as alias  (whole-module import)
+    if rest.starts_with('"') || rest.starts_with('\'') {
+        let (path, after) = extract_quoted_string(rest)?;
+        let after = after.trim();
+        if let Some(alias_part) = after.strip_prefix("as") {
+            let alias = alias_part.trim().to_string();
+            if alias.is_empty() {
+                return None;
+            }
+            return Some(ImportDecl {
+                names: vec![("*".to_string(), alias)],
+                path,
+            });
+        }
+        // Bare `import "path"` with no alias — import the whole module
+        // under the file stem name.
+        let stem = path.rsplit('/').next().unwrap_or(&path).to_string();
+        return Some(ImportDecl {
+            names: vec![("*".to_string(), stem)],
+            path,
+        });
+    }
+
+    // Case: import name1, name2 from "path"
+    // Case: import name as local from "path"
+    let from_idx = find_keyword(rest, "from")?;
+    let names_part = rest[..from_idx].trim();
+    let path_part = rest[from_idx + 4..].trim();
+    let path = extract_quoted_string(path_part)?.0;
+
+    let names: Vec<(String, String)> = names_part
+        .split(',')
+        .filter_map(|n| {
+            let n = n.trim();
+            if n.is_empty() {
+                return None;
+            }
+            if let Some(as_idx) = find_keyword(n, "as") {
+                let remote = n[..as_idx].trim().to_string();
+                let local = n[as_idx + 3..].trim().to_string();
+                if remote.is_empty() || local.is_empty() {
+                    return None;
+                }
+                Some((remote, local))
+            } else {
+                Some((n.to_string(), n.to_string()))
+            }
+        })
+        .collect();
+
+    if names.is_empty() {
+        return None;
+    }
+
+    Some(ImportDecl { names, path })
+}
+
+/// Parse a single `export` line into an [`ExportDecl`].
+///
+/// Supported forms:
+/// - `export name1, name2`
+/// - `export *`
+/// - `export name1 from "path"`
+/// - `export * from "path"`
+fn parse_export_line(line: &str) -> Option<ExportDecl> {
+    let rest = line.strip_prefix("export")?.trim();
+
+    // export * from "path"
+    if rest.starts_with('*') {
+        let after_star = rest[1..].trim();
+        if let Some(from_idx) = find_keyword(after_star, "from") {
+            let path_part = after_star[from_idx + 4..].trim();
+            let path = extract_quoted_string(path_part)?.0;
+            return Some(ExportDecl::AllFrom(path));
+        }
+        return Some(ExportDecl::All);
+    }
+
+    // export name1, name2 from "path"
+    // export name1, name2
+    if let Some(from_idx) = find_keyword(rest, "from") {
+        let names_part = rest[..from_idx].trim();
+        let path_part = rest[from_idx + 4..].trim();
+        let path = extract_quoted_string(path_part)?.0;
+        let names: Vec<String> = names_part
+            .split(',')
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .collect();
+        if names.is_empty() {
+            return None;
+        }
+        return Some(ExportDecl::NamesFrom(names, path));
+    }
+
+    // export name1, name2
+    let names: Vec<String> = rest
+        .split(',')
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect();
+    if names.is_empty() {
+        return None;
+    }
+    Some(ExportDecl::Names(names))
+}
+
+/// Extract a quoted string from the start of `s`, returning the content and
+/// the remaining text after the closing quote.
+fn extract_quoted_string(s: &str) -> Option<(String, &str)> {
+    let s = s.trim_start();
+    let quote = s.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let rest = &s[quote.len_utf8()..];
+    let end = rest.find(quote)?;
+    let content = rest[..end].to_string();
+    let remaining = &rest[end + quote.len_utf8()..];
+    Some((content, remaining))
+}
+
+/// Find the byte index of a keyword in `s`, ensuring it is a whole word
+/// (not part of a larger identifier). Returns `None` if not found.
+fn find_keyword(s: &str, keyword: &str) -> Option<usize> {
+    let mut search_start = 0;
+    while let Some(idx) = s[search_start..].find(keyword) {
+        let abs_idx = search_start + idx;
+        let before_ok = abs_idx == 0
+            || !s[..abs_idx].chars().next_back().unwrap().is_alphanumeric();
+        let after_idx = abs_idx + keyword.len();
+        let after_ok = after_idx >= s.len()
+            || !s[after_idx..].chars().next().unwrap().is_alphanumeric();
+        if before_ok && after_ok {
+            return Some(abs_idx);
+        }
+        search_start = abs_idx + 1;
+    }
+    None
 }
 
 // ============================================================================
@@ -121,9 +393,15 @@ fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
     let lang = arrow_language();
     let trimmed = src.trim();
 
-    // Rich-loop syntax starts with `loop` followed by `{`. Parse it as a
-    // single expression — do NOT check for named arrows, because the
-    // body may contain ` = ` in let-bindings (`cmp = expr in body`).
+    // Simple rec form: `rec { body }` (without `( ... )` after `}`).
+    // This is the v0.1 replacement for `loop(body)`.
+    if let Some(scheme) = try_parse_simple_rec(trimmed) {
+        return Ok(ParsedFile::Single(scheme));
+    }
+
+    // Rich-loop syntax starts with `loop {` or `rec {` followed by `( ... )`.
+    // Parse it as a single expression — do NOT check for named arrows, because
+    // the body may contain ` = ` in let-bindings (`cmp = expr in body`).
     if is_rich_loop(trimmed) {
         let scheme = parse_arrow_expr_data_driven(trimmed, lang)?;
         return Ok(ParsedFile::Single(scheme));
@@ -140,18 +418,87 @@ fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
     Ok(ParsedFile::Single(scheme))
 }
 
-/// Check if the source is a rich-loop expression (`loop { ... }`).
+/// Check if the source is a rich-loop expression (`loop { ... }` or `rec { ... }`).
 ///
-/// Returns true if the trimmed source starts with the `loop` keyword
+/// Returns true if the trimmed source starts with the `loop` or `rec` keyword
 /// followed by `{` (with possible whitespace between). This distinguishes
-/// the rich-loop form from the simple `loop(...)` form.
+/// the rich-loop form from the simple `loop(...)` / `rec { ... }` form.
 fn is_rich_loop(src: &str) -> bool {
     let trimmed = src.trim_start();
-    if let Some(rest) = trimmed.strip_prefix("loop") {
-        rest.trim_start().starts_with('{')
-    } else {
-        false
+    for kw in ["loop", "rec"] {
+        if let Some(rest) = trimmed.strip_prefix(kw) {
+            // Ensure the keyword is word-complete (not a prefix of a longer
+            // identifier like `looped` or `record`).
+            let after = rest.chars().next();
+            if after.is_none() || !after.unwrap().is_alphanumeric() && after.unwrap() != '_' && after.unwrap() != '.' {
+                if rest.trim_start().starts_with('{') {
+                    return true;
+                }
+            }
+        }
     }
+    false
+}
+
+/// Try to parse a simple `rec { body }` expression (v0.1 replacement for
+/// `loop(body)`).
+///
+/// Returns `Some(Scheme::Loop { body })` if the source is `rec { body }`
+/// (with no `( ... )` after the closing `}`). Returns `None` if the source
+/// is not a simple rec form (e.g. it's a rich-loop `rec { state } ( body )`,
+/// or it doesn't start with `rec {`).
+fn try_parse_simple_rec(src: &str) -> Option<Scheme> {
+    let trimmed = src.trim();
+
+    // Must start with `rec` followed by whitespace and `{`.
+    let rest = trimmed.strip_prefix("rec")?;
+    // Word-boundary check: next char must not be alphanumeric/_/.
+    let next = rest.chars().next()?;
+    if next.is_alphanumeric() || next == '_' || next == '.' {
+        return None;
+    }
+    let rest = rest.trim_start();
+    if !rest.starts_with('{') {
+        return None;
+    }
+
+    // Find the matching `}` (accounting for nested braces).
+    let mut depth: i32 = 0;
+    let mut close_idx: Option<usize> = None;
+    for (i, c) in rest.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close_idx = Some(i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close_idx = close_idx?;
+
+    // Check what's after the closing `}`.
+    let after_brace = rest[close_idx + 1..].trim();
+
+    // If there's a `(` after `}`, it's a rich-loop — not a simple rec.
+    if after_brace.starts_with('(') {
+        return None;
+    }
+
+    // If there's anything else after `}`, it's not a simple rec.
+    if !after_brace.is_empty() {
+        return None;
+    }
+
+    // Extract the body between `{` and `}` and parse it recursively.
+    let body_src = rest[1..close_idx].trim();
+    let body_scheme = parse_arrow_expr(body_src).ok()?;
+    Some(Scheme::Loop {
+        body: Box::new(body_scheme),
+    })
 }
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
@@ -1274,6 +1621,7 @@ impl<'a> Parser<'a> {
                 "first" => self.parse_first(),
                 "choice" => self.parse_choice(),
                 "loop" => self.parse_loop(),
+                "rec" => self.parse_loop(), // v0.1: rec(body) alias for loop(body)
                 _ => Ok(Scheme::App {
                     callee: Box::new(Scheme::arr_native(name, vec![])),
                     args: vec![],

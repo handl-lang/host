@@ -679,3 +679,563 @@ fn test_error_empty_guarantee_value() {
     let err = parse_contracts(src).expect_err("must error on empty guarantee");
     assert!(!err.is_empty(), "error message must be non-empty: {}", err);
 }
+
+// ============================================================================
+// Module system tests (ADR-0069 §4–§5)
+// ============================================================================
+//
+// These tests verify the pluggable resolver abstraction, the two-cache
+// ModuleLoader, and the three normalization strategies ported from the PoC
+// (research/arrow-calculus-kernel-poc/src/modules.rs) into the production
+// crate.
+
+use std::cell::Cell;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::rc::Rc;
+
+use crate::arrow_loader::{
+    CachingResolver, ChainResolver, FileResolver, LoadError, LoadedModule, MemoryResolver,
+    ModuleLoader, ModuleResolver, ResolveErrorKind, flatten_program, has_unresolved_apps,
+    normalize_compile_time,
+};
+use crate::arrow_parser::{parse_arrow_module, ExportDecl, ImportDecl};
+
+// --- CountingResolver (for cache-hit verification) ---
+
+/// A wrapper resolver that counts how many times `resolve` is called.
+/// Used to verify that `CachingResolver` and `ModuleLoader` caches prevent
+/// redundant resolution.
+struct CountingResolver {
+    inner: Box<dyn ModuleResolver>,
+    count: Rc<Cell<usize>>,
+}
+
+impl CountingResolver {
+    fn new(inner: Box<dyn ModuleResolver>) -> Self {
+        CountingResolver {
+            inner,
+            count: Rc::new(Cell::new(0)),
+        }
+    }
+
+    fn new_with_counter(inner: Box<dyn ModuleResolver>) -> (Self, Rc<Cell<usize>>) {
+        let count = Rc::new(Cell::new(0));
+        let r = CountingResolver {
+            inner,
+            count: count.clone(),
+        };
+        (r, count)
+    }
+}
+
+impl ModuleResolver for CountingResolver {
+    fn resolve(&self, path: &str) -> Result<crate::arrow_loader::ResolvedModule, crate::arrow_loader::ResolveError> {
+        self.count.set(self.count.get() + 1);
+        self.inner.resolve(path)
+    }
+
+    fn origin(&self) -> &'static str {
+        self.inner.origin()
+    }
+}
+
+// --- Test data builder ---
+
+/// Build a `MemoryResolver` with the standard test module set.
+fn build_test_memory_resolver() -> MemoryResolver {
+    let mut m = MemoryResolver::new();
+    // collection/insert — a single named arrow.
+    m.insert(
+        "collection/insert",
+        "insert = arr(\"compare\")",
+    );
+    // collection/sort — imports insert, defines sort.
+    m.insert(
+        "collection/sort",
+        "import insert from \"collection/insert\"\nsort = arr(\"sort\")",
+    );
+    // collection — multi-name file (record arrow).
+    m.insert(
+        "collection",
+        "cons = arr(\"list.cons\")\nhead = arr(\"list.head\")\nsort = arr(\"sort\")",
+    );
+    // main — imports sort, uses it.
+    m.insert(
+        "main",
+        "import sort from \"collection/sort\"\nmain = sort",
+    );
+    // reexport — export * from "collection".
+    m.insert("reexport", "export * from \"collection\"");
+    // cycle modules.
+    m.insert("cycle_a", "import b from \"cycle_b\"\nx = arr(\"id\")");
+    m.insert("cycle_b", "import a from \"cycle_a\"\ny = arr(\"id\")");
+    m
+}
+
+// ============================================================================
+// Section 1: Resolvers
+// ============================================================================
+
+#[test]
+fn test_memory_resolver_resolves() {
+    let mem = build_test_memory_resolver();
+    let r = mem.resolve("collection/sort");
+    match r {
+        Ok(m) => {
+            assert!(
+                m.source.contains("import insert"),
+                "MemoryResolver should return source with import: {}",
+                m.source
+            );
+            assert_eq!(mem.origin(), "memory");
+        }
+        Err(_) => panic!("MemoryResolver should resolve collection/sort"),
+    }
+}
+
+#[test]
+fn test_memory_resolver_not_found() {
+    let mem = build_test_memory_resolver();
+    match mem.resolve("missing") {
+        Ok(_) => panic!("MemoryResolver should return NotFound for missing"),
+        Err(e) => assert!(matches!(e.kind, ResolveErrorKind::NotFound)),
+    }
+}
+
+#[test]
+fn test_chain_resolver_finds_memory() {
+    let mut mem = MemoryResolver::new();
+    mem.insert("collection/sort", "sort = arr(\"id\")");
+    let mut resolvers: Vec<Box<dyn ModuleResolver>> = Vec::new();
+    resolvers.push(Box::new(mem));
+    resolvers.push(Box::new(FileResolver::new(PathBuf::from(
+        "/tmp/handl_test_nonexistent",
+    ))));
+    let chain = ChainResolver::new(resolvers);
+
+    match chain.resolve("collection/sort") {
+        Ok(m) => assert_eq!(m.source, "sort = arr(\"id\")"),
+        Err(_) => panic!("ChainResolver should find memory module"),
+    }
+    match chain.resolve("totally/missing") {
+        Ok(_) => panic!("ChainResolver should return NotFound for missing"),
+        Err(e) => assert!(matches!(e.kind, ResolveErrorKind::NotFound)),
+    }
+    assert_eq!(chain.origin(), "chain");
+}
+
+#[test]
+fn test_caching_resolver_caches() {
+    let mut mem = MemoryResolver::new();
+    mem.insert("collection/sort", "sort = arr(\"id\")");
+    let (counting, counter) =
+        CountingResolver::new_with_counter(Box::new(mem));
+    let cache = CachingResolver::new(Box::new(counting));
+
+    let r1 = cache.resolve("collection/sort");
+    let r2 = cache.resolve("collection/sort");
+    assert!(r1.is_ok() && r2.is_ok(), "CachingResolver returns Ok twice");
+    assert_eq!(
+        r1.unwrap().source,
+        r2.unwrap().source,
+        "CachingResolver returns same content"
+    );
+    // The inner resolver should only be called once (cache hit on second).
+    assert_eq!(
+        counter.get(),
+        1,
+        "CachingResolver should call inner resolve only once"
+    );
+}
+
+// ============================================================================
+// Section 2: ModuleLoader (Strategy C — two caches)
+// ============================================================================
+
+#[test]
+fn test_module_loader_load() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match loader.load("collection/sort") {
+        Ok(loaded) => {
+            // Should have arrows: "sort" (and possibly "insert" if the parser
+            // treats the import as a binding — but our parser strips import lines).
+            assert!(
+                loaded.arrows.contains_key("sort"),
+                "loaded module should have 'sort' arrow: {:?}",
+                loaded.arrows.keys()
+            );
+        }
+        Err(e) => panic!("load(collection/sort) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_module_loader_cache_hit() {
+    let mem = build_test_memory_resolver();
+    let (counting, counter) =
+        CountingResolver::new_with_counter(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(counting));
+
+    // First load.
+    let _ = loader.load("collection/sort").expect("first load");
+    let count_before = counter.get();
+
+    // Second load — should be a cache hit (no new resolve call).
+    let _ = loader.load("collection/sort").expect("second load");
+    let count_after = counter.get();
+
+    assert_eq!(
+        count_before, count_after,
+        "cache hit: second load should not call resolve"
+    );
+}
+
+#[test]
+fn test_module_loader_public_names_all() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match loader.public_names("collection") {
+        Ok(names) => {
+            assert!(
+                names.len() == 3
+                    && names.contains(&"cons".to_string())
+                    && names.contains(&"head".to_string())
+                    && names.contains(&"sort".to_string()),
+                "public_names(collection) should be [cons, head, sort]: {:?}",
+                names
+            );
+        }
+        Err(e) => panic!("public_names(collection) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_module_loader_public_names_with_exports() {
+    let mut mem = MemoryResolver::new();
+    mem.insert(
+        "mod_with_exports",
+        "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")\nhidden = arr(\"id\")",
+    );
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match loader.public_names("mod_with_exports") {
+        Ok(names) => {
+            assert_eq!(names.len(), 2, "should export exactly 2 names: {:?}", names);
+            assert!(names.contains(&"sort".to_string()));
+            assert!(names.contains(&"cons".to_string()));
+            assert!(!names.contains(&"hidden".to_string()));
+        }
+        Err(e) => panic!("public_names should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_module_loader_load_arrow() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match loader.load_arrow("collection/sort", "sort") {
+        Ok(scheme) => {
+            // The sort arrow should be an Arr node.
+            assert!(
+                matches!(scheme, Scheme::Arr { .. }),
+                "load_arrow should return a Scheme::Arr"
+            );
+        }
+        Err(e) => panic!("load_arrow should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_module_loader_load_arrow_single() {
+    let mut mem = MemoryResolver::new();
+    mem.insert("single", "arr(\"id\")");
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    // Single-expression file: any name should return the arrow.
+    match loader.load_arrow("single", "anything") {
+        Ok(scheme) => {
+            assert!(
+                matches!(scheme, Scheme::Arr { op, .. } if op == "id"),
+                "load_arrow on single-expr module should return the arrow"
+            );
+        }
+        Err(e) => panic!("load_arrow on single-expr module should succeed: {}", e),
+    }
+}
+
+// ============================================================================
+// Section 3: Strategy A — normalize_compile_time
+// ============================================================================
+
+#[test]
+fn test_normalize_compile_time_no_module_ref() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match normalize_compile_time("main", &loader) {
+        Ok(normalized) => {
+            // No module_ref nodes should remain.
+            let any_ref = normalized
+                .values()
+                .any(|s| crate::arrow_loader::contains_module_ref(s));
+            assert!(!any_ref, "Strategy A: no module_ref should remain");
+        }
+        Err(e) => panic!("normalize_compile_time(main) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_normalize_compile_time_has_project() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match normalize_compile_time("main", &loader) {
+        Ok(normalized) => {
+            // Strategy A keeps projections: the "main" arrow should have a
+            // project node (from the import of "sort").
+            let main = normalized.get("main");
+            assert!(main.is_some(), "normalized module should have 'main' arrow");
+            if let Some(scheme) = main {
+                assert!(
+                    crate::arrow_loader::contains_project(scheme),
+                    "Strategy A: project nodes should remain in main arrow"
+                );
+            }
+        }
+        Err(e) => panic!("normalize_compile_time should succeed: {}", e),
+    }
+}
+
+// ============================================================================
+// Section 4: Strategy B — flatten_program
+// ============================================================================
+
+#[test]
+fn test_flatten_program_no_unresolved_apps() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match flatten_program("main", &loader) {
+        Ok(flat) => {
+            // After flattening, there should be no unresolved App nodes.
+            // All known names: the entry's arrows + all transitive imports.
+            let known: HashSet<String> = vec!["main".to_string(), "sort".to_string(), "insert".to_string()]
+                .into_iter()
+                .collect();
+            assert!(
+                !has_unresolved_apps(&flat, &known),
+                "flatten_program: no unresolved App nodes should remain"
+            );
+        }
+        Err(e) => panic!("flatten_program(main) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_flatten_program_no_module_ref() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match flatten_program("main", &loader) {
+        Ok(flat) => {
+            assert!(
+                !crate::arrow_loader::contains_module_ref(&flat),
+                "flatten_program: no module_ref should remain"
+            );
+        }
+        Err(e) => panic!("flatten_program should succeed: {}", e),
+    }
+}
+
+// ============================================================================
+// Section 5: Cycle detection
+// ============================================================================
+
+#[test]
+fn test_cycle_detection_normalize() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match normalize_compile_time("cycle_a", &loader) {
+        Ok(_) => panic!("cycle_a normalization should return Cycle error"),
+        Err(e) => {
+            assert!(
+                matches!(e, LoadError::Cycle(_)),
+                "cycle_a should return Cycle error, got: {}",
+                e
+            );
+        }
+    }
+}
+
+#[test]
+fn test_cycle_detection_flatten() {
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match flatten_program("cycle_a", &loader) {
+        Ok(_) => panic!("cycle_a flatten should return Cycle error"),
+        Err(e) => {
+            assert!(
+                matches!(e, LoadError::Cycle(_)),
+                "cycle_a flatten should return Cycle error, got: {}",
+                e
+            );
+        }
+    }
+}
+
+// ============================================================================
+// Section 6: Import/export parsing
+// ============================================================================
+
+#[test]
+fn test_parse_arrow_module_simple_import() {
+    let src = "import sort from \"collection/sort\"\nmain = arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.imports.len(), 1, "should have 1 import");
+    assert_eq!(parsed.imports[0].path, "collection/sort");
+    assert_eq!(parsed.imports[0].names.len(), 1);
+    assert_eq!(parsed.imports[0].names[0], ("sort".to_string(), "sort".to_string()));
+}
+
+#[test]
+fn test_parse_arrow_module_multi_import() {
+    let src = "import sort, insert from \"collection\"\nmain = arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.imports.len(), 1);
+    assert_eq!(parsed.imports[0].path, "collection");
+    assert_eq!(parsed.imports[0].names.len(), 2);
+    assert!(parsed.imports[0].names.contains(&("sort".to_string(), "sort".to_string())));
+    assert!(parsed.imports[0].names.contains(&("insert".to_string(), "insert".to_string())));
+}
+
+#[test]
+fn test_parse_arrow_module_import_as() {
+    let src = "import sort as s from \"collection/sort\"\nmain = arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.imports.len(), 1);
+    assert_eq!(parsed.imports[0].names[0], ("sort".to_string(), "s".to_string()));
+}
+
+#[test]
+fn test_parse_arrow_module_import_whole_module() {
+    let src = "import \"collection/sort\" as sortmod\nmain = arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.imports.len(), 1);
+    assert_eq!(parsed.imports[0].path, "collection/sort");
+    assert_eq!(parsed.imports[0].names[0], ("*".to_string(), "sortmod".to_string()));
+}
+
+#[test]
+fn test_parse_arrow_module_export_names() {
+    let src = "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.exports.len(), 1);
+    match &parsed.exports[0] {
+        ExportDecl::Names(ns) => {
+            assert_eq!(ns.len(), 2);
+            assert!(ns.contains(&"sort".to_string()));
+            assert!(ns.contains(&"cons".to_string()));
+        }
+        _ => panic!("expected ExportDecl::Names"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_export_all() {
+    let src = "export *\nsort = arr(\"sort\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.exports.len(), 1);
+    assert!(matches!(parsed.exports[0], ExportDecl::All));
+}
+
+#[test]
+fn test_parse_arrow_module_export_from() {
+    let src = "export sort from \"collection/sort\"";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.exports.len(), 1);
+    match &parsed.exports[0] {
+        ExportDecl::NamesFrom(ns, path) => {
+            assert_eq!(ns, &vec!["sort".to_string()]);
+            assert_eq!(path, "collection/sort");
+        }
+        _ => panic!("expected ExportDecl::NamesFrom"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_export_all_from() {
+    let src = "export * from \"collection\"";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.exports.len(), 1);
+    match &parsed.exports[0] {
+        ExportDecl::AllFrom(path) => assert_eq!(path, "collection"),
+        _ => panic!("expected ExportDecl::AllFrom"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_mixed() {
+    let src = "import sort from \"collection/sort\"\nimport insert from \"collection/insert\"\nexport main\nmain = arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.imports.len(), 2, "should have 2 imports");
+    assert_eq!(parsed.exports.len(), 1, "should have 1 export");
+}
+
+#[test]
+fn test_parse_arrow_module_no_imports_exports() {
+    let src = "sort = arr(\"sort\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert!(parsed.imports.is_empty(), "should have no imports");
+    assert!(parsed.exports.is_empty(), "should have no exports");
+}
+
+#[test]
+fn test_parse_arrow_module_empty_after_imports() {
+    let src = "export * from \"collection\"";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert!(parsed.imports.is_empty());
+    assert_eq!(parsed.exports.len(), 1);
+    // Arrows should be empty (pure re-export module).
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => assert!(map.is_empty()),
+        _ => panic!("expected empty Named map for re-export module"),
+    }
+}
+
+#[test]
+fn test_file_resolver_resolves_hnl_file() {
+    // Create a temp directory with a .hnl file.
+    let dir = std::env::temp_dir().join("handl_file_resolver_test");
+    let _ = std::fs::create_dir_all(&dir);
+    let file_path = dir.join("test_mod.hnl");
+    std::fs::write(&file_path, "sort = arr(\"id\")").expect("must write test file");
+
+    let resolver = FileResolver::new(dir.clone());
+    match resolver.resolve("test_mod") {
+        Ok(m) => {
+            assert_eq!(m.source, "sort = arr(\"id\")");
+            assert_eq!(m.origin, "file");
+        }
+        Err(e) => panic!("FileResolver should resolve test_mod: {}", e),
+    }
+
+    // Cleanup.
+    let _ = std::fs::remove_file(&file_path);
+    let _ = std::fs::remove_dir(&dir);
+}
+
+#[test]
+fn test_file_resolver_not_found() {
+    let resolver = FileResolver::new(PathBuf::from("/tmp/handl_nonexistent_dir_12345"));
+    match resolver.resolve("missing_mod") {
+        Ok(_) => panic!("FileResolver should return NotFound for missing"),
+        Err(e) => assert!(matches!(e.kind, ResolveErrorKind::NotFound)),
+    }
+}
