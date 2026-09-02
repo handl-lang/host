@@ -20,6 +20,7 @@
 //! conservative structural (toy) checker, preserving soundness.
 
 use crate::types::Pred;
+use std::collections::HashMap;
 use std::process::Command;
 use std::sync::OnceLock;
 
@@ -337,12 +338,233 @@ pub fn implies_with_report(p: &Pred, q: &Pred) -> (bool, String) {
 
 /// Main implication checker: try Z3 first, fall back to the conservative
 /// toy checker when Z3 is unavailable or returns `unknown`.
+///
+/// Before invoking the toy checker, the premise `p` is strengthened with
+/// [`simplify_with_arithmetic`], which derives additional `LengthEq` /
+/// `LengthLe` facts from length-arithmetic relationships (transitivity and
+/// cancellation of `LengthEq`, `LengthPlusOne`, `LengthSubOne`). This lets the
+/// structural toy checker prove implications such as
+/// `LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)` that it otherwise
+/// could not. The strengthening is sound: every derived fact is a logical
+/// consequence of `p`, so `p ∧ derived ≡ p` and no false implication is ever
+/// proved.
 pub fn implies(p: &Pred, q: &Pred) -> bool {
     if z3_implies(p, q) {
         true
     } else {
-        // Z3 said invalid or unknown — fall back to conservative toy checker.
-        toy_implies(p, q)
+        // Z3 said invalid or unknown — strengthen p with length-arithmetic
+        // reasoning, then fall back to the conservative toy checker.
+        let p_strong = simplify_with_arithmetic(p);
+        toy_implies(&p_strong, q)
+    }
+}
+
+// ============================================================================
+// Length-arithmetic strengthening
+// ============================================================================
+
+/// Strengthen a predicate with facts derivable from length arithmetic.
+///
+/// Collects every `LengthEq`, `LengthPlusOne`, and `LengthSubOne` fact in `pred`
+/// (flattening conjunctions), builds a union-find of length relationships with
+/// offsets, and derives all entailed `LengthEq` (equal offset) and `LengthLe`
+/// (strictly smaller offset) facts. The result is `pred ∧ derived`, simplified.
+///
+/// This is sound: every derived fact is a logical consequence of the input
+/// facts, so `pred ∧ derived ≡ pred`. It only makes the premise *structurally
+/// richer*, enabling the conservative toy checker to prove implications it
+/// otherwise could not (e.g. transitivity and cancellation of length
+/// relations).
+///
+/// Examples handled:
+/// - `LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)` (transitivity)
+/// - `LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)` (cancellation)
+/// - `LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)` (cancellation)
+/// - `LengthEq(a,b) ⟹ LengthEq(b,a)` (symmetry)
+pub fn simplify_with_arithmetic(pred: &Pred) -> Pred {
+    // Collect length-arithmetic facts (flattening And).
+    let mut facts: Vec<Pred> = Vec::new();
+    collect_length_facts(pred, &mut facts);
+
+    // Build the union-find with offsets. Each variable x has a representative
+    // root and an offset d such that |x| = |root| + d.
+    let mut graph = LenGraph::new();
+    for f in &facts {
+        match f {
+            Pred::LengthEq(a, b) => graph.union(a, b, 0),
+            // |a| = |b| + 1  →  |a| - |b| = 1
+            Pred::LengthPlusOne(a, b) => graph.union(a, b, 1),
+            // |a| = |b| - 1  →  |a| - |b| = -1
+            Pred::LengthSubOne(a, b) => graph.union(a, b, -1),
+            _ => {}
+        }
+    }
+
+    // Gather the canonical (root, offset) for every variable seen.
+    let mut entries: Vec<(String, String, i64)> = Vec::new();
+    let mut seen: HashMap<String, (String, i64)> = HashMap::new();
+    for f in &facts {
+        for v in length_vars_of(f) {
+            if seen.contains_key(&v) {
+                continue;
+            }
+            let (root, off) = graph.find(&v);
+            seen.insert(v.clone(), (root.clone(), off));
+            entries.push((v, root, off));
+        }
+    }
+
+    // Derive new LengthEq / LengthLe facts for every pair in the same
+    // equivalence class. Skip facts already present in `pred` (dedup via the
+    // collected facts set) to avoid needless blow-up; `simplify` will also
+    // dedup And(x, x) → x.
+    let existing: Vec<Pred> = facts.clone();
+    let mut derived: Vec<Pred> = Vec::new();
+    for i in 0..entries.len() {
+        for j in 0..entries.len() {
+            if i == j {
+                continue;
+            }
+            let (a, ra, oa) = &entries[i];
+            let (b, rb, ob) = &entries[j];
+            if ra != rb {
+                continue; // different equivalence classes: no relation
+            }
+            let fact = if oa == ob {
+                Pred::LengthEq(a.clone(), b.clone())
+            } else if oa < ob {
+                Pred::LengthLe(a.clone(), b.clone())
+            } else {
+                continue; // oa > ob: handled by the (j, i) iteration
+            };
+            if !existing.contains(&fact) && !derived.contains(&fact) {
+                derived.push(fact);
+            }
+        }
+    }
+
+    if derived.is_empty() {
+        pred.clone()
+    } else {
+        let mut result = pred.clone();
+        for d in derived {
+            result = Pred::And(Box::new(result), Box::new(d));
+        }
+        result.simplify()
+    }
+}
+
+/// Collect every `LengthEq`, `LengthPlusOne`, and `LengthSubOne` fact in `pred`,
+/// flattening conjunctions recursively.
+fn collect_length_facts(pred: &Pred, out: &mut Vec<Pred>) {
+    match pred {
+        Pred::LengthEq(_, _) | Pred::LengthPlusOne(_, _) | Pred::LengthSubOne(_, _) => {
+            if !out.contains(pred) {
+                out.push(pred.clone());
+            }
+        }
+        Pred::And(a, b) => {
+            collect_length_facts(a, out);
+            collect_length_facts(b, out);
+        }
+        _ => {}
+    }
+}
+
+/// The two variable names referenced by a length-arithmetic fact.
+fn length_vars_of(p: &Pred) -> Vec<String> {
+    match p {
+        Pred::LengthEq(a, b)
+        | Pred::LengthPlusOne(a, b)
+        | Pred::LengthSubOne(a, b) => vec![a.clone(), b.clone()],
+        _ => vec![],
+    }
+}
+
+/// Union-find over length variables with offsets.
+///
+/// Invariant: for each variable `x`, `|x| = |root(x)| + offset(x)`, where
+/// `root(x)` is the representative of `x`'s equivalence class.
+struct LenGraph {
+    /// Parent pointer for the union-find forest.
+    parent: HashMap<String, String>,
+    /// `offset[x] = |x| - |parent[x]|` (only meaningful when `x` is not a root).
+    offset: HashMap<String, i64>,
+}
+
+impl LenGraph {
+    fn new() -> Self {
+        LenGraph {
+            parent: HashMap::new(),
+            offset: HashMap::new(),
+        }
+    }
+
+    /// Ensure `x` is a tracked variable (its own root with offset 0).
+    fn add(&mut self, x: &str) {
+        if !self.parent.contains_key(x) {
+            self.parent.insert(x.to_string(), x.to_string());
+            self.offset.insert(x.to_string(), 0);
+        }
+    }
+
+    /// Find the representative of `x` and its offset, with path compression.
+    /// Returns `(root, off)` such that `|x| = |root| + off`.
+    fn find(&mut self, x: &str) -> (String, i64) {
+        self.add(x);
+        // Iterative find with path compression to avoid deep recursion.
+        // First, walk to the root collecting the path.
+        let mut path: Vec<String> = Vec::new();
+        let mut cur = x.to_string();
+        while let Some(p) = self.parent.get(&cur) {
+            if p == &cur {
+                break;
+            }
+            path.push(cur.clone());
+            cur = p.clone();
+        }
+        let root = cur;
+        // Now compute cumulative offsets from x up to root, then compress.
+        // offset[x] is relative to parent; accumulate.
+        // Walk from root down the path computing absolute offsets.
+        // path is [x, p1, p2, ...] from x toward root.
+        // Compute absolute offset for each node in path.
+        // |node| = |parent| + offset[node]; recurse to root.
+        // We compute by processing path in reverse (closest to root first).
+        // But easiest: recursively compute via a helper using memo.
+        fn abs_off(graph: &LenGraph, node: &str, root: &str) -> i64 {
+            if node == root {
+                return 0;
+            }
+            let p = graph.parent.get(node).unwrap();
+            let off = *graph.offset.get(node).unwrap();
+            off + abs_off(graph, p, root)
+        }
+        let off_x = abs_off(self, x, &root);
+        // Path compression: point every node on the path directly at root.
+        for n in &path {
+            let off_n = abs_off(self, n, &root);
+            self.parent.insert(n.clone(), root.clone());
+            self.offset.insert(n.clone(), off_n);
+        }
+        (root, off_x)
+    }
+
+    /// Merge the classes of `a` and `b` given the relationship `|a| = |b| + delta`.
+    fn union(&mut self, a: &str, b: &str, delta: i64) {
+        let (ra, oa) = self.find(a); // |a| = |ra| + oa
+        let (rb, ob) = self.find(b); // |b| = |rb| + ob
+        if ra == rb {
+            // Already in the same class; the relationship is either consistent
+            // (oa - ob == delta) or redundant. We do not detect contradictions
+            // here — the input is assumed consistent.
+            return;
+        }
+        // |a| = |b| + delta  →  |ra| + oa = |rb| + ob + delta
+        //                  →  |ra| = |rb| + (ob + delta - oa)
+        // Attach ra under rb with offset (ob + delta - oa).
+        self.parent.insert(ra.clone(), rb.clone());
+        self.offset.insert(ra, ob + delta - oa);
     }
 }
 

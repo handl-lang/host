@@ -12,7 +12,7 @@ use handl_language::{ArrSource, Scheme};
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use crate::loop_invariant::{discover_invariant_fixpoint, discover_invariant_fixpoint_real, weakest_precondition};
-use crate::smt::{implies, implies_with_report, toy_implies};
+use crate::smt::{implies, implies_with_report, simplify_with_arithmetic, toy_implies};
 use crate::termination::analyze_termination;
 use crate::types::{BaseTy, Measure, Pred, RefTy};
 
@@ -1182,5 +1182,142 @@ fn test_fixpoint_choice_in_seq_with_consume() {
     assert_eq!(inv, Pred::True);
     assert!(how.contains("fixpoint"));
     assert!(verified, "invariant should be verified after simplify fix");
+}
+
+// ============================================================================
+// 7. Length-arithmetic strengthening (simplify_with_arithmetic)
+// ============================================================================
+//
+// These tests exercise the arithmetic strengthening that lets the toy checker
+// prove implications involving length transitivity and cancellation, which the
+// pure structural checker cannot handle.
+
+#[test]
+fn test_implies_length_plus_one_and_sub_one_cancellation() {
+    // LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)
+    // |a| = |b| + 1, |b| = |c| - 1  →  |a| = |c|
+    let p = Pred::And(
+        Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
+    );
+    let q = Pred::LengthEq("a".to_string(), "c".to_string());
+    assert!(implies(&p, &q), "LengthPlusOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthEq(a,c)");
+}
+
+#[test]
+fn test_implies_length_sub_one_and_plus_one_cancellation() {
+    // LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)
+    // |a| = |b| - 1, |b| = |c| + 1  →  |a| = |c|
+    let p = Pred::And(
+        Box::new(Pred::LengthSubOne("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthPlusOne("b".to_string(), "c".to_string())),
+    );
+    let q = Pred::LengthEq("a".to_string(), "c".to_string());
+    assert!(implies(&p, &q), "LengthSubOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthEq(a,c)");
+}
+
+#[test]
+fn test_implies_length_eq_transitivity() {
+    // LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)
+    let p = Pred::And(
+        Box::new(Pred::LengthEq("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthEq("b".to_string(), "c".to_string())),
+    );
+    let q = Pred::LengthEq("a".to_string(), "c".to_string());
+    assert!(implies(&p, &q), "LengthEq(a,b) ∧ LengthEq(b,c) ⟹ LengthEq(a,c)");
+}
+
+#[test]
+fn test_implies_length_eq_symmetry() {
+    // LengthEq(a,b) ⟹ LengthEq(b,a)
+    let p = Pred::LengthEq("a".to_string(), "b".to_string());
+    let q = Pred::LengthEq("b".to_string(), "a".to_string());
+    assert!(implies(&p, &q), "LengthEq(a,b) ⟹ LengthEq(b,a)");
+}
+
+#[test]
+fn test_implies_length_eq_chain_three() {
+    // LengthEq(a,b) ∧ LengthEq(b,c) ∧ LengthEq(c,d) ⟹ LengthEq(a,d)
+    let p = Pred::And(
+        Box::new(Pred::And(
+            Box::new(Pred::LengthEq("a".to_string(), "b".to_string())),
+            Box::new(Pred::LengthEq("b".to_string(), "c".to_string())),
+        )),
+        Box::new(Pred::LengthEq("c".to_string(), "d".to_string())),
+    );
+    let q = Pred::LengthEq("a".to_string(), "d".to_string());
+    assert!(implies(&p, &q), "LengthEq chain of 3 ⟹ LengthEq(a,d)");
+}
+
+#[test]
+fn test_implies_length_plus_one_implies_length_le_via_arithmetic() {
+    // LengthPlusOne(a,b) ⟹ LengthLe(b,a)  (|a| = |b|+1 ⟹ |b| <= |a|)
+    // Already handled by toy_implies directly, but verify arithmetic path too.
+    let p = Pred::LengthPlusOne("a".to_string(), "b".to_string());
+    let q = Pred::LengthLe("b".to_string(), "a".to_string());
+    assert!(implies(&p, &q));
+}
+
+#[test]
+fn test_implies_length_plus_one_transitivity_to_length_le() {
+    // LengthPlusOne(a,b) ∧ LengthPlusOne(b,c) ⟹ LengthLe(a,c)
+    // |a| = |b|+1, |b| = |c|+1  →  |a| = |c|+2  →  |c| <= |a| and |a| > |c|
+    // So LengthLe(c, a) holds, but LengthLe(a, c) does NOT.
+    let p = Pred::And(
+        Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthPlusOne("b".to_string(), "c".to_string())),
+    );
+    let q = Pred::LengthLe("c".to_string(), "a".to_string());
+    assert!(implies(&p, &q), "two LengthPlusOne ⟹ LengthLe(c, a)");
+}
+
+#[test]
+fn test_simplify_with_arithmetic_derives_length_eq() {
+    // Direct unit test: simplify_with_arithmetic should derive LengthEq(a,c)
+    // from LengthPlusOne(a,b) ∧ LengthSubOne(b,c).
+    let p = Pred::And(
+        Box::new(Pred::LengthPlusOne("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
+    );
+    let strengthened = simplify_with_arithmetic(&p);
+    // The strengthened predicate must imply LengthEq(a,c) via the toy checker.
+    assert!(
+        toy_implies(&strengthened, &Pred::LengthEq("a".to_string(), "c".to_string())),
+        "simplify_with_arithmetic should derive LengthEq(a,c)"
+    );
+}
+
+#[test]
+fn test_simplify_with_arithmetic_no_false_derivations() {
+    // Soundness: with no connecting facts, nothing should be derived that
+    // would let us prove a false implication. LengthEq(a,b) alone must NOT
+    // imply LengthEq(a,c) for an unrelated c.
+    let p = Pred::LengthEq("a".to_string(), "b".to_string());
+    let strengthened = simplify_with_arithmetic(&p);
+    assert!(
+        !toy_implies(&strengthened, &Pred::LengthEq("a".to_string(), "c".to_string())),
+        "simplify_with_arithmetic must not derive spurious LengthEq(a,c)"
+    );
+}
+
+#[test]
+fn test_simplify_with_arithmetic_preserves_non_arithmetic() {
+    // A predicate with no length facts should be returned unchanged (up to
+    // simplification).
+    let p = Pred::Sorted("output".to_string());
+    let strengthened = simplify_with_arithmetic(&p);
+    assert_eq!(strengthened, p);
+}
+
+#[test]
+fn test_implies_length_sub_one_chain_to_length_le() {
+    // LengthSubOne(a,b) ∧ LengthSubOne(b,c) ⟹ LengthLe(a,c)
+    // |a| = |b|-1, |b| = |c|-1  →  |a| = |c|-2  →  |a| <= |c|
+    let p = Pred::And(
+        Box::new(Pred::LengthSubOne("a".to_string(), "b".to_string())),
+        Box::new(Pred::LengthSubOne("b".to_string(), "c".to_string())),
+    );
+    let q = Pred::LengthLe("a".to_string(), "c".to_string());
+    assert!(implies(&p, &q), "two LengthSubOne ⟹ LengthLe(a, c)");
 }
 

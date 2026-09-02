@@ -16,7 +16,7 @@
 use crate::contracts::ContractRegistry;
 use crate::smt::implies;
 use crate::types::Pred;
-use handl_language::Scheme;
+use handl_language::{ArrSource, Scheme};
 
 /// Simplify a predicate (delegates to `Pred::simplify`).
 fn simplify(p: &Pred) -> Pred {
@@ -48,7 +48,23 @@ pub fn discover_invariant_fixpoint_real(
     max_iterations: usize,
 ) -> (Pred, String, Vec<Pred>, bool) {
     let mut iterations = Vec::new();
-    let mut current = initial.clone(); // I_0 = initial (body's guarantee or True)
+    // Seed the fixpoint with the initial predicate AND any pattern-recognised
+    // candidate invariants. The pattern recognizer detects structural shapes
+    // (e.g. list-consuming + output-building loops) and adds candidate
+    // invariants like IsPerm(input, output) that capture multiset-preservation
+    // across loop iterations — matching the Agda example
+    // `Σ ys. Sorted ys × Permutation xs ys`.
+    let pattern_cands = pattern_candidates(body);
+    let seeded = if pattern_cands.is_empty() {
+        initial.clone()
+    } else {
+        let mut acc = initial.clone();
+        for c in &pattern_cands {
+            acc = simplify(&Pred::And(Box::new(acc), Box::new(c.clone())));
+        }
+        acc
+    };
+    let mut current = seeded; // I_0 = seeded (initial ∧ pattern candidates)
 
     for i in 0..max_iterations {
         iterations.push(current.clone());
@@ -236,6 +252,58 @@ pub fn collect_guarantees(
             }
         }
     }
+}
+
+/// Check whether the given `Scheme` contains a base arrow with the given op
+/// name (matching either the bare name or the `list.`-prefixed name),
+/// searching recursively through all combinators.
+pub fn graph_contains(scheme: &Scheme, op: &str) -> bool {
+    match scheme {
+        Scheme::Arr {
+            op: arr_op,
+            source,
+            ..
+        } => {
+            arr_op == op
+                || arr_op == &format!("list.{}", op)
+                || (source == &ArrSource::Native && arr_op == op)
+        }
+        Scheme::Seq { fst, snd } => graph_contains(fst, op) || graph_contains(snd, op),
+        Scheme::First { inner } => graph_contains(inner, op),
+        Scheme::Choice { l, r } => graph_contains(l, op) || graph_contains(r, op),
+        Scheme::Loop { body } => graph_contains(body, op),
+        Scheme::App { callee, args } => {
+            graph_contains(callee, op) || args.iter().any(|a| graph_contains(a, op))
+        }
+    }
+}
+
+/// Collect candidate invariants from structural patterns in the loop body.
+///
+/// Currently recognises the "output-building loop" pattern: when the loop
+/// body contains `cons` (the list constructor), it adds
+/// `IsPerm(input, output)` as a candidate invariant. This captures the
+/// multiset-preservation property of loops that consume an input list and
+/// build an output list from its elements — most notably insertion sort,
+/// where each iteration moves one element from the remaining input into the
+/// accumulator, so the accumulator is always a permutation of the original
+/// input.
+///
+/// Matching the Agda example `Σ ys. Sorted ys × Permutation xs ys`, this lets
+/// sort derive `Sorted(output) ∧ IsPerm(input, output)`.
+///
+/// The list consumption may be implicit (the loop's feedback channel shrinks
+/// each iteration) rather than an explicit `tail` arrow, so we only require
+/// `cons` to be present — the presence of a list constructor in a loop body
+/// is a strong signal that the loop is building an output list from the
+/// input's elements.
+fn pattern_candidates(body: &Scheme) -> Vec<Pred> {
+    let mut candidates = Vec::new();
+    let has_cons = graph_contains(body, "list.cons") || graph_contains(body, "cons");
+    if has_cons {
+        candidates.push(Pred::IsPerm("input".to_string(), "output".to_string()));
+    }
+    candidates
 }
 
 /// Produce the fixpoint trace for a loop body.

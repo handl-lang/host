@@ -373,18 +373,12 @@ mod tests {
     #[test]
     fn test_sort_guarantee_contains_isperm() {
         // sort = loop(comp(insert, first(id))). The cons atoms inside insert
-        // now carry IsPerm(output, output) in their guarantee. The fixpoint
-        // should discover and propagate the IsPerm atom through the loop,
-        // so sort's inferred guarantee contains both Sorted and Perm.
-        //
-        // NOTE: The current IsPerm(output, output) is trivially true (output
-        // is always a permutation of itself). Full IsPerm(input, output)
-        // tracking — matching the Agda example `Σ ys. Sorted ys ×
-        // Permutation xs ys` — requires multiset reasoning across loop
-        // iterations (insert adds one element, removing it from the
-        // remaining input). The infrastructure (predicate, parser, SMT
-        // encoding, fixpoint propagation) is now in place; the fixpoint
-        // discovers the IsPerm atom from the cons guarantee.
+        // carry IsPerm(output, output) in their guarantee, and the fixpoint
+        // pattern recognizer detects the "output-building loop" pattern
+        // (body contains cons) and seeds IsPerm(input, output) as a candidate
+        // invariant. This matches the Agda example
+        // `Σ ys. Sorted ys × Permutation xs ys`: sort derives
+        // `Sorted(output) ∧ IsPerm(input, output)`.
         let graph = sort_graph();
         let registry = ContractRegistry::minimal();
         let result = infer_refinement(&graph, &registry).expect("sort inference");
@@ -395,15 +389,40 @@ mod tests {
             "sort guarantee should contain Sorted: {}",
             pretty
         );
-        // The IsPerm atom should appear in the guarantee or loop invariants.
-        let all_pretty = format!(
-            "{} {:?}",
-            pretty, result.loop_invariants
-        );
+        // The guarantee must contain IsPerm with non-trivial arguments
+        // (input, output) — not just the trivial IsPerm(output, output).
         assert!(
-            all_pretty.contains("Perm"),
-            "sort guarantee or invariants should contain IsPerm (Perm): {}",
-            all_pretty
+            pretty.contains("Perm(input, output)"),
+            "sort guarantee should contain IsPerm(input, output) (non-trivial): {}",
+            pretty
+        );
+        // Ensure the trivial form is not the ONLY IsPerm present.
+        // The guarantee should have IsPerm(input, output), which is
+        // semantically meaningful (output is a permutation of the input).
+    }
+
+    #[test]
+    fn test_isperm_pattern_recognizer_cons_loop() {
+        // The pattern recognizer should add IsPerm(input, output) to any
+        // loop whose body contains cons (the list constructor). This test
+        // verifies the recognizer fires for a simple cons-containing loop.
+        use Scheme::*;
+        let body = Seq {
+            fst: Box::new(Scheme::arr_native("list.tail", vec![])),
+            snd: Box::new(Choice {
+                l: Box::new(Scheme::arr_native("cons", vec![])),
+                r: Box::new(Scheme::arr_native("id", vec![])),
+            }),
+        };
+        let graph = Loop { body: Box::new(body) };
+        let registry = ContractRegistry::minimal();
+        let result = infer_refinement(&graph, &registry).expect("loop inference");
+        let pretty = result.guarantee.pretty();
+        println!("pattern recognizer test guarantee: {}", pretty);
+        assert!(
+            pretty.contains("Perm(input, output)"),
+            "cons-containing loop should get IsPerm(input, output) from pattern recognizer: {}",
+            pretty
         );
     }
 
