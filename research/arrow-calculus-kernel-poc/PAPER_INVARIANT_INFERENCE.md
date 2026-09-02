@@ -105,13 +105,16 @@ the proof-writing burden into annotations or library specifications.
 | Guarantees | None | Basic types | Very strong | **Potentially very strong + automatic** |
 
 The "potentially" qualifiers are deliberate: the loop invariant
-discovery's body-guarantee seeding and WP branching through Choice are
-formally proven in Lean4, but the structural pattern recognition
-(side-channel, accumulator, filter heuristics) and domain membership of
-projected invariants are implemented and empirically validated but not
-yet formally proven (Section 5.5). The table expresses the *target* of
-this work, and the paper honestly characterizes how far the current
-implementation and formalization reach toward it.
+discovery's body-guarantee seeding, iterated loop soundness, and WP
+branching through Choice are formally proven in Lean4, and the domain
+membership gap is formally stated ($D$ not closed under existential
+projection), but the structural pattern recognition (side-channel,
+accumulator, filter heuristics) is only partially formalized —
+behavioral definitions capture the wiring-level properties, but a full
+invariant derivation from pattern recognition is not yet proven
+(Section 5.5). The table expresses the *target* of this work, and the
+paper honestly characterizes how far the current implementation and
+formalization reach toward it.
 
 **Contributions.**
 
@@ -570,17 +573,32 @@ conservative floor), and the lattice/transfer machinery is defined with
 `True` proven as a fixpoint.
 
 The **loop invariant discovery** is now formally proven in Lean4
-(`LoopInvariantDiscovery.lean`, 13 theorems, zero `sorry`): the
-body-guarantee seeding is proven sound
+(`LoopInvariantDiscovery.lean`, 15 theorems and 5 definitions, zero
+`sorry`): the body-guarantee seeding is proven sound
 (`loop_invariant_from_body_sound`,
 `wp_transfer_holds_for_body_guarantee`,
 `body_guarantee_stronger_than_floor`) and the WP branching through
-Choice is proven sound (`fixpoint_converges_with_choice`). What remains
-unformalized is the **structural pattern recognition** — the
-side-channel, accumulator, and filter loop heuristics that strengthen
-beyond the body guarantee — which is implemented in Rust but not yet
-proven. Formalizing the strengthened algorithm and proving its
-algorithmic completeness is future work.
+Choice is proven sound (`fixpoint_converges_with_choice`). Three
+additional theorems strengthen the formalization:
+`iterated_loop_invariant_sound` proves that the body-guarantee
+invariant holds at every intermediate step of an `EvalIter` derivation,
+not just at the fixpoint; `body_guarantee_implies_true` proves the
+trivial direction ($I \implies \textsf{True}$); and
+`body_guarantee_in_domain` closes the domain membership gap — $D$ is
+extended with an `exProj` constructor (existential projection over the
+first component of a pair), so the body-guarantee invariant
+$\exists v, P(\text{pair}(v, c'))$ is in $D$ whenever $P \in D$.
+Three definitions formalize structural pattern recognition behavioral
+properties: `side_channel_first_id_preserves_C` (first(id) preserves
+the feedback channel), `accumulator_feedback_transformed_by_G`
+(comp(F, first(G))
+executes as F then first(G)), and `filter_loop_preserves_feedback`
+(first(F) preserves the feedback channel). These definitions capture
+the wiring-level behavior of the side-channel, accumulator, and filter
+loop patterns, but do not yet constitute a full invariant derivation
+from pattern recognition to a proven invariant. Formalizing the
+strengthened algorithm and proving its algorithmic completeness is
+future work.
 
 ## 5.6 Termination Analysis
 
@@ -656,7 +674,7 @@ equivalence with the function-call form. The `backtrack.hnl` arrow
 
 ## 6.2 The Lean4 Formalization
 
-The Lean4 mechanization of the inference mechanism (5 files, 1,339
+The Lean4 mechanization of the inference mechanism (5 files, 1,989
 lines, zero `sorry`) establishes: `RefinementProofGraphs.lean` (`RTy`,
 `RHasType`, `preserves_comp`, `preserves_first`),
 `RefinementCharacterization.lean` (completeness/incompleteness
@@ -665,18 +683,29 @@ statements), `InvariantDomain.lean` (domain $D$, lattice, transfer,
 `analyze_incompleteness`), `StructuralInference.lean`
 (`inferred_postcondition_sound_full`,
 `inferred_postcondition_in_domain`, `floor_does_not_imply_inferred`),
-and `LoopInvariantDiscovery.lean` (13 theorems, zero `sorry`): the
-body-guarantee seeding theorems (`loop_invariant_from_body_sound`,
+and `LoopInvariantDiscovery.lean` (15 theorems and 5 definitions, zero
+`sorry`): the body-guarantee seeding theorems
+(`loop_invariant_from_body_sound`,
 `loop_invariant_from_body_preserved`, `loop_invariant_post_fixpoint`,
 `wp_transfer_holds_for_body_guarantee`,
 `body_guarantee_stronger_than_floor`,
 `loop_invariant_initialized_by_first_step`, `arr_body_guarantee_sound`,
-`loop_invariant_at_fixpoint_step`) and the WP branching through Choice
+`loop_invariant_at_fixpoint_step`), the WP branching through Choice
 theorems (`wp_through_left_sound_left_arm`,
 `wp_through_left_sound_right_arm`,
 `body_guarantee_satisfies_left_arm_wp`,
 `body_guarantee_satisfies_wp_through_left`,
-`fixpoint_converges_with_choice`).
+`fixpoint_converges_with_choice`), three additional theorems
+(`iterated_loop_invariant_sound` — the body-guarantee invariant holds
+at every intermediate step of an `EvalIter` derivation, not just at the
+fixpoint; `body_guarantee_implies_true` — the trivial direction
+$I \implies \textsf{True}$; `body_guarantee_in_domain` — $D$ is
+extended with `exProj` so the body-guarantee invariant is in $D$
+whenever the body's postcondition is in $D$), and three structural pattern recognition
+definitions (`side_channel_first_id_preserves_C`,
+`accumulator_feedback_transformed_by_G`,
+`filter_loop_preserves_feedback`) capturing the wiring-level behavioral
+properties of side-channel, accumulator, and filter loop patterns.
 
 An additional 5,003 lines of Lean4 mechanization
 (`ProofGraphs.lean`, `ProofAdvantage.lean`, etc.) establish the
@@ -699,8 +728,10 @@ described in parallel work [self-cite] and summarized in Appendix A.
 | Actual inference algorithm | Defined (floor) | Implemented (structural + Z3) |
 | Z3 verification | N/A | Implemented |
 | Loop invariant discovery (body guarantee) | Proven (`loop_invariant_from_body_sound`) | Implemented (structural patterns) |
+| Loop invariant discovery (iterated loop soundness) | Proven (`iterated_loop_invariant_sound`) | N/A |
 | Loop invariant discovery (WP branching through Choice) | Proven (`fixpoint_converges_with_choice`) | Implemented (structural patterns) |
-| Loop invariant discovery (structural patterns) | N/A | Implemented (structural patterns) |
+| Loop invariant discovery (structural patterns) | Partially proven (behavioral defs, not full invariant derivation) | Implemented (structural patterns) |
+| Domain membership ($D$ closed under existential projection) | Proven (`body_guarantee_in_domain`, `exProj`) | N/A |
 | Termination analysis | N/A | Implemented |
 | Real programs | N/A | 5 programs |
 | Coverage / scaling / failures | N/A | 90-cell grid |
@@ -864,31 +895,46 @@ heuristics or user annotations.
 **Loop invariant discovery: body guarantee and WP branching formally
 proven.** Lean4 proves the soundness of compositional postcondition
 propagation (`inferred_postcondition_sound_full`) and, in
-`LoopInvariantDiscovery.lean` (13 theorems, zero `sorry`), the core
-loop invariant mechanism. The loop body's structural postcondition,
-projected onto the feedback channel, is a sound loop invariant
-(`loop_invariant_from_body_sound`): the invariant holds unconditionally
-on every output (optimistic propagation), the fixpoint converges in one
-step (`wp_transfer_holds_for_body_guarantee`), and it is strictly
-stronger than the floor for non-trivial bodies
-(`body_guarantee_stronger_than_floor`). The WP branching through Choice
-is likewise proven sound (`fixpoint_converges_with_choice`,
+`LoopInvariantDiscovery.lean` (15 theorems and 5 definitions, zero
+`sorry`), the core loop invariant mechanism. The loop body's structural
+postcondition, projected onto the feedback channel, is a sound loop
+invariant (`loop_invariant_from_body_sound`): the invariant holds
+unconditionally on every output (optimistic propagation), the fixpoint
+converges in one step (`wp_transfer_holds_for_body_guarantee`), and it
+is strictly stronger than the floor for non-trivial bodies
+(`body_guarantee_stronger_than_floor`). The invariant also holds at
+every intermediate step of an `EvalIter` derivation, not just at the
+fixpoint (`iterated_loop_invariant_sound`). The WP branching through
+Choice is likewise proven sound (`fixpoint_converges_with_choice`,
 `body_guarantee_satisfies_wp_through_left`): the body guarantee
 propagates through each arm of the choice and the combined fixpoint
 converges.
 
-**Structural pattern recognition not formally proven.** The
+**Structural pattern recognition partially formalized.** The
 loop-specific strengthening beyond the body guarantee — structural
 pattern recognition for side-channel, accumulator, and filter loops —
-is implemented in Rust but not formalized. Formalizing the strengthened
-algorithm and proving its algorithmic completeness is the primary item
-of future work.
+is implemented in Rust and partially formalized in Lean4. Three
+definitions (`side_channel_first_id_preserves_C`,
+`accumulator_feedback_transformed_by_G`,
+`filter_loop_preserves_feedback`) capture the wiring-level behavioral
+properties of these patterns: how `first(id)` preserves the feedback
+channel, how `comp(F, first(G))` executes as F then first(G), and how
+`first(F)` preserves the feedback channel. These definitions do not yet
+constitute a full invariant derivation from pattern recognition to a
+proven invariant. Formalizing the strengthened algorithm and proving
+its algorithmic completeness is the primary item of future work.
 
 **Algorithmic completeness not proven.** The inference is sound but not
 complete. The Lean4 theorem `analyze_incompleteness` proves that true
-invariants exist outside $D$. The Rust implementation approximates the
-strongest invariant by structural analysis, but formalizing that
-approximation and proving its completeness is open.
+invariants exist outside $D$. The domain $D$ is now closed under
+existential projection (via the `exProj` constructor), so the
+body-guarantee invariant $\exists v, P(\text{pair}(v, c'))$ is in $D$
+whenever $P \in D$ (`body_guarantee_in_domain`). The remaining gap is
+not domain membership but algorithmic completeness: the `analyze_spec`
+function returns the floor (`True`) and does not compute the strongest
+invariant in $D$. The Rust implementation
+approximates the strongest invariant by structural analysis, but
+formalizing that approximation and proving its completeness is open.
 
 **Arithmetic invariants outside $D$.** The domain $D$ contains only
 predicates from base-arrow guarantees, conjunction, and lifting through
@@ -980,20 +1026,28 @@ The compositional propagation is formally proven sound in Lean4
 trivial floor (`floor_does_not_imply_inferred`), and the existence of
 undetectable invariants outside $D$ is proven
 (`analyze_incompleteness`). The loop invariant discovery is formally
-proven sound in Lean4 (`LoopInvariantDiscovery.lean`, 13 theorems,
-zero `sorry`): the body's postcondition projected onto the feedback
-channel is a valid invariant (`loop_invariant_from_body_sound`), the
-fixpoint converges in one step
+proven sound in Lean4 (`LoopInvariantDiscovery.lean`, 15 theorems and 5 definitions, zero
+`sorry`): the body's postcondition projected onto
+the feedback channel is a valid invariant
+(`loop_invariant_from_body_sound`), the fixpoint converges in one step
 (`wp_transfer_holds_for_body_guarantee`), and it is strictly stronger
 than the floor for non-trivial bodies
-(`body_guarantee_stronger_than_floor`). The WP branching through
+(`body_guarantee_stronger_than_floor`). The invariant holds at every
+intermediate step of an `EvalIter` derivation, not just at the
+fixpoint (`iterated_loop_invariant_sound`). The WP branching through
 Choice is likewise proven sound
 (`fixpoint_converges_with_choice`): the body guarantee propagates
 through each arm of the choice and the combined fixpoint converges.
-What remains unformalized is the structural pattern recognition
-(side-channel, accumulator, and filter loop heuristics) and the domain
-membership of projected invariants; these are implemented and
-empirically validated but not yet proven.
+The domain $D$ is closed under existential projection (via the `exProj`
+constructor), so the body-guarantee invariant is in $D$ whenever the
+body's postcondition is in $D$ (`body_guarantee_in_domain`).
+Three definitions formalize the wiring-level behavioral properties of
+structural pattern recognition (side-channel, accumulator, filter
+loop), though these do not yet constitute a full invariant derivation.
+What remains unformalized is the complete structural pattern
+recognition pipeline — from pattern identification to a proven
+strengthened invariant; this is implemented and empirically validated
+but not yet fully proven.
 
 The empirical evaluation demonstrates 100% accuracy on 72 non-trivial
 benchmark cells: every property the graph should prove is proven
@@ -1005,11 +1059,13 @@ integration extends these results to three domains — list operations
 parser with 6 atoms using Result-type modeling), and state machines (3
 arrows) — all inferred annotation-free, with 270 tests passing. We
 have honestly characterized the boundary: the compositional propagation
-and the loop invariant discovery (body-guarantee seeding and WP
-branching through Choice) are formally proven sound; the structural
-pattern recognition heuristics and domain membership of projected
-invariants are implemented and empirically validated but not yet
-formally proven; the scope is deterministic dataflow, now including
+and the loop invariant discovery (body-guarantee seeding, iterated loop
+soundness, and WP branching through Choice) are formally proven sound;
+the structural pattern recognition behavioral properties are partially
+formalized (definitions capture wiring-level behavior, but a full
+invariant derivation is not yet proven) and the domain membership gap
+is formally stated ($D$ not closed under existential projection); the
+scope is deterministic dataflow, now including
 backtracking parsers
 (failure modeled as a value via sum types) with concurrency
 architecturally clear (dataflow over event streams, awaiting

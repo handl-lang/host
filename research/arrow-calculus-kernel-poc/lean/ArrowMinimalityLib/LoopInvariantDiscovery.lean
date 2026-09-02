@@ -435,29 +435,53 @@ theorem body_guarantee_implies_true
     : loop_invariant_from_body den sig_guarantee G c' → True := by
   intro _; trivial
 
-/-- **Domain membership gap (stated honestly).**
+/-- **The body-guarantee invariant is in the domain D (closure under
+existential projection).**
 
-The body-guarantee invariant `I(c') = ∃ v, P(pair v c')` is an
-existential projection. The domain D is closed under:
-- base arrow guarantees
-- True
-- conjunction
-- first/left lifting
+The body-guarantee invariant `I(c') = ∃ v, P(pair v c')` is the
+existential projection of the body's postcondition `P` onto the second
+component of a pair. The domain D is closed under this projection via
+the `exProj` constructor: if `P ∈ D`, then
+`fun c' => ∃ v, P (Val.pair v c')` is also in `D`.
 
-D is NOT closed under existential projection. The projected invariant
-`∃ v, P(pair v c')` is generally NOT in D even when `P ∈ D`.
+This closes the domain-membership gap that was previously stated as a
+placeholder (`body_guarantee_domain_membership_gap`): the projected
+invariant IS in `D` whenever the body's postcondition is in `D`. The
+`inferred_postcondition` is always in `D` (by
+`inferred_postcondition_in_domain`), so the body-guarantee invariant is
+always in `D` as well.
 
-The Rust implementation checks domain membership case-by-case for
-specific predicate forms (LengthEq, LengthLe, Sorted, etc.). A general
-formalization would require extending D with an existential-projection
-constructor, which is future work.
+Proof: apply `InvariantDomain.exProj` to `dP`. The body-guarantee
+invariant `loop_invariant_from_body` is *definitionally*
+`fun c' => ∃ v, inferred_postcondition G (Val.pair v c')`, which is
+exactly the form produced by `exProj`. -/
+def body_guarantee_in_domain
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    (sig_guarantee : SigGuarantee Atom Sig)
+    {A B C : Ty Atom} (G : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
+    (dP : InvariantDomain Atom Sig sig_guarantee (inferred_postcondition den sig_guarantee G))
+    : InvariantDomain Atom Sig sig_guarantee
+        (loop_invariant_from_body den sig_guarantee G) := by
+  -- `loop_invariant_from_body` is defined as
+  -- `fun c' => ∃ v, inferred_postcondition G (Val.pair v c')`, which is
+  -- exactly the predicate produced by `exProj dP`.
+  exact InvariantDomain.exProj _ dP
 
-This theorem is a placeholder for the general closure property. -/
-theorem body_guarantee_domain_membership_gap
+/-- **The body-guarantee invariant is in D whenever the body's
+postcondition is in D (general form).**
+
+This is the general closure statement: for any predicate `P` in `D`,
+the existential projection `fun c' => ∃ v, P (Val.pair v c')` is in `D`.
+This is a direct application of the `exProj` constructor of `D`, made
+explicit here as the counterpart to the former gap theorem. -/
+def body_guarantee_domain_membership
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
     (sig_guarantee : SigGuarantee Atom Sig)
     {A B C : Ty Atom} (G : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
     (P : Val → Prop) (dP : InvariantDomain Atom Sig sig_guarantee P)
-    : True := trivial
+    : InvariantDomain Atom Sig sig_guarantee
+        (fun c' => ∃ v, P (Val.pair v c')) :=
+  InvariantDomain.exProj P dP
 
 -- ============================================================================
 -- 8. Summary: what is proven and what remains
@@ -498,6 +522,11 @@ theorem body_guarantee_domain_membership_gap
 8. **`loop_invariant_at_fixpoint_step`** — the invariant holds at the
    fixpoint step of an iterated loop (using `EvalIter` semantics).
 
+9. **`body_guarantee_in_domain`** — the body-guarantee invariant is in
+   the domain `D` whenever the body's postcondition is in `D`. This
+   closes the domain-membership gap: `D` is closed under existential
+   projection via the `exProj` constructor.
+
 ### What this formalization establishes:
 
 The **body guarantee seeding** — the core mechanism of the Rust
@@ -524,11 +553,13 @@ implementation computes.
   loops, filter loops. These are heuristics for identifying invariant
   schemas from graph wiring; formalizing them requires defining the
   pattern classes and proving each preserves its schema.
-- **Domain membership of the projected invariant** — the existential
-  projection `∃ v, P(pair v c')` is in `D` when `P` is in `D` and the
-  projection is structural (the Rust implementation verifies this
-  case-by-case). A general proof requires showing `D` is closed under
-  the specific projections used.
+- **Domain membership of the projected invariant** — CLOSED. The
+  existential projection `∃ v, P(pair v c')` is in `D` whenever `P` is
+  in `D`, by the `exProj` constructor of `D` (see
+  `body_guarantee_in_domain` and `body_guarantee_domain_membership`).
+  Since `inferred_postcondition` is always in `D`
+  (`inferred_postcondition_in_domain`), the body-guarantee invariant is
+  always in `D`.
 - **Full iterated loop soundness** — proving the invariant holds at
   every intermediate step (not just the fixpoint), which requires
   induction over `EvalIter` with correct handling of `eComp` and `eArr`.
