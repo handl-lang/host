@@ -5606,6 +5606,671 @@ fn fanout_rule_returns_function_type() {
 }
 
 // ===========================================================================
+// Arrow kind signatures — ADR-0074 follow-up #3
+// ===========================================================================
+//
+// The categorical combinators `>>>` (flow), `***` (product), `&&&` (fanout),
+// and `|||` (choice) now have precise arrow kind signatures:
+//   >>>  f: A ~> B, g: B ~> C ⟹ f >>> g : A ~> C   (composition; v0.1 eval
+//        is application, so the type rule matches application semantics)
+//   ***  f: A ~> B, g: C ~> D ⟹ f *** g : (A, C) ~> (B, D)
+//   &&&  f: A ~> B, g: A ~> C ⟹ f &&& g : A ~> (B, C)
+//   |||  f: A ~> C, g: B ~> C ⟹ f ||| g : (A | B) ~> C
+// where `A ~> B` is `type.function{param: A, body: B}`, `(A, C)` is a
+// positional `type.array{elements: [A, C]}`, and `(A | B)` is
+// `type.sum{variants: [A, B]}`.
+
+/// A positional `type.array` with an `elements` field (a heterogeneous
+/// tuple), used for product/fanout pair types.
+fn type_array_elements(elements: Vec<Value>) -> Value {
+    json!({
+        "__tag__": "type.array",
+        "__registry__": "handl.canonical",
+        "elements": Value::Array(elements)
+    })
+}
+
+/// A `type.sum` with a `variants` field, used for the choice input type.
+fn type_sum(variants: Vec<Value>) -> Value {
+    json!({
+        "__tag__": "type.sum",
+        "__registry__": "handl.canonical",
+        "variants": Value::Array(variants)
+    })
+}
+
+/// Merge the canonical `function` synth rule: synth child 0 (param) →
+/// bind "paramtype", synth child 1 (body) → bind "bodytype", then construct
+/// `type.function{param, body}`.
+fn merge_function_rule(lang: &mut Language) {
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.function",
+            "function",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("paramtype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        Scheme::seq(
+                            Scheme::arr_judgment_lit("bind", vec![], Value::from("bodytype")),
+                            Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![
+                                    Scheme::arr_judgment_lit(
+                                        "field",
+                                        vec![Scheme::arr_judgment_lit(
+                                            "result",
+                                            vec![],
+                                            Value::from("paramtype"),
+                                        )],
+                                        Value::from("param"),
+                                    ),
+                                    Scheme::arr_judgment_lit(
+                                        "field",
+                                        vec![Scheme::arr_judgment_lit(
+                                            "result",
+                                            vec![],
+                                            Value::from("bodytype"),
+                                        )],
+                                        Value::from("body"),
+                                    ),
+                                ],
+                                Value::from("type.function"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+}
+
+/// Merge the canonical `fanout` (&&&) synth rule: synth both children,
+/// extract param/body of each, unify the two params, construct
+/// `type.function{param: A, body: type.array{elements: [B, C]}}`.
+fn merge_fanout_rule(lang: &mut Language) {
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.fanout",
+            "fanout",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        Scheme::seq(
+                            Scheme::arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            Scheme::seq(
+                                Scheme::arr_judgment_lit(
+                                    "type_field",
+                                    vec![Scheme::arr_judgment_lit(
+                                        "result",
+                                        vec![],
+                                        Value::from("ftype"),
+                                    )],
+                                    Value::from("param"),
+                                ),
+                                Scheme::seq(
+                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("A1")),
+                                    Scheme::seq(
+                                        Scheme::arr_judgment_lit(
+                                            "type_field",
+                                            vec![Scheme::arr_judgment_lit(
+                                                "result",
+                                                vec![],
+                                                Value::from("ftype"),
+                                            )],
+                                            Value::from("body"),
+                                        ),
+                                        Scheme::seq(
+                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("B")),
+                                            Scheme::seq(
+                                                Scheme::arr_judgment_lit(
+                                                    "type_field",
+                                                    vec![Scheme::arr_judgment_lit(
+                                                        "result",
+                                                        vec![],
+                                                        Value::from("gtype"),
+                                                    )],
+                                                    Value::from("param"),
+                                                ),
+                                                Scheme::seq(
+                                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("A2")),
+                                                    Scheme::seq(
+                                                        Scheme::arr_judgment_lit(
+                                                            "type_field",
+                                                            vec![Scheme::arr_judgment_lit(
+                                                                "result",
+                                                                vec![],
+                                                                Value::from("gtype"),
+                                                            )],
+                                                            Value::from("body"),
+                                                        ),
+                                                        Scheme::seq(
+                                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("C")),
+                                                            Scheme::seq(
+                                                                Scheme::arr_judgment(
+                                                                    "unify",
+                                                                    vec![
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "result",
+                                                                            vec![],
+                                                                            Value::from("A1"),
+                                                                        ),
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "result",
+                                                                            vec![],
+                                                                            Value::from("A2"),
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                Scheme::arr_judgment_lit(
+                                                                    "construct",
+                                                                    vec![
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "field",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "result",
+                                                                                vec![],
+                                                                                Value::from("A1"),
+                                                                            )],
+                                                                            Value::from("param"),
+                                                                        ),
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "field",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "construct",
+                                                                                vec![Scheme::arr_judgment_lit(
+                                                                                    "field",
+                                                                                    vec![Scheme::arr_judgment(
+                                                                                        "make_array",
+                                                                                        vec![
+                                                                                            Scheme::arr_judgment_lit(
+                                                                                                "result",
+                                                                                                vec![],
+                                                                                                Value::from("B"),
+                                                                                            ),
+                                                                                            Scheme::arr_judgment_lit(
+                                                                                                "result",
+                                                                                                vec![],
+                                                                                                Value::from("C"),
+                                                                                            ),
+                                                                                        ],
+                                                                                    )],
+                                                                                    Value::from("elements"),
+                                                                                )],
+                                                                                Value::from("type.array"),
+                                                                            )],
+                                                                            Value::from("body"),
+                                                                        ),
+                                                                    ],
+                                                                    Value::from("type.function"),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// fanout_rule_infers_arrow_kind_signature — `f &&& g` where
+// f: A ~> B, g: A ~> C ⟹ f &&& g : A ~> (B, C)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fanout_rule_infers_arrow_kind_signature() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_value_rule(&mut lang);
+    merge_function_rule(&mut lang);
+    merge_fanout_rule(&mut lang);
+    // AST: [value(42), value("hi"), value(42), value(true),
+    //       function{children:[0,1]}  // f: number ~> string  (idx 4)
+    //       function{children:[2,3]}  // g: number ~> bool    (idx 5)
+    //       fanout{children:[4,5]}]   // f &&& g : number ~> (string, bool)
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!(true)));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [2, 3]})));
+    ast.push(AstNode::new("fanout").with_payload(json!({"children": [4, 5]})));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // Expected: type.function{param: type.number,
+    //                         body: type.array{elements: [type.string, type.bool]}}
+    assert_eq!(
+        result.typ,
+        type_function(
+            type_number(),
+            type_array_elements(vec![type_string(), type_bool()])
+        )
+    );
+}
+
+// ---------------------------------------------------------------------------
+// fanout_rule_param_mismatch_errors — `f &&& g` requires both arrows to
+// share the same input type; a mismatch unifies type.number with type.string
+// and errors.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fanout_rule_param_mismatch_errors() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_value_rule(&mut lang);
+    merge_function_rule(&mut lang);
+    merge_fanout_rule(&mut lang);
+    // f: number ~> string, g: string ~> bool → params differ → unify errors.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!(true)));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [2, 3]})));
+    ast.push(AstNode::new("fanout").with_payload(json!({"children": [4, 5]})));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        err.to_string().contains("unify") || err.to_string().contains("mismatch"),
+        "expected unify error, got: {}",
+        err
+    );
+}
+
+/// Merge the canonical `product` (***) synth rule: synth both children,
+/// extract param/body of each (no unification), construct
+/// `type.function{param: type.array{elements: [A, C]},
+///                 body:  type.array{elements: [B, D]}}`.
+fn merge_product_rule(lang: &mut Language) {
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.product",
+            "product",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        Scheme::seq(
+                            Scheme::arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            Scheme::seq(
+                                Scheme::arr_judgment_lit(
+                                    "type_field",
+                                    vec![Scheme::arr_judgment_lit(
+                                        "result",
+                                        vec![],
+                                        Value::from("ftype"),
+                                    )],
+                                    Value::from("param"),
+                                ),
+                                Scheme::seq(
+                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("A")),
+                                    Scheme::seq(
+                                        Scheme::arr_judgment_lit(
+                                            "type_field",
+                                            vec![Scheme::arr_judgment_lit(
+                                                "result",
+                                                vec![],
+                                                Value::from("ftype"),
+                                            )],
+                                            Value::from("body"),
+                                        ),
+                                        Scheme::seq(
+                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("B")),
+                                            Scheme::seq(
+                                                Scheme::arr_judgment_lit(
+                                                    "type_field",
+                                                    vec![Scheme::arr_judgment_lit(
+                                                        "result",
+                                                        vec![],
+                                                        Value::from("gtype"),
+                                                    )],
+                                                    Value::from("param"),
+                                                ),
+                                                Scheme::seq(
+                                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("C")),
+                                                    Scheme::seq(
+                                                        Scheme::arr_judgment_lit(
+                                                            "type_field",
+                                                            vec![Scheme::arr_judgment_lit(
+                                                                "result",
+                                                                vec![],
+                                                                Value::from("gtype"),
+                                                            )],
+                                                            Value::from("body"),
+                                                        ),
+                                                        Scheme::seq(
+                                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("D")),
+                                                            Scheme::arr_judgment_lit(
+                                                                "construct",
+                                                                vec![
+                                                                    Scheme::arr_judgment_lit(
+                                                                        "field",
+                                                                        vec![Scheme::arr_judgment_lit(
+                                                                            "construct",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "field",
+                                                                                vec![Scheme::arr_judgment(
+                                                                                    "make_array",
+                                                                                    vec![
+                                                                                        Scheme::arr_judgment_lit(
+                                                                                            "result",
+                                                                                            vec![],
+                                                                                            Value::from("A"),
+                                                                                        ),
+                                                                                        Scheme::arr_judgment_lit(
+                                                                                            "result",
+                                                                                            vec![],
+                                                                                            Value::from("C"),
+                                                                                        ),
+                                                                                    ],
+                                                                                )],
+                                                                                Value::from("elements"),
+                                                                            )],
+                                                                            Value::from("type.array"),
+                                                                        )],
+                                                                        Value::from("param"),
+                                                                    ),
+                                                                    Scheme::arr_judgment_lit(
+                                                                        "field",
+                                                                        vec![Scheme::arr_judgment_lit(
+                                                                            "construct",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "field",
+                                                                                vec![Scheme::arr_judgment(
+                                                                                    "make_array",
+                                                                                    vec![
+                                                                                        Scheme::arr_judgment_lit(
+                                                                                            "result",
+                                                                                            vec![],
+                                                                                            Value::from("B"),
+                                                                                        ),
+                                                                                        Scheme::arr_judgment_lit(
+                                                                                            "result",
+                                                                                            vec![],
+                                                                                            Value::from("D"),
+                                                                                        ),
+                                                                                    ],
+                                                                                )],
+                                                                                Value::from("elements"),
+                                                                            )],
+                                                                            Value::from("type.array"),
+                                                                        )],
+                                                                        Value::from("body"),
+                                                                    ),
+                                                                ],
+                                                                Value::from("type.function"),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// product_rule_infers_arrow_kind_signature — `f *** g` where
+// f: A ~> B, g: C ~> D ⟹ f *** g : (A, C) ~> (B, D)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn product_rule_infers_arrow_kind_signature() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_value_rule(&mut lang);
+    merge_function_rule(&mut lang);
+    merge_product_rule(&mut lang);
+    // f: number ~> string, g: bool ~> number
+    // → f *** g : (number, bool) ~> (string, number)
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!(true)));
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [2, 3]})));
+    ast.push(AstNode::new("product").with_payload(json!({"children": [4, 5]})));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(
+        result.typ,
+        type_function(
+            type_array_elements(vec![type_number(), type_bool()]),
+            type_array_elements(vec![type_string(), type_number()])
+        )
+    );
+}
+
+/// Merge the canonical `choice` (|||) synth rule: synth both children,
+/// extract param/body of each, unify the two bodies, construct
+/// `type.function{param: type.sum{variants: [A, B]}, body: C}`.
+fn merge_choice_rule(lang: &mut Language) {
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.choice",
+            "choice",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("ftype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                        Scheme::seq(
+                            Scheme::arr_judgment_lit("bind", vec![], Value::from("gtype")),
+                            Scheme::seq(
+                                Scheme::arr_judgment_lit(
+                                    "type_field",
+                                    vec![Scheme::arr_judgment_lit(
+                                        "result",
+                                        vec![],
+                                        Value::from("ftype"),
+                                    )],
+                                    Value::from("param"),
+                                ),
+                                Scheme::seq(
+                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("A")),
+                                    Scheme::seq(
+                                        Scheme::arr_judgment_lit(
+                                            "type_field",
+                                            vec![Scheme::arr_judgment_lit(
+                                                "result",
+                                                vec![],
+                                                Value::from("ftype"),
+                                            )],
+                                            Value::from("body"),
+                                        ),
+                                        Scheme::seq(
+                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("C1")),
+                                            Scheme::seq(
+                                                Scheme::arr_judgment_lit(
+                                                    "type_field",
+                                                    vec![Scheme::arr_judgment_lit(
+                                                        "result",
+                                                        vec![],
+                                                        Value::from("gtype"),
+                                                    )],
+                                                    Value::from("param"),
+                                                ),
+                                                Scheme::seq(
+                                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("B")),
+                                                    Scheme::seq(
+                                                        Scheme::arr_judgment_lit(
+                                                            "type_field",
+                                                            vec![Scheme::arr_judgment_lit(
+                                                                "result",
+                                                                vec![],
+                                                                Value::from("gtype"),
+                                                            )],
+                                                            Value::from("body"),
+                                                        ),
+                                                        Scheme::seq(
+                                                            Scheme::arr_judgment_lit("bind", vec![], Value::from("C2")),
+                                                            Scheme::seq(
+                                                                Scheme::arr_judgment(
+                                                                    "unify",
+                                                                    vec![
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "result",
+                                                                            vec![],
+                                                                            Value::from("C1"),
+                                                                        ),
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "result",
+                                                                            vec![],
+                                                                            Value::from("C2"),
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                Scheme::arr_judgment_lit(
+                                                                    "construct",
+                                                                    vec![
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "field",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "construct",
+                                                                                vec![Scheme::arr_judgment_lit(
+                                                                                    "field",
+                                                                                    vec![Scheme::arr_judgment(
+                                                                                        "make_array",
+                                                                                        vec![
+                                                                                            Scheme::arr_judgment_lit(
+                                                                                                "result",
+                                                                                                vec![],
+                                                                                                Value::from("A"),
+                                                                                            ),
+                                                                                            Scheme::arr_judgment_lit(
+                                                                                                "result",
+                                                                                                vec![],
+                                                                                                Value::from("B"),
+                                                                                            ),
+                                                                                        ],
+                                                                                    )],
+                                                                                    Value::from("variants"),
+                                                                                )],
+                                                                                Value::from("type.sum"),
+                                                                            )],
+                                                                            Value::from("param"),
+                                                                        ),
+                                                                        Scheme::arr_judgment_lit(
+                                                                            "field",
+                                                                            vec![Scheme::arr_judgment_lit(
+                                                                                "result",
+                                                                                vec![],
+                                                                                Value::from("C1"),
+                                                                            )],
+                                                                            Value::from("body"),
+                                                                        ),
+                                                                    ],
+                                                                    Value::from("type.function"),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// choice_rule_infers_arrow_kind_signature — `f ||| g` where
+// f: A ~> C, g: B ~> C ⟹ f ||| g : (A | B) ~> C
+// ---------------------------------------------------------------------------
+
+#[test]
+fn choice_rule_infers_arrow_kind_signature() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_value_rule(&mut lang);
+    merge_function_rule(&mut lang);
+    merge_choice_rule(&mut lang);
+    // f: number ~> string, g: bool ~> string
+    // → f ||| g : (number | bool) ~> string
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!(true)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [2, 3]})));
+    ast.push(AstNode::new("choice").with_payload(json!({"children": [4, 5]})));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(
+        result.typ,
+        type_function(
+            type_sum(vec![type_number(), type_bool()]),
+            type_string()
+        )
+    );
+}
+
+// ---------------------------------------------------------------------------
+// choice_rule_body_mismatch_errors — `f ||| g` requires both arrows to
+// share the same output type; a mismatch unifies and errors.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn choice_rule_body_mismatch_errors() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_value_rule(&mut lang);
+    merge_function_rule(&mut lang);
+    merge_choice_rule(&mut lang);
+    // f: number ~> string, g: bool ~> number → bodies differ → unify errors.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("value").with_payload(json!("hi")));
+    ast.push(AstNode::new("value").with_payload(json!(true)));
+    ast.push(AstNode::new("value").with_payload(json!(42)));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
+    ast.push(AstNode::new("function").with_payload(json!({"children": [2, 3]})));
+    ast.push(AstNode::new("choice").with_payload(json!({"children": [4, 5]})));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        err.to_string().contains("unify") || err.to_string().contains("mismatch"),
+        "expected unify error, got: {}",
+        err
+    );
+}
+
+// ===========================================================================
 // Forall (parametric polymorphism) tests — ADR-0054
 // ===========================================================================
 
@@ -7072,4 +7737,416 @@ fn subtype_meta_solves() {
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_string());
+}
+
+// ===========================================================================
+// ADR-0074 ID.7 — Row polymorphism: open record types with row variables
+// ===========================================================================
+
+/// Build an open `type.record` value with the given fields and a row variable
+/// (metavariable id) in the `rest` field.
+fn type_record_open(fields: serde_json::Map<String, Value>, rest: &Value) -> Value {
+    json!({
+        "__tag__": "type.record",
+        "__registry__": "handl.canonical",
+        "fields": Value::Object(fields),
+        "rest": rest.clone()
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 1. Open record unifies with closed record with extra fields
+//    {name: Str | r} ~ {name: Str, age: Int}  ⟹  r := {age: Int}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_open_unifies_closed_with_extra_fields() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    // Row variable r = meta 0.
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Open record: {name: Str | r}
+    let mut open_fields = serde_json::Map::new();
+    open_fields.insert("name".to_string(), type_string());
+    let open_rec = type_record_open(open_fields, &r);
+    // Closed record: {name: Str, age: Int}
+    let mut closed_fields = serde_json::Map::new();
+    closed_fields.insert("name".to_string(), type_string());
+    closed_fields.insert("age".to_string(), type_number());
+    let closed_rec = type_record(closed_fields);
+    // Unify — should succeed and solve r to {age: Int}.
+    engine.unify(&open_rec, &closed_rec, &mut ctx).unwrap();
+    // Verify r was solved to type.record{fields: {age: type.number}}.
+    let solved = ctx.lookup_meta(r_id).expect("row var should be solved");
+    let mut expected_extra = serde_json::Map::new();
+    expected_extra.insert("age".to_string(), type_number());
+    assert_eq!(*solved, type_record(expected_extra));
+}
+
+// ---------------------------------------------------------------------------
+// 2. Open record unifies with closed record with no extra fields
+//    {name: Str | r} ~ {name: Str}  ⟹  r := {} (empty record)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_open_unifies_closed_no_extra_fields() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Open record: {name: Str | r}
+    let mut open_fields = serde_json::Map::new();
+    open_fields.insert("name".to_string(), type_string());
+    let open_rec = type_record_open(open_fields, &r);
+    // Closed record: {name: Str}
+    let mut closed_fields = serde_json::Map::new();
+    closed_fields.insert("name".to_string(), type_string());
+    let closed_rec = type_record(closed_fields);
+    // Unify — should succeed and solve r to {} (empty record).
+    engine.unify(&open_rec, &closed_rec, &mut ctx).unwrap();
+    let solved = ctx.lookup_meta(r_id).expect("row var should be solved");
+    let empty_fields = serde_json::Map::new();
+    assert_eq!(*solved, type_record(empty_fields));
+}
+
+// ---------------------------------------------------------------------------
+// 3. Two open records unify (same fields)
+//    {name: Str | r1} ~ {name: Str | r2}  ⟹  r1 ~ r2 (linked)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_two_open_records_unify() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r1_id = ctx.fresh_meta();
+    let r1 = meta_value(r1_id);
+    let r2_id = ctx.fresh_meta();
+    let r2 = meta_value(r2_id);
+    // Open record A: {name: Str | r1}
+    let mut fields_a = serde_json::Map::new();
+    fields_a.insert("name".to_string(), type_string());
+    let rec_a = type_record_open(fields_a, &r1);
+    // Open record B: {name: Str | r2}
+    let mut fields_b = serde_json::Map::new();
+    fields_b.insert("name".to_string(), type_string());
+    let rec_b = type_record_open(fields_b, &r2);
+    // Unify — should succeed. r1 and r2 are linked (one solves to the other).
+    engine.unify(&rec_a, &rec_b, &mut ctx).unwrap();
+    // At least one of r1/r2 should be solved to the other's meta.
+    let solved1 = ctx.lookup_meta(r1_id);
+    let solved2 = ctx.lookup_meta(r2_id);
+    assert!(
+        solved1.is_some() || solved2.is_some(),
+        "at least one row var should be solved"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 4. Open records with different fields
+//    {name: Str, age: Int | r1} ~ {name: Str, city: Str | r2}
+//    ⟹  name unifies, r1 := {city: Str | r3}, r2 := {age: Int | r3}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_open_records_different_fields() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r1_id = ctx.fresh_meta();
+    let r1 = meta_value(r1_id);
+    let r2_id = ctx.fresh_meta();
+    let r2 = meta_value(r2_id);
+    // Open record A: {name: Str, age: Int | r1}
+    let mut fields_a = serde_json::Map::new();
+    fields_a.insert("name".to_string(), type_string());
+    fields_a.insert("age".to_string(), type_number());
+    let rec_a = type_record_open(fields_a, &r1);
+    // Open record B: {name: Str, city: Str | r2}
+    let mut fields_b = serde_json::Map::new();
+    fields_b.insert("name".to_string(), type_string());
+    fields_b.insert("city".to_string(), type_string());
+    let rec_b = type_record_open(fields_b, &r2);
+    // Unify — should succeed.
+    engine.unify(&rec_a, &rec_b, &mut ctx).unwrap();
+    // r1 should be solved to {city: Str | r3} where r3 is a fresh meta.
+    let solved1 = ctx.lookup_meta(r1_id).expect("r1 should be solved");
+    let solved1_tag = solved1.get("__tag__").and_then(|t| t.as_str());
+    assert_eq!(solved1_tag, Some("type.record"));
+    let solved1_fields = solved1.get("fields").and_then(|f| f.as_object()).unwrap();
+    assert!(solved1_fields.contains_key("city"));
+    assert_eq!(solved1_fields.get("city"), Some(&type_string()));
+    assert!(solved1.get("rest").is_some(), "r1's solution should have a rest (fresh row var)");
+    // r2 should be solved to {age: Int | r3} (same fresh meta).
+    let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
+    let solved2_tag = solved2.get("__tag__").and_then(|t| t.as_str());
+    assert_eq!(solved2_tag, Some("type.record"));
+    let solved2_fields = solved2.get("fields").and_then(|f| f.as_object()).unwrap();
+    assert!(solved2_fields.contains_key("age"));
+    assert_eq!(solved2_fields.get("age"), Some(&type_number()));
+    assert!(solved2.get("rest").is_some(), "r2's solution should have a rest (fresh row var)");
+    // The rest (fresh row var r3) should be the same in both solutions.
+    let rest1 = solved1.get("rest").unwrap();
+    let rest2 = solved2.get("rest").unwrap();
+    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+}
+
+// ---------------------------------------------------------------------------
+// 5. Closed records with same fields unify (regression — no row vars)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_closed_records_same_fields_unify() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut fields = serde_json::Map::new();
+    fields.insert("name".to_string(), type_string());
+    fields.insert("age".to_string(), type_number());
+    let rec_a = type_record(fields.clone());
+    let rec_b = type_record(fields);
+    engine.unify(&rec_a, &rec_b, &mut ctx).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// 6. Closed records with different fields fail to unify
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_closed_records_different_fields_fail() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut fields_a = serde_json::Map::new();
+    fields_a.insert("name".to_string(), type_string());
+    let rec_a = type_record(fields_a);
+    let mut fields_b = serde_json::Map::new();
+    fields_b.insert("name".to_string(), type_string());
+    fields_b.insert("age".to_string(), type_number());
+    let rec_b = type_record(fields_b);
+    let err = engine.unify(&rec_a, &rec_b, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed records")),
+        "expected closed-record mismatch, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 7. Open record with known field absent from closed record fails
+//    {name: Str, age: Int | r} ~ {name: Str}  ⟹  FAIL (age required but absent)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_open_requires_field_absent_from_closed_fails() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Open record: {name: Str, age: Int | r}
+    let mut open_fields = serde_json::Map::new();
+    open_fields.insert("name".to_string(), type_string());
+    open_fields.insert("age".to_string(), type_number());
+    let open_rec = type_record_open(open_fields, &r);
+    // Closed record: {name: Str} — no age field.
+    let mut closed_fields = serde_json::Map::new();
+    closed_fields.insert("name".to_string(), type_string());
+    let closed_rec = type_record(closed_fields);
+    let err = engine.unify(&open_rec, &closed_rec, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("open requires fields")),
+        "expected open-requires-field error, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 8. Field access on an open record extracts the known field type
+//    record_field_type({name: Str | r}, "name") → Str
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_field_access_on_open_record() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Build an open record type value with {name: Str | r}.
+    let r = json!({"__meta__": 0});
+    let mut fields = serde_json::Map::new();
+    fields.insert("name".to_string(), type_string());
+    let open_rec = type_record_open(fields, &r);
+    // Rule: const(open_rec) >>> bind("rt")
+    //   >>> record_field_type(result("rt"), lit="name")
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_native_lit("const", vec![], open_rec),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("rt")),
+                    Scheme::arr_judgment_lit(
+                        "record_field_type",
+                        vec![Scheme::arr_judgment_lit(
+                            "result",
+                            vec![],
+                            Value::from("rt"),
+                        )],
+                        Value::from("name"),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// 9. check_object_record with open expected type succeeds with extra fields
+//    Check {name: "Luis", age: 30} against {name: Str | r} → succeeds, r := {age: Int}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_check_object_record_open_expected() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_object_rule(&mut lang);
+    // Create a fresh row var for the expected type.
+    // We use a fixed meta id 0 (the engine allocates metas from 0).
+    let r = json!({"__meta__": 0});
+    let mut fields = serde_json::Map::new();
+    fields.insert("name".to_string(), type_string());
+    let open_rec = type_record_open(fields, &r);
+    // Wrapper rule: check child 0 against the open record, return type.string.
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.wrapper",
+            "wrapper",
+            Scheme::seq(
+                Scheme::arr_judgment_lit(
+                    "check_child",
+                    vec![Scheme::arr_native_lit("const", vec![], open_rec)],
+                    Value::from(0u64),
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    // AST: [object{entries: [{key:"name", value:"Luis"},
+    //                        {key:"age", value:30}]},
+    //       wrapper{children:[0]}]
+    let mut ast = Ast::new();
+    ast.push(
+        AstNode::new("object").with_payload(json!({
+            "entries": [
+                {"key": "name", "value": "Luis"},
+                {"key": "age", "value": 30}
+            ]
+        })),
+    );
+    ast.push(AstNode::new("wrapper").with_payload(json!({"children": [0]})));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// 10. check_object_record with closed expected type rejects extra fields
+//     Check {name: "Luis", age: 30} against {name: Str} → fails (age not expected)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_check_object_record_closed_rejects_extra() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_object_rule(&mut lang);
+    let mut fields = serde_json::Map::new();
+    fields.insert("name".to_string(), type_string());
+    let closed_rec = type_record(fields);
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.wrapper",
+            "wrapper",
+            Scheme::seq(
+                Scheme::arr_judgment_lit(
+                    "check_child",
+                    vec![Scheme::arr_native_lit("const", vec![], closed_rec)],
+                    Value::from(0u64),
+                ),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(
+        AstNode::new("object").with_payload(json!({
+            "entries": [
+                {"key": "name", "value": "Luis"},
+                {"key": "age", "value": 30}
+            ]
+        })),
+    );
+    ast.push(AstNode::new("wrapper").with_payload(json!({"children": [0]})));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("not found in expected record")),
+        "expected field-not-found error, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 11. fresh_row_meta judgment op creates a metavariable
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fresh_row_meta_creates_meta() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: fresh_row_meta >>> construct(type.string)
+    // The fresh_row_meta should produce {"__meta__": 0}.
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.test",
+            "test",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("fresh_row_meta", vec![], Value::Null),
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// 12. Open record unifies with closed record (reversed argument order)
+//     {name: Str, age: Int} ~ {name: Str | r}  ⟹  r := {age: Int}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_closed_unifies_open_reversed() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Closed record: {name: Str, age: Int}
+    let mut closed_fields = serde_json::Map::new();
+    closed_fields.insert("name".to_string(), type_string());
+    closed_fields.insert("age".to_string(), type_number());
+    let closed_rec = type_record(closed_fields);
+    // Open record: {name: Str | r}
+    let mut open_fields = serde_json::Map::new();
+    open_fields.insert("name".to_string(), type_string());
+    let open_rec = type_record_open(open_fields, &r);
+    // Unify with closed first, open second.
+    engine.unify(&closed_rec, &open_rec, &mut ctx).unwrap();
+    let solved = ctx.lookup_meta(r_id).expect("row var should be solved");
+    let mut expected_extra = serde_json::Map::new();
+    expected_extra.insert("age".to_string(), type_number());
+    assert_eq!(*solved, type_record(expected_extra));
 }

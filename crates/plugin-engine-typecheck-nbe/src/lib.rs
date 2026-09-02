@@ -538,6 +538,15 @@ impl NbeTypecheckEngine {
                 let id = ctx.fresh_meta();
                 Ok(meta_value(id))
             }
+            "fresh_row_meta" => {
+                // ADR-0074 ID.7: allocate a fresh metavariable for use as a
+                // row variable in open record types (`type.record{fields:
+                // {...}, rest: <row_meta>}`). Functionally identical to
+                // `fresh_meta` — the separate op documents intent and leaves
+                // room for row-specific constraints in the future.
+                let id = ctx.fresh_meta();
+                Ok(meta_value(id))
+            }
             "solve_meta" => {
                 let id = if args.is_empty() {
                     lit.and_then(|v| v.as_u64())
@@ -726,6 +735,27 @@ impl NbeTypecheckEngine {
                 let mut m = serde_json::Map::new();
                 m.insert(field_name.to_string(), val);
                 Ok(Value::Object(m))
+            }
+            "make_array" => {
+                // Build a JSON array from the evaluated `args`, in order.
+                // Used to construct positional tuple/sum payloads (e.g. the
+                // `elements` field of a product type `(A, C)` or the
+                // `variants` field of a sum type `(A | B)`) for arrow kind
+                // signatures (ADR-0074 follow-up #3). Each arg is a sub-scheme
+                // producing one element.
+                let mut out = Vec::with_capacity(args.len());
+                for arg in args {
+                    let val = self.eval_type_scheme(
+                        lang,
+                        ast,
+                        node_ref,
+                        arg,
+                        ctx,
+                        incoming.clone(),
+                    )?;
+                    out.push(val);
+                }
+                Ok(Value::Array(out))
             }
             "type_field" => {
                 // Extract a field from a type value (a tagged value).
@@ -1450,6 +1480,14 @@ impl NbeTypecheckEngine {
                 // field type in the expected record and verify the entry's
                 // JSON value matches that type (ADR-0054 — directed checking
                 // for `object` against a known record type).
+                //
+                // ADR-0074 ID.7 — row polymorphism: when the expected
+                // `type.record` has a `rest` field (row variable), entries
+                // with keys NOT in the expected `fields` are collected as
+                // extra fields and assigned to the `rest` row variable. When
+                // `rest` is absent (closed record), every entry must have a
+                // matching field in the expected record (the original
+                // behavior).
                 let expected = if let Some(arg) = args.first() {
                     self.eval_type_scheme(
                         lang, ast, node_ref, arg, ctx, incoming.clone(),
@@ -1466,6 +1504,7 @@ impl NbeTypecheckEngine {
                             expected
                         ))
                     })?;
+                let rest = expected.get("rest");
                 let node = ast.get(node_ref).ok_or_else(|| {
                     LangError::Engine(format!(
                         "check_object_record: node {} out of bounds",
@@ -1481,6 +1520,9 @@ impl NbeTypecheckEngine {
                             "check_object_record: node has no entries array".into(),
                         )
                     })?;
+                // Collect extra fields (entries not in expected_fields) for
+                // the row variable when the expected record is open.
+                let mut extra_fields: serde_json::Map<String, Value> = serde_json::Map::new();
                 for entry in entries {
                     let key = entry.get("key").and_then(|k| k.as_str()).ok_or_else(|| {
                         LangError::Engine(
@@ -1492,33 +1534,68 @@ impl NbeTypecheckEngine {
                             "check_object_record: entry missing 'value'".into(),
                         )
                     })?;
-                    let field_type = expected_fields.get(key).ok_or_else(|| {
-                        LangError::Engine(format!(
-                            "check_object_record: field '{}' not found in expected record",
-                            key
-                        ))
-                    })?;
-                    let expected_tag = ctx.registry.as_type_tag(field_type).ok_or_else(|| {
-                        LangError::Engine(format!(
-                            "check_object_record: field '{}' type is not a tagged type value",
-                            key
-                        ))
-                    })?;
-                    let matches = match expected_tag {
-                        "type.number" => value.is_number(),
-                        "type.string" => value.is_string(),
-                        "type.bool" => value.is_boolean(),
-                        "type.null" => value.is_null(),
-                        "type.array" => value.is_array(),
-                        "type.object" => value.is_object(),
-                        _ => false,
-                    };
-                    if !matches {
-                        return Err(LangError::Engine(format!(
-                            "check_object_record: field '{}' value {:?} does not match expected type {}",
-                            key, value, expected_tag
-                        )));
+                    let field_type = expected_fields.get(key);
+                    match field_type {
+                        Some(ft) => {
+                            let expected_tag = ctx.registry.as_type_tag(ft).ok_or_else(|| {
+                                LangError::Engine(format!(
+                                    "check_object_record: field '{}' type is not a tagged type value",
+                                    key
+                                ))
+                            })?;
+                            let matches = match expected_tag {
+                                "type.number" => value.is_number(),
+                                "type.string" => value.is_string(),
+                                "type.bool" => value.is_boolean(),
+                                "type.null" => value.is_null(),
+                                "type.array" => value.is_array(),
+                                "type.object" => value.is_object(),
+                                _ => false,
+                            };
+                            if !matches {
+                                return Err(LangError::Engine(format!(
+                                    "check_object_record: field '{}' value {:?} does not match expected type {}",
+                                    key, value, expected_tag
+                                )));
+                            }
+                        }
+                        None => {
+                            // Entry key not in expected fields.
+                            if let Some(_rest_val) = rest {
+                                // Open record: collect as an extra field for
+                                // the row variable. Infer the field type from
+                                // the JSON value's type.
+                                let tag = match value {
+                                    Value::Number(_) => "type.number",
+                                    Value::String(_) => "type.string",
+                                    Value::Bool(_) => "type.bool",
+                                    Value::Null => "type.null",
+                                    Value::Array(_) => "type.array",
+                                    Value::Object(_) => "type.object",
+                                };
+                                let field_ty = ctx.registry.construct(tag, &Value::Null)
+                                    .ok_or_else(|| {
+                                        LangError::Engine(format!(
+                                            "check_object_record: construct failed for tag '{}'",
+                                            tag
+                                        ))
+                                    })?;
+                                extra_fields.insert(key.to_string(), field_ty);
+                            } else {
+                                // Closed record: no extra fields allowed.
+                                return Err(LangError::Engine(format!(
+                                    "check_object_record: field '{}' not found in expected record",
+                                    key
+                                )));
+                            }
+                        }
                     }
+                }
+                // If the expected record is open, assign the collected extra
+                // fields to the row variable (`rest`).
+                if let Some(rest_val) = rest {
+                    let extra_record = self.construct_record(&extra_fields, None, ctx)?;
+                    self.unify(rest_val, &extra_record, ctx)?;
                 }
                 Ok(Value::Null)
             }
@@ -2416,6 +2493,149 @@ impl NbeTypecheckEngine {
         false
     }
 
+    /// Row-polymorphic record unification (ADR-0074 ID.7).
+    ///
+    /// Unifies two `type.record` values, handling open records (with a `rest`
+    /// row variable) and closed records (without `rest`). The algorithm:
+    ///
+    /// - **Both closed**: unify common fields; require identical key sets
+    ///   (extra fields on either side are an error).
+    /// - **One open, one closed**: unify common fields; the closed record's
+    ///   extra fields (not in the open record's known fields) are assigned to
+    ///   the open record's row variable. If the open record has known fields
+    ///   absent from the closed record, that is an error (the closed record
+    ///   cannot supply them).
+    /// - **Both open**: unify common fields; create a fresh row variable `r3`,
+    ///   then assign `r1 = {extra_b | r3}` and `r2 = {extra_a | r3}` where
+    ///   `extra_a`/`extra_b` are the non-common fields from each side. This is
+    ///   the "row unification" algorithm from Daan Leijen's "Extensible
+    ///   records with scoped labels".
+    ///
+    /// Row variables are metavariables (`{"__meta__": id}`); assigning a row
+    /// variable solves the metavariable to a `type.record{fields: {...}}`
+    /// value (the extra fields, possibly with its own `rest`).
+    fn unify_record(
+        &self,
+        a: &Value,
+        b: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
+        let fields_a = a.get("fields").and_then(|f| f.as_object()).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: unify_record: missing 'fields' object in {:?}",
+                a
+            ))
+        })?;
+        let fields_b = b.get("fields").and_then(|f| f.as_object()).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: unify_record: missing 'fields' object in {:?}",
+                b
+            ))
+        })?;
+        let rest_a = a.get("rest");
+        let rest_b = b.get("rest");
+
+        // Unify common fields (present in both records).
+        for (key, va) in fields_a {
+            if let Some(vb) = fields_b.get(key) {
+                self.unify(va, vb, ctx)?;
+            }
+        }
+
+        // Collect extra fields: in a but not in b, and in b but not in a.
+        let extra_a: serde_json::Map<String, Value> = fields_a
+            .iter()
+            .filter(|(k, _)| !fields_b.contains_key(*k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let extra_b: serde_json::Map<String, Value> = fields_b
+            .iter()
+            .filter(|(k, _)| !fields_a.contains_key(*k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        match (rest_a, rest_b) {
+            // Both closed: no extra fields allowed on either side.
+            (None, None) => {
+                if !extra_a.is_empty() || !extra_b.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify closed records with different fields: {:?} vs {:?}",
+                        extra_a.keys().collect::<Vec<_>>(),
+                        extra_b.keys().collect::<Vec<_>>()
+                    )));
+                }
+                Ok(())
+            }
+            // a is open, b is closed.
+            (Some(rest_a_val), None) => {
+                // The open record's known fields not in the closed record
+                // cannot be satisfied — the closed record has no more fields.
+                if !extra_a.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify open record with closed record: \
+                         open requires fields {:?} absent from closed record",
+                        extra_a.keys().collect::<Vec<_>>()
+                    )));
+                }
+                // The closed record's extra fields go to a's row variable.
+                let extra_record = self.construct_record(&extra_b, None, ctx)?;
+                self.unify(rest_a_val, &extra_record, ctx)
+            }
+            // a is closed, b is open.
+            (None, Some(rest_b_val)) => {
+                if !extra_b.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify closed record with open record: \
+                         open requires fields {:?} absent from closed record",
+                        extra_b.keys().collect::<Vec<_>>()
+                    )));
+                }
+                let extra_record = self.construct_record(&extra_a, None, ctx)?;
+                self.unify(&extra_record, rest_b_val, ctx)
+            }
+            // Both open: distribute extra fields to the other's row variable
+            // via a shared fresh row variable (Leijen's row unification).
+            (Some(rest_a_val), Some(rest_b_val)) => {
+                if extra_a.is_empty() && extra_b.is_empty() {
+                    // No extra fields — just link the two row variables.
+                    return self.unify(rest_a_val, rest_b_val, ctx);
+                }
+                // Create a fresh row variable shared by both sides.
+                let fresh_id = ctx.fresh_meta();
+                let fresh_row = meta_value(fresh_id);
+                // rest_a := {extra_b | fresh_row}
+                let record_b = self.construct_record(&extra_b, Some(&fresh_row), ctx)?;
+                self.unify(rest_a_val, &record_b, ctx)?;
+                // rest_b := {extra_a | fresh_row}
+                let record_a = self.construct_record(&extra_a, Some(&fresh_row), ctx)?;
+                self.unify(&record_a, rest_b_val, ctx)?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Construct a `type.record` type value from a fields map and an optional
+    /// `rest` (row variable). When `rest` is `None`, the record is closed.
+    fn construct_record(
+        &self,
+        fields: &serde_json::Map<String, Value>,
+        rest: Option<&Value>,
+        ctx: &TypecheckContext,
+    ) -> Result<Value, LangError> {
+        let mut payload = serde_json::Map::new();
+        payload.insert("fields".to_string(), Value::Object(fields.clone()));
+        if let Some(rest_val) = rest {
+            payload.insert("rest".to_string(), rest_val.clone());
+        }
+        ctx.registry
+            .construct("type.record", &Value::Object(payload))
+            .ok_or_else(|| {
+                LangError::Engine(
+                    "typecheck: construct_record: failed to mint type.record".into(),
+                )
+            })
+    }
+
     /// Check if type `sub` is a subtype of type `sup` (ADR-0054 subtyping).
     ///
     /// This is the subtyping judgment. Unlike [`Self::unify`] (which requires
@@ -2541,6 +2761,17 @@ impl NbeTypecheckEngine {
                             level_a, level_b
                         )));
                     }
+                }
+                // Row-polymorphic record unification (ADR-0074 ID.7):
+                // `type.record` values may carry a `rest` field holding a
+                // row variable (metavariable). When present, the record is
+                // OPEN and `rest` captures extra fields during unification.
+                // When absent, the record is CLOSED (exact field match).
+                // This special case must run BEFORE the general same-tag
+                // structural unification, which would require identical
+                // payload keys.
+                if tag_a == "type.record" {
+                    return self.unify_record(a, b, ctx);
                 }
                 // Both are type values with the same tag — unify payload
                 // fields.  We use `get` (not `as_object`) because the type

@@ -10,7 +10,7 @@
 # `eval_child`, `proj_child`, `unify`, `extend`, `lookup`, `lookup_var`,
 # `fresh_meta`, `solve_meta`, `quote`, `normalize`, `bind`, `result`,
 # `node_payload`, `json_type_construct`, `payload_field`, `field`, `type_field`,
-# `synth_last_child`, `check_json_value`, `check_last_child`, `synth_match_arms`,
+# `make_array`, `synth_last_child`, `check_json_value`, `check_last_child`, `synth_match_arms`,
 # `synth_first_child_or_unknown`, `record_field_type`, `array_element_type`,
 # `synth_object_record`, `check_object_record`, `check_all_children`,
 # `construct_pi`, `construct_sigma`, `pi_apply`, `unify_pi`, `check_pi_body`,
@@ -2131,6 +2131,16 @@
 # (function) to child 0 (input). Synth child 1 (the function)
 # → type.function{param, body}, check child 0 (the input) against `param`,
 # then return `body` (ADR-0054 legacy migration).
+#
+# ADR-0074 follow-up #3 note: at the higher (categorical) level `>>>` is
+# arrow *composition* (`f: A ~> B, g: B ~> C ⟹ f >>> g : A ~> C`), but the
+# v0.1 runtime eval scheme treats `>>>` as function *application*
+# (`input >>> function` → apply function to input). The type rule below
+# matches the actual eval semantics (application), so it is kept as-is.
+# Composition semantics is a higher-level desugaring that lowers to
+# application; when the eval scheme is updated to composition, this rule
+# should be updated to synth both children, extract `f.body`/`g.param`,
+# unify them, and return `type.function{param: f.param, body: g.body}`.
 - id: type.flow
   node_kind: flow
   synth: !Seq
@@ -2172,37 +2182,166 @@
           source: Judgment
           lit: body
 
-# `fanout` — function combinator: takes two functions f, g and produces a
-# function that applies both. The result is a function; without a product/
-# record type for the combined output, the param and body are type.unknown.
-# This is more precise than type.unknown because it at least says "function".
+# `fanout` — categorical fanout `&&&` (ADR-0074 follow-up #3).
+# Arrow kind signature: f: A ~> B, g: A ~> C ⟹ f &&& g : A ~> (B, C).
+# Synth child 0 (f) and child 1 (g), extract each function's param/body,
+# unify the two params (both consume the same input A), then construct
+# `type.function{param: A, body: type.array{elements: [B, C]}}`.
+# The pair `(B, C)` is a positional `type.array` with an `elements` field
+# (matching v0.1's `[a, b]` tuple syntax).
 - id: type.fanout
   node_kind: fanout
-  synth: !Arr
-    op: construct
-    args:
-    - !Arr
-      op: field
-      args:
-      - !Arr
-        op: construct
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
         args: []
         source: Judgment
-        lit: type.unknown
-      source: Judgment
-      lit: param
-    - !Arr
-      op: field
-      args:
-      - !Arr
-        op: construct
-        args: []
-        source: Judgment
-        lit: type.unknown
-      source: Judgment
-      lit: body
-    source: Judgment
-    lit: type.function
+        lit: ftype
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 1
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: gtype
+          snd: !Seq
+            fst: !Arr
+              op: type_field
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: ftype
+              source: Judgment
+              lit: param
+            snd: !Seq
+              fst: !Arr
+                op: bind
+                args: []
+                source: Judgment
+                lit: A1
+              snd: !Seq
+                fst: !Arr
+                  op: type_field
+                  args:
+                  - !Arr
+                    op: result
+                    args: []
+                    source: Judgment
+                    lit: ftype
+                  source: Judgment
+                  lit: body
+                snd: !Seq
+                  fst: !Arr
+                    op: bind
+                    args: []
+                    source: Judgment
+                    lit: B
+                  snd: !Seq
+                    fst: !Arr
+                      op: type_field
+                      args:
+                      - !Arr
+                        op: result
+                        args: []
+                        source: Judgment
+                        lit: gtype
+                      source: Judgment
+                      lit: param
+                    snd: !Seq
+                      fst: !Arr
+                        op: bind
+                        args: []
+                        source: Judgment
+                        lit: A2
+                      snd: !Seq
+                        fst: !Arr
+                          op: type_field
+                          args:
+                          - !Arr
+                            op: result
+                            args: []
+                            source: Judgment
+                            lit: gtype
+                          source: Judgment
+                          lit: body
+                        snd: !Seq
+                          fst: !Arr
+                            op: bind
+                            args: []
+                            source: Judgment
+                            lit: C
+                          snd: !Seq
+                            fst: !Arr
+                              op: unify
+                              args:
+                              - !Arr
+                                op: result
+                                args: []
+                                source: Judgment
+                                lit: A1
+                              - !Arr
+                                op: result
+                                args: []
+                                source: Judgment
+                                lit: A2
+                              source: Judgment
+                            snd: !Arr
+                              op: construct
+                              args:
+                              - !Arr
+                                op: field
+                                args:
+                                - !Arr
+                                  op: result
+                                  args: []
+                                  source: Judgment
+                                  lit: A1
+                                source: Judgment
+                                lit: param
+                              - !Arr
+                                op: field
+                                args:
+                                - !Arr
+                                  op: construct
+                                  args:
+                                  - !Arr
+                                    op: field
+                                    args:
+                                    - !Arr
+                                      op: make_array
+                                      args:
+                                      - !Arr
+                                        op: result
+                                        args: []
+                                        source: Judgment
+                                        lit: B
+                                      - !Arr
+                                        op: result
+                                        args: []
+                                        source: Judgment
+                                        lit: C
+                                      source: Judgment
+                                    source: Judgment
+                                    lit: elements
+                                  source: Judgment
+                                  lit: type.array
+                                source: Judgment
+                                lit: body
+                              source: Judgment
+                              lit: type.function
 
 # `apply` — has children; the eval scheme is `proj_child(0)`. It's a
 # passthrough (the first child is the result): synth child 0
@@ -2365,35 +2504,335 @@
     source: Judgment
     lit: type.unit
 
-# `product` — categorical product `***` (ADR-0074).
-# Like `fanout`: returns a function type with unknown param/body.
+# `product` — categorical product `***` (ADR-0074 follow-up #3).
+# Arrow kind signature: f: A ~> B, g: C ~> D ⟹ f *** g : (A, C) ~> (B, D).
+# Synth child 0 (f) and child 1 (g), extract each function's param/body
+# (no unification — the two arrows take independent inputs), then construct
+# `type.function{param: type.array{elements: [A, C]},
+#                 body:  type.array{elements: [B, D]}}`.
+# The pairs `(A, C)` / `(B, D)` are positional `type.array` values with an
+# `elements` field (matching v0.1's `[a, b]` tuple syntax).
 - id: type.product
   node_kind: product
-  synth: !Arr
-    op: construct
-    args:
-    - !Arr
-      op: field
-      args:
-      - !Arr
-        op: construct
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
+      source: Judgment
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
         args: []
         source: Judgment
-        lit: type.unknown
+        lit: ftype
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 1
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: gtype
+          snd: !Seq
+            fst: !Arr
+              op: type_field
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: ftype
+              source: Judgment
+              lit: param
+            snd: !Seq
+              fst: !Arr
+                op: bind
+                args: []
+                source: Judgment
+                lit: A
+              snd: !Seq
+                fst: !Arr
+                  op: type_field
+                  args:
+                  - !Arr
+                    op: result
+                    args: []
+                    source: Judgment
+                    lit: ftype
+                  source: Judgment
+                  lit: body
+                snd: !Seq
+                  fst: !Arr
+                    op: bind
+                    args: []
+                    source: Judgment
+                    lit: B
+                  snd: !Seq
+                    fst: !Arr
+                      op: type_field
+                      args:
+                      - !Arr
+                        op: result
+                        args: []
+                        source: Judgment
+                        lit: gtype
+                      source: Judgment
+                      lit: param
+                    snd: !Seq
+                      fst: !Arr
+                        op: bind
+                        args: []
+                        source: Judgment
+                        lit: C
+                      snd: !Seq
+                        fst: !Arr
+                          op: type_field
+                          args:
+                          - !Arr
+                            op: result
+                            args: []
+                            source: Judgment
+                            lit: gtype
+                          source: Judgment
+                          lit: body
+                        snd: !Seq
+                          fst: !Arr
+                            op: bind
+                            args: []
+                            source: Judgment
+                            lit: D
+                          snd: !Arr
+                            op: construct
+                            args:
+                            - !Arr
+                              op: field
+                              args:
+                              - !Arr
+                                op: construct
+                                args:
+                                - !Arr
+                                  op: field
+                                  args:
+                                  - !Arr
+                                    op: make_array
+                                    args:
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: A
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: C
+                                    source: Judgment
+                                  source: Judgment
+                                  lit: elements
+                                source: Judgment
+                                lit: type.array
+                              source: Judgment
+                              lit: param
+                            - !Arr
+                              op: field
+                              args:
+                              - !Arr
+                                op: construct
+                                args:
+                                - !Arr
+                                  op: field
+                                  args:
+                                  - !Arr
+                                    op: make_array
+                                    args:
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: B
+                                    - !Arr
+                                      op: result
+                                      args: []
+                                      source: Judgment
+                                      lit: D
+                                    source: Judgment
+                                  source: Judgment
+                                  lit: elements
+                                source: Judgment
+                                lit: type.array
+                              source: Judgment
+                              lit: body
+                            source: Judgment
+                            lit: type.function
+
+# `choice` — categorical choice `|||` (ADR-0074 follow-up #3).
+# Arrow kind signature: f: A ~> C, g: B ~> C ⟹ f ||| g : (A | B) ~> C.
+# Synth child 0 (f) and child 1 (g), extract each function's param/body,
+# unify the two bodies (both produce the same output C), then construct
+# `type.function{param: type.sum{variants: [A, B]}, body: C}`.
+# The sum `(A | B)` is a `type.sum` with a `variants` field holding the
+# positional array `[A, B]`. `type.sum` is accepted by the tag registry
+# (any `type.`-prefixed tag is mintable); full sum-type unification /
+# elimination support is future work — the param is structurally precise
+# even before that machinery lands.
+- id: type.choice
+  node_kind: choice
+  synth: !Seq
+    fst: !Arr
+      op: synth_child
+      args: []
       source: Judgment
-      lit: param
-    - !Arr
-      op: field
-      args:
-      - !Arr
-        op: construct
+      lit: 0
+    snd: !Seq
+      fst: !Arr
+        op: bind
         args: []
         source: Judgment
-        lit: type.unknown
-      source: Judgment
-      lit: body
-    source: Judgment
-    lit: type.function
+        lit: ftype
+      snd: !Seq
+        fst: !Arr
+          op: synth_child
+          args: []
+          source: Judgment
+          lit: 1
+        snd: !Seq
+          fst: !Arr
+            op: bind
+            args: []
+            source: Judgment
+            lit: gtype
+          snd: !Seq
+            fst: !Arr
+              op: type_field
+              args:
+              - !Arr
+                op: result
+                args: []
+                source: Judgment
+                lit: ftype
+              source: Judgment
+              lit: param
+            snd: !Seq
+              fst: !Arr
+                op: bind
+                args: []
+                source: Judgment
+                lit: A
+              snd: !Seq
+                fst: !Arr
+                  op: type_field
+                  args:
+                  - !Arr
+                    op: result
+                    args: []
+                    source: Judgment
+                    lit: ftype
+                  source: Judgment
+                  lit: body
+                snd: !Seq
+                  fst: !Arr
+                    op: bind
+                    args: []
+                    source: Judgment
+                    lit: C1
+                  snd: !Seq
+                    fst: !Arr
+                      op: type_field
+                      args:
+                      - !Arr
+                        op: result
+                        args: []
+                        source: Judgment
+                        lit: gtype
+                      source: Judgment
+                      lit: param
+                    snd: !Seq
+                      fst: !Arr
+                        op: bind
+                        args: []
+                        source: Judgment
+                        lit: B
+                      snd: !Seq
+                        fst: !Arr
+                          op: type_field
+                          args:
+                          - !Arr
+                            op: result
+                            args: []
+                            source: Judgment
+                            lit: gtype
+                          source: Judgment
+                          lit: body
+                        snd: !Seq
+                          fst: !Arr
+                            op: bind
+                            args: []
+                            source: Judgment
+                            lit: C2
+                          snd: !Seq
+                            fst: !Arr
+                              op: unify
+                              args:
+                              - !Arr
+                                op: result
+                                args: []
+                                source: Judgment
+                                lit: C1
+                              - !Arr
+                                op: result
+                                args: []
+                                source: Judgment
+                                lit: C2
+                              source: Judgment
+                            snd: !Arr
+                              op: construct
+                              args:
+                              - !Arr
+                                op: field
+                                args:
+                                - !Arr
+                                  op: construct
+                                  args:
+                                  - !Arr
+                                    op: field
+                                    args:
+                                    - !Arr
+                                      op: make_array
+                                      args:
+                                      - !Arr
+                                        op: result
+                                        args: []
+                                        source: Judgment
+                                        lit: A
+                                      - !Arr
+                                        op: result
+                                        args: []
+                                        source: Judgment
+                                        lit: B
+                                      source: Judgment
+                                    source: Judgment
+                                    lit: variants
+                                  source: Judgment
+                                  lit: type.sum
+                                source: Judgment
+                                lit: param
+                              - !Arr
+                                op: field
+                                args:
+                                - !Arr
+                                  op: result
+                                  args: []
+                                  source: Judgment
+                                  lit: C1
+                                source: Judgment
+                                lit: body
+                              source: Judgment
+                              lit: type.function
 
 # `nullish` — nullish coalescing `??` (ADR-0074 A.3).
 # Like `if`/`ternary`: synth both children, unify, return the type.

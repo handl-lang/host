@@ -3701,6 +3701,52 @@ fn apply_native_v2(
         // read the current node from `ctx` and walk the arm children).
         "match" => return prim_match(ctx),
         "handle" => return prim_handle(ctx),
+        // v0.1: `product` — categorical product `***` (ADR-0074).
+        // Receives [f_result, g_result] and pairs them.
+        "product" => {
+            let left = args.first().cloned().unwrap_or(Value::Null);
+            let right = args.get(1).cloned().unwrap_or(Value::Null);
+            Ok(serde_json::json!({"__pair__": [left, right]}))
+        }
+        // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
+        // If left is some(v), return v; if none or null, return right.
+        "nullish" => {
+            let left = args.first().cloned().unwrap_or(Value::Null);
+            let right = args.get(1).cloned().unwrap_or(Value::Null);
+            if left.is_null() {
+                Ok(right)
+            } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
+                Ok(left.get("value").cloned().unwrap_or(Value::Null))
+            } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
+                Ok(right)
+            } else {
+                Ok(right)
+            }
+        }
+        // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
+        // args = [input, field_name]. If some(v) → some(v.field);
+        // if none or null → none.
+        "opt_chain" => {
+            let input = args.first().cloned().unwrap_or(Value::Null);
+            let field_name = match args.get(1).and_then(|v| v.as_str()) {
+                Some(s) => s,
+                None => return ctx.set_error(LangError::Engine(
+                    "opt_chain: field name must be a string".to_string(),
+                )),
+            };
+            if input.is_null() {
+                Ok(serde_json::json!({"_tag": "None"}))
+            } else if input.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
+                let inner = input.get("value").cloned().unwrap_or(Value::Null);
+                let field_val = inner.get(field_name).cloned().unwrap_or(Value::Null);
+                Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
+            } else if input.get("_tag").and_then(|t| t.as_str()) == Some("None") {
+                Ok(serde_json::json!({"_tag": "None"}))
+            } else {
+                let field_val = input.get(field_name).cloned().unwrap_or(Value::Null);
+                Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
+            }
+        }
         _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
     };
 

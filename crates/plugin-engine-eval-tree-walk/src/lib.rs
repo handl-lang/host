@@ -1401,6 +1401,74 @@ impl TreeWalkEngine {
                 let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
                 Ok((either_right(b), false))
             }
+            // v0.1: `product` — categorical product `***` (ADR-0074).
+            // Receives the two evaluated child results [f_result, g_result]
+            // and pairs them as {"__pair__": [f_result, g_result]}.
+            "product" => {
+                let left = args.first().cloned().unwrap_or(Value::Null);
+                let right = args.get(1).cloned().unwrap_or(Value::Null);
+                Ok((pair(left, right), false))
+            }
+            // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
+            // If left is some(v) ({"_tag":"Some","value":v}), return v;
+            // if left is none ({"_tag":"None"}) or null, return right;
+            // otherwise return right.
+            // NOTE: The eval.nullish scheme uses Seq/Choice/tag combinators
+            // which handle the null case via truthiness. This native op
+            // provides full option-type semantics for direct dispatch.
+            "nullish" => {
+                let left = args.first().cloned().unwrap_or(Value::Null);
+                let right = args.get(1).cloned().unwrap_or(Value::Null);
+                if left.is_null() {
+                    Ok((right, false))
+                } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
+                    let inner = left.get("value").cloned().unwrap_or(Value::Null);
+                    Ok((inner, false))
+                } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
+                    Ok((right, false))
+                } else {
+                    Ok((right, false))
+                }
+            }
+            // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
+            // args = [input, field_name]. If input is some(v), return
+            // some(v[field_name]); if input is none or null, return none.
+            "opt_chain" => {
+                let input = args.first().cloned().unwrap_or(Value::Null);
+                let field_name = args
+                    .get(1)
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        LangError::Engine(
+                            "opt_chain: field name must be a string".to_string(),
+                        )
+                    })?;
+                if input.is_null() {
+                    // null → none
+                    Ok((serde_json::json!({"_tag": "None"}), false))
+                } else if input.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
+                    // some(v) → some(v.field)
+                    let inner = input.get("value").cloned().unwrap_or(Value::Null);
+                    let field_val = inner
+                        .get(field_name)
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    Ok((
+                        serde_json::json!({"_tag": "Some", "value": field_val}),
+                        false,
+                    ))
+                } else if input.get("_tag").and_then(|t| t.as_str()) == Some("None") {
+                    // none → none
+                    Ok((serde_json::json!({"_tag": "None"}), false))
+                } else {
+                    // Non-option value: treat as some(value) and extract field
+                    let field_val = input.get(field_name).cloned().unwrap_or(Value::Null);
+                    Ok((
+                        serde_json::json!({"_tag": "Some", "value": field_val}),
+                        false,
+                    ))
+                }
+            }
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
         }
     }
