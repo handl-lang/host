@@ -633,6 +633,112 @@ impl ContractRegistry {
             },
         );
 
+        // ==================================================================
+        // Backtracking parser atoms — Result-type modeling (ADR-0071).
+        //
+        // These model backtracking parsers using sum types (Result AST + Error)
+        // via existing Choice/left machinery. No new calculus primitives.
+        //
+        // parse.try_atom : TokenList → Result — try to parse an atom.
+        //   Guarantee: IsSuccess(output) ∨ IsError(output) (always produces a Result)
+        // parse.try_op : TokenList → Result — try to parse an operator.
+        //   Guarantee: IsSuccess(output) ∨ IsError(output)
+        // parse.extract_success : Result → AST — extract AST from success (inl branch).
+        //   Guarantee: True (the AST is already validated)
+        // parse.extract_error : Result → TokenList — recover input from failure (inr branch).
+        //   Guarantee: True (the input is recovered for retry)
+        // parse.succeed : AST → Result — wrap a value as success.
+        //   Guarantee: IsSuccess(output)
+        // parse.fail : TokenList → Result — wrap as failure.
+        //   Guarantee: IsError(output)
+        // ==================================================================
+
+        let result_ty = || RefTy::Plain(BaseTy::Var("Result".to_string()));
+
+        // parse.try_atom : TokenList → Result
+        reg.register(
+            "parse.try_atom",
+            ArrSource::Native,
+            Contract {
+                input: token_list(),
+                output: result_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::Or(
+                    Box::new(Pred::IsSuccess("output".to_string())),
+                    Box::new(Pred::IsError("output".to_string())),
+                ),
+                termination_effect: None,
+            },
+        );
+
+        // parse.try_op : TokenList → Result
+        reg.register(
+            "parse.try_op",
+            ArrSource::Native,
+            Contract {
+                input: token_list(),
+                output: result_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::Or(
+                    Box::new(Pred::IsSuccess("output".to_string())),
+                    Box::new(Pred::IsError("output".to_string())),
+                ),
+                termination_effect: None,
+            },
+        );
+
+        // parse.extract_success : Result → AST (inl branch)
+        reg.register(
+            "parse.extract_success",
+            ArrSource::Native,
+            Contract {
+                input: result_ty(),
+                output: ast(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.extract_error : Result → TokenList (inr branch)
+        reg.register(
+            "parse.extract_error",
+            ArrSource::Native,
+            Contract {
+                input: result_ty(),
+                output: token_list(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: None,
+            },
+        );
+
+        // parse.succeed : AST → Result
+        reg.register(
+            "parse.succeed",
+            ArrSource::Native,
+            Contract {
+                input: ast(),
+                output: result_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::IsSuccess("output".to_string()),
+                termination_effect: None,
+            },
+        );
+
+        // parse.fail : TokenList → Result
+        reg.register(
+            "parse.fail",
+            ArrSource::Native,
+            Contract {
+                input: token_list(),
+                output: result_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::IsError("output".to_string()),
+                termination_effect: None,
+            },
+        );
+
         reg
     }
 

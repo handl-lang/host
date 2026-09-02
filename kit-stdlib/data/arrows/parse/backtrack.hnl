@@ -1,0 +1,15 @@
+// Backtracking parser: try parse_A, if it fails, try parse_B.
+//
+// This implements PEG-style ordered choice using Result-type modeling
+// (ADR-0071). No new calculus primitives — just Seq, Choice, and App.
+//
+//   backtrack = comp(parse_A, choice(extract_success, comp(extract_error, parse_B)))
+//
+// parse_A produces Result AST + Error. Choice branches:
+//   inl(success) → extract_success → return AST
+//   inr(error)   → extract_error → parse_B → return Result
+//
+// The inference engine conjoins both branches' guarantees via Choice,
+// deriving that the overall output is always a valid Result.
+
+comp(arr("parse.try_atom"), choice(arr("parse.extract_success"), comp(arr("parse.extract_error"), arr("parse.try_op"))))

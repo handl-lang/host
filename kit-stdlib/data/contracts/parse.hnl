@@ -24,3 +24,25 @@ axiom parse.make_node : (Token × (AST × AST)) → AST
 
 axiom parse.atom_value : Token → AST
   guarantee: True
+
+// Backtracking parser atoms — Result-type modeling (ADR-0071).
+// These model backtracking via sum types (Result AST + Error) using
+// existing Choice/left machinery. No new calculus primitives.
+
+axiom parse.try_atom : TokenList → Result
+  guarantee: IsSuccess(output) ∨ IsError(output)
+
+axiom parse.try_op : TokenList → Result
+  guarantee: IsSuccess(output) ∨ IsError(output)
+
+axiom parse.extract_success : Result → AST
+  guarantee: True
+
+axiom parse.extract_error : Result → TokenList
+  guarantee: True
+
+axiom parse.succeed : AST → Result
+  guarantee: IsSuccess(output)
+
+axiom parse.fail : TokenList → Result
+  guarantee: IsError(output)

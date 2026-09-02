@@ -62,6 +62,10 @@ pub enum Pred {
     LengthSubOne(String, String),
     /// IsPerm(a, b) — list a is a permutation of list b (same elements, possibly different order).
     IsPerm(String, String),
+    /// IsSuccess(var) — the value is a successful Result (inl).
+    IsSuccess(String),
+    /// IsError(var) — the value is a failed Result (inr).
+    IsError(String),
     /// Conjunction.
     And(Box<Pred>, Box<Pred>),
     /// Disjunction.
@@ -87,6 +91,8 @@ impl Pred {
             Pred::LengthPlusOne(a, b) => format!("|{}| = |{}| + 1", a, b),
             Pred::LengthSubOne(a, b) => format!("|{}| = |{}| - 1", a, b),
             Pred::IsPerm(a, b) => format!("Perm({}, {})", a, b),
+            Pred::IsSuccess(x) => format!("IsSuccess({})", x),
+            Pred::IsError(x) => format!("IsError({})", x),
             Pred::And(a, b) => format!("({} ∧ {})", a.pretty(), b.pretty()),
             Pred::Or(a, b) => format!("({} ∨ {})", a.pretty(), b.pretty()),
             Pred::Implies(a, b) => format!("({} ⟹ {})", a.pretty(), b.pretty()),
@@ -129,6 +135,8 @@ impl Pred {
             | Pred::LengthPlusOne(_, _)
             | Pred::LengthSubOne(_, _)
             | Pred::IsPerm(_, _)
+            | Pred::IsSuccess(_)
+            | Pred::IsError(_)
             | Pred::Forall(_, _, _) => self.clone(),
 
             Pred::And(a, b) => {

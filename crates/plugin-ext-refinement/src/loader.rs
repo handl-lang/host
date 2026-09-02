@@ -703,6 +703,14 @@ fn parse_named_pred(p: &mut Parser, name: &str) -> Result<Pred, String> {
             two_args(name, &args)?;
             Ok(Pred::IsPerm(args[0].clone(), args[1].clone()))
         }
+        "IsSuccess" => {
+            one_arg(name, &args)?;
+            Ok(Pred::IsSuccess(args[0].clone()))
+        }
+        "IsError" => {
+            one_arg(name, &args)?;
+            Ok(Pred::IsError(args[0].clone()))
+        }
         other => Err(format!("unknown predicate `{}`", other)),
     }
 }

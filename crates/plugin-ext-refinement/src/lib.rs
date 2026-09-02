@@ -76,3 +76,6 @@ mod parse_tests;
 
 #[cfg(test)]
 mod state_tests;
+
+#[cfg(test)]
+mod backtrack_tests;
