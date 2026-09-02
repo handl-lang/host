@@ -620,15 +620,21 @@ beyond list operations to parsers and state machines.
 
 ## 6.2 The Lean4 Formalization
 
-The Lean4 mechanization of the inference mechanism (4 files, 1,098
+The Lean4 mechanization of the inference mechanism (5 files, 1,339
 lines, zero `sorry`) establishes: `RefinementProofGraphs.lean` (`RTy`,
 `RHasType`, `preserves_comp`, `preserves_first`),
 `RefinementCharacterization.lean` (completeness/incompleteness
 statements), `InvariantDomain.lean` (domain $D$, lattice, transfer,
 `True_is_fixpoint`, `lfp_is_invariant`, `floor_not_complete`,
-`analyze_incompleteness`), and `StructuralInference.lean`
+`analyze_incompleteness`), `StructuralInference.lean`
 (`inferred_postcondition_sound_full`,
-`inferred_postcondition_in_domain`, `floor_does_not_imply_inferred`).
+`inferred_postcondition_in_domain`, `floor_does_not_imply_inferred`),
+and `LoopInvariantDiscovery.lean` (`loop_invariant_from_body_sound`,
+`loop_invariant_from_body_preserved`, `loop_invariant_post_fixpoint`,
+`wp_transfer_holds_for_body_guarantee`,
+`body_guarantee_stronger_than_floor`,
+`loop_invariant_initialized_by_first_step`, `arr_body_guarantee_sound`,
+`loop_invariant_at_fixpoint_step`).
 
 An additional 5,003 lines of Lean4 mechanization
 (`ProofGraphs.lean`, `ProofAdvantage.lean`, etc.) establish the
@@ -650,7 +656,8 @@ described in parallel work [self-cite] and summarized in Appendix A.
 | Lattice + transfer function | Defined | N/A |
 | Actual inference algorithm | Defined (floor) | Implemented (structural + Z3) |
 | Z3 verification | N/A | Implemented |
-| Loop invariant discovery | N/A | Implemented (structural patterns) |
+| Loop invariant discovery (body guarantee) | Proven (`loop_invariant_from_body_sound`) | Implemented (structural patterns) |
+| Loop invariant discovery (WP branching, patterns) | N/A | Implemented (structural patterns) |
 | Termination analysis | N/A | Implemented |
 | Real programs | N/A | 5 programs |
 | Coverage / scaling / failures | N/A | 90-cell grid |
@@ -809,6 +816,18 @@ formalized `inferred_postcondition` returns `True` for `loop` (the
 conservative floor). Formalizing the strengthened algorithm and proving
 its algorithmic completeness is the primary item of future work.
 
+**Body guarantee seeding IS formally proven.** The
+`LoopInvariantDiscovery.lean` file (added in this revision) formalizes
+the core mechanism: the loop body's structural postcondition, projected
+onto the feedback channel, is a sound loop invariant
+(`loop_invariant_from_body_sound`, zero `sorry`). The invariant holds
+unconditionally on every output (optimistic propagation), the fixpoint
+converges in one step (`wp_transfer_holds_for_body_guarantee`), and it
+is strictly stronger than the floor for non-trivial bodies
+(`body_guarantee_stronger_than_floor`). What remains unformalized is
+the WP branching through Choice and the structural pattern recognition
+(side-channel, accumulator, filter loop heuristics).
+
 **Algorithmic completeness not proven.** The inference is sound but not
 complete. The Lean4 theorem `analyze_incompleteness` proves that true
 invariants exist outside $D$. The Rust implementation approximates the
@@ -869,8 +888,14 @@ The compositional propagation is formally proven sound in Lean4
 (`inferred_postcondition_sound_full`), strictly stronger than the
 trivial floor (`floor_does_not_imply_inferred`), and the existence of
 undetectable invariants outside $D$ is proven
-(`analyze_incompleteness`). The loop-specific strengthening is
-implemented and empirically validated but not formally proven.
+(`analyze_incompleteness`). The body guarantee seeding — the core
+loop invariant mechanism — is formally proven sound
+(`loop_invariant_from_body_sound`, zero `sorry`): the body's
+postcondition projected onto the feedback channel is a valid invariant,
+the fixpoint converges in one step, and it is strictly stronger than
+the floor for non-trivial bodies. The WP branching and structural
+pattern recognition extensions are implemented and empirically
+validated but not formally proven.
 
 The empirical evaluation demonstrates 100% accuracy on 72 non-trivial
 benchmark cells: every property the graph should prove is proven
