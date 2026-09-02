@@ -910,7 +910,7 @@ explicit:
 | Trait/law inference | ✅ Proven (`TraitInference.lean`) | N/A |
 | Actual inference algorithm | Defined (floor) | ✅ Implemented (structural + Z3) |
 | Z3 verification | N/A | ✅ Implemented |
-| Loop invariant discovery | N/A | ✅ Implemented (structural patterns) |
+| Loop invariant discovery | ✅ Proven (`LoopInvariantDiscovery.lean`, full invariant derivations) | ✅ Implemented (structural patterns) |
 | Real programs | N/A | ✅ 5 programs |
 | Coverage/scale/failures | N/A | ✅ 90-cell grid |
 
@@ -1135,12 +1135,12 @@ user-supplied loop invariants). The combination is the contribution.
 - **The dependent type extension** (`DependentProofGraphs.lean`) is a first
   step toward richer properties (dependent output types), with subject
   reduction (including the `eLoop` case) fully mechanized and sorry-free.
-  The dependent `loop` carrying a *termination proof* (the `D-Loop` rule
-  requiring the invariant `C'(a, c) = c` at the fixpoint) remains future
-  work: it needs the fixpoint to be expressible symbolically, which is
-  decidable for the graph fragment without `loop` but not always possible
-  with `loop`. Basic (non-dependent) loop termination is now formalized in
-  `Termination.lean` (zero `sorry`).
+  Dependent loop termination is now also formalized: the `DEvalIter` and
+  `DLoopIter` inductives formalize iterated dependent loop evaluation,
+  and `ddecreasing_measure_bounds_iterations` proves that a decreasing
+  measure bounds the number of non-fixpoint iterations in the dependent
+  setting. The last formalization gap is closed. Basic (non-dependent)
+  loop termination is formalized in `Termination.lean` (zero `sorry`).
 
 ### 8.3 The Proof-Relevant Extension
 

@@ -89,6 +89,11 @@ The output type can depend on the input value (`v : B a`). This is
 the first step toward proof-carrying code: if the graph type-checks
 at a dependent type, the property is proven. Subject reduction
 (including the `eLoop` case) is fully mechanized with zero `sorry`.
+Dependent loop termination is also formalized: the `DEvalIter` and
+`DLoopIter` inductives formalize iterated dependent loop evaluation,
+and `ddecreasing_measure_bounds_iterations` proves that a decreasing
+measure bounds the number of non-fixpoint iterations in the dependent
+setting. The last formalization gap is closed.
 
 ### 4a. Annotation-free law recognition (TraitInference.lean — Phase 9)
 
@@ -197,15 +202,19 @@ representation that avoids the substitution tax.
 
 ## Open Questions (Future Work)
 
-1. **Dependent loop termination**: The dependent `loop` should carry
-   a termination proof. Basic (non-dependent) loop termination is now
-   formalized in `Termination.lean` (zero `sorry`): the `LoopIter`
-   inductive threads `c_next` into the recursive call, and
+1. **Dependent loop termination**: The dependent `loop` carrying a
+   termination proof is now fully formalized. Basic (non-dependent) loop
+   termination is formalized in `Termination.lean` (zero `sorry`): the
+   `LoopIter` inductive threads `c_next` into the recursive call, and
    `decreasing_measure_bounds_iterations` proves that a decreasing
    measure bounds the number of non-fixpoint iterations. The dependent
-   extension (`DependentProofGraphs.lean`) has subject reduction
-   fully mechanized (including `eLoop`), but the dependent `loop`
-   carrying a termination proof remains future work.
+   extension (`DependentProofGraphs.lean`) now has subject reduction
+   fully mechanized (including `eLoop`) **and** dependent loop
+   termination: the `DEvalIter` and `DLoopIter` inductives formalize
+   iterated dependent loop evaluation, and
+   `ddecreasing_measure_bounds_iterations` proves that a decreasing
+   measure bounds the number of non-fixpoint iterations in the dependent
+   setting. The last formalization gap is closed.
 
 2. **Full polymorphic inference in Lean4**: The Rust prototype
    demonstrates HM inference over graphs. A Lean4 mechanization would

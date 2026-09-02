@@ -4,7 +4,7 @@
 
 Date: 2026-09-01 (revised + fully mechanized, universal trio complete)
 Challenge: #13 — Do freer arrows have a structural advantage over freer monads?
-Cumulative: 242/242 Rust tests + 205 Lean4 theorems (17 modules, all fully proven, zero `sorry`), zero warnings.
+Cumulative: 242/242 Rust tests + 212 Lean4 theorems (17 modules, all fully proven, zero `sorry`), zero warnings.
 
 **NEW:** Fully mechanized *universal* impossibility theorem in Lean4 (no `sorry`): [FanoutUnencodable.lean](lean/ArrowMinimalityLib/FanoutUnencodable.lean) — 24 theorems, all proven. Three universal theorems: `no_bind_encoding_preserves_fanout` (Get/Put), `no_bind_encoding_preserves_choice` (Sum values), `no_bind_encoding_preserves_loop` (pair/feedback values). All quantify over ALL `bind`-based encodings and prove divergence when `input ≠ state`. The trio theorem `trioUnencodable` unifies all three.
 

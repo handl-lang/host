@@ -136,8 +136,8 @@ The universal theorem `no_bind_encoding_preserves_fanout` combines them:
 
 ## Cumulative Formalization Stats
 
-- **205 Lean4 theorems** across 17 modules (8,810 lines).
-- **All 205 fully proven, zero `sorry`** — the entire Lean4 library is
+- **212 Lean4 theorems** across 17 modules (9,165 lines).
+- **All 212 fully proven, zero `sorry`** — the entire Lean4 library is
   sorry-free. No `sorry` appears in any proof or definition.
 - **Challenge #13: 24/24 theorems fully proven, zero `sorry`** — fanout
   (universal), choice (universal with Sum values), and loop (universal
@@ -159,6 +159,15 @@ The universal theorem `no_bind_encoding_preserves_fanout` combines them:
   recognition: `CutElim` normalization verifies functor laws,
   `SatisfiesLaw` predicate and inference theorem, and connection to the
   invariant domain `D`.
+- **LoopInvariantDiscovery.lean: zero `sorry`** — full invariant
+  derivations from structural pattern recognition (filter, side-channel,
+  accumulator): each pattern has a D-derivation and preservation proof,
+  summarized by `pattern_invariant_derivations_complete` (25 theorems,
+  13 definitions).
+- **DependentProofGraphs.lean: zero `sorry`** — dependent loop
+  termination formalized via `DEvalIter`, `DLoopIter`, and
+  `ddecreasing_measure_bounds_iterations`. The last formalization gap
+  is closed.
 - **242 Rust tests** passing, zero warnings.
 
 ## Citation

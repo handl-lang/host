@@ -211,10 +211,14 @@ so it can serve as a derivation.
 
 1. **Dependent typing**: The formalism document (§6) sketches a
    dependent typing extension where `loop` can carry a termination
-   proof. The dependent type system itself (`DTy` with `dPi`/`dSigma`)
-   and subject reduction (including `eLoop`) are now mechanized in
-   `DependentProofGraphs.lean` (zero `sorry`), but the dependent
-   `loop` carrying a *termination proof* remains future work.
+   proof. The dependent type system itself (`DTy` with `dPi`/`dSigma`),
+   subject reduction (including `eLoop`), and dependent loop termination
+   are now fully mechanized in `DependentProofGraphs.lean` (zero
+   `sorry`): the `DEvalIter` and `DLoopIter` inductives formalize
+   iterated dependent loop evaluation, and
+   `ddecreasing_measure_bounds_iterations` proves that a decreasing
+   measure bounds the number of non-fixpoint iterations in the dependent
+   setting. The last formalization gap is closed.
 
 2. **Iterated loop**: The `eLoop` constructor uses a one-step fixpoint
    rule (the feedback channel is already stable). The iterated form

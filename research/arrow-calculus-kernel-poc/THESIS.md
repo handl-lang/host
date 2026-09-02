@@ -225,7 +225,7 @@ See `RESULTS_TRANSLATION_ASYMMETRY.md` and
 | 8 | #12 (structural preservation under profunctor translation) | 28 | ✅ Complete |
 | 9 | #13 (arrow vs freer monad asymmetry — REVISED) | 23 | ✅ Complete |
 
-**Total: 229/229 Rust tests + 205 Lean4 theorems (17 modules, 8,810 lines), zero `sorry`, zero warnings.**
+**Total: 229/229 Rust tests + 212 Lean4 theorems (17 modules, 9,165 lines), zero `sorry`, zero warnings.**
 
 ---
 
