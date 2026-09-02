@@ -916,4 +916,288 @@ def filter_loop_preserves_feedback
 -- output from a comp execution (requires proving that eComp's intermediate
 -- value is unique), and connecting sig_sound to general graph guarantees
 -- (requires inferred_postcondition for arbitrary graphs, not just arr).
-end LoopInvariantDiscovery
+
+-- ============================================================================
+-- 12. Pattern-derived invariant soundness
+-- ============================================================================
+--
+-- The behavioral defs in section 10 prove the WIRING-level behavior of each
+-- pattern (first(id) preserves C, first(G) transforms the value, first(F)
+-- preserves C). Here we prove the INVARIANT-LEVEL soundness: the invariant
+-- DERIVED FROM the pattern's structure is preserved by the loop body.
+--
+-- The key technique is Eval inversion: given `Eval (comp F H) a v`, we
+-- invert the eComp constructor to extract the intermediate value `b` with
+-- `Eval F a b` and `Eval H b v`. We then invert eFirst, eId, eArr as needed.
+-- Since `Eval` is an inductive in `Type 1` (not `Prop`), Lean's `cases`
+-- tactic performs full inversion, generating the index equalities.
+--
+-- Note on `Graph.first` typing: `first(G)` where `G : A ⇝ B` has type
+-- `(A × D) ⇝ (B × D)` with `D` implicit (the side-channel / feedback type).
+-- We use `@Graph.first` with explicit `D = C` to make the feedback type
+-- concrete in the theorem signatures.
+
+-- ----------------------------------------------------------------------------
+-- Side-channel loop: loop(comp(F, first(idG B)))
+--
+-- The side-channel pattern: F processes the value and feedback, then
+-- `first(idG B)` applies identity to the value (type B) and preserves the
+-- feedback (type C). The pattern-derived invariant: IF F preserves C
+-- (F's output C equals F's input C), THEN any predicate I on C is
+-- preserved across iterations.
+-- ----------------------------------------------------------------------------
+
+/-- **Side-channel feedback unchanged (conditional on F preserving C).**
+
+For `comp(F, first(idG B)) . (a, c) ⟹ (v, c')`, if F preserves C
+(F's output on C equals F's input on C for every execution), then
+`c' = c`: the feedback channel is literally unchanged.
+
+Proof: Invert `eComp` to get an intermediate `b` with
+`Eval F (pair a c) b` and `Eval (first(idG B)) b (pair v c')`.
+Invert `eFirst` to get `b = pair a' c'` (the second component passes
+through `first` unchanged) and `Eval (idG B) a' v`.
+Then `eF : Eval F (pair a c) (pair a' c')`, and by the F-preserves-C
+hypothesis, `c' = c`. -/
+theorem side_channel_feedback_unchanged
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    {A B C : Ty Atom}
+    (F : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
+    (hF_preserves_C : ∀ (a c v₁ c₁ : Val),
+      Eval den F (Val.pair a c) (Val.pair v₁ c₁) → c₁ = c)
+    (a v c c' : Val)
+    (e : Eval den (Graph.comp F (@Graph.first Atom Sig B B C (Graph.idG B)))
+               (Val.pair a c) (Val.pair v c'))
+    : c' = c := by
+  -- Invert eComp: extract intermediate b, eF, eFirst
+  cases e with
+  | eComp _ _ _ b _ eF eFirst =>
+    -- Invert eFirst: b = pair a' c', and Eval (idG B) a' v
+    cases eFirst with
+    | eFirst _ _ a' _ c'' eId =>
+      -- b = pair a' c'', pair v c' = pair v c'' (so c' = c'')
+      -- eF : Eval F (pair a c) (pair a' c')  [b and c'' substituted]
+      -- By hF_preserves_C: c' = c
+      exact hF_preserves_C a c a' c' eF
+
+/-- **Side-channel invariant sound (conditional on F preserving C).**
+
+For any predicate `I : Val → Prop`, if `I(c)` holds and
+`comp(F, first(idG B)) . (a, c) ⟹ (v, c')`, then `I(c')` holds.
+
+This follows from `side_channel_feedback_unchanged` by substitution:
+`c' = c`, so `I(c') = I(c)`.
+
+This is the pattern-derived invariant for the side-channel loop: the
+invariant is "whatever holds of C initially", and it is preserved because
+the feedback channel is unchanged (when F preserves C). -/
+theorem side_channel_invariant_sound
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    {A B C : Ty Atom}
+    (F : Graph Atom Sig (A ×ₜ C) (B ×ₜ C))
+    (hF_preserves_C : ∀ (a c v₁ c₁ : Val),
+      Eval den F (Val.pair a c) (Val.pair v₁ c₁) → c₁ = c)
+    (I : Val → Prop)
+    (a v c c' : Val)
+    (hI : I c)
+    (e : Eval den (Graph.comp F (@Graph.first Atom Sig B B C (Graph.idG B)))
+               (Val.pair a c) (Val.pair v c'))
+    : I c' := by
+  have hcc' := side_channel_feedback_unchanged den F hF_preserves_C a v c c' e
+  rw [hcc']
+  exact hI
+
+-- ----------------------------------------------------------------------------
+-- Accumulator loop: loop(comp(F, first(G)))
+--
+-- In the arrow calculus, `first(G)` applies G to the FIRST component (the
+-- value) and preserves the SECOND component (the feedback channel). So the
+-- accumulator pattern's invariant on the feedback channel comes from F's
+-- guarantee (the body-guarantee invariant), while G's guarantee holds on
+-- the VALUE channel.
+--
+-- The pattern-derived invariant:
+-- - On the value channel: sig_guarantee φ (from G = arr(φ))
+-- - On the feedback channel: the body-guarantee invariant (from F)
+-- ----------------------------------------------------------------------------
+
+/-- **Accumulator value guarantee from G = arr(φ).**
+
+For `comp(F, first(arr(φ))) . (a, c) ⟹ (v, c')`, the value output `v`
+satisfies `sig_guarantee φ v`. This is G's guarantee on the value channel
+(the first component), established by `sig_sound` after inverting the
+`eComp`, `eFirst`, and `eArr` constructors.
+
+Note: In the arrow calculus, `first(G)` applies G to the first component
+(the value) and preserves the second (the feedback). So G's guarantee
+holds on the VALUE, not the feedback. The feedback invariant comes from
+F's guarantee (the body-guarantee invariant, already proven in general). -/
+theorem accumulator_value_guarantee_from_G
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    (sig_guarantee : SigGuarantee Atom Sig)
+    (sig_sound : ∀ {A B : Ty Atom} (φ : Sig A B) (a : Val),
+      HasType a A → sig_guarantee A B φ (den φ a))
+    (sig_type_sound : @ProofGraphs.SigSound Atom Sig den)
+    {A B C X : Ty Atom}
+    (F : Graph Atom Sig (A ×ₜ C) (X ×ₜ C))
+    (dF : TyOf F)
+    (φ : Sig X B)
+    (a c v c' : Val)
+    (ha : HasType (Val.pair a c) (A ×ₜ C))
+    (e : Eval den (Graph.comp F (@Graph.first Atom Sig X B C (Graph.arr φ)))
+               (Val.pair a c) (Val.pair v c'))
+    : sig_guarantee X B φ v := by
+  -- Invert eComp: extract intermediate b, eF, eFirst
+  cases e with
+  | eComp _ _ _ b _ eF eFirst =>
+    -- Invert eFirst: b = pair a' c', and Eval (arr(φ)) a' v
+    cases eFirst with
+    | eFirst _ _ a' _ c'' eArr =>
+      -- b = pair a' c'', v = v (output first comp), c' = c''
+      -- eF : Eval F (pair a c) (pair a' c'')
+      -- eArr : Eval (arr(φ)) a' v  (output is den φ a')
+      -- Invert eArr: v = den φ a'
+      cases eArr with
+      | eArr φ' a'' =>
+        -- φ' = φ, a'' = a', v = den φ a'
+        -- Need: sig_guarantee X B φ (den φ a')
+        -- Need HasType a' X: by subject_reduction on F
+        have hb := ProofGraphs.subject_reduction den sig_type_sound dF eF ha
+        -- hb : HasType (pair a' c'') (X × C)
+        obtain ⟨ha', _⟩ := HasType.pair_inv hb
+        -- ha' : HasType a' X
+        exact sig_sound φ a' ha'
+
+/-- **Accumulator invariant sound: body-guarantee invariant on feedback.**
+
+For the accumulator loop body `comp(F, first(G))`, the body-guarantee
+invariant `loop_invariant_from_body` holds on the feedback channel `c'`
+for every well-typed execution. This is the general soundness theorem
+(`loop_invariant_from_body_sound`) applied to the accumulator pattern.
+
+The accumulator's feedback invariant comes from F's structural
+postcondition (projected onto C), not from G's guarantee. G's guarantee
+holds on the value channel (see `accumulator_value_guarantee_from_G`). -/
+theorem accumulator_invariant_sound
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    (sig_guarantee : SigGuarantee Atom Sig)
+    (sig_sound : ∀ {A B : Ty Atom} (φ : Sig A B) (a : Val),
+      HasType a A → sig_guarantee A B φ (den φ a))
+    (sig_type_sound : @ProofGraphs.SigSound Atom Sig den)
+    {A B C X : Ty Atom}
+    (F : Graph Atom Sig (A ×ₜ C) (X ×ₜ C))
+    (dF : TyOf F)
+    (G : Graph Atom Sig X B)
+    (dG : TyOf G)
+    (a v c c' : Val)
+    (ha : HasType (Val.pair a c) (A ×ₜ C))
+    (e : Eval den (Graph.comp F (@Graph.first Atom Sig X B C G))
+               (Val.pair a c) (Val.pair v c'))
+    : loop_invariant_from_body den sig_guarantee
+        (Graph.comp F (@Graph.first Atom Sig X B C G)) c' := by
+  -- Construct the typing derivation for the body comp(F, first(G))
+  have dFirstG : TyOf (@Graph.first Atom Sig X B C G) := TyOf.firstT C G dG
+  have dBody : TyOf (Graph.comp F (@Graph.first Atom Sig X B C G)) :=
+    TyOf.compT F (@Graph.first Atom Sig X B C G) dF dFirstG
+  -- The body-guarantee invariant holds unconditionally on every output
+  exact loop_invariant_from_body_sound den sig_guarantee sig_sound sig_type_sound
+    (Graph.comp F (@Graph.first Atom Sig X B C G)) dBody a v c c' ha e
+
+-- ----------------------------------------------------------------------------
+-- Filter loop: loop(first(F))
+--
+-- Pattern-derived invariant: F's guarantee on the value channel, projected
+-- onto the feedback. Since `first(F)` preserves C (the second component),
+-- the invariant is whatever holds of C initially — same as side-channel,
+-- but unconditional (no hypothesis on F needed, because `first` always
+-- preserves the second component).
+-- ----------------------------------------------------------------------------
+
+/-- **Filter loop feedback unchanged (unconditional).**
+
+For `first(F) . (a, c) ⟹ (b, c')`, `c' = c` unconditionally. The `eFirst`
+constructor produces `pair b c` where `c` is the input's second component,
+so the feedback channel always passes through unchanged.
+
+This is the key structural property of the filter loop: `first(F)`
+processes the value while preserving the feedback, so any invariant on C
+is preserved without any hypothesis on F. -/
+theorem filter_loop_feedback_unchanged
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    {A B C : Ty Atom}
+    (F : Graph Atom Sig A B)
+    (a b c c' : Val)
+    (e : Eval den (@Graph.first Atom Sig A B C F) (Val.pair a c) (Val.pair b c'))
+    : c' = c := by
+  -- Invert eFirst: the only constructor for first(F)
+  cases e with
+  | eFirst _ _ _ _ c'' _ => rfl
+
+/-- **Filter loop invariant sound (unconditional).**
+
+For any predicate `I : Val → Prop`, if `I(c)` holds and
+`first(F) . (a, c) ⟹ (b, c')`, then `I(c')` holds.
+
+This follows from `filter_loop_feedback_unchanged` by substitution:
+`c' = c`, so `I(c') = I(c)`.
+
+This is the pattern-derived invariant for the filter loop: the invariant
+is "whatever holds of C initially", and it is preserved unconditionally
+because `first(F)` always passes C through unchanged. No hypothesis on F
+is needed (contrast with the side-channel loop, which requires F to
+preserve C). -/
+theorem filter_loop_invariant_sound
+    (den : ∀ {A B : Ty Atom}, Sig A B → Val → Val)
+    {A B C : Ty Atom}
+    (F : Graph Atom Sig A B)
+    (I : Val → Prop)
+    (a b c c' : Val)
+    (hI : I c)
+    (e : Eval den (@Graph.first Atom Sig A B C F) (Val.pair a c) (Val.pair b c'))
+    : I c' := by
+  have hcc' := filter_loop_feedback_unchanged den F a b c c' e
+  rw [hcc']
+  exact hI
+
+-- ----------------------------------------------------------------------------
+-- Summary of pattern-derived invariant soundness
+-- ----------------------------------------------------------------------------
+
+/-
+## Summary of pattern-derived invariant soundness (all zero sorry):
+
+### Side-channel loop: loop(comp(F, first(idG B)))
+1. **`side_channel_feedback_unchanged`** — IF F preserves C, THEN the
+   feedback channel is unchanged: `c' = c`. Proven by Eval inversion
+   (eComp + eFirst).
+2. **`side_channel_invariant_sound`** — IF F preserves C, THEN any
+   predicate I on C is preserved: `I(c) → I(c')`. Follows from (1).
+
+### Accumulator loop: loop(comp(F, first(G)))
+3. **`accumulator_value_guarantee_from_G`** — For G = arr(φ), the value
+   output v satisfies `sig_guarantee φ v`. Proven by Eval inversion
+   (eComp + eFirst + eArr) + sig_sound + subject_reduction.
+4. **`accumulator_invariant_sound`** — The body-guarantee invariant
+   holds on the feedback channel (general soundness applied to the
+   accumulator pattern).
+
+### Filter loop: loop(first(F))
+5. **`filter_loop_feedback_unchanged`** — The feedback channel is
+   unchanged: `c' = c` (unconditional). Proven by Eval inversion (eFirst).
+6. **`filter_loop_invariant_sound`** — Any predicate I on C is preserved:
+   `I(c) → I(c')` (unconditional). Follows from (6).
+
+### Key insights:
+- The side-channel invariant is CONDITIONAL on F preserving C. The
+  `first(id)` part preserves whatever C it receives, but that C is F's
+  output on C, not the original C. When F preserves C, the feedback is
+  truly unchanged.
+- The accumulator invariant on the feedback comes from F's guarantee
+  (body-guarantee invariant), not from G's guarantee. G's guarantee
+  holds on the VALUE channel (first component), because `first(G)`
+  applies G to the first component and preserves the second.
+- The filter invariant is UNCONDITIONAL: `first(F)` always preserves the
+  second component, so any invariant on C is preserved regardless of F.
+- The key technique is Eval inversion using `cases` on the inductive
+  `Eval` (which is in `Type 1`, enabling full inversion).
+-/
