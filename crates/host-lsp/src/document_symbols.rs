@@ -21,7 +21,7 @@ use handl_kit_canonical::{
     Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind,
 };
 
-use crate::diagnostics::offset_to_position;
+use crate::line_map::LineMap;
 
 // ---------------------------------------------------------------------------
 // LSP SymbolKind constants
@@ -53,6 +53,10 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
         Err(_) => return Vec::new(),
     };
 
+    // Pre-compute line starts once so every offset→position query is O(log n)
+    // instead of an O(n) scan from the start of the source.
+    let lines = LineMap::new(source);
+
     // The first significant (non-comment) token decides whether this is an
     // arrow file (it starts with the `rec` keyword).
     let is_arrow = tokens
@@ -67,11 +71,11 @@ pub fn document_symbols(source: &str) -> Vec<Value> {
         .any(|t| is_keyword_kind(&t.kind) && t.text == "law");
 
     if is_arrow {
-        arrow_symbols(source, &tokens)
+        arrow_symbols(source, &lines, &tokens)
     } else if is_contract {
-        contract_symbols(source, &tokens)
+        contract_symbols(source, &lines, &tokens)
     } else {
-        general_symbols(source, &tokens)
+        general_symbols(source, &lines, &tokens)
     }
 }
 
@@ -91,7 +95,7 @@ enum Frame {
     BraceObject,
 }
 
-fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
+fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     // Set by the `match` keyword, consumed by the next `{` (which opens a
@@ -118,7 +122,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "rec",
                     KIND_FUNCTION,
                     "feedback loop",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -126,7 +130,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "while",
                     KIND_FUNCTION,
                     "while loop",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -134,7 +138,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "for",
                     KIND_FUNCTION,
                     "for loop",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -198,7 +202,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                                 name,
                                 KIND_VARIABLE,
                                 "match arm",
-                                source,
+                                lines,
                                 pstart,
                                 pend,
                             ));
@@ -225,7 +229,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                                     &t.text,
                                     KIND_FIELD,
                                     "field",
-                                    source,
+                                    lines,
                                     t.span.start,
                                     t.span.end,
                                 ));
@@ -245,7 +249,7 @@ fn arrow_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
 // Contract files
 // ---------------------------------------------------------------------------
 
-fn contract_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
+fn contract_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
@@ -284,13 +288,13 @@ fn contract_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
 
             if let (Some(ns), Some(ce)) = (name_start, colon_end) {
                 let name = &source[ns..name_end];
-                let sig = rest_of_line(source, ce);
-                let line_end = line_end_offset(source, ce);
+                let sig = lines.rest_of_line(source, ce);
+                let line_end = lines.line_end_offset(ce);
                 out.push(symbol_full(
                     name,
                     KIND_INTERFACE,
-                    &sig,
-                    source,
+                    sig,
+                    lines,
                     t.span.start,
                     line_end,
                     ns,
@@ -307,7 +311,7 @@ fn contract_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
 // General .hnl files
 // ---------------------------------------------------------------------------
 
-fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
+fn general_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     for (i, t) in tokens.iter().enumerate() {
         let kind = t.kind.as_str();
@@ -320,7 +324,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "match",
                     KIND_FUNCTION,
                     "pattern match",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -328,7 +332,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "if",
                     KIND_FUNCTION,
                     "conditional",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -336,7 +340,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "while",
                     KIND_FUNCTION,
                     "while loop",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -344,7 +348,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                     "for",
                     KIND_FUNCTION,
                     "for loop",
-                    source,
+                    lines,
                     t.span.start,
                     t.span.end,
                 )),
@@ -358,7 +362,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                                 &nt.text,
                                 KIND_VARIABLE,
                                 "import",
-                                source,
+                                lines,
                                 nt.span.start,
                                 nt.span.end,
                             ));
@@ -375,7 +379,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                                 &nt.text,
                                 KIND_INTERFACE,
                                 "trait",
-                                source,
+                                lines,
                                 nt.span.start,
                                 nt.span.end,
                             ));
@@ -392,7 +396,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                                 &nt.text,
                                 KIND_INTERFACE,
                                 "impl",
-                                source,
+                                lines,
                                 nt.span.start,
                                 nt.span.end,
                             ));
@@ -406,7 +410,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
         if is_identifier_kind(kind) {
             // A binding declaration at the start of a line: `name = value` or
             // `name: type`.
-            if is_at_line_start(source, t.span.start) {
+            if lines.is_at_line_start(t.span.start) {
                 if let Some(ni) = next_sig_idx(tokens, i + 1) {
                     let nk = tokens[ni].kind.as_str();
                     if nk == "token.equal" || nk == "token.colon" {
@@ -414,7 +418,7 @@ fn general_symbols(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
                             &t.text,
                             KIND_VARIABLE,
                             "binding",
-                            source,
+                            lines,
                             t.span.start,
                             t.span.end,
                         ));
@@ -442,8 +446,8 @@ fn next_sig_idx(tokens: &[SpannedToken], from: usize) -> Option<usize> {
 
 /// Build a DocumentSymbol JSON object where the range and selectionRange are
 /// identical (covering `[start, end)`).
-fn sym(name: &str, kind: u32, detail: &str, source: &str, start: usize, end: usize) -> Value {
-    symbol_full(name, kind, detail, source, start, end, start, end)
+fn sym(name: &str, kind: u32, detail: &str, lines: &LineMap, start: usize, end: usize) -> Value {
+    symbol_full(name, kind, detail, lines, start, end, start, end)
 }
 
 /// Build a DocumentSymbol JSON object with separate range and selectionRange.
@@ -451,7 +455,7 @@ fn symbol_full(
     name: &str,
     kind: u32,
     detail: &str,
-    source: &str,
+    lines: &LineMap,
     range_start: usize,
     range_end: usize,
     sel_start: usize,
@@ -461,50 +465,17 @@ fn symbol_full(
         "name": name,
         "kind": kind,
         "detail": detail,
-        "range": range_from_span(source, range_start, range_end),
-        "selectionRange": range_from_span(source, sel_start, sel_end),
+        "range": range_from_span(lines, range_start, range_end),
+        "selectionRange": range_from_span(lines, sel_start, sel_end),
     })
 }
 
 /// Convert a byte span to an LSP range JSON object.
-fn range_from_span(source: &str, start: usize, end: usize) -> Value {
-    let (sl, sc) = offset_to_position(source, start);
-    let (el, ec) = offset_to_position(source, end);
+fn range_from_span(lines: &LineMap, start: usize, end: usize) -> Value {
+    let (sl, sc) = lines.position(start);
+    let (el, ec) = lines.position(end);
     json!({
         "start": { "line": sl, "character": sc },
         "end": { "line": el, "character": ec },
     })
-}
-
-/// Whether `offset` is the first non-whitespace character on its line.
-fn is_at_line_start(source: &str, offset: usize) -> bool {
-    let bytes = source.as_bytes();
-    let mut line_start = 0;
-    for (idx, &b) in bytes.iter().enumerate() {
-        if idx >= offset {
-            break;
-        }
-        if b == b'\n' {
-            line_start = idx + 1;
-        }
-    }
-    source[line_start..offset].chars().all(|c| c.is_whitespace())
-}
-
-/// Byte offset of the end of the line containing `from` (the position of the
-/// `\n`, or the end of the source).
-fn line_end_offset(source: &str, from: usize) -> usize {
-    let bytes = source.as_bytes();
-    let mut end = from;
-    while end < bytes.len() && bytes[end] != b'\n' {
-        end += 1;
-    }
-    end
-}
-
-/// The trimmed text from `from` to the end of its line — used for law
-/// signatures.
-fn rest_of_line(source: &str, from: usize) -> String {
-    let end = line_end_offset(source, from);
-    source[from..end].trim().to_string()
 }

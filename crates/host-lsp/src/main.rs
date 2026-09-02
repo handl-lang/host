@@ -21,6 +21,7 @@ mod hover;
 mod implementation;
 mod inlay_hints;
 mod inlay_hint_resolve;
+mod line_map;
 mod linked_editing;
 mod moniker;
 mod protocol;

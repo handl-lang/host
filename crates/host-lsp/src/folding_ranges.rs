@@ -18,6 +18,8 @@ use serde_json::{Value, json};
 
 use handl_kit_canonical::{Kit, SpannedToken, is_doc_comment_kind};
 
+use crate::line_map::LineMap;
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -37,11 +39,15 @@ pub fn folding_ranges(source: &str) -> Vec<Value> {
 
     let mut ranges = Vec::new();
 
+    // Pre-compute line starts once so every offset→position query is O(log n)
+    // instead of an O(n) scan from the start of the source.
+    let lines = LineMap::new(source);
+
     // Bracket-pair folding ranges.
-    ranges.extend(bracket_ranges(source, &tokens));
+    ranges.extend(bracket_ranges(&lines, &tokens));
 
     // Comment-block folding ranges.
-    ranges.extend(comment_ranges(source, &tokens));
+    ranges.extend(comment_ranges(source, &lines, &tokens));
 
     // Sort by start line (then start character for stability).
     ranges.sort_by(|a, b| {
@@ -90,7 +96,7 @@ impl Bracket {
 
 /// Walk the token stream tracking matching bracket pairs with a stack and
 /// return a folding range for every pair that spans more than one line.
-fn bracket_ranges(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
+fn bracket_ranges(lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
     // Stack of (bracket variant, byte offset of the opening token).
     let mut stack: Vec<(Bracket, usize)> = Vec::new();
@@ -113,8 +119,8 @@ fn bracket_ranges(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
             while let Some(&(bracket, open_offset)) = stack.last() {
                 if bracket.matches_close(kind) {
                     stack.pop();
-                    let (start_line, start_char) = offset_to_line_char(source, open_offset);
-                    let (end_line, end_char) = offset_to_line_char(source, t.span.end);
+                    let (start_line, start_char) = lines.position(open_offset);
+                    let (end_line, end_char) = lines.position(t.span.end);
                     if end_line > start_line {
                         out.push(json!({
                             "startLine": start_line,
@@ -143,7 +149,7 @@ fn bracket_ranges(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
 /// Group consecutive comment tokens of the same flavour (doc-comment vs
 /// regular comment) and emit a `"comment"` folding range for each run that
 /// spans more than one line.
-fn comment_ranges(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
+fn comment_ranges(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<Value> {
     let mut out = Vec::new();
 
     let mut i = 0;
@@ -179,8 +185,8 @@ fn comment_ranges(source: &str, tokens: &[SpannedToken]) -> Vec<Value> {
             run_end -= 1;
         }
 
-        let (start_line, start_char) = offset_to_line_char(source, run_start);
-        let (end_line, end_char) = offset_to_line_char(source, run_end);
+        let (start_line, start_char) = lines.position(run_start);
+        let (end_line, end_char) = lines.position(run_end);
         if end_line > start_line {
             out.push(json!({
                 "startLine": start_line,
@@ -205,28 +211,6 @@ fn is_comment_kind_str(kind: &str) -> bool {
 // ---------------------------------------------------------------------------
 // Offset -> line/character
 // ---------------------------------------------------------------------------
-
-/// Convert a byte offset into a 0-based `(line, character)` pair by counting
-/// newlines up to the offset and characters from the last newline.
-fn offset_to_line_char(source: &str, offset: usize) -> (u64, u64) {
-    let mut offset = offset.min(source.len());
-    if !source.is_char_boundary(offset) {
-        while offset > 0 && !source.is_char_boundary(offset) {
-            offset -= 1;
-        }
-    }
-    let mut line: u64 = 0;
-    let mut col: u64 = 0;
-    for (i, ch) in source.char_indices() {
-        if i >= offset {
-            break;
-        }
-        if ch == '\n' {
-            line += 1;
-            col = 0;
-        } else {
-            col += 1;
-        }
-    }
-    (line, col)
-}
+//
+// Offset→position conversion is now provided by `crate::line_map::LineMap`,
+// which pre-computes line starts once and answers queries in O(log n).

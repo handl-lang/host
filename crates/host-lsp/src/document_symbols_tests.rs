@@ -181,3 +181,29 @@ fn document_symbols_if_expression_has_symbol() {
         "expected an `if` function symbol, got: {symbols:?}"
     );
 }
+
+#[test]
+#[ignore = "perf guard: run with --ignored; flaky under parallel test contention"]
+fn document_symbols_performance_on_large_file() {
+    let mut src = String::from("--- Large benchmark file\n");
+    for i in 0..500 {
+        src.push_str(&format!("arrow_{} = arr(\"op_{}\") >>> first(id)\n", i, i));
+    }
+    src.push_str("\nloop {\n  remaining: input,\n  acc: []\n} (\n");
+    for i in 0..200 {
+        src.push_str(&format!("  [h, ...t]: do {{\n    r{} <- arrow_{} -< {{ elem: h, acc: state.acc }};\n    returnA -< {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n  }}\n", i, i % 500, i));
+    }
+    src.push_str(")\n");
+
+    // Warm up (populate caches / allocator) then take the best of a few
+    // runs so the assertion is robust against parallel-test contention.
+    let _ = document_symbols(&src);
+    let mut best = std::time::Duration::MAX;
+    for _ in 0..5 {
+        let start = std::time::Instant::now();
+        let _ = document_symbols(&src);
+        best = best.min(start.elapsed());
+    }
+    assert!(best.as_millis() < 50, "symbols too slow: {:?}", best);
+}
+
