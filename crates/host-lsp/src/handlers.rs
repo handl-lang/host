@@ -3,17 +3,26 @@ use serde_json::{Value, json};
 use handl_host_tooling::{SemanticTokenLegend, SemanticTokensPlugin, SemanticTokensRequest};
 
 use crate::code_actions;
+use crate::call_hierarchy;
 use crate::completion;
+use crate::completion_resolve;
 use crate::cross_file_def;
 use crate::cross_file_rename;
 use crate::diagnostics::parse_diagnostics;
 use crate::document::{self, DocumentStore, resolve_document_text};
 use crate::document_highlight;
+use crate::document_link;
 use crate::document_symbols;
+use crate::execute_command;
+use crate::file_watcher;
 use crate::folding_ranges;
 use crate::formatting;
 use crate::hover;
+use crate::implementation;
 use crate::inlay_hints;
+use crate::inlay_hint_resolve;
+use crate::linked_editing;
+use crate::moniker;
 use crate::on_type_formatting;
 use crate::protocol::{Message, send_error, send_log_message, send_notification, send_response};
 use crate::range_formatting;
@@ -21,6 +30,7 @@ use crate::refinement::RefinementEngine;
 use crate::selection_ranges;
 use crate::signature_help;
 use crate::symbols;
+use crate::type_definition;
 use crate::workspace_symbols;
 use std::io::Write;
 
@@ -242,6 +252,209 @@ pub fn handle_hover(
 
 pub fn handle_unknown(writer: &mut impl Write, id: Value) {
     send_error(writer, id, -32601, "method not found");
+}
+
+pub fn handle_type_definition(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+    refinement: &RefinementEngine,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    match type_definition::type_definition(&source, offset, file_path, refinement) {
+        Some(loc) => send_response(writer, id, loc),
+        None => send_response(writer, id, json!(null)),
+    }
+}
+
+pub fn handle_implementation(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let locs = implementation::implementation(&source, offset, file_path);
+    send_response(writer, id, json!(locs));
+}
+
+pub fn handle_linked_editing(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    match linked_editing::linked_editing_ranges(&source, offset) {
+        Some(v) => send_response(writer, id, v),
+        None => send_response(writer, id, json!(null)),
+    }
+}
+
+pub fn handle_moniker(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let monikers = moniker::moniker(&source, offset, file_path);
+    send_response(writer, id, json!(monikers));
+}
+
+pub fn handle_completion_resolve(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let item = msg
+        .params
+        .as_ref()
+        .map(|p| p.clone())
+        .unwrap_or(json!(null));
+    let resolved = completion_resolve::resolve_completion(item);
+    send_response(writer, id, resolved);
+}
+
+pub fn handle_inlay_hint_resolve(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let item = msg
+        .params
+        .as_ref()
+        .map(|p| p.clone())
+        .unwrap_or(json!(null));
+    let resolved = inlay_hint_resolve::resolve_inlay_hint(item);
+    send_response(writer, id, resolved);
+}
+
+pub fn handle_execute_command(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let command = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("command"))
+        .and_then(|c| c.as_str())
+        .unwrap_or("");
+    let arguments: Vec<Value> = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("arguments"))
+        .and_then(|a| a.as_array())
+        .map(|a| a.clone())
+        .unwrap_or_default();
+    let result = execute_command::execute_command(command, &arguments);
+    send_response(writer, id, result);
+}
+
+pub fn handle_document_link(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let links = document_link::document_links(&source, file_path);
+    send_response(writer, id, json!(links));
+}
+
+pub fn handle_prepare_call_hierarchy(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+    store: &DocumentStore,
+) {
+    let source = resolve_document_text(store, &msg.params);
+    let offset = position_offset_from_msg(&msg, &source);
+    let file_path = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let items = call_hierarchy::prepare_call_hierarchy(&source, offset, file_path);
+    send_response(writer, id, json!(items));
+}
+
+pub fn handle_call_hierarchy_incoming(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let item = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("item"));
+    let name = item
+        .and_then(|i| i.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("");
+    let file_path = item
+        .and_then(|i| i.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let calls = call_hierarchy::incoming_calls(name, file_path);
+    send_response(writer, id, json!(calls));
+}
+
+pub fn handle_call_hierarchy_outgoing(
+    writer: &mut impl Write,
+    id: serde_json::Value,
+    msg: &Message,
+) {
+    let item = msg
+        .params
+        .as_ref()
+        .and_then(|p| p.get("item"));
+    let name = item
+        .and_then(|i| i.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("");
+    let file_path = item
+        .and_then(|i| i.get("uri"))
+        .and_then(|u| u.as_str())
+        .and_then(|s| s.strip_prefix("file://"));
+    let calls = call_hierarchy::outgoing_calls(name, file_path);
+    send_response(writer, id, json!(calls));
 }
 
 #[allow(dead_code)]
@@ -709,9 +922,28 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
             "workspaceSymbolProvider": true,
             "codeActionProvider": true,
             "inlayHintProvider": true,
+            "typeDefinitionProvider": true,
+            "implementationProvider": true,
+            "linkedEditingRangeProvider": true,
+            "monikerProvider": true,
+            "documentLinkProvider": true,
+            "callHierarchyProvider": true,
+            "completionProvider": {
+                "triggerCharacters": [".", ">", "|", "-", " "],
+                "resolveProvider": true
+            },
+            "inlayHintProvider": { "resolveProvider": true },
+            "executeCommandProvider": {
+                "commands": [
+                    "handl.showRefinement",
+                    "handl.runArrow",
+                    "handl.formatFile",
+                    "handl.showContract"
+                ]
+            },
         },
         "serverInfo": {
-            "name": "handl-lsp",
+            "name": "handl",
             "version": "0.1.0",
         }
     })

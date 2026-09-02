@@ -105,6 +105,10 @@ path = "src/v0_1_surface_tests.rs"
 name = "modules"
 path = "src/modules.rs"
 
+[[bin]]
+name = "examples_check"
+path = "src/examples_check.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess

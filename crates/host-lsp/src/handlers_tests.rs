@@ -20,7 +20,7 @@ fn initialize_result_has_semantic_tokens_provider() {
     let legend = SemanticTokenLegend::default();
     let result = build_initialize_result(&legend);
 
-    assert_eq!(result["serverInfo"]["name"], "handl-lsp");
+    assert_eq!(result["serverInfo"]["name"], "handl");
     assert_eq!(
         result["capabilities"]["semanticTokensProvider"]["full"],
         true
@@ -66,7 +66,7 @@ fn handle_initialize_writes_response() {
     let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
 
     assert_eq!(parsed["id"], 1);
-    assert_eq!(parsed["result"]["serverInfo"]["name"], "handl-lsp");
+    assert_eq!(parsed["result"]["serverInfo"]["name"], "handl");
 }
 
 #[test]
