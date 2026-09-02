@@ -19,7 +19,7 @@ Language support for [handl](https://handl-lang.org) — a language for authorin
 - **Folding ranges** — collapse `loop`, `match`, and object blocks
 - **Document highlight** — highlight all occurrences of a symbol under the cursor
 - **Selection ranges** — `Shift+Alt+→` smart selection expansion (bracket-aware)
-- **Code actions** — quick fixes: add missing `returnA`, wrap in `do`, convert `//` to `///`
+- **Code actions** — quick fixes: add missing `return`, wrap in `do`, convert `//` to `///`
 - **Context-aware completion** — keyword snippets, field names, combinators, and match patterns
 - **Snippets** — templates for `match`, `rec`, `do`, `if`, `seq`, `choice`, `record`, `doc`, and more, provided by the LSP server's completion provider (no static snippets file)
 
@@ -38,17 +38,37 @@ The extension looks for the LSP server binary at `<workspace>/target/debug/handl
 cargo build -p handl-host-lsp
 ```
 
-You can also set `handl.server.path` in VS Code settings to point to a custom binary location.
+## Configuration
 
-## Settings
+All configuration lives in a `.handl.toml` file at the root of your workspace — not in VS Code settings. This keeps language configuration in one place and works the same in any editor (VS Code, Neovim, Emacs, …).
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `handl.server.path` | `""` | Path to the `handl-host-lsp` binary |
-| `handl.enableInlayHints` | `true` | Show inferred refinement types as inlay hints |
-| `handl.enableCodeLens` | `true` | Show inferred contract summaries as code lenses |
-| `handl.enableRefinementDiagnostics` | `true` | Show refinement inference errors as diagnostics |
-| `handl.enableSemanticHighlighting` | `true` | Enable semantic token-based syntax highlighting |
+Example `.handl.toml`:
+
+```toml
+# .handl.toml
+[language]
+kit = "handl-kit-data-canonical"    # crate name or path to a data directory
+version = "0.1"                      # optional: pin a specific kit version
+extensions = [".hnl", ".hn2", ".handl"]  # extra extensions mapped to `handl` via files.associations
+
+[editor]
+enableInlayHints = true
+enableCodeLens = true
+enableRefinementDiagnostics = true
+enableSemanticHighlighting = true
+```
+
+| Section | Key | Default | Description |
+|---------|-----|---------|-------------|
+| `[language]` | `kit` | (server default) | Crate name or path to the language data directory |
+| `[language]` | `version` | (none) | Pin a specific kit version |
+| `[language]` | `extensions` | `[".hnl"]` | Extra file extensions mapped to `handl` at runtime via `files.associations` |
+| `[editor]` | `enableInlayHints` | `true` | Show inferred refinement types as inlay hints |
+| `[editor]` | `enableCodeLens` | `true` | Show inferred contract summaries as code lenses |
+| `[editor]` | `enableRefinementDiagnostics` | `true` | Show refinement inference errors as diagnostics |
+| `[editor]` | `enableSemanticHighlighting` | `true` | Enable semantic token-based syntax highlighting |
+
+When `.handl.toml` is absent or omits a value, the defaults above apply. The `.hnl` extension is always declared statically in `package.json`; any additional extensions from the manifest are registered per-workspace via `files.associations`.
 
 ## Development
 

@@ -47,36 +47,6 @@
         "editor.defaultFormatter": "handl-lang.handl",
         "editor.formatOnSave": true
       }
-    },
-    "configuration": {
-      "title": "handl",
-      "properties": {
-        "handl.server.path": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the handl-host-lsp binary. If empty, looks for it in the workspace target/debug directory."
-        },
-        "handl.enableInlayHints": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show inferred refinement types as inlay hints next to bindings."
-        },
-        "handl.enableCodeLens": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show inferred contract summaries as code lenses at the top of arrow files."
-        },
-        "handl.enableRefinementDiagnostics": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show refinement inference errors as diagnostics."
-        },
-        "handl.enableSemanticHighlighting": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable semantic token-based syntax highlighting."
-        }
-      }
     }
   },
   "activationEvents": [

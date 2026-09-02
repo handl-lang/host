@@ -4,6 +4,21 @@ All notable changes to the **handl** VS Code extension will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Configuration moved to `.handl.toml`** (ADR 0004) — `handl.server.path`, `handl.enableInlayHints`, `handl.enableCodeLens`, `handl.enableRefinementDiagnostics`, and `handl.enableSemanticHighlighting` VS Code settings have been removed. Editor configuration now lives in a `.handl.toml` manifest at the workspace root and is passed to the server via `initializationOptions`. The `contributes.configuration` section has been removed from `package.json`.
+
+### Added
+
+- **`.handl.toml` manifest reader** — minimal TOML parser (no dependencies) supporting `[language]` and `[editor]` sections with string, boolean, and array values.
+- **File extension mapping via `files.associations`** — additional extensions declared in `.handl.toml` (`[language].extensions`) are mapped to the `handl` language id at runtime, so the extension never needs repackaging for a new file extension.
+
+### Removed
+
+- **VS Code settings** — `handl.server.path`, `handl.enableInlayHints`, `handl.enableCodeLens`, `handl.enableRefinementDiagnostics`, `handl.enableSemanticHighlighting` (replaced by `.handl.toml`).
+
 ## [0.1.0] - 2026-09-02
 
 Initial release of the handl extension for VS Code.
@@ -32,13 +47,13 @@ Initial release of the handl extension for VS Code.
 - **Folding ranges** — collapse `loop`, `match`, object blocks, and doc comment blocks
 - **Selection ranges** — `Shift+Alt+→` smart selection expansion (bracket-aware: token → bracket content → bracket pair → line → document)
 - **Linked editing range** — sync-edit matching bracket pairs
-- **Code actions** — quick fixes: "Add missing `returnA`", "Wrap in `do` block", "Convert `--` to `---`", "Extract to named arrow"
+- **Code actions** — quick fixes: "Add missing `return`", "Wrap in `do` block", "Convert `--` to `---`", "Extract to named arrow"
 - **Code action resolve** — lazy resolution of code action edits
 - **Code lens** — inferred contract summaries at the top of arrow files
 - **Code lens resolve** — lazy resolution of code lens content
 - **Call hierarchy** — view incoming and outgoing arrow calls (`Right-click` → "Show Call Hierarchy")
 - **Document link** — clickable links in comments for file references, arrow references, and URLs
-- **Context-aware completion** — keyword snippets after `loop`/`match`/`do`/`returnA`, field name completion after `state.`, combinator suggestions at expression positions, match pattern completion after `]:`
+- **Context-aware completion** — keyword snippets after `loop`/`match`/`do`/`return`, field name completion after `state.`, combinator suggestions at expression positions, match pattern completion after `]:`
 - **Completion resolve** — lazy enrichment of completion items with documentation and type signatures
 - **Moniker** — stable cross-workspace symbol identifiers
 - **Snippets** — templates including `match`, `rec`, `do`, `if`, `seq`, `choice`, `record`, `doc`, and more, provided by the LSP server's completion provider (data-driven, no static snippets file)
