@@ -337,8 +337,11 @@ The Arrow Calculus provides a viable alternative foundation for language design,
 
 ## References
 
-- **Lindley, Wadler, Yallop (2008).** *The Arrow Calculus.* ICFP.
-- **Sanada (2024).** *Algebraic Effects and Handlers for Arrows.* (preprint)
 - **Hughes (2000).** *Generalising Monads to Arrows.* FPCA.
 - **Paterson (2001).** *A New Notation for Arrows.* ICFP.
+- **Paterson (2003).** *Arrows and Computation.* The Fun of Programming.
+- **Hughes (2004).** *Programming with Arrows.* AFP Summer School.
+- **Lindley, Wadler, Yallop (2008).** *The Arrow Calculus.* FLOPS/JFP.
+- **Jacobs, Heunen, Hasuo (2009).** *Categorical Semantics for Arrows.* JFP.
+- **Sanada (2024).** *Algebraic Effects and Handlers for Arrows.* (preprint)
 

@@ -1,6 +1,6 @@
 // zip: pair up corresponding elements of two lists.
 // Written as an arrow graph over list primitives.
-// Contract: inferred from the loop body with zero annotations.
+// Contract: inferred from the loop body.
 //
 // Graph structure:
 //   zip = loop(first(arr("list.head")) >>>

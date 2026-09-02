@@ -1,147 +1,227 @@
 //! # handl-lib-stats
 //!
 //! Statistical aggregate functions for the handl runtime.
+//!
+//! The stats *logic* is handl-authored in
+//! `kit-stdlib/data/stats/stats.hnl` (a record of procs: `sum`, `avg`,
+//! `product`, `min`, `max`, `median`, `stddev`); this crate only loads +
+//! evaluates + bridges that definition (see [`bridge`]). The `Module`/
+//! `Plugin` trait scaffolding is retained as the registration boundary.
+//!
+//! Non-number handling: the prior Rust impl silently skipped non-numeric
+//! elements via `filter_map(|v| v.as_f64())`. The handl port reproduces this
+//! filtering using `type.type_of(x) == "num"` (requires `TypeModule` in the
+//! bridge runtime). Non-numbers are dropped before aggregation.
 
-use handl_platform::Module;
+/// Handl-authored stats loader/bridge (shared by the `Function` and `Plugin`
+/// impls).
+mod bridge;
+pub(crate) use bridge::stats_via_handl;
+
+pub mod module;
+pub use module::StatsModule;
+pub mod plugin;
+pub use plugin::LibraryPlugin;
+
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value;
 
-fn num(value: f64) -> serde_json::Value {
-    serde_json::Value::from(serde_json::json!(value))
-}
-
-fn require_one_array(args: &[serde_json::Value]) -> Result<&[Value], EvalError> {
-    let arg = args.first().ok_or(EvalError::TypeMismatch(format!(
-        "expected {} args, got {}",
-        1, 0,
-    )))?;
-    arg.as_array()
-        .map(Vec::as_slice)
-        .ok_or(EvalError::TypeMismatch(format!(
-            "expected {}, got {}",
-            "array", "non-array",
-        )))
-}
-
-macro_rules! stats_unary_fn {
-    ($struct_name:ident, $body:expr) => {
-        #[derive(Clone, Copy)]
-        pub struct $struct_name;
-        impl Function for $struct_name {
-            fn call(
-                &self,
-                args: &[serde_json::Value],
-                _ctx: &mut EvalContext,
-            ) -> Result<serde_json::Value, EvalError> {
-                let input = require_one_array(args)?;
-                Ok($body(input))
-            }
-        }
-    };
-}
-
-stats_unary_fn!(Sum, |input: &[Value]| {
-    let total: f64 = input.iter().filter_map(|v| v.as_f64()).sum();
-    num(total)
-});
-
-stats_unary_fn!(Avg, |input: &[Value]| {
-    let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
-    if numbers.is_empty() {
-        num(0.0)
-    } else {
-        num(numbers.iter().sum::<f64>() / numbers.len() as f64)
+/// Require exactly one array argument, returning it as a slice.
+fn require_one_array(args: &[Value]) -> Result<&Value, EvalError> {
+    if args.len() != 1 {
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, args.len()
+        )));
     }
-});
+    let arg = &args[0];
+    if !arg.is_array() {
+        return Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "array", "non-array"
+        )));
+    }
+    Ok(arg)
+}
 
-stats_unary_fn!(Product, |input: &[Value]| {
-    let product: f64 = input.iter().filter_map(|v| v.as_f64()).product();
-    num(product)
-});
+/// `stats.sum(xs)` — sum of the numeric elements of `xs`.
+///
+/// The logic is handl-authored in `stats.hnl`; this impl only validates
+/// arguments and delegates to [`stats_via_handl`].
+#[derive(Clone, Copy)]
+pub struct Sum;
+impl Function for Sum {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let input = require_one_array(args)?;
+        stats_via_handl("sum", input)
+    }
+}
 
+/// `stats.avg(xs)` — arithmetic mean of the numeric elements of `xs`.
+///
+/// The logic is handl-authored in `stats.hnl`; this impl only validates
+/// arguments and delegates to [`stats_via_handl`].
+#[derive(Clone, Copy)]
+pub struct Avg;
+impl Function for Avg {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let input = require_one_array(args)?;
+        stats_via_handl("avg", input)
+    }
+}
+
+/// `stats.product(xs)` — product of the numeric elements of `xs`.
+///
+/// The logic is handl-authored in `stats.hnl`; this impl only validates
+/// arguments and delegates to [`stats_via_handl`].
+#[derive(Clone, Copy)]
+pub struct Product;
+impl Function for Product {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let input = require_one_array(args)?;
+        stats_via_handl("product", input)
+    }
+}
+
+/// `stats.min(xs)` — minimum of the numeric elements of `xs` (null if
+/// empty).
+///
+/// The logic is handl-authored in `stats.hnl`; this impl only validates
+/// arguments and delegates to [`stats_via_handl`].
 #[derive(Clone, Copy)]
 pub struct Min;
 impl Function for Min {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let input = require_one_array(args)?;
-        let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
-        match numbers.iter().copied().min_by(|a, c| a.total_cmp(c)) {
-            Some(m) => Ok(num(m)),
-            None => Ok(serde_json::Value::from(Value::Null)),
-        }
+        stats_via_handl("min", input)
     }
 }
 
+/// `stats.max(xs)` — maximum of the numeric elements of `xs` (null if
+/// empty).
+///
+/// The logic is handl-authored in `stats.hnl`; this impl only validates
+/// arguments and delegates to [`stats_via_handl`].
 #[derive(Clone, Copy)]
 pub struct Max;
 impl Function for Max {
-    fn call(
-        &self,
-        args: &[serde_json::Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<serde_json::Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let input = require_one_array(args)?;
-        let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
-        match numbers.iter().copied().max_by(|a, c| a.total_cmp(c)) {
-            Some(m) => Ok(num(m)),
-            None => Ok(serde_json::Value::from(Value::Null)),
-        }
+        stats_via_handl("max", input)
     }
 }
 
-stats_unary_fn!(Median, |input: &[Value]| {
-    let mut numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
-    if numbers.is_empty() {
-        return num(0.0);
-    }
-    numbers.sort_by(|a, b| a.total_cmp(b));
-    let len = numbers.len();
-    if len % 2 == 0 {
-        num((numbers[len / 2 - 1] + numbers[len / 2]) / 2.0)
-    } else {
-        num(numbers[len / 2])
-    }
-});
-
-stats_unary_fn!(Stddev, |input: &[Value]| {
-    let numbers: Vec<f64> = input.iter().filter_map(|v| v.as_f64()).collect();
-    if numbers.len() < 2 {
-        return num(0.0);
-    }
-    let mean = numbers.iter().sum::<f64>() / numbers.len() as f64;
-    let variance = numbers.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / numbers.len() as f64;
-    num(variance.sqrt())
-});
-
-/// The `stats` module — statistical aggregate functions.
+/// `stats.median(xs)` — median of the numeric elements of `xs` (0 if
+/// empty).
 ///
-/// Provides `stats.sum`, `stats.avg`, `stats.median`, `stats.stddev`,
-/// `stats.product`, `stats.min`, `stats.max`.
+/// The logic (including an insertion sort) is handl-authored in `stats.hnl`;
+/// this impl only validates arguments and delegates to [`stats_via_handl`].
 #[derive(Clone, Copy)]
-pub struct StatsModule;
-
-impl Module for StatsModule {
-    fn name(&self) -> &str {
-        "stats"
-    }
-
-    fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "sum" => Some(&Sum),
-            "avg" => Some(&Avg),
-            "product" => Some(&Product),
-            "min" => Some(&Min),
-            "max" => Some(&Max),
-            "median" => Some(&Median),
-            "stddev" => Some(&Stddev),
-            _ => None,
-        }
+pub struct Median;
+impl Function for Median {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let input = require_one_array(args)?;
+        stats_via_handl("median", input)
     }
 }
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+/// `stats.stddev(xs)` — population standard deviation of the numeric
+/// elements of `xs` (0 if fewer than 2 elements).
+///
+/// The logic (calling `math.sqrt`) is handl-authored in `stats.hnl`; this
+/// impl only validates arguments and delegates to [`stats_via_handl`].
+#[derive(Clone, Copy)]
+pub struct Stddev;
+impl Function for Stddev {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        let input = require_one_array(args)?;
+        stats_via_handl("stddev", input)
+    }
+}
+
+// Re-export the `StatsModule` from `module.rs` for backward compatibility
+// with callers that import it from the crate root.
+
+#[cfg(test)]
+mod tests {
+    use super::stats_via_handl;
+    use serde_json::json;
+
+    /// Helper: eval a stats function on a JSON array and compare as f64.
+    fn check(func: &str, input: serde_json::Value, expected: f64) {
+        let result = stats_via_handl(func, &input).unwrap_or_else(|e| panic!("{func} failed: {e}"));
+        let actual = result.as_f64().unwrap_or_else(|| {
+            panic!("{func} did not return a number: {result:?}")
+        });
+        assert!(
+            (actual - expected).abs() < 1e-9,
+            "{func}({input:?}) = {actual}, expected {expected}"
+        );
+    }
+
+    #[test]
+    fn sum_works() {
+        check("sum", json!([1, 2, 3, 4, 5]), 15.0);
+    }
+
+    #[test]
+    fn avg_works() {
+        check("avg", json!([1, 2, 3, 4, 5]), 3.0);
+        check("avg", json!([1, 2]), 1.5);
+    }
+
+    #[test]
+    fn product_works() {
+        check("product", json!([1, 2, 3, 4, 5]), 120.0);
+    }
+
+    #[test]
+    fn min_works() {
+        check("min", json!([1, 2, 3, 4, 5]), 1.0);
+    }
+
+    #[test]
+    fn max_works() {
+        check("max", json!([1, 2, 3, 4, 5]), 5.0);
+    }
+
+    #[test]
+    fn median_works() {
+        // odd length
+        check("median", json!([1, 2, 3, 4, 5]), 3.0);
+        // even length
+        check("median", json!([1, 2, 3, 4]), 2.5);
+        // unsorted input
+        check("median", json!([5, 3, 1, 4, 2]), 3.0);
+    }
+
+    #[test]
+    fn stddev_works() {
+        // population stddev of [1,2,3,4,5] = sqrt(2)
+        check("stddev", json!([1, 2, 3, 4, 5]), 2.0f64.sqrt());
+    }
+
+    #[test]
+    fn empty_array_edge_cases() {
+        assert_eq!(stats_via_handl("sum", &json!([])).unwrap(), json!(0));
+        assert_eq!(stats_via_handl("avg", &json!([])).unwrap(), json!(0));
+        assert_eq!(stats_via_handl("product", &json!([])).unwrap(), json!(1));
+        assert_eq!(stats_via_handl("min", &json!([])).unwrap(), json!(null));
+        assert_eq!(stats_via_handl("max", &json!([])).unwrap(), json!(null));
+        assert_eq!(stats_via_handl("median", &json!([])).unwrap(), json!(0));
+        assert_eq!(stats_via_handl("stddev", &json!([])).unwrap(), json!(0));
+    }
+
+    #[test]
+    fn non_numbers_are_filtered() {
+        // Reproduces the prior Rust `filter_map(|v| v.as_f64())` semantics:
+        // non-numeric elements are silently dropped.
+        check("sum", json!([1, "two", 3, null, 5]), 9.0);
+        check("avg", json!([1, "x", 3, true, 5]), 3.0);
+    }
+
+    #[test]
+    fn single_element_stddev_is_zero() {
+        check("stddev", json!([42]), 0.0);
+    }
+}

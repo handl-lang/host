@@ -1,27 +1,63 @@
+mod code_actions;
 mod completion;
+mod cross_file_def;
+mod cross_file_rename;
 mod diagnostics;
 mod document;
+mod document_highlight;
+mod document_symbols;
+mod folding_ranges;
+mod formatting;
 mod handlers;
 mod hover;
+mod inlay_hints;
 mod protocol;
+mod refinement;
+mod selection_ranges;
+mod signature_help;
 mod symbols;
+mod workspace_symbols;
 
 #[cfg(test)]
 mod cancellation_tests;
 #[cfg(test)]
+mod code_actions_tests;
+#[cfg(test)]
 mod completion_tests;
+#[cfg(test)]
+mod cross_file_def_tests;
+#[cfg(test)]
+mod cross_file_rename_tests;
 #[cfg(test)]
 mod diagnostics_tests;
 #[cfg(test)]
 mod document_tests;
 #[cfg(test)]
+mod document_highlight_tests;
+#[cfg(test)]
+mod folding_ranges_tests;
+#[cfg(test)]
+mod formatting_tests;
+#[cfg(test)]
 mod handlers_tests;
 #[cfg(test)]
 mod hover_tests;
 #[cfg(test)]
+mod inlay_hints_tests;
+#[cfg(test)]
 mod protocol_tests;
 #[cfg(test)]
+mod refinement_tests;
+#[cfg(test)]
+mod selection_ranges_tests;
+#[cfg(test)]
+mod signature_help_tests;
+#[cfg(test)]
 mod symbols_tests;
+#[cfg(test)]
+mod document_symbols_tests;
+#[cfg(test)]
+mod workspace_symbols_tests;
 
 use std::collections::HashSet;
 use std::io::{self, BufRead};
@@ -30,11 +66,15 @@ use handl_host_tooling::{SemanticTokensPlugin, TextContentChange, canonical_sema
 
 use document::DocumentStore;
 use handlers::{
-    handle_completion, handle_definition, handle_hover, handle_initialize,
-    handle_publish_diagnostics, handle_references, handle_rename, handle_semantic_tokens_full,
-    handle_semantic_tokens_range, handle_shutdown, handle_unknown,
+    handle_code_actions, handle_code_lens, handle_completion, handle_definition,
+    handle_document_highlight, handle_document_symbols, handle_folding_ranges,
+    handle_formatting, handle_hover, handle_inlay_hints, handle_initialize,
+    handle_prepare_rename, handle_publish_diagnostics, handle_references, handle_rename,
+    handle_selection_ranges, handle_semantic_tokens_full, handle_semantic_tokens_range,
+    handle_signature_help, handle_shutdown, handle_unknown, handle_workspace_symbols,
 };
 use protocol::{Message, send_log_message};
+use refinement::RefinementEngine;
 
 fn read_message(reader: &mut impl BufRead) -> Option<Message> {
     let mut content_length: Option<usize> = None;
@@ -65,6 +105,7 @@ fn read_message(reader: &mut impl BufRead) -> Option<Message> {
 fn main() {
     let tokens_provider = canonical_semantic_tokens();
     let legend = tokens_provider.legend();
+    let refinement_engine = RefinementEngine::new();
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
@@ -94,16 +135,46 @@ fn main() {
                 handle_semantic_tokens_range(&mut writer, id, &msg, &tokens_provider, &store);
             }
             "textDocument/hover" => {
-                handle_hover(&mut writer, id, &msg, &store);
+                handle_hover(&mut writer, id, &msg, &store, &refinement_engine);
             }
             "textDocument/completion" => {
                 handle_completion(&mut writer, id, &msg, &store);
+            }
+            "textDocument/signatureHelp" => {
+                handle_signature_help(&mut writer, id, &msg, &store);
+            }
+            "textDocument/codeLens" => {
+                handle_code_lens(&mut writer, id, &msg, &store, &refinement_engine);
+            }
+            "textDocument/documentSymbol" => {
+                handle_document_symbols(&mut writer, id, &msg, &store);
+            }
+            "textDocument/formatting" => {
+                handle_formatting(&mut writer, id, &msg, &store);
+            }
+            "textDocument/foldingRange" => {
+                handle_folding_ranges(&mut writer, id, &msg, &store);
+            }
+            "textDocument/documentHighlight" => {
+                handle_document_highlight(&mut writer, id, &msg, &store);
+            }
+            "textDocument/selectionRange" => {
+                handle_selection_ranges(&mut writer, id, &msg, &store);
+            }
+            "textDocument/codeAction" => {
+                handle_code_actions(&mut writer, id, &msg, &store);
+            }
+            "textDocument/inlayHint" => {
+                handle_inlay_hints(&mut writer, id, &msg, &store, &refinement_engine);
             }
             "textDocument/definition" => {
                 handle_definition(&mut writer, id, &msg, &store);
             }
             "textDocument/references" => {
                 handle_references(&mut writer, id, &msg, &store);
+            }
+            "textDocument/prepareRename" => {
+                handle_prepare_rename(&mut writer, id, &msg, &store);
             }
             "textDocument/rename" => {
                 handle_rename(&mut writer, id, &msg, &store);
@@ -120,7 +191,12 @@ fn main() {
                     ) {
                         store.open(uri, text);
                         let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
-                        handle_publish_diagnostics(&mut writer, uri, &text);
+                        handle_publish_diagnostics(
+                            &mut writer,
+                            uri,
+                            &text,
+                            &refinement_engine,
+                        );
                         send_log_message(&mut writer, 4, &format!("opened: {}", uri));
                     }
                 }
@@ -154,7 +230,12 @@ fn main() {
                             }
                         }
                         if let Some(current) = store.get(uri) {
-                            handle_publish_diagnostics(&mut writer, uri, current);
+                            handle_publish_diagnostics(
+                                &mut writer,
+                                uri,
+                                current,
+                                &refinement_engine,
+                            );
                         }
                         send_log_message(&mut writer, 4, &format!("changed: {}", uri));
                     }
@@ -191,7 +272,12 @@ fn main() {
                             .unwrap_or_default();
                         store.update_full(uri, &text);
                         let text = store.get(uri).map(|s| s.to_string()).unwrap_or_default();
-                        handle_publish_diagnostics(&mut writer, uri, &text);
+                        handle_publish_diagnostics(
+                            &mut writer,
+                            uri,
+                            &text,
+                            &refinement_engine,
+                        );
                     }
                 }
             }
@@ -204,6 +290,9 @@ fn main() {
             }
             "workspace/didChangeConfiguration" => {
                 send_log_message(&mut writer, 4, "configuration changed");
+            }
+            "workspace/symbol" => {
+                handle_workspace_symbols(&mut writer, id, &msg);
             }
             "shutdown" => {
                 handle_shutdown(&mut writer, id);

@@ -6,4 +6,11 @@ edition.workspace = true
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
-serde_json = "1"
+handl-language = { workspace = true }
+handl-runtime = { workspace = true }
+handl-kit-data-canonical = { workspace = true }
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
+handl-plugin-engine-eval-tree-walk = { workspace = true }
+handl-plugin-lib-utils = { workspace = true }
+serde_json = { workspace = true }

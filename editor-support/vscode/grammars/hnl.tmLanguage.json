@@ -1,71 +1,39 @@
 {
   "patterns": [
-    {
-      "include": "#doc_comments"
-    },
-    {
-      "include": "#doc_block_comment"
-    },
-    {
-      "include": "#comments"
-    },
-    {
-      "include": "#block_comment"
-    },
-    {
-      "include": "#strings"
-    },
-    {
-      "include": "#numbers"
-    },
-    {
-      "include": "#booleans"
-    },
-    {
-      "include": "#nulls"
-    },
-    {
-      "include": "#keyword_as"
-    },
-    {
-      "include": "#keyword_handle"
-    },
-    {
-      "include": "#keywords"
-    },
-    {
-      "include": "#operators"
-    },
-    {
-      "include": "#delimiters"
-    },
-    {
-      "include": "#type_references"
-    },
-    {
-      "include": "#type_names"
-    },
-    {
-      "include": "#binding_declarations"
-    },
-    {
-      "include": "#property_names"
-    },
-    {
-      "include": "#function_calls"
-    },
-    {
-      "include": "#identifiers"
-    }
+    { "include": "#doc_comments" },
+    { "include": "#doc_block_comment" },
+    { "include": "#comments" },
+    { "include": "#block_comment" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#booleans" },
+    { "include": "#nulls" },
+    { "include": "#keyword_as" },
+    { "include": "#keyword_handle" },
+    { "include": "#keywords" },
+    { "include": "#spread" },
+    { "include": "#arrow" },
+    { "include": "#pipe" },
+    { "include": "#arrow_operators" },
+    { "include": "#operators" },
+    { "include": "#type_references" },
+    { "include": "#type_names" },
+    { "include": "#object_keys" },
+    { "include": "#binding_declarations" },
+    { "include": "#property_access" },
+    { "include": "#function_calls" },
+    { "include": "#brackets" },
+    { "include": "#braces" },
+    { "include": "#parens" },
+    { "include": "#delimiters" },
+    { "include": "#identifiers" }
   ],
   "repository": {
     "binding_declarations": {
       "captures": {
-        "1": {
-          "name": "variable.other.binding"
-        }
+        "1": { "name": "variable.other.readwrite" }
       },
-      "match": "^([a-zA-Z_.][a-zA-Z0-9_.]*)\\s*[:=]"
+      "match": "^([a-zA-Z_.][a-zA-Z0-9_.]*)\\s*(?::|=)"
     },
     "block_comment": {
       "begin": "\\/\\*",
@@ -76,13 +44,24 @@
       "match": "\\b(true|false)\\b",
       "name": "constant.language.boolean"
     },
+    "brackets": {
+      "match": "[\\[\\]]",
+      "name": "meta.brace.square"
+    },
+    "braces": {
+      "captures": {
+        "1": { "name": "meta.brace.curly" },
+        "2": { "name": "meta.brace.curly" }
+      },
+      "match": "(\\{)(\\})"
+    },
     "comments": {
       "match": "\\/\\/.*",
       "name": "comment.line"
     },
     "delimiters": {
-      "match": "[\\(|\\)|\\[|\\]|\\{|\\}|,|:|\\.|;]",
-      "name": "punctuation"
+      "match": "[,;|]",
+      "name": "punctuation.separator"
     },
     "doc_block_comment": {
       "begin": "\\/\\*\\*",
@@ -93,32 +72,40 @@
       "match": "\\/\\/\\/.*",
       "name": "comment.documentation"
     },
+    "arrow": {
+      "match": "->",
+      "name": "keyword.operator.arrow"
+    },
+    "pipe": {
+      "match": "\\|>",
+      "name": "keyword.operator.pipe"
+    },
+    "spread": {
+      "match": "\\.\\.\\.",
+      "name": "keyword.operator.spread"
+    },
     "function_calls": {
       "captures": {
-        "1": {
-          "name": "entity.name.function"
-        },
-        "2": {
-          "name": "punctuation"
-        }
+        "1": { "name": "entity.name.function" },
+        "2": { "name": "meta.brace.paren" }
       },
-      "match": "([a-zA-Z_.][a-zA-Z0-9_.]*)\\s*(\\()"
+      "match": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()"
     },
     "identifiers": {
-      "match": "[a-zA-Z_.][a-zA-Z0-9_.]*",
-      "name": "variable"
+      "match": "[a-zA-Z_][a-zA-Z0-9_]*",
+      "name": "variable.other.readwrite"
     },
     "keyword_as": {
       "match": "\\b(as)\\b",
-      "name": "keyword"
+      "name": "keyword.control"
     },
     "keyword_handle": {
       "match": "\\b(handle)\\b",
-      "name": "keyword"
+      "name": "keyword.control"
     },
     "keywords": {
-      "match": "\\b(proc|loop|if|then|else|match|where|in|typeof|not|import|export|module)\\b",
-      "name": "keyword"
+      "match": "\\b(proc|loop|if|then|else|match|where|in|typeof|not|import|export|module|axiom|do|returnA|let|const|is|may|must|when)\\b",
+      "name": "keyword.control"
     },
     "nulls": {
       "match": "\\b(null)\\b",
@@ -128,41 +115,52 @@
       "match": "-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?",
       "name": "constant.numeric"
     },
+    "object_keys": {
+      "captures": {
+        "1": { "name": "support.type.property-name" }
+      },
+      "match": "(?<=\\{|,)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:"
+    },
+    "arrow_operators": {
+      "match": "(>>>|\\|\\|\\||-<|<-)",
+      "name": "keyword.operator.arrow"
+    },
     "operators": {
-      "match": "(\\|>|->|=|\\+|-|\\*|\\/|<|>)",
+      "match": "(=|\\+|-|\\*|\\/|<|>|<=|>=|==|!=|&&|\\|\\||!)",
       "name": "keyword.operator"
     },
-    "property_names": {
+    "parens": {
+      "match": "[()]",
+      "name": "meta.brace.paren"
+    },
+    "property_access": {
       "captures": {
-        "1": {
-          "name": "variable.other.property"
-        }
+        "1": { "name": "punctuation.accessor" },
+        "2": { "name": "variable.other.property" }
       },
-      "match": "([a-zA-Z_.][a-zA-Z0-9_.]*)\\s*:"
+      "match": "\\.([a-zA-Z_][a-zA-Z0-9_]*)"
     },
     "strings": {
       "patterns": [
         {
           "begin": "\"",
           "end": "\"",
-          "name": "string.quoted"
+          "name": "string.quoted.double"
         },
         {
           "begin": "'",
           "end": "'",
-          "name": "string.quoted"
+          "name": "string.quoted.single"
         }
       ]
     },
     "type_names": {
-      "match": "\\b[A-Z][a-zA-Z0-9_]+\\b",
+      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b",
       "name": "entity.name.type"
     },
     "type_references": {
       "captures": {
-        "1": {
-          "name": "entity.name.type"
-        }
+        "1": { "name": "entity.name.type" }
       },
       "match": "\\btype\\.([a-zA-Z_][a-zA-Z0-9_]*)"
     }

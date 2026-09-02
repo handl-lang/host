@@ -61,7 +61,10 @@ fn tag_is_tag_recognizes_tagged_value_from_source() {
         eval(r#"tag.is_tag(tag.tag("unit", { v: 5 }))"#),
         serde_json::json!(true)
     );
-    assert_eq!(eval(r#"tag.is_tag("plain string")"#), serde_json::json!(false));
+    assert_eq!(
+        eval(r#"tag.is_tag("plain string")"#),
+        serde_json::json!(false)
+    );
     assert_eq!(eval(r#"tag.is_tag({ a: 1 })"#), serde_json::json!(false));
 }
 

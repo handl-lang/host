@@ -1,6 +1,6 @@
 // scan: prefix sums — accumulate and output each intermediate.
 // Written as an arrow graph over list primitives.
-// Contract: inferred from the step function's guarantee with zero annotations.
+// Contract: inferred from the step function's guarantee.
 //
 // Graph structure:
 //   scan = loop(arr("fold_step") >>> first(arr("list.cons")))

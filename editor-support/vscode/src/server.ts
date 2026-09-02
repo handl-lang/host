@@ -1,10 +1,14 @@
 import * as path from "path";
 
 /**
- * Configuration shape for the `handl-lsp` extension settings.
+ * Configuration shape for the `handl` extension settings.
  */
 export interface ServerConfig {
   "server.path": string;
+  "enableInlayHints": boolean;
+  "enableCodeLens": boolean;
+  "enableRefinementDiagnostics": boolean;
+  "enableSemanticHighlighting": boolean;
 }
 
 /**
@@ -27,7 +31,7 @@ export interface ResolveDeps {
 /**
  * Resolves the path to the `handl-host-lsp` binary.
  *
- * Priority: explicit `handl-lsp.server.path` setting, then
+ * Priority: explicit `handl.server.path` setting, then
  * `<first-workspace>/target/debug/handl-host-lsp`.
  * Returns `null` if no candidate is found.
  */
@@ -67,4 +71,4 @@ export const DOCUMENT_SELECTOR = [{ scheme: "file", language: "handl" }] as cons
 /**
  * The output channel name shown in VS Code's Output panel.
  */
-export const OUTPUT_CHANNEL_NAME = "handl LSP";
+export const OUTPUT_CHANNEL_NAME = "handl";

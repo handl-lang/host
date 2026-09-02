@@ -201,8 +201,11 @@ This PoC is designed to investigate challenges **1–6** in depth (expressivenes
 
 ## References
 
-- Lindley, Wadler, Yallop: *The Arrow Calculus* (2008/2010)
-- Sanada: *Algebraic Effects and Handlers for Arrows* (2024)
 - Hughes: *Generalising Monads to Arrows* (2000)
 - Paterson: *A New Notation for Arrows* (2001)
+- Paterson: *Arrows and Computation* (2003)
+- Hughes: *Programming with Arrows* (2004)
+- Lindley, Wadler, Yallop: *The Arrow Calculus* (2008/2010)
+- Jacobs, Heunen, Hasuo: *Categorical Semantics for Arrows* (2009)
+- Sanada: *Algebraic Effects and Handlers for Arrows* (2024)
 - Cimini: *A Calculus for Multi-language Operational Semantics* (2018/2022)

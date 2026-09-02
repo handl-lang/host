@@ -129,7 +129,7 @@ fn try_rule<'r>(rule: &'r LexerRuleDef, src: &str, pos: usize) -> Option<(&'r st
                 // (e.g. `if_true` lexes as one identifier, not `if` + `_true`).
                 if is_word_literal(text) {
                     if let Some(following) = peek_char(src, next) {
-                        if char_matches(following, "a-zA-Z0-9_") {
+                        if char_matches(following, "a-zA-Z0-9_α-ωΑ-Ω") {
                             return None;
                         }
                     }
@@ -338,7 +338,7 @@ pub fn char_matches(ch: char, class: &str) -> bool {
 /// greedily consume the prefix of a longer identifier. Operator literals
 /// (`==`, `->`, `(`) contain non-identifier characters and are unaffected.
 fn is_word_literal(text: &str) -> bool {
-    !text.is_empty() && text.chars().all(|c| char_matches(c, "a-zA-Z0-9_"))
+    !text.is_empty() && text.chars().all(|c| char_matches(c, "a-zA-Z0-9_α-ωΑ-Ω"))
 }
 
 #[cfg(test)]

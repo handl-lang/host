@@ -1,6 +1,10 @@
-loop { xs: [3, 7, 2, 9, 4, 1], best: 0 }(
+loop { xs: [3, 7, 2, 9, 4, 1], best: 0 } (
   proc (xs, best) -> match xs {
-    []: { out: best },
-    [h, ...t]: if h > best then { state: { xs: t, best: h } } else { state: { xs: t, best: best } }
+    []: returnA -< { out: best },
+
+    [h, ...t]: if h > best then
+      returnA -< { state: { xs: t, best: h } }
+    else
+      returnA -< { state: { xs: t, best: best } }
   }
 )

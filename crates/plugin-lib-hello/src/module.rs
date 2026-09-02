@@ -2,9 +2,12 @@
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
 
-use crate::greet;
+use crate::greet_via_handl;
 
 /// `hello.greet(name)` — returns the canonical Handl hello message.
+///
+/// The greeting logic is handl-authored in `greet.hnl`; this impl only
+/// validates arguments and delegates to [`greet_via_handl`].
 #[derive(Clone, Copy)]
 pub struct HelloGreet;
 
@@ -23,7 +26,7 @@ impl Function for HelloGreet {
         let name = args[0].as_str().ok_or_else(|| {
             EvalError::TypeMismatch("hello.greet: expected string argument".to_string())
         })?;
-        Ok(serde_json::Value::String(greet(name)))
+        Ok(serde_json::Value::String(greet_via_handl(name)?))
     }
 }
 

@@ -45,4 +45,54 @@ path = "src/structural_preservation_tests.rs"
 name = "arrow_apply"
 path = "src/arrow_apply_tests.rs"
 
+[[bin]]
+name = "profunctor_structural"
+path = "src/profunctor_structural_tests.rs"
+
+[[bin]]
+name = "challenge13"
+path = "src/challenge13_tests.rs"
+
+[[bin]]
+name = "proof_graph"
+path = "src/proof_graph_tests.rs"
+
+[[bin]]
+name = "poly_proof_graph"
+path = "src/poly_proof_graph_tests.rs"
+
+[[bin]]
+name = "refinement_inference"
+path = "src/refinement_inference_tests.rs"
+
+[[bin]]
+name = "liquid_types_comparison"
+path = "src/liquid_types_comparison_tests.rs"
+
+[[bin]]
+name = "termination_analysis"
+path = "src/termination_analysis_tests.rs"
+
+[[bin]]
+name = "real_programs"
+path = "src/real_programs_tests.rs"
+
+[[bin]]
+name = "quantitative_comparison"
+path = "src/quantitative_comparison_tests.rs"
+
+[[bin]]
+name = "evaluation"
+path = "src/evaluation_tests.rs"
+
+[features]
+# Enable native Z3 (Rust crate) for the refinement-inference binary.
+# When disabled (the default), the binary falls back to the Python-subprocess
+# approach (pyz3), which requires no native build tooling.
+native-z3 = ["dep:z3"]
+
 [dependencies]
+# Optional native Z3 SMT solver bindings. Only pulled in by the `native-z3`
+# feature. `static-link-z3` compiles Z3 from source via cmake; the default
+# build uses the pyz3 subprocess fallback instead.
+z3 = { version = "0.12", features = ["static-link-z3"], optional = true }

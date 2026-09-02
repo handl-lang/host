@@ -1,3 +1,6 @@
-loop { n: 255, bits: 0 }(
-  proc (n, bits) -> if n == 0 then { out: bits } else { state: { n: n / 2, bits: bits + (n % 2) } }
+loop { n: 255, bits: 0 } (
+  proc (n, bits) -> if n == 0 then
+    returnA -< { out: bits }
+  else
+    returnA -< { state: { n: n / 2, bits: bits + (n % 2) } }
 )

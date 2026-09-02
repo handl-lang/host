@@ -179,6 +179,83 @@ fn lex_line_comment_produces_token() {
 }
 
 #[test]
+fn lex_unicode_contract_characters() {
+    // Contract files use Unicode: `→` (function type arrow), `×` (product
+    // type), and Greek letters `α`/`β` (type variables). These must lex
+    // without error and produce the same token kinds as their ASCII
+    // counterparts (`->` → token.arrow, `*` → token.star).
+    let toks = lex("axiom prim.add : (Int × Int) → Int");
+    assert_eq!(toks[0].kind, "token.keyword.axiom");
+    assert_eq!(toks[0].text, "axiom");
+    // `×` reuses token.star.
+    let star = toks.iter().find(|t| t.text == "×").unwrap();
+    assert_eq!(star.kind, "token.star");
+    // `→` reuses token.arrow.
+    let arrow = toks.iter().find(|t| t.text == "→").unwrap();
+    assert_eq!(arrow.kind, "token.arrow");
+}
+
+#[test]
+fn lex_unicode_greek_type_variables() {
+    // Greek letters lex as identifiers.
+    let toks = lex("α β γ");
+    assert_eq!(
+        toks,
+        vec![
+            Token {
+                kind: "token.identifier".into(),
+                text: "α".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "β".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "γ".into()
+            },
+        ]
+    );
+}
+
+#[test]
+fn lex_unicode_greek_uppercase_identifiers() {
+    // Uppercase Greek letters also lex as identifiers.
+    let toks = lex("Ω Λ Δ");
+    assert_eq!(
+        toks,
+        vec![
+            Token {
+                kind: "token.identifier".into(),
+                text: "Ω".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "Λ".into()
+            },
+            Token {
+                kind: "token.identifier".into(),
+                text: "Δ".into()
+            },
+        ]
+    );
+}
+
+#[test]
+fn lex_unicode_contract_with_greek_vars() {
+    // Full contract line from prim.hnl with Greek type variables.
+    let toks = lex("axiom prim.eq : (α × α) → Bool");
+    assert_eq!(toks[0].kind, "token.keyword.axiom");
+    let alphas: Vec<&Token> = toks.iter().filter(|t| t.text == "α").collect();
+    assert_eq!(alphas.len(), 2);
+    assert_eq!(alphas[0].kind, "token.identifier");
+    let star = toks.iter().find(|t| t.text == "×").unwrap();
+    assert_eq!(star.kind, "token.star");
+    let arrow = toks.iter().find(|t| t.text == "→").unwrap();
+    assert_eq!(arrow.kind, "token.arrow");
+}
+
+#[test]
 fn lex_decimal_and_minus() {
     // `3.14 -5`: the `token.minus` operator rule (priority 20) is tried before
     // the number rule (priority 40), so `-` is lexed as a minus operator.

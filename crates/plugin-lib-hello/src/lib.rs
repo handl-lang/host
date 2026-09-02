@@ -3,11 +3,16 @@
 //! Minimal example standard library for the handl runtime.
 //!
 //! Provides the `hello` library as a `Library` plugin.
+//!
+//! The greet *logic* is handl-authored in `kit-stdlib/data/hello/greet.hnl`;
+//! this crate only loads + evaluates + bridges that definition (see
+//! [`bridge`]). The `Module`/`Plugin` trait scaffolding is retained as the
+//! registration boundary.
 
-/// Greet `name` with the canonical Handl hello message.
-pub fn greet(name: &str) -> String {
-    format!("Hello, {name}!")
-}
+/// Handl-authored `greet` loader/bridge (shared by the `Function` and
+/// `Plugin` impls).
+mod bridge;
+pub(crate) use bridge::greet_via_handl;
 
 fn parse_greet_arg(arg: &str) -> Option<String> {
     let rest = arg.strip_prefix("hello.greet")?;
@@ -76,6 +81,24 @@ impl Plugin for HelloPlugin {
         } else {
             "world".to_string()
         };
-        Ok(CapabilityResponse(serde_json::Value::String(greet(&name))))
+        let greeting = greet_via_handl(&name).map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        Ok(CapabilityResponse(serde_json::Value::String(greeting)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::greet_via_handl;
+
+    #[test]
+    fn greet_via_handl_returns_canonical_greeting() {
+        // The greet logic is handl-authored in greet.hnl; this confirms the
+        // shared bridge loads + evaluates it.
+        assert_eq!(greet_via_handl("world").unwrap(), "Hello, world!");
+    }
+
+    #[test]
+    fn greet_via_handl_escapes_special_chars() {
+        assert_eq!(greet_via_handl("a\"b\\c").unwrap(), "Hello, a\"b\\c!");
     }
 }

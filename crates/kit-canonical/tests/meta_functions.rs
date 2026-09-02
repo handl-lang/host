@@ -12,9 +12,7 @@
 //! pipeline result directly.
 
 use handl_kit_canonical::Kit;
-use handl_language::{
-    Ast, AstNode, Language, as_language, is_language_value, language_value,
-};
+use handl_language::{Ast, AstNode, Language, as_language, is_language_value, language_value};
 use handl_runtime::Runtime;
 use serde_json::json;
 

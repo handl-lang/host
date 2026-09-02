@@ -11,6 +11,7 @@ path = "src/main.rs"
 handl-platform.workspace = true
 handl-plugin-applier.workspace = true
 handl-plugin-ext-lsp.workspace = true
+handl-plugin-ext-refinement.workspace = true
 handl-kit-canonical.workspace = true
 handl-language.workspace = true
 handl-host-tooling.workspace = true

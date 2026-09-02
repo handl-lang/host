@@ -812,11 +812,15 @@ expose. 33/33 tests. See `RESULTS_CHALLENGE9.md`.
 
 ## Key References (Always Nearby)
 
-- **Lindley, Wadler, Yallop (2008).** *The Arrow Calculus.* Formal definition of Arrow Calculus.
-- **Sanada (2024).** *Algebraic Effects and Handlers for Arrows.* Handler semantics.
 - **Hughes (2000).** *Generalising Monads to Arrows.* Original arrow theory.
-- **Paterson (2001).** *A New Notation for Arrows.* Arrow notation syntax.
+- **Paterson (2001).** *A New Notation for Arrows.* Arrow notation syntax (`proc`/`rec`).
+- **Paterson (2003).** *Arrows and Computation.* Programming perspective; combinator API we use.
+- **Hughes (2004).** *Programming with Arrows.* Practical arrow programming guide.
+- **Lindley, Wadler, Yallop (2008).** *The Arrow Calculus.* Formal definition of Arrow Calculus.
+- **Jacobs, Heunen, Hasuo (2009).** *Categorical Semantics for Arrows.* Arrows as monoids in bifunctor categories; Freyd categories connection.
+- **Sanada (2024).** *Algebraic Effects and Handlers for Arrows.* Handler semantics.
 - **Bauer & Pretnar (2015).** *An effect system for algebraic effects and handlers.* Effect typing basis.
+- **VanDomelen et al. (2025).** *Freer Arrows and Why You Need Them in Haskell.* Freer arrows vs freer monads.
 
 ## Challenge #10: ArrowChoice Independence (Lean4 Formalization)
 

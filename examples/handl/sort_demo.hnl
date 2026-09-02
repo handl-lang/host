@@ -5,7 +5,6 @@
 //   - insert: Sorted(output) — from the Choice WP branching
 //   - sort:   Sorted(output) — from insert's inferred contract
 //
-// Zero user annotations. Zero contracts on sort or insert.
 // Only 3 Rust atoms carry contracts: prim.add, prim.compare, prim.alloc.
 
 {

@@ -48,7 +48,7 @@ fn initialize_result_has_semantic_tokens_provider() {
     assert_eq!(result["capabilities"]["referencesProvider"], true);
     assert_eq!(
         result["capabilities"]["renameProvider"]["prepareProvider"],
-        false
+        true
     );
 
     let token_types = result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]

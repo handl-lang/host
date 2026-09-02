@@ -1,5 +1,8 @@
-loop { base: 2, exp: 10, acc: 1 }(
-  proc (base, exp, acc) -> if exp == 0 then { out: acc }
-  else if exp % 2 == 0 then { state: { base: base * base, exp: exp / 2, acc: acc } }
-  else { state: { base: base * base, exp: exp / 2, acc: acc * base } }
+loop { base: 2, exp: 10, acc: 1 } (
+  proc (base, exp, acc) -> if exp == 0 then
+    returnA -< { out: acc }
+  else if exp % 2 == 0 then
+    returnA -< { state: { base: base * base, exp: exp / 2, acc: acc } }
+  else
+    returnA -< { state: { base: base * base, exp: exp / 2, acc: acc * base } }
 )

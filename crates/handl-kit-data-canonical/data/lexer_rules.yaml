@@ -8,6 +8,21 @@
   pattern: !Literal
     text: ->
   priority: 10
+- id: lex.arrow.unicode
+  token_kind: token.arrow
+  pattern: !Literal
+    text: →
+  priority: 10
+- id: lex.arrow_app
+  token_kind: token.arrow_app
+  pattern: !Literal
+    text: '-<'
+  priority: 10
+- id: lex.arrow_bind
+  token_kind: token.arrow_bind
+  pattern: !Literal
+    text: '<-'
+  priority: 10
 - id: lex.bang
   token_kind: token.bang
   pattern: !Literal
@@ -101,8 +116,8 @@
 - id: lex.identifier
   token_kind: token.identifier
   pattern: !CharClass
-    start_chars: a-zA-Z_
-    continue_chars: a-zA-Z0-9_
+    start_chars: a-zA-Z_α-ωΑ-Ω
+    continue_chars: a-zA-Z0-9_α-ωΑ-Ω
   priority: 50
 - id: lex.json
   token_kind: token.json
@@ -191,6 +206,11 @@
   pattern: !Literal
     text: proc
   priority: 15
+- id: lex.keyword.returnA
+  token_kind: token.keyword.returnA
+  pattern: !Literal
+    text: returnA
+  priority: 15
 - id: lex.keyword.loop
   token_kind: token.keyword.loop
   pattern: !Literal
@@ -220,6 +240,16 @@
   token_kind: token.keyword.when
   pattern: !Literal
     text: when
+  priority: 15
+- id: lex.keyword.where
+  token_kind: token.keyword.where
+  pattern: !Literal
+    text: where
+  priority: 15
+- id: lex.keyword.axiom
+  token_kind: token.keyword.axiom
+  pattern: !Literal
+    text: axiom
   priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
@@ -334,6 +364,11 @@
   token_kind: token.star
   pattern: !Literal
     text: '*'
+  priority: 20
+- id: lex.star.unicode
+  token_kind: token.star
+  pattern: !Literal
+    text: ×
   priority: 20
 - id: lex.string
   token_kind: token.string

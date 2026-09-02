@@ -1,22 +1,32 @@
 // fold: reduce a list using a binary function and initial accumulator.
+//
 // Written as an arrow graph over list primitives.
 // Contract: inferred from the step function's guarantee.
 //
 // Graph structure:
-//   loop(comp(step, first(id)))
+//   loop (step >>> first(id))
 //
 // The loop processes elements one at a time:
 //   - apply step function to (current accumulator, head of remaining)
 //   - update accumulator with result
 //   - repeat until input is exhausted
 
-loop { remaining: input.0, f: input.1, acc: input.2 }(
+loop {
+  remaining: input.0,
+  f:         input.1,
+  acc:       input.2
+} (
   proc (state) -> match state.remaining {
-    []: { out: state.acc },
-    [h, ...t]: { state: {
-      remaining: t,
-      f: state.f,
-      acc: state.f(state.acc, h)
-    } }
+    []: returnA -< {
+      out: state.acc
+    },
+
+    [h, ...t]: returnA -< {
+      state: {
+        remaining: t,
+        f:         state.f,
+        acc:       state.f(state.acc, h)
+      }
+    }
   }
 )

@@ -1,0 +1,176 @@
+{
+  "loop arrow": {
+    "prefix": "loop",
+    "body": [
+      "loop {",
+      "  remaining: input,",
+      "  acc:       []",
+      "} (",
+      "  proc (state) -> match state.remaining {",
+      "    []: returnA -< {",
+      "      out: state.acc",
+      "    },",
+      "",
+      "    [h, ...t]: do {",
+      "      ${1:// process h}",
+      "      returnA -< {",
+      "        state: {",
+      "          remaining: t,",
+      "          acc:       state.acc",
+      "        }",
+      "      }",
+      "    }",
+      "  }",
+      ")"
+    ],
+    "description": "A loop arrow with match on remaining list"
+  },
+  "loop with multiple fields": {
+    "prefix": "loop-fields",
+    "body": [
+      "loop {",
+      "  ${1:field1}: ${2:input},",
+      "  ${3:field2}: ${4:[]}",
+      "} (",
+      "  proc (state) -> match state.${1:field1} {",
+      "    []: returnA -< {",
+      "      out: state.${3:field2}",
+      "    },",
+      "",
+      "    [h, ...t]: do {",
+      "      ${5:// process element}",
+      "      returnA -< {",
+      "        state: {",
+      "          ${1:field1}: t,",
+      "          ${3:field2}:       state.${3:field2}",
+      "        }",
+      "      }",
+      "    }",
+      "  }",
+      ")"
+    ],
+    "description": "A loop arrow with custom state fields"
+  },
+  "proc arrow": {
+    "prefix": "proc",
+    "body": [
+      "proc (${1:args}) -> ${2:expr}"
+    ],
+    "description": "A proc arrow: proc (args) -> expr"
+  },
+  "match block": {
+    "prefix": "match",
+    "body": [
+      "match ${1:state.field} {",
+      "  []: ${2:// base case},",
+      "",
+      "  [h, ...t]: ${3:// recursive case}",
+      "}"
+    ],
+    "description": "A match block with empty and cons patterns"
+  },
+  "do block": {
+    "prefix": "do",
+    "body": [
+      "do {",
+      "  ${1:result} <- ${2:arrow} -< ${3:input};",
+      "  returnA -< {",
+      "    ${4:// output}",
+      "  }",
+      "}"
+    ],
+    "description": "A do block with a binding and return"
+  },
+  "returnA": {
+    "prefix": "returnA",
+    "body": [
+      "returnA -< {",
+      "  ${1:out}: ${2:value}",
+      "}"
+    ],
+    "description": "returnA -< { ... }"
+  },
+  "arrow combinator": {
+    "prefix": "arr",
+    "body": [
+      "arr(\"${1:op}\")"
+    ],
+    "description": "arr(\"op\") — lift a primitive operation"
+  },
+  "sequence": {
+    "prefix": "seq",
+    "body": [
+      "${1:first} >>> ${2:second}"
+    ],
+    "description": "a >>> b — sequence two arrows"
+  },
+  "choice": {
+    "prefix": "choice",
+    "body": [
+      "${1:left} ||| ${2:right}"
+    ],
+    "description": "a ||| b — choice between two arrows"
+  },
+  "comp": {
+    "prefix": "comp",
+    "body": [
+      "comp(${1:first}, ${2:second})"
+    ],
+    "description": "comp(a, b) — compose two arrows"
+  },
+  "first": {
+    "prefix": "first",
+    "body": [
+      "first(${1:arrow})"
+    ],
+    "description": "first(a) — apply arrow to first component"
+  },
+  "named arrow": {
+    "prefix": "named",
+    "body": [
+      "${1:name} = ${2:arrow}"
+    ],
+    "description": "A named arrow definition: name = expr"
+  },
+  "axiom": {
+    "prefix": "axiom",
+    "body": [
+      "axiom ${1:name} : ${2:type}"
+    ],
+    "description": "An axiom declaration"
+  },
+  "doc comment": {
+    "prefix": "doc",
+    "body": [
+      "/// ${1:name}: ${2:description}",
+      "///",
+      "/// ${3:details}"
+    ],
+    "description": "A doc comment block"
+  },
+  "if-then-else": {
+    "prefix": "if",
+    "body": [
+      "if ${1:cond} then",
+      "  ${2:// then branch}",
+      "else",
+      "  ${3:// else branch}"
+    ],
+    "description": "if/then/else expression"
+  },
+  "where binding": {
+    "prefix": "where",
+    "body": [
+      "${1:expr} where",
+      "  ${2:name} = ${3:definition}"
+    ],
+    "description": "A where binding: expr where name = def"
+  },
+  "let binding in do": {
+    "prefix": "bind",
+    "body": [
+      "${1:result} <- ${2:arrow} -< ${3:input};"
+    ],
+    "description": "A binding inside a do block: x <- arrow -< input"
+  }
+}

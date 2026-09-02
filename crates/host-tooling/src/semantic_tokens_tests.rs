@@ -79,19 +79,19 @@ fn classifier_maps_keyword_to_keyword_type() {
 }
 
 #[test]
-fn classifier_maps_bool_to_keyword_type() {
+fn classifier_maps_bool_to_constant_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier.classify("token.bool", &legend).unwrap();
-    assert_eq!(ty, legend.token_type_index("keyword").unwrap());
+    assert_eq!(ty, legend.token_type_index("constant").unwrap());
 }
 
 #[test]
-fn classifier_maps_null_to_keyword_type() {
+fn classifier_maps_null_to_constant_type() {
     let legend = SemanticTokenLegend::default();
     let classifier = CanonicalTokenClassifier;
     let (ty, _mods) = classifier.classify("token.null", &legend).unwrap();
-    assert_eq!(ty, legend.token_type_index("keyword").unwrap());
+    assert_eq!(ty, legend.token_type_index("constant").unwrap());
 }
 
 #[test]
@@ -301,9 +301,19 @@ fn context_classifier_identifies_function_call() {
 
 #[test]
 fn context_classifier_identifies_dotted_function_call() {
-    let (ty, _mods) = classify_first_identifier("crypto.sha256(\"hello\")");
+    // `crypto.sha256(...)` — `crypto` is the module (variable), `sha256` is the method.
+    let all = classify_all_identifiers("crypto.sha256(\"hello\")");
     let legend = SemanticTokenLegend::default();
-    assert_eq!(ty, legend.token_type_index("function").unwrap());
+    let var_idx = legend.token_type_index("variable").unwrap();
+    let method_idx = legend.token_type_index("method").unwrap();
+
+    // First identifier: `crypto` → variable (module/namespace)
+    let crypto_tok = all.iter().find(|(name, _, _)| name == "crypto").unwrap();
+    assert_eq!(crypto_tok.1, var_idx);
+
+    // Second identifier: `sha256` → method (called via dot)
+    let sha256_tok = all.iter().find(|(name, _, _)| name == "sha256").unwrap();
+    assert_eq!(sha256_tok.1, method_idx);
 }
 
 #[test]

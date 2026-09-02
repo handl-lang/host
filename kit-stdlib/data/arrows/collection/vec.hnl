@@ -1,7 +1,7 @@
 // vec: list-based dynamic array.
 // Operations: push, pop, get, set.
 // This is a multi-name file — each name is a separate arrow graph.
-// Contracts: inferred from the underlying list primitives with zero annotations.
+// Contracts: inferred from the underlying list primitives.
 //
 // Graph structure:
 //   push = arr("list.cons")

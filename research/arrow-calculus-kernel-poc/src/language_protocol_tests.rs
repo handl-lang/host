@@ -1219,6 +1219,96 @@ mod tests {
         assert_eq!(a_opt, node("Int", vec![Value::Int(9)]));
         assert_eq!(b_opt, node("Bool", vec![Value::Bool(true)]));
     }
+
+    // --- lit necessity: is lit needed for tooling or only optimization? -----
+
+    /// A language with a broken `lit` (always throws). Used to test whether
+    /// `lit` is necessary for each generic tool.
+    fn arith_broken_lit() -> Language {
+        let base = arith_language();
+        Language {
+            name: "Arith (broken lit)",
+            parse: base.parse,
+            eval: base.eval,
+            format: base.format,
+            typecheck: base.typecheck,
+            lit: Rc::new(|_| throw("lit: broken")),
+        }
+    }
+
+    #[test]
+    fn test_lit_not_needed_for_pretty_print() {
+        let lang = arith_broken_lit();
+        let ast = node(
+            "Add",
+            vec![
+                node("Int", vec![Value::Int(1)]),
+                node("Int", vec![Value::Int(2)]),
+            ],
+        );
+        // pretty_print uses only format — lit is never called.
+        let out = pretty_print(&lang, &ast);
+        assert_eq!(out, "(+ 1 2)");
+    }
+
+    #[test]
+    fn test_lit_not_needed_for_error_report() {
+        let lang = arith_broken_lit();
+        let ast = node(
+            "Add",
+            vec![
+                node("Int", vec![Value::Int(1)]),
+                node("Bool", vec![Value::Bool(true)]),
+            ],
+        );
+        // report_error uses only typecheck + eval — lit is never called.
+        let env = env_empty();
+        let msg = report_error(&lang, &ast, &env);
+        assert!(msg.contains("Type error") || msg.contains("Runtime error"));
+    }
+
+    #[test]
+    fn test_lit_not_needed_for_parse_eval_pipeline() {
+        let lang = arith_broken_lit();
+        // parse >>> eval pipeline works without lit.
+        let env = env_empty();
+        let pair: Rc<dyn Fn(Value) -> Comp + 'static> =
+            Rc::new(move |ast| {
+                pure(Value::Product(Box::new(ast), Box::new(env.clone())))
+            });
+        let pipeline = seq(Rc::clone(&lang.parse), seq(pair, Rc::clone(&lang.eval)));
+        let result = run(pipeline(Value::Str("(+ 2 3)".to_string()))).unwrap();
+        assert_eq!(result, Value::Int(5));
+    }
+
+    #[test]
+    fn test_lit_needed_for_optimize() {
+        let lang = arith_broken_lit();
+        let ast = node(
+            "Add",
+            vec![
+                node("Int", vec![Value::Int(2)]),
+                node("Int", vec![Value::Int(3)]),
+            ],
+        );
+        // optimize calls lit to re-embed the folded value. With broken lit,
+        // it falls back to the un-folded node (eval succeeds but lit fails).
+        let opt = optimize(&lang, &ast);
+        // The node is kept as-is because lit failed — not folded to Int(5).
+        assert_eq!(opt, ast);
+    }
+
+    #[test]
+    fn test_lit_is_inverse_of_eval_on_literals() {
+        let lang = arith_language();
+        // lit(eval(Int(n))) = Int(n) — lit inverts eval on literals.
+        let n = Value::Int(42);
+        let lit_ast = run((lang.lit)(n.clone())).unwrap();
+        assert_eq!(lit_ast, node("Int", vec![Value::Int(42)]));
+        // And eval(lit(n)) = n — roundtrip.
+        let input = Value::Product(Box::new(lit_ast), Box::new(env_empty()));
+        assert_eq!(run((lang.eval)(input)).unwrap(), Value::Int(42));
+    }
 }
 
 // ============================================================================

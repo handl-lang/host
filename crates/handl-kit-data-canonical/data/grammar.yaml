@@ -34,6 +34,30 @@
   child_shape:
     node_kind: proc
     arity: 1
+- id: grammar.returnA.prefix
+  token: token.keyword.returnA
+  position: Prefix
+  child_shape:
+    node_kind: returnA
+    arity: 0
+- id: grammar.arrow-app.infix
+  token: token.arrow_app
+  position: Infix
+  binding_power:
+  - 18
+  - 19
+  child_shape:
+    node_kind: arrow_app
+    arity: 2
+- id: grammar.arrow-bind.infix
+  token: token.arrow_bind
+  position: Infix
+  binding_power:
+  - 15
+  - 16
+  child_shape:
+    node_kind: arrow_bind
+    arity: 2
 - id: grammar.loop.prefix
   token: token.keyword.loop
   position: Prefix

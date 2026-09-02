@@ -1123,6 +1123,45 @@ impl TreeWalkEngine {
             "handle" => self.prim_handle(ast, lang, env, current_node),
             "json" => self.prim_json(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
+            "arrow_bind" => {
+                // Paterson do-notation binding: `y <- f -< x`.
+                // Children: [var_node, expr_node]. Evaluate expr, bind
+                // the result to the var name in the current scope (no
+                // push/pop — the binding persists for the rest of the
+                // enclosing do-block).
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine(
+                            "arrow_bind: expected children array in payload".to_string(),
+                        )
+                    })?;
+                if children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "arrow_bind: expected 2 children".to_string(),
+                    ));
+                }
+                let var_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("arrow_bind: var index must be a number".to_string())
+                })? as usize;
+                let expr_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("arrow_bind: expr index must be a number".to_string())
+                })? as usize;
+                let var_name = {
+                    let var_node = ast.at(AstRef::new(var_idx))?;
+                    var_node.payload.as_str().ok_or_else(|| {
+                        LangError::Engine(
+                            "arrow_bind: LHS must be an identifier (var with string payload)"
+                                .to_string(),
+                        )
+                    })?
+                };
+                let value = self.eval_node(ast, AstRef::new(expr_idx), lang, env)?;
+                env.define(var_name, value.clone());
+                Ok((value, false))
+            }
             // Arithmetic / comparison / logic.
             "add" => bin_add(args),
             "sub" => bin_num(args, |a, b| a - b),

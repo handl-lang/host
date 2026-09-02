@@ -2,6 +2,10 @@
   label: '&&'
 - id: token.arrow
   label: ->
+- id: token.arrow_app
+  label: '-<'
+- id: token.arrow_bind
+  label: '<-'
 - id: token.bang
   label: null
 - id: token.bool
@@ -77,6 +81,8 @@
   label: not
 - id: token.keyword.proc
   label: proc
+- id: token.keyword.returnA
+  label: returnA
 - id: token.keyword.loop
   label: loop
 - id: token.keyword.do
@@ -89,6 +95,10 @@
   label: typeof
 - id: token.keyword.when
   label: when
+- id: token.keyword.where
+  label: where
+- id: token.keyword.axiom
+  label: axiom
 - id: token.lbrace
   label: '{'
 - id: token.lbracket

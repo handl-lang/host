@@ -48,8 +48,15 @@ impl Default for SemanticTokenLegend {
                 "type".into(),
                 "parameter".into(),
                 "property".into(),
+                "method".into(),
+                "constant".into(),
             ],
-            token_modifiers: vec!["declaration".into(), "documentation".into()],
+            token_modifiers: vec![
+                "declaration".into(),
+                "documentation".into(),
+                "readonly".into(),
+                "static".into(),
+            ],
         }
     }
 }
@@ -135,9 +142,11 @@ impl CanonicalTokenClassifier {
         } else if is_comment_kind(kind) {
             "comment"
         } else if is_bool_kind(kind) || is_null_kind(kind) {
-            "keyword"
+            "constant"
         } else if is_keyword_kind(kind) {
             "keyword"
+        } else if kind == "token.arrow_app" || kind == "token.arrow_bind" {
+            "operator"
         } else if is_operator_kind(kind) {
             "operator"
         } else if is_delimiter_kind(kind) {
@@ -181,6 +190,19 @@ impl ContextClassifier for CanonicalTokenClassifier {
 
         // Non-identifier tokens use the simple, context-unaware mapping.
         if !is_identifier_kind(kind) {
+            // Classify brackets/braces/parens as punctuation (not operator).
+            if kind == "token.lbrace" || kind == "token.rbrace"
+                || kind == "token.lbracket" || kind == "token.rbracket"
+                || kind == "token.lparen" || kind == "token.rparen"
+            {
+                let ty = legend.token_type_index("punctuation")?;
+                return Some((ty, 0));
+            }
+            // Spread/rest `...` is an operator.
+            if kind == "token.ellipsis" {
+                let ty = legend.token_type_index("operator")?;
+                return Some((ty, 0));
+            }
             return self.classify_simple(kind, legend);
         }
 
@@ -189,6 +211,19 @@ impl ContextClassifier for CanonicalTokenClassifier {
         // Helper: check if token at index has a specific kind.
         let is_kind =
             |i: usize, k: &str| -> bool { tokens.get(i).map(|t| t.kind == k).unwrap_or(false) };
+
+        // Property access: preceded by a dot → this is a property/member.
+        // e.g. `state.acc`, `state.remaining`, `input.0`
+        if index > 0 && is_kind(index - 1, "token.dot") {
+            // If followed by `(`, it's a method call: `state.f(h)`, `arr.map(...)`
+            if is_kind(index + 1, "token.lparen") {
+                let ty = legend.token_type_index("method")?;
+                return Some((ty, 0));
+            }
+            // Otherwise it's a property access.
+            let ty = legend.token_type_index("property")?;
+            return Some((ty, 0));
+        }
 
         // Type reference: the identifier `type` followed by a dot (e.g.
         // `type.str`, `type.string`). The lexer splits `type.str` into
@@ -220,7 +255,7 @@ impl ContextClassifier for CanonicalTokenClassifier {
 
         // Dotted function call: `ident . ident (` — the first identifier
         // is a module name in a qualified call like `crypto.sha256(...)`.
-        // Classify it as `function`.
+        // Classify the module as `variable`, the callee as `method`.
         if is_kind(index + 1, "token.dot")
             && tokens
                 .get(index + 2)
@@ -228,7 +263,9 @@ impl ContextClassifier for CanonicalTokenClassifier {
                 .unwrap_or(false)
             && is_kind(index + 3, "token.lparen")
         {
-            let ty = legend.token_type_index("function")?;
+            // The callee (index+2) is a method call on this module.
+            // This identifier is the module/namespace.
+            let ty = legend.token_type_index("variable")?;
             return Some((ty, 0));
         }
 

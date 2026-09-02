@@ -121,9 +121,48 @@ proof*. They are empirical evidence for an architectural conclusion.
 A freer/free representation can make dynamic computations explicit as
 data, allowing structural analysis without giving up dynamic
 composition. The arrow calculus is one route to such a representation;
-freer monads are another. The structural advantage belongs to
-*explicitness*, not to arrows per se (see `RESULTS_CHALLENGE9.md` and
+freer monads are another. However, Challenge #13 (revised) shows that
+standard freer monads (with opaque function continuations) cannot
+correctly encode arrow fanout or choice — the structural advantage
+belongs to freer arrows specifically, not just explicitness in general
+(see `RESULTS_CHALLENGE9.md`, `RESULTS_CHALLENGE13.md`, and
 `THESIS.md`).
+
+---
+
+## VanDomelen et al. (2025) — Freer Arrows
+
+VanDomelen, Shen, Kuper, Li (Haskell '25) introduced freer arrows as
+a structure amenable to static analysis, in contrast to freer monads.
+This is directly relevant to Challenges #9 and #13:
+
+- Their claim: "freer monads are not amenable to static analysis;
+  freer arrows are amenable to static analysis."
+- Our Challenge #13 confirms and strengthens this: the asymmetry is
+  not just about static analysis but also about expressiveness.
+  Standard freer monads cannot correctly encode arrow fanout or choice
+  (semantic mismatch), and their opaque continuations prevent effect
+  inference, speculative compilation, and fusion.
+- The root cause: arrows have an explicit input parameter; monads don't.
+
+This is the most directly relevant prior work for Challenge #13.
+
+---
+
+## Jacobs, Heunen, Hasuo (2009) — Categorical Semantics for Arrows
+
+Jacobs et al. developed the denotational semantics of arrows as monoids
+in categories of bifunctors (C^op × C → C), analogous to monads as
+monoids in endofunctor categories. They showed that the Kleisli
+construction for arrows yields Freyd categories (Robinson & Power 1997),
+formalizing the folklore "arrows are Freyd categories."
+
+This is the categorical foundation for our Challenge #12 (profunctor
+subsumption refuted): a profunctor IS a bifunctor C^op × C → C, and
+"strong cocartesian traced profunctor" = arrow = monoid in that
+category. The profunctor framing drops the monoid structure (strength,
+choice, trace) that makes arrows useful — recovering it reconstructs
+the arrow interface exactly.
 
 ---
 

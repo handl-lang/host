@@ -14,18 +14,18 @@
 use handl_kit_data_canonical;
 use handl_language::{Ast, LangError, Source, Span, Tokens, Value};
 use handl_platform::{EvalContext, EvalError, Function, ModuleLookup};
+use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
 use handl_plugin_lib_collections::CollectionsModule;
 use handl_plugin_lib_lang_compile::CompileModule;
-use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_lang_eval::EvalModule;
 use handl_plugin_lib_lang_lex::LexModule;
 use handl_plugin_lib_lang_parse::ParseModule;
 use handl_plugin_lib_lang_run_compiled::RunCompiledModule;
 use handl_plugin_lib_lang_typecheck::TypecheckModule;
-use handl_plugin_engine_typecheck_nbe::NbeTypecheckEngine;
+use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_utils::{
-    BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule, ParseModule as UtilsParseModule,
-    ResultModule, SerializeModule, StrModule, TypeModule,
+    BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule,
+    ParseModule as UtilsParseModule, ResultModule, SerializeModule, StrModule, TypeModule,
 };
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
@@ -35,6 +35,109 @@ use std::rc::Rc;
 // ---------------------------------------------------------------------------
 // hello.greet host function + registry
 // ---------------------------------------------------------------------------
+//
+// The greet *logic* is handl-authored in `kit-stdlib/data/hello/greet.hnl`
+// (a single `proc (name) -> "Hello, " + name + "!"` expression). This Rust
+// side is a thin loader/bridge: it `include_str!`s that data file, evaluates
+// it with a minimal module-free runtime (greet uses only the native `+`
+// string-concat op, so no `ModuleLookup` is needed), and applies the
+// resulting closure to the caller's argument. The runtime is cached per
+// thread (the tree-walk engine is thread-local); only the tiny applied
+// expression is lexed/parsed/evaluated per call.
+
+/// The handl source defining `greet` — the single source of truth for the
+/// greeting logic. Loaded at compile time from the kit-stdlib data dir.
+const GREET_HNL: &str = include_str!("../../../kit-stdlib/data/hello/greet.hnl");
+
+thread_local! {
+    /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached
+    /// per-thread because the tree-walk engine stores the active AST /
+    /// `Language` in thread-locals. No module registry is wired: `greet`
+    /// uses only the native `+` string-concatenation op.
+    static GREET_RUNTIME: std::cell::RefCell<Option<Runtime>> =
+        std::cell::RefCell::new(None);
+}
+
+/// Build the minimal runtime used to evaluate the handl-authored `greet`.
+///
+/// Reuses the canonical `Language` (assembled via
+/// `handl_kit_data_canonical`) bound to the data lexer, Pratt parser, and
+/// tree-walk evaluator — the same engines as [`Kit::new`], but with no
+/// module registry and no globals.
+fn build_greet_runtime() -> Result<Runtime, LangError> {
+    let kit = handl_kit_data_canonical::assemble()?;
+    let lang = kit.lang().clone();
+    let config = RuntimeConfig::new()
+        .with_lex("data")
+        .with_parse("pratt")
+        .with_eval("tree-walk");
+    let mut registry = EngineRegistry::new();
+    registry.register_lex(
+        "data",
+        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+    );
+    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    registry.register_eval(
+        "tree-walk",
+        Box::new(handl_plugin_engine_eval_tree_walk::TreeWalkEngine::new()),
+    );
+    let registry = Rc::new(registry);
+    Runtime::from_registry(lang, &registry, &config)
+}
+
+/// Escape a Rust string for embedding inside a handl `"..."` string literal.
+///
+/// Only `"` and `\` need escaping: the delimited lexer consumes any other
+/// character (including newlines) raw, and the Pratt parser's string-literal
+/// unescaping only rewrites the four canonical escapes (`\\`, `\"`, `\n`,
+/// `\t`), so all other characters pass through faithfully.
+fn escape_handl_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Strip `//` comment lines from `greet.hnl` so the embedded source parses
+/// as a bare expression. The data file's header comment documents the
+/// definition but is not valid inside the applied `(greet)(name)` form the
+/// Pratt parser evaluates, so it is removed before evaluation.
+fn strip_comment_lines(src: &str) -> String {
+    src.lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Evaluate the handl-authored `greet` applied to `name` and return the
+/// resulting greeting string.
+///
+/// Reuses a cached per-thread minimal runtime; only the small applied
+/// expression `(greet.hnl)(name)` is lexed/parsed/evaluated per call.
+fn greet_via_handl(name: &str) -> Result<String, EvalError> {
+    let escaped = escape_handl_string(name);
+    let greet_src = strip_comment_lines(GREET_HNL);
+    let source = format!("({greet_src})(\"{escaped}\")");
+    GREET_RUNTIME.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        let runtime = slot.get_or_insert_with(|| {
+            build_greet_runtime().expect("canonical kit assembly should not fail")
+        });
+        runtime
+            .run(&Source::new(&source))
+            .map_err(|e| EvalError::Other(format!("hello.greet: {e}")))
+            .and_then(|v| {
+                v.as_str().map(String::from).ok_or_else(|| {
+                    EvalError::Other("hello.greet: greet did not return a string".to_string())
+                })
+            })
+    })
+}
 
 /// `hello.greet(name)` host function — the canonical handl greeting.
 ///
@@ -44,6 +147,9 @@ use std::rc::Rc;
 /// by [`Kit::new`]) is `{"greet": "hello.greet"}`, so `field-access` yields the
 /// string `"hello.greet"`, and the tree-walk engine's `apply_closure` dispatches
 /// a string-named host function to this impl.
+///
+/// The greeting logic itself is handl-authored in `greet.hnl`; this impl only
+/// validates arguments and delegates to [`greet_via_handl`].
 pub struct HelloGreetHostFn;
 
 impl Function for HelloGreetHostFn {
@@ -57,7 +163,7 @@ impl Function for HelloGreetHostFn {
         let name = args[0]
             .as_str()
             .ok_or_else(|| EvalError::Other("hello.greet: expected string argument".to_string()))?;
-        Ok(Value::String(format!("Hello, {name}!")))
+        Ok(Value::String(greet_via_handl(name)?))
     }
 }
 
@@ -675,6 +781,28 @@ mod tests {
     }
 
     #[test]
+    fn hello_greet_returns_canonical_greeting() {
+        // The greet logic is handl-authored in greet.hnl; this confirms the
+        // bridge loads + evaluates it through the live Kit runtime path.
+        let kit = Kit::new().unwrap();
+        let val = kit.run("hello.greet(\"world\")").unwrap();
+        assert_eq!(val, Value::String("Hello, world!".to_string()));
+    }
+
+    #[test]
+    fn hello_greet_rejects_non_string_arg() {
+        let kit = Kit::new().unwrap();
+        assert!(kit.run("hello.greet(42)").is_err());
+    }
+
+    #[test]
+    fn hello_greet_bridge_escapes_special_chars() {
+        let kit = Kit::new().unwrap();
+        let val = kit.run("hello.greet(\"a\\\"b\")").unwrap();
+        assert_eq!(val, Value::String("Hello, a\"b!".to_string()));
+    }
+
+    #[test]
     fn lex_string() {
         let kit = Kit::new().unwrap();
         let tokens = kit.lex("\"hi\"").unwrap();
@@ -1028,7 +1156,10 @@ mod tests {
     fn typecheck_if_with_non_bool_cond_errors() {
         let kit = Kit::new().unwrap();
         let res = kit.typecheck("if 42 then 1 else 2");
-        assert!(res.is_err(), "expected typecheck error for non-bool if condition");
+        assert!(
+            res.is_err(),
+            "expected typecheck error for non-bool if condition"
+        );
     }
 
     #[test]
@@ -1084,6 +1215,9 @@ mod tests {
     fn typecheck_let_with_annotation_rejects_mismatch() {
         let kit = Kit::new().unwrap();
         let res = kit.typecheck("let x: type.string = 2 in x");
-        assert!(res.is_err(), "expected typecheck error for let annotation mismatch");
+        assert!(
+            res.is_err(),
+            "expected typecheck error for let annotation mismatch"
+        );
     }
 }

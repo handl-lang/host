@@ -1,6 +1,6 @@
 // reduce: reduce a list using a binary function and initial accumulator.
 // An alias for fold, written as an arrow graph over list primitives.
-// Contract: inferred from the step function's guarantee with zero annotations.
+// Contract: inferred from the step function's guarantee.
 //
 // Graph structure:
 //   reduce = loop(arr("fold_step") >>> first(id))

@@ -16,6 +16,12 @@
     args: []
     source: Native
     lit: 0
+- id: eval.arrow_bind
+  node_kind: arrow_bind
+  scheme: !Arr
+    op: arrow_bind
+    args: []
+    source: Native
 - id: eval.array
   node_kind: array
   scheme: !Arr

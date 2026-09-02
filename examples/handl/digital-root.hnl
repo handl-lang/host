@@ -1,5 +1,9 @@
-loop { n: 942, sum: 0 }(
+loop { n: 942, sum: 0 } (
   proc (n, sum) -> if n == 0 then
-    if sum < 10 then { out: sum } else { state: { n: sum, sum: 0 } }
-  else { state: { n: n / 10, sum: sum + (n % 10) } }
+    if sum < 10 then
+      returnA -< { out: sum }
+    else
+      returnA -< { state: { n: sum, sum: 0 } }
+  else
+    returnA -< { state: { n: n / 10, sum: sum + (n % 10) } }
 )

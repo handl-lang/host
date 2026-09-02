@@ -1,6 +1,6 @@
 // take: take the first n elements from a list.
 // Written as an arrow graph over list primitives.
-// Contract: inferred from the loop body with zero annotations.
+// Contract: inferred from the loop body.
 //
 // Graph structure:
 //   take = loop(arr("list.head") >>> (arr("cons") ||| arr("id")))

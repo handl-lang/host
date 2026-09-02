@@ -12,6 +12,52 @@
     - callee
     - args
     type: object
+- id: ast.arrow_app
+  node_kind: arrow_app
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+  desugar:
+    target_kind: call
+    children:
+    - !Keep 0
+    - !Keep 1
+- id: ast.arrow_bind
+  node_kind: arrow_bind
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+- id: ast.returnA
+  node_kind: returnA
+  payload_schema:
+    type: object
+  desugar:
+    target_kind: function
+    children:
+    - !Create
+      kind: var
+      payload: 'x'
+      children: []
+    - !Create
+      kind: var
+      payload: 'x'
+      children: []
 - id: ast.array
   node_kind: array
   payload_schema:

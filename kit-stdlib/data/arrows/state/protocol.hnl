@@ -6,7 +6,6 @@
 //
 // Both transitions have True guarantees (no structural invariant beyond
 // state validity), so the fixpoint converges with True as the invariant.
-// The key property is that inference succeeds with zero annotations.
 //
 // Termination: Constant (side-channel; event stream passes through).
 

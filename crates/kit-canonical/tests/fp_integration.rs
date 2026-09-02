@@ -305,8 +305,7 @@ fn json_prim_with_placeholder_substitution() {
     let json_node = AstNode::new("json").with_payload(json!("{\"value\": $0}"));
     let json_idx = ast.push(json_node).index();
     // Node 2: call node wrapping json with args.
-    let call_node = AstNode::new("call")
-        .with_payload(json!({ "children": [json_idx, lit_idx] }));
+    let call_node = AstNode::new("call").with_payload(json!({ "children": [json_idx, lit_idx] }));
     ast.push(call_node);
     // Apply the desugar pass (same as Runtime::parse does) so the call
     // node is rewritten into a json node before evaluation.

@@ -162,9 +162,10 @@ fn handle_rename_writes_workspace_edit() {
 
     let parsed: serde_json::Value = serde_json::from_str(&extract_body(&buf)).unwrap();
     assert_eq!(parsed["id"], 4);
-    let changes = parsed["result"]["changes"].as_object().unwrap();
-    assert!(changes.contains_key("file:///test.handl"));
-    let edits = changes["file:///test.handl"].as_array().unwrap();
+    let changes = parsed["result"]["documentChanges"].as_array().unwrap();
+    let entry = &changes[0];
+    assert_eq!(entry["textDocument"]["uri"], "file:///test.handl");
+    let edits = entry["edits"].as_array().unwrap();
     assert_eq!(edits.len(), 2);
     assert_eq!(edits[0]["newText"], "z");
     assert_eq!(edits[1]["newText"], "z");

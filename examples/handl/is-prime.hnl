@@ -1,5 +1,8 @@
-loop { n: 29, d: 2 }(
-  proc (n, d) -> if d * d > n then { out: true }
-  else if n % d == 0 then { out: false }
-  else { state: { n: n, d: d + 1 } }
+loop { n: 29, d: 2 } (
+  proc (n, d) -> if d * d > n then
+    returnA -< { out: true }
+  else if n % d == 0 then
+    returnA -< { out: false }
+  else
+    returnA -< { state: { n: n, d: d + 1 } }
 )

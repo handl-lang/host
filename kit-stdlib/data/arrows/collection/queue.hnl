@@ -1,7 +1,7 @@
 // queue: FIFO queue using list primitives.
 // enqueue to the back, dequeue from the front.
 // This is a multi-name file.
-// Contracts: inferred from the underlying list primitives with zero annotations.
+// Contracts: inferred from the underlying list primitives.
 //
 // Graph structure:
 //   enqueue = arr("list.append")

@@ -1,3 +1,6 @@
-loop { n: 5, acc: 1 }(
-  proc (n, acc) -> if n == 0 then { out: acc } else { state: { n: n - 1, acc: acc * n } }
+loop { n: 5, acc: 1 } (
+  proc (n, acc) -> if n == 0 then
+    returnA -< { out: acc }
+  else
+    returnA -< { state: { n: n - 1, acc: acc * n } }
 )

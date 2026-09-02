@@ -1,4 +1,4 @@
-use crate::{GrammarCapture, GrammarRule, generate_textmate};
+use crate::{GrammarCapture, GrammarRule, generate_textmate, grammar_rules_from_language};
 
 fn sample_rules() -> Vec<GrammarRule> {
     vec![
@@ -97,4 +97,73 @@ fn generate_textmate_empty_rules() {
     let grammar = generate_textmate(&[], "source.empty", &["empty".to_string()]);
     assert_eq!(grammar["scopeName"], "source.empty");
     assert_eq!(grammar["patterns"].as_array().unwrap().len(), 0);
+}
+
+// --- Data-driven grammar generation tests (ADR-0044) ---
+
+fn canonical_rules() -> Vec<GrammarRule> {
+    let kit = handl_kit_canonical::Kit::new().unwrap();
+    grammar_rules_from_language(kit.runtime().lang())
+}
+
+#[test]
+fn grammar_rules_from_language_produces_non_empty_rules() {
+    let rules = canonical_rules();
+    assert!(!rules.is_empty(), "grammar rules should not be empty");
+}
+
+#[test]
+fn grammar_rules_from_language_includes_all_categories() {
+    let rules = canonical_rules();
+    let names: Vec<&str> = rules.iter().map(|r| r.name.as_str()).collect();
+    for required in [
+        "comments",
+        "doc_comments",
+        "strings",
+        "numbers",
+        "booleans",
+        "nulls",
+        "keywords",
+        "operators",
+        "delimiters",
+        "type_names",
+        "identifiers",
+    ] {
+        assert!(
+            names.contains(&required),
+            "missing grammar category: {required}"
+        );
+    }
+}
+
+#[test]
+fn grammar_rules_from_language_keywords_include_required() {
+    let rules = canonical_rules();
+    let kw_rule = rules
+        .iter()
+        .find(|r| r.name == "keywords")
+        .expect("keywords rule exists");
+    let pattern = kw_rule.r#match.as_ref().expect("keywords has a match pattern");
+    for required in [
+        "proc", "loop", "if", "then", "else", "match", "where", "in", "typeof", "not", "import",
+        "export", "module", "axiom", "as", "handle",
+    ] {
+        assert!(
+            pattern.contains(required),
+            "keywords pattern missing: {required}"
+        );
+    }
+}
+
+#[test]
+fn grammar_rules_from_language_generates_valid_grammar() {
+    let rules = canonical_rules();
+    let grammar = generate_textmate(&rules, "source.handl", &["hnl".to_string()]);
+    assert_eq!(grammar["scopeName"], "source.handl");
+    let patterns = grammar["patterns"].as_array().unwrap();
+    assert!(!patterns.is_empty(), "patterns should not be empty");
+    let repo = &grammar["repository"];
+    assert!(repo.get("keywords").is_some());
+    assert!(repo.get("comments").is_some());
+    assert!(repo.get("identifiers").is_some());
 }
