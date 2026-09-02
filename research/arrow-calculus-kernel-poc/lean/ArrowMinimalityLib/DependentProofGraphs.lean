@@ -304,4 +304,167 @@ theorem d_proof_realizability (dden : ∀ {A B : DTy Atom}, DSig A B → Val →
 
 end Realizability
 
+-- ============================================================================
+-- 9. Dependent Iterated Loop Semantics and Termination
+-- ============================================================================
+
+section DependentTermination
+
+variable {Atom : Type} {DSig : DTy Atom → DTy Atom → Type}
+variable (dden : ∀ {A B : DTy Atom}, DSig A B → Val → Val)
+
+/-- The iterated dependent evaluation relation `DEvalIter dden G a v` reads
+`G · a ⟹* v` under the base-arrow interpretation `dden`. It mirrors `DEval`
+constructor-for-constructor except for `loop`, which unfolds iteratively:
+
+  - `eLoopZero`: a single step `G · (a, cₙ) ⟹ (v, cₙ)` with the feedback
+    channel already stable (`c_next = cₙ`). This is the fixpoint / base case.
+  - `eLoopIter`: a single step `G · (a, cₙ) ⟹ (v', c_next)` with
+    `c_next ≠ cₙ`, followed by a recursive evaluation
+    `loop G · a ⟹ v`. The result is `v` from the recursive call (not `v'`).
+
+This is the dependent analogue of `EvalIter` from `IteratedLoop.lean`. -/
+inductive DEvalIter : {A B : DTy Atom} → DGraph Atom DSig A B → Val → Val → Type 1
+  | eId    (A : DTy Atom) (a : Val)                                : DEvalIter (DGraph.idG A) a a
+  | eComp  {X Y Z : DTy Atom} (G : DGraph Atom DSig X Y) (H : DGraph Atom DSig Y Z)
+          (a b v : Val) (eG : DEvalIter G a b) (eH : DEvalIter H b v) : DEvalIter (DGraph.comp G H) a v
+  | eFirst {X Y : DTy Atom} (D : DTy Atom) (G : DGraph Atom DSig X Y)
+          (a b c : Val) (eG : DEvalIter G a b)                     : DEvalIter (DGraph.first G) (Val.pair a c) (Val.pair b c)
+  | eLeftL {X Y : DTy Atom} (D : DTy Atom) (G : DGraph Atom DSig X Y)
+          (a b : Val) (eG : DEvalIter G a b)                       : DEvalIter (DGraph.left G) (Val.inl a) (Val.inl b)
+  | eLeftR {X Y : DTy Atom} (D : DTy Atom) (G : DGraph Atom DSig X Y)
+          (b : Val)                                               : DEvalIter (DGraph.left G) (Val.inr b) (Val.inr b)
+  | eLoopZero {X Y C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C))
+          (a v cₙ : Val) (hcₙ : DHasType cₙ C)
+          (eStep : DEvalIter G (Val.pair a cₙ) (Val.pair v cₙ))    : DEvalIter (DGraph.loop G) a v
+  | eLoopIter {X Y C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C))
+          (a v v' cₙ c_next : Val) (hcₙ : DHasType cₙ C) (hne : c_next ≠ cₙ)
+          (eStep : DEvalIter G (Val.pair a cₙ) (Val.pair v' c_next))
+          (eRec  : DEvalIter (DGraph.loop G) a v)                   : DEvalIter (DGraph.loop G) a v
+  | eArr   {X Y : DTy Atom} (φ : DSig X Y) (a : Val)               : DEvalIter (DGraph.arr φ) a (dden φ a)
+
+/-- Convert a `DEvalIter` derivation to a one-step `DEval` derivation.
+The `eLoopIter` case threads through the recursive result (its conclusion
+equals its recursive premise's conclusion), so only `eLoopZero` produces
+genuine `DEval` evidence for `loop`. This is the dependent analogue of
+`iter_to_eval` from `IteratedLoop.lean`. -/
+def diter_to_deval {A B : DTy Atom} {G : DGraph Atom DSig A B} {a v : Val}
+    (e : DEvalIter dden G a v) : DEval dden G a v :=
+  match e with
+  | DEvalIter.eId A a => DEval.eId A a
+  | DEvalIter.eComp G H a b v eG eH => DEval.eComp G H a b v (diter_to_deval eG) (diter_to_deval eH)
+  | DEvalIter.eFirst D G a b c eG => DEval.eFirst D G a b c (diter_to_deval eG)
+  | DEvalIter.eLeftL D G a b eG => DEval.eLeftL D G a b (diter_to_deval eG)
+  | DEvalIter.eLeftR D G b => DEval.eLeftR D G b
+  | DEvalIter.eLoopZero G a v cₙ hcₙ eStep => DEval.eLoop _ G a v cₙ hcₙ (diter_to_deval eStep)
+  | DEvalIter.eLoopIter G a v _v' _cₙ c_next hcₙ hne eStep eRec => diter_to_deval eRec
+  | DEvalIter.eArr φ a => DEval.eArr φ a
+
+/-- `DLoopIter dden G a cₙ v` is an iterated dependent loop derivation that
+**threads the starting feedback** `cₙ` through the recursive call. It mirrors
+the loop cases of `DEvalIter` but indexes the derivation by the initial
+feedback value, so that the recursive call in `loopIter` starts at `c_next`
+(the feedback produced by the current step) rather than at an unknown value.
+
+  - `loopZero`: a single step `G · (a, cₙ) ⟹ (v, cₙ)` with the feedback
+    channel already stable. This is the fixpoint / base case.
+  - `loopIter`: a single step `G · (a, cₙ) ⟹ (v', c_next)` with
+    `c_next ≠ cₙ`, followed by a recursive evaluation
+    `DLoopIter G a c_next v`. The result is `v` from the recursive call.
+
+The key difference from `DEvalIter.eLoopIter` is that `eRec` is indexed by
+`c_next`, making the decreasing-measure argument applicable: the induction
+hypothesis gives a bound in terms of `m c_next`, not an unknown feedback.
+
+This is the dependent analogue of `LoopIter` from `IteratedLoop.lean`. -/
+inductive DLoopIter : {X Y C : DTy Atom} → DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C) → Val → Val → Val → Type 1
+  | loopZero {X Y C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C))
+          (a v cₙ : Val) (hcₙ : DHasType cₙ C)
+          (eStep : DEvalIter dden G (Val.pair a cₙ) (Val.pair v cₙ))    : DLoopIter G a cₙ v
+  | loopIter {X Y C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C))
+          (a v v' cₙ c_next : Val) (hcₙ : DHasType cₙ C) (hc_next : DHasType c_next C) (hne : c_next ≠ cₙ)
+          (eStep : DEvalIter dden G (Val.pair a cₙ) (Val.pair v' c_next))
+          (eRec  : DLoopIter G a c_next v)                              : DLoopIter G a cₙ v
+
+/-- Convert a `DLoopIter` derivation to a `DEvalIter` derivation by wrapping
+the recursive call. The `loopZero` case maps directly to `eLoopZero`; the
+`loopIter` case maps to `eLoopIter` with the recursive `DLoopIter` converted
+to `DEvalIter`. -/
+def dloop_iter_to_deval_iter {X Y C : DTy Atom} {G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C)}
+    {a v cₙ : Val} (e : DLoopIter dden G a cₙ v) : DEvalIter dden (DGraph.loop G) a v :=
+  match e with
+  | DLoopIter.loopZero G a v cₙ hcₙ eStep => DEvalIter.eLoopZero G a v cₙ hcₙ eStep
+  | DLoopIter.loopIter G a v v' cₙ c_next hcₙ hc_next hne eStep eRec =>
+    DEvalIter.eLoopIter G a v v' cₙ c_next hcₙ hne eStep (dloop_iter_to_deval_iter eRec)
+
+/-- Count the number of `loopIter` (non-fixpoint) steps in a
+`DLoopIter G a cₙ v` derivation. The fixpoint case (`loopZero`)
+contributes 0; the non-fixpoint case (`loopIter`) contributes 1 plus
+the recursive count. -/
+def dloop_iter_count {X Y C : DTy Atom} {G : DGraph Atom DSig (DTy.dProd X C) (DTy.dProd Y C)}
+    {a v cₙ : Val} (e : DLoopIter dden G a cₙ v) : Nat :=
+  match e with
+  | DLoopIter.loopZero .. => 0
+  | DLoopIter.loopIter _ _ _ _ _ _ _ _ _ _ eRec => 1 + dloop_iter_count eRec
+
+/-- A termination measure maps feedback channel values to naturals.
+The measure should strictly decrease at each non-fixpoint loop step. -/
+abbrev DTerminationMeasure (C : DTy Atom) := Val → Nat
+
+/-- A measure `m` is decreasing for dependent graph `G` if every non-fixpoint
+step strictly decreases `m` on the feedback channel.
+
+For `G · (a, cₙ) ⟹ (v', c_next)` with `c_next ≠ cₙ`, we require
+`m c_next < m cₙ`. This ensures the feedback value's measure strictly
+decreases, bounding the number of non-fixpoint iterations.
+
+This is the dependent analogue of `measure_decreasing` from
+`Termination.lean`. -/
+def dmeasure_decreasing
+    {A B C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd A C) (DTy.dProd B C))
+    (m : DTerminationMeasure C) : Prop :=
+  ∀ (a v' cₙ c_next : Val),
+    DEval dden G (Val.pair a cₙ) (Val.pair v' c_next) →
+    c_next ≠ cₙ → m c_next < m cₙ
+
+/-- **Decreasing measure bounds iterations by initial measure (dependent).**
+
+If `m` is a decreasing measure for `G`, then the number of `loopIter`
+steps in any `DLoopIter G a cₙ v` derivation is bounded by `m cₙ + 1`.
+
+The proof is by induction on `e : DLoopIter G a cₙ v`:
+  - `loopZero`: count = 0 ≤ m cₙ + 1 (trivial).
+  - `loopIter`: count = 1 + count(eRec). By IH, count(eRec) ≤ m c_next + 1
+    (the IH is indexed by `c_next` because `eRec : DLoopIter G a c_next v`).
+    By `hdecreasing`, `m c_next < m cₙ`. So `1 + (m c_next + 1) ≤ m cₙ + 1`.
+
+The key insight is that `DLoopIter` threads `c_next` into the recursive
+call's index, so the induction hypothesis gives a bound in terms of
+`m c_next` (the recursive call's starting feedback), not an unknown
+value. This mirrors the non-dependent `decreasing_measure_bounds_iterations`
+in `Termination.lean` and closes the last formalization gap: dependent
+loop termination. -/
+theorem ddecreasing_measure_bounds_iterations
+    {A B C : DTy Atom} (G : DGraph Atom DSig (DTy.dProd A C) (DTy.dProd B C))
+    (m : DTerminationMeasure C)
+    (hdecreasing : dmeasure_decreasing dden G m)
+    (a v cₙ : Val) (hcₙ : DHasType cₙ C)
+    (e : DLoopIter dden G a cₙ v)
+    : dloop_iter_count dden e ≤ m cₙ + 1 := by
+  induction e with
+  | loopZero v cₙ hcₙ eStep =>
+    simp only [dloop_iter_count]
+    omega
+  | loopIter v v' cₙ c_next hcₙ hc_next hne eStep eRec ih =>
+    -- Convert the body step to one-step DEval for hdecreasing
+    have heval := diter_to_deval dden eStep
+    have hdec := hdecreasing a v' cₙ c_next heval hne
+    -- ih : DHasType c_next C → dloop_iter_count dden eRec ≤ m c_next + 1
+    -- (the IH is indexed by c_next because eRec : DLoopIter G a c_next v)
+    have ih' := ih hc_next
+    simp only [dloop_iter_count]
+    omega
+
+end DependentTermination
+
 end DependentProofGraphs
