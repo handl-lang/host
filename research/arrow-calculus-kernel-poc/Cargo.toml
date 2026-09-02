@@ -98,6 +98,10 @@ name = "decoupled_traits"
 path = "src/decoupled_traits.rs"
 
 [[bin]]
+name = "law_inference"
+path = "src/law_inference.rs"
+
+[[bin]]
 name = "bundled_effects"
 path = "src/bundled_effects.rs"
 
