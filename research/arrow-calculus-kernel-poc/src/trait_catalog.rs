@@ -40,6 +40,15 @@ pub enum Ty {
     Unit,                       // top
     Void,                       // bottom
     List(Box<Ty>),              // [A]
+    // ADR-0075 section 5 type application: F<A>. `F` is a type-constructor
+    // variable (a `Ty::Var`) and `A` is the argument. This is the
+    // higher-kinded constructor that lets `Functor`'s `type_shape` be the
+    // generic `F<A> ~> F<B>` instead of the `List` instance `[A] ~> [B]`
+    // (ADR Open Question #5). NOTE: this adds the constructor and the
+    // unification to make the type filter discriminate HKT shapes; it does
+    // NOT add higher-kinded trait *parameters* to the surface syntax
+    // (still no `trait Functor<F>` declaration form) -- that remains open.
+    App(Box<Ty>, Box<Ty>),      // F<A>  (ADR-0075 section 5)
 }
 
 impl fmt::Display for Ty {
@@ -53,6 +62,8 @@ impl fmt::Display for Ty {
             Ty::Unit => write!(f, "()"),
             Ty::Void => write!(f, "_|_"),
             Ty::List(t) => write!(f, "[{}]", t),
+            // ADR-0075 section 5: angle brackets, not square brackets.
+            Ty::App(g, a) => write!(f, "{}<{}>", g, a),
         }
     }
 }
@@ -72,6 +83,10 @@ impl Ty {
                     go(b, out);
                 }
                 Ty::List(t) => go(t, out),
+                Ty::App(g, a) => {
+                    go(g, out);
+                    go(a, out);
+                }
                 _ => {}
             }
         }
@@ -97,6 +112,10 @@ impl Ty {
                 Box::new(b.apply_map(map)),
             ),
             Ty::List(t) => Ty::List(Box::new(t.apply_map(map))),
+            Ty::App(g, a) => Ty::App(
+                Box::new(g.apply_map(map)),
+                Box::new(a.apply_map(map)),
+            ),
             other => other.clone(),
         }
     }
@@ -123,6 +142,10 @@ fn arr_t(a: Ty, b: Ty) -> Ty {
 }
 fn list(a: Ty) -> Ty {
     Ty::List(Box::new(a))
+}
+// ADR-0075 section 5 type application: F<A>.
+fn app_t(g: Ty, a: Ty) -> Ty {
+    Ty::App(Box::new(g), Box::new(a))
 }
 fn bool_t() -> Ty {
     atom("Bool")
@@ -173,6 +196,10 @@ impl Substitution {
                 Box::new(self.apply(b)),
             ),
             Ty::List(t) => Ty::List(Box::new(self.apply(t))),
+            Ty::App(g, a) => Ty::App(
+                Box::new(self.apply(g)),
+                Box::new(self.apply(a)),
+            ),
             other => other.clone(),
         }
     }
@@ -237,6 +264,31 @@ impl Unifier {
             }
             (Ty::List(t1), Ty::List(t2)) => Unifier::unify_with_subst(t1, t2, subst),
 
+            // ADR-0075 section 5 / Open Question #5: higher-kinded type
+            // application. `App(F, A)` unifies structurally with another
+            // `App(G, B)` by unifying the constructors and the arguments.
+            (Ty::App(f1, a1), Ty::App(f2, a2)) => {
+                Unifier::unify_with_subst(f1, f2, subst)
+                    && Unifier::unify_with_subst(a1, a2, subst)
+            }
+            // Bridge `List(t)` to `App(Atom("List"), t)`. The `Ty` enum
+            // bakes the unary `List` constructor in as a dedicated variant,
+            // so for an HKT shape `F<A>` to unify with a concrete `[X]`
+            // (i.e. `List(X)`) -- binding `F := List, A := X` -- we treat
+            // `List(t)` as isomorphic to `App(Atom("List"), t)` here. This
+            // is what lets `Functor`'s `F<A> ~> F<B>` match the demo `map`
+            // graph's inferred type `[a] ~> [b]`. A bare `Atom` (e.g.
+            // `Int`) is NOT bridged, so `Int` does not unify with `F<A>`
+            // and a non-functor arrow `Int ~> Bool` is correctly pruned.
+            (Ty::App(f1, a1), Ty::List(t2)) => {
+                Unifier::unify_with_subst(f1, &atom("List"), subst)
+                    && Unifier::unify_with_subst(a1, t2, subst)
+            }
+            (Ty::List(t1), Ty::App(f2, a2)) => {
+                Unifier::unify_with_subst(&atom("List"), f2, subst)
+                    && Unifier::unify_with_subst(t1, a2, subst)
+            }
+
             _ => false,
         }
     }
@@ -248,6 +300,7 @@ impl Unifier {
                 Unifier::occurs_in(var, a) || Unifier::occurs_in(var, b)
             }
             Ty::List(t) => Unifier::occurs_in(var, t),
+            Ty::App(g, a) => Unifier::occurs_in(var, g) || Unifier::occurs_in(var, a),
             _ => false,
         }
     }
@@ -691,16 +744,43 @@ pub struct CatalogEntry {
     pub cutelim_proven: bool,
 }
 
-/// Canonical structural fingerprint of a graph: the combinator-tree shape
-/// with all `Arr` names erased to a placeholder `arr`. (ADR section 3
-/// `fingerprint`; Open Question #6: the exact canonicalization is a design
-/// question -- this is a simple, deterministic structural hash.)
+/// Canonical structural fingerprint of a graph (ADR section 3
+/// `fingerprint`; Open Question #6). The fingerprint is a canonical hash
+/// of the combinator tree, computed by:
 ///
-/// Two graphs with the same combinator shape but different base-arrow
-/// names share a fingerprint (so `comp(f,g)` and `comp(x,y)` collide). This
-/// is intentional: the fingerprint is a *coarse* fast filter that prunes
-/// shape-mismatched candidates; the precise check is CutElim `law_equal`.
+/// 1. **Associativity flattening** -- nested `comp(comp(f,g),h)` is
+///    flattened to a list `[f,g,h]` (order preserved; `comp` is NOT
+///    commutative) and re-nested left-associated. This makes
+///    `comp(comp(f,g),h)` and `comp(f,comp(g,h))` produce the same
+///    fingerprint.
+/// 2. **Identity pruning** -- `id` nodes are dropped from `comp` chains
+///    (since `comp(id,f) equiv f` by CutElim `ceIdLeft`/`ceIdRight`). This
+///    makes `comp(id,f)` and `f` produce the same fingerprint.
+/// 3. **de Bruijn Arr-name canonicalization** -- each `Arr(name)` is
+///    replaced by `arr#N` where N is the index of first appearance of that
+///    name in a left-to-right traversal. This is invariant under
+///    alpha-renaming (`comp(arr_x,arr_y)` == `comp(arr_a,arr_b)`) while
+///    preserving sharing structure (`comp(arr_f,arr_f)` != `comp(arr_f,arr_g)`).
+///
+/// This is a CHEAP structural canonicalization -- NOT full CutElim. It
+/// catches associativity of `comp`, identity absorption in `comp` chains,
+/// and alpha-equivalence of base-arrow names. It does NOT catch deeper
+/// equivalences like `first(id) equiv id` (a CutElim `ceFirstId` step) or
+/// `first(f;g) equiv first f; first g` (a `ceFirstFusion` step) -- those
+/// are left to Step 3 (CutElim normalization). The fingerprint is a fast
+/// filter; the precise check is `law_equal`.
 pub fn fingerprint(graph: &PolyGraph) -> String {
+    let canon = canonicalize(graph);
+    display_canonical(&canon)
+}
+
+/// The OLD fingerprint (pre-canonicalization): the combinator-tree shape
+/// with all `Arr` names erased to a placeholder `arr`. Kept for
+/// comparison/testing -- demonstrates what the canonical fingerprint
+/// improves on. Two graphs with the same combinator shape but different
+/// base-arrow names share a raw fingerprint; associativity and identity
+/// differences are NOT canonicalized.
+pub fn raw_fingerprint(graph: &PolyGraph) -> String {
     fn go(g: &PolyGraph) -> String {
         match g {
             PolyGraph::Id => "id".to_string(),
@@ -714,6 +794,140 @@ pub fn fingerprint(graph: &PolyGraph) -> String {
         }
     }
     go(graph)
+}
+
+/// Lightweight structural canonicalization (associativity flatten +
+/// identity prune + de Bruijn Arr names). Returns a `PolyGraph` whose
+/// `Display` form (via `display_canonical`) is the canonical fingerprint.
+/// The returned graph has de Bruijn-indexed `Arr` names (`arr#0`,
+/// `arr#1`, ...) and left-associated `comp` chains with `id` pruned.
+pub fn canonicalize(graph: &PolyGraph) -> PolyGraph {
+    let structurally_canonical = canonicalize_structure(graph);
+    de_bruijn_arr_names(&structurally_canonical)
+}
+
+/// Structural canonicalization: recursively canonicalize children, then
+/// flatten `comp` chains (associativity), prune `id` from `comp` chains
+/// (identity absorption), and re-nest left-associated.
+fn canonicalize_structure(graph: &PolyGraph) -> PolyGraph {
+    match graph {
+        PolyGraph::Id => PolyGraph::Id,
+        PolyGraph::Arr(name) => PolyGraph::Arr(name.clone()),
+        PolyGraph::Comp(a, b) => {
+            // Recursively canonicalize children first (bottom-up).
+            let a_canon = canonicalize_structure(a);
+            let b_canon = canonicalize_structure(b);
+            // Flatten the comp chain into a flat list (associativity).
+            let mut elements: Vec<PolyGraph> = Vec::new();
+            flatten_comp(&a_canon, &mut elements);
+            flatten_comp(&b_canon, &mut elements);
+            // Prune id nodes from the chain (identity absorption:
+            // comp(id, f) equiv f by ceIdLeft / ceIdRight).
+            elements.retain(|e| !matches!(e, PolyGraph::Id));
+            // Re-nest left-associated.
+            renest_comp(elements)
+        }
+        PolyGraph::First(a) => PolyGraph::First(Box::new(canonicalize_structure(a))),
+        PolyGraph::Left(a) => PolyGraph::Left(Box::new(canonicalize_structure(a))),
+        PolyGraph::Loop(a) => PolyGraph::Loop(Box::new(canonicalize_structure(a))),
+        PolyGraph::Choice(a, b) => PolyGraph::Choice(
+            Box::new(canonicalize_structure(a)),
+            Box::new(canonicalize_structure(b)),
+        ),
+        PolyGraph::App(a) => PolyGraph::App(Box::new(canonicalize_structure(a))),
+    }
+}
+
+/// Flatten a (possibly nested) `comp` chain into a flat list of
+/// non-`comp` elements, preserving left-to-right order. `comp` is
+/// associative but NOT commutative, so order is preserved.
+fn flatten_comp(graph: &PolyGraph, out: &mut Vec<PolyGraph>) {
+    match graph {
+        PolyGraph::Comp(a, b) => {
+            flatten_comp(a, out);
+            flatten_comp(b, out);
+        }
+        _ => out.push(graph.clone()),
+    }
+}
+
+/// Re-nest a flat list of elements into a left-associated `comp` chain.
+/// Empty list -> `id`; single element -> that element; two+ ->
+/// `comp(comp(..., e2), e3)`.
+fn renest_comp(elements: Vec<PolyGraph>) -> PolyGraph {
+    match elements.len() {
+        0 => PolyGraph::Id,
+        1 => elements.into_iter().next().unwrap(),
+        _ => {
+            let mut iter = elements.into_iter();
+            let mut acc = iter.next().unwrap();
+            for e in iter {
+                acc = PolyGraph::Comp(Box::new(acc), Box::new(e));
+            }
+            acc
+        }
+    }
+}
+
+/// Replace each `Arr(name)` with `Arr("arr#N")` where N is the de Bruijn
+/// index: the first occurrence of a name gets index 0, a repeat of the
+/// same name gets the same index, a new name gets the next index. This is
+/// invariant under alpha-renaming while preserving sharing structure.
+fn de_bruijn_arr_names(graph: &PolyGraph) -> PolyGraph {
+    let mut name_map: HashMap<String, usize> = HashMap::new();
+    let mut next_index: usize = 0;
+    de_bruijn_go(graph, &mut name_map, &mut next_index)
+}
+
+fn de_bruijn_go(
+    graph: &PolyGraph,
+    map: &mut HashMap<String, usize>,
+    next: &mut usize,
+) -> PolyGraph {
+    match graph {
+        PolyGraph::Id => PolyGraph::Id,
+        PolyGraph::Arr(name) => {
+            let idx = if let Some(&idx) = map.get(name) {
+                idx
+            } else {
+                let idx = *next;
+                map.insert(name.clone(), idx);
+                *next += 1;
+                idx
+            };
+            PolyGraph::Arr(format!("arr#{}", idx))
+        }
+        PolyGraph::Comp(a, b) => PolyGraph::Comp(
+            Box::new(de_bruijn_go(a, map, next)),
+            Box::new(de_bruijn_go(b, map, next)),
+        ),
+        PolyGraph::First(a) => PolyGraph::First(Box::new(de_bruijn_go(a, map, next))),
+        PolyGraph::Left(a) => PolyGraph::Left(Box::new(de_bruijn_go(a, map, next))),
+        PolyGraph::Loop(a) => PolyGraph::Loop(Box::new(de_bruijn_go(a, map, next))),
+        PolyGraph::Choice(a, b) => PolyGraph::Choice(
+            Box::new(de_bruijn_go(a, map, next)),
+            Box::new(de_bruijn_go(b, map, next)),
+        ),
+        PolyGraph::App(a) => PolyGraph::App(Box::new(de_bruijn_go(a, map, next))),
+    }
+}
+
+/// Display a canonicalized graph as a fingerprint string. `Arr` nodes
+/// already carry de Bruijn names (`arr#N`); other combinators use their
+/// structural shape.
+fn display_canonical(graph: &PolyGraph) -> String {
+    match graph {
+        PolyGraph::Id => "id".to_string(),
+        PolyGraph::Arr(name) => name.clone(),
+        PolyGraph::Comp(a, b) => format!("comp({},{})", display_canonical(a), display_canonical(b)),
+        PolyGraph::First(a) => format!("first({})", display_canonical(a)),
+        PolyGraph::Left(a) => format!("left({})", display_canonical(a)),
+        PolyGraph::Loop(a) => format!("loop({})", display_canonical(a)),
+        PolyGraph::Choice(a, b) => {
+            format!("choice({},{})", display_canonical(a), display_canonical(b))
+        }
+        PolyGraph::App(a) => format!("app({})", display_canonical(a)),
+    }
 }
 
 // ============================================================================
@@ -1054,11 +1268,16 @@ pub fn populate_builtin_catalog(store: &mut impl TraitCatalogStore) -> usize {
     // --- Functor (CutElim-proven via ceFirstId / ceFirstFusion) ---
     let functor = CatalogEntry {
         name: "Functor".to_string(),
-        // Prototype limitation: the generic Functor<F> requires higher-kinded
-        // type application (F<A>), which is NOT in the `Ty` enum (ADR Open
-        // Question #5). We use the List instance shape [A] ~> [B] here; the
-        // type filter is therefore coarser than the ADR's eventual HKT form.
-        type_shape: arr_t(list(tv("A")), list(tv("B"))),
+        // ADR-0075 section 5 / Open Question #5: the generic `Functor<F>`
+        // type shape is the higher-kinded `F<A> ~> F<B>` (using `Ty::App`),
+        // NOT the `List` instance `[A] ~> [B]`. Unification bridges
+        // `List(t)` to `App(Atom("List"), t)`, so the demo `map` graph's
+        // inferred type `[a] ~> [b]` still matches (binding `F := List,
+        // A := a, B := b`), while a non-functor arrow like `Int ~> Bool`
+        // does NOT (an `Atom` is not an `App`). NOTE: this is the type
+        // filter only -- higher-kinded trait *parameters* in the surface
+        // syntax (`trait Functor<F>`) remain open (ADR OQ#5).
+        type_shape: arr_t(app_t(tv("F"), tv("A")), app_t(tv("F"), tv("B"))),
         fingerprint: map_fp.clone(),
         laws: vec![
             LawEquation {
@@ -1307,6 +1526,155 @@ fn main() {
     );
     println!("[pass] fingerprint different-shape");
 
+    // --- Test 4a: canonical fingerprint -- associativity (ADR OQ#6) ---
+    // comp(comp(f,g),h) and comp(f,comp(g,h)) are the same graph by
+    // associativity of >>>. The canonical fingerprint flattens comp chains
+    // so both produce the same hash. The OLD raw_fingerprint does NOT.
+    let left_assoc = gcomp(gcomp(garr("f"), garr("g")), garr("h"));
+    let right_assoc = gcomp(garr("f"), gcomp(garr("g"), garr("h")));
+    assert_eq!(
+        fingerprint(&left_assoc),
+        fingerprint(&right_assoc),
+        "associativity: comp(comp(f,g),h) == comp(f,comp(g,h)) after canonicalization"
+    );
+    // Confirm the old raw_fingerprint does NOT catch this (demonstrates
+    // the improvement).
+    assert_ne!(
+        raw_fingerprint(&left_assoc),
+        raw_fingerprint(&right_assoc),
+        "raw_fingerprint does NOT canonicalize associativity (was: different)"
+    );
+    // Deeper nesting: comp(comp(comp(a,b),c),d) == comp(a,comp(b,comp(c,d)))
+    let deep_left = gcomp(gcomp(gcomp(garr("a"), garr("b")), garr("c")), garr("d"));
+    let deep_right = gcomp(garr("a"), gcomp(garr("b"), gcomp(garr("c"), garr("d"))));
+    assert_eq!(
+        fingerprint(&deep_left),
+        fingerprint(&deep_right),
+        "associativity: deep nesting flattens to same fingerprint"
+    );
+    println!("[pass] canonical fingerprint -- associativity (comp flattening)");
+
+    // --- Test 4b: canonical fingerprint -- identity pruning (ADR OQ#6) ---
+    // comp(id, f) and f are the same graph after CutElim ceIdLeft. The
+    // canonical fingerprint prunes id from comp chains, so both produce
+    // the same hash. The OLD raw_fingerprint does NOT.
+    assert_eq!(
+        fingerprint(&gcomp(gid(), garr("f"))),
+        fingerprint(&garr("f")),
+        "identity pruning: comp(id, f) == f after canonicalization"
+    );
+    assert_eq!(
+        fingerprint(&gcomp(garr("f"), gid())),
+        fingerprint(&garr("f")),
+        "identity pruning: comp(f, id) == f after canonicalization"
+    );
+    // comp(id, comp(id, f)) == f (double identity absorption).
+    assert_eq!(
+        fingerprint(&gcomp(gid(), gcomp(gid(), garr("f")))),
+        fingerprint(&garr("f")),
+        "identity pruning: comp(id, comp(id, f)) == f"
+    );
+    // comp(id, id) == id (all identities pruned).
+    assert_eq!(
+        fingerprint(&gcomp(gid(), gid())),
+        fingerprint(&gid()),
+        "identity pruning: comp(id, id) == id"
+    );
+    // Confirm the old raw_fingerprint does NOT catch this.
+    assert_ne!(
+        raw_fingerprint(&gcomp(gid(), garr("f"))),
+        raw_fingerprint(&garr("f")),
+        "raw_fingerprint does NOT prune identity (was: different)"
+    );
+    println!("[pass] canonical fingerprint -- identity pruning (id dropped from comp)");
+
+    // --- Test 4c: canonical fingerprint -- alpha-invariance (ADR OQ#6) ---
+    // comp(arr_x, arr_y) and comp(arr_a, arr_b) are alpha-equivalent.
+    // The de Bruijn indexing makes both -> comp(arr#0, arr#1).
+    assert_eq!(
+        fingerprint(&gcomp(garr("x"), garr("y"))),
+        fingerprint(&gcomp(garr("a"), garr("b"))),
+        "alpha-invariance: comp(arr_x, arr_y) == comp(arr_a, arr_b)"
+    );
+    // Single arr: arr(f) == arr(g) (already tested in Test 3, reaffirm).
+    assert_eq!(
+        fingerprint(&garr("f")),
+        fingerprint(&garr("g")),
+        "alpha-invariance: single arr names erased"
+    );
+    println!("[pass] canonical fingerprint -- alpha-invariance (de Bruijn Arr names)");
+
+    // --- Test 4d: canonical fingerprint -- sharing preserved (ADR OQ#6) ---
+    // comp(arr_f, arr_f) uses the SAME arrow twice (sharing). comp(arr_f,
+    // arr_g) uses two DIFFERENT arrows. The de Bruijn indexing preserves
+    // this: the first -> comp(arr#0, arr#0), the second -> comp(arr#0,
+    // arr#1). These must have DIFFERENT fingerprints.
+    assert_ne!(
+        fingerprint(&gcomp(garr("f"), garr("f"))),
+        fingerprint(&gcomp(garr("f"), garr("g"))),
+        "sharing preserved: comp(arr_f, arr_f) != comp(arr_f, arr_g)"
+    );
+    // Three-way: comp(arr_f, comp(arr_f, arr_g)) has sharing (f twice);
+    // comp(arr_f, comp(arr_g, arr_h)) has no sharing (all distinct).
+    assert_ne!(
+        fingerprint(&gcomp(garr("f"), gcomp(garr("f"), garr("g")))),
+        fingerprint(&gcomp(garr("f"), gcomp(garr("g"), garr("h")))),
+        "sharing preserved: repeated arr name differs from all-distinct"
+    );
+    // But comp(arr_f, comp(arr_f, arr_g)) and comp(arr_x, comp(arr_x,
+    // arr_y)) ARE alpha-equivalent (same sharing pattern).
+    assert_eq!(
+        fingerprint(&gcomp(garr("f"), gcomp(garr("f"), garr("g")))),
+        fingerprint(&gcomp(garr("x"), gcomp(garr("x"), garr("y")))),
+        "alpha-invariance with sharing: same sharing pattern matches"
+    );
+    println!("[pass] canonical fingerprint -- sharing preserved (de Bruijn distinguishes repeated names)");
+
+    // --- Test 4e: canonical fingerprint -- law-relevant difference (ADR OQ#6) ---
+    // first(f) and left(f) are different combinators with different laws.
+    // Their fingerprints must differ.
+    assert_ne!(
+        fingerprint(&gfirst(garr("f"))),
+        fingerprint(&gleft(garr("f"))),
+        "law-relevant difference: first(f) != left(f)"
+    );
+    // comp(first(f), first(g)) and comp(left(f), left(g)) also differ.
+    assert_ne!(
+        fingerprint(&gcomp(gfirst(garr("f")), gfirst(garr("g")))),
+        fingerprint(&gcomp(gleft(garr("f")), gleft(garr("g")))),
+        "law-relevant difference: comp(first,first) != comp(left,left)"
+    );
+    // loop and first are different combinators.
+    assert_ne!(
+        fingerprint(&gloop(garr("f"))),
+        fingerprint(&gfirst(garr("f"))),
+        "law-relevant difference: loop(f) != first(f)"
+    );
+    // choice and comp are different combinators.
+    assert_ne!(
+        fingerprint(&gchoice(garr("f"), garr("g"))),
+        fingerprint(&gcomp(garr("f"), garr("g"))),
+        "law-relevant difference: choice(f,g) != comp(f,g)"
+    );
+    println!("[pass] canonical fingerprint -- law-relevant differences preserved");
+
+    // --- Test 4f: canonical fingerprint -- combinational improvement ---
+    // Associativity + identity + alpha together: comp(comp(id, arr_x),
+    // arr_y) == comp(arr_a, arr_b) after canonicalization (id pruned,
+    // comp flattened, names de Bruijn'd).
+    assert_eq!(
+        fingerprint(&gcomp(gcomp(gid(), garr("x")), garr("y"))),
+        fingerprint(&gcomp(garr("a"), garr("b"))),
+        "combined: comp(comp(id, arr_x), arr_y) == comp(arr_a, arr_b)"
+    );
+    // But NOT equal to comp(arr_a, arr_a) (different sharing).
+    assert_ne!(
+        fingerprint(&gcomp(gcomp(gid(), garr("x")), garr("y"))),
+        fingerprint(&gcomp(garr("a"), garr("a"))),
+        "combined: sharing still distinguishes after id pruning + associativity"
+    );
+    println!("[pass] canonical fingerprint -- combined associativity + identity + alpha + sharing");
+
     // --- Test 5: type filter pruning ---
     // The map graph type [a] ~> [b] must NOT unify with Filtering's
     // (A ~> Bool) ~> ([A] ~> [A]) nor CoproductFunctor's (A+C)~>(B+D).
@@ -1385,6 +1753,64 @@ fn main() {
     assert_eq!(proven, vec!["Functor", "CoproductFunctor"], "only functor entries are CutElim-proven");
     assert_eq!(placeholder, vec!["Sorting", "Mapping", "Filtering"], "semantic entries are placeholders");
     println!("[pass] CutElim-proven={:?}  placeholder={:?}", proven, placeholder);
+
+    // --- Test 11: HKT type-filter discrimination (ADR-0075 section 5, OQ#5) ---
+    // Functor's `type_shape` is now the higher-kinded `F<A> ~> F<B>`. The
+    // type filter must (a) still match a `[a] ~> [b]` graph (binding
+    // F := List, A := a, B := b via the List<->App bridge), (b) NOT match a
+    // non-functor arrow `Int ~> Bool` (an Atom is not an App), and (c) match
+    // a non-List constructor `Tree<a> ~> Tree<b>` (F := Tree), showing the
+    // filter is not pinned to List.
+    let functor_shape = arr_t(app_t(tv("F"), tv("A")), app_t(tv("F"), tv("B")));
+
+    // (a) Positive: [a] ~> [b] unifies with F<A> ~> F<B>.
+    let list_arrow = arr_t(list(tv("a")), list(tv("b")));
+    let u_list = Unifier::unify(&functor_shape, &list_arrow)
+        .expect("[a]~>[b] must unify with F<A>~>F<B>");
+    let f_list = u_list.get("F").expect("F bound for [a]~>[b]");
+    assert!(
+        matches!(f_list, Ty::Atom(s) if s == "List"),
+        "F := List for [a]~>[b], got {}",
+        f_list
+    );
+    println!("[pass] [a]~>[b] unifies with F<A>~>F<B> (F := List)");
+
+    // (b) Negative: Int ~> Bool does NOT unify with F<A> ~> F<B>.
+    let int_arrow = arr_t(atom("Int"), atom("Bool"));
+    assert!(
+        Unifier::unify(&functor_shape, &int_arrow).is_none(),
+        "Int~>Bool must NOT unify with F<A>~>F<B> (Int is not an App)"
+    );
+    println!("[pass] Int~>Bool does NOT unify with F<A>~>F<B>");
+
+    // (c) Positive (non-List constructor): Tree<a> ~> Tree<b> unifies with
+    // F<A> ~> F<B> with F := Tree. This shows the HKT filter is generic, not
+    // pinned to List. (A full graph-based test would require Tree-typed base
+    // arrows in the signature; here we exercise the type-filter unification
+    // directly, which is the layer the Ty::App addition targets.)
+    let tree_arrow = arr_t(app_t(atom("Tree"), tv("a")), app_t(atom("Tree"), tv("b")));
+    let u_tree = Unifier::unify(&functor_shape, &tree_arrow)
+        .expect("Tree<a>~>Tree<b> must unify with F<A>~>F<B>");
+    let f_tree = u_tree.get("F").expect("F bound for Tree<a>~>Tree<b>");
+    assert!(
+        matches!(f_tree, Ty::Atom(s) if s == "Tree"),
+        "F := Tree for Tree<a>~>Tree<b>, got {}",
+        f_tree
+    );
+    println!("[pass] Tree<a>~>Tree<b> unifies with F<A>~>F<B> (F := Tree)");
+
+    // (d) End-to-end: the demo map graph's inferred type [a] ~> [b] still
+    // passes Functor's HKT type filter through the store lookup (the same
+    // path the pipeline's step 1 uses).
+    let map_type = arr_t(gin.clone(), gout.clone());
+    let map_type_matches = store.lookup_by_type_shape(&map_type);
+    let map_type_names: Vec<&str> =
+        map_type_matches.iter().map(|(_, e)| e.name.as_str()).collect();
+    assert!(
+        map_type_names.contains(&"Functor"),
+        "map type [a]~>[b] still passes Functor's HKT type filter"
+    );
+    println!("[pass] map type [a]~>[b] passes Functor's HKT type filter (Functor in candidates)");
 
     print_section("All tests passed");
 }

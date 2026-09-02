@@ -28,12 +28,14 @@ Date: 2026-09-02
   round-trip losslessly through serde JSON.
 - **What is aspirational:** non-functor equational laws (monad, roundtrip,
   sortedness-as-equation) are stubbed as semantic placeholders
-  (`cutelim_proven = false`); higher-kinded type shapes (`F<A>`) are not
-  modelled (`Ty` has no type-application constructor, so `Functor`'s
-  `type_shape` uses the `List` instance); trait resolution coherence and
-  CutElim strong normalization are not proven; the surface syntax
-  (§5-§10: trait/impl/law declarations, supertraits, associated types,
-  blanket impls) is not implemented.
+  (`cutelim_proven = false`); higher-kinded type shapes (`F<A>`) are
+  PARTIALLY implemented -- the `Ty::App` constructor exists and the type
+  filter unifies `F<A> ~> F<B>` with `[a] ~> [b]` (F := List) and
+  `Tree<a> ~> Tree<b>` (F := Tree), but higher-kinded trait *parameters*
+  in the surface syntax (`trait Functor<F>`) are still open; trait
+  resolution coherence and CutElim strong normalization are not proven;
+  the surface syntax (§5-§10: trait/impl/law declarations, supertraits,
+  associated types, blanket impls) is not implemented.
 
 ---
 
@@ -43,9 +45,9 @@ Date: 2026-09-02
 |---|---|---|
 | §1 Primary mode: trait inference | Partial | The 3-step pipeline recognizes `Functor` for the `map` graph from wiring alone (no `trait`/`impl`/`law` declaration). Proven only for the functor/coproduct-functor structural pattern; non-functor law inference is aspirational. |
 | §2 Secondary mode: explicit declarations | Stubbed | No surface `trait`/`impl`/`law` parser. The built-in catalog entries play the role of declared law patterns, but there is no user-facing declaration syntax. |
-| §3 Open trait catalog + 3-step pipeline | Implemented | `trait_catalog.rs`: `CatalogEntry`/`LawEquation`, `TraitCatalogStore`, `InMemoryStore`, `infer_traits` (type filter via HM unify -> fingerprint hash -> CutElim `law_equal`), multi-match, verification cache, 5 built-in entries. |
-| §4 Catalog storage (SQLite) | Implemented | `trait_catalog_sqlite.rs`: `SqliteStore` over the same `TraitCatalogStore` trait; schema (`trait_entries` + `verification_cache` + indexes); persistence across reopen; equivalence with `InMemoryStore`; lossless law round-trip. `lookup_by_type_shape` uses a canonical-string-index + unify-confirm approximation (not a true unification index). |
-| §5 Type parameter syntax (`F<A>`) | Out-of-scope | `Ty` has no type-application constructor; `Functor`'s `type_shape` uses the `List` instance `[A] ~> [B]`. Higher-kinded traits are open (ADR OQ#5). |
+| §3 Open trait catalog + 3-step pipeline | Implemented | `trait_catalog.rs`: `CatalogEntry`/`LawEquation`, `TraitCatalogStore`, `InMemoryStore`, `infer_traits` (type filter via HM unify -> canonical fingerprint hash -> CutElim `law_equal`), multi-match, verification cache, 5 built-in entries. The fingerprint is now canonical under alpha-renaming (de Bruijn Arr names), associativity of `comp` (chain flattening), and identity absorption (`id` pruning in `comp` chains), while preserving sharing structure and law-relevant combinator differences (ADR OQ#6). |
+| §4 Catalog storage (SQLite) | Implemented | `trait_catalog_sqlite.rs`: `SqliteStore` over the same `TraitCatalogStore` trait; schema (`trait_entries` + `verification_cache` + indexes); persistence across reopen; equivalence with `InMemoryStore`; lossless law round-trip. `lookup_by_type_shape` does a linear scan with `Unifier::unify` (a canonical-string index cannot match a type-constructor variable against a concrete constructor, the higher-kinded case from §5; a unification-aware index is future work). |
+| §5 Type parameter syntax (`F<A>`) | Partial | `Ty::App(Box<Ty>, Box<Ty>)` models `F<A>` (angle brackets per ADR §5); `Display`/`free_vars`/`apply_map`/`Substitution::apply`/`Unifier::unify`/`occurs_in` all handle it. `Functor`'s `type_shape` is the generic `F<A> ~> F<B>`; the type filter unifies it with `[a] ~> [b]` (F := List, via a `List`<->`App` bridge) and `Tree<a> ~> Tree<b>` (F := Tree), and rejects `Int ~> Bool`. Higher-kinded trait *parameters* in the surface syntax (`trait Functor<F>`) remain open (ADR OQ#5). |
 | §6 Impl declaration (graph layer) | Stubbed | No `impl` surface syntax; the demo supplies the `map` graph directly as a `PolyGraph`. |
 | §7 Generic code with trait bounds | Out-of-scope | No trait-bound desugaring; no generic-code resolution wired to the catalog. |
 | §8 Supertraits as signature inclusion | Out-of-scope | Not modelled. |
@@ -179,9 +181,15 @@ Id | Comp(G, H) | First(G) | Left(G) | Loop(G) | Arr(name) | Choice(G, H) | App(
   Present so the graph model matches the kernel alphabet without
   claiming apply semantics.
 
-Types (`Ty`) mirror `poly_proof_graph_tests.rs`: `Atom | Var | Prod |
-Sum | Arrow | Unit | Void | List`. There is **no type-application
-constructor**, so higher-kinded `F<A>` cannot be represented (ADR OQ#5).
+Types (`Ty`) mirror `poly_proof_graph_tests.rs` plus the ADR-0075
+section 5 higher-kinded constructor: `Atom | Var | Prod | Sum | Arrow |
+Unit | Void | List | App`. `App(F, A)` is type application `F<A>`; it lets
+`Functor`'s `type_shape` be the generic `F<A> ~> F<B>` rather than the
+`List` instance. Unification bridges `List(t)` to `App(Atom("List"), t)`
+so `F<A>` unifies with `[A]` (binding `F := List`); a bare `Atom` (e.g.
+`Int`) is not bridged, so `Int` does not unify with `F<A>`. Full
+higher-kinded trait *parameters* in the surface syntax remain open (ADR
+OQ#5).
 
 ### The CutElim normalizer (mirrors `ProofAdvantage.lean`)
 
@@ -201,15 +209,51 @@ proof-net advantage), but the fuel bound is a safety net. If fuel is
 exhausted before a fixpoint, the result is the partially-normalized
 graph (`law_equal` may then report false negatives).
 
-### `fingerprint`
+### `fingerprint` (canonical, ADR OQ#6)
 
-`fingerprint(graph)` is a structural shape hash: the combinator tree
-with all `Arr` names erased to a placeholder `arr` (e.g.
-`comp(first(arr), arr)`). Two graphs with the same combinator shape but
-different base-arrow names share a fingerprint — intentional, since the
-fingerprint is a coarse fast filter; the precise check is CutElim
-`law_equal`. (ADR OQ#6: the exact canonicalization is a design
-question; this is a simple deterministic structural hash.)
+`fingerprint(graph)` is a canonical structural hash of the combinator
+tree, computed by a CHEAP structural canonicalization (not full
+CutElim) before hashing:
+
+1. **Associativity flattening** -- nested `comp(comp(f,g),h)` is
+   flattened to a list `[f,g,h]` (order preserved; `comp` is NOT
+   commutative) and re-nested left-associated. This makes
+   `comp(comp(f,g),h)` and `comp(f,comp(g,h))` produce the same
+   fingerprint.
+2. **Identity pruning** -- `id` nodes are dropped from `comp` chains
+   (since `comp(id,f) equiv f` by CutElim `ceIdLeft`/`ceIdRight`). This
+   makes `comp(id,f)` and `f` produce the same fingerprint.
+3. **de Bruijn Arr-name canonicalization** -- each `Arr(name)` is
+   replaced by `arr#N` where N is the index of first appearance of that
+   name in a left-to-right traversal. This is invariant under
+   alpha-renaming (`comp(arr_x,arr_y)` == `comp(arr_a,arr_b)`) while
+   preserving sharing structure (`comp(arr_f,arr_f)` != `comp(arr_f,arr_g)`).
+
+The old fingerprint (combinator tree with all `Arr` names erased to
+`arr`, no associativity or identity canonicalization) is kept as
+`raw_fingerprint(graph)` for comparison/testing.
+
+**What the cheap canonicalization catches:**
+- Associativity of `comp`: `comp(comp(f,g),h)` == `comp(f,comp(g,h))`
+- Identity absorption in `comp` chains: `comp(id,f)` == `f`,
+  `comp(f,id)` == `f`, `comp(id,comp(id,f))` == `f`
+- Alpha-equivalence of base-arrow names: `comp(arr_x,arr_y)` ==
+  `comp(arr_a,arr_b)`
+- Sharing structure: `comp(arr_f,arr_f)` != `comp(arr_f,arr_g)`
+
+**What the cheap canonicalization does NOT catch (left to Step 3
+CutElim):**
+- `first(id) equiv id` (CutElim `ceFirstId` step)
+- `left(id) equiv id` (CutElim `ceLeftId` step)
+- `first(f;g) equiv first f; first g` (CutElim `ceFirstFusion` step)
+- `left(f;g) equiv left f; left g` (CutElim `ceLeftFusion` step)
+- Commutativity of `choice` branches (not a CutElim rule; open)
+- Deeper semantic equivalences
+
+This is by design: the fingerprint is a fast filter that catches the
+common structural equivalences without running the full normalizer.
+Step 3 (CutElim `law_equal`) handles the deeper cases on the small set
+of candidates that pass the fingerprint filter.
 
 ### Catalog types and the in-memory store
 
@@ -247,7 +291,7 @@ re-inference of the same graph hits the cache.
 ### Built-in catalog (5 entries)
 
 ```
-Functor           type_shape [A]~>[B]   cutelim_proven=true
+Functor           type_shape F<A>~>F<B>  cutelim_proven=true
                     laws: identity (first(id) === id), composition (first(f;g) === first f; first g)
 CoproductFunctor  type_shape (A+C)~>(B+D) cutelim_proven=true
                     laws: identity (left(id) === id), composition (left(f;g) === left f; left g)
@@ -267,11 +311,17 @@ marked `cutelim_proven = false`, matching the ADR's explicit position
 that non-functor law verification is aspirational (ADR "What is NOT yet
 proven"; OQ#2).
 
-**Prototype limitation (HKT):** the generic `Functor<F>` requires
-higher-kinded type application `F<A>`, which is not in the `Ty` enum.
-`Functor`'s `type_shape` therefore uses the `List` instance
-`[A] ~> [B]`; the type filter is coarser than the ADR's eventual HKT
-form (ADR OQ#5).
+**Higher-kinded `Functor` shape (ADR §5, OQ#5):** `Functor`'s
+`type_shape` is the generic `F<A> ~> F<B>` (using `Ty::App`), not the
+`List` instance `[A] ~> [B]`. The type filter unifies this with the demo
+`map` graph's inferred `[a] ~> [b]` by binding `F := List, A := a, B := b`
+(via the `List`<->`App` unification bridge), and with `Tree<a> ~> Tree<b>`
+by binding `F := Tree`; it rejects `Int ~> Bool` (an `Atom` is not an
+`App`). This makes the catalog's type filtering discriminate HKT shapes
+for real. What remains open is the surface-syntax side: there is still no
+`trait Functor<F>` declaration form, so the type-constructor variable `F`
+is authored directly in the catalog entry rather than parsed from a
+declaration.
 
 ### The demo `map` graph and its inferred traits
 
@@ -282,7 +332,7 @@ map = loop (first (uncons ; choice nil (first f ; cons))) ; merge
 ```
 
 Inferred type: `[a] ~> [b]`. Fingerprint:
-`comp(loop(first(comp(arr,choice(arr,comp(first(arr),arr))))),arr)`.
+`comp(loop(first(comp(arr#0,choice(arr#1,comp(first(arr#2),arr#3))))),arr#4)`.
 
 The pipeline matches two entries (multi-match): `Functor` (two
 CutElim-verified laws) and `Mapping` (one placeholder law).
@@ -297,7 +347,7 @@ fingerprint filters.
 === Demo: map graph from primitives (loop+first+choice+arr) ===
 graph : (loop(first((uncons ; choice(nil,(first(f) ; cons))))) ; merge)
 type  : [a] ~> [b]
-fp    : comp(loop(first(comp(arr,choice(arr,comp(first(arr),arr))))),arr)
+fp    : comp(loop(first(comp(arr#0,choice(arr#1,comp(first(arr#2),arr#3))))),arr#4)
 built-in catalog entries: 5
 
 === Pipeline run #1 (cold cache) ===
@@ -317,12 +367,22 @@ cache: hits=3 misses=3
 [pass] CutElim law_equal false cases
 [pass] fingerprint same-shape-different-Arr
 [pass] fingerprint different-shape
+[pass] canonical fingerprint -- associativity (comp flattening)
+[pass] canonical fingerprint -- identity pruning (id dropped from comp)
+[pass] canonical fingerprint -- alpha-invariance (de Bruijn Arr names)
+[pass] canonical fingerprint -- sharing preserved (de Bruijn distinguishes repeated names)
+[pass] canonical fingerprint -- law-relevant differences preserved
+[pass] canonical fingerprint -- combined associativity + identity + alpha + sharing
 [pass] type filter pruning (Filtering, CoproductFunctor excluded)
 [pass] fingerprint pruning (Sorting excluded)
 [pass] pipeline map -> [Functor (verified), Mapping (placeholder)] (multi-match)
 [pass] cache hit on re-inference (cache_hits=3)
 [pass] 5 built-in entries present: ["Functor", "CoproductFunctor", "Sorting", "Mapping", "Filtering"]
 [pass] CutElim-proven=["Functor", "CoproductFunctor"]  placeholder=["Sorting", "Mapping", "Filtering"]
+[pass] [a]~>[b] unifies with F<A>~>F<B> (F := List)
+[pass] Int~>Bool does NOT unify with F<A>~>F<B>
+[pass] Tree<a>~>Tree<b> unifies with F<A>~>F<B> (F := Tree)
+[pass] map type [a]~>[b] passes Functor's HKT type filter (Functor in candidates)
 
 === All tests passed ===
 ```
@@ -385,29 +445,32 @@ as JSON blobs in `TEXT` columns and round-trip losslessly.
 graph is serializable; this is behaviorally identical since
 `law_equal`/`normalize` compare `Arr` names by string equality.
 
-**`type_shape` indexing:** the `type_shape` column stores a canonical
+**`type_shape` storage + lookup:** the `type_shape` column stores a canonical
 string key: type variables are renamed to `t0, t1, ...` in order of
 first appearance, so two shapes differing only in variable names share
-a key. `lookup_by_type_shape` does an exact string match on the indexed
-key, then confirms candidates with `Unifier::unify`. The full `Ty` is
-recovered from the key via a small s-expr parser (`key_to_type_shape`).
+a key. The full `Ty` is recovered from the key via a small s-expr
+parser (`key_to_type_shape`), which now also parses the ADR-0075
+section 5 `F<A>` form (a trailing `<arg>` after an identifier head).
+However, the `idx_type_shape` index is NOT used to drive
+`lookup_by_type_shape`: a canonical-string index cannot match a
+type-constructor variable against a concrete constructor (the
+higher-kinded case `F<A> ~> F<B>` vs `[a] ~> [b]`, which unifies with
+`F := List`), so the lookup does a linear scan with `Unifier::unify`,
+matching `InMemoryStore` exactly (including the `List`<->`App` bridge).
+The index/column are retained for inspection and
+`get`/`entries`/`lookup_by_fingerprint` round-trips.
 
 **Honesty note on `lookup_by_type_shape`:** the ADR claims "O(1) hash"
-lookup on `type_shape`. A type shape like `[A] ~> [B]` contains type
-variables, so two entries match whenever their shapes UNIFY, not on
-string equality. A true hash index over unifiable shapes is not
-straightforward (it is a query against a unification relation, not an
-equality relation). This backend uses a pragmatic approximation:
-canonicalize variables, exact-match the canonical string, then
-unify-confirm. This is invariant under alpha-renaming but is NOT a
-complete unification index — two shapes that unify but have different
-canonical structure (e.g. `[A]~>[A]` canonicalizes to `[t0]~>[t0]`
-while `[X]~>[Y]` canonicalizes to `[t0]~>[t1]`; they DO unify via `X=Y`
-but the index misses them) produce false negatives. Within this
-prototype's built-in catalog the canonical key is exact for all stored
-entries, so the equivalence test passes; a production backend would
-need a unification-aware index (e.g. a substitution trie). This is a
-noted gap relative to the ADR's O(1) claim.
+lookup on `type_shape`. A type shape contains type variables (and, with
+§5, type-constructor variables), so two entries match whenever their
+shapes UNIFY, not on string equality. A canonical-string index in
+particular cannot match a type-constructor variable against a concrete
+constructor (the higher-kinded case `F<A> ~> F<B>` vs `[a] ~> [b]`,
+which unifies with `F := List`). This backend therefore does a linear
+scan with `Unifier::unify` (O(|catalog|) per lookup, not O(1)), which is
+correct for higher-kinded filtering but is not the ADR's claimed O(1).
+A production backend would need a unification-aware index (e.g. a
+substitution trie). This is a noted gap relative to the ADR's O(1) claim.
 
 **Persistence:** entries and the verification cache survive close +
 reopen. The persistence test inserts 5 built-ins + 1 custom entry, runs
@@ -436,7 +499,7 @@ reloaded laws.
 ```
 === ADR-0075 section 4: SQLite catalog backend ===
 graph : (loop(first((uncons ; choice(nil,(first(f) ; cons))))) ; merge)
-fp    : comp(loop(first(comp(arr,choice(arr,comp(first(arr),arr))))),arr)
+fp    : comp(loop(first(comp(arr#0,choice(arr#1,comp(first(arr#2),arr#3))))),arr#4)
 
 === Equivalence test: InMemoryStore vs SqliteStore ===
 both backends populated with 5 entries
@@ -497,6 +560,21 @@ inserted 9 entries total
   and remain structurally equal to the originals.
 - **Backend equivalence** (Rust): `InMemoryStore` and `SqliteStore`
   produce identical `infer_traits` results on the built-in catalog.
+- **Higher-kinded type-filter discrimination** (Rust, ADR §5 / OQ#5):
+  `Ty::App` models `F<A>`; `Functor`'s `type_shape` is `F<A> ~> F<B>`.
+  The type filter unifies it with `[a] ~> [b]` (F := List, via a
+  `List`<->`App` bridge) and `Tree<a> ~> Tree<b>` (F := Tree), and
+  rejects `Int ~> Bool` (an `Atom` is not an `App`). The `Ty::App`
+  canonical key round-trips through the SQLite `key_to_type_shape`
+  parser.
+- **Canonical fingerprint (associativity + identity + alpha + sharing)**
+  (Rust, ADR OQ#6): the fingerprint is canonical under `comp`
+  associativity (chain flattening), identity absorption (`id` pruned
+  from `comp` chains), and alpha-renaming (de Bruijn Arr-name indexing).
+  Sharing structure is preserved (`comp(arr_f, arr_f)` !=
+  `comp(arr_f, arr_g)`); law-relevant combinator differences are
+  preserved (`first` != `left`). Six test groups demonstrate each
+  improvement, including comparison against the old `raw_fingerprint`.
 
 ### Aspirational / stubbed
 
@@ -506,10 +584,15 @@ inserted 9 entries total
   `AllSatisfy`) are not expressible as graph equations over the
   5-combinator kernel. This matches the ADR's "What is NOT yet proven"
   and OQ#1/#2/#4.
-- **Higher-kinded type shapes (`F<A>`):** `Ty` has no type-application
-  constructor, so `Functor`'s `type_shape` uses the `List` instance
-  `[A] ~> [B]` rather than the generic `F<A> ~> F<B>`. The type filter
-  is therefore coarser than the ADR's eventual HKT form (OQ#5).
+- **Higher-kinded type shapes (`F<A>`):** PARTIALLY implemented. The
+  `Ty::App` constructor exists and the type filter discriminates HKT
+  shapes (`F<A> ~> F<B>` matches `[a] ~> [b]` and `Tree<a> ~> Tree<b>`,
+  rejects `Int ~> Bool`). What remains open is the surface-syntax side:
+  there is no `trait Functor<F>` declaration form, so the
+  type-constructor variable `F` is authored directly in the catalog
+  entry rather than parsed from a declaration; there is also no kind
+  system (the bridge treats `List(t)` as `App(Atom("List"), t)`
+  structurally, without checking that `F` has the right kind) (OQ#5).
 - **Trait resolution coherence:** no coherence/ambiguity algorithm;
   multi-match returns all matches; no global uniqueness check (ADR
   Negative; OQ#3).
@@ -535,10 +618,10 @@ inserted 9 entries total
   is semantically the identity, so it trivially preserves every
   invariant). Non-identity functorial graphs are not covered.
 - **`lookup_by_type_shape` as a true unification index:** the SQLite
-  backend uses a canonical-string-index + unify-confirm approximation,
-  which is invariant under alpha-renaming but produces false negatives
-  for unifiable-but-structurally-different shapes. A
-  unification-aware index is future work.
+  backend now does a linear scan with `Unifier::unify` (correct for
+  higher-kinded filtering, including the `List`<->`App` bridge), but
+  this is O(|catalog|) per lookup, not the ADR's O(1). A
+  unification-aware index (e.g. a substitution trie) is future work.
 
 ---
 
@@ -567,16 +650,42 @@ The ADR lists 8 Open Questions. Status after this prototype:
 - **OQ#4 — Law expressiveness.** Which laws are decidable under CutElim?
   The prototype shows the linear functor fragment is decidable (the 6
   rewrites terminate for it). The non-linear extension is open.
-- **OQ#5 — Higher-kinded traits.** NOT modelled. `Ty` has no
-  type-application constructor; `Functor` uses the `List` instance.
-  *The prototype surfaces this gap concretely.*
-- **OQ#6 — Catalog fingerprinting.** The prototype chooses a simple
-  structural hash (combinator tree with `Arr` names erased to
-  `arr`). This is invariant under base-arrow renaming and sensitive to
-  combinator-shape differences, but is NOT invariant under
-  alpha-equivalent rewiring of the law-relevant structure beyond shape.
-  *The prototype makes a concrete choice; the design question remains
-  open.*
+- **OQ#5 — Higher-kinded traits.** PARTIALLY modelled. `Ty::App(Box<Ty>,
+  Box<Ty>)` represents `F<A>` (ADR §5 angle-bracket syntax);
+  `Display`/`free_vars`/`apply_map`/`Substitution::apply`/`Unifier::unify`/
+  `occurs_in` all handle it, and `Functor`'s `type_shape` is the generic
+  `F<A> ~> F<B>`. The type filter discriminates: `[a] ~> [b]` and
+  `Tree<a> ~> Tree<b>` match (F := List / Tree), `Int ~> Bool` does not.
+  What remains open: (1) higher-kinded trait *parameters* in the surface
+  syntax (`trait Functor<F>` declaration form) -- `F` is authored
+  directly in the catalog entry, not parsed; (2) a kind system -- the
+  `List`<->`App` bridge treats `List(t)` as `App(Atom("List"), t)`
+  structurally without kind-checking; (3) multi-argument type
+  constructors (`F<A,B>`) and higher-order constructors. *The prototype
+  now exercises the type-filter layer of HKT concretely; the
+  declaration/kind layers remain open.*
+- **OQ#6 — Catalog fingerprinting.** IMPLEMENTED. The fingerprint is now
+  canonical under three structural equivalences: (1) associativity of
+  `comp` (chain flattening, order preserved -- `comp` is not commutative),
+  (2) identity absorption in `comp` chains (`id` pruned, matching CutElim
+  `ceIdLeft`/`ceIdRight`), and (3) alpha-renaming of base-arrow names
+  (de Bruijn indexing: first occurrence of a name gets `arr#0`, repeats
+  get the same index, new names get the next index). The de Bruijn
+  indexing preserves sharing structure: `comp(arr_f, arr_f)` gets a
+  different fingerprint from `comp(arr_f, arr_g)`. Law-relevant combinator
+  differences (`first` vs `left` vs `loop` vs `choice`) are preserved.
+  The old fingerprint is kept as `raw_fingerprint` for comparison. Tests
+  demonstrate all six improvement cases (associativity, identity pruning,
+  alpha-invariance, sharing preserved, law-relevant difference preserved,
+  combined). What is still open: the canonicalization is CHEAP (not full
+  CutElim) -- it does not catch `first(id) equiv id` (`ceFirstId`),
+  `first(f;g) equiv first f; first g` (`ceFirstFusion`), or their `left`
+  analogues; these are left to Step 3 CutElim. Commutativity of `choice`
+  branches is not canonicalized (not a CutElim rule; open). Deeper
+  semantic equivalences are not caught by any structural hash.
+  *The prototype now makes a principled concrete choice; the remaining
+  design question is whether deeper equivalences should be folded into
+  the fingerprint or left to CutElim.*
 - **OQ#7 — Catalog distribution.** Not addressed (storage is local
   SQLite; source files are the source of truth). Out of scope for this
   prototype.
@@ -600,8 +709,10 @@ Builds the Lean4 mechanization (19 jobs, zero `sorry`, builds green).
 ```
 cargo run --bin trait_inference
 ```
-Runs the in-memory catalog demo + 10 tests (CutElim law_equal, fingerprint,
-type/fingerprint pruning, pipeline multi-match, cache, built-in catalog).
+Runs the in-memory catalog demo + tests (CutElim law_equal, fingerprint
+same/different-shape, canonical fingerprint associativity/identity/
+alpha/sharing/law-relevant/combined, type/fingerprint pruning, pipeline
+multi-match, cache, built-in catalog, HKT type-filter discrimination).
 
 ```
 cargo run --bin trait_inference_sqlite

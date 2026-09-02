@@ -18,24 +18,27 @@
 // ADR: platform/project/adrs/0075-traits-as-arrow-signatures.md
 //
 // HONESTY NOTE on `lookup_by_type_shape`: the ADR claims "O(1) hash" lookup
-// on `type_shape`. A type shape like `[A] ~> [B]` contains type VARIABLES,
-// so two entries match whenever their shapes UNIFY, not just on string
-// equality. A true hash index over unifiable shapes is not straightforward
-// (it is a query against a unification relation, not an equality relation).
-// This backend uses a pragmatic approximation: type variables in the shape
-// are canonicalized to `t0, t1, ...` (order of appearance), the resulting
-// `Display` string is stored in an indexed column, and lookup does an exact
-// string match on that canonical key, then confirms candidates with
-// `Unifier::unify`. This makes the index invariant under alpha-renaming
-// (so `[A]~>[B]` and `[a]~>[b]` share a key and are found), but it is NOT a
-// complete unification index: two shapes that unify but have different
-// canonical structure (e.g. `[A]~>[A]` canonicalizes to `[t0]~>[t0]` while
-// `[X]~>[Y]` canonicalizes to `[t0]~>[t1]`; they DO unify via X=Y but the
-// index misses them) will produce false negatives. Within this prototype's
-// built-in catalog the canonical key is exact for all stored entries, so
-// the equivalence test passes; a production backend would need a
-// unification-aware index (e.g. a substitution trie). This is a noted gap
-// relative to the ADR's O(1) claim.
+// on `type_shape`. A type shape like `[A] ~> [B]` -- or, with ADR-0075
+// section 5 higher-kinded shapes, `F<A> ~> F<B>` -- contains type VARIABLES
+// (and type-constructor variables), so two entries match whenever their
+// shapes UNIFY, not on string equality. A true hash index over unifiable
+// shapes is not straightforward (it is a query against a unification
+// relation, not an equality relation), and a canonical-string index in
+// particular CANNOT match a type-constructor variable against a concrete
+// constructor (e.g. `F<A> ~> F<B>` vs `[a] ~> [b]`, which unifies with
+// `F := List`): the canonical keys `(t0<t1> ~> t0<t2>)` and
+// `[t0]~>[t1]` differ as strings even though the shapes unify. This is the
+// higher-kinded case from ADR Open Question #5.
+//
+// This backend therefore does a LINEAR SCAN with `Unifier::unify` for
+// `lookup_by_type_shape`, matching `InMemoryStore`'s behaviour exactly
+// (including the `List`<->`App` bridge that lets `F<A>` unify with `[A]`).
+// The `type_shape` column + `idx_type_shape` index are retained (the
+// canonical key is still stored and round-tripped via `key_to_type_shape`
+// for `get`/`entries`/`lookup_by_fingerprint`) but are NOT used to drive
+// the type-shape lookup. This is O(|catalog|) per lookup, not O(1); a
+// production backend would need a unification-aware index (e.g. a
+// substitution trie). This is a noted gap relative to the ADR's O(1) claim.
 
 // Pull in the existing trait catalog as a submodule. Its `fn main()` (and
 // the demo helpers `demo_signature`/`print_section`/`prod` used only by that
@@ -192,6 +195,10 @@ impl SqliteStore {
                     Ty::Arrow(Box::new(go(a, map, next)), Box::new(go(b, map, next)))
                 }
                 Ty::List(t) => Ty::List(Box::new(go(t, map, next))),
+                Ty::App(g, a) => Ty::App(
+                    Box::new(go(g, map, next)),
+                    Box::new(go(a, map, next)),
+                ),
                 other => other.clone(),
             }
         }
@@ -200,9 +207,11 @@ impl SqliteStore {
 
     /// Parse a canonical key back into a `Ty`. This is a minimal s-expr
     /// parser for the `Display` grammar of `Ty`:
-    ///   atom | var | (A x B) | (A + B) | (A ~> B) | () | _|_ | [A]
-    /// Used to recover the full `Ty` from the indexed column so
-    /// `lookup_by_type_shape` can run `Unifier::unify` on candidates.
+    ///   atom | var | (A x B) | (A + B) | (A ~> B) | () | _|_ | [A] | F<A>
+    /// (ADR-0075 section 5: `F<A>` is type application, parsed as a trailing
+    /// `<...>` after an identifier head.) Used to recover the full `Ty`
+    /// from the indexed column so `lookup_by_type_shape` can run
+    /// `Unifier::unify` on candidates.
     fn key_to_type_shape(key: &str) -> Option<Ty> {
         let mut p = TyParser::new(key);
         let ty = p.parse_ty()?;
@@ -364,10 +373,28 @@ impl<'a> TyParser<'a> {
         } else {
             false
         };
-        if is_var {
-            Some(Ty::Var(s.to_string()))
+        let base = if is_var {
+            Ty::Var(s.to_string())
         } else {
-            Some(Ty::Atom(s.to_string()))
+            Ty::Atom(s.to_string())
+        };
+        // ADR-0075 section 5: type application `F<A>` serializes (via
+        // `Ty::Display`) as a trailing `<arg>` right after the head
+        // identifier, with no space. The head is a Var/Atom here; a
+        // following `<...>` makes this an `App`. Nested application
+        // (`F<G<A>>`) falls out of recursing `parse_ty` for the argument.
+        self.skip_ws();
+        if self.peek() == Some(b'<') {
+            self.pos += 1; // consume '<'
+            let arg = self.parse_ty()?;
+            self.skip_ws();
+            if self.peek() != Some(b'>') {
+                return None;
+            }
+            self.pos += 1; // consume '>'
+            Some(Ty::App(Box::new(base), Box::new(arg)))
+        } else {
+            Some(base)
         }
     }
 }
@@ -384,20 +411,24 @@ enum Op {
 
 impl TraitCatalogStore for SqliteStore {
     fn lookup_by_type_shape(&self, shape: &Ty) -> Vec<(EntryId, CatalogEntry)> {
-        // Strategy (documented in the file header): indexed exact-string
-        // match on the canonical type_shape key, then unify-confirm the
-        // candidates. This is a pragmatic approximation of the ADR's "O(1)
-        // hash" claim -- see the HONESTY NOTE at the top of this file.
-        let key = SqliteStore::type_shape_to_key(shape);
+        // Strategy (documented in the file header): a LINEAR SCAN with
+        // `Unifier::unify`. A canonical-string index cannot match a
+        // type-constructor variable against a concrete constructor (the
+        // higher-kinded case: `F<A> ~> F<B>` vs `[a] ~> [b]`, which unifies
+        // with `F := List`), so the index is not used here and we scan all
+        // rows, unifying each stored `type_shape` with the query. This
+        // matches `InMemoryStore` exactly (including the `List`<->`App`
+        // bridge). O(|catalog|) per lookup; a unification-aware index is
+        // future work. See the HONESTY NOTE at the top of this file.
         let mut stmt = self
             .conn
             .prepare(
                 "SELECT id, name, type_shape, fingerprint, laws, cutelim_proven
-                 FROM trait_entries WHERE type_shape = ?1",
+                 FROM trait_entries",
             )
             .expect("prepare lookup_by_type_shape");
         let rows = stmt
-            .query_map(params![key], |row| {
+            .query_map([], |row| {
                 let id: i64 = row.get(0)?;
                 let name: String = row.get(1)?;
                 let type_shape_key: String = row.get(2)?;
@@ -412,15 +443,15 @@ impl TraitCatalogStore for SqliteStore {
         for r in rows {
             let (id, name, type_shape_key, fingerprint, laws_blob, cutelim_proven) =
                 r.expect("row lookup_by_type_shape");
-            // Recover the full Ty from the canonical key and unify-confirm.
-            // If parsing fails (shouldn't for our own writes), skip the row.
+            // Recover the full Ty from the canonical key. If parsing fails
+            // (shouldn't for our own writes), skip the row.
             let stored_ty = match SqliteStore::key_to_type_shape(&type_shape_key) {
                 Some(t) => t,
                 None => continue,
             };
             // Unify-confirm: only keep entries whose stored shape unifies
-            // with the query shape. (For exact-key matches this is trivially
-            // true, but the confirm step is the correctness guarantee.)
+            // with the query shape. This is the correctness guarantee and
+            // the only match criterion (no index pre-filter).
             if Unifier::unify(&stored_ty, shape).is_none() {
                 continue;
             }

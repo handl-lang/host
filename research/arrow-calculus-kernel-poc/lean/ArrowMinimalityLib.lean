@@ -7,6 +7,7 @@ import ArrowMinimalityLib.Translation
 import ArrowMinimalityLib.DependentProofGraphs
 import ArrowMinimalityLib.RefinementProofGraphs
 import ArrowMinimalityLib.ProofAdvantage
+import ArrowMinimalityLib.CutElimCongruence
 import ArrowMinimalityLib.ProofRelevant
 import ArrowMinimalityLib.FanoutUnencodable
 import ArrowMinimalityLib.RefinementCharacterization
@@ -16,3 +17,4 @@ import ArrowMinimalityLib.LoopInvariantDiscovery
 import ArrowMinimalityLib.AlgorithmicCompleteness
 import ArrowMinimalityLib.Termination
 import ArrowMinimalityLib.TraitInference
+import ArrowMinimalityLib.EquationalLawInference
