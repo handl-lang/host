@@ -40,7 +40,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use handl_language::{Ast, AstNode, Language, Scheme, Value};
+use handl_language::{ArrSource, Ast, AstNode, Language, Scheme, Value};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 
@@ -214,17 +214,160 @@ pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
     }
 
     let arrow_src = arrow_lines.join("\n");
-    let arrows = if arrow_src.trim().is_empty() {
+    let mut arrows = if arrow_src.trim().is_empty() {
         ParsedFile::Named(HashMap::new())
     } else {
         parse_arrow_file(&arrow_src)?
     };
+
+    // Rewrite references to imported names into module_ref/project nodes so
+    // the normalisation strategies (Strategy A / Strategy B) can eliminate
+    // them. Local bindings shadow imports of the same name.
+    rewrite_imports(&mut arrows, &imports);
 
     Ok(ParsedModule {
         imports,
         exports,
         arrows,
     })
+}
+
+/// Rewrite references to imported names in a [`ParsedFile`] so they become
+/// proper `module_ref`/`project` nodes.
+///
+/// After [`parse_arrow_module`] extracts the import declarations and parses
+/// the remaining content into a [`ParsedFile`], imported names still appear
+/// as bare `Arr { op: <local_name>, args: [], source: Native, lit: None }`
+/// references — indistinguishable from local arrow references. This function
+/// walks every `Scheme` in the `ParsedFile` and replaces such references with
+/// `project(module_ref(path), remote_name)` for named imports, or
+/// `module_ref(path)` for whole-module imports (`import "path" as alias`).
+///
+/// References to names that are **locally defined** in the `ParsedFile` are
+/// not rewritten — a local binding shadows an import of the same name.
+pub fn rewrite_imports(file: &mut ParsedFile, imports: &[ImportDecl]) {
+    // Build the set of locally-defined names. A single-expression file has
+    // no local names; a named file's keys are the local bindings.
+    let local_names: HashSet<String> = match file {
+        ParsedFile::Named(map) => map.keys().cloned().collect(),
+        ParsedFile::Single(_) => HashSet::new(),
+    };
+
+    // Build the import map: local_name -> (path, remote_name).
+    // For whole-module imports, remote_name is "*".
+    let mut import_map: HashMap<String, (String, String)> = HashMap::new();
+    for import in imports {
+        for (remote_name, local_name) in &import.names {
+            import_map.insert(local_name.clone(), (import.path.clone(), remote_name.clone()));
+        }
+    }
+
+    if import_map.is_empty() {
+        return;
+    }
+
+    match file {
+        ParsedFile::Single(scheme) => {
+            *scheme = rewrite_scheme(scheme, &import_map, &local_names);
+        }
+        ParsedFile::Named(map) => {
+            for scheme in map.values_mut() {
+                *scheme = rewrite_scheme(scheme, &import_map, &local_names);
+            }
+        }
+    }
+}
+
+/// Recursively rewrite a [`Scheme`], replacing bare references to imported
+/// names with `module_ref`/`project` nodes.
+///
+/// A "reference" is either:
+/// - A standalone `Arr { op: <name>, args: [], source: Native, lit: None }`
+///   (e.g. passing an imported arrow as a higher-order argument).
+/// - The callee of an `App { callee: Arr { op: <name>, ... }, args }` — the
+///   callee is rewritten recursively, so the bare-`Arr` case covers this.
+///
+/// Only names in `import_map` that are **not** in `local_names` are rewritten
+/// (local bindings shadow imports).
+fn rewrite_scheme(
+    scheme: &Scheme,
+    import_map: &HashMap<String, (String, String)>,
+    local_names: &HashSet<String>,
+) -> Scheme {
+    match scheme {
+        Scheme::Arr { op, args, source, lit } => {
+            // Recurse into args first (bottom-up).
+            let new_args: Vec<Scheme> = args
+                .iter()
+                .map(|a| rewrite_scheme(a, import_map, local_names))
+                .collect();
+
+            // Check if this is a bare reference to an imported name.
+            if args.is_empty() && lit.is_none() && *source == ArrSource::Native {
+                if let Some((path, remote_name)) = import_map.get(op) {
+                    if !local_names.contains(op) {
+                        if remote_name == "*" {
+                            // Whole-module import: the whole module record.
+                            return module_ref_node(path);
+                        } else {
+                            // Named import: project the field from the module.
+                            return project_node(module_ref_node(path), remote_name);
+                        }
+                    }
+                }
+            }
+
+            Scheme::Arr {
+                op: op.clone(),
+                args: new_args,
+                source: source.clone(),
+                lit: lit.clone(),
+            }
+        }
+        Scheme::Seq { fst, snd } => Scheme::Seq {
+            fst: Box::new(rewrite_scheme(fst, import_map, local_names)),
+            snd: Box::new(rewrite_scheme(snd, import_map, local_names)),
+        },
+        Scheme::First { inner } => Scheme::First {
+            inner: Box::new(rewrite_scheme(inner, import_map, local_names)),
+        },
+        Scheme::Choice { l, r } => Scheme::Choice {
+            l: Box::new(rewrite_scheme(l, import_map, local_names)),
+            r: Box::new(rewrite_scheme(r, import_map, local_names)),
+        },
+        Scheme::Loop { body } => Scheme::Loop {
+            body: Box::new(rewrite_scheme(body, import_map, local_names)),
+        },
+        Scheme::App { callee, args } => Scheme::App {
+            callee: Box::new(rewrite_scheme(callee, import_map, local_names)),
+            args: args
+                .iter()
+                .map(|a| rewrite_scheme(a, import_map, local_names))
+                .collect(),
+        },
+    }
+}
+
+/// Build a `module_ref` node: `Arr { op: "module_ref", args: [], source:
+/// Native, lit: Some(path) }`.
+fn module_ref_node(path: &str) -> Scheme {
+    Scheme::Arr {
+        op: "module_ref".to_string(),
+        args: vec![],
+        source: ArrSource::Native,
+        lit: Some(Value::String(path.to_string())),
+    }
+}
+
+/// Build a `project` node: `Arr { op: "project", args: [record], source:
+/// Native, lit: Some(field) }`.
+fn project_node(record: Scheme, field: &str) -> Scheme {
+    Scheme::Arr {
+        op: "project".to_string(),
+        args: vec![record],
+        source: ArrSource::Native,
+        lit: Some(Value::String(field.to_string())),
+    }
 }
 
 /// Parse a single `import` line into an [`ImportDecl`].
@@ -938,15 +1081,15 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 ///
 /// 0. Nested `loop_rich` → recursively materialize the inner loop
 /// 1. `prim.compare` identifier → `comp(prim.compare, choice(cons, cons))` (insert)
-/// 2. `*.p` in arrow_app (`-<`) → `comp(filter_step, id)` (filter)
+/// 2. `*.p` in arrow_call (`callee(arg)`) → `comp(filter_step, id)` (filter)
 /// 3. `*.f` in call with `*.acc` argument, no `id` on `*.acc` → `fold_step` (fold)
 /// 3a. `*.f` in call with `*.acc` argument, `id` on `*.acc` → `comp(fold_step, first(id))` (reduce)
-/// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))` (sort)
-/// 5. `*.f` in arrow_app with `*.acc` in right args → `comp(fold_step, first(list.cons))` (scan)
+/// 4. `insert` in arrow_call (`callee(arg)`) → `comp(app(insert), first(id))` (sort)
+/// 5. `*.f` in arrow_call with `*.acc` in right args → `comp(fold_step, first(list.cons))` (scan)
 /// 6. `list.head` AND `list.tail` both in arrow_call → `comp(first(list.head), comp(first(list.tail), list.cons))` (zip)
-/// 7. `list.head` in arrow_app (`-<`) → `comp(list.head, choice(cons, id))` (take)
+/// 7. `list.head` in arrow_call (`callee(arg)`) → `comp(list.head, choice(cons, id))` (take)
 /// 8. `list.tail` in arrow_call → `comp(list.tail, first(id))` (drop)
-/// 9. `*.f` in arrow_app (`-<`) → `first(fn.apply)` (map)
+/// 9. `*.f` in arrow_call (`callee(arg)`) → `first(fn.apply)` (map)
 ///
 /// Patterns 2, 3, 5, and 9 use suffix-based matching (e.g. `*.f` matches
 /// `state.f`, `inner_state.f`, etc.) so that nested loops with different
@@ -957,7 +1100,7 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 /// pattern detection (e.g. `id(state.acc)` signals reduce vs fold) but only
 /// the recursive arm (`[h, ...t]:`) is analyzed for the main graph
 /// structure. Conditionals within the recursive arm (e.g. `if state.n <= 0
-/// then returnA ...`) are tracked via `has_conditional` for future pattern
+/// return ...`) are tracked via `has_conditional` for future pattern
 /// discrimination.
 fn analyze_branch_ast(
     ast: &Ast,
@@ -1007,7 +1150,7 @@ fn analyze_branch_ast(
         });
     }
 
-    // 2. *.p in arrow_app → filter pattern
+    // 2. *.p in arrow_call → filter pattern
     if has_suffix(&collector.app_left_names, ".p") {
         let step = Scheme::arr_native("filter_step", vec![]);
         let rest = Scheme::arr_native("id", vec![]);
@@ -1047,7 +1190,7 @@ fn analyze_branch_ast(
         }
     }
 
-    // 4. insert in arrow_app → sort pattern
+    // 4. insert in arrow_call → sort pattern
     if collector.app_left_names.contains("insert") {
         let step = Scheme::App {
             callee: Box::new(Scheme::arr_native("insert", vec![])),
@@ -1062,7 +1205,7 @@ fn analyze_branch_ast(
         });
     }
 
-    // 5. *.f in arrow_app with *.acc in right args → scan pattern
+    // 5. *.f in arrow_call with *.acc in right args → scan pattern
     //    scan is like fold (uses f with acc) but also conses
     //    each intermediate result onto an output list.
     for (left, right_args) in &collector.app_left_args {
@@ -1088,8 +1231,11 @@ fn analyze_branch_ast(
     //    because zip uses list.tail in arrow_call (which would match drop)
     //    and the combination of both list.head and list.tail in arrow_call
     //    is unique to zip.
+    //    The `!let_bound_callees` check excludes take, where list.head is
+    //    called in a let binding (`y = list.head(...) in ...`).
     if collector.call_callee_args.contains_key("list.head")
         && collector.call_callee_args.contains_key("list.tail")
+        && !collector.let_bound_callees.contains("list.head")
     {
         let step1 = Scheme::First {
             inner: Box::new(Scheme::arr_native("list.head", vec![])),
@@ -1107,7 +1253,7 @@ fn analyze_branch_ast(
         });
     }
 
-    // 7. list.head in arrow_app → take pattern
+    // 7. list.head in arrow_call → take pattern
     if collector.app_left_names.contains("list.head") {
         let step = Scheme::arr_native("list.head", vec![]);
         let choice = Scheme::Choice {
@@ -1132,7 +1278,7 @@ fn analyze_branch_ast(
         });
     }
 
-    // 9. *.f in arrow_app → map pattern
+    // 9. *.f in arrow_call → map pattern
     if has_suffix(&collector.app_left_names, ".f") {
         return Ok(Scheme::First {
             inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
@@ -1148,18 +1294,25 @@ fn analyze_branch_ast(
 struct PatternCollector {
     /// All `arrow_var` identifier names found in the subtree.
     var_names: HashSet<String>,
-    /// Left-child names of `arrow_app` (`-<`) nodes where the left child is
-    /// an `arrow_var` (e.g. `state.f -< h` → `"state.f"`).
+    /// Callee names of `arrow_call` nodes where the callee is an
+    /// `arrow_var` (e.g. `state.f(h)` → `"state.f"`). Used for filter,
+    /// sort, take, and map pattern detection.
     app_left_names: HashSet<String>,
-    /// For each `arrow_app` (`-<`) node, maps the left-child name to the set
-    /// of `arrow_var` names found in the right-child subtree (e.g.
-    /// `state.f -< { acc: state.acc, h: h }` →
-    /// `"state.f" → {"state.acc", "h"}`).
+    /// For each `arrow_call` node, maps the callee name to the set of
+    /// `arrow_var` names found recursively in the argument subtrees (e.g.
+    /// `state.f({ acc: state.acc, h: h })` →
+    /// `"state.f" → {"state.acc", "h"}`). Used for scan pattern detection.
     app_left_args: HashMap<String, HashSet<String>>,
-    /// Callee name → argument names for `arrow_call` nodes where the callee
-    /// is an `arrow_var` (e.g. `state.f(state.acc, h)` →
-    /// `"state.f" → ["state.acc", "h"]`).
+    /// Callee name → direct argument names for `arrow_call` nodes where the
+    /// callee is an `arrow_var` (e.g. `state.f(state.acc, h)` →
+    /// `"state.f" → ["state.acc", "h"]`). Used for fold/reduce/zip/drop
+    /// pattern detection.
     call_callee_args: HashMap<String, Vec<String>>,
+    /// Callee names that appear as the expression in a `named_arrow` (let
+    /// binding) node, e.g. `y = list.head(state.remaining) in ...` →
+    /// `"list.head"`. Used to distinguish take (let-bound `list.head`)
+    /// from zip (direct `list.head` in state update).
+    let_bound_callees: HashSet<String>,
     /// Whether the subtree contains an `arrow_if` node (conditional).
     has_conditional: bool,
     /// Whether the subtree contains an `arrow_array` with an `arrow_rest`
@@ -1187,8 +1340,33 @@ impl PatternCollector {
                 return;
             }
             "arrow_if" => {
-                // Conditional (if/then/else) — record its presence.
+                // Conditional (if/else) — record its presence.
                 self.has_conditional = true;
+            }
+            "named_arrow" => {
+                // `name = expr` let binding. If expr is an arrow_call with
+                // an arrow_var callee, track the callee name as let-bound.
+                // This distinguishes take (y = list.head(...) in ...) from
+                // zip (list.head(...) used directly in state update).
+                if let Ok(children) = get_children(&node.payload) {
+                    if let Some(expr_idx) = children.get(1).and_then(|v| v.as_u64()) {
+                        if let Some(expr_node) = ast.nodes().get(expr_idx as usize) {
+                            if expr_node.kind == "arrow_call" {
+                                if let Ok(expr_children) = get_children(&expr_node.payload) {
+                                    if let Some(callee_idx) = expr_children.first().and_then(|v| v.as_u64()) {
+                                        if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
+                                            if callee_node.kind == "arrow_var" {
+                                                if let Some(name) = callee_node.payload.as_str() {
+                                                    self.let_bound_callees.insert(name.to_string());
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             "loop_rich" => {
                 // Nested rich loop — record its presence.
@@ -1210,39 +1388,6 @@ impl PatternCollector {
                     }
                 }
             }
-            "arrow_app" => {
-                // `-<` application: left child is the arrow being applied.
-                if let Ok(children) = get_children(&node.payload) {
-                    if let Some(left_idx) = children.first().and_then(|v| v.as_u64()) {
-                        if let Some(left_node) = ast.nodes().get(left_idx as usize) {
-                            if left_node.kind == "arrow_var" {
-                                if let Some(name) = left_node.payload.as_str() {
-                                    self.app_left_names.insert(name.to_string());
-                                    // Collect var names from the right child
-                                    // (child 1) to track app arguments.
-                                    if let Some(right_idx) =
-                                        children.get(1).and_then(|v| v.as_u64())
-                                    {
-                                        let right_vars =
-                                            collect_var_names(ast, right_idx as usize);
-                                        self.app_left_args
-                                            .entry(name.to_string())
-                                            .or_default()
-                                            .extend(right_vars);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Recurse into all children.
-                    for child_val in children {
-                        if let Some(child_idx) = child_val.as_u64() {
-                            self.collect(ast, child_idx as usize);
-                        }
-                    }
-                }
-                return;
-            }
             "arrow_call" => {
                 // `callee(args...)` function call: child 0 is callee,
                 // children 1..N are arguments.
@@ -1261,7 +1406,15 @@ impl PatternCollector {
                                 None
                             };
                             if let Some(callee_name) = callee_name {
+                                // Populate app_left_names for filter/sort/take/map
+                                // pattern detection.
+                                self.app_left_names.insert(callee_name.clone());
+                                // Collect direct arrow_var argument names for
+                                // fold/reduce/zip/drop pattern detection.
                                 let mut arg_names = Vec::new();
+                                // Recursively collect var names from all
+                                // argument subtrees for scan pattern detection.
+                                let mut all_var_args = HashSet::new();
                                 for i in 1..children.len() {
                                     if let Some(arg_idx) = children[i].as_u64() {
                                         if let Some(arg_node) =
@@ -1274,11 +1427,20 @@ impl PatternCollector {
                                                     arg_names.push(arg_name.to_string());
                                                 }
                                             }
+                                            // Recursively collect all var names
+                                            // from this argument subtree.
+                                            let vars =
+                                                collect_var_names(ast, arg_idx as usize);
+                                            all_var_args.extend(vars);
                                         }
                                     }
                                 }
                                 self.call_callee_args
-                                    .insert(callee_name, arg_names);
+                                    .insert(callee_name.clone(), arg_names);
+                                self.app_left_args
+                                    .entry(callee_name)
+                                    .or_default()
+                                    .extend(all_var_args);
                             }
                         }
                     }
@@ -1307,8 +1469,8 @@ impl PatternCollector {
 
 /// Collect all `arrow_var` identifier names in an AST subtree.
 ///
-/// This is used by `PatternCollector` to gather the variable names on the
-/// right-hand side of an `arrow_app` (`-<`) node.
+/// This is used by `PatternCollector` to gather the variable names in the
+/// argument subtrees of an `arrow_call` node.
 fn collect_var_names(ast: &Ast, idx: usize) -> HashSet<String> {
     let mut names = HashSet::new();
     collect_var_names_recursive(ast, idx, &mut names);

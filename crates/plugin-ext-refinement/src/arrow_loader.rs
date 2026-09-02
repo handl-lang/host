@@ -865,11 +865,15 @@ fn normalize_compile_time_inner(
     let imports = loader.get_imports(path)?;
 
     // Build import_records: local_name → inlined record or project node.
+    // Also build path_records: module path → inlined record, so that
+    // `module_ref(path)` nodes emitted by `rewrite_imports` can be resolved.
     let mut import_records: HashMap<String, Scheme> = HashMap::new();
+    let mut path_records: HashMap<String, Scheme> = HashMap::new();
     for import in &imports {
         // Recursively normalize the referenced module.
         let child_arrows = normalize_compile_time_inner(&import.path, loader, visited)?;
         let record = build_module_record(&child_arrows);
+        path_records.insert(import.path.clone(), record.clone());
         for (remote_name, local_name) in &import.names {
             if remote_name == "*" {
                 // Whole-module import: bind local_name to the record.
@@ -890,7 +894,7 @@ fn normalize_compile_time_inner(
     // Replace App-to-import and module_ref nodes in each arrow.
     let mut normalized_arrows = HashMap::new();
     for (name, scheme) in &loaded.arrows {
-        let normalized = replace_imports_with_projects(scheme, &import_records);
+        let normalized = replace_imports_with_projects(scheme, &import_records, &path_records);
         normalized_arrows.insert(name.clone(), normalized);
     }
 
@@ -900,11 +904,13 @@ fn normalize_compile_time_inner(
 
 /// Replace `App { callee: Arr { op: name } }` where `name` is in
 /// `import_records` with the corresponding record/project node. Also
-/// replaces `Arr { op: "module_ref", lit: Some(path) }` nodes if the path
-/// is found in `import_records` (keyed by path). `project` nodes are kept.
+/// replaces `Arr { op: "module_ref", lit: Some(path) }` nodes using
+/// `path_records` (keyed by module path). `project` nodes are kept —
+/// Strategy A preserves projections.
 fn replace_imports_with_projects(
     scheme: &Scheme,
     import_records: &HashMap<String, Scheme>,
+    path_records: &HashMap<String, Scheme>,
 ) -> Scheme {
     transform_scheme(scheme, &|node| match node {
         Scheme::App { callee, args } => {
@@ -921,7 +927,7 @@ fn replace_imports_with_projects(
         }
         Scheme::Arr { op, args, source, lit } if op == "module_ref" => {
             if let Some(Value::String(path)) = lit {
-                if let Some(replacement) = import_records.get(path) {
+                if let Some(replacement) = path_records.get(path) {
                     return replacement.clone();
                 }
             }
@@ -1022,12 +1028,16 @@ fn load_transitive(
     for import in &imports {
         load_transitive(&import.path, loader, visited, global_arrows)?;
         let child_loaded = loader.load(&import.path)?;
+        // Bind the module path to a record of the child's arrows, so that
+        // `module_ref(path)` nodes emitted by `rewrite_imports` can be
+        // resolved by `resolve_all_apps`.
+        let record = build_module_record(&child_loaded.arrows);
+        global_arrows.insert(import.path.clone(), record.clone());
         for (remote_name, local_name) in &import.names {
             if remote_name == "*" {
                 // Whole-module import: all child arrows already in global_arrows.
                 // Also bind the local alias to a record of the child's arrows.
-                let record = build_module_record(&child_loaded.arrows);
-                global_arrows.insert(local_name.clone(), record);
+                global_arrows.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to the specific arrow.
                 if let Some(arrow) = child_loaded.arrows.get(remote_name) {

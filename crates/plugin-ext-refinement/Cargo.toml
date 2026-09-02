@@ -20,5 +20,9 @@ serde_json = { workspace = true }
 serde_yaml = "0.9"
 z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 
+[[bin]]
+name = "hnlc"
+path = "src/bin/hnlc.rs"
+
 [dev-dependencies]
 serde_json = { workspace = true }

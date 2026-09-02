@@ -1239,3 +1239,331 @@ fn test_file_resolver_not_found() {
         Err(e) => assert!(matches!(e.kind, ResolveErrorKind::NotFound)),
     }
 }
+
+// ============================================================================
+// Section 7: Import rewriting — module_ref/project op emission (ADR-0069)
+// ============================================================================
+//
+// These tests verify that `parse_arrow_module` rewrites references to imported
+// names into `project(module_ref(path), remote_name)` nodes (named imports) or
+// `module_ref(path)` nodes (whole-module imports), and that local bindings
+// shadow imports. They also verify end-to-end elimination via the
+// normalisation strategies.
+
+use handl_language::Value;
+
+use crate::arrow_parser::ParsedFile;
+
+/// Check whether a `Scheme` is a `project(module_ref(path), field)` node,
+/// possibly wrapped in an `App { callee: ..., args: [] }` (the form produced
+/// when a bare identifier is used as an arrow expression). Returns
+/// `Some((path, field))` if it matches, `None` otherwise.
+fn is_project_of_module_ref(scheme: &Scheme) -> Option<(String, String)> {
+    let inner = match scheme {
+        Scheme::App { callee, args } if args.is_empty() => callee.as_ref(),
+        other => other,
+    };
+    if let Scheme::Arr {
+        op,
+        args,
+        lit: Some(Value::String(field)),
+        ..
+    } = inner
+    {
+        if op == "project" && args.len() == 1 {
+            if let Scheme::Arr {
+                op: ref_op,
+                args: ref_args,
+                lit: Some(Value::String(path)),
+                ..
+            } = &args[0]
+            {
+                if ref_op == "module_ref" && ref_args.is_empty() {
+                    return Some((path.clone(), field.clone()));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Check whether a `Scheme` is a `module_ref(path)` node, possibly wrapped in
+/// an `App { callee: ..., args: [] }`.
+fn is_module_ref(scheme: &Scheme) -> Option<String> {
+    let inner = match scheme {
+        Scheme::App { callee, args } if args.is_empty() => callee.as_ref(),
+        other => other,
+    };
+    if let Scheme::Arr {
+        op,
+        args,
+        lit: Some(Value::String(path)),
+        ..
+    } = inner
+    {
+        if op == "module_ref" && args.is_empty() {
+            return Some(path.clone());
+        }
+    }
+    None
+}
+
+#[test]
+fn test_rewrite_imports_named_import_produces_project_module_ref() {
+    // `import sort from "collection/sort"` then `main = sort`.
+    // After rewrite, `main` should be `project(module_ref("collection/sort"), "sort")`.
+    let src = "import sort from \"collection/sort\"\nmain = sort";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map
+                .get("main")
+                .expect("should have 'main' arrow");
+            let (path, field) = is_project_of_module_ref(main)
+                .expect("main should be project(module_ref(path), \"sort\")");
+            assert_eq!(path, "collection/sort");
+            assert_eq!(field, "sort");
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_named_import_as_alias() {
+    // `import sort as s from "collection/sort"` then `main = s`.
+    // After rewrite, `main` should be `project(module_ref("collection/sort"), "sort")`
+    // (the remote name is used in the projection, the local alias is the
+    // reference that gets rewritten).
+    let src = "import sort as s from \"collection/sort\"\nmain = s";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map.get("main").expect("should have 'main' arrow");
+            let (path, field) = is_project_of_module_ref(main)
+                .expect("main should be project(module_ref(path), \"sort\")");
+            assert_eq!(path, "collection/sort");
+            assert_eq!(field, "sort");
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_local_shadow_not_rewritten() {
+    // `import sort from "collection/sort"` but `sort` is also locally defined.
+    // The local binding shadows the import — `sort` should NOT be rewritten.
+    let src = "import sort from \"collection/sort\"\nsort = arr(\"id\")\nmain = sort";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            // `sort` is locally defined: it should remain arr("id"), not a
+            // project/module_ref node.
+            let sort = map.get("sort").expect("should have 'sort' arrow");
+            assert!(
+                is_project_of_module_ref(sort).is_none(),
+                "locally-defined 'sort' should NOT be rewritten"
+            );
+            if let Scheme::Arr { op, .. } = sort {
+                assert_eq!(op, "id");
+            } else {
+                panic!("sort should be Scheme::Arr");
+            }
+
+            // `main = sort` references the LOCAL sort (which is in local_names),
+            // so it should NOT be rewritten either.
+            let main = map.get("main").expect("should have 'main' arrow");
+            assert!(
+                is_project_of_module_ref(main).is_none(),
+                "reference to locally-defined 'sort' should NOT be rewritten"
+            );
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_whole_module_produces_module_ref() {
+    // `import "collection/sort" as sortmod` then `main = sortmod`.
+    // After rewrite, `main` should be `module_ref("collection/sort")`.
+    let src = "import \"collection/sort\" as sortmod\nmain = sortmod";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map.get("main").expect("should have 'main' arrow");
+            let path = is_module_ref(main)
+                .expect("main should be module_ref(\"collection/sort\")");
+            assert_eq!(path, "collection/sort");
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_whole_module_field_access_chains() {
+    // `import "collection/sort" as sortmod` then `main = comp(sortmod, arr("id"))`.
+    // The `sortmod` reference inside the Seq is rewritten to
+    // `module_ref("collection/sort")` (wrapped in App), and the surrounding
+    // structure is preserved.
+    let src = "import \"collection/sort\" as sortmod\nmain = comp(sortmod, arr(\"id\"))";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map.get("main").expect("should have 'main' arrow");
+            // main should be Seq { App(module_ref("collection/sort")), arr("id") }
+            if let Scheme::Seq { fst, snd } = main {
+                let path = is_module_ref(fst)
+                    .expect("fst should be module_ref(\"collection/sort\")");
+                assert_eq!(path, "collection/sort");
+                if let Scheme::Arr { op, .. } = snd.as_ref() {
+                    assert_eq!(op, "id");
+                } else {
+                    panic!("snd should be Scheme::Arr");
+                }
+            } else {
+                panic!("main should be Scheme::Seq, got: {:?}", main);
+            }
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_no_unresolved_apps_for_imported_names() {
+    // After rewrite, imported names become project/module_ref ops, not bare
+    // App refs to the imported name. The App's callee is now `project(...)`
+    // (op = "project"), not `Arr { op: "sort" }`. So `has_unresolved_apps`
+    // should return false when "project" and "module_ref" are known ops
+    // (they are native ops, not named-arrow references).
+    let src = "import sort from \"collection/sort\"\nmain = sort";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    let known: HashSet<String> = vec!["main".to_string(), "project".to_string(), "module_ref".to_string()]
+        .into_iter()
+        .collect();
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map.get("main").expect("should have 'main' arrow");
+            assert!(
+                !has_unresolved_apps(main, &known),
+                "after rewrite, imported names should not be unresolved App nodes"
+            );
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_single_expression_file() {
+    // A single-expression file with an import: the import is rewritten in the
+    // single expression. Single-expression files have no local names, so the
+    // import always wins. `arr("id")` produces `Arr { op: "id" }` — a bare
+    // reference to the "id" arrow — which is rewritten to
+    // `project(module_ref("util"), "id")`.
+    let src = "import id from \"util\"\narr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Single(scheme) => {
+            let (path, field) = is_project_of_module_ref(scheme)
+                .expect("arr(\"id\") should be rewritten to project(module_ref(\"util\"), \"id\")");
+            assert_eq!(path, "util");
+            assert_eq!(field, "id");
+        }
+        _ => panic!("expected ParsedFile::Single"),
+    }
+}
+
+#[test]
+fn test_rewrite_imports_app_callee_rewritten() {
+    // `import sort from "collection/sort"` then `main = sort >>> arr("id")`.
+    // The `sort` reference in the Seq's fst is an App whose callee is
+    // rewritten to project(module_ref(path), "sort").
+    let src = "import sort from \"collection/sort\"\nmain = sort >>> arr(\"id\")";
+    let parsed = parse_arrow_module(src).expect("must parse");
+    match &parsed.arrows {
+        ParsedFile::Named(map) => {
+            let main = map.get("main").expect("should have 'main' arrow");
+            if let Scheme::Seq { fst, snd } = main {
+                let (path, field) = is_project_of_module_ref(fst)
+                    .expect("fst should be App { callee: project(module_ref(path), \"sort\") }");
+                assert_eq!(path, "collection/sort");
+                assert_eq!(field, "sort");
+                if let Scheme::Arr { op, .. } = snd.as_ref() {
+                    assert_eq!(op, "id");
+                }
+            } else {
+                panic!("main should be Scheme::Seq, got: {:?}", main);
+            }
+        }
+        _ => panic!("expected ParsedFile::Named"),
+    }
+}
+
+// --- End-to-end: normalisation strategies eliminate module_ref/project ---
+
+#[test]
+fn test_e2e_normalize_compile_time_eliminates_module_ref() {
+    // main imports sort from collection/sort; sort = arr("sort").
+    // After rewrite + normalize_compile_time, no module_ref should remain.
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+    match normalize_compile_time("main", &loader) {
+        Ok(normalized) => {
+            let any_ref = normalized
+                .values()
+                .any(|s| crate::arrow_loader::contains_module_ref(s));
+            assert!(
+                !any_ref,
+                "Strategy A: no module_ref should remain after normalization"
+            );
+            // Strategy A preserves projections.
+            let main = normalized.get("main").expect("should have 'main'");
+            assert!(
+                crate::arrow_loader::contains_project(main),
+                "Strategy A: project nodes should remain in main arrow"
+            );
+        }
+        Err(e) => panic!("normalize_compile_time(main) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_e2e_flatten_program_eliminates_module_ref_and_project() {
+    // main imports sort from collection/sort; sort = arr("sort").
+    // After rewrite + flatten_program, no module_ref and no project should
+    // remain — Strategy B flattens everything into a single graph.
+    let mem = build_test_memory_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("main", &loader) {
+        Ok(flat) => {
+            assert!(
+                !crate::arrow_loader::contains_module_ref(&flat),
+                "flatten_program: no module_ref should remain"
+            );
+            assert!(
+                !crate::arrow_loader::contains_project(&flat),
+                "flatten_program: no project should remain"
+            );
+        }
+        Err(e) => panic!("flatten_program(main) should succeed: {}", e),
+    }
+}
+
+#[test]
+fn test_e2e_flatten_program_whole_module_import() {
+    // Test a whole-module import end-to-end through flatten_program.
+    let mut mem = MemoryResolver::new();
+    mem.insert("util", "id = arr(\"id\")\nconst = arr(\"const\")");
+    mem.insert(
+        "main_whole",
+        "import \"util\" as u\nmain = u",
+    );
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("main_whole", &loader) {
+        Ok(flat) => {
+            assert!(
+                !crate::arrow_loader::contains_module_ref(&flat),
+                "flatten_program: no module_ref should remain for whole-module import"
+            );
+        }
+        Err(e) => panic!("flatten_program(main_whole) should succeed: {}", e),
+    }
+}
