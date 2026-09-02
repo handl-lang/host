@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { createClient } from "./client";
 import { registerFormatting } from "./formatting";
+import { registerLanguageConfiguration } from "./language-config";
 import { resolveServerPath, type ResolveDeps, type ServerConfig } from "./server";
 
 function depsFromContext(): ResolveDeps {
@@ -23,6 +24,8 @@ function errorMessage(err: unknown): string {
 }
 
 export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
+  registerLanguageConfiguration(ctx);
+
   const config = readConfig();
   const serverPath = resolveServerPath(depsFromContext());
 
