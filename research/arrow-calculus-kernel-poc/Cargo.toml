@@ -94,6 +94,10 @@ name = "trait_inference_sqlite"
 path = "src/trait_catalog_sqlite.rs"
 
 [[bin]]
+name = "decoupled_traits"
+path = "src/decoupled_traits.rs"
+
+[[bin]]
 name = "v0_1_surface"
 path = "src/v0_1_surface.rs"
 
