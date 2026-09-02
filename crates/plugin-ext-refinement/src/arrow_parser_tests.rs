@@ -34,6 +34,8 @@ const DROP_RICH_HNL: &str =
     include_str!("../../../kit-stdlib/data/arrows/collection/drop_rich.hnl");
 const NESTED_MAP_RICH_HNL: &str =
     include_str!("../../../kit-stdlib/data/arrows/fn/nested_map_rich.hnl");
+const ZIP_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/fn/zip_rich.hnl");
 
 // ============================================================================
 // Hand-built graphs (matching e2e_tests.rs) for comparison
@@ -134,6 +136,23 @@ fn nested_map_graph() -> Scheme {
         body: Box::new(Scheme::Loop {
             body: Box::new(Scheme::First {
                 inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
+            }),
+        }),
+    }
+}
+
+fn zip_graph() -> Scheme {
+    // zip = loop(first(list.head) >>> (first(list.tail) >>> list.cons))
+    Scheme::Loop {
+        body: Box::new(Scheme::Seq {
+            fst: Box::new(Scheme::First {
+                inner: Box::new(Scheme::arr_native("list.head", vec![])),
+            }),
+            snd: Box::new(Scheme::Seq {
+                fst: Box::new(Scheme::First {
+                    inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+                }),
+                snd: Box::new(Scheme::arr_native("list.cons", vec![])),
             }),
         }),
     }
@@ -844,6 +863,83 @@ fn test_parsed_nested_map_rich_matches_handbuilt() {
     } else {
         panic!("expected Single");
     }
+}
+
+#[test]
+fn test_parse_zip_rich_hnl() {
+    let parsed = parse_arrow_file(ZIP_RICH_HNL).expect("parse zip_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(first(list.head) >>> (first(list.tail) >>> list.cons))
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                assert!(
+                    matches!(body.as_ref(), Scheme::Seq { .. }),
+                    "body should be Seq"
+                );
+                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                    // fst should be First(list.head)
+                    assert!(
+                        matches!(fst.as_ref(), Scheme::First { .. }),
+                        "fst should be First"
+                    );
+                    if let Scheme::First { inner } = fst.as_ref() {
+                        assert!(
+                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.head"),
+                            "fst inner should be list.head"
+                        );
+                    }
+                    // snd should be Seq(First(list.tail), list.cons)
+                    assert!(
+                        matches!(snd.as_ref(), Scheme::Seq { .. }),
+                        "snd should be Seq"
+                    );
+                    if let Scheme::Seq { fst, snd } = snd.as_ref() {
+                        assert!(
+                            matches!(fst.as_ref(), Scheme::First { .. }),
+                            "snd.fst should be First"
+                        );
+                        if let Scheme::First { inner } = fst.as_ref() {
+                            assert!(
+                                matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.tail"),
+                                "snd.fst inner should be list.tail"
+                            );
+                        }
+                        assert!(
+                            matches!(snd.as_ref(), Scheme::Arr { op, .. } if op == "list.cons"),
+                            "snd.snd should be list.cons"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parsed_zip_rich_matches_handbuilt() {
+    let parsed = parse_arrow_file(ZIP_RICH_HNL).expect("parse zip_rich");
+    let handbuilt = zip_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed zip_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
+
+#[test]
+fn test_load_zip_rich_from_disk() {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+
+    // Load zip_rich.hnl from disk
+    let zip_path = format!("{}/fn/zip_rich.hnl", arrows_dir);
+    let scheme = load_arrow_file(&zip_path).expect("load zip_rich from disk");
+    assert!(matches!(scheme, Scheme::Loop { .. }));
 }
 
 #[test]

@@ -1,0 +1,37 @@
+// zip: pair up corresponding elements of two lists.
+// Rich loop version of zip, written as an arrow graph over list primitives.
+// Contract: inferred from the loop body.
+//
+// Graph structure:
+//   loop (first(list.head) >>> (first(list.tail) >>> list.cons))
+//
+// The loop processes elements one at a time:
+//   - take the head of both lists (first list via pattern, second via list.head)
+//   - pair the two heads and cons onto the output
+//   - advance both lists (first list via pattern tail, second via list.tail)
+//   - repeat until the first list is exhausted
+//
+// Multi-scrutinee note: zip pairs two lists simultaneously. The match is on
+// the first list (state.remaining1); the second list (state.remaining2) is
+// destructured in the recursive arm body via list.head / list.tail calls.
+// The pattern detector recognises this combination as the zip graph.
+
+loop {
+  remaining1: input.0,
+  remaining2: input.1,
+  acc:         []
+} (
+  proc (state) -> match state.remaining1 {
+    []: returnA -< {
+      out: state.acc
+    },
+
+    [h1, ...t1]: returnA -< {
+      state: {
+        remaining1: t1,
+        remaining2: list.tail(state.remaining2),
+        acc:         [[h1, list.head(state.remaining2)], ...state.acc]
+      }
+    }
+  }
+)

@@ -588,11 +588,12 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 /// 3. `*.f` in call with `*.acc` argument → `comp(fold_step, first(id))` (fold)
 /// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))` (sort)
 /// 5. `*.f` in arrow_app with `*.acc` in right args → `comp(fold_step, first(list.cons))` (scan)
-/// 6. `list.head` in arrow_app (`-<`) → `comp(list.head, choice(cons, id))` (take)
-/// 7. `list.tail` in arrow_call → `comp(list.tail, first(id))` (drop)
-/// 8. `*.f` in arrow_app (`-<`) → `first(fn.apply)` (map)
+/// 6. `list.head` AND `list.tail` both in arrow_call → `comp(first(list.head), comp(first(list.tail), list.cons))` (zip)
+/// 7. `list.head` in arrow_app (`-<`) → `comp(list.head, choice(cons, id))` (take)
+/// 8. `list.tail` in arrow_call → `comp(list.tail, first(id))` (drop)
+/// 9. `*.f` in arrow_app (`-<`) → `first(fn.apply)` (map)
 ///
-/// Patterns 2, 3, 5, and 8 use suffix-based matching (e.g. `*.f` matches
+/// Patterns 2, 3, 5, and 9 use suffix-based matching (e.g. `*.f` matches
 /// `state.f`, `inner_state.f`, etc.) so that nested loops with different
 /// state variable names are recognized correctly.
 ///
@@ -695,7 +696,36 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         }
     }
 
-    // 6. list.head in arrow_app → take pattern
+    // 6. list.head AND list.tail both in arrow_call → zip pattern.
+    //    Zip pairs two lists: it takes the head of both lists (one via
+    //    pattern destructuring, the other via list.head() call), advances
+    //    both (one via pattern tail, the other via list.tail() call), and
+    //    conses the pair onto the output via list.cons.
+    //    Graph: first(list.head) >>> (first(list.tail) >>> list.cons)
+    //    This must be checked BEFORE the take and drop patterns (7 and 8)
+    //    because zip uses list.tail in arrow_call (which would match drop)
+    //    and the combination of both list.head and list.tail in arrow_call
+    //    is unique to zip.
+    if collector.call_callee_args.contains_key("list.head")
+        && collector.call_callee_args.contains_key("list.tail")
+    {
+        let step1 = Scheme::First {
+            inner: Box::new(Scheme::arr_native("list.head", vec![])),
+        };
+        let step2 = Scheme::First {
+            inner: Box::new(Scheme::arr_native("list.tail", vec![])),
+        };
+        let cons = Scheme::arr_native("list.cons", vec![]);
+        return Ok(Scheme::Seq {
+            fst: Box::new(step1),
+            snd: Box::new(Scheme::Seq {
+                fst: Box::new(step2),
+                snd: Box::new(cons),
+            }),
+        });
+    }
+
+    // 7. list.head in arrow_app → take pattern
     if collector.app_left_names.contains("list.head") {
         let step = Scheme::arr_native("list.head", vec![]);
         let choice = Scheme::Choice {
@@ -708,7 +738,7 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 7. list.tail in arrow_call → drop pattern
+    // 8. list.tail in arrow_call → drop pattern
     if collector.call_callee_args.contains_key("list.tail") {
         let step = Scheme::arr_native("list.tail", vec![]);
         let rest = Scheme::First {
@@ -720,7 +750,7 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 8. *.f in arrow_app → map pattern
+    // 9. *.f in arrow_app → map pattern
     if has_suffix(&collector.app_left_names, ".f") {
         return Ok(Scheme::First {
             inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
