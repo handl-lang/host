@@ -11,9 +11,8 @@
   "icon": "logo.png",
   "readme": "README.md",
   "scripts": {
-    "gen-grammar": "node scripts/gen-grammar.mjs",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "build": "npm run gen-grammar && vite build",
+    "build": "vite build",
     "watch": "vite build --watch",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
@@ -41,13 +40,6 @@
         "aliases": [
           "handl"
         ]
-      }
-    ],
-    "grammars": [
-      {
-        "language": "handl",
-        "scopeName": "source.handl",
-        "path": "./grammars/hnl.tmLanguage.json"
       }
     ],
     "snippets": [

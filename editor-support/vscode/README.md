@@ -4,7 +4,7 @@ Language support for [handl](https://handl-lang.org) — a language for authorin
 
 ## Features
 
-- **Syntax highlighting** — TextMate grammar + semantic tokens for `.hnl` files
+- **Syntax highlighting** — provided entirely by the LSP server via semantic tokens for `.hnl` files (no TextMate grammar)
 - **Refinement inference** — hover over any arrow file to see its inferred input/output types and guarantee predicate
 - **Per-property hover** — hover over `state.acc` or `state.remaining` to see the inferred type for that specific field
 - **Cross-arrow hover** — hover over an arrow reference (e.g. `insert` in `sort.hnl`) to see that arrow's doc comments and inferred contract

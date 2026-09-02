@@ -10,7 +10,7 @@ Initial release of the handl extension for VS Code.
 
 ### Added
 
-- **Syntax highlighting** — TextMate grammar and semantic tokens for `.hnl` files, covering keywords, operators, strings, numbers, comments, type names, object keys, and property access
+- **Syntax highlighting** — 100% semantic tokens from the LSP server for `.hnl` files, covering keywords, operators, strings, numbers, comments, type names, object keys, and property access (no TextMate grammar)
 - **Refinement hover** — hover over any arrow file to see its inferred input/output types and guarantee predicate
 - **Per-property hover** — hover over `state.acc` or `state.remaining` to see the inferred refinement type for that specific loop state field
 - **Cross-arrow hover** — hover over an arrow reference (e.g. `insert` in `sort.hnl`) to see that arrow's doc comments and inferred contract
