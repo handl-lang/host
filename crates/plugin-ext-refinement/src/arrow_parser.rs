@@ -582,14 +582,50 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 /// This mirrors the legacy `analyze_branch` heuristic but operates on the AST
 /// instead of raw text. The patterns recognized (in order of specificity):
 ///
-/// 1. `prim.compare` identifier → `comp(prim.compare, choice(cons, cons))`
-/// 2. `state.p` in arrow_app (`-<`) → `comp(filter_step, id)`
-/// 3. `state.f` in call with `state.acc` argument → `comp(fold_step, first(id))`
-/// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))`
-/// 5. `state.f` in arrow_app (`-<`) → `first(fn.apply)`
+/// 0. Nested `loop_rich` → recursively materialize the inner loop
+/// 1. `prim.compare` identifier → `comp(prim.compare, choice(cons, cons))` (insert)
+/// 2. `*.p` in arrow_app (`-<`) → `comp(filter_step, id)` (filter)
+/// 3. `*.f` in call with `*.acc` argument → `comp(fold_step, first(id))` (fold)
+/// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))` (sort)
+/// 5. `*.f` in arrow_app with `*.acc` in right args → `comp(fold_step, first(list.cons))` (scan)
+/// 6. `list.head` in arrow_app (`-<`) → `comp(list.head, choice(cons, id))` (take)
+/// 7. `list.tail` in arrow_call → `comp(list.tail, first(id))` (drop)
+/// 8. `*.f` in arrow_app (`-<`) → `first(fn.apply)` (map)
+///
+/// Patterns 2, 3, 5, and 8 use suffix-based matching (e.g. `*.f` matches
+/// `state.f`, `inner_state.f`, etc.) so that nested loops with different
+/// state variable names are recognized correctly.
+///
+/// Early-exit patterns (a `match` arm that returns without recursing) are
+/// inherently handled: the base-case arm (`[]:`) is skipped, and only the
+/// recursive arm (`[h, ...t]:`) is analyzed. Conditionals within the
+/// recursive arm (e.g. `if state.n <= 0 then returnA ...`) are tracked via
+/// `has_conditional` for future pattern discrimination.
 fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
     let mut collector = PatternCollector::default();
     collector.collect(ast, root_idx);
+
+    // 0. Nested loop → recursively materialize the inner loop_rich node.
+    //    If the recursive arm body contains a nested `loop { ... }`, we find
+    //    it and recursively call `rich_loop_to_scheme` to materialize it.
+    //    Note: `rich_loop_to_scheme` already wraps the result in `Scheme::Loop`,
+    //    and the outer `rich_loop_to_scheme` will wrap this result again,
+    //    producing the correct `Loop(Loop(...))` structure.
+    if collector.has_nested_loop {
+        if let Some(nested_idx) = find_node_kind(ast, root_idx, "loop_rich") {
+            let nested_node = ast
+                .nodes()
+                .get(nested_idx)
+                .ok_or("nested loop_rich node out of bounds")?;
+            return rich_loop_to_scheme(ast, nested_node);
+        }
+    }
+
+    // Helper: check if any name in a set ends with the given suffix.
+    // This allows matching `state.f`, `inner_state.f`, etc.
+    let has_suffix = |set: &HashSet<String>, suffix: &str| {
+        set.iter().any(|name| name.ends_with(suffix))
+    };
 
     // 1. prim.compare → insert pattern
     if collector.var_names.contains("prim.compare") {
@@ -604,8 +640,8 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 2. state.p in arrow_app → filter pattern
-    if collector.app_left_names.contains("state.p") {
+    // 2. *.p in arrow_app → filter pattern
+    if has_suffix(&collector.app_left_names, ".p") {
         let step = Scheme::arr_native("filter_step", vec![]);
         let rest = Scheme::arr_native("id", vec![]);
         return Ok(Scheme::Seq {
@@ -614,9 +650,9 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 3. state.f in call with state.acc → fold pattern
-    if let Some(call_args) = collector.call_callee_args.get("state.f") {
-        if call_args.contains(&"state.acc".to_string()) {
+    // 3. *.f in call with *.acc argument → fold pattern
+    for (callee, args) in &collector.call_callee_args {
+        if callee.ends_with(".f") && args.iter().any(|a| a.ends_with(".acc")) {
             let step = Scheme::arr_native("fold_step", vec![]);
             let rest = Scheme::First {
                 inner: Box::new(Scheme::arr_native("id", vec![])),
@@ -643,8 +679,49 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 5. state.f in arrow_app → map pattern
-    if collector.app_left_names.contains("state.f") {
+    // 5. *.f in arrow_app with *.acc in right args → scan pattern
+    //    scan is like fold (uses f with acc) but also conses
+    //    each intermediate result onto an output list.
+    for (left, right_args) in &collector.app_left_args {
+        if left.ends_with(".f") && right_args.iter().any(|a| a.ends_with(".acc")) {
+            let step = Scheme::arr_native("fold_step", vec![]);
+            let rest = Scheme::First {
+                inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+            };
+            return Ok(Scheme::Seq {
+                fst: Box::new(step),
+                snd: Box::new(rest),
+            });
+        }
+    }
+
+    // 6. list.head in arrow_app → take pattern
+    if collector.app_left_names.contains("list.head") {
+        let step = Scheme::arr_native("list.head", vec![]);
+        let choice = Scheme::Choice {
+            l: Box::new(Scheme::arr_native("cons", vec![])),
+            r: Box::new(Scheme::arr_native("id", vec![])),
+        };
+        return Ok(Scheme::Seq {
+            fst: Box::new(step),
+            snd: Box::new(choice),
+        });
+    }
+
+    // 7. list.tail in arrow_call → drop pattern
+    if collector.call_callee_args.contains_key("list.tail") {
+        let step = Scheme::arr_native("list.tail", vec![]);
+        let rest = Scheme::First {
+            inner: Box::new(Scheme::arr_native("id", vec![])),
+        };
+        return Ok(Scheme::Seq {
+            fst: Box::new(step),
+            snd: Box::new(rest),
+        });
+    }
+
+    // 8. *.f in arrow_app → map pattern
+    if has_suffix(&collector.app_left_names, ".f") {
         return Ok(Scheme::First {
             inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
         });
@@ -662,10 +739,22 @@ struct PatternCollector {
     /// Left-child names of `arrow_app` (`-<`) nodes where the left child is
     /// an `arrow_var` (e.g. `state.f -< h` → `"state.f"`).
     app_left_names: HashSet<String>,
+    /// For each `arrow_app` (`-<`) node, maps the left-child name to the set
+    /// of `arrow_var` names found in the right-child subtree (e.g.
+    /// `state.f -< { acc: state.acc, h: h }` →
+    /// `"state.f" → {"state.acc", "h"}`).
+    app_left_args: HashMap<String, HashSet<String>>,
     /// Callee name → argument names for `arrow_call` nodes where the callee
     /// is an `arrow_var` (e.g. `state.f(state.acc, h)` →
     /// `"state.f" → ["state.acc", "h"]`).
     call_callee_args: HashMap<String, Vec<String>>,
+    /// Whether the subtree contains an `arrow_if` node (conditional).
+    has_conditional: bool,
+    /// Whether the subtree contains an `arrow_array` with an `arrow_rest`
+    /// child (i.e. a cons-like `[x, ...rest]` construction).
+    has_array_spread: bool,
+    /// Whether the subtree contains a nested `loop_rich` node.
+    has_nested_loop: bool,
 }
 
 impl PatternCollector {
@@ -685,6 +774,30 @@ impl PatternCollector {
                 // No children to recurse into.
                 return;
             }
+            "arrow_if" => {
+                // Conditional (if/then/else) — record its presence.
+                self.has_conditional = true;
+            }
+            "loop_rich" => {
+                // Nested rich loop — record its presence.
+                self.has_nested_loop = true;
+            }
+            "arrow_array" => {
+                // Check for cons-like construction: `[x, ...rest]`.
+                // An `arrow_rest` child indicates a spread/cons.
+                if let Ok(children) = get_children(&node.payload) {
+                    for child_val in children {
+                        if let Some(child_idx) = child_val.as_u64() {
+                            if let Some(child_node) = ast.nodes().get(child_idx as usize) {
+                                if child_node.kind == "arrow_rest" {
+                                    self.has_array_spread = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             "arrow_app" => {
                 // `-<` application: left child is the arrow being applied.
                 if let Ok(children) = get_children(&node.payload) {
@@ -693,6 +806,18 @@ impl PatternCollector {
                             if left_node.kind == "arrow_var" {
                                 if let Some(name) = left_node.payload.as_str() {
                                     self.app_left_names.insert(name.to_string());
+                                    // Collect var names from the right child
+                                    // (child 1) to track app arguments.
+                                    if let Some(right_idx) =
+                                        children.get(1).and_then(|v| v.as_u64())
+                                    {
+                                        let right_vars =
+                                            collect_var_names(ast, right_idx as usize);
+                                        self.app_left_args
+                                            .entry(name.to_string())
+                                            .or_default()
+                                            .extend(right_vars);
+                                    }
                                 }
                             }
                         }
@@ -757,6 +882,59 @@ impl PatternCollector {
             }
         }
     }
+}
+
+/// Collect all `arrow_var` identifier names in an AST subtree.
+///
+/// This is used by `PatternCollector` to gather the variable names on the
+/// right-hand side of an `arrow_app` (`-<`) node.
+fn collect_var_names(ast: &Ast, idx: usize) -> HashSet<String> {
+    let mut names = HashSet::new();
+    collect_var_names_recursive(ast, idx, &mut names);
+    names
+}
+
+fn collect_var_names_recursive(ast: &Ast, idx: usize, names: &mut HashSet<String>) {
+    let node = match ast.nodes().get(idx) {
+        Some(n) => n,
+        None => return,
+    };
+
+    if node.kind == "arrow_var" {
+        if let Some(name) = node.payload.as_str() {
+            names.insert(name.to_string());
+        }
+        return;
+    }
+
+    if let Ok(children) = get_children(&node.payload) {
+        for child_val in children {
+            if let Some(child_idx) = child_val.as_u64() {
+                collect_var_names_recursive(ast, child_idx as usize, names);
+            }
+        }
+    }
+}
+
+/// Find the first AST node of the given `kind` in the subtree rooted at `idx`.
+///
+/// Used by `analyze_branch_ast` to locate nested `loop_rich` nodes for
+/// recursive materialization.
+fn find_node_kind(ast: &Ast, idx: usize, kind: &str) -> Option<usize> {
+    let node = ast.nodes().get(idx)?;
+    if node.kind == kind {
+        return Some(idx);
+    }
+    if let Ok(children) = get_children(&node.payload) {
+        for child_val in children {
+            if let Some(child_idx) = child_val.as_u64() {
+                if let Some(found) = find_node_kind(ast, child_idx as usize, kind) {
+                    return Some(found);
+                }
+            }
+        }
+    }
+    None
 }
 
 // ============================================================================

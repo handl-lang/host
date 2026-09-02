@@ -1,0 +1,35 @@
+// take: take the first n elements from a list.
+// Rich-loop version of take, written as an arrow graph over list primitives.
+// Contract: inferred from the loop body.
+//
+// Graph structure:
+//   loop (list.head >>> (cons ||| id))
+//
+// The loop processes elements one at a time:
+//   - take the head of the remaining input
+//   - choice: cons it onto the output, or pass through (id) when done
+//   - repeat until n elements are taken or input is exhausted
+
+loop {
+  remaining: input.0,
+  count:     input.1,
+  acc:       []
+} (
+  proc (state) -> match state.count {
+    []: returnA -< {
+      out: state.acc
+    },
+
+    [h, ...t]: do {
+      y <- list.head -< state.remaining;
+
+      returnA -< {
+        state: {
+          remaining: list.tail(state.remaining),
+          count:     t,
+          acc:       [y, ...state.acc]
+        }
+      }
+    }
+  }
+)

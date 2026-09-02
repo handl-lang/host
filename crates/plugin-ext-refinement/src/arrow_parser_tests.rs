@@ -25,6 +25,16 @@ const MAP_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/map.hnl")
 const FILTER_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/filter.hnl");
 const FOLD_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/fold.hnl");
 
+// New rich-loop pattern files (scan, take, drop).
+const SCAN_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/fn/scan_rich.hnl");
+const TAKE_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/collection/take_rich.hnl");
+const DROP_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/collection/drop_rich.hnl");
+const NESTED_MAP_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/fn/nested_map_rich.hnl");
+
 // ============================================================================
 // Hand-built graphs (matching e2e_tests.rs) for comparison
 // ============================================================================
@@ -75,6 +85,55 @@ fn fold_graph() -> Scheme {
             fst: Box::new(Scheme::arr_native("fold_step", vec![])),
             snd: Box::new(Scheme::First {
                 inner: Box::new(Scheme::arr_native("id", vec![])),
+            }),
+        }),
+    }
+}
+
+fn scan_graph() -> Scheme {
+    // scan = loop(fold_step >>> first(list.cons))
+    Scheme::Loop {
+        body: Box::new(Scheme::Seq {
+            fst: Box::new(Scheme::arr_native("fold_step", vec![])),
+            snd: Box::new(Scheme::First {
+                inner: Box::new(Scheme::arr_native("list.cons", vec![])),
+            }),
+        }),
+    }
+}
+
+fn take_graph() -> Scheme {
+    // take = loop(list.head >>> (cons ||| id))
+    Scheme::Loop {
+        body: Box::new(Scheme::Seq {
+            fst: Box::new(Scheme::arr_native("list.head", vec![])),
+            snd: Box::new(Scheme::Choice {
+                l: Box::new(Scheme::arr_native("cons", vec![])),
+                r: Box::new(Scheme::arr_native("id", vec![])),
+            }),
+        }),
+    }
+}
+
+fn drop_graph() -> Scheme {
+    // drop = loop(list.tail >>> first(id))
+    Scheme::Loop {
+        body: Box::new(Scheme::Seq {
+            fst: Box::new(Scheme::arr_native("list.tail", vec![])),
+            snd: Box::new(Scheme::First {
+                inner: Box::new(Scheme::arr_native("id", vec![])),
+            }),
+        }),
+    }
+}
+
+fn nested_map_graph() -> Scheme {
+    // nested_map = loop(loop(first(fn.apply)))
+    // The outer loop contains an inner loop that is a map.
+    Scheme::Loop {
+        body: Box::new(Scheme::Loop {
+            body: Box::new(Scheme::First {
+                inner: Box::new(Scheme::arr_native("fn.apply", vec![])),
             }),
         }),
     }
@@ -574,8 +633,218 @@ fn test_parse_fold_hnl() {
 }
 
 // ============================================================================
-// Parsed .hnl matches hand-built Scheme (after resolution)
+// New rich-loop pattern tests (scan, take, drop)
 // ============================================================================
+
+#[test]
+fn test_parse_scan_rich_hnl() {
+    let parsed = parse_arrow_file(SCAN_RICH_HNL).expect("parse scan_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(fold_step >>> first(list.cons))
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
+                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                    assert!(
+                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                        "fst should be fold_step"
+                    );
+                    assert!(
+                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        "snd should be First"
+                    );
+                    if let Scheme::First { inner } = snd.as_ref() {
+                        assert!(
+                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "list.cons"),
+                            "inner should be list.cons"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_take_rich_hnl() {
+    let parsed = parse_arrow_file(TAKE_RICH_HNL).expect("parse take_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(list.head >>> (cons ||| id))
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
+                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                    assert!(
+                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "list.head"),
+                        "fst should be list.head"
+                    );
+                    assert!(
+                        matches!(snd.as_ref(), Scheme::Choice { .. }),
+                        "snd should be Choice"
+                    );
+                    if let Scheme::Choice { l, r } = snd.as_ref() {
+                        assert!(
+                            matches!(l.as_ref(), Scheme::Arr { op, .. } if op == "cons"),
+                            "choice l should be cons"
+                        );
+                        assert!(
+                            matches!(r.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            "choice r should be id"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_drop_rich_hnl() {
+    let parsed = parse_arrow_file(DROP_RICH_HNL).expect("parse drop_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(list.tail >>> first(id))
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
+                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                    assert!(
+                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "list.tail"),
+                        "fst should be list.tail"
+                    );
+                    assert!(
+                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        "snd should be First"
+                    );
+                    if let Scheme::First { inner } = snd.as_ref() {
+                        assert!(
+                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            "inner should be id"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parsed_scan_rich_matches_handbuilt() {
+    let parsed = parse_arrow_file(SCAN_RICH_HNL).expect("parse scan_rich");
+    let handbuilt = scan_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed scan_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
+
+#[test]
+fn test_parsed_take_rich_matches_handbuilt() {
+    let parsed = parse_arrow_file(TAKE_RICH_HNL).expect("parse take_rich");
+    let handbuilt = take_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed take_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
+
+#[test]
+fn test_parsed_drop_rich_matches_handbuilt() {
+    let parsed = parse_arrow_file(DROP_RICH_HNL).expect("parse drop_rich");
+    let handbuilt = drop_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed drop_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
+
+#[test]
+fn test_load_new_rich_loops_from_disk() {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+
+    // Load scan_rich.hnl from disk
+    let scan_path = format!("{}/fn/scan_rich.hnl", arrows_dir);
+    let scheme = load_arrow_file(&scan_path).expect("load scan_rich from disk");
+    assert!(matches!(scheme, Scheme::Loop { .. }));
+
+    // Load take_rich.hnl from disk
+    let take_path = format!("{}/collection/take_rich.hnl", arrows_dir);
+    let scheme = load_arrow_file(&take_path).expect("load take_rich from disk");
+    assert!(matches!(scheme, Scheme::Loop { .. }));
+
+    // Load drop_rich.hnl from disk
+    let drop_path = format!("{}/collection/drop_rich.hnl", arrows_dir);
+    let scheme = load_arrow_file(&drop_path).expect("load drop_rich from disk");
+    assert!(matches!(scheme, Scheme::Loop { .. }));
+}
+
+#[test]
+fn test_parse_nested_map_rich_hnl() {
+    let parsed =
+        parse_arrow_file(NESTED_MAP_RICH_HNL).expect("parse nested_map_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(loop(first(fn.apply)))
+            // The outer loop contains an inner loop that is a map.
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                // The body should itself be a Loop (nested).
+                assert!(
+                    matches!(body.as_ref(), Scheme::Loop { .. }),
+                    "body should be a nested Loop, got {:?}",
+                    body
+                );
+                if let Scheme::Loop { body: inner_body } = body.as_ref() {
+                    // The inner loop body should be first(fn.apply) (map pattern).
+                    assert!(
+                        matches!(inner_body.as_ref(), Scheme::First { .. }),
+                        "inner body should be First"
+                    );
+                    if let Scheme::First { inner } = inner_body.as_ref() {
+                        assert!(
+                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "fn.apply"),
+                            "innermost should be fn.apply"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parsed_nested_map_rich_matches_handbuilt() {
+    let parsed =
+        parse_arrow_file(NESTED_MAP_RICH_HNL).expect("parse nested_map_rich");
+    let handbuilt = nested_map_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed nested_map_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
 
 #[test]
 fn test_parsed_insert_matches_handbuilt() {
@@ -927,3 +1196,4 @@ fn test_infer_file_from_disk() {
         pretty
     );
 }
+

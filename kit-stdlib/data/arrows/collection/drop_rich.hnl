@@ -1,0 +1,29 @@
+// drop: drop the first n elements from a list.
+// Rich-loop version of drop, written as an arrow graph over list primitives.
+// Contract: inferred from the loop body.
+//
+// Graph structure:
+//   loop (list.tail >>> first(id))
+//
+// The loop processes elements one at a time:
+//   - take the tail of the remaining input (drop one element)
+//   - the counter (side channel) passes through unchanged via first(id)
+//   - repeat until n elements are dropped
+
+loop {
+  remaining: input.0,
+  count:     input.1
+} (
+  proc (state) -> match state.count {
+    []: returnA -< {
+      out: state.remaining
+    },
+
+    [h, ...t]: returnA -< {
+      state: {
+        remaining: list.tail(state.remaining),
+        count:     t
+      }
+    }
+  }
+)
