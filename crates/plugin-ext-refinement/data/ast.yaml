@@ -1,0 +1,200 @@
+# AST shape definitions for the arrow DSL (ADR-0069 arrow-graph syntax).
+#
+# Each node kind produced by `grammar.yaml` has a payload schema here. The
+# schemas follow the same JSON-Schema-fragment convention as the main
+# language's `ast.yaml`. Node kinds are in the arrow-specific namespace
+# (no `binary.*` / `value` / `var` collisions with the main language).
+
+# `flow` — `a >>> b` (sequence composition). Two children: [fst, snd].
+- id: ast.arrow.flow
+  node_kind: flow
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+
+# `choice_op` — `a ||| b` (arrow choice). Two children: [l, r].
+- id: ast.arrow.choice_op
+  node_kind: choice_op
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+
+# `arr_call` — `arr("name", args...)`. Variable-arity children:
+# [string_name, arg1, arg2, ...]. The string name is child 0.
+- id: ast.arrow.arr_call
+  node_kind: arr_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+
+# `comp_call` — `comp(a, b)`. Two children: [fst, snd].
+- id: ast.arrow.comp_call
+  node_kind: comp_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+
+# `first_call` — `first(a)`. One child: [inner].
+- id: ast.arrow.first_call
+  node_kind: first_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+
+# `choice_call` — `choice(a, b)`. Two children: [l, r].
+- id: ast.arrow.choice_call
+  node_kind: choice_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object
+
+# `loop_call` — `loop(a)`. One child: [body].
+- id: ast.arrow.loop_call
+  node_kind: loop_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+
+# `app_call` — `app("name", args...)`. Variable-arity children:
+# [string_name, arg1, arg2, ...]. The string name is child 0.
+- id: ast.arrow.app_call
+  node_kind: app_call
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+
+# `arrow_id` — the `id` keyword. Nullary (no children).
+- id: ast.arrow.arrow_id
+  node_kind: arrow_id
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 0
+        minItems: 0
+        type: array
+    required:
+    - children
+    type: object
+
+# `arrow_var` — a bare identifier (reference to a named arrow). Nullary;
+# the identifier text rides in the `name` payload field.
+- id: ast.arrow.arrow_var
+  node_kind: arrow_var
+  payload_schema:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+
+# `arrow_string` — a string literal (the name argument in `arr("...")` /
+# `app("...")`). Nullary; the string value rides in the `value` payload.
+- id: ast.arrow.arrow_string
+  node_kind: arrow_string
+  payload_schema:
+    properties:
+      value: {}
+    required:
+    - value
+    type: object
+
+# `arrow_paren` — `( expr )` grouping. One child: [inner]. Passes through
+# to the inner expression at eval time.
+- id: ast.arrow.arrow_paren
+  node_kind: arrow_paren
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+    - children
+    type: object
+
+# `named_arrow` — `name = expr` definition. Two children:
+# [name_identifier, expr]. The name string rides in the `name` payload
+# field (extracted from child 0's payload at parse/desugar time).
+- id: ast.arrow.named_arrow
+  node_kind: named_arrow
+  payload_schema:
+    properties:
+      name:
+        type: string
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - name
+    - children
+    type: object

@@ -1,0 +1,229 @@
+# Pratt grammar rows for the arrow DSL (ADR-0069 arrow-graph syntax).
+#
+# Precedence (higher binding power = tighter binding):
+#
+#   | Operator | Construct      | BP (l, r)   | Assoc    |
+#   |----------|----------------|-------------|----------|
+#   | `>>>`    | flow / Seq     | (20, 21)    | left     |
+#   | `|||`    | choice_op      | (23, 23)    | left     |
+#   | `=`      | named_arrow    | (5, 6)      | right    |
+#
+# `|||` binds tighter than `>>>`, so `a >>> b ||| c` parses as
+# `Seq(a, Choice(b, c))` — matching the ad-hoc parser in `arrow_parser.rs`.
+#
+# The function-call forms (`arr(...)`, `comp(...)`, `first(...)`,
+# `choice(...)`, `loop(...)`, `app(...)`) are modeled as **prefix keyword
+# rules** with a delimited parenthesized argument block (flatten: true),
+# mirroring how the main language models `match`/`handle` prefix keywords
+# with a delimited brace block. The keyword is the prefix token; the
+# `( args )` block is the single (delimited) child, flattened so the
+# parsed argument nodes splice directly into the parent node's children.
+
+# --- Infix operators ----------------------------------------------------
+
+# `>>>` — sequence composition. Left-associative: `a >>> b >>> c` becomes
+# `Seq(Seq(a, b), c)`. Node kind `flow` (same glyph as the main language,
+# but the eval scheme maps it to `Scheme::Seq`, NOT `Scheme::App`).
+- id: grammar.arrow.flow.infix
+  token: token.arrow.flow
+  position: Infix
+  binding_power:
+  - 20
+  - 21
+  child_shape:
+    node_kind: flow
+    arity: 2
+
+# `|||` — choice. Left-associative: `a ||| b ||| c` becomes
+# `Choice(Choice(a, b), c)`. Binds tighter than `>>>`.
+- id: grammar.arrow.choice_op.infix
+  token: token.arrow.choice_op
+  position: Infix
+  binding_power:
+  - 23
+  - 23
+  child_shape:
+    node_kind: choice_op
+    arity: 2
+
+# `=` — named-arrow definition (`name = expr`). Low binding power so the
+# entire right-hand expression (including `>>>` / `|||`) binds to the
+# definition. Right-associative (l < r) so chained definitions don't
+# left-grab. Children: [name_identifier, expr].
+- id: grammar.arrow.named_arrow.infix
+  token: token.arrow.eq
+  position: Infix
+  binding_power:
+  - 5
+  - 6
+  child_shape:
+    node_kind: named_arrow
+    arity: 2
+
+# --- Prefix keyword combinators -----------------------------------------
+# Each combinator keyword is a prefix rule whose single child is a
+# delimited `( ... )` argument block. `flatten: true` splices the parsed
+# argument nodes directly into the parent node's children (no intermediate
+# container node), matching the main language's `call`/`array`/`paren`
+# convention. `open_is_operator_token: false` because the prefix token is
+# the keyword, not `(` — the delimited scanner consumes the `(` itself.
+
+# `arr("name", args...)` — lift a named pure function. Children:
+# [string_name, arg1, arg2, ...]. The string name is child 0.
+- id: grammar.arrow.arr.prefix
+  token: token.arrow.arr
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arr_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# `comp(a, b)` — sequential composition (same as `a >>> b`). Children:
+# [fst, snd].
+- id: grammar.arrow.comp.prefix
+  token: token.arrow.comp
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: comp_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# `first(a)` — fan-out on the first component of a pair. Children: [inner].
+- id: grammar.arrow.first.prefix
+  token: token.arrow.first
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: first_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# `choice(a, b)` — arrow choice (same as `a ||| b`). Children: [l, r].
+- id: grammar.arrow.choice.prefix
+  token: token.arrow.choice
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: choice_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# `loop(a)` — feedback loop. Children: [body].
+- id: grammar.arrow.loop.prefix
+  token: token.arrow.loop
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: loop_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# `app("name", args...)` — dynamic arrow application. Children:
+# [string_name, arg1, arg2, ...]. The string name is child 0.
+- id: grammar.arrow.app.prefix
+  token: token.arrow.app
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: app_call
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
+# --- Nullary atoms ------------------------------------------------------
+
+# `id` — the identity arrow keyword. Nullary (no arguments, no parens).
+- id: grammar.arrow.id.prefix
+  token: token.arrow.id
+  position: Prefix
+  child_shape:
+    node_kind: arrow_id
+    arity: 0
+
+# Bare identifier — a reference to a named arrow. Nullary; the identifier
+# text rides in the node payload (like the main language's `var`).
+- id: grammar.arrow.identifier.prefix
+  token: token.arrow.identifier
+  position: Prefix
+  child_shape:
+    node_kind: arrow_var
+    arity: 0
+
+# String literal — the name argument inside `arr("...")` / `app("...")`.
+- id: grammar.arrow.string.prefix
+  token: token.arrow.string
+  position: Prefix
+  child_shape:
+    node_kind: arrow_string
+    arity: 0
+
+# --- Grouping -----------------------------------------------------------
+# `(` as a prefix for parenthesized grouping: `( expr )`. The open delimiter
+# IS the prefix token itself (open_is_operator_token: true), matching the
+# main language's `grammar.paren.prefix`. flatten: true so the inner
+# expression splices through.
+- id: grammar.arrow.paren.prefix
+  token: token.arrow.lparen
+  position: Prefix
+  binding_power:
+  - 0
+  - 0
+  child_shape:
+    node_kind: arrow_paren
+    arity: 1
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: paren
+      open_is_operator_token: true
+      flatten: true

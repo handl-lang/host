@@ -1,0 +1,232 @@
+# Eval scheme definitions for the arrow DSL (ADR-0069 arrow-graph syntax).
+#
+# These map each arrow-DSL AST node kind to an arrow-calculus `Scheme`
+# (ADR-0052 kernel: the six primitives `arr`/`Seq`/`First`/`Choice`/`Loop`/
+# `App`). The schemes below mirror the `Scheme` IR that the ad-hoc parser
+# in `arrow_parser.rs` produces directly.
+#
+# IMPORTANT — semantic difference from the main language:
+#   - `flow` (`>>>`) lowers to `!Seq` here, but to `!App` in the main
+#     language's `eval.yaml`. This is the core reason the arrow DSL needs
+#     its own Language definition rather than reusing the main one.
+#   - `choice_op` (`|||`) lowers to `!Choice`, matching the main language's
+#     `eval.choice` but under a separate node-kind namespace.
+#
+# NOTE on `$str_child0` convention:
+#   The arrow DSL's `arr("sort")` uses the string literal "sort" as the
+#   *op name* of the resulting `Scheme::Arr`. The current `Scheme` kernel
+#   has no primitive that extracts a child's payload string into the `op`
+#   field (which is a static `String`, not a `Scheme`). The placeholder
+#   `$str_child0` below denotes "the string value carried by child 0's
+#   payload, used as the op name." This is valid YAML (the `op` field is a
+#   plain string) and deserializes correctly, but the integration layer
+#   will need either:
+#     (a) a parser-time desugar that extracts the string into the node's
+#         payload and a new `Scheme` primitive that reads it, or
+#     (b) a specialized eval-engine hook for `arr_call`/`app_call`/`arrow_var`
+#         that reads child 0's payload string as the op name.
+#   This file is DEFINITION ONLY — the wiring is a future task.
+
+# --- Infix operators ----------------------------------------------------
+
+# `a >>> b` — sequential composition. Children: [fst, snd].
+# Mirrors `arrow_parser.rs` `parse_seq` → `Scheme::Seq`.
+- id: eval.arrow.flow
+  node_kind: flow
+  scheme: !Seq
+    fst: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+
+# `a ||| b` — arrow choice. Children: [l, r].
+# Mirrors `arrow_parser.rs` `parse_choice_expr` → `Scheme::Choice`.
+- id: eval.arrow.choice_op
+  node_kind: choice_op
+  scheme: !Choice
+    l: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    r: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+
+# --- Prefix combinator calls --------------------------------------------
+
+# `arr("name", args...)` — lift a named pure function.
+# Children: [string_name, arg1, arg2, ...].
+# Mirrors `arrow_parser.rs` `parse_arr` → `Scheme::arr_native(name, args)`.
+# The op name is the string value of child 0 (`$str_child0`); the `args`
+# list is the remaining children (1..N), projected via `proj_rest` and
+# packed into a single array value that the engine unpacks.
+- id: eval.arrow.arr_call
+  node_kind: arr_call
+  scheme: !Arr
+    op: $str_child0
+    args:
+    - !Arr
+      op: proj_rest
+      args: []
+      source: Native
+    source: Native
+
+# `comp(a, b)` — sequential composition (same as `a >>> b`).
+# Children: [fst, snd].
+# Mirrors `arrow_parser.rs` `parse_comp` → `Scheme::Seq`.
+- id: eval.arrow.comp_call
+  node_kind: comp_call
+  scheme: !Seq
+    fst: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    snd: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+
+# `first(a)` — fan-out on the first component of a pair.
+# Children: [inner].
+# Mirrors `arrow_parser.rs` `parse_first` → `Scheme::First`.
+- id: eval.arrow.first_call
+  node_kind: first_call
+  scheme: !First
+    inner: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+
+# `choice(a, b)` — arrow choice (same as `a ||| b`).
+# Children: [l, r].
+# Mirrors `arrow_parser.rs` `parse_choice` → `Scheme::Choice`.
+- id: eval.arrow.choice_call
+  node_kind: choice_call
+  scheme: !Choice
+    l: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    r: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+
+# `loop(a)` — feedback loop.
+# Children: [body].
+# Mirrors `arrow_parser.rs` `parse_loop` → `Scheme::Loop`.
+- id: eval.arrow.loop_call
+  node_kind: loop_call
+  scheme: !Loop
+    body: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+
+# `app("name", args...)` — dynamic arrow application.
+# Children: [string_name, arg1, arg2, ...].
+# Mirrors `arrow_parser.rs` `parse_app` → `Scheme::App { callee, args }`.
+# The callee is an `arr` whose op name is the string value of child 0
+# (`$str_child0`); the `args` list is the remaining children (1..N).
+- id: eval.arrow.app_call
+  node_kind: app_call
+  scheme: !App
+    callee: !Arr
+      op: $str_child0
+      args: []
+      source: Native
+    args:
+    - !Arr
+      op: proj_rest
+      args: []
+      source: Native
+
+# --- Nullary atoms ------------------------------------------------------
+
+# `id` — the identity arrow. Nullary.
+# Mirrors `arrow_parser.rs` `parse_atom` `"id" => Scheme::arr_native("id", vec![])`.
+- id: eval.arrow.arrow_id
+  node_kind: arrow_id
+  scheme: !Arr
+    op: id
+    args: []
+    source: Native
+
+# Bare identifier — a reference to a named arrow.
+# Mirrors `arrow_parser.rs` `parse_atom` default =>
+#   `Scheme::App { callee: arr_native(name, []), args: [] }`.
+# The callee op name is the identifier's payload text (`$payload`).
+- id: eval.arrow.arrow_var
+  node_kind: arrow_var
+  scheme: !App
+    callee: !Arr
+      op: $payload
+      args: []
+      source: Native
+    args: []
+
+# String literal — the name argument inside `arr("...")` / `app("...")`.
+# This is a leaf value node; it evaluates to its string payload. When used
+# as child 0 of `arr_call`/`app_call`, the integration layer reads its
+# payload as the op name (see `$str_child0` convention above).
+- id: eval.arrow.arrow_string
+  node_kind: arrow_string
+  scheme: !Arr
+    op: const
+    args: []
+    source: Native
+    lit: $payload
+
+# --- Grouping & named arrows --------------------------------------------
+
+# `( expr )` — parenthesized grouping. Passes through to the inner child.
+# Children: [inner].
+- id: eval.arrow.arrow_paren
+  node_kind: arrow_paren
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0
+
+# `name = expr` — named-arrow definition.
+# Children: [name_identifier, expr].
+# A named arrow binds a name to an arrow expression. The eval scheme
+# evaluates the expression (child 1) and extends the environment with the
+# name from child 0's payload, mirroring the main language's `eval.let`.
+# The name string is child 0's payload (`$payload_child0` convention —
+# same integration note as `$str_child0`).
+- id: eval.arrow.named_arrow
+  node_kind: named_arrow
+  scheme: !Seq
+    fst: !Seq
+      fst: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 1
+      snd: !Arr
+        op: extend_env
+        args: []
+        source: Native
+        lit: $payload_child0
+    snd: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
