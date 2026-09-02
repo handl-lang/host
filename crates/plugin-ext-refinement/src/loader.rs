@@ -62,6 +62,7 @@ use handl_language::ArrSource;
 const PRIM_CONTRACTS: &str = include_str!("../contracts/prim.hnl");
 const LIST_CONTRACTS: &str = include_str!("../contracts/list.hnl");
 const PARSE_CONTRACTS: &str = include_str!("../contracts/parse.hnl");
+const STATE_CONTRACTS: &str = include_str!("../contracts/state.hnl");
 
 // ============================================================================
 // Public API
@@ -119,6 +120,8 @@ pub fn load_standard_axioms() -> ContractRegistry {
     reg.merge(list_reg);
     let parse_reg = parse_contracts(PARSE_CONTRACTS).expect("bundled parse.hnl must parse");
     reg.merge(parse_reg);
+    let state_reg = parse_contracts(STATE_CONTRACTS).expect("bundled state.hnl must parse");
+    reg.merge(state_reg);
     reg
 }
 

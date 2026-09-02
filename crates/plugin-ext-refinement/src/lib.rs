@@ -73,3 +73,6 @@ mod arrow_parser_tests;
 
 #[cfg(test)]
 mod parse_tests;
+
+#[cfg(test)]
+mod state_tests;

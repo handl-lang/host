@@ -518,6 +518,121 @@ impl ContractRegistry {
             },
         );
 
+        // ==================================================================
+        // State machine atoms — transitions for counters, buffers, and
+        // protocol state machines.
+        //
+        // These model the primitive operations of state machines. The key
+        // atoms are state.inc/state.dec (counter) and state.push/state.pop
+        // (buffer). state.dec has a conditional contract with Le(0, input)
+        // precondition and Le(0, output) guarantee, so the fixpoint can
+        // discover Count ≥ 0 as the loop invariant.
+        // ==================================================================
+
+        let state_ty = || RefTy::Plain(BaseTy::Var("State".to_string()));
+
+        // state.inc : Int → Int — increment a counter.
+        // Guarantee: output ≥ input (Count increases by 1).
+        reg.register(
+            "state.inc",
+            ArrSource::Native,
+            Contract {
+                input: int(),
+                output: int(),
+                precondition: Pred::True,
+                guarantee: Pred::Le("input".to_string(), "output".to_string()),
+                termination_effect: Some("constant".to_string()),
+            },
+        );
+
+        // state.dec : Int → Int — decrement a counter (only valid if Count > 0).
+        // Conditional contract: requires Le(0, input) (Count ≥ 0),
+        // guarantees Le(0, output) (Count stays ≥ 0 after decrement).
+        // This lets the fixpoint discover Le(0, count) as the invariant.
+        reg.register(
+            "state.dec",
+            ArrSource::Native,
+            Contract::conditional(
+                int(),
+                int(),
+                Pred::Le("0".to_string(), "input".to_string()),
+                Pred::Le("0".to_string(), "output".to_string()),
+                Some("constant".to_string()),
+            ),
+        );
+
+        // state.push : (List α × α) → List α — add item to buffer.
+        // Guarantee: output is one element longer than input.
+        reg.register(
+            "state.push",
+            ArrSource::Native,
+            Contract {
+                input: RefTy::Prod(Box::new(list_alpha()), Box::new(alpha())),
+                output: list_alpha(),
+                precondition: Pred::True,
+                guarantee: Pred::LengthPlusOne("output".to_string(), "input".to_string()),
+                termination_effect: Some("constant".to_string()),
+            },
+        );
+
+        // state.pop : List α → List α — remove item from buffer.
+        // Conditional contract: requires Le(0, input) (buffer non-empty),
+        // guarantees LengthSubOne(output, input) ∧ Le(0, output)
+        // (buffer shrinks by 1 and stays non-negative).
+        reg.register(
+            "state.pop",
+            ArrSource::Native,
+            Contract::conditional(
+                list_alpha(),
+                list_alpha(),
+                Pred::Le("0".to_string(), "input".to_string()),
+                Pred::And(
+                    Box::new(Pred::LengthSubOne("output".to_string(), "input".to_string())),
+                    Box::new(Pred::Le("0".to_string(), "output".to_string())),
+                ),
+                Some("constant".to_string()),
+            ),
+        );
+
+        // state.is_empty : List α → Bool — check if buffer is empty.
+        reg.register(
+            "state.is_empty",
+            ArrSource::Native,
+            Contract {
+                input: list_alpha(),
+                output: RefTy::Plain(BaseTy::Bool),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: Some("constant".to_string()),
+            },
+        );
+
+        // state.idle_to_active : State → State — protocol transition.
+        reg.register(
+            "state.idle_to_active",
+            ArrSource::Native,
+            Contract {
+                input: state_ty(),
+                output: state_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: Some("constant".to_string()),
+            },
+        );
+
+        // state.active_to_done : State → State — protocol transition.
+        reg.register(
+            "state.active_to_done",
+            ArrSource::Native,
+            Contract {
+                input: state_ty(),
+                output: state_ty(),
+                precondition: Pred::True,
+                guarantee: Pred::True,
+                termination_effect: Some("constant".to_string()),
+            },
+        );
+
         reg
     }
 

@@ -596,6 +596,28 @@ tests), `liquid_types_comparison` (10 examples), and `evaluation`
 predicate algebra, mirroring the `RTy` inductive of
 `RefinementProofGraphs.lean`.
 
+The inference engine is also integrated as a plugin crate
+(`handl-plugin-ext-refinement`, 243 tests) in the handl platform. This
+integration adds three domain-specific axiom sets and arrow libraries,
+all inferred annotation-free:
+
+- **List operations** (16 arrows): `sort`, `map`, `filter`, `fold`,
+  `insert`, `take`, `drop`, `zip`, `scan`, `reduce`, `vec`, `queue`,
+  and others. Contracts include `Sorted`, `IsPerm`, `LengthEq`,
+  `LengthPlusOne`, `LengthSubOne`.
+- **Parsers** (1 arrow): a Pratt parser (top-down operator-precedence)
+  implemented as arrow graphs, inferring `LengthSubOne` (tokens
+  consumed) and `Nested(ListLength)` (termination).
+- **State machines** (3 arrows): `counter`, `buffer`, `protocol`,
+  implemented as `loop(comp(choice(inc, dec), first(id)))`. The
+  fixpoint discovers data invariants such as `Le(0, output)` (Count ≥
+  0) from conditional transition contracts (`state.dec` requires
+  `Le(0, input)`, guarantees `Le(0, output)`).
+
+All 20 arrows across three domains infer with zero user annotations,
+demonstrating that the structural inference mechanism generalizes
+beyond list operations to parsers and state machines.
+
 ## 6.2 The Lean4 Formalization
 
 The Lean4 mechanization of the inference mechanism (4 files, 1,098
@@ -675,6 +697,24 @@ verified annotation-free. Insertion sort is
 `loop(comp(comp(first(head_and_tail), first(insert)), consume_one))`
 with the `Sorted` invariant inferred from `insert`'s signature (Section
 4.7).
+
+**Cross-domain validation.** The platform integration
+(`handl-plugin-ext-refinement`, 243 tests) extends the evaluation
+beyond list operations to three domains, all annotation-free:
+
+| Domain | Arrows | Key inferred properties |
+|---|---|---|
+| List operations | 16 | `Sorted`, `IsPerm`, `LengthEq`, `LengthPlusOne` |
+| Parsers (Pratt) | 1 | `LengthSubOne` (tokens consumed), `Nested(ListLength)` (terminates) |
+| State machines | 3 | `Le(0, output)` (Count ≥ 0), length bounds (buffer) |
+
+The state machine results are notable: the fixpoint discovers data
+invariants (e.g., `Count ≥ 0`) from conditional transition contracts
+without user-supplied invariants. A counter
+`loop(comp(choice(state.inc, state.dec), first(id)))` infers
+`Le(0, output)` because `state.dec` carries the precondition
+`Le(0, input)` and guarantee `Le(0, output)`; the fixpoint propagates
+the guarantee through the loop, establishing the invariant.
 
 ## 6.5 Failure Cases (Out-of-Domain Invariants)
 
@@ -792,6 +832,30 @@ inference to nested loops and multiple feedback channels. (4)
 Integrating the Rust inference engine with a proof assistant. (5)
 Allowing shared sub-graphs (DAG structure) for proof reuse.
 
+**Scope boundary: deterministic dataflow.** The inference mechanism
+applies to deterministic dataflow — programs where the graph structure
+fully determines behavior. This covers list operations, recursive-descent
+parsers (without backtracking), and state machine data invariants. It
+does not cover: (a) backtracking parsers, which require failure as a
+first-class effect (a `Try` combinator or sum-type modeling); (b)
+concurrent systems, which require reasoning over non-deterministic
+scheduling — the most promising direction is message-passing (CSP/actor)
+models, which stay within deterministic dataflow; (c) liveness
+properties, which are temporal rather than invariant. These boundaries
+are documented in ADR-0070 through ADR-0073.
+
+**Module system: normalization as abstraction.** The arrow-native module
+system (ADR-0069) treats files as arrows and imports as projections. The
+key design insight is that **import normalization is a semantic
+abstraction** — the meaning of `import` is fixed (project a name from a
+record arrow), but the realization is flexible: compile-time desugaring
+(eager, static IR), whole-program flattening (eager, inlined single
+graph), or runtime module loading (lazy, cached). All three strategies
+implement the same abstraction, and the inference engine is agnostic to
+the choice. This separates semantics from implementation strategy,
+letting the toolchain choose per context (production build, whole-program
+inference, REPL) without changing the meaning of imports.
+
 # 9. Conclusion
 
 We have presented an annotation-free invariant inference mechanism for
@@ -812,11 +876,16 @@ The empirical evaluation demonstrates 100% accuracy on 72 non-trivial
 benchmark cells: every property the graph should prove is proven
 (26/26), and every property it should not is correctly reported as
 unknown (46/46), with zero false positives. This contrasts with 37
-annotations required by Liquid Types for 19 properties. We have
-honestly characterized the boundary: the compositional propagation is
-formally proven sound; the loop-specific strengthening is implemented
-and empirically validated but not formally proven; and complex
-non-structural invariants are not inferable by this mechanism.
+annotations required by Liquid Types for 19 properties. The platform
+integration extends these results to three domains — list operations
+(16 arrows), parsers (1 arrow), and state machines (3 arrows) — all
+inferred annotation-free, with 243 tests passing. We have honestly
+characterized the boundary: the compositional propagation is formally
+proven sound; the loop-specific strengthening is implemented and
+empirically validated but not formally proven; the scope is
+deterministic dataflow (backtracking parsers and concurrent systems
+are out of scope); and complex non-structural invariants are not
+inferable by this mechanism.
 
 The vision is **proof-carrying computation with minimal syntactic
 overhead**: the programmer writes the graph, the language designer

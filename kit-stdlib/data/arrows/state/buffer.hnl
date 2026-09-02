@@ -1,0 +1,11 @@
+// Buffer state machine: push/pop items, buffer never goes negative.
+//
+// A bounded buffer processes events that either push an item onto the
+// buffer or pop an item from it. The state.pop atom has
+// requires: Le(0, input) and guarantee: LengthSubOne(output, input) ∧ Le(0, output),
+// so the fixpoint discovers length-related invariants and Le(0, buffer).
+//
+// Invariant: length-related predicates + Le(0, buffer) — INFERRED.
+// Termination: Constant (side-channel; event stream passes through).
+
+loop(comp(choice(arr("state.push"), arr("state.pop")), first(id)))

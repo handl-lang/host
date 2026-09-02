@@ -33,6 +33,9 @@ fn main() {
         ("filter", "fn/filter.hnl"),
         ("fold", "fn/fold.hnl"),
         ("pratt", "parse/pratt.hnl"),
+        ("counter", "state/counter.hnl"),
+        ("buffer", "state/buffer.hnl"),
+        ("protocol", "state/protocol.hnl"),
     ];
 
     for (name, rel_path) in files {
