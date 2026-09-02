@@ -2,20 +2,28 @@
 
 ## Status
 
-Proposed. Trait inference is the primary mode; explicit declarations
-are the secondary mode (optional sugar). The open trait catalog is the
-indexing and recognition substrate. Storage is abstract with SQLite as
-the default local cache; source files are the source of truth. The
-engine is fully catalog-driven — zero hardcoded refinement contracts.
-CutElim law checking and catalog-search resolution are part of this ADR,
-not separate ADRs. Awaiting:
+Proposed. **Partially superseded by [ADR-0076 — Decoupled Trait Layer](./0076-decoupled-trait-layer.md):**
+the bundled `trait`/`impl`/`law` syntax (§2, §6, §7, §8, §13) is
+superseded by three independent composable features (laws, bundles,
+handlers). The research foundation (§3 catalog, §4 storage, §11 CutElim,
+§12 catalog search as fallback) is preserved and remains the substrate
+for ADR-0076. Prototype implemented in the arrow-calculus PoC.
+Awaiting:
 
-- Lean4 mechanization of trait inference for law patterns (in progress).
-- CutElim law checking mechanization (part of this ADR, §11).
-- Catalog search resolution implementation (part of this ADR, §12).
-- Catalog storage interface + SQLite implementation.
-- Built-in catalog population (functor, sorting, mapping, filtering, ...).
-- Prototype implementation in the arrow-calculus PoC.
+- Lean4 mechanization of trait inference for law patterns (in progress;
+  functor laws proven, non-functor laws require semantic axioms — see
+  `EquationalLawInference.lean`).
+- CutElim law checking mechanization (part of this ADR, §11;
+  congruence + strong normalization for the 6-rewrite fragment proven
+  — see `CutElimCongruence.lean`).
+- Handler-based resolution implementation (§13) — design complete,
+  implementation pending.
+- Catalog storage interface + SQLite implementation (done — see
+  `trait_catalog_sqlite.rs`).
+- Built-in catalog population (done — functor, coproduct functor,
+  sorting, mapping, filtering).
+- Prototype implementation in the arrow-calculus PoC (done — see
+  `RESULTS_TRAITS.md`).
 
 Builds on [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md)
 (`arr`/`>>>`/`first`/`choice`/`loop`/`app` as the kernel),
@@ -158,7 +166,11 @@ beyond the bare kernel, because most of it is sugar:
 
 3. **Resolution** — sugar for finding the right arrows for a type.
    Without traits, the caller supplies them explicitly. With traits, the
-   system finds them.
+   system finds them. **Revised in §13:** the primary resolution
+   mechanism is explicit handler installation (`handle ... with`),
+   which is dependency injection over effect handlers — the caller
+   wires the impl at a scope boundary. Catalog search (§12) is the
+   fallback when no handler is installed.
 
 4. **Named equational laws** — **NOT sugar.** This is the one thing the
    bare calculus cannot express. A `law` line requires that two arrow
@@ -596,18 +608,20 @@ The system derives automatically:
 ### 7. Generic code with trait bounds
 
 A function may declare trait bounds on its type parameters. The bound is
-a **conditional signature requirement**: the named trait's operations
-must be available for the type parameter.
+a **capability declaration**: the named trait's operations are unhandled
+effects within the function body — someone must provide them (§13).
 
 ```handl
 sort_by : Functor<F> => (A ~> A) ~> (F<A> ~> F<A>)
-sort_by = arr cmp >>> map
+sort_by = arr cmp >>> map       -- map is an unhandled operation
 ```
 
-This desugars to: `sort_by` is an arrow that, given an impl of
-`Functor[F]` in scope, composes `cmp` with the `map` arrow from that
-impl. The bound is not a runtime check — it is a **compile-time
-requirement that an impl graph exists and type-checks**.
+This desugars to: `sort_by` is an arrow whose body references `map` as
+an abstract operation. The `Functor<F> =>` bound declares the capability
+need; it does not resolve it. Resolution happens at the call site via
+either an explicit handler (§13, primary) or catalog search (§12,
+fallback). The bound is not a runtime check — it is a **compile-time
+requirement that an impl is available at the use site**.
 
 ### 8. Supertraits as signature inclusion
 
@@ -691,11 +705,13 @@ load-bearing piece. The mechanization is in progress; if this section
 grows large enough to warrant splitting, it can be extracted into a
 follow-on ADR later.
 
-### 12. Trait resolution: catalog search
+### 12. Trait resolution: catalog search (fallback)
 
-When generic code uses a trait-bound type parameter, the system searches
-the trait catalog for graphs satisfying the trait at the requested type.
-This is **catalog search**, not global coherence:
+When generic code uses a trait-bound type parameter and **no explicit
+handler is installed** (§13), the system searches the trait catalog for
+graphs satisfying the trait at the requested type. This is the
+**fallback** resolution mechanism — the convenience mode that works
+when there's exactly one match.
 
 1. **Type-filter the catalog** — find entries whose type shape unifies
    with the requested type.
@@ -710,11 +726,103 @@ The structural transparency of arrow graphs (explicit dependency graph,
 visible fanout, traversable structure) makes heuristic search more
 tractable than over λ-terms.
 
-**No global coherence check in v1.** If multiple catalog entries match,
-the system reports all matches (multi-match, §3). Ambiguity is resolved
-by the user (explicitly naming which trait to use) or by specificity
-(more laws satisfied = more specific match). A formal coherence
-algorithm is deferred — the catalog search is sufficient for v1.
+**Count-based disambiguation.** If the catalog search returns exactly
+one match, the system injects it (convenience mode). If it returns
+multiple matches, the system **errors**: "ambiguous — N impls match
+Functor<List>, name one explicitly via `handle ... with`." There is no
+global coherence check, no specificity algorithm, no orphan rule. The
+rule is: one match = inject, multiple = ask the user to be explicit.
+This is decidable (concrete types at the call site) and honest (the
+compiler never silently picks).
+
+### 13. Trait resolution: explicit handlers (primary)
+
+**Revised from the original §12 design.** The primary resolution
+mechanism is **explicit handler installation** — dependency injection
+over effect handlers. A trait bound declares a capability need (an
+unhandled operation in the body); a handler at an outer scope provides
+the impl. This unifies trait resolution with handl's existing effect
+handler machinery (ADR-0052).
+
+```handl
+-- inner: declares the capability, never names the impl
+sort_by : Functor<F> => (A ~> A) ~> (F<A> ~> F<A>)
+sort_by = arr cmp >>> map       -- map is an unhandled operation
+
+-- outer: handles it by providing the impl
+handle sort_by intCmp [3,1,2]
+  with Functor<List> = map_list
+```
+
+The `handle ... with` form installs a handler that intercepts the
+abstract `map` operation and supplies the concrete `map_list` graph.
+The inner code stays abstract; the outer scope wires the impl.
+
+#### Why handlers, not implicit search
+
+- **No coherence problem.** Handlers are lexically scoped and
+  nearest-wins — same as exception handlers. Two handlers for
+  `Functor<List>`? The innermost applies. No ambiguity, no global
+  uniqueness check, no orphan rule. The scoping *is* the resolution.
+- **Law checking is localized.** CutElim verification runs once at the
+  `handle` site, where the concrete graph is bound. Every inner use
+  inherits the proof. This is the ADR's "proof reuse by composition"
+  made explicit and local — no catalog search needed for the common
+  case.
+- **One mechanism, not two.** Trait resolution and effect handling use
+  the same machinery (ADR-0052 handlers). No separate resolution
+  algorithm.
+- **Explicit is the safe default.** The handler names the impl. The
+  compiler never silently picks. Catalog search (§12) is the
+  convenience fallback for the common one-impl case.
+
+#### Handler semantics
+
+- A `handle body with Trait<Type> = impl` form installs a handler for
+  the trait's operations within `body`.
+- Handlers nest: an inner handler shadows an outer one for the same
+  trait + type (nearest wins, like exception handlers).
+- The handler's impl graph is law-checked once at installation: the
+  trait's laws are verified via CutElim (for structural laws) or
+  semantic axioms (for non-functor laws, per `EquationalLawInference`).
+  If verification fails, the `handle` form is a compile error.
+- Multiple traits can be handled in one form:
+  `handle body with Functor<List> = map_list, Eq<Int> = intEq`.
+
+#### The catalog as ambient default handlers
+
+The built-in catalog (§3) serves as the **ambient default handler set**
+— handlers that are always installed unless overridden. When no
+explicit `handle ... with` is present, the system falls back to catalog
+search (§12). When an explicit handler is present, it shadows the
+catalog entry for that trait + type within its scope. The catalog does
+not disappear; it becomes the default, and explicit handlers are the
+scoped override.
+
+#### What this replaces from the original design
+
+The original §12 made catalog search the primary (and only) resolution
+mechanism, with "user disambiguation + specificity" for the ambiguous
+case. This revision:
+
+- Makes explicit `handle ... with` the primary mechanism (safe,
+  scoped, no ambiguity).
+- Demotes catalog search to the fallback for the one-impl case.
+- Replaces the "specificity by law count" tiebreaker with a hard rule:
+  multiple matches = error, name one explicitly. (Specificity-by-laws
+  can be added later as a convenience, but the default is honest: ask.)
+- Eliminates the coherence problem entirely — lexical scoping resolves
+  it, no algorithm needed.
+
+#### Open: bundled operations
+
+Effect handlers typically handle one operation (`Raise`, `Get`). A
+trait is a *bundle* of operations (`Functor` = `map` + laws). Two
+options: (a) one effect per operation (granular, loses law-bundling),
+or (b) a "trait effect" that is a record of operations handled together.
+Option (b) is cleaner but requires the effect system to support bundled
+operations. This is a design question for the effect handler
+mechanism, not a separate trait-layer concern.
 
 ### Migration policy
 
@@ -802,6 +910,15 @@ payoff over the bare kernel.
 - **Multi-match.** A graph can satisfy multiple traits (e.g. `sort`
   satisfies both `Sorting` and `Permutation`). The inference returns a
   set; generic code can require any subset via intersection.
+- **No coherence problem (§13).** The primary resolution mechanism is
+  explicit `handle ... with` — lexically scoped, nearest-wins, like
+  exception handlers. The compiler never silently picks an impl. The
+  coherence problem that dominates Rust/Haskell trait systems is
+  avoided by design, not solved by a global algorithm. Catalog search
+  (§12) is the fallback: one match = inject, multiple = error.
+- **One mechanism for traits and effects.** Trait resolution and effect
+  handling use the same `handle ... with` machinery (ADR-0052). No
+  separate resolution algorithm, no separate coherence checker.
 
 ### Negative
 
@@ -813,9 +930,14 @@ payoff over the bare kernel.
   recognition extension is in progress. Until it lands, the primary
   mode (inference) is aspirational and the secondary mode (explicit
   declarations with `CutElim`-based law checking) is the fallback.
-- **Trait resolution is unspecified.** No coherence algorithm, no global
-  uniqueness check. Impls must be explicitly in scope. This is weaker
-  than Rust/Haskell and is a known gap.
+- **Trait resolution via catalog search is the fallback, not the
+  primary.** The primary mechanism is explicit `handle ... with`
+  (§13), which has no coherence problem (lexical scoping). The catalog
+  search fallback (§12) uses count-based disambiguation (one match =
+  inject, multiple = error). There is no global coherence algorithm,
+  no specificity ordering, no orphan rule. This is simpler than
+  Rust/Haskell and deliberately so — the coherence problem is avoided
+  by design, not solved by algorithm.
 - **`CutElim` normalization may not terminate.** The rewrite relation is
   not known to be strongly normalizing for all graphs. For laws that
   hold, normalization is expected to terminate quickly (the proof-net
@@ -842,6 +964,12 @@ payoff over the bare kernel.
   required" check beyond being in scope. This is closer to TypeScript
   structural subtyping than to Rust nominal traits. A future ADR may
   add nominal branding if needed.
+- **Resolution is handler-based, not search-based (§13).** The primary
+  mechanism is explicit `handle ... with` (dependency injection), not
+  implicit catalog search. This is a deliberate departure from
+  Rust/Haskell, where implicit resolution is the default. The trade:
+  more explicit code, no coherence problem, localized law checking.
+  Catalog search remains as a fallback convenience.
 
 ## Open Questions
 
@@ -854,10 +982,15 @@ payoff over the bare kernel.
    `CutElim` to a complete law-checking procedure, prove termination
    for a useful fragment, and connect it to the trait checker. Folded
    into this ADR (§11) — not a separate ADR.
-3. **Trait resolution — catalog search (part of this ADR).** The
-   3-step pipeline (type filter → fingerprint → CutElim) is specified
-   in §12. A formal coherence algorithm for ambiguous multi-match is
-   deferred — v1 uses user disambiguation + specificity.
+3. **Trait resolution — handlers + catalog search (part of this ADR).**
+   The primary mechanism is explicit `handle ... with` (§13) —
+   dependency injection over effect handlers, lexically scoped, no
+   coherence problem. The fallback is catalog search (§12) with
+   count-based disambiguation (one match = inject, multiple = error).
+   No global coherence algorithm is planned — the problem is avoided
+   by design. Open: the bundled-operations effect representation (§13
+   "Open: bundled operations") and whether specificity-by-verified-laws
+   is worth adding as a convenience tiebreaker.
 4. **Law expressiveness.** Which equational laws are decidable under
    `CutElim` normalization? The proof-net literature suggests the
    linear fragment is decidable; the non-linear extension (this
@@ -898,8 +1031,23 @@ payoff over the bare kernel.
 - `research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/LoopInvariantDiscovery.lean`
   — structural pattern recognition (side-channel, accumulator, filter) —
   the existing approach the open catalog generalizes
+- `research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/TraitInference.lean`
+  — functor/coproduct-functor law inference via CutElim (zero sorry)
+- `research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/EquationalLawInference.lean`
+  — non-functor law inference (roundtrip, associativity) with semantic
+  axioms; proves CutElim alone cannot discharge non-functor laws
+- `research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/CutElimCongruence.lean`
+  — congruence rules for CutElim + strong normalization for the
+  6-rewrite fragment
 - `research/arrow-calculus-kernel-poc/src/poly_proof_graph_tests.rs` —
   annotation-free HM inference over graphs
+- `research/arrow-calculus-kernel-poc/src/trait_catalog.rs` — Rust
+  prototype: catalog, 3-step pipeline, CutElim normalizer, in-memory
+  store, built-in catalog
+- `research/arrow-calculus-kernel-poc/src/trait_catalog_sqlite.rs` —
+  SQLite catalog backend with persistence + verification cache
+- `research/arrow-calculus-kernel-poc/RESULTS_TRAITS.md` — prototype
+  results mapping to ADR sections
 - `research/arrow-calculus-kernel-poc/RESULTS_PHASE3.md` — `Language`
   protocol as value-level trait with impls
 - `research/arrow-calculus-kernel-poc/SYNTHESIS_PROOF_NETS_TO_PL.md` —
