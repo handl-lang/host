@@ -527,8 +527,10 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 
     let arms_children = get_children(&arms_node.payload)?;
 
-    // Find the arm with a non-empty array pattern (the recursive case).
+    // Find the recursive case arm (non-empty array pattern `[h, ...t]`)
+    // and the base case arm (empty array pattern `[]`).
     let mut recursive_body_idx: Option<usize> = None;
+    let mut base_body_idx: Option<usize> = None;
     for arm_idx_val in arms_children {
         let arm_idx = arm_idx_val
             .as_u64()
@@ -550,17 +552,19 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
             .get(pattern_idx)
             .ok_or("loop_rich: pattern node out of bounds")?;
 
-        // Check if the pattern is a non-empty array (`[h, ...t]`).
+        // Check if the pattern is an array.
         if pattern_node.kind == "arrow_array" {
+            let arm_body_idx = arm_children
+                .get(1)
+                .and_then(|v| v.as_u64())
+                .ok_or("loop_rich: missing arm body")? as usize;
             if let Ok(pattern_children) = get_children(&pattern_node.payload) {
                 if !pattern_children.is_empty() {
-                    // This is the recursive case arm.
-                    let arm_body_idx = arm_children
-                        .get(1)
-                        .and_then(|v| v.as_u64())
-                        .ok_or("loop_rich: missing arm body")? as usize;
+                    // Recursive case arm (`[h, ...t]`).
                     recursive_body_idx = Some(arm_body_idx);
-                    break;
+                } else {
+                    // Base case arm (`[]`).
+                    base_body_idx = Some(arm_body_idx);
                 }
             }
         }
@@ -570,7 +574,9 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
         .ok_or("loop_rich: no recursive case arm found")?;
 
     // Analyze the recursive body AST to determine the Scheme graph.
-    let body_scheme = analyze_branch_ast(ast, body_idx)?;
+    // The base case body is also collected to detect projection patterns
+    // (e.g. `id(state.acc)` in the base case signals reduce vs fold).
+    let body_scheme = analyze_branch_ast(ast, body_idx, base_body_idx)?;
 
     Ok(Scheme::Loop {
         body: Box::new(body_scheme),
@@ -585,7 +591,8 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 /// 0. Nested `loop_rich` → recursively materialize the inner loop
 /// 1. `prim.compare` identifier → `comp(prim.compare, choice(cons, cons))` (insert)
 /// 2. `*.p` in arrow_app (`-<`) → `comp(filter_step, id)` (filter)
-/// 3. `*.f` in call with `*.acc` argument → `comp(fold_step, first(id))` (fold)
+/// 3. `*.f` in call with `*.acc` argument, no `id` on `*.acc` → `fold_step` (fold)
+/// 3a. `*.f` in call with `*.acc` argument, `id` on `*.acc` → `comp(fold_step, first(id))` (reduce)
 /// 4. `insert` in arrow_app (`-<`) → `comp(app(insert), first(id))` (sort)
 /// 5. `*.f` in arrow_app with `*.acc` in right args → `comp(fold_step, first(list.cons))` (scan)
 /// 6. `list.head` AND `list.tail` both in arrow_call → `comp(first(list.head), comp(first(list.tail), list.cons))` (zip)
@@ -598,13 +605,24 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
 /// state variable names are recognized correctly.
 ///
 /// Early-exit patterns (a `match` arm that returns without recursing) are
-/// inherently handled: the base-case arm (`[]:`) is skipped, and only the
-/// recursive arm (`[h, ...t]:`) is analyzed. Conditionals within the
-/// recursive arm (e.g. `if state.n <= 0 then returnA ...`) are tracked via
-/// `has_conditional` for future pattern discrimination.
-fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
+/// inherently handled: the base-case arm (`[]:`) body is collected for
+/// pattern detection (e.g. `id(state.acc)` signals reduce vs fold) but only
+/// the recursive arm (`[h, ...t]:`) is analyzed for the main graph
+/// structure. Conditionals within the recursive arm (e.g. `if state.n <= 0
+/// then returnA ...`) are tracked via `has_conditional` for future pattern
+/// discrimination.
+fn analyze_branch_ast(
+    ast: &Ast,
+    root_idx: usize,
+    base_case_idx: Option<usize>,
+) -> Result<Scheme, String> {
     let mut collector = PatternCollector::default();
     collector.collect(ast, root_idx);
+    // Also collect from the base case arm to detect projection patterns
+    // (e.g. `id(state.acc)` in the base case signals reduce vs fold).
+    if let Some(base_idx) = base_case_idx {
+        collector.collect(ast, base_idx);
+    }
 
     // 0. Nested loop → recursively materialize the inner loop_rich node.
     //    If the recursive arm body contains a nested `loop { ... }`, we find
@@ -651,17 +669,33 @@ fn analyze_branch_ast(ast: &Ast, root_idx: usize) -> Result<Scheme, String> {
         });
     }
 
-    // 3. *.f in call with *.acc argument → fold pattern
+    // 3. *.f in call with *.acc argument → fold or reduce pattern.
+    //    - reduce: `id` is applied to the accumulator (projection) →
+    //      `comp(fold_step, first(id))` — returns only the accumulator.
+    //    - fold: no projection → `fold_step` — returns both channels.
     for (callee, args) in &collector.call_callee_args {
         if callee.ends_with(".f") && args.iter().any(|a| a.ends_with(".acc")) {
             let step = Scheme::arr_native("fold_step", vec![]);
-            let rest = Scheme::First {
-                inner: Box::new(Scheme::arr_native("id", vec![])),
-            };
-            return Ok(Scheme::Seq {
-                fst: Box::new(step),
-                snd: Box::new(rest),
-            });
+            // Check for reduce: `id` called with a `*.acc` argument
+            // (projection pattern — discards the element stream).
+            let has_id_on_acc = collector
+                .call_callee_args
+                .get("id")
+                .map(|id_args| id_args.iter().any(|a| a.ends_with(".acc")))
+                .unwrap_or(false);
+            if has_id_on_acc {
+                // reduce: projects to accumulator only.
+                let rest = Scheme::First {
+                    inner: Box::new(Scheme::arr_native("id", vec![])),
+                };
+                return Ok(Scheme::Seq {
+                    fst: Box::new(step),
+                    snd: Box::new(rest),
+                });
+            } else {
+                // fold: returns both channels (no projection).
+                return Ok(step);
+            }
         }
     }
 
@@ -867,27 +901,36 @@ impl PatternCollector {
                 if let Ok(children) = get_children(&node.payload) {
                     if let Some(callee_idx) = children.first().and_then(|v| v.as_u64()) {
                         if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
-                            if callee_node.kind == "arrow_var" {
-                                if let Some(callee_name) = callee_node.payload.as_str() {
-                                    let mut arg_names = Vec::new();
-                                    for i in 1..children.len() {
-                                        if let Some(arg_idx) = children[i].as_u64() {
-                                            if let Some(arg_node) =
-                                                ast.nodes().get(arg_idx as usize)
-                                            {
-                                                if arg_node.kind == "arrow_var" {
-                                                    if let Some(arg_name) =
-                                                        arg_node.payload.as_str()
-                                                    {
-                                                        arg_names.push(arg_name.to_string());
-                                                    }
+                            // The callee can be an `arrow_var` (bare identifier
+                            // like `state.f`) or an `arrow_id` (the `id`
+                            // keyword, used in projection patterns like
+                            // `id(state.acc)`).
+                            let callee_name = if callee_node.kind == "arrow_var" {
+                                callee_node.payload.as_str().map(|s| s.to_string())
+                            } else if callee_node.kind == "arrow_id" {
+                                Some("id".to_string())
+                            } else {
+                                None
+                            };
+                            if let Some(callee_name) = callee_name {
+                                let mut arg_names = Vec::new();
+                                for i in 1..children.len() {
+                                    if let Some(arg_idx) = children[i].as_u64() {
+                                        if let Some(arg_node) =
+                                            ast.nodes().get(arg_idx as usize)
+                                        {
+                                            if arg_node.kind == "arrow_var" {
+                                                if let Some(arg_name) =
+                                                    arg_node.payload.as_str()
+                                                {
+                                                    arg_names.push(arg_name.to_string());
                                                 }
                                             }
                                         }
                                     }
-                                    self.call_callee_args
-                                        .insert(callee_name.to_string(), arg_names);
                                 }
+                                self.call_callee_args
+                                    .insert(callee_name, arg_names);
                             }
                         }
                     }

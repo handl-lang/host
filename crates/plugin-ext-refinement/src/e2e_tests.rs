@@ -91,20 +91,14 @@ fn filter_graph() -> Scheme {
 }
 
 /// Build the `fold` arrow graph:
-///   loop(comp(step, first(id)))
+///   loop(fold_step) — returns both channels (element stream + accumulator)
 fn fold_graph() -> Scheme {
     use Scheme::*;
 
     let step = Scheme::arr_native("fold_step", vec![]);
-    let pass_through = First {
-        inner: Box::new(Scheme::arr_native("id", vec![])),
-    };
 
     Loop {
-        body: Box::new(Seq {
-            fst: Box::new(step),
-            snd: Box::new(pass_through),
-        }),
+        body: Box::new(step),
     }
 }
 
@@ -212,9 +206,9 @@ mod tests {
         let result = result.unwrap();
         println!("fold inferred guarantee: {:?}", result.guarantee);
 
-        // fold = loop(comp(fold_step, first(id))) -- fold_step consumes one
-        // element from the list (feedback channel C) each iteration, so the
-        // termination measure must be ListLength, NOT Constant.
+        // fold = loop(fold_step) -- fold_step consumes one element from the
+        // list (feedback channel C) each iteration, so the termination
+        // measure must be ListLength, NOT Constant.
         let term = result.termination.as_ref();
         assert!(
             term.is_some(),

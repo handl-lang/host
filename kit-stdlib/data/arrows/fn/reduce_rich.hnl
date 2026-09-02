@@ -1,0 +1,38 @@
+// reduce: reduce a list using a binary function and initial accumulator.
+// Rich-loop version of reduce — a fold that returns only the final
+// accumulator value, discarding the element stream.
+// Contract: inferred from the step function's guarantee.
+//
+// Graph structure:
+//   loop (fold_step >>> first(id))
+//
+// The loop processes elements one at a time:
+//   - apply step function to (current accumulator, head of remaining)
+//   - update accumulator with result
+//   - repeat until input is exhausted
+//   - project to accumulator only (via id on the accumulator channel)
+//
+// Distinction from fold: fold returns both channels (element stream and
+// accumulator), while reduce projects to the accumulator only.  In the
+// rich-loop syntax this is expressed by applying `id` to the accumulator
+// in the base-case arm, signalling a projection pattern.
+
+loop {
+  remaining: input.0,
+  f:         input.1,
+  acc:       input.2
+} (
+  proc (state) -> match state.remaining {
+    []: returnA -< {
+      out: id(state.acc)
+    },
+
+    [h, ...t]: returnA -< {
+      state: {
+        remaining: t,
+        f:         state.f,
+        acc:       state.f(state.acc, h)
+      }
+    }
+  }
+)

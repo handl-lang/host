@@ -36,6 +36,8 @@ const NESTED_MAP_RICH_HNL: &str =
     include_str!("../../../kit-stdlib/data/arrows/fn/nested_map_rich.hnl");
 const ZIP_RICH_HNL: &str =
     include_str!("../../../kit-stdlib/data/arrows/fn/zip_rich.hnl");
+const REDUCE_RICH_HNL: &str =
+    include_str!("../../../kit-stdlib/data/arrows/fn/reduce_rich.hnl");
 
 // ============================================================================
 // Hand-built graphs (matching e2e_tests.rs) for comparison
@@ -82,6 +84,14 @@ fn filter_graph() -> Scheme {
 }
 
 fn fold_graph() -> Scheme {
+    // fold = loop(fold_step) — returns both channels (element stream + accumulator)
+    Scheme::Loop {
+        body: Box::new(Scheme::arr_native("fold_step", vec![])),
+    }
+}
+
+fn reduce_graph() -> Scheme {
+    // reduce = loop(fold_step >>> first(id)) — projects to accumulator only
     Scheme::Loop {
         body: Box::new(Scheme::Seq {
             fst: Box::new(Scheme::arr_native("fold_step", vec![])),
@@ -631,20 +641,14 @@ fn test_parse_fold_hnl() {
     let parsed = parse_arrow_file(FOLD_HNL).expect("parse fold.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
-            // Should be: loop(fold_step >>> first(id))
+            // Should be: loop(fold_step) — fold returns both channels
             assert!(matches!(scheme, Scheme::Loop { .. }));
             if let Scheme::Loop { body } = &scheme {
-                assert!(matches!(body.as_ref(), Scheme::Seq { .. }));
-                if let Scheme::Seq { fst, snd } = body.as_ref() {
-                    assert!(
-                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
-                        "fst should be fold_step"
-                    );
-                    assert!(
-                        matches!(snd.as_ref(), Scheme::First { .. }),
-                        "snd should be First"
-                    );
-                }
+                assert!(
+                    matches!(body.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                    "body should be fold_step, got {:?}",
+                    body
+                );
             }
         }
         other => panic!("expected Single, got {:?}", other),
@@ -939,6 +943,109 @@ fn test_load_zip_rich_from_disk() {
     // Load zip_rich.hnl from disk
     let zip_path = format!("{}/fn/zip_rich.hnl", arrows_dir);
     let scheme = load_arrow_file(&zip_path).expect("load zip_rich from disk");
+    assert!(matches!(scheme, Scheme::Loop { .. }));
+}
+
+// ============================================================================
+// Reduce rich-loop pattern tests
+// ============================================================================
+
+#[test]
+fn test_parse_reduce_rich_hnl() {
+    let parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich.hnl");
+    match parsed {
+        ParsedFile::Single(scheme) => {
+            // Should be: loop(fold_step >>> first(id))
+            // reduce projects to the accumulator only (via first(id)),
+            // discarding the element stream.
+            assert!(matches!(scheme, Scheme::Loop { .. }));
+            if let Scheme::Loop { body } = &scheme {
+                assert!(
+                    matches!(body.as_ref(), Scheme::Seq { .. }),
+                    "body should be Seq, got {:?}",
+                    body
+                );
+                if let Scheme::Seq { fst, snd } = body.as_ref() {
+                    assert!(
+                        matches!(fst.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+                        "fst should be fold_step"
+                    );
+                    assert!(
+                        matches!(snd.as_ref(), Scheme::First { .. }),
+                        "snd should be First"
+                    );
+                    if let Scheme::First { inner } = snd.as_ref() {
+                        assert!(
+                            matches!(inner.as_ref(), Scheme::Arr { op, .. } if op == "id"),
+                            "inner should be id"
+                        );
+                    }
+                }
+            }
+        }
+        other => panic!("expected Single, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parsed_reduce_rich_matches_handbuilt() {
+    let parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich");
+    let handbuilt = reduce_graph();
+    if let ParsedFile::Single(scheme) = parsed {
+        assert_eq!(
+            scheme, handbuilt,
+            "parsed reduce_rich.hnl should match hand-built graph"
+        );
+    } else {
+        panic!("expected Single");
+    }
+}
+
+#[test]
+fn test_parsed_reduce_rich_distinct_from_fold() {
+    // reduce and fold both use fold_step, but reduce projects to the
+    // accumulator only (loop(fold_step >>> first(id))) while fold returns
+    // both channels (loop(fold_step)).  Their schemes must be distinct.
+    let reduce_parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich");
+    let fold_parsed = parse_arrow_file(FOLD_HNL).expect("parse fold");
+
+    let reduce_scheme = match reduce_parsed {
+        ParsedFile::Single(s) => s,
+        _ => panic!("expected Single for reduce"),
+    };
+    let fold_scheme = match fold_parsed {
+        ParsedFile::Single(s) => s,
+        _ => panic!("expected Single for fold"),
+    };
+
+    assert_ne!(
+        reduce_scheme, fold_scheme,
+        "reduce and fold schemes must be distinct"
+    );
+
+    // Verify reduce has the projection (First(id)) that fold lacks.
+    if let Scheme::Loop { body: reduce_body } = &reduce_scheme {
+        assert!(
+            matches!(reduce_body.as_ref(), Scheme::Seq { .. }),
+            "reduce body should be Seq (fold_step >>> first(id))"
+        );
+    }
+    if let Scheme::Loop { body: fold_body } = &fold_scheme {
+        assert!(
+            matches!(fold_body.as_ref(), Scheme::Arr { op, .. } if op == "fold_step"),
+            "fold body should be just fold_step (no projection)"
+        );
+    }
+}
+
+#[test]
+fn test_load_reduce_rich_from_disk() {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+
+    // Load reduce_rich.hnl from disk
+    let reduce_path = format!("{}/fn/reduce_rich.hnl", arrows_dir);
+    let scheme = load_arrow_file(&reduce_path).expect("load reduce_rich from disk");
     assert!(matches!(scheme, Scheme::Loop { .. }));
 }
 
