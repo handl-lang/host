@@ -360,4 +360,10 @@ pub struct RefinementResult {
     pub loop_invariants: Vec<LoopInvariant>,
     /// Termination measure, if any loop was analyzed.
     pub termination: Option<Measure>,
+    /// Law annotations inferred from the graph's wiring structure
+    /// (annotation-free trait inference, mirroring Lean4
+    /// `TraitInference.lean`). Each annotation records an equational law
+    /// the graph satisfies (e.g. functor identity) and how it strengthens
+    /// the inferred contract.
+    pub law_annotations: Vec<crate::trait_inference::LawAnnotation>,
 }

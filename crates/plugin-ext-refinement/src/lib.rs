@@ -18,6 +18,10 @@
 //!   precondition computation.
 //! - [`termination`] -- structural termination analysis with decreasing measure
 //!   discovery.
+//! - [`trait_inference`] -- annotation-free law recognition (Phase 9): detects
+//!   which equational laws (functor identity/composition, coproduct functor
+//!   identity/composition) a graph satisfies from its wiring structure alone,
+//!   mirroring the Lean4 `TraitInference.lean` formalization.
 //! - [`plugin`] -- plugin integration: `Refine` operation, `RefinementBehavior`,
 //!   `BasicRefiner`, `RefinementCore`.
 //!
@@ -44,6 +48,7 @@ pub mod loop_invariant;
 pub mod plugin;
 pub mod smt;
 pub mod termination;
+pub mod trait_inference;
 pub mod types;
 
 // Re-export the most commonly used items at the crate root.
@@ -58,6 +63,9 @@ pub use loop_invariant::{
 pub use plugin::{BasicRefiner, Refine, RefineRequest, RefineResult, RefinementBehavior, RefinementCore};
 pub use smt::{implies, implies_with_report, pred_to_smt, toy_implies, z3_implies, z3_verdict, Z3Verdict};
 pub use termination::{analyze_termination, TerminationResult};
+pub use trait_inference::{
+    infer_law_annotations, inferred_trait, satisfies_law, uses_first, uses_left, Law, LawAnnotation,
+};
 pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefinementResult, RefTy};
 
 #[cfg(test)]
@@ -80,3 +88,6 @@ mod state_tests;
 
 #[cfg(test)]
 mod backtrack_tests;
+
+#[cfg(test)]
+mod trait_inference_tests;

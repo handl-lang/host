@@ -22,6 +22,13 @@ use handl_language::Scheme;
 /// This is the main entry point. It walks the `Scheme` structurally, looking
 /// up base-arrow contracts in the registry, composing guarantees, discovering
 /// loop invariants via fixpoint iteration, and analyzing termination.
+///
+/// It also runs the **annotation-free trait inference** (Phase 9, mirroring
+/// Lean4 `TraitInference.lean`): it inspects the graph's wiring structure to
+/// detect which equational laws (functor identity/composition, coproduct
+/// functor identity/composition) the graph satisfies. The detected laws are
+/// returned in `RefinementResult.law_annotations` and can be used to
+/// simplify or strengthen the inferred contract.
 pub fn infer_refinement(
     scheme: &Scheme,
     registry: &ContractRegistry,
@@ -37,12 +44,20 @@ pub fn infer_refinement(
         Some(term.measure) // Still report the measure even if not guaranteed
     };
 
+    // Annotation-free trait inference: detect which equational laws the
+    // graph satisfies from its wiring structure alone (mirrors Lean4
+    // `TraitInference.lean`'s `inferred_trait`). When a graph is recognized
+    // as satisfying a functor law, the contract inference can use this to
+    // simplify or strengthen the inferred contract.
+    let law_annotations = crate::trait_inference::infer_law_annotations(scheme);
+
     Ok(RefinementResult {
         input,
         output,
         guarantee,
         loop_invariants,
         termination,
+        law_annotations,
     })
 }
 
