@@ -633,15 +633,22 @@ fn request_before_initialize_returns_error() {
             "position": { "line": 0, "character": 0 },
         }),
     );
-    // The server does not track lifecycle state, so it will process the
-    // request and return a result (null, since the document is unknown).
-    // What we *can* assert is that the server does not crash and returns a
-    // well-formed response (either a result or an error).
-    assert!(
-        resp.get("result").is_some() || resp.get("error").is_some(),
-        "server should return a well-formed response even before initialize, got {resp}",
+    // The LSP spec requires that requests sent before `initialize` be
+    // rejected with a ServerNotInitialized error (code -32002).
+    let err = resp
+        .get("error")
+        .unwrap_or_else(|| panic!("expected error before initialize, got {resp}"));
+    let code = err
+        .get("code")
+        .and_then(|c| c.as_i64())
+        .unwrap_or_else(|| panic!("error should have a numeric code, got {err}"));
+    assert_eq!(
+        code, -32002,
+        "expected ServerNotInitialized error code -32002, got {resp}",
     );
-    client.shutdown();
+    // The server was never initialized, so `shutdown` would also be
+    // rejected. Just send `exit` to terminate the server process.
+    client.send_notification("exit", Value::Null);
 }
 
 #[test]

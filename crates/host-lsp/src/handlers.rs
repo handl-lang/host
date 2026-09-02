@@ -1001,7 +1001,6 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
                 "save": { "includeText": true }
             },
             "hoverProvider": true,
-            "completionProvider": { "triggerCharacters": [] },
             "signatureHelpProvider": { "triggerCharacters": ["(", ","] },
             "definitionProvider": true,
             "referencesProvider": true,
@@ -1019,7 +1018,6 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
             "selectionRangeProvider": true,
             "workspaceSymbolProvider": true,
             "codeActionProvider": true,
-            "inlayHintProvider": true,
             "typeDefinitionProvider": true,
             "implementationProvider": true,
             "linkedEditingRangeProvider": true,

@@ -168,6 +168,7 @@ fn main() {
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
     let mut cancelled: HashSet<serde_json::Value> = HashSet::new();
+    let mut initialized = false;
 
     while let Some(msg) = read_message(&mut reader) {
         let id = msg.id.clone().unwrap_or(serde_json::Value::Null);
@@ -178,12 +179,23 @@ fn main() {
             continue;
         }
 
+        // Enforce LSP lifecycle ordering: requests (messages with an id)
+        // other than `initialize` sent before the server is initialized
+        // must be rejected with a ServerNotInitialized error.
+        if msg.id.is_some() && msg.method != "initialize" && !initialized {
+            protocol::send_error(&mut writer, id, -32002, "Server not initialized");
+            continue;
+        }
+
         match msg.method.as_str() {
             "initialize" => {
                 handle_initialize(&mut writer, id, &legend);
+                initialized = true;
                 send_log_message(&mut writer, 3, "handl-lsp initialized");
             }
-            "initialized" => {}
+            "initialized" => {
+                initialized = true;
+            }
             "textDocument/semanticTokens/full" => {
                 handle_semantic_tokens_full(&mut writer, id, &msg, &tokens_provider, &store);
             }
