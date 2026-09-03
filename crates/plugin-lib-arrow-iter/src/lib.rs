@@ -26,10 +26,23 @@
 //! `right` feeds the new state back and re-runs) is what makes these
 //! patterns iterate — a single-step `Loop` could not express repetition
 //! on its own.
+//!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The arrow_iter interface is declared in
+//! `kit-stdlib/data/arrow_iter/arrow_iter.hnl`. The composite step ops
+//! are interpreted by the v2 engine, not by Rust handls, so no
+//! [`OpRegistry`] is needed. The [`ArrowIterLibraryPlugin`] wraps the
+//! generic [`HandlLibraryPlugin`] for capability declaration.
 
 #![warn(missing_docs)]
 
 use handl_language::Scheme;
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+
+/// The handl source declaring the arrow_iter interface — the single
+/// source of truth for the arrow_iter capability surface. Loaded at
+/// compile time from the kit-stdlib data dir.
+const ARROW_ITER_HNL: &str = include_str!("../../../kit-stdlib/data/arrow_iter/arrow_iter.hnl");
 
 /// `while cond body` — derived from `Loop` + `Choice`
 /// (ADR-0052 §"Derived forms").
@@ -86,6 +99,102 @@ pub fn for_loop(body: Scheme) -> Scheme {
 pub fn fix_loop(body: Scheme) -> Scheme {
     Scheme::loop_feedback(Scheme::arr_native("fix_step", vec![body]))
 }
+
+// ---------------------------------------------------------------------------
+// ArrowIterLibraryPlugin (wraps HandlLibraryPlugin)
+// ---------------------------------------------------------------------------
+
+/// A `Library` plugin that registers the `arrow_iter` interface via the
+/// generic [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The arrow_iter interface is declared in `arrow_iter.hnl`; the composite
+/// step ops are interpreted by the v2 engine, not by Rust handls. The
+/// generic loader handles module registration.
+pub struct ArrowIterLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl ArrowIterLibraryPlugin {
+    /// Create a new `ArrowIterLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "arrow_iter",
+                "lib.arrow-iter",
+                "lib-arrow-iter",
+                ARROW_ITER_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for ArrowIterLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for ArrowIterLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Build a [`HandlLibraryPlugin`] for arrow_iter.
+///
+/// This is provided for consumers that prefer to use the generic plugin
+/// directly instead of [`ArrowIterLibraryPlugin`].
+pub fn arrow_iter_handl_plugin() -> HandlLibraryPlugin {
+    HandlLibraryPlugin::new_with_caps(
+        "arrow_iter",
+        "lib.arrow-iter",
+        "lib-arrow-iter",
+        ARROW_ITER_HNL,
+        &[],
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`ArrowIterLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_arrow_iter::LibraryPlugin`.
+pub use ArrowIterLibraryPlugin as LibraryPlugin;
 
 #[cfg(test)]
 mod tests {

@@ -1267,6 +1267,7 @@ dependencies = [
  "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
+ "handl-value",
  "serde_json",
 ]
 
@@ -1286,6 +1287,7 @@ dependencies = [
  "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
+ "handl-value",
  "serde_json",
 ]
 
@@ -1568,7 +1570,7 @@ dependencies = [
  "base64",
  "handl-platform",
  "handl-plugin-lib-archive",
- "handl-plugin-module",
+ "handl-plugin-lib-handl",
  "serde_json",
  "tar",
  "thiserror 2.0.20",
@@ -1579,7 +1581,9 @@ name = "handl-plugin-lib-arrow-iter"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-platform",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-lib-handl",
  "serde_json",
 ]
 
@@ -1630,7 +1634,7 @@ dependencies = [
  "flate2",
  "handl-platform",
  "handl-plugin-lib-compress",
- "handl-plugin-module",
+ "handl-plugin-lib-handl",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -1951,6 +1955,7 @@ name = "handl-plugin-lib-parse"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -1981,6 +1986,7 @@ name = "handl-plugin-lib-serialize"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "serde_json",
  "thiserror 2.0.20",
 ]
@@ -2079,8 +2085,8 @@ name = "handl-plugin-lib-url-rfc"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-lib-parse",
- "handl-plugin-module",
  "iri-string",
  "serde",
  "serde_json",
@@ -2091,8 +2097,8 @@ name = "handl-plugin-lib-url-whatwg"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-lib-parse",
- "handl-plugin-module",
  "serde",
  "serde_json",
  "url",

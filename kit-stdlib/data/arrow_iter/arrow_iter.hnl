@@ -1,0 +1,11 @@
+--- arrow_iter — derived iteration patterns over Loop + Choice (ADR-0052).
+---
+--- This library provides the while/for/fix derived forms as Rust builder
+--- functions (while_loop, for_loop, fix_loop) that construct Scheme::Loop
+--- descriptions. The composite step ops (while_step, for_step, fix_step)
+--- are interpreted by the v2 reference handler in the eval engine, not by
+--- Rust handls. The .hnl file declares the capability surface for the
+--- plugin system.
+cap "arrow_iter.while_step"
+cap "arrow_iter.for_step"
+cap "arrow_iter.fix_step"

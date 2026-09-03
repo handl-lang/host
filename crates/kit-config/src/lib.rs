@@ -95,8 +95,8 @@ impl Plugin for ConfigKit {
         ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ws_whatwg_native::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ip::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_archive_tar::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin::new())?;
+        ctx.register_plugin(handl_plugin_lib_archive_tar::LibraryPlugin::new())?;
 
         Ok(())
     }

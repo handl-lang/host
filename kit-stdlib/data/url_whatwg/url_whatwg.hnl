@@ -1,0 +1,9 @@
+--- url_whatwg.parse — parse a WHATWG URL Standard string into a Value.
+--- url_whatwg.url_whatwg — return the parser token for url_whatwg.
+cap "url_whatwg.parse"
+cap "url_whatwg.url_whatwg"
+op "url_whatwg.parse" : String -> Value
+op "url_whatwg.url_whatwg" : () -> Value
+
+handl "url_whatwg.parse" = rust_url_whatwg_parse
+handl "url_whatwg.url_whatwg" = rust_url_whatwg_name

@@ -1,0 +1,9 @@
+--- tar.pack — pack an array of {path, contents} objects into a base64 tar archive string.
+--- tar.unpack — unpack a base64 tar archive string into an array of {path, contents} objects.
+cap "tar.pack"
+cap "tar.unpack"
+op "tar.pack" : Array -> String
+op "tar.unpack" : String -> Array
+
+handl "tar.pack" = rust_tar_pack
+handl "tar.unpack" = rust_tar_unpack
