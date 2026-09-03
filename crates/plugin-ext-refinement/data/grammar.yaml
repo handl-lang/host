@@ -482,3 +482,13 @@
   child_shape:
     node_kind: arrow_le
     arity: 2
+# `<` — less-than comparison. `a < b`. BP (15, 16), same as `<=`.
+- id: grammar.arrow.lt.infix
+  token: token.arrow.lt
+  position: Infix
+  binding_power:
+  - 15
+  - 16
+  child_shape:
+    node_kind: arrow_lt
+    arity: 2

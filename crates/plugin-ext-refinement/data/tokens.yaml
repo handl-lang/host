@@ -79,6 +79,9 @@
 # `<=` — less-than-or-equal comparison (used in `if cmp <= 0 ...`).
 - id: token.arrow.le
   label: '<='
+# `<` — less-than comparison (used in `a < b`).
+- id: token.arrow.lt
+  label: '<'
 # `...` — spread/rest in list patterns and literals (`[h, ...t]`).
 - id: token.arrow.ellipsis
   label: '...'

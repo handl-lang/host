@@ -444,3 +444,17 @@
     required:
     - children
     type: object
+# `arrow_lt` — `<` comparison. Two children: [left, right].
+- id: ast.arrow.arrow_lt
+  node_kind: arrow_lt
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+    - children
+    type: object

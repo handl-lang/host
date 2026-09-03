@@ -393,3 +393,11 @@
     args: []
     source: Native
     lit: 0
+# `arrow_lt` — `<` comparison. Placeholder: pass through child 0.
+- id: eval.arrow.arrow_lt
+  node_kind: arrow_lt
+  scheme: !Arr
+    op: proj_child
+    args: []
+    source: Native
+    lit: 0

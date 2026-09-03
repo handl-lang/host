@@ -139,6 +139,11 @@
   pattern: !Literal
     text: '<='
   priority: 10
+- id: lex.arrow.lt
+  token_kind: token.arrow.lt
+  pattern: !Literal
+    text: '<'
+  priority: 20
 - id: lex.arrow.ellipsis
   token_kind: token.arrow.ellipsis
   pattern: !Literal

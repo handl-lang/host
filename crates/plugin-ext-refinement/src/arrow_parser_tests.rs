@@ -1400,3 +1400,17 @@ fn test_infer_file_from_disk() {
     );
 }
 
+#[test]
+fn test_v01_arrow_lambda_simple() {
+    let src = "x ~> x";
+    let result = parse_arrow_expr(src);
+    assert!(result.is_ok(), "parse_arrow_expr(\"x ~> x\") failed: {:?}", result.err());
+}
+
+#[test]
+fn test_v01_named_arrows_atoms() {
+    let src = "-- Base atom arrows\nid = x ~> x\ncompare = [a, b] ~> a < b\ncons = [x, xs] ~> [x, xs]";
+    let result = parse_arrow_file(src);
+    assert!(result.is_ok(), "parse_arrow_file(atoms) failed: {:?}", result.err());
+}
+
