@@ -1,0 +1,78 @@
+--- type — runtime type introspection interface for the handl platform.
+---
+--- This .hnl declares the capability surface for the `type` library plugin
+--- (id `lib.type`, display name `lib-type`). The plugin is a façade for the
+--- Handl pure type system (re-exporting `handl-plugin-typecheck-nbe` and
+--- `handl-kit-type-schema-json`), and also documents the runtime type
+--- introspection ops that are registered by the `typeof` module in
+--- `plugin-lib-utils`.
+---
+--- ## Runtime type introspection (typeof module)
+---
+--- The runtime module is named `typeof` (not `type`) because `type` became a
+--- keyword in handl v0.1 (ADR-0074). The functions below are registered by
+--- `TypeModule` in `plugin-lib-utils` and are callable as
+--- `typeof.type_of(v)`, `typeof.is(v, kind)`, etc. in handl expressions.
+---
+--- typeof.type_of — return the type name of a value ("str", "num", "bool",
+--- "null", "arr", "obj").
+--- typeof.typeof — alias of type_of.
+--- typeof.to_string — coerce a value to a string.
+--- typeof.to_number — coerce a value to a number.
+--- typeof.to_bool — coerce a value to a boolean.
+--- typeof.identity — return the value unchanged.
+--- typeof.default — return the value or a default if null.
+--- typeof.coalesce — return the first non-null value among arguments.
+--- typeof.is — test whether a value is of a given kind.
+--- typeof.must — assert a value is of a given kind (error on mismatch).
+--- typeof.may — test whether a value may be of a given kind.
+--- typeof.not — test whether a value is not of a given kind.
+--- typeof.when — conditional type guard returning the value or null.
+---
+--- ## Type tags
+---
+--- typeof.string — type tag for strings ("string").
+--- typeof.str — short type tag for strings ("str").
+--- typeof.number — type tag for numbers ("number").
+--- typeof.num — short type tag for numbers ("num").
+--- typeof.bool — type tag for booleans ("bool").
+--- typeof.null — type tag for null ("null").
+--- typeof.array — type tag for arrays ("array").
+--- typeof.arr — short type tag for arrays ("arr").
+--- typeof.object — type tag for objects ("object").
+--- typeof.obj — short type tag for objects ("obj").
+--- typeof.any — universal type tag (matches anything).
+--- typeof.unknown — unknown type tag.
+---
+--- ## Typecheck engine (Rust façade)
+---
+--- The typecheck engine itself (NbE-based type synthesis, JSON Schema
+--- interpretation) is implemented in Rust and re-exported by this crate.
+--- It is not declared as `op`/`handl` here because it operates at the
+--- compile-time/inference layer, not the eval-time dispatch layer.
+cap "type.type_of"
+cap "type.typeof"
+cap "type.to_string"
+cap "type.to_number"
+cap "type.to_bool"
+cap "type.identity"
+cap "type.default"
+cap "type.coalesce"
+cap "type.is"
+cap "type.must"
+cap "type.may"
+cap "type.not"
+cap "type.when"
+op "type.type_of" : Value -> String
+op "type.typeof" : Value -> String
+op "type.to_string" : Value -> String
+op "type.to_number" : Value -> Number
+op "type.to_bool" : Value -> Bool
+op "type.identity" : Value -> Value
+op "type.default" : (Value, Value) -> Value
+op "type.coalesce" : Value -> Value
+op "type.is" : (Value, String) -> Bool
+op "type.must" : (Value, String) -> Value
+op "type.may" : (Value, String) -> Bool
+op "type.not" : (Value, String) -> Bool
+op "type.when" : (Value, String) -> Value

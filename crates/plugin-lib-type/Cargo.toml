@@ -5,10 +5,11 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true, optional = true }
+handl-plugin-lib-handl = { workspace = true, optional = true }
 handl-plugin-typecheck-nbe = { workspace = true }
 handl-kit-type-schema-json = { workspace = true }
 serde_json = { workspace = true }
 
 [features]
 default = []
-plugin = ["dep:handl-platform"]
+plugin = ["dep:handl-platform", "dep:handl-plugin-lib-handl"]
