@@ -318,11 +318,17 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
   handled together. How the effect system represents a bundle as one
   handler is a design question for the effect-handler mechanism, not
   resolved here (see Open Questions).
-- **Dynamic handlers cannot be law-checked.** A handler whose impl is
-  chosen at runtime has no compile-time law guarantee. This is the
-  static/dynamic split: static handlers are the "trait" case (laws
-  verified); dynamic handlers are the effect-handler case (no law
-  claim). There is no mechanism to verify laws for runtime-chosen impls.
+- **Dynamic handlers CAN be law-checked (corrected).** ~~A handler
+  whose impl is chosen at runtime has no compile-time law guarantee.~~
+  The arrow calculus graph is always inspectable, so CutElim can run at
+  any time. Three modes (see OQ#2): static (compile-time verify),
+  dynamic closed-set (pre-verified at registration, O(1) dispatch with
+  guarantees), dynamic open-set (runtime CutElim verify, accepts or
+  rejects). This is a handl advantage over Rust/Haskell, where impls
+  are opaque compiled code. The cost: Mode 3 runs CutElim at runtime
+  (one normalization per law per dispatch). The benefit: handles
+  graphs not known at compile time (plugins, ArrowApply synthesis,
+  input-driven generation).
 
 ### Neutral
 
@@ -349,17 +355,31 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
    continuation parameter (the prototype's `Op` is a leaf; Lean's
    `FreerArrow.op` has a continuation `k`).
 
-2. **Dynamic handlers + laws.** Can we verify laws for runtime-chosen
-   impls? Likely no — this is the static/dynamic split. A dynamic
-   handler is the effect-handler case (no law claim); a static handler
-   is the trait case (laws verified). Confirming this boundary is
-   deferred.
+2. **Dynamic handlers + laws.** ~~Can we verify laws for runtime-chosen
+   impls? Likely no — this is the static/dynamic split.~~ **Prototyped
+   — the earlier "likely no" was wrong.** `src/dynamic_handlers.rs`
+   implements three modes:
+   - **Mode 1 (static):** verify at compile time (existing `handle`).
+     Laws checked once, proof travels. No runtime cost.
+   - **Mode 2 (dynamic, closed set):** multiple impls pre-verified at
+     registration. Runtime predicate picks one. Laws hold regardless —
+     all were proven at registration. O(1) dispatch, no runtime CutElim.
+     Dynamic dispatch *with* guarantees.
+   - **Mode 3 (dynamic, open set):** graph generated at runtime (not
+     known at compile time). Handler runs CutElim on it at runtime.
+     Accept if laws satisfied, reject with runtime error if not.
+   
+   All three work because the arrow calculus graph is **always
+   inspectable** — CutElim can run at any time, not just compile time.
+   This is a handl advantage over Rust/Haskell, where impls are opaque
+   compiled code. 15 tests pass. The Negative Consequences section's
+   "dynamic handlers cannot be law-checked" claim is corrected below.
 
 3. **Specificity-by-verified-laws as a catalog search tiebreaker.**
-   When catalog search returns multiple matches, the default is
-   "multiple = error." A convenience tiebreaker (prefer the impl with
-   more verified laws) is possible but deferred — the default is honest:
-   ask the user to name one explicitly.
+   **Dropped.** The notion of "better" impl by law count is arbitrary —
+   an impl with 0 verified laws may be correct but unproven. The
+   default ("multiple = error, name one explicitly") is the honest
+   design. No tiebreaker planned.
 
 4. **Law syntax for higher-order laws.** Laws that quantify over arrows
    (e.g. `forall f g. map (f >>> g) = map f >>> map g`) need explicit
@@ -424,5 +444,10 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
 - `research/arrow-calculus-kernel-poc/src/decoupled_pipeline.rs` —
   end-to-end pipeline (infer → bundle → handle → eliminate → normalize
   → verify), composing all three prototypes.
+- `research/arrow-calculus-kernel-poc/src/quantified_laws.rs` —
+  higher-order law quantifier syntax (`forall f g. lhs = rhs`).
+- `research/arrow-calculus-kernel-poc/src/dynamic_handlers.rs` —
+  dynamic handler law verification (3 modes: static, dynamic closed-set,
+  dynamic open-set with runtime CutElim).
 - `research/arrow-calculus-kernel-poc/RESULTS_TRAITS.md` — prototype
   results.

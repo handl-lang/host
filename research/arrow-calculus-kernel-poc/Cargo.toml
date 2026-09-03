@@ -137,6 +137,10 @@ path = "src/quantified_laws.rs"
 name = "contract_inference_tests"
 path = "src/contract_inference_tests.rs"
 
+[[bin]]
+name = "dynamic_handlers"
+path = "src/dynamic_handlers.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess
