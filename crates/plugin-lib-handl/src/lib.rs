@@ -46,6 +46,9 @@
 
 #![warn(missing_docs)]
 
+pub mod op_registry;
+pub use op_registry::{OpFunction, OpRegistry};
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -297,8 +300,11 @@ impl Function for HandlFunction {
 pub struct HandlModule {
     /// The module name (namespace prefix for qualified calls).
     name: String,
-    /// Pre-constructed function objects, keyed by field name.
+    /// Pre-constructed pure-logic function objects, keyed by field name.
     functions: HashMap<String, HandlFunction>,
+    /// Op-backed function objects (from `op`/`handl` declarations), keyed by
+    /// the local name (the segment after the last `.` in the op name).
+    op_functions: HashMap<String, OpFunction>,
     /// Dependency modules registered in the bridge runtime.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
 }
@@ -337,6 +343,7 @@ impl HandlModule {
         Self {
             name,
             functions,
+            op_functions: HashMap::new(),
             dependencies: Vec::new(),
         }
     }
@@ -357,6 +364,26 @@ impl HandlModule {
     pub fn with_dependency_arc(mut self, module: Arc<dyn Module + Send + Sync>) -> Self {
         self.dependencies.push(module);
         self.rebuild_functions();
+        self
+    }
+
+    /// Attach op functions for the given op names, dispatching to the shared
+    /// [`OpRegistry`].
+    ///
+    /// Each op name (e.g. `"base64.encode"`) is exposed as a callable
+    /// [`OpFunction`] under its local name — the segment after the last `.` 
+    /// in the op name (e.g. `"encode"`). This allows the module to be looked
+    /// up via `ModuleLookup::lookup("base64.encode")` (the module name
+    /// `"base64"` + the local name `"encode"`).
+    ///
+    /// Op functions are merged with the regular record-field functions; if a
+    /// name collision occurs, the op function takes precedence.
+    pub fn with_ops(mut self, op_names: &[&str], registry: Arc<OpRegistry>) -> Self {
+        for &op_name in op_names {
+            let local_name = op_name.rsplit('.').next().unwrap_or(op_name);
+            self.op_functions
+                .insert(local_name.to_string(), OpFunction::new(op_name, Arc::clone(&registry)));
+        }
         self
     }
 
@@ -382,14 +409,26 @@ impl Module for HandlModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
+        // Op functions take precedence (ops are the declared interface).
+        if let Some(f) = self.op_functions.get(name) {
+            return Some(f as &dyn Function);
+        }
         self.functions.get(name).map(|f| f as &dyn Function)
     }
 
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
-        self.functions
-            .iter()
-            .map(|(name, func)| (name.as_str(), func as &dyn Function))
-            .collect()
+        let mut result: Vec<(&str, &dyn Function)> = Vec::new();
+        // Op functions first (declared interface).
+        for (name, func) in &self.op_functions {
+            result.push((name.as_str(), func as &dyn Function));
+        }
+        // Then regular functions (skip names already covered by ops).
+        for (name, func) in &self.functions {
+            if !self.op_functions.contains_key(name) {
+                result.push((name.as_str(), func as &dyn Function));
+            }
+        }
+        result
     }
 }
 
@@ -433,6 +472,11 @@ pub struct HandlLibraryPlugin {
     func_names: Vec<String>,
     /// Dependency modules.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
+    /// Op names (from `op`/`handl` declarations) to expose as callable
+    /// functions dispatching to the [`OpRegistry`].
+    op_names: Vec<String>,
+    /// The shared op registry (if any ops are declared).
+    op_registry: Option<Arc<OpRegistry>>,
 }
 
 impl HandlLibraryPlugin {
@@ -457,6 +501,8 @@ impl HandlLibraryPlugin {
             source: strip_comment_lines(hnl_source),
             func_names: func_names.iter().map(|s| s.to_string()).collect(),
             dependencies: Vec::new(),
+            op_names: Vec::new(),
+            op_registry: None,
         }
     }
 
@@ -472,12 +518,34 @@ impl HandlLibraryPlugin {
         self
     }
 
+    /// Attach op functions for the given op names, dispatching to the shared
+    /// [`OpRegistry`].
+    ///
+    /// Each op name (e.g. `"base64.encode"`) is exposed as a callable
+    /// [`OpFunction`] under its local name — the segment after the last `.`
+    /// in the op name (e.g. `"encode"`). This allows the module to be looked
+    /// up via `ModuleLookup::lookup("base64.encode")` (the module name
+    /// `"base64"` + the local name `"encode"`).
+    ///
+    /// Op functions are merged with the regular record-field functions; if a
+    /// name collision occurs, the op function takes precedence.
+    pub fn with_ops(mut self, op_names: &[&str], registry: Arc<OpRegistry>) -> Self {
+        self.op_names = op_names.iter().map(|s| s.to_string()).collect();
+        self.op_registry = Some(registry);
+        self
+    }
+
     /// Build the [`HandlModule`] from this plugin's configuration.
     fn build_module(&self) -> HandlModule {
         let func_refs: Vec<&str> = self.func_names.iter().map(|s| s.as_str()).collect();
         let mut module = HandlModule::new(&self.module_name, &self.source, &func_refs);
         for dep in &self.dependencies {
             module = module.with_dependency_arc(Arc::clone(dep));
+        }
+        // Attach op functions if an op registry is configured.
+        if let Some(ref registry) = self.op_registry {
+            let op_refs: Vec<&str> = self.op_names.iter().map(|s| s.as_str()).collect();
+            module = module.with_ops(&op_refs, Arc::clone(registry));
         }
         module
     }
@@ -633,5 +701,107 @@ mod tests {
     fn escape_handl_string_escapes_quotes_and_backslashes() {
         assert_eq!(escape_handl_string(r#"a"b\c"#), r#"a\"b\\c"#);
         assert_eq!(escape_handl_string("plain"), "plain");
+    }
+
+    #[test]
+    fn handl_module_with_ops_dispatches_to_registry() {
+        use crate::op_registry::{OpFunction, OpRegistry};
+        use std::sync::Arc;
+
+        struct Upper;
+        impl Function for Upper {
+            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
+                let s = args[0].as_str().unwrap_or("");
+                Ok(json!(s.to_uppercase()))
+            }
+        }
+
+        let mut registry = OpRegistry::new();
+        registry.register("test.upper", Arc::new(Upper));
+        let shared = Arc::new(registry);
+
+        let module = HandlModule::new("test", TEST_HNL, &["double"])
+            .with_ops(&["test.upper"], shared);
+
+        // The op function should be accessible via the module.
+        let upper = module.function("upper").expect("upper should exist");
+        let mut ctx = EvalContext::new();
+        let result = upper.call(&[json!("hello")], &mut ctx).unwrap();
+        assert_eq!(result, json!("HELLO"));
+
+        // The regular function should still work.
+        let double = module.function("double").expect("double should exist");
+        let result = double.call(&[json!(21)], &mut ctx).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn handl_module_with_ops_works_in_module_registry() {
+        use crate::op_registry::OpRegistry;
+        use std::sync::Arc;
+
+        struct Upper;
+        impl Function for Upper {
+            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
+                let s = args[0].as_str().unwrap_or("");
+                Ok(json!(s.to_uppercase()))
+            }
+        }
+
+        let mut registry = OpRegistry::new();
+        registry.register("test.upper", Arc::new(Upper));
+        let shared = Arc::new(registry);
+
+        let module = HandlModule::new("test", TEST_HNL, &["double"])
+            .with_ops(&["test.upper"], shared);
+        let reg = ModuleRegistry::new().with(module);
+        let lookup: &dyn ModuleLookup = &reg;
+
+        // Op function should be resolvable via qualified name.
+        let func = lookup.lookup("test.upper").expect("test.upper should resolve");
+        let mut ctx = EvalContext::new();
+        let result = func.call(&[json!("hi")], &mut ctx).unwrap();
+        assert_eq!(result, json!("HI"));
+
+        // Regular function should also work.
+        let func = lookup.lookup("test.double").expect("test.double should resolve");
+        let result = func.call(&[json!(5)], &mut ctx).unwrap();
+        assert_eq!(result, json!(10));
+    }
+
+    #[test]
+    fn handl_library_plugin_with_ops_contributes_module() {
+        use handl_platform::{PluginRegistry, KitRegistry};
+        use crate::op_registry::OpRegistry;
+        use std::sync::Arc;
+
+        struct Upper;
+        impl Function for Upper {
+            fn call(&self, args: &[serde_json::Value], _ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
+                let s = args[0].as_str().unwrap_or("");
+                Ok(json!(s.to_uppercase()))
+            }
+        }
+
+        let mut registry = OpRegistry::new();
+        registry.register("test.upper", Arc::new(Upper));
+        let shared = Arc::new(registry);
+
+        let plugin = HandlLibraryPlugin::new(
+            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
+        )
+        .with_ops(&["test.upper"], shared);
+
+        let (mut plugins, mut kits) = (PluginRegistry::new(), KitRegistry::new());
+        plugins.register(ModuleRuntime::new());
+        let mut cctx = ContributionContext::new(&mut plugins, &mut kits);
+        plugin.contribute(&mut cctx).unwrap();
+
+        let runtime = plugins
+            .get_plugin_mut::<ModuleRuntime>()
+            .expect("ModuleRuntime should be registered");
+        assert_eq!(runtime.module_count(), 1);
+        assert!(runtime.lookup("test.upper").is_some());
+        assert!(runtime.lookup("test.double").is_some());
     }
 }

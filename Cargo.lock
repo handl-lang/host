@@ -1000,8 +1000,11 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-applier",
+ "handl-plugin-engine-eval-cranelift",
  "handl-plugin-ext-cli",
+ "handl-runtime",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -1587,6 +1590,7 @@ dependencies = [
  "base64",
  "handl-platform",
  "handl-plugin-lib-encoding",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde_json",
 ]

@@ -147,6 +147,73 @@ pub enum ExportDecl {
     AllFrom(String),
 }
 
+/// A parsed `op` declaration (ADR-0077 Phase 2).
+///
+/// Represents a single `op` line in a `.hnl` module file. An `op` declares a
+/// native operation (Rust-backed function) with its type signature and
+/// optional axiom predicates (`guarantee`, `requires`, `termination`).
+///
+/// # Syntax
+///
+/// ```handl
+/// op "base64.encode" : String -> String
+///   guarantee: IsBase64(output)
+/// ```
+///
+/// The `op` line may be followed by indented `guarantee:`/`requires:`/
+/// `termination:` lines, which are parsed as part of the op declaration.
+#[derive(Debug, Clone)]
+pub struct OpDecl {
+    /// The op name (e.g. `"base64.encode"`).
+    pub name: String,
+    /// The input type signature text (e.g. `"String"`).
+    pub input_type: String,
+    /// The output type signature text (e.g. `"String"`).
+    pub output_type: String,
+    /// Optional `guarantee` axiom predicate text.
+    pub guarantee: Option<String>,
+    /// Optional `requires` precondition predicate text.
+    pub requires: Option<String>,
+    /// Optional `termination` predicate text.
+    pub termination: Option<String>,
+}
+
+/// A parsed `handl` declaration (ADR-0077 Phase 2).
+///
+/// Binds a Rust function (the handler) to an `op` name. The Rust function
+/// identifier is symbolic — the host crate registers a `Function` impl under
+/// the op name via an [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+///
+/// # Syntax
+///
+/// ```handl
+/// handl "base64.encode" = rust_base64_encode
+/// ```
+#[derive(Debug, Clone)]
+pub struct HandlDecl {
+    /// The op name (e.g. `"base64.encode"`).
+    pub op_name: String,
+    /// The Rust function symbolic name (e.g. `"rust_base64_encode"`).
+    pub rust_fn: String,
+}
+
+/// A parsed `cap` declaration (ADR-0077 Phase 5).
+///
+/// Declares a capability that the module requires. The capability name
+/// matches an `op` name — the host must grant the capability for the op's
+/// handl to be callable.
+///
+/// # Syntax
+///
+/// ```handl
+/// cap "fs.read"
+/// ```
+#[derive(Debug, Clone)]
+pub struct CapDecl {
+    /// The capability name (e.g. `"fs.read"`).
+    pub name: String,
+}
+
 /// The result of parsing an arrow module file with import/export declarations.
 ///
 /// A `ParsedModule` carries the import/export metadata alongside the parsed
@@ -158,38 +225,82 @@ pub struct ParsedModule {
     pub imports: Vec<ImportDecl>,
     /// Export declarations. Empty = all names public.
     pub exports: Vec<ExportDecl>,
+    /// `op` declarations (ADR-0077 Phase 2).
+    pub ops: Vec<OpDecl>,
+    /// `handl` declarations (ADR-0077 Phase 2).
+    pub handls: Vec<HandlDecl>,
+    /// `cap` declarations (ADR-0077 Phase 5).
+    pub caps: Vec<CapDecl>,
     /// The parsed arrows (single expression or named map).
     pub arrows: ParsedFile,
 }
 
 /// Parse a `.hnl` arrow module file's content, extracting import/export
-/// declarations.
+/// and `op`/`handl`/`cap` declarations (ADR-0069, ADR-0077 Phase 2).
 ///
 /// This is the module-aware counterpart to [`parse_arrow_file`]. It:
 /// 1. Strips comments (reuses [`strip_comments`]).
-/// 2. Scans for `import` and `export` lines at the top level.
+/// 2. Scans for `import`, `export`, `op`, `handl`, and `cap` lines at the
+///    top level.
 /// 3. Parses import lines: `import name from "path"`,
 ///    `import name1, name2 from "path"`, `import name as local from "path"`,
 ///    `import "path" as alias`.
 /// 4. Parses export lines: `export name`, `export *`,
 ///    `export name from "path"`, `export * from "path"`.
-/// 5. Parses the remaining content as a [`ParsedFile`] (reuses
-///    [`parse_arrow_file`] on the non-import/non-export lines).
+/// 5. Parses `op` lines: `op "name" : Type -> Type`, optionally followed by
+///    indented `guarantee:`/`requires:`/`termination:` lines.
+/// 6. Parses `handl` lines: `handl "op.name" = rust_fn_name`.
+/// 7. Parses `cap` lines: `cap "cap.name"`.
+/// 8. Parses the remaining content as a [`ParsedFile`] (reuses
+///    [`parse_arrow_file`] on the non-declaration lines).
 ///
-/// If the remaining content (after removing import/export lines) is empty,
+/// If the remaining content (after removing declaration lines) is empty,
 /// the `arrows` field is `ParsedFile::Named` with an empty map (a pure
-/// re-export module).
+/// re-export or op-only module).
 pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
     let stripped = strip_comments(src);
     let mut imports: Vec<ImportDecl> = Vec::new();
     let mut exports: Vec<ExportDecl> = Vec::new();
+    let mut ops: Vec<OpDecl> = Vec::new();
+    let mut handls: Vec<HandlDecl> = Vec::new();
+    let mut caps: Vec<CapDecl> = Vec::new();
     let mut arrow_lines: Vec<&str> = Vec::new();
+
+    // Track the current `op` declaration being built (for indented
+    // guarantee/requires/termination lines).
+    let mut current_op: Option<OpDecl> = None;
 
     for line in stripped.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
+            // Flush any pending op before the blank line.
+            if let Some(op) = current_op.take() {
+                ops.push(op);
+            }
             arrow_lines.push(line);
             continue;
+        }
+
+        // Check for indented continuation lines (guarantee/requires/
+        // termination) belonging to the current `op` declaration.
+        let is_indented = line.starts_with(' ') || line.starts_with('\t');
+        if is_indented {
+            if let Some(ref mut op) = current_op {
+                if let Some((key, value)) = parse_op_clause(trimmed) {
+                    match key {
+                        "guarantee" => op.guarantee = Some(value),
+                        "requires" => op.requires = Some(value),
+                        "termination" => op.termination = Some(value),
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+        }
+
+        // Flush any pending op before processing a new top-level line.
+        if let Some(op) = current_op.take() {
+            ops.push(op);
         }
 
         if let Some(rest) = trimmed.strip_prefix("import") {
@@ -210,7 +321,40 @@ pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
             }
         }
 
+        if let Some(rest) = trimmed.strip_prefix("op") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_op_line(trimmed) {
+                    // Start a new op declaration — indented lines may follow.
+                    current_op = Some(decl);
+                    continue;
+                }
+            }
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("handl") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_handl_line(trimmed) {
+                    handls.push(decl);
+                    continue;
+                }
+            }
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("cap") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_cap_line(trimmed) {
+                    caps.push(decl);
+                    continue;
+                }
+            }
+        }
+
         arrow_lines.push(line);
+    }
+
+    // Flush any pending op at end of file.
+    if let Some(op) = current_op.take() {
+        ops.push(op);
     }
 
     let arrow_src = arrow_lines.join("\n");
@@ -228,6 +372,9 @@ pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
     Ok(ParsedModule {
         imports,
         exports,
+        ops,
+        handls,
+        caps,
         arrows,
     })
 }
@@ -345,6 +492,12 @@ fn rewrite_scheme(
                 .map(|a| rewrite_scheme(a, import_map, local_names))
                 .collect(),
         },
+        // `handle body with target = impl_` (ADR-0076): eliminate the handler
+        // at compile time, then rewrite the resulting handler-free graph.
+        Scheme::Handle { .. } => {
+            let eliminated = scheme.eliminate_handlers();
+            rewrite_scheme(&eliminated, import_map, local_names)
+        }
     }
 }
 
@@ -485,6 +638,122 @@ fn parse_export_line(line: &str) -> Option<ExportDecl> {
         return None;
     }
     Some(ExportDecl::Names(names))
+}
+
+/// Parse a single `op` line into an [`OpDecl`].
+///
+/// Supported form:
+/// - `op "name" : InputType -> OutputType`
+///
+/// The op name must be a quoted string. The type signature uses `->` to
+/// separate input and output types. Indented `guarantee:`/`requires:`/
+/// `termination:` lines are handled separately by [`parse_op_clause`] in
+/// the main parsing loop.
+fn parse_op_line(line: &str) -> Option<OpDecl> {
+    let rest = line.strip_prefix("op")?.trim();
+
+    // Extract the quoted op name.
+    let (name, after_name) = extract_quoted_string(rest)?;
+    let after_name = after_name.trim();
+
+    // Expect `:` after the name, then `InputType -> OutputType`.
+    let after_colon = after_name.strip_prefix(':')?.trim();
+
+    // Find the `->` separator. We search for `->` as a standalone token.
+    let arrow_idx = find_arrow(after_colon)?;
+    let input_type = after_colon[..arrow_idx].trim().to_string();
+    let output_type = after_colon[arrow_idx + 2..].trim().to_string();
+
+    if input_type.is_empty() || output_type.is_empty() {
+        return None;
+    }
+
+    Some(OpDecl {
+        name,
+        input_type,
+        output_type,
+        guarantee: None,
+        requires: None,
+        termination: None,
+    })
+}
+
+/// Parse an indented `op` clause line (`guarantee:`/`requires:`/
+/// `termination:`).
+///
+/// Returns `Some((key, value))` if the line matches `key: value` where `key`
+/// is one of `guarantee`, `requires`, `termination`. Returns `None` otherwise
+/// (the line is not an op clause and should be treated as a regular line).
+fn parse_op_clause(line: &str) -> Option<(&'static str, String)> {
+    for key in &["guarantee", "requires", "termination"] {
+        if let Some(rest) = line.strip_prefix(key) {
+            // Ensure the keyword is word-complete.
+            let after = rest.chars().next();
+            if after == Some(':') || after.is_none() {
+                let value = rest.strip_prefix(':').unwrap_or(rest).trim();
+                if value.is_empty() {
+                    return Some((*key, String::new()));
+                }
+                return Some((*key, value.to_string()));
+            }
+        }
+    }
+    None
+}
+
+/// Find the byte index of the `->` arrow separator in a type signature,
+/// ensuring it is not part of a larger token. Returns `None` if not found.
+fn find_arrow(s: &str) -> Option<usize> {
+    s.find("->")
+}
+
+/// Parse a single `handl` line into a [`HandlDecl`].
+///
+/// Supported form:
+/// - `handl "op.name" = rust_fn_name`
+///
+/// The op name must be a quoted string. The Rust function name is a bare
+/// identifier after the `=` sign.
+fn parse_handl_line(line: &str) -> Option<HandlDecl> {
+    let rest = line.strip_prefix("handl")?.trim();
+
+    // Extract the quoted op name.
+    let (op_name, after_name) = extract_quoted_string(rest)?;
+    let after_name = after_name.trim();
+
+    // Expect `= rust_fn_name`.
+    let after_eq = after_name.strip_prefix('=')?.trim();
+    if after_eq.is_empty() {
+        return None;
+    }
+
+    // The Rust function name is a bare identifier (may contain underscores
+    // and alphanumeric chars).
+    let rust_fn = after_eq.to_string();
+
+    Some(HandlDecl { op_name, rust_fn })
+}
+
+/// Parse a single `cap` line into a [`CapDecl`].
+///
+/// Supported form:
+/// - `cap "cap.name"`
+///
+/// The capability name must be a quoted string.
+fn parse_cap_line(line: &str) -> Option<CapDecl> {
+    let rest = line.strip_prefix("cap")?.trim();
+
+    // Extract the quoted capability name.
+    let (name, after_name) = extract_quoted_string(rest)?;
+    let after_name = after_name.trim();
+
+    // Nothing should follow the quoted name (except possibly a comment,
+    // but comments are already stripped).
+    if !after_name.is_empty() {
+        return None;
+    }
+
+    Some(CapDecl { name })
 }
 
 /// Extract a quoted string from the start of `s`, returning the content and
@@ -897,6 +1166,12 @@ fn walk_scheme(
                 callee: Box::new(materialized_callee),
                 args: materialized_args,
             })
+        }
+        // `handle body with target = impl_` (ADR-0076): eliminate the handler
+        // at compile time, then walk the resulting handler-free graph.
+        Scheme::Handle { .. } => {
+            let eliminated = scheme.eliminate_handlers();
+            walk_scheme(&eliminated, ast, node, lang)
         }
     }
 }

@@ -1209,6 +1209,105 @@ fn test_parse_arrow_module_empty_after_imports() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// op/handl/cap declaration parsing tests (ADR-0077 Phase 2)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_parse_arrow_module_op_declaration() {
+    let src = r#"op "base64.encode" : String -> String
+op "base64.decode" : String -> String"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.ops.len(), 2);
+    assert_eq!(parsed.ops[0].name, "base64.encode");
+    assert_eq!(parsed.ops[0].input_type, "String");
+    assert_eq!(parsed.ops[0].output_type, "String");
+    assert_eq!(parsed.ops[1].name, "base64.decode");
+    assert_eq!(parsed.ops[1].input_type, "String");
+    assert_eq!(parsed.ops[1].output_type, "String");
+}
+
+#[test]
+fn test_parse_arrow_module_op_with_guarantee() {
+    let src = r#"op "base64.encode" : String -> String
+  guarantee: IsBase64(output)"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.ops.len(), 1);
+    assert_eq!(parsed.ops[0].name, "base64.encode");
+    assert_eq!(parsed.ops[0].guarantee.as_deref(), Some("IsBase64(output)"));
+    assert!(parsed.ops[0].requires.is_none());
+    assert!(parsed.ops[0].termination.is_none());
+}
+
+#[test]
+fn test_parse_arrow_module_op_with_requires_and_guarantee() {
+    let src = r#"op "fs.read" : Path -> Bytes
+  requires: PathValid(path)
+  guarantee: IsUtf8(output)"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.ops.len(), 1);
+    assert_eq!(parsed.ops[0].name, "fs.read");
+    assert_eq!(parsed.ops[0].input_type, "Path");
+    assert_eq!(parsed.ops[0].output_type, "Bytes");
+    assert_eq!(parsed.ops[0].requires.as_deref(), Some("PathValid(path)"));
+    assert_eq!(parsed.ops[0].guarantee.as_deref(), Some("IsUtf8(output)"));
+}
+
+#[test]
+fn test_parse_arrow_module_handl_declaration() {
+    let src = r#"op "base64.encode" : String -> String
+handl "base64.encode" = rust_base64_encode"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.handls.len(), 1);
+    assert_eq!(parsed.handls[0].op_name, "base64.encode");
+    assert_eq!(parsed.handls[0].rust_fn, "rust_base64_encode");
+}
+
+#[test]
+fn test_parse_arrow_module_cap_declaration() {
+    let src = r#"cap "fs.read"
+cap "fs.write""#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.caps.len(), 2);
+    assert_eq!(parsed.caps[0].name, "fs.read");
+    assert_eq!(parsed.caps[1].name, "fs.write");
+}
+
+#[test]
+fn test_parse_arrow_module_mixed_declarations() {
+    let src = r#"--- base64.encode — encode a string to base64.
+--- base64.decode — decode a base64 string.
+op "base64.encode" : String -> String
+op "base64.decode" : String -> String
+
+handl "base64.encode" = rust_base64_encode
+handl "base64.decode" = rust_base64_decode"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.ops.len(), 2);
+    assert_eq!(parsed.handls.len(), 2);
+    assert!(parsed.caps.is_empty());
+    // Arrows should be empty (op-only module, no arrow definitions).
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => assert!(map.is_empty()),
+        _ => panic!("expected empty Named map for op-only module"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_op_does_not_interfere_with_arrows() {
+    let src = r#"op "base64.encode" : String -> String
+sort = arr("sort")"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.ops.len(), 1);
+    // The arrow should still be parsed.
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => {
+            assert!(map.contains_key("sort"));
+        }
+        _ => panic!("expected Named map with arrow definitions"),
+    }
+}
+
 #[test]
 fn test_file_resolver_resolves_hnl_file() {
     // Create a temp directory with a .hnl file.

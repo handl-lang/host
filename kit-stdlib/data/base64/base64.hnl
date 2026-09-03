@@ -1,0 +1,7 @@
+--- base64.encode — encode a string to base64.
+--- base64.decode — decode a base64 string.
+op "base64.encode" : String -> String
+op "base64.decode" : String -> String
+
+handl "base64.encode" = rust_base64_encode
+handl "base64.decode" = rust_base64_decode
