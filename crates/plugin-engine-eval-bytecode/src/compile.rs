@@ -163,6 +163,15 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
             out.push(Instr::Call(args.len()));
             Ok(false)
         }
+        // `handle body with target = impl_` (ADR-0076): eliminate the
+        // handler at compile time, then compile the resulting handler-free
+        // scheme. Uses `eliminate_and_check` to surface unhandled
+        // capabilities as a compile-time error.
+        Scheme::Handle { .. } => {
+            let eliminated = handl_language::eliminate_and_check(scheme)
+                .map_err(|e| LangError::Engine(e.to_string()))?;
+            compile_into(&eliminated, out)
+        }
     }
 }
 

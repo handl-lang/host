@@ -807,6 +807,8 @@ fn compile_scheme(
                 let call = builder.ins().call(helpers.unpair_snd, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
+            // Now that both components are extracted, drop the original pair.
+            builder.ins().call(helpers.drop_value, &[ctx_param, incoming_val]);
             let (inner_result, inner_pushed) =
                 compile_scheme(builder, inner, ctx_param, fst, helpers, pools, ptr_type);
             if inner_pushed {
@@ -881,6 +883,18 @@ fn compile_scheme(
                 &[ctx_param, callee_val, arg_ptrs, n_val],
             );
             (builder.inst_results(call)[0], false)
+        }
+        // `handle body with target = impl_` (ADR-0076): eliminate the
+        // handler at compile time, then compile the resulting handler-free
+        // scheme. NOTE: cranelift's `compile_scheme` returns `(Value, bool)`
+        // rather than `Result`, so the `eliminate_and_check` cleanliness
+        // gate is not applied here — it is enforced by the tree-walk,
+        // bytecode, and typecheck engines. The unchecked
+        // `eliminate_handlers` is used; a future refactor of this function
+        // to return `Result` would allow the check here too.
+        Scheme::Handle { .. } => {
+            let eliminated = scheme.eliminate_handlers();
+            compile_scheme(builder, &eliminated, ctx_param, incoming_val, helpers, pools, ptr_type)
         }
     }
 }
@@ -1045,6 +1059,8 @@ fn compile_loop(
         let call = builder.ins().call(helpers.unpair_fst, &[ctx_param, body_result]);
         builder.inst_results(call)[0]
     };
+    // Drop the original pair (unpair_fst no longer consumes it).
+    builder.ins().call(helpers.drop_value, &[ctx_param, body_result]);
     builder.ins().jump(done_block, &[step_out]);
 
     // --- Done ---

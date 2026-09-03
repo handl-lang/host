@@ -325,7 +325,8 @@ impl NbeTypecheckEngine {
             // the body to the impl graph), then evaluate the resulting
             // handler-free scheme.
             Scheme::Handle { .. } => {
-                let eliminated = scheme.eliminate_handlers();
+                let eliminated = handl_language::eliminate_and_check(scheme)
+                    .map_err(|e| LangError::Engine(e.to_string()))?;
                 self.eval_type_scheme(lang, ast, node_ref, &eliminated, ctx, incoming)
             }
         }

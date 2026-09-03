@@ -421,6 +421,18 @@ impl TreeWalkEngine {
                 let val = self.apply_app(&callee_val, &actual_args, ast, lang, env)?;
                 Ok((val, false))
             }
+            // `handle body with target = impl_` (ADR-0076): eliminate the
+            // handler at compile time (rewriting every bare arr(target) in
+            // the body to the impl graph), then evaluate the resulting
+            // handler-free scheme. Uses `eliminate_and_check` to surface
+            // unhandled capabilities as a compile-time error.
+            Scheme::Handle { .. } => {
+                let eliminated = handl_language::eliminate_and_check(scheme)
+                    .map_err(|e| LangError::Engine(e.to_string()))?;
+                self.eval_inner(
+                    &eliminated, ast, node_ref, lang, env, current_node, incoming,
+                )
+            }
         }
     }
 
