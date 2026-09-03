@@ -9,12 +9,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     let kit = handl_kit_data_canonical::assemble().expect("assembly should succeed");
     let lang = kit.lang();
 
-    // Token kinds: 68 — v0.1 surface syntax (ADR-0074).
-    // Removed 17 old tokens (arrow_app, arrow_bind, pipe, returnA, loop,
-    // then, where, handle, typeof, module, const, is, may, must, when,
+    // Token kinds: 69 — v0.1 surface syntax (ADR-0074).
+    // Removed 16 old tokens (arrow_app, arrow_bind, pipe, returnA, loop,
+    // where, handle, typeof, module, const, is, may, must, when,
     // not keyword, vau) and added 13 new tokens (rec, while, for, return,
     // law, trait, impl, infer, type, from, product, nullish, opt_chain).
-    assert_eq!(lang.tokens.len(), 68);
+    // then retained for optional if-then backward compat.
+    assert_eq!(lang.tokens.len(), 69);
 
     // Grammar rows: 56 — v0.1 surface syntax (ADR-0074).
     // Removed 15 old rules (arrow-app, arrow-bind, returnA, loop, pipe,
@@ -23,12 +24,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // while, for, return, law, trait, impl, infer, type).
     assert_eq!(lang.grammar.len(), 56);
 
-    // Eval schemes: 57 — v0.1 surface syntax (ADR-0074).
-    // Removed 12 old schemes (arrow_bind, returnA, loop, pipe, handle,
-    // typeof, stmt-const, stmt-module, mood.cnd, mood.int, mood.neg,
+    // Eval schemes: 60 — v0.1 surface syntax (ADR-0074).
+    // Removed 9 old schemes (arrow_bind, returnA, loop, handle,
+    // stmt-module, mood.cnd, mood.int, mood.neg,
     // mood.norm, mood.pot) and added 12 new schemes (rec, while, for,
     // return, law, trait, impl, infer, type, product, nullish, opt-chain).
-    assert_eq!(lang.eval.len(), 57);
+    // stmt-const, pipe, typeof retained for corpus compatibility.
+    assert_eq!(lang.eval.len(), 60);
 
     // AST shapes: 56 — v0.1 surface syntax (ADR-0074).
     // Removed 15 old shapes (arrow_app, arrow_bind, returnA, loop, pipe,
@@ -68,7 +70,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .into_runtime(&registry, None)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 68);
+    assert_eq!(rt.lang().tokens.len(), 69);
     assert_eq!(rt.lang().grammar.len(), 56);
 }
 
@@ -149,7 +151,6 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.eval.get_by_id("eval.nullish").is_some());
     // Removed eval schemes
     assert!(lang.eval.get_by_id("eval.loop").is_none());
-    assert!(lang.eval.get_by_id("eval.pipe").is_none());
     assert!(lang.eval.get_by_id("eval.handle").is_none());
     // The excluded duplicate eval scheme is absent.
     assert!(lang.eval.get_by_id("eval.call.postfix").is_none());

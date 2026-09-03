@@ -8,7 +8,7 @@
 -- 4. Repeat until no more operators or lower precedence
 --
 -- As an arrow graph, this is a nested loop with choice:
---   pratt       = loop(parse_atom >>> parse_ops)
+--   pratt       = rec { parse_atom >>> parse_ops }
 --   parse_ops   = loop(parse.peek >>> (apply_op ||| stop))
 --   apply_op    = parse.consume >>> parse.make_node
 --   parse_atom  = parse.consume >>> parse.atom_value
@@ -30,12 +30,12 @@
 -- The single-expression form below is equivalent to the named-arrow
 -- decomposition:
 --
---   pratt = loop(
+--   pratt = rec {
 --     (arr("parse.consume") >>> arr("parse.atom_value")) >>>
 --     loop(
 --       arr("parse.peek") >>>
 --       ((arr("parse.consume") >>> arr("parse.make_node")) ||| id)
 --     )
---   )
+--   }
 
-loop((arr("parse.consume") >>> arr("parse.atom_value")) >>> loop(arr("parse.peek") >>> ((arr("parse.consume") >>> arr("parse.make_node")) ||| id)))
+rec { (arr("parse.consume") >>> arr("parse.atom_value")) >>> loop(arr("parse.peek") >>> ((arr("parse.consume") >>> arr("parse.make_node")) ||| id)) }

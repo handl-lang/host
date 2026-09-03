@@ -1,7 +1,7 @@
-loop { xs: [1, 2, 3, 4, 5], acc: 0 } (
+while { xs: [1, 2, 3, 4, 5], acc: 0 } (
   [xs, acc] ~> match xs {
-    []: returnA -< { out: acc },
+    []: return acc,
 
-    [h, ...t]: returnA -< { state: { xs: t, acc: acc + h } }
+    [h, ...t]: { state: { xs: t, acc: acc + h } }
   }
 )

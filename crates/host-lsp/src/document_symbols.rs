@@ -220,11 +220,15 @@ fn arrow_symbols(source: &str, lines: &LineMap, tokens: &[SpannedToken]) -> Vec<
             }
             _ => {
                 // Object key: an identifier directly inside a record literal
-                // followed by `:` is a field name.
+                // followed by `:` or `=` is a field name. v0.1 syntax uses
+                // `=` for field assignment (e.g. `elem = input.0`), while
+                // older syntax uses `:` (e.g. `elem: input.0`).
                 if is_identifier_kind(kind) {
                     if matches!(stack.last(), Some(Frame::BraceObject)) {
                         if let Some(ni) = next_sig_idx(tokens, i + 1) {
-                            if tokens[ni].kind == "token.colon" {
+                            if tokens[ni].kind == "token.colon"
+                                || tokens[ni].kind == "token.equal"
+                            {
                                 out.push(sym(
                                     &t.text,
                                     KIND_FIELD,

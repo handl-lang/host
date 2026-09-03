@@ -11,23 +11,20 @@
 --   - insert it into the accumulator (which is kept sorted)
 --   - repeat until input is exhausted
 
-loop {
+rec {
   remaining: input,
   acc      : []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: do {
-      inserted <- insert -< { elem: h, acc: state.acc };
-      returnA -< {
+    [h, ...t]:
+      inserted = insert({ elem: h, acc: state.acc }) in
+      {
         state: {
           remaining: t,
           acc      : inserted
         }
       }
-    }
   }
 )

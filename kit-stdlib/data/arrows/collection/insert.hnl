@@ -11,27 +11,23 @@
 --   - if element ≤ head: cons element before head → done
 --   - if element > head:  cons head, recurse on tail
 
-loop {
+rec {
   elem: input.0,
   acc:  input.1
 } (
   state ~> match state.acc {
-    []: returnA -< {
-      out: [state.elem]
-    },
+    []: return [state.elem],
 
     [h, ...t]:
       cmp = prim.compare(state.elem, h) in
-      if cmp <= 0 then
-        returnA -< { out: [state.elem, ...state.acc] }
+      if cmp <= 0
+        { out: [state.elem, ...state.acc] }
       else
-        do {
-          rest_inserted <- insert -< { elem: state.elem, acc: t };
-          returnA -< {
-            state: {
-              elem: state.elem,
-              acc:  [h, ...rest_inserted]
-            }
+        rest_inserted = insert({ elem: state.elem, acc: t }) in
+        {
+          state: {
+            elem: state.elem,
+            acc:  [h, ...rest_inserted]
           }
         }
   }

@@ -1,8 +1,8 @@
-loop { base: 3, exp: 13, acc: 1 } (
-  [base, exp, acc] ~> if exp == 0 then
-    returnA -< { out: acc }
-  else if exp % 2 == 0 then
-    returnA -< { state: { base: base * base, exp: exp / 2, acc: acc } }
+while { base: 3, exp: 13, acc: 1 } (
+  [base, exp, acc] ~> if exp == 0
+    return acc
+  else if exp % 2 == 0
+    { state: { base: base * base, exp: exp / 2, acc: acc } }
   else
-    returnA -< { state: { base: base * base, exp: exp / 2, acc: acc * base } }
+    { state: { base: base * base, exp: exp / 2, acc: acc * base } }
 )

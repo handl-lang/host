@@ -11,17 +11,15 @@
 --   - update accumulator with result
 --   - repeat until input is exhausted
 
-loop {
+rec {
   remaining: input.0,
   f:         input.1,
   acc:       input.2
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: returnA -< {
+    [h, ...t]: {
       state: {
         remaining: t,
         f:         state.f,

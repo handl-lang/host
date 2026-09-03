@@ -41,6 +41,8 @@
 
 #![warn(missing_docs)]
 
+use std::path::Path;
+
 use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_language::{
@@ -94,17 +96,47 @@ const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
 /// Returns [`LangError`] if any YAML file fails to deserialize or a merge
 /// fails (should not happen — the files are pre-resolved).
 pub fn language_from_yaml() -> Result<Language, LangError> {
+    merge_fragments(
+        TOKENS_YAML,
+        GRAMMAR_YAML,
+        EVAL_YAML,
+        TYPES_YAML,
+        AST_YAML,
+        CAPS_YAML,
+        OPTIONS_YAML,
+        LEXER_RULES_YAML,
+    )
+}
+
+/// Merge the eight YAML fragment strings into a single [`Language`].
+///
+/// Each argument is the raw YAML text for one fragment type. The fragments are
+/// deserialized and merged in the same order as [`language_from_yaml`].
+///
+/// # Errors
+///
+/// Returns [`LangError`] if any YAML fails to deserialize or a merge fails.
+fn merge_fragments(
+    tokens_yaml: &str,
+    grammar_yaml: &str,
+    eval_yaml: &str,
+    types_yaml: &str,
+    ast_yaml: &str,
+    caps_yaml: &str,
+    options_yaml: &str,
+    lexer_rules_yaml: &str,
+) -> Result<Language, LangError> {
     let mut lang = Language::new();
 
     // Token kinds (union — idempotent merge).
-    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(TOKENS_YAML)
+    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(tokens_yaml)
         .map_err(|e| LangError::Engine(format!("tokens.yaml: {}", e)))?;
     for frag in tokens {
         lang.tokens.merge(frag)?;
     }
 
     // Grammar rows (non-union — pre-resolved, no collisions).
-    let grammar: Vec<GrammarRow> = serde_yaml::from_str(GRAMMAR_YAML)
+    let grammar: Vec<GrammarRow> = serde_yaml::from_str(grammar_yaml)
         .map_err(|e| LangError::Engine(format!("grammar.yaml: {}", e)))?;
     for frag in grammar {
         lang.grammar.merge(frag)?;
@@ -112,48 +144,94 @@ pub fn language_from_yaml() -> Result<Language, LangError> {
 
     // Eval schemes (arrow-calculus kernel, ADR-0052; non-union — pre-resolved,
     // no collisions).
-    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(EVAL_YAML)
+    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(eval_yaml)
         .map_err(|e| LangError::Engine(format!("eval.yaml: {}", e)))?;
     for frag in eval {
         lang.eval.merge(frag)?;
     }
 
     // Type rules (ADR-0054 — non-union, pre-resolved).
-    let types: Vec<TypeRuleDef> = serde_yaml::from_str(TYPES_YAML)
+    let types: Vec<TypeRuleDef> = serde_yaml::from_str(types_yaml)
         .map_err(|e| LangError::Engine(format!("types.yaml: {}", e)))?;
     for frag in types {
         lang.types.merge(frag)?;
     }
 
     // AST shapes (union — idempotent merge).
-    let ast: Vec<AstShapeDef> = serde_yaml::from_str(AST_YAML)
+    let ast: Vec<AstShapeDef> = serde_yaml::from_str(ast_yaml)
         .map_err(|e| LangError::Engine(format!("ast.yaml: {}", e)))?;
     for frag in ast {
         lang.ast.merge(frag)?;
     }
 
     // Capabilities (union — idempotent merge).
-    let caps: Vec<CapabilityDecl> = serde_yaml::from_str(CAPS_YAML)
+    let caps: Vec<CapabilityDecl> = serde_yaml::from_str(caps_yaml)
         .map_err(|e| LangError::Engine(format!("caps.yaml: {}", e)))?;
     for frag in caps {
         lang.caps.merge(frag)?;
     }
 
     // Options (non-union).
-    let options: Vec<OptionSchema> = serde_yaml::from_str(OPTIONS_YAML)
+    let options: Vec<OptionSchema> = serde_yaml::from_str(options_yaml)
         .map_err(|e| LangError::Engine(format!("options.yaml: {}", e)))?;
     for frag in options {
         lang.options.merge(frag)?;
     }
 
     // Lexer rules (non-union).
-    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(LEXER_RULES_YAML)
+    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(lexer_rules_yaml)
         .map_err(|e| LangError::Engine(format!("lexer_rules.yaml: {}", e)))?;
     for frag in lexer_rules {
         lang.lexer_rules.merge(frag)?;
     }
 
     Ok(lang)
+}
+
+/// Build a [`Language`] from the eight YAML data files in a directory.
+///
+/// Reads `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`,
+/// `ast.yaml`, `caps.yaml`, `options.yaml`, and `lexer_rules.yaml` from `dir`
+/// and merges them the same way [`language_from_yaml`] merges the embedded
+/// files. This is the per-file kit loading path (ADR 0003): a host resolves a
+/// kit data directory and assembles a [`Language`] from its authored YAML.
+///
+/// # Errors
+///
+/// Returns [`LangError`] if `dir` is not a directory, any YAML file is
+/// missing or unreadable, or a fragment fails to deserialize/merge.
+pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
+    if !dir.is_dir() {
+        return Err(LangError::Engine(format!(
+            "language_from_dir: {:?} is not a directory",
+            dir
+        )));
+    }
+
+    let read = |name: &str| -> Result<String, LangError> {
+        std::fs::read_to_string(dir.join(name))
+            .map_err(|e| LangError::Engine(format!("{}: {}", name, e)))
+    };
+
+    let tokens_yaml = read("tokens.yaml")?;
+    let grammar_yaml = read("grammar.yaml")?;
+    let eval_yaml = read("eval.yaml")?;
+    let types_yaml = read("types.yaml")?;
+    let ast_yaml = read("ast.yaml")?;
+    let caps_yaml = read("caps.yaml")?;
+    let options_yaml = read("options.yaml")?;
+    let lexer_rules_yaml = read("lexer_rules.yaml")?;
+
+    merge_fragments(
+        &tokens_yaml,
+        &grammar_yaml,
+        &eval_yaml,
+        &types_yaml,
+        &ast_yaml,
+        &caps_yaml,
+        &options_yaml,
+        &lexer_rules_yaml,
+    )
 }
 
 // ---------------------------------------------------------------------------

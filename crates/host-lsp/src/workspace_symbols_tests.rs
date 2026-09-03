@@ -60,8 +60,6 @@ fn workspace_symbols_finds_arrow_by_name() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `law` as a keyword, so \
-            document_symbols cannot detect contract files; needs lexer v0.1 update"]
 fn workspace_symbols_finds_law_in_contracts() {
     let dir = unique_temp_dir("law-contracts");
     write_file(

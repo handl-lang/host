@@ -4,7 +4,7 @@
 # `Scheme` (the six primitives `arr`/`Seq`/`First`/`Choice`/`Loop`/`App`).
 # Engines consume these directly.
 #
-# Removed: arrow_bind, returnA, loop, pipe, handle, typeof, stmt-const,
+# Removed: arrow_bind, returnA, loop, handle,
 #   stmt-module, mood.cnd, mood.int, mood.neg, mood.norm, mood.pot.
 # Added: rec, while, for, return, law, trait, impl, infer, type,
 #   product, nullish, opt-chain.
@@ -377,6 +377,20 @@
       args: []
       source: Native
       lit: 0
+- id: eval.pipe
+  node_kind: pipe
+  scheme: !App
+    callee: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
+    args:
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
 - id: eval.function
   node_kind: function
   scheme: !Arr
@@ -433,23 +447,10 @@
     source: Native
 - id: eval.let
   node_kind: let
-  scheme: !Seq
-    fst: !Seq
-      fst: !Arr
-        op: proj_child
-        args: []
-        source: Native
-        lit: 0
-      snd: !Arr
-        op: extend_env
-        args: []
-        source: Native
-        lit: $payload
-    snd: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
+  scheme: !Arr
+    op: eval_let
+    args: []
+    source: Native
 - id: eval.match
   node_kind: match
   scheme: !Arr
@@ -523,6 +524,25 @@
       args: []
       source: Native
       lit: 1
+- id: eval.stmt-const
+  node_kind: stmt.const
+  scheme: !Seq
+    fst: !Seq
+      fst: !Arr
+        op: proj_child
+        args: []
+        source: Native
+        lit: 0
+      snd: !Arr
+        op: extend_env
+        args: []
+        source: Native
+        lit: $payload
+    snd: !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 1
 - id: eval.template
   node_kind: template
   scheme: !Arr
@@ -572,6 +592,17 @@
       args: []
       source: Native
       lit: 0
+- id: eval.typeof
+  node_kind: typeof
+  scheme: !Arr
+    op: typeof
+    args:
+    - !Arr
+      op: proj_child
+      args: []
+      source: Native
+      lit: 0
+    source: Native
 - id: eval.unary.neg
   node_kind: unary.neg
   scheme: !Arr
@@ -613,8 +644,12 @@
     op: eval_block
     args: []
     source: Native
-# `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
-# Children: [condition(0), body(1)]. Like `loop` with condition as init.
+# `while` — v0.1 feedback loop (ADR-0074 A.1). Uses the kernel `Loop`
+# combinator via `loop_step` (ADR-0052). Children: [state(0), body(1)].
+# Child 0 is the initial state object; child 1 is the body closure that
+# receives the current state (with param destructuring) and returns
+# `return v` (terminate, bare value) or `{ state: v }` (continue).
+# `{ out: v }` is accepted for backward compatibility.
 - id: eval.while
   node_kind: while
   scheme: !Seq

@@ -17,17 +17,15 @@
 -- rich-loop syntax this is expressed by applying `id` to the accumulator
 -- in the base-case arm, signalling a projection pattern.
 
-loop {
+rec {
   remaining: input.0,
   f:         input.1,
   acc:       input.2
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: id(state.acc)
-    },
+    []: return id(state.acc),
 
-    [h, ...t]: returnA -< {
+    [h, ...t]: {
       state: {
         remaining: t,
         f:         state.f,

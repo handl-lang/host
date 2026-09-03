@@ -16,17 +16,15 @@
 -- destructured in the recursive arm body via list.head / list.tail calls.
 -- The pattern detector recognises this combination as the zip graph.
 
-loop {
+rec {
   remaining1: input.0,
   remaining2: input.1,
   acc:         []
 } (
   state ~> match state.remaining1 {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h1, ...t1]: returnA -< {
+    [h1, ...t1]: {
       state: {
         remaining1: t1,
         remaining2: list.tail(state.remaining2),

@@ -1,7 +1,7 @@
-loop { xs: [10, 20, 30, 40, 50], len: 0 } (
+while { xs: [10, 20, 30, 40, 50], len: 0 } (
   [xs, len] ~> match xs {
-    []: returnA -< { out: len },
+    []: return len,
 
-    [h, ...t]: returnA -< { state: { xs: t, len: len + 1 } }
+    [h, ...t]: { state: { xs: t, len: len + 1 } }
   }
 )

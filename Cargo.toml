@@ -36,6 +36,7 @@ members = [
   "crates/plugin-lib-crypto",
   "crates/plugin-lib-datetime",
   "crates/plugin-lib-encoding",
+  "crates/plugin-lib-handl",
   "crates/plugin-lib-hello",
   "crates/plugin-lib-hex",
   "crates/plugin-lib-http-client",
@@ -189,6 +190,7 @@ handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
 handl-plugin-lib-datetime = { path = "crates/plugin-lib-datetime" }
 handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
 handl-plugin-lib-hello = { path = "crates/plugin-lib-hello" }
+handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-hex = { path = "crates/plugin-lib-hex" }
 handl-plugin-lib-http-client = { path = "crates/plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" }

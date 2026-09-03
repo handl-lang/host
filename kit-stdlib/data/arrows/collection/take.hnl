@@ -3,11 +3,11 @@
 -- Contract: inferred from the loop body.
 --
 -- Graph structure:
---   take = loop(arr("list.head") >>> (arr("cons") ||| arr("id")))
+--   take = rec { arr("list.head") >>> (arr("cons") ||| arr("id")) }
 --
 -- The loop processes elements one at a time:
 --   - take the head of the remaining input
 --   - choice: cons it onto the output, or pass through (id) when done
 --   - repeat until n elements are taken or input is exhausted
 
-take = loop(arr("list.head") >>> (arr("cons") ||| arr("id")))
+take = rec { arr("list.head") >>> (arr("cons") ||| arr("id")) }

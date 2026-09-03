@@ -56,7 +56,7 @@ pub fn code_actions(
 
     // Range-based actions for the user's selection / cursor position.
     actions.extend(wrap_in_do_actions(source, &tokens, range_start, range_end));
-    actions.extend(add_returnA_actions(source, &tokens, range_start, range_end));
+    actions.extend(add_return_actions(source, &tokens, range_start, range_end));
     actions.extend(convert_comment_actions(source, &tokens, range_start, range_end));
 
     // Diagnostic-based actions: if a diagnostic message mentions "return",
@@ -65,7 +65,7 @@ pub fn code_actions(
         let msg = diag.get("message").and_then(|m| m.as_str()).unwrap_or("");
         if let Some((ds, de)) = diag_range_to_offsets(source, diag) {
             if msg.contains("return") {
-                actions.extend(add_returnA_actions(source, &tokens, ds, de));
+                actions.extend(add_return_actions(source, &tokens, ds, de));
             }
         }
     }
@@ -247,7 +247,7 @@ fn wrap_in_do_actions(
 /// is `:` (the arm separator) and the preceding token is not already a
 /// `return` keyword.
 #[allow(non_snake_case)]
-fn add_returnA_actions(
+fn add_return_actions(
     source: &str,
     tokens: &[SpannedToken],
     range_start: usize,

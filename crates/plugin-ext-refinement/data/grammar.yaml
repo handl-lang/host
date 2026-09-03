@@ -173,6 +173,25 @@
       open_is_operator_token: false
       flatten: true
 
+# `rec { ... } ( params ~> body )` — v0.1 rich-loop syntax (alias for `loop`).
+# Same grammar rule as `loop` but with the `rec` keyword (ADR-0074).
+- id: grammar.arrow.rec.prefix
+  token: token.arrow.rec
+  position: Prefix
+  binding_power:
+  - 91
+  - 0
+  child_shape:
+    node_kind: loop_rich
+    arity: 2
+    delimited:
+      open: token.arrow.lparen
+      close: token.arrow.rparen
+      separator: token.arrow.comma
+      container_kind: call
+      open_is_operator_token: false
+      flatten: true
+
 # `app("name", args...)` — dynamic arrow application. Children:
 # [string_name, arg1, arg2, ...]. The string name is child 0.
 - id: grammar.arrow.app.prefix
@@ -369,8 +388,10 @@
       open_is_operator_token: false
       flatten: false
 
-# `if cond then body else body` — conditional. Arity 3 with `then` and `else`
-# as child separators. Mirrors the main language's `grammar.if.prefix`.
+# `if cond body else body` — conditional. Arity 3. The `then` keyword is
+# removed in v0.1 (ADR-0074); `!Optional` shifts `else` to separator index 1
+# so it is consumed between child 1 and child 2. Mirrors the main language's
+# `grammar.if.prefix`.
 - id: grammar.arrow.if.prefix
   token: token.arrow.if
   position: Prefix
@@ -381,7 +402,7 @@
     node_kind: arrow_if
     arity: 3
     child_separators:
-    - !Required token.arrow.then
+    - !Optional token.arrow.then
     - !Required token.arrow.else
 
 # `do { stmt; stmt }` — do block. Arity 1: a delimited `{ }` block with `;`
@@ -403,13 +424,16 @@
       open_is_operator_token: false
       flatten: true
 
-# `returnA` — the return arrow keyword. Nullary (no arguments).
-- id: grammar.arrow.returnA.prefix
-  token: token.arrow.returnA
+# `return expr` — early exit (ADR-0074). Prefix, arity 1.
+- id: grammar.keyword.return.prefix
+  token: token.keyword.return
   position: Prefix
+  binding_power:
+  - 0
+  - 0
   child_shape:
     node_kind: arrow_return
-    arity: 0
+    arity: 1
 
 # Number literal — for comparison values like `cmp <= 0`. Nullary; the
 # number value rides in the node payload.
@@ -434,30 +458,6 @@
   - 13
   child_shape:
     node_kind: arrow_colon
-    arity: 2
-
-# `-<` — arrow application. `returnA -< { ... }`, `state.f -< h`.
-# BP (28, 29) — binds tighter than `<-` and `>>>`.
-- id: grammar.arrow.arrow_app.infix
-  token: token.arrow.arrow_app
-  position: Infix
-  binding_power:
-  - 28
-  - 29
-  child_shape:
-    node_kind: arrow_app
-    arity: 2
-
-# `<-` — arrow bind. `y <- state.f -< h`. BP (7, 8) — binds looser than
-# `-<` so `y <- state.f -< h` parses as `y <- (state.f -< h)`.
-- id: grammar.arrow.arrow_bind.infix
-  token: token.arrow.arrow_bind
-  position: Infix
-  binding_power:
-  - 7
-  - 8
-  child_shape:
-    node_kind: arrow_bind
     arity: 2
 
 # `in` — let-in separator. `cmp = expr in body`. BP (3, 4) — binds looser

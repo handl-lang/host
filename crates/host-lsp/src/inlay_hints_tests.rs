@@ -3,33 +3,34 @@
 use crate::inlay_hints::inlay_hints;
 use crate::refinement::RefinementEngine;
 
-/// A simple map-style arrow file in v0.1 surface syntax: a `rec` block with
-/// three state fields and a `[h, ...t]:` recursive branch.
+/// A simple map-style arrow file using the rich-loop `rec { state } ( body )`
+/// syntax (v0.1: `rec` is an alias for `loop`). Three state fields and a
+/// `[h, ...t]:` recursive branch.
 ///
-/// NOTE: The arrow parser (`parse_arrow_file`) and the kit lexer have not yet
-/// been updated to v0.1. The arrow parser still expects `loop { … } ( state ~> … )`
-/// rich-loop syntax, while `inlay_hints.rs` scans for the text `rec` to locate
-/// state fields. Until both are updated, inlay hints cannot be produced for
-/// v0.1 arrow files, so the arrow-file tests below are `#[ignore]`d.
+/// The kit lexer (v0.1) recognises `rec` as a keyword, and `inlay_hints.rs`
+/// scans for the text `rec` to locate state fields in arrow files.
 const MAP_ARROW: &str = r#"rec {
   remaining: input.0,
   f:         input.1,
   acc:       []
-} {
-  match state.remaining {
+} (
+  state ~> match state.remaining {
     []: return state.acc,
-    [h, ...t]: {
-      y = state.f h
-      return { state = { remaining = t, f = state.f, acc = [y, ...state.acc] } }
-    }
+
+    [h, ...t]:
+      y = state.f(h) in
+      {
+        state: {
+          remaining: t,
+          f:         state.f,
+          acc:       [y, ...state.acc]
+        }
+      }
   }
-}
+)
 "#;
 
 #[test]
-#[ignore = "arrow parser (parse_arrow_file) not yet updated to v0.1 `rec` syntax; \
-            inlay_hints.rs scans for `rec` but the parser still expects `loop`; \
-            needs arrow parser v0.1 update"]
 fn inlay_hints_for_arrow_file_shows_field_types() {
     let engine = RefinementEngine::new();
     let hints = inlay_hints(MAP_ARROW, &engine, None);
@@ -49,9 +50,6 @@ fn inlay_hints_for_arrow_file_shows_field_types() {
 }
 
 #[test]
-#[ignore = "arrow parser (parse_arrow_file) not yet updated to v0.1 `rec` syntax; \
-            inlay_hints.rs scans for `rec` but the parser still expects `loop`; \
-            needs arrow parser v0.1 update"]
 fn inlay_hints_for_arrow_file_shows_rec_signature() {
     let engine = RefinementEngine::new();
     let hints = inlay_hints(MAP_ARROW, &engine, None);
@@ -89,9 +87,6 @@ fn inlay_hints_empty_source_returns_empty() {
 }
 
 #[test]
-#[ignore = "arrow parser (parse_arrow_file) not yet updated to v0.1 `rec` syntax; \
-            inlay_hints.rs scans for `rec` but the parser still expects `loop`; \
-            needs arrow parser v0.1 update"]
 fn inlay_hints_returns_valid_json() {
     let engine = RefinementEngine::new();
     let hints = inlay_hints(MAP_ARROW, &engine, None);

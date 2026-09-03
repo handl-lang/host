@@ -8,11 +8,16 @@ use crate::r#type::predicates::{
 };
 use crate::r#type::utilities::{Coalesce, Default, Identity};
 
-/// The `type` module — type coercion and utility functions.
+/// The `typeof` module — type coercion and utility functions.
 ///
-/// Provides functions callable as `type.to_string(v)`, `type.to_number(v)`,
-/// `type.to_bool(v)`, `type.type_of(v)`, `type.identity(v)`,
-/// `type.default(v)`, `type.coalesce(v)` in handl expressions.
+/// Provides functions callable as `typeof.to_string(v)`, `typeof.to_number(v)`,
+/// `typeof.to_bool(v)`, `typeof.type_of(v)`, `typeof.identity(v)`,
+/// `typeof.default(v)`, `typeof.coalesce(v)` in handl expressions.
+///
+/// Note: the module was originally named `type`, but `type` became a keyword
+/// in v0.1 (ADR-0074), so the module was renamed to `typeof` to avoid the
+/// conflict. The function `typeof.type_of(v)` is the primary type-checking
+/// function used in handl source files.
 ///
 /// # NaN and Infinity
 ///
@@ -25,7 +30,7 @@ pub struct TypeModule;
 
 impl Module for TypeModule {
     fn name(&self) -> &str {
-        "type"
+        "typeof"
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {

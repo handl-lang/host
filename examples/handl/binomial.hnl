@@ -1,6 +1,6 @@
-loop { n: 10, k: 3, acc: 1, i: 1 } (
-  [n, k, acc, i] ~> if i > k then
-    returnA -< { out: acc }
+while { n: 10, k: 3, acc: 1, i: 1 } (
+  [n, k, acc, i] ~> if i > k
+    return acc
   else
-    returnA -< { state: { n: n, k: k, acc: acc * (n - i + 1) / i, i: i + 1 } }
+    { state: { n: n, k: k, acc: acc * (n - i + 1) / i, i: i + 1 } }
 )

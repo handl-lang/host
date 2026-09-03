@@ -169,9 +169,12 @@
   child_shape:
     node_kind: json
     arity: 0
-# v0.1: `if cond body else body` or `if cond { body } else { body }`.
-# The `then` keyword is removed (ADR-0074). The `else` keyword remains
-# as the separator between then-branch and else-branch.
+# v0.1: `if cond { body } else { body }`.
+# The `then` keyword is removed (ADR-0074). The `else` keyword is the
+# separator between the then-branch (child 1) and the else-branch (child 2).
+# `Optional(token.keyword.then)` at index 0 is a no-op (the `then` token was
+# removed from the lexer), but it shifts `else` to separator index 1 so it
+# is consumed between child 1 and child 2 — not between child 0 and child 1.
 # NOTE: multi-way `if { c1: e1, _: e2 }` is distinguished by the token
 # after `if` — if `{`, it's multi-way. This contextual disambiguation
 # is not expressible in the declarative Pratt grammar; it requires
@@ -186,6 +189,7 @@
     node_kind: if
     arity: 3
     child_separators:
+    - !Optional token.keyword.then
     - !Required token.keyword.else
 - id: grammar.stmt-export.prefix
   token: token.keyword.export
@@ -242,12 +246,15 @@
       container_kind: block
       open_is_operator_token: false
       flatten: true
-# `while cond body` — sugar over `rec` (ADR-0074 A.1).
+# `while { state } (body)` — loop with state init and body proc.
+# BP [91, 0] (same as the old `loop` keyword) so that `while { ... } ( ... )`
+# parses as two children: the `{ state }` block (child 0, parsed with rbp=91,
+# stops before `(`) and the `( body )` expression (child 1).
 - id: grammar.while.prefix
   token: token.keyword.while
   position: Prefix
   binding_power:
-  - 0
+  - 91
   - 0
   child_shape:
     node_kind: while
@@ -315,7 +322,22 @@
   child_shape:
     node_kind: infer
     arity: 1
-# `type name body` — compile-time type declaration (ADR-0074).
+# `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.
+# namespace"). `type` is a keyword, but it is used as a namespace identifier
+# in type expressions (`type.number`, `type.bool`, `type.string`, ...). It is
+# parsed as an atom (a `var` node carrying the text "type") so that
+# `type.number` parses as `field-access(var("type"), var("number"))`; the
+# typechecker's `interpret_type_expr` reads the field name and mints the
+# `type.<field>` type value.
+#
+# NOTE: this means the `type name body` *compile-time type declaration* form
+# no longer parses as a single `type` node — a single-token Pratt prefix
+# cannot both be an atom (for `type.X` field access) and a child-consuming
+# prefix (for `type name body`), because `.` cannot start a sub-expression.
+# Disambiguating the two forms requires contextual/lookahead parsing (as the
+# ADR already notes for `{}` and `if`); that is future work. The `eval.type`
+# / `type.type` / `ast.type` schemes are retained for when the declaration
+# form is reintroduced with contextual parsing.
 - id: grammar.type.prefix
   token: token.keyword.type
   position: Prefix
@@ -323,8 +345,8 @@
   - 0
   - 0
   child_shape:
-    node_kind: type
-    arity: 1
+    node_kind: var
+    arity: 0
 - id: grammar.object.prefix
   token: token.lbrace
   position: Prefix

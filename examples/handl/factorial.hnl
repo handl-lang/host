@@ -1,6 +1,6 @@
-loop { n: 5, acc: 1 } (
-  [n, acc] ~> if n == 0 then
-    returnA -< { out: acc }
+while { n: 5, acc: 1 } (
+  [n, acc] ~> if n == 0
+    return acc
   else
-    returnA -< { state: { n: n - 1, acc: acc * n } }
+    { state: { n: n - 1, acc: acc * n } }
 )

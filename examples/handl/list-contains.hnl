@@ -1,10 +1,10 @@
-loop { xs: [4, 7, 9, 12], needle: 9 } (
+while { xs: [4, 7, 9, 12], needle: 9 } (
   [xs, needle] ~> match xs {
-    []: returnA -< { out: false },
+    []: return false,
 
-    [h, ...t]: if h == needle then
-      returnA -< { out: true }
+    [h, ...t]: if h == needle
+      return true
     else
-      returnA -< { state: { xs: t, needle: needle } }
+      { state: { xs: t, needle: needle } }
   }
 )

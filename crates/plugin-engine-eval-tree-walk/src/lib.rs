@@ -600,9 +600,10 @@ impl TreeWalkEngine {
                 // Ergonomic loop surface (ADR-0052). args = [body_proc].
                 // The current state is `in` on the first step (state is
                 // Null) and `state` thereafter. The body proc is applied to
-                // the current state; it returns an object:
-                //   { out: v }    → terminate with v
+                // the current state; it returns:
                 //   { state: v }  → continue with new state v
+                //   { out: v }    → terminate with v (backward compat)
+                //   bare value    → terminate with the value (v0.1 `return v`)
                 //
                 // Param destructuring: if the body proc has multiple params
                 // and the current state is an object, bind each field to a
@@ -651,19 +652,23 @@ impl TreeWalkEngine {
                 let result = self.apply_app(
                     &closure_val, &args, ast, lang, env,
                 )?;
-                let obj = result.as_object().ok_or_else(|| {
-                    LangError::Engine(
-                        "loop_step: body must return { out: v } or { state: v }".to_string(),
-                    )
-                })?;
-                if let Some(out) = obj.get("out") {
-                    Ok((either_left(out.clone()), false))
-                } else if let Some(new_state) = obj.get("state") {
-                    Ok((either_right(new_state.clone()), false))
+                // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
+                // Recognize bare values as exit signals, and { state: v } as continue.
+                // { out: v } is accepted for backward compatibility.
+                if let Some(obj) = result.as_object() {
+                    if let Some(new_state) = obj.get("state") {
+                        // Continue with new state.
+                        Ok((either_right(new_state.clone()), false))
+                    } else if let Some(out) = obj.get("out") {
+                        // Exit with out value (backward compat with { out: v } protocol).
+                        Ok((either_left(out.clone()), false))
+                    } else {
+                        // Object without out/state keys — treat as exit value (return).
+                        Ok((either_left(result.clone()), false))
+                    }
                 } else {
-                    Err(LangError::Engine(
-                        "loop_step: body must return { out: v } or { state: v }".to_string(),
-                    ))
+                    // Non-object (number, string, bool, null, array) — exit with the value.
+                    Ok((either_left(result.clone()), false))
                 }
             }
             _ => Err(LangError::Engine(format!("unknown derived step op: {}", op))),
@@ -934,6 +939,30 @@ impl TreeWalkEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
+                    // ADR-0074 v0.1: `{ expr }` (bare-expression block) vs
+                    // `{ key: val }` (object). When ALL children are non-entry
+                    // nodes (bare expressions), treat as a block: evaluate
+                    // each and return the last value. When any child is an
+                    // `entry` node, treat as an object.
+                    let all_bare = children.iter().all(|c| {
+                        c.as_u64()
+                            .and_then(|idx| ast.at(AstRef::new(idx as usize)).ok())
+                            .map(|n| n.kind != "entry")
+                            .unwrap_or(true)
+                    });
+                    if all_bare && !children.is_empty() {
+                        // Block semantics: evaluate all, return last.
+                        let mut last = Value::Null;
+                        for entry in children {
+                            let idx = entry.as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "object: entry index must be a number".to_string(),
+                                )
+                            })? as usize;
+                            last = self.eval_node(ast, AstRef::new(idx), lang, env)?;
+                        }
+                        return Ok((last, false));
+                    }
                     let mut obj = serde_json::Map::new();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
@@ -1125,45 +1154,6 @@ impl TreeWalkEngine {
             "handle" => self.prim_handle(ast, lang, env, current_node),
             "json" => self.prim_json(ast, lang, env, current_node),
             "bind" => self.prim_bind(ast, lang, env, current_node),
-            "arrow_bind" => {
-                // Paterson do-notation binding: `y <- f -< x`.
-                // Children: [var_node, expr_node]. Evaluate expr, bind
-                // the result to the var name in the current scope (no
-                // push/pop — the binding persists for the rest of the
-                // enclosing do-block).
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array())
-                    .ok_or_else(|| {
-                        LangError::Engine(
-                            "arrow_bind: expected children array in payload".to_string(),
-                        )
-                    })?;
-                if children.len() < 2 {
-                    return Err(LangError::Engine(
-                        "arrow_bind: expected 2 children".to_string(),
-                    ));
-                }
-                let var_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::Engine("arrow_bind: var index must be a number".to_string())
-                })? as usize;
-                let expr_idx = children[1].as_u64().ok_or_else(|| {
-                    LangError::Engine("arrow_bind: expr index must be a number".to_string())
-                })? as usize;
-                let var_name = {
-                    let var_node = ast.at(AstRef::new(var_idx))?;
-                    var_node.payload.as_str().ok_or_else(|| {
-                        LangError::Engine(
-                            "arrow_bind: LHS must be an identifier (var with string payload)"
-                                .to_string(),
-                        )
-                    })?
-                };
-                let value = self.eval_node(ast, AstRef::new(expr_idx), lang, env)?;
-                env.define(var_name, value.clone());
-                Ok((value, false))
-            }
             // Arithmetic / comparison / logic.
             "add" => bin_add(args),
             "sub" => bin_num(args, |a, b| a - b),
@@ -1291,6 +1281,118 @@ impl TreeWalkEngine {
                     vals.push(self.eval_node(ast, AstRef::new(idx), lang, env)?);
                 }
                 Ok((Value::Array(vals), false))
+            }
+            // eval_let — evaluate a `let` node whose children are
+            // [assign, body]. The `assign` child has children
+            // [var/type-annot, value]. We extract the binding name from
+            // the LHS, evaluate the value, extend the environment, then
+            // evaluate the body in the extended scope. This replaces the
+            // old `$payload`-based scheme that relied on `payload.name`
+            // (set by `payload_tokens`), which was removed so that typed
+            // `let x: T = e in body` bindings parse correctly.
+            "eval_let" => {
+                let children = current_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .ok_or_else(|| {
+                        LangError::Engine(
+                            "eval_let: expected children array in payload".to_string(),
+                        )
+                    })?;
+                if children.len() < 2 {
+                    return Err(LangError::Engine(
+                        "eval_let: expected at least 2 children".to_string(),
+                    ));
+                }
+                let body_idx = children[1].as_u64().ok_or_else(|| {
+                    LangError::Engine("eval_let: body index must be a number".to_string())
+                })? as usize;
+                // Two payload formats are supported:
+                //   1. Legacy/corpus: `{"name": "x", "children": [value, body]}`
+                //      — the binding name is in `payload.name`, children
+                //      are [value_idx, body_idx] directly.
+                //   2. v0.1 grammar: `{"children": [assign, body]}` where
+                //      `assign` has children [lhs, value]; the name is
+                //      extracted from the LHS (a `var` or `type-annot`).
+                let (var_name, value_idx) = if let Some(name) =
+                    current_node.payload.get("name").and_then(|v| v.as_str())
+                {
+                    let value_idx = children[0].as_u64().ok_or_else(|| {
+                        LangError::Engine("eval_let: value index must be a number".to_string())
+                    })? as usize;
+                    (name.to_string(), value_idx)
+                } else {
+                    let assign_idx = children[0].as_u64().ok_or_else(|| {
+                        LangError::Engine("eval_let: assign index must be a number".to_string())
+                    })? as usize;
+                    let assign_node = ast.at(AstRef::new(assign_idx))?;
+                    let assign_children = assign_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                        .ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_let: assign node has no children array".to_string(),
+                            )
+                        })?;
+                    if assign_children.len() < 2 {
+                        return Err(LangError::Engine(
+                            "eval_let: assign node needs at least 2 children (lhs, value)"
+                                .to_string(),
+                        ));
+                    }
+                    let lhs_idx = assign_children[0].as_u64().ok_or_else(|| {
+                        LangError::Engine("eval_let: lhs index must be a number".to_string())
+                    })? as usize;
+                    let value_idx = assign_children[1].as_u64().ok_or_else(|| {
+                        LangError::Engine("eval_let: value index must be a number".to_string())
+                    })? as usize;
+                    // The LHS is either a `var` (untyped: `let x = e`) or
+                    // a `type-annot` (typed: `let x: T = e`), in which
+                    // case the var is its child 0.
+                    let lhs_node = ast.at(AstRef::new(lhs_idx))?;
+                    let name = if lhs_node.kind == "type-annot" {
+                        let ta_children = lhs_node
+                            .payload
+                            .get("children")
+                            .and_then(|c| c.as_array())
+                            .ok_or_else(|| {
+                                LangError::Engine(
+                                    "eval_let: type-annot has no children array".to_string(),
+                                )
+                            })?;
+                        if ta_children.is_empty() {
+                            return Err(LangError::Engine(
+                                "eval_let: type-annot needs at least 1 child".to_string(),
+                            ));
+                        }
+                        let inner_var_idx = ta_children[0].as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_let: type-annot var index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        let inner_var = ast.at(AstRef::new(inner_var_idx))?;
+                        inner_var.payload.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_let: type-annot inner var payload is not a string".to_string(),
+                            )
+                        })?
+                    } else {
+                        lhs_node.payload.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_let: var node payload is not a string".to_string(),
+                            )
+                        })?
+                    };
+                    (name.to_string(), value_idx)
+                };
+                let value = self.eval_node(ast, AstRef::new(value_idx), lang, env)?;
+                env.push_scope();
+                env.define(&var_name, value);
+                let result = self.eval_node(ast, AstRef::new(body_idx), lang, env);
+                env.pop_scope();
+                result.map(|v| (v, false))
             }
             // eval_block — evaluate all children of a block node in
             // sequence, returning the last child's value. Used by

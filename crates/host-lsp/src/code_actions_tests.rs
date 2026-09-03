@@ -1,4 +1,4 @@
-// Test names use the language's `returnA` keyword (camelCase) intentionally.
+// Test names use the language's `return` keyword intentionally.
 #![allow(non_snake_case)]
 
 use crate::code_actions::code_actions;
@@ -25,9 +25,6 @@ fn code_actions_add_return_for_object_literal() {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `return` as a keyword, so \
-            add_returnA_actions cannot detect an existing `return` prefix; \
-            needs lexer v0.1 update"]
 fn code_actions_no_return_needed_when_already_present() {
     // `return { out: x }` already has the prefix — no fix expected.
     let src = "match x {\n  []: return { out: x }\n}";

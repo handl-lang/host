@@ -1,7 +1,7 @@
 -- Counter state machine: maintains Count ≥ 0.
 --
 -- A state machine is State × Event ⇝ State. As an arrow graph:
---   state_machine = loop(comp(handle_event, first(id)))
+--   state_machine = rec { (arr("state.inc") ||| arr("state.dec")) >>> first(id) }
 --
 -- where handle_event updates the state based on the event, and first(id)
 -- passes the event stream through unchanged (side channel).
@@ -13,4 +13,4 @@
 -- Invariant: Le(0, count) — INFERRED (Count ≥ 0, discovered by fixpoint).
 -- Termination: Constant (side-channel; event stream passes through).
 
-loop(comp(choice(arr("state.inc"), arr("state.dec")), first(id)))
+rec { (arr("state.inc") ||| arr("state.dec")) >>> first(id) }

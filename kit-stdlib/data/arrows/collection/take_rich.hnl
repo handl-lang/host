@@ -10,26 +10,22 @@
 --   - choice: cons it onto the output, or pass through (id) when done
 --   - repeat until n elements are taken or input is exhausted
 
-loop {
+rec {
   remaining: input.0,
   count:     input.1,
   acc:       []
 } (
   state ~> match state.count {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: do {
-      y <- list.head -< state.remaining;
-
-      returnA -< {
+    [h, ...t]:
+      y = list.head(state.remaining) in
+      {
         state: {
           remaining: list.tail(state.remaining),
           count:     t,
           acc:       [y, ...state.acc]
         }
       }
-    }
   }
 )

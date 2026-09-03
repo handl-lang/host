@@ -318,7 +318,7 @@
     source: Native
     lit: 1
 
-# `arrow_if` — `if cond then body else body`. Placeholder: pass through child 1.
+# `arrow_if` — `if cond body else body`. Placeholder: pass through child 1.
 - id: eval.arrow.arrow_if
   node_kind: arrow_if
   scheme: !Arr
@@ -336,13 +336,14 @@
     source: Native
     lit: 0
 
-# `arrow_return` — `returnA` keyword. Placeholder: identity.
+# `arrow_return` — `return expr`. Placeholder: pass through child 0.
 - id: eval.arrow.arrow_return
   node_kind: arrow_return
   scheme: !Arr
-    op: id
+    op: proj_child
     args: []
     source: Native
+    lit: 0
 
 # `arrow_number` — a number literal. Placeholder: const with payload value.
 - id: eval.arrow.arrow_number
@@ -369,24 +370,6 @@
 # `arrow_arm` instead). Pass through child 1.
 - id: eval.arrow.arrow_colon
   node_kind: arrow_colon
-  scheme: !Arr
-    op: proj_child
-    args: []
-    source: Native
-    lit: 1
-
-# `arrow_app` — `-<` arrow application. Placeholder: pass through child 1.
-- id: eval.arrow.arrow_app
-  node_kind: arrow_app
-  scheme: !Arr
-    op: proj_child
-    args: []
-    source: Native
-    lit: 1
-
-# `arrow_bind` — `<-` arrow bind. Placeholder: pass through child 1.
-- id: eval.arrow.arrow_bind
-  node_kind: arrow_bind
   scheme: !Arr
     op: proj_child
     args: []

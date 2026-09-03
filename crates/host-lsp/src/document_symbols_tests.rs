@@ -8,9 +8,6 @@ fn has_symbol(symbols: &[serde_json::Value], name: &str, kind: u64) -> bool {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            document_symbols cannot detect arrow files (is_arrow checks is_keyword_kind); \
-            needs lexer v0.1 update"]
 fn document_symbols_for_arrow_file_has_rec() {
     let src = "\
 rec {
@@ -29,9 +26,6 @@ rec {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            document_symbols cannot detect arrow files (is_arrow checks is_keyword_kind); \
-            needs lexer v0.1 update"]
 fn document_symbols_for_arrow_file_has_match_arms() {
     let src = "\
 rec {
@@ -61,9 +55,6 @@ rec {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `rec` as a keyword, so \
-            document_symbols cannot detect arrow files (is_arrow checks is_keyword_kind); \
-            needs lexer v0.1 update"]
 fn document_symbols_for_arrow_file_has_object_keys() {
     let src = "\
 rec {
@@ -89,9 +80,6 @@ rec {
 }
 
 #[test]
-#[ignore = "kit lexer (old grammar) does not recognise `law` as a keyword, so \
-            document_symbols cannot detect contract files (is_contract checks is_keyword_kind); \
-            needs lexer v0.1 update"]
 fn document_symbols_for_contract_file_has_laws() {
     let src = "\
 law list.head : List a ~> a
@@ -189,9 +177,9 @@ fn document_symbols_performance_on_large_file() {
     for i in 0..500 {
         src.push_str(&format!("arrow_{} = arr(\"op_{}\") >>> first(id)\n", i, i));
     }
-    src.push_str("\nloop {\n  remaining: input,\n  acc: []\n} (\n");
+    src.push_str("\nwhile {\n  remaining: input,\n  acc: []\n} (\n");
     for i in 0..200 {
-        src.push_str(&format!("  [h, ...t]: do {{\n    r{} <- arrow_{} -< {{ elem: h, acc: state.acc }};\n    returnA -< {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n  }}\n", i, i % 500, i));
+        src.push_str(&format!("  [h, ...t]:\n    r{} = arrow_{}({{ elem: h, acc: state.acc }}) in\n    {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n", i, i % 500, i));
     }
     src.push_str(")\n");
 

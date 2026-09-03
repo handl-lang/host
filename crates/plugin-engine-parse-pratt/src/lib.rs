@@ -452,19 +452,25 @@ impl PrattEngine {
                 let rest = self.expression_inner(lang, cursor, 0)?;
                 elements.push(rest.index());
             } else if let (Some(pair), Some(rbp)) = (delim.pair.as_ref(), pair_lhs_rbp) {
+                // Parse the left side with a high enough rbp to stop before
+                // the pair separator. Then check if the next token IS the
+                // pair separator — if so, parse as a pair; otherwise, treat
+                // the left side as a bare expression. This allows `{ expr }`
+                // blocks alongside `{ key: val }` objects in the same
+                // delimited form (ADR-0074 v0.1).
                 let lhs = self.expression_inner(lang, cursor, rbp)?;
-                let sep = cursor.advance()?;
-                if sep.kind != pair.separator {
-                    return Err(LangError::Engine(format!(
-                        "expected pair separator {}, got {}",
-                        pair.separator, sep.kind
-                    )));
+                let is_pair_sep = cursor.peek().map(|t| t.kind == pair.separator).unwrap_or(false);
+                if is_pair_sep {
+                    let _ = cursor.advance()?; // consume pair separator
+                    let rhs = self.expression_inner(lang, cursor, 0)?;
+                    let node = AstNode::new(&pair.node_kind)
+                        .with_payload(serde_json::json!({ "children": [lhs.index(), rhs.index()] }));
+                    let arm_ref = self.ast.borrow_mut().push(node);
+                    elements.push(arm_ref.index());
+                } else {
+                    // Bare expression (not a pair) — use the lhs directly.
+                    elements.push(lhs.index());
                 }
-                let rhs = self.expression_inner(lang, cursor, 0)?;
-                let node = AstNode::new(&pair.node_kind)
-                    .with_payload(serde_json::json!({ "children": [lhs.index(), rhs.index()] }));
-                let arm_ref = self.ast.borrow_mut().push(node);
-                elements.push(arm_ref.index());
             } else {
                 let el = self.expression_inner(lang, cursor, 0)?;
                 elements.push(el.index());

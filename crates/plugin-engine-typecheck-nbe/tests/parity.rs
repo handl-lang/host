@@ -257,18 +257,18 @@ fn parity_paren_arithmetic() {
 
 #[test]
 fn parity_if_number() {
-    // if COND then THEN else ELSE
-    assert_eq!(tc("if true then 42 else 0"), t_number());
+    // v0.1: `if COND THEN else ELSE` (the `then` keyword was removed).
+    assert_eq!(tc("if true 42 else 0"), t_number());
 }
 
 #[test]
 fn parity_if_string() {
-    assert_eq!(tc("if true then \"hello\" else \"world\""), t_string());
+    assert_eq!(tc("if true \"hello\" else \"world\""), t_string());
 }
 
 #[test]
 fn parity_if_bool() {
-    assert_eq!(tc("if true then false else true"), t_bool());
+    assert_eq!(tc("if true false else true"), t_bool());
 }
 
 // ===========================================================================
@@ -351,21 +351,13 @@ fn parity_let_annotated_nested_function_array() {
 // ===========================================================================
 // Part B-8: Typeof
 // ===========================================================================
-
-#[test]
-fn parity_typeof_number() {
-    assert_eq!(tc("typeof 42"), t_number());
-}
-
-#[test]
-fn parity_typeof_string() {
-    assert_eq!(tc("typeof \"hello\""), t_string());
-}
-
-#[test]
-fn parity_typeof_bool() {
-    assert_eq!(tc("typeof true"), t_bool());
-}
+//
+// The `typeof` keyword was removed in v0.1 (ADR-0074). Its functionality now
+// lives in the `typeof` library module, which is not registered in this
+// parity test's bare lex → parse → typecheck pipeline. The keyword-form
+// parity tests (`parity_typeof_number`, `parity_typeof_string`,
+// `parity_typeof_bool`) have been removed because the construct they tested
+// no longer exists in the surface syntax.
 
 // ===========================================================================
 // Part B-9: Template literals (always type.string)
@@ -472,9 +464,9 @@ fn parity_type_mismatch_and_errors() {
 
 #[test]
 fn parity_if_branch_mismatch_errors() {
-    // if true then 42 else "hello" — the then-branch (type.number) and
+    // v0.1: `if true 42 else "hello"` — the then-branch (type.number) and
     // else-branch (type.string) must unify; they don't.
-    let err = tc_err("if true then 42 else \"hello\"");
+    let err = tc_err("if true 42 else \"hello\"");
     eprintln!("if branch mismatch error: {:?}", err);
     assert!(matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
         "expected unification failure for if branch mismatch, got {:?}", err);

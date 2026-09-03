@@ -12,15 +12,14 @@ use serde_json::{Value, json};
 
 /// Sample handl source used across most tests (an insertion-sort arrow).
 const SAMPLE_SOURCE: &str = "--- Sorts a list using insertion sort
-sort = arr(\"insert\") >>> loop {
+sort = arr(\"insert\") >>> rec {
   remaining: input,
   acc: []
 } (
-  []: returnA -< { sorted: state.acc },
-  [h, ...t]: do {
-    r <- insert -< { elem: h, acc: state.acc };
-    returnA -< { state: { remaining: t, acc: r } }
-  }
+  []: return { sorted: state.acc },
+  [h, ...t]:
+    r = insert({ elem: h, acc: state.acc }) in
+    { state: { remaining: t, acc: r } }
 )
 ";
 

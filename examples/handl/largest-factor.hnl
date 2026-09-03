@@ -1,8 +1,8 @@
-loop { n: 2, target: 84, best: 1 } (
-  [n, target, best] ~> if n * n > target then
-    returnA -< { out: best }
-  else if target % n == 0 then
-    returnA -< { state: { n: n + 1, target: target, best: n } }
+while { n: 2, target: 84, best: 1 } (
+  [n, target, best] ~> if n * n > target
+    return best
+  else if target % n == 0
+    { state: { n: n + 1, target: target, best: n } }
   else
-    returnA -< { state: { n: n + 1, target: target, best: best } }
+    { state: { n: n + 1, target: target, best: best } }
 )

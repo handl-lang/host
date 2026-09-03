@@ -1,15 +1,16 @@
-//! End-to-end `rec` tests across all three eval engines
+//! End-to-end `while` tests across all three eval engines
 //! (tree-walk, bytecode, cranelift).
 //!
-//! ADR-0074 replaces `loop` with `rec` (recursive region). The old
-//! examples use `loop`/`returnA`/`then` syntax which is removed in v0.1.
-//! These tests are marked `#[ignore]` because:
-//! 1. The example `.hnl` files still use old `loop`/`returnA`/`then` syntax.
-//! 2. `rec` eval (recursive region semantics) is not yet fully implemented
-//!    in the tree-walk/bytecode/cranelift engines (task 4).
+//! ADR-0074 replaces the old `loop`/`returnA`/`then` surface syntax with
+//! v0.1 `while` syntax. The example `.hnl` files have been migrated from
+//! `loop { state } ( body )` with `returnA -< { out: v }` / `returnA -< { state: v }`
+//! to `while { state } ( body )` with `return v` (exit) / `{ state: v }` (continue).
+//! The `then` keyword is removed from `if` expressions.
 //!
-//! Once `rec` eval is implemented and the examples are updated to v0.1
-//! syntax, remove the `#[ignore]` attributes.
+//! The `while` node kind uses the kernel `Loop` combinator via `loop_step`
+//! (ADR-0052) — `loop_step` accepts bare values (from `return v`) as exit
+//! signals and `{ state: v }` as continue. `{ out: v }` is accepted for
+//! backward compatibility with the kernel `Loop` step protocol.
 
 use handl_kit_data::{DataKit, DataKitManifest, FragmentSourceEntry};
 use handl_kit_data_canonical;
@@ -55,22 +56,22 @@ fn runtime_with_eval(eval: &str) -> handl_runtime::Runtime {
         .expect("runtime binds engines")
 }
 
-/// `(source, expected)` cases — these use the OLD `loop`/`returnA`/`then`
-/// syntax from the example files. Once the examples are updated to v0.1
-/// `rec` syntax and `rec` eval is implemented, these will work.
+/// `(source, expected)` cases — these use v0.1 `while` syntax from the
+/// migrated example files. The `while` node uses the kernel `Loop` combinator
+/// via `loop_step` with `return v` (exit) / `{ state: v }` (continue).
 fn cases() -> Vec<(&'static str, serde_json::Value)> {
     vec![
-        // factorial.hnl — loop with destructured accumulator.
+        // factorial.hnl — while with destructured accumulator.
         (
             include_str!("../../../examples/handl/factorial.hnl"),
             json!(120),
         ),
-        // fibonacci.hnl — loop with 3 destructured vars.
+        // fibonacci.hnl — while with 3 destructured vars.
         (
             include_str!("../../../examples/handl/fibonacci.hnl"),
             json!(55),
         ),
-        // sum-to-n.hnl — loop destructured accumulator.
+        // sum-to-n.hnl — while destructured accumulator.
         (
             include_str!("../../../examples/handl/sum-to-n.hnl"),
             json!(5050),
@@ -80,7 +81,7 @@ fn cases() -> Vec<(&'static str, serde_json::Value)> {
             include_str!("../../../examples/handl/gcd.hnl"),
             json!(12),
         ),
-        // power.hnl — loop with 3 destructured vars, 2^10.
+        // power.hnl — while with 3 destructured vars, 2^10.
         (
             include_str!("../../../examples/handl/power.hnl"),
             json!(1024),
@@ -93,12 +94,9 @@ fn cases() -> Vec<(&'static str, serde_json::Value)> {
     ]
 }
 
-/// All three engines agree with the expected result for every `rec` case.
-/// IGNORED: examples use old `loop`/`returnA`/`then` syntax (removed in
-/// v0.1, ADR-0074). `rec` eval not yet implemented (task 4).
+/// All three engines agree with the expected result for every `while` case.
 #[test]
-#[ignore = "examples use old loop/returnA/then syntax; rec eval not yet implemented (ADR-0074, task 4)"]
-fn rec_step_runs_under_tree_walk() {
+fn while_step_runs_under_tree_walk() {
     let rt = runtime_with_eval("tree-walk");
     for (src, expected) in cases() {
         let result = rt
@@ -108,10 +106,9 @@ fn rec_step_runs_under_tree_walk() {
     }
 }
 
-/// IGNORED: same reason as above.
+/// Bytecode engine agrees with the expected result for every `while` case.
 #[test]
-#[ignore = "examples use old loop/returnA/then syntax; rec eval not yet implemented (ADR-0074, task 4)"]
-fn rec_step_runs_under_bytecode() {
+fn while_step_runs_under_bytecode() {
     let rt = runtime_with_eval("bytecode");
     for (src, expected) in cases() {
         let result = rt
@@ -121,10 +118,9 @@ fn rec_step_runs_under_bytecode() {
     }
 }
 
-/// IGNORED: same reason as above.
+/// Cranelift engine agrees with the expected result for every `while` case.
 #[test]
-#[ignore = "examples use old loop/returnA/then syntax; rec eval not yet implemented (ADR-0074, task 4)"]
-fn rec_step_runs_under_cranelift() {
+fn while_step_runs_under_cranelift() {
     let rt = runtime_with_eval("cranelift");
     for (src, expected) in cases() {
         let result = rt
@@ -136,10 +132,8 @@ fn rec_step_runs_under_cranelift() {
 
 /// All three engines produce identical results for every case (cross-engine
 /// parity, independent of the hardcoded `expected` values).
-/// IGNORED: same reason as above.
 #[test]
-#[ignore = "examples use old loop/returnA/then syntax; rec eval not yet implemented (ADR-0074, task 4)"]
-fn rec_step_engine_parity() {
+fn while_step_engine_parity() {
     let tw = runtime_with_eval("tree-walk");
     let bc = runtime_with_eval("bytecode");
     let cl = runtime_with_eval("cranelift");

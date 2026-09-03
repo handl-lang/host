@@ -8,7 +8,7 @@
 --
 -- Non-number handling: the prior Rust impl silently skipped non-numeric
 -- elements (`filter_map(|v| v.as_f64())`). This handl port reproduces that
--- filtering using `type.type_of(x) == "num"`, which requires `TypeModule`
+-- filtering using `typeof.type_of(x) == "num"`, which requires `TypeModule`
 -- in the bridge runtime. (The `type.is` host function cannot be used here
 -- because `is` is a handl keyword parsed as an infix mood operator, not an
 -- identifier, so `type.is(...)` does not parse as a field-access call.)
@@ -17,7 +17,7 @@
 -- `stddev` calls `math.sqrt` (requires `MathModule` in the bridge runtime);
 -- handl has a native `**` (pow) op but no native `sqrt`.
 --
--- Iteration uses the `loop { state }([fields...] ~> ...)` form: the
+-- Iteration uses the `while { state }([fields...] ~> ...)` form: the
 -- body returns `{ out: value }` to terminate or `{ state: { ... } }` to
 -- continue. `median` uses an insertion sort (handl has no native sort),
 -- implemented via recursion-via-self (`[self, ...] ~> ...`).
@@ -28,13 +28,14 @@
 -- float by adding `0.0` or dividing by a float literal like `2.0`.
 let
   filter_nums = xs ~>
-    loop { xs: xs, acc: [] }(
+    while { xs: xs, acc: [] }(
       [xs, acc] ~> match xs {
         []: { out: acc },
-        [h, ...t]: if type.type_of(h) == "num" then
+        [h, ...t]: if typeof.type_of(h) == "num" {
           { state: { xs: t, acc: [h, ...acc] } }
-        else
+        } else {
           { state: { xs: t, acc: acc } }
+        }
       }
     )
 in
@@ -42,7 +43,7 @@ let
   insert = [self, elem, sorted] ~>
     match sorted {
       []: [elem],
-      [h, ...t]: if elem <= h then [elem, ...sorted] else [h, ...(self(self, elem, t))]
+      [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
     }
 in
 let
@@ -54,7 +55,7 @@ let
 in
 let
   length = xs ~>
-    loop { xs: xs, n: 0 }(
+    while { xs: xs, n: 0 }(
       [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
@@ -63,72 +64,79 @@ let
 in
 let
   nth = [xs, i] ~>
-    loop { xs: xs, i: i }(
+    while { xs: xs, i: i }(
       [xs, i] ~> match xs {
         []: { out: null },
-        [h, ...t]: if i == 0 then { out: h } else { state: { xs: t, i: i - 1 } }
+        [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
       }
     )
 in
 {
   sum: xs ~>
-    loop { xs: xs, acc: 0 }(
+    while { xs: xs, acc: 0 }(
       [xs, acc] ~> match xs {
         []: { out: acc },
-        [h, ...t]: if type.type_of(h) == "num" then
+        [h, ...t]: if typeof.type_of(h) == "num" {
           { state: { xs: t, acc: acc + h } }
-        else
+        } else {
           { state: { xs: t, acc: acc } }
+        }
       }
     ),
 
   product: xs ~>
-    loop { xs: xs, acc: 1 }(
+    while { xs: xs, acc: 1 }(
       [xs, acc] ~> match xs {
         []: { out: acc },
-        [h, ...t]: if type.type_of(h) == "num" then
+        [h, ...t]: if typeof.type_of(h) == "num" {
           { state: { xs: t, acc: acc * h } }
-        else
+        } else {
           { state: { xs: t, acc: acc } }
+        }
       }
     ),
 
   avg: xs ~>
-    loop { xs: xs, sum: 0, count: 0 }(
+    while { xs: xs, sum: 0, count: 0 }(
       [xs, sum, count] ~> match xs {
-        []: { out: if count == 0 then 0 else sum / (count + 0.0) },
-        [h, ...t]: if type.type_of(h) == "num" then
+        []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
+        [h, ...t]: if typeof.type_of(h) == "num" {
           { state: { xs: t, sum: sum + h, count: count + 1 } }
-        else
+        } else {
           { state: { xs: t, sum: sum, count: count } }
+        }
       }
     ),
 
   min: xs ~>
-    loop { xs: xs, best: 0, seen: false }(
+    while { xs: xs, best: 0, seen: false }(
       [xs, best, seen] ~> match xs {
-        []: { out: if seen then best else null },
-        [h, ...t]: if type.type_of(h) == "num" then
-          if seen then
-            { state: { xs: t, best: if h < best then h else best, seen: true } }
-          else
+        []: { out: if seen { best } else { null } },
+        [h, ...t]: if typeof.type_of(h) == "num" {
+          if seen {
+            { state: { xs: t, best: if h < best { h } else { best }, seen: true } }
+          } else {
             { state: { xs: t, best: h, seen: true } }
-        else
+          }
+        } else {
           { state: { xs: t, best: best, seen: seen } }
+        }
       }
     ),
 
   max: xs ~>
-    loop { xs: xs, best: 0, seen: false }(
+    while { xs: xs, best: 0, seen: false }(
       [xs, best, seen] ~> match xs {
-        []: { out: if seen then best else null },
-        [h, ...t]: if type.type_of(h) == "num" then
-          if seen then
-            { state: { xs: t, best: if h > best then h else best, seen: true } }
-          else
+        []: { out: if seen { best } else { null } },
+        [h, ...t]: if typeof.type_of(h) == "num" {
+          if seen {
+            { state: { xs: t, best: if h > best { h } else { best }, seen: true } }
+          } else {
             { state: { xs: t, best: h, seen: true } }
-        else
+          }
+        } else {
           { state: { xs: t, best: best, seen: seen } }
+        }
       }
     ),
 
@@ -136,24 +144,26 @@ in
     let nums = filter_nums(xs) in
     let sorted = sort(sort, nums) in
     let n = length(sorted) in
-    if n == 0 then 0 else
-      if n % 2 == 1 then
+    if n == 0 { 0 } else {
+      if n % 2 == 1 {
         nth(sorted, n / 2)
-      else
-        (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0,
+      } else {
+        (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0
+      }
+    },
 
   stddev: xs ~>
     let nums = filter_nums(xs) in
     let n = length(nums) in
-    if n < 2 then 0 else
-      let total = loop { xs: nums, acc: 0 }(
+    if n < 2 { 0 } else {
+      let total = while { xs: nums, acc: 0 }(
         [xs, acc] ~> match xs {
           []: { out: acc },
           [h, ...t]: { state: { xs: t, acc: acc + h } }
         }
       ) in
       let mean = total / (n + 0.0) in
-      let sq_sum = loop { xs: nums, acc: 0 }(
+      let sq_sum = while { xs: nums, acc: 0 }(
         [xs, acc] ~> match xs {
           []: { out: acc },
           [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
@@ -161,4 +171,5 @@ in
       ) in
       let variance = sq_sum / (n + 0.0) in
       math.sqrt(variance)
+    }
 }

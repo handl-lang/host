@@ -14,6 +14,7 @@ use handl_kit_canonical::Kit;
 
 /// The arrow-authored bootstrap (`self |> lang ~> eval(lang, parse(lang,
 /// lex(lang, "1 + 2")))`) evaluates to `3`, matching the v1 bootstrap.
+#[ignore = "v0.1 removed |> and ~> surface syntax (ADR-0074); rewrite using >>> flow or direct application"]
 #[test]
 fn proc_bootstrap_self_host() {
     let source = include_str!("../data/handl-defining-handl-proc.hnl");

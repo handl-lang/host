@@ -10,48 +10,40 @@
 --   - cons the mapped inner list onto the output
 --   - repeat until the outer list is exhausted
 
-loop {
+rec {
   remaining: input.0,
   f:         input.1,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: do {
-      mapped <- loop {
+    [h, ...t]:
+      mapped = rec {
         remaining: h,
         f:         state.f,
         acc:       []
       } (
         inner_state ~> match inner_state.remaining {
-          []: returnA -< {
-            out: inner_state.acc
-          },
+          []: return inner_state.acc,
 
-          [h2, ...t2]: do {
-            y <- inner_state.f -< h2;
-
-            returnA -< {
+          [h2, ...t2]:
+            y = inner_state.f(h2) in
+            {
               state: {
                 remaining: t2,
                 f:         inner_state.f,
                 acc:       [y, ...inner_state.acc]
               }
             }
-          }
         }
-      );
-
-      returnA -< {
+      ) in
+      {
         state: {
           remaining: t,
           f:         state.f,
           acc:       [mapped, ...state.acc]
         }
       }
-    }
   }
 )

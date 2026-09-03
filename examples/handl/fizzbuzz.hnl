@@ -1,12 +1,12 @@
-loop { n: 1, out: 0 } (
-  [n, out] ~> if n > 15 then
-    returnA -< { out: out }
-  else if n % 15 == 0 then
-    returnA -< { state: { n: n + 1, out: 15 } }
-  else if n % 3 == 0 then
-    returnA -< { state: { n: n + 1, out: 3 } }
-  else if n % 5 == 0 then
-    returnA -< { state: { n: n + 1, out: 5 } }
+while { n: 1, out: 0 } (
+  [n, out] ~> if n > 15
+    return out
+  else if n % 15 == 0
+    { state: { n: n + 1, out: 15 } }
+  else if n % 3 == 0
+    { state: { n: n + 1, out: 3 } }
+  else if n % 5 == 0
+    { state: { n: n + 1, out: 5 } }
   else
-    returnA -< { state: { n: n + 1, out: n } }
+    { state: { n: n + 1, out: n } }
 )

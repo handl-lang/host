@@ -11,26 +11,22 @@
 --   - cons result onto output
 --   - repeat until input is exhausted
 
-loop {
+rec {
   remaining: input.0,
   f:         input.1,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: do {
-      y <- state.f -< h;
-      
-      returnA -< {
+    [h, ...t]:
+      y = state.f(h) in
+      {
         state: {
           remaining: t,
           f:         state.f,
           acc:       [y, ...state.acc]
         }
       }
-    }
   }
 )

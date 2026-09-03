@@ -329,7 +329,7 @@
     - children
     type: object
 
-# `arrow_if` — `if cond then body else body`. Three children:
+# `arrow_if` — `if cond body else body`. Three children:
 # [cond, then_body, else_body].
 - id: ast.arrow.arrow_if
   node_kind: arrow_if
@@ -359,7 +359,7 @@
     - children
     type: object
 
-# `arrow_return` — `returnA` keyword. Nullary (no children).
+# `arrow_return` — `return expr` keyword. One child: [expr].
 - id: ast.arrow.arrow_return
   node_kind: arrow_return
   payload_schema:
@@ -367,8 +367,8 @@
       children:
         items:
           type: integer
-        maxItems: 0
-        minItems: 0
+        maxItems: 1
+        minItems: 1
         type: array
     required:
     - children
@@ -403,36 +403,6 @@
 # `arrow_entry`/`arrow_arm` instead). Two children: [lhs, rhs].
 - id: ast.arrow.arrow_colon
   node_kind: arrow_colon
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-
-# `arrow_app` — `-<` arrow application. Two children: [left, right].
-- id: ast.arrow.arrow_app
-  node_kind: arrow_app
-  payload_schema:
-    properties:
-      children:
-        items:
-          type: integer
-        maxItems: 2
-        minItems: 2
-        type: array
-    required:
-    - children
-    type: object
-
-# `arrow_bind` — `<-` arrow bind. Two children: [left, right].
-- id: ast.arrow.arrow_bind
-  node_kind: arrow_bind
   payload_schema:
     properties:
       children:

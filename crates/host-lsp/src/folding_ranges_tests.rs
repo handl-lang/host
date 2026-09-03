@@ -22,14 +22,14 @@ fn has_kind(ranges: &[serde_json::Value], kind: &str) -> bool {
 
 #[test]
 fn folding_ranges_for_loop_block() {
-    // The `loop {` opens on line 0 and closes on line 3.
+    // The `while {` opens on line 0 and closes on line 3.
     let src = "\
-loop {
+while {
   remaining: input,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
+    []: return {
       out: state.acc
     }
   }
@@ -48,12 +48,12 @@ fn folding_ranges_for_arrow_block() {
     // The `state ~> match ... {` body opens on line 4 and closes on
     // line 8.
     let src = "\
-loop {
+while {
   remaining: input,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
+    []: return {
       out: state.acc
     }
   }
@@ -103,7 +103,7 @@ match state.remaining {
 fn folding_ranges_for_object_literal() {
     // `{ out: state.acc }` spans two lines.
     let src = "\
-returnA -< {
+return {
   out: state.acc
 }
 ";
@@ -121,7 +121,7 @@ fn folding_ranges_for_doc_comments() {
 --- sort: insertion sort over a list.
 ---
 --- This is the second line of the doc comment.
-loop {
+while {
   acc: []
 }
 ";
@@ -140,7 +140,7 @@ loop {
 #[test]
 fn folding_ranges_single_line_no_range() {
     // A single-line `{ ... }` should not produce a folding range.
-    let src = "loop { acc: [] }";
+    let src = "while { acc: [] }";
     let ranges = folding_ranges(src);
     assert!(
         ranges.iter().all(|r| r["kind"].as_str() != Some("region")
@@ -168,12 +168,12 @@ fn folding_ranges_returns_valid_json() {
     let src = "\
 /// doc comment line one
 /// doc comment line two
-loop {
+while {
   remaining: input,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
+    []: return {
       out: state.acc
     }
   }
@@ -223,9 +223,9 @@ fn folding_ranges_performance_on_large_file() {
     for i in 0..500 {
         src.push_str(&format!("arrow_{} = arr(\"op_{}\") >>> first(id)\n", i, i));
     }
-    src.push_str("\nloop {\n  remaining: input,\n  acc: []\n} (\n");
+    src.push_str("\nwhile {\n  remaining: input,\n  acc: []\n} (\n");
     for i in 0..200 {
-        src.push_str(&format!("  [h, ...t]: do {{\n    r{} <- arrow_{} -< {{ elem: h, acc: state.acc }};\n    returnA -< {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n  }}\n", i, i % 500, i));
+        src.push_str(&format!("  [h, ...t]:\n    r{} = arrow_{}({{ elem: h, acc: state.acc }}) in\n    {{\n      state: {{ remaining: t, acc: r{} }}\n    }}\n", i, i % 500, i));
     }
     src.push_str(")\n");
 

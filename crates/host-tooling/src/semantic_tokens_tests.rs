@@ -318,18 +318,18 @@ fn context_classifier_identifies_dotted_function_call() {
 
 #[test]
 fn context_classifier_identifies_type_reference() {
-    // "x: type.str = 1" — x is a binding declaration, `type` is a type ref
-    // (followed by `.` for the dotted type namespace).
-    let all = classify_all_identifiers("x: type.str = 1");
+    // "x: MyType.field = 1" — x is a binding declaration, `MyType` is a
+    // type ref (PascalCase, followed by `.` for the dotted type namespace).
+    let all = classify_all_identifiers("x: MyType.field = 1");
     let legend = SemanticTokenLegend::default();
     let type_idx = legend.token_type_index("type").unwrap();
 
-    // Find the `type` identifier (the lexer splits `type.str` into
-    // separate `type`, `.`, `str` tokens).
+    // Find the `MyType` identifier (the lexer splits `MyType.field` into
+    // separate `MyType`, `.`, `field` tokens).
     let type_tok = all
         .iter()
-        .find(|(s, _, _)| s == "type")
-        .unwrap_or_else(|| panic!("expected `type` identifier, got {all:?}"));
+        .find(|(s, _, _)| s == "MyType")
+        .unwrap_or_else(|| panic!("expected `MyType` identifier, got {all:?}"));
     assert_eq!(type_tok.1, type_idx);
 }
 

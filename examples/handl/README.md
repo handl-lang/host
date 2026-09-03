@@ -2,9 +2,9 @@
 
 Small, self-contained `.hnl` programs you can run right now with the `hnl` CLI.
 Every file here is a single expression and has been verified to run against the
-current build. All examples use `proc` notation, `loop`, `if`, `= ... in`
-bindings, and state spread — the canonical arrow-calculus authoring surface
-(ADR-0052).
+current build. All examples use `~>` arrow notation, `while`, `if`, `let ... in`
+bindings, and state spread — the v0.1 canonical arrow-calculus authoring surface
+(ADR-0074).
 
 ## Run them
 
@@ -33,38 +33,38 @@ for f in *.hnl; do echo "=== $f"; hnl run "$f"; echo; done
 | `records.hnl`     | Nested records/arrays, dot access, computed fields with `proc` | object |
 | `match.hnl`       | `match` over literals, strings, bools, binders, wildcards, nested arms | object |
 | `destructure.hnl` | Array (`[h, ...t]`, `[]`) and object (`{ name: n }`) destructuring in `match` | object |
-| `conditionals.hnl`| Branching via `if/then/else` and nested `match` | object |
+| `conditionals.hnl`| Branching via `if/else` and nested `match` | object |
 
-### Arrows: `proc`, `>>>`, and `loop`
+### Arrows: `~>` and `>>>`
 
 | File              | Shows                                                         | Output |
 | ----------------- | ------------------------------------------------------------- | ------ |
-| `closures.hnl`    | `proc` with multi-params, immediate invocation, higher-order combinators (`apply_twice`, `compose`, `thrice`), arrays of `proc`s indexed by position | object |
+| `closures.hnl`    | `~>` with multi-params, immediate invocation, higher-order combinators (`apply_twice`, `compose`, `thrice`), arrays of closures indexed by position | object |
 | `composition.hnl` | `>>>` arrow composition — the kernel's `Seq` combinator as surface syntax | `11` |
 
-### Recursion via `loop` (feedback)
+### Recursion via `while` (feedback)
 
-ADR-0052 specifies `loop` as the primitive for feedback — the kernel's `Loop`
-combinator as surface syntax. The body `proc` receives the current state and
+ADR-0074 specifies `while` as the v0.1 surface for feedback — the kernel's
+`Loop` combinator (ADR-0052). The body closure receives the current state and
 returns either `{ out: v }` (terminate with `v`) or `{ state: v }` (continue
 with new state `v`).
 
-With **param destructuring**, the body `proc` can name individual state fields
+With **param destructuring**, the body closure can name individual state fields
 as parameters instead of accessing them through `s.field`:
 
 ```hnl
-loop { n: 5, acc: 1 }(
-  proc (n, acc) -> if n == 0 then { out: acc } else { state: { n: n - 1, acc: acc * n } }
+while { n: 5, acc: 1 } (
+  [n, acc] ~> if n == 0 { out: acc } else { state: { n: n - 1, acc: acc * n } }
 )
 ```
 
 | File                | Shows                                          | Output |
 | ------------------- | ---------------------------------------------- | ------ |
-| `factorial.hnl`     | `loop` with destructured accumulator — factorial of 5 | `120`  |
-| `fibonacci.hnl`     | `loop` with 3 destructured vars — Fibonacci(10) | `55`   |
-| `power.hnl`         | `loop` with 3 destructured vars — 2^10          | `1024` |
-| `sum-to-n.hnl`      | `loop` destructured accumulator — sum of 1..100 | `5050` |
-| `ackermann.hnl`     | Self-applying `proc` (Ackermann needs a stack, not a simple loop) | `9` |
+| `factorial.hnl`     | `while` with destructured accumulator — factorial of 5 | `120`  |
+| `fibonacci.hnl`     | `while` with 3 destructured vars — Fibonacci(10) | `55`   |
+| `power.hnl`         | `while` with 3 destructured vars — 2^10          | `1024` |
+| `sum-to-n.hnl`      | `while` destructured accumulator — sum of 1..100 | `5050` |
+| `ackermann.hnl`     | Self-applying closure (Ackermann needs a stack, not a simple loop) | `9` |
 
 ### Algorithms
 
@@ -76,7 +76,7 @@ loop { n: 5, acc: 1 }(
 | `collatz.hnl`       | Collatz step count with `if/else if` — from 27    | `111`  |
 | `fast-exp.hnl`      | Binary exponentiation with destructured params — 3^13 | `1594323` |
 | `binomial.hnl`      | Binomial coefficient with 4 destructured params — C(10, 3) | `120`  |
-| `binary-search.hnl` | Binary search using `= ... in` bindings + state spread | `6`    |
+| `binary-search.hnl` | Binary search using `let ... in` bindings + state spread | `6`    |
 | `popcount.hnl`      | Count set bits with destructured params — popcount(255) | `8`    |
 | `digital-root.hnl`  | Digital root with nested `if` — of 942            | `6`    |
 | `tribonacci.hnl`    | Tribonacci with 4 destructured params — T(10)     | `149`  |
@@ -85,42 +85,42 @@ loop { n: 5, acc: 1 }(
 
 ### List processing
 
-Lists are processed by destructuring `[h, ...t]` in a `loop` that carries the
+Lists are processed by destructuring `[h, ...t]` in a `while` that carries the
 remaining list and an accumulator in the state.
 
 | File                | Shows                                          | Output |
 | ------------------- | ---------------------------------------------- | ------ |
-| `list-length.hnl`   | Count via head/tail in `loop` + `if`           | `5`    |
-| `list-sum.hnl`      | Reduce/fold with an accumulator in `loop`      | `15`   |
+| `list-length.hnl`   | Count via head/tail in `while` + `if`          | `5`    |
+| `list-sum.hnl`      | Reduce/fold with an accumulator in `while`     | `15`   |
 | `list-max.hnl`      | Track-a-best with `if` inside `match`          | `9`    |
 | `list-contains.hnl` | Linear search, early exit via `{ out: true }`  | `true` |
 
 ## Patterns to steal
 
-**`loop` with param destructuring** — the body `proc` names state fields
+**`while` with param destructuring** — the body closure names state fields
 directly, no `s.` prefix needed:
 
 ```hnl
-loop { n: 5, acc: 1 }(
-  proc (n, acc) -> if n == 0 then { out: acc } else { state: { n: n - 1, acc: acc * n } }
+while { n: 5, acc: 1 } (
+  [n, acc] ~> if n == 0 { out: acc } else { state: { n: n - 1, acc: acc * n } }
 )
 ```
 
 **`if` expression** — desugars to `match cond { true: a, _: b }`:
 
 ```hnl
-if n == 0 then { out: acc }
-else if n % 2 == 0 then { state: { ... } }
+if n == 0 { out: acc }
+else if n % 2 == 0 { state: { ... } }
 else { state: { ... } }
 ```
 
-**`x = y in body` binding** — desugars to `(proc (x) -> body)(y)`, lets you
+**`let x = y in body` binding** — desugars to `(proc (x) -> body)(y)`, lets you
 name intermediate values:
 
 ```hnl
-mid = (s.lo + s.hi) / 2 in
-guess = s.xs.mid in
-if guess == s.target then { out: mid } else { ... }
+let mid = (s.lo + s.hi) / 2 in
+let guess = s.xs.mid in
+if guess == s.target { out: mid } else { ... }
 ```
 
 **State spread** — `{ ...s, field: val }` copies all fields from `s`, then
@@ -156,12 +156,11 @@ These work in the richer plugin-loaded kits (see `lib-utils/` and the
 `crates/plugin-lib-*/examples/` corpora) but **not** in the bare canonical kit
 that `hnl run`/`hnl eval` use today:
 
-- `#` comments, `let ... in` (use `x = y in body` instead), assignment
-  statements (`x = y` without `in`)
+- `#` comments, assignment statements (`x = y` without `in`)
 - The arrow kernel combinators `first`/`choice`/`app` are not callable as
-  surface keywords. `proc` (arrow construction), `>>>` (composition), and
-  `loop` (feedback) are wired. `loop` uses an ergonomic body protocol
-  (`{ out: v }` / `{ state: v }`) rather than raw `Either` values.
+  surface keywords. `~>` (arrow construction), `>>>` (composition), and
+  `while` (feedback) are wired. `while` uses the kernel `Loop` step protocol
+  (`{ out: v }` / `{ state: v }`) via `loop_step` (ADR-0052).
 - Array spread of a *computed* value (`[h, ...self(self, t)]`) — spread of a
   literal (`[1, ...[2, 3]]`) is accepted by the parser but does not flatten
   computed results, so list-building combinators like `map`/`reverse` that
@@ -169,7 +168,7 @@ that `hnl run`/`hnl eval` use today:
   scalar-returning folds (`sum`, `max`, `length`, `contains`).
 - Bracket indexing (`xs[0]`); use dot-index instead (`xs.0`)
 - String concatenation (`"a" + "b"`) — `+` only works on numbers.
-- `loop` runs in all three eval engines (tree-walk, bytecode, cranelift).
+- `while` runs in all three eval engines (tree-walk, bytecode, cranelift).
   All four derived step ops (`loop_step`, `while_step`, `for_step`,
   `fix_step` from `plugin-lib-arrow-iter`) are supported across all three
   engines.

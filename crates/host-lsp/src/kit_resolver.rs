@@ -11,16 +11,44 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 /// Crate name of the canonical kit, used as the fallback when no manifest is
-/// found. `Kit::new()` currently loads this kit's data at compile time via
-/// `include_str!`, so this sentinel path represents "use the compiled-in
-/// canonical kit".
+/// found. `Kit::from_path()` treats this sentinel as "use the compiled-in
+/// canonical kit" (loaded at compile time via `include_str!`).
 pub const DEFAULT_KIT_NAME: &str = "handl-kit-data-canonical";
 
 /// Name of the manifest file the resolver looks for.
 const MANIFEST_FILE: &str = ".handl.toml";
+
+/// The process-global [`KitResolver`] used by [`kit_for_file`].
+static GLOBAL_KIT_RESOLVER: OnceLock<KitResolver> = OnceLock::new();
+
+/// Returns the process-global [`KitResolver`], initializing it on first use.
+pub fn global_kit_resolver() -> &'static KitResolver {
+    GLOBAL_KIT_RESOLVER.get_or_init(KitResolver::new)
+}
+
+/// Resolve and build a [`Kit`](handl_kit_canonical::Kit) for `file_path`
+/// (ADR 0003 per-file kit loading).
+///
+/// Walks up from `file_path` to find a `.handl.toml` manifest via the
+/// global [`KitResolver`], then constructs a [`Kit`] from the resolved kit
+/// path with [`Kit::from_path`](handl_kit_canonical::Kit::from_path). When
+/// `file_path` is `None` or empty, or no manifest is found, this falls back
+/// to the compiled-in canonical kit.
+///
+/// # Errors
+///
+/// Returns [`LangError`](handl_language::LangError) if kit construction fails
+/// (which, for the fallback canonical kit, should not happen).
+pub fn kit_for_file(
+    file_path: Option<&str>,
+) -> Result<handl_kit_canonical::Kit, handl_language::LangError> {
+    let resolver = global_kit_resolver();
+    let resolved = resolver.resolve(file_path.unwrap_or(""));
+    handl_kit_canonical::Kit::from_path(&resolved.kit_path)
+}
 
 /// A resolved language kit.
 #[derive(Debug, Clone, PartialEq, Eq)]

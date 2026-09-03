@@ -3,8 +3,7 @@
 -- Contract: inferred from the loop body.
 --
 -- Graph structure:
---   zip = loop(first(arr("list.head")) >>>
---              (first(arr("list.tail")) >>> arr("list.cons")))
+--   zip = rec { first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")) }
 --
 -- The loop processes elements one at a time:
 --   - take the head of both lists (first component)
@@ -12,4 +11,4 @@
 --   - cons the pair onto the output
 --   - repeat until either list is exhausted
 
-zip = loop(first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")))
+zip = rec { first(arr("list.head")) >>> (first(arr("list.tail")) >>> arr("list.cons")) }

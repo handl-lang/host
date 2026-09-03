@@ -12,21 +12,18 @@
 --   - if ¬p(h): skip
 --   - repeat until input is exhausted
 
-loop {
+rec {
   remaining: input.0,
   p:         input.1,
   acc:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.acc
-    },
+    []: return state.acc,
 
-    [h, ...t]: do {
-      keep <- state.p -< h;
-      
-      if keep then
-        returnA -< {
+    [h, ...t]:
+      keep = state.p(h) in
+      if keep
+        {
           state: {
             remaining: t,
             p:         state.p,
@@ -34,13 +31,12 @@ loop {
           }
         }
       else
-        returnA -< {
+        {
           state: {
             remaining: t,
             p:         state.p,
             acc:       state.acc
           }
         }
-    }
   }
 )

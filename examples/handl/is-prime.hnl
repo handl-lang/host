@@ -1,8 +1,8 @@
-loop { n: 29, d: 2 } (
-  [n, d] ~> if d * d > n then
-    returnA -< { out: true }
-  else if n % d == 0 then
-    returnA -< { out: false }
+while { n: 29, d: 2 } (
+  [n, d] ~> if d * d > n
+    return true
+  else if n % d == 0
+    return false
   else
-    returnA -< { state: { n: n, d: d + 1 } }
+    { state: { n: n, d: d + 1 } }
 )

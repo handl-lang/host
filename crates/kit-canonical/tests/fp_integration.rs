@@ -242,37 +242,14 @@ fn match_object_destructuring_partial() {
 }
 
 // ---------------------------------------------------------------------------
-// handle — Prim op: evaluate body, dispatch to matching clause
+// handle — REMOVED in v0.1 (ADR-0074)
 // ---------------------------------------------------------------------------
-
-#[test]
-fn handle_dispatches_to_matching_clause() {
-    let kit = kit();
-    let result = kit
-        .run("handle 1 { 1: 100, 2: 200, _: 300 }")
-        .expect("handle must eval");
-    assert_eq!(result, json!(100));
-}
-
-#[test]
-fn handle_no_clause_returns_body() {
-    let kit = kit();
-    // No clause matches → return the body value as-is.
-    let result = kit
-        .run("handle 99 { 1: 100, 2: 200 }")
-        .expect("handle with no matching clause returns body");
-    assert_eq!(result, json!(99));
-}
-
-#[test]
-fn handle_binder_binds_body_result() {
-    let kit = kit();
-    // `handle 42 { x: x * 2 }` — binder `x` binds 42, handler evaluates x * 2 = 84.
-    let result = kit
-        .run("handle 42 { x: x * 2 }")
-        .expect("handle with binder must eval");
-    assert_eq!(result, json!(84));
-}
+// The `handle` keyword (effect-handler dispatch) was removed from the
+// language in v0.1. It has no direct v0.1 equivalent — the closest constructs
+// are `match` (value dispatch) and `|||` (arrow/choice dispatch). The three
+// `handle` integration tests (`handle_dispatches_to_matching_clause`,
+// `handle_no_clause_returns_body`, `handle_binder_binds_body_result`)
+// referenced the removed syntax and were deleted rather than migrated.
 
 // ---------------------------------------------------------------------------
 // json — Prim op: parse a JSON template from payload

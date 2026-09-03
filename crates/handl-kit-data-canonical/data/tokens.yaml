@@ -1,5 +1,5 @@
 # Token kind definitions — v0.1 surface syntax (ADR-0074).
-# Removed: arrow_app, arrow_bind, pipe, returnA, loop, then, where, handle,
+# Removed: arrow_app, arrow_bind, pipe, returnA, loop, where, handle,
 #   typeof, module, const, is, may, must, when, not (keyword), vau.
 # Added: rec, while, for, return, law, trait, impl, infer, type, from,
 #   product (***), nullish (??), opt_chain (?.).
@@ -87,6 +87,8 @@
   label: rec
 - id: token.keyword.return
   label: return
+- id: token.keyword.then
+  label: then
 - id: token.keyword.trait
   label: trait
 - id: token.keyword.type

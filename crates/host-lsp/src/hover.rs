@@ -3,12 +3,13 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{
-    Kit, SpannedToken, is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind,
+    SpannedToken, is_bool_kind, is_comment_kind, is_delimiter_kind, is_doc_comment_kind,
     is_identifier_kind, is_keyword_kind, is_null_kind, is_number_kind, is_operator_kind,
     is_string_kind, is_template_kind,
 };
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 pub fn hover_at(source: &str, offset: usize) -> Option<Value> {
     hover_at_with_path(source, offset, None)
@@ -17,7 +18,7 @@ pub fn hover_at(source: &str, offset: usize) -> Option<Value> {
 /// If the cursor is on an identifier preceded by `.` (a property access),
 /// return the property name. Otherwise return `None`.
 pub fn property_at_offset(source: &str, offset: usize) -> Option<String> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens
@@ -38,7 +39,7 @@ pub fn property_at_offset(source: &str, offset: usize) -> Option<String> {
 }
 
 pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) -> Option<Value> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(file_path).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     // Find the token at the cursor position.
@@ -83,7 +84,7 @@ pub fn hover_at_with_path(source: &str, offset: usize, file_path: Option<&str>) 
 /// Strips the `---` prefix and one optional leading space from each line.
 /// Returns `None` if there are no doc comments at the top of the file.
 pub fn extract_doc_comments(source: &str) -> Option<String> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let mut doc_lines: Vec<String> = Vec::new();
@@ -167,7 +168,7 @@ pub fn cross_arrow_hover(
     file_path: Option<&str>,
     refinement: &crate::refinement::RefinementEngine,
 ) -> Option<String> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(file_path).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens

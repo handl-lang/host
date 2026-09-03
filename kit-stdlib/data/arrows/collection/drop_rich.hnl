@@ -10,16 +10,14 @@
 --   - the counter (side channel) passes through unchanged via first(id)
 --   - repeat until n elements are dropped
 
-loop {
+rec {
   remaining: input.0,
   count:     input.1
 } (
   state ~> match state.count {
-    []: returnA -< {
-      out: state.remaining
-    },
+    []: return state.remaining,
 
-    [h, ...t]: returnA -< {
+    [h, ...t]: {
       state: {
         remaining: list.tail(state.remaining),
         count:     t

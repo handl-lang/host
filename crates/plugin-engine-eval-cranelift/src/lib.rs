@@ -2430,9 +2430,10 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut Value {
 /// `(in, state)` from the enclosing `Loop` combinator.
 ///
 /// The body closure is applied to the current state (`in` on the first step,
-/// `state` thereafter) via [`apply_closure_value`]. It must return an object:
-/// - `{ out: v }`    → `either_left(v)`  (terminate with `v`)
+/// `state` thereafter) via [`apply_closure_value`]. It returns:
 /// - `{ state: v }`  → `either_right(v)` (continue with new state `v`)
+/// - `{ out: v }`    → `either_left(v)`  (terminate with `v`, backward compat)
+/// - bare value      → `either_left(v)`  (terminate with `v`, v0.1 `return v`)
 ///
 /// Param destructuring: if the body closure has >1 params and the current state
 /// is an object, bind each param to the corresponding field by name. Mirrors
@@ -2488,22 +2489,23 @@ fn prim_v2_loop_step(
         return std::ptr::null_mut();
     }
     let result = unsafe { take_value(result_ptr) };
-    let obj = match result.as_object() {
-        Some(o) => o,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "loop_step: body must return { out: v } or { state: v }".to_string(),
-            ));
+    // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
+    // Recognize bare values as exit signals, and { state: v } as continue.
+    // { out: v } is accepted for backward compatibility.
+    if let Some(obj) = result.as_object() {
+        if let Some(new_state) = obj.get("state") {
+            // Continue with new state.
+            unsafe { box_value(serde_json::json!({"__either__": "right", "value": new_state})) }
+        } else if let Some(out) = obj.get("out") {
+            // Exit with out value (backward compat with { out: v } protocol).
+            unsafe { box_value(serde_json::json!({"__either__": "left", "value": out})) }
+        } else {
+            // Object without out/state keys — treat as exit value (return).
+            unsafe { box_value(serde_json::json!({"__either__": "left", "value": result})) }
         }
-    };
-    if let Some(out) = obj.get("out") {
-        unsafe { box_value(serde_json::json!({"__either__": "left", "value": out})) }
-    } else if let Some(new_state) = obj.get("state") {
-        unsafe { box_value(serde_json::json!({"__either__": "right", "value": new_state})) }
     } else {
-        ctx.set_error(LangError::Engine(
-            "loop_step: body must return { out: v } or { state: v }".to_string(),
-        ))
+        // Non-object (number, string, bool, null, array) — exit with the value.
+        unsafe { box_value(serde_json::json!({"__either__": "left", "value": result})) }
     }
 }
 
@@ -3218,12 +3220,19 @@ fn apply_native_v2(
             }
         }
         "bind" => return prim_v2_bind(ctx),
+        // `eval_let` — v0.1 `let` evaluation. Dispatches to `prim_v2_bind`
+        // which handles the `{"name": ..., "children": [value, body]}`
+        // payload format. For the new grammar format with an `assign`
+        // child, a dedicated handler would be needed; the corpus uses the
+        // legacy format which matches `bind`.
+        "eval_let" => return prim_v2_bind(ctx),
         // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
         // — the body closure, evaluated from the carried sub-scheme
         // arg. `incoming` is the loop pair `(in, state)` passed by the
         // enclosing `Loop` combinator. The body closure is applied to the
         // current state (in on the first step, state thereafter); it returns
-        // an object `{ out: v }` (terminate) or `{ state: v }` (continue).
+        // `{ state: v }` (continue), `{ out: v }` (terminate, backward compat),
+        // or a bare value (terminate, v0.1 `return v`).
         // Param destructuring mirrors the v2 tree-walk's `loop_step` arm.
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
         // `while_step` derived step op (ADR-0052). args = [cond_result,
@@ -5466,6 +5475,10 @@ mod tests {
         lang.eval
             .merge(EvalSchemeDef::new("e.function", "function", Scheme::arr_native("closure", vec![])))
             .unwrap();
+        // return -> proj_child(0) (v0.1: `return v` evaluates to `v`)
+        lang.eval
+            .merge(EvalSchemeDef::new("e.return", "return", Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))))
+            .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.loop",
@@ -5482,26 +5495,24 @@ mod tests {
         lang
     }
 
-    /// `loop 42 (x ~> { out: x })` — single-step terminate, scalar
+    /// `loop 42 (x ~> return x)` — single-step terminate, scalar
     /// state, one param. Expected: 42.
     #[test]
     fn v2_loop_step_single_step_terminate() {
         let lang = loop_lang();
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!("out")),                       // 0
-            AstNode::new("var").with_payload(json!("x")),                         // 1
-            AstNode::new("entry").with_payload(json!({"children": [0, 1]})),      // 2
-            AstNode::new("object").with_payload(json!({"children": [2]})),        // 3
-            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
-            AstNode::new("lit").with_payload(json!(42)),                          // 5
-            AstNode::new("loop").with_payload(json!({"children": [5, 4]})),       // 6
+            AstNode::new("var").with_payload(json!("x")),                         // 0
+            AstNode::new("return").with_payload(json!({"children": [0]})),        // 1
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 1})), // 2
+            AstNode::new("lit").with_payload(json!(42)),                          // 3
+            AstNode::new("loop").with_payload(json!({"children": [3, 2]})),       // 4
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
     }
 
-    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then { out: acc }
+    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then return acc
     /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
     /// destructuring, `if`, arithmetic, nested object construction.
     /// Computes 3! = 6.
@@ -5511,26 +5522,25 @@ mod tests {
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!("n")),                        // 0
             AstNode::new("lit").with_payload(json!("acc")),                      // 1
-            AstNode::new("lit").with_payload(json!("out")),                      // 2
-            AstNode::new("lit").with_payload(json!("state")),                    // 3
-            AstNode::new("lit").with_payload(json!(0)),                          // 4
-            AstNode::new("lit").with_payload(json!(1)),                          // 5
-            AstNode::new("var").with_payload(json!("n")),                        // 6
-            AstNode::new("var").with_payload(json!("acc")),                      // 7
-            AstNode::new("binary.eq").with_payload(json!({"children": [6, 4]})), // 8
-            AstNode::new("binary.sub").with_payload(json!({"children": [6, 5]})),// 9
-            AstNode::new("binary.mul").with_payload(json!({"children": [7, 6]})),// 10
-            AstNode::new("entry").with_payload(json!({"children": [0, 9]})),     // 11
-            AstNode::new("entry").with_payload(json!({"children": [1, 10]})),    // 12
-            AstNode::new("object").with_payload(json!({"children": [11, 12]})),  // 13
-            AstNode::new("entry").with_payload(json!({"children": [2, 7]})),     // 14
-            AstNode::new("object").with_payload(json!({"children": [14]})),      // 15
-            AstNode::new("entry").with_payload(json!({"children": [3, 13]})),    // 16
-            AstNode::new("object").with_payload(json!({"children": [16]})),      // 17
-            AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),   // 18
-            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 20
-            AstNode::new("loop").with_payload(json!({"children": [20, 19]})),    // 21
+            AstNode::new("lit").with_payload(json!("state")),                    // 2
+            AstNode::new("lit").with_payload(json!(0)),                          // 3
+            AstNode::new("lit").with_payload(json!(1)),                          // 4
+            AstNode::new("var").with_payload(json!("n")),                        // 5
+            AstNode::new("var").with_payload(json!("acc")),                      // 6
+            AstNode::new("binary.eq").with_payload(json!({"children": [5, 3]})), // 7
+            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})),// 8
+            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})),// 9
+            AstNode::new("entry").with_payload(json!({"children": [0, 8]})),     // 10
+            AstNode::new("entry").with_payload(json!({"children": [1, 9]})),     // 11
+            AstNode::new("object").with_payload(json!({"children": [10, 11]})),  // 12
+            AstNode::new("var").with_payload(json!("acc")),                      // 13
+            AstNode::new("return").with_payload(json!({"children": [13]})),      // 14
+            AstNode::new("entry").with_payload(json!({"children": [2, 12]})),    // 15
+            AstNode::new("object").with_payload(json!({"children": [15]})),      // 16
+            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})),   // 17
+            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 17})), // 18
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 19
+            AstNode::new("loop").with_payload(json!({"children": [19, 18]})),    // 20
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);

@@ -10,21 +10,18 @@
 --   - cons the intermediate accumulator value onto the output list
 --   - repeat until input is exhausted
 
-loop {
+rec {
   remaining: input.0,
   f:         input.1,
   acc:       input.2,
   out:       []
 } (
   state ~> match state.remaining {
-    []: returnA -< {
-      out: state.out
-    },
+    []: return state.out,
 
-    [h, ...t]: do {
-      y <- state.f -< { acc: state.acc, h: h };
-
-      returnA -< {
+    [h, ...t]:
+      y = state.f({ acc: state.acc, h: h }) in
+      {
         state: {
           remaining: t,
           f:         state.f,
@@ -32,6 +29,5 @@ loop {
           out:       [y, ...state.out]
         }
       }
-    }
   }
 )

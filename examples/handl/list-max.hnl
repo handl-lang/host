@@ -1,10 +1,10 @@
-loop { xs: [3, 7, 2, 9, 4, 1], best: 0 } (
+while { xs: [3, 7, 2, 9, 4, 1], best: 0 } (
   [xs, best] ~> match xs {
-    []: returnA -< { out: best },
+    []: return best,
 
-    [h, ...t]: if h > best then
-      returnA -< { state: { xs: t, best: h } }
+    [h, ...t]: if h > best
+      { state: { xs: t, best: h } }
     else
-      returnA -< { state: { xs: t, best: best } }
+      { state: { xs: t, best: best } }
   }
 )

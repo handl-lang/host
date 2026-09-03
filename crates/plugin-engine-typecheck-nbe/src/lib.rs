@@ -1066,12 +1066,15 @@ impl NbeTypecheckEngine {
                 Ok(unified)
             }
             "synth_let" => {
-                // Typecheck a `stmt.let` node. The node has children
-                // [assign, body] where `assign` has children [var(name),
-                // value]. We synth the value type, extend Γ with
-                // (name, value-type), then synth the body and return its
-                // type (ADR-0054 — the DSL can't navigate grandchildren, so
-                // this is a judgment op).
+                // Typecheck a `let` node. Two payload shapes:
+                // - v0.1 Pratt-parsed: `payload.name` holds the binding
+                //   name (extracted via payload_tokens), children are
+                //   [value, body]. The name is in the payload, child 0 is
+                //   the value expression, child 1 is the body.
+                // - Legacy: children are [assign, body] where `assign` has
+                //   children [var(name), value]. We synth the value type,
+                //   extend Γ with (name, value-type), then synth the body
+                //   and return its type.
                 let node = ast.get(node_ref).ok_or_else(|| {
                     LangError::Engine(format!(
                         "synth_let: node {} out of bounds",
@@ -1087,19 +1090,29 @@ impl NbeTypecheckEngine {
                     })?;
                 if children.len() < 2 {
                     return Err(LangError::Engine(
-                        "synth_let: node needs at least 2 children (assign, body)".into(),
+                        "synth_let: node needs at least 2 children (value, body)".into(),
                     ));
                 }
-                let assign_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::Engine("synth_let: assign child index is not a u64".into())
+                let value_idx = children[0].as_u64().ok_or_else(|| {
+                    LangError::Engine("synth_let: value child index is not a u64".into())
                 })? as usize;
                 let body_idx = children[1].as_u64().ok_or_else(|| {
                     LangError::Engine("synth_let: body child index is not a u64".into())
                 })? as usize;
-                let assign_node = ast.get(AstRef::new(assign_idx)).ok_or_else(|| {
+
+                // v0.1: name is in payload.name (set by payload_tokens).
+                if let Some(name) = node.payload.get("name").and_then(|v| v.as_str()) {
+                    let value_type = self.synth_node(lang, ast, AstRef::new(value_idx), ctx)?;
+                    ctx.extend(name.to_string(), value_type);
+                    return self.synth_node(lang, ast, AstRef::new(body_idx), ctx);
+                }
+
+                // Legacy: child 0 is an `assign` node with children
+                // [var(name), value] or [type-annot, value].
+                let assign_node = ast.get(AstRef::new(value_idx)).ok_or_else(|| {
                     LangError::Engine(format!(
                         "synth_let: assign node {} out of bounds",
-                        assign_idx
+                        value_idx
                     ))
                 })?;
                 let assign_children = assign_node
@@ -1117,7 +1130,7 @@ impl NbeTypecheckEngine {
                 let var_idx = assign_children[0].as_u64().ok_or_else(|| {
                     LangError::Engine("synth_let: var child index is not a u64".into())
                 })? as usize;
-                let value_idx = assign_children[1].as_u64().ok_or_else(|| {
+                let inner_value_idx = assign_children[1].as_u64().ok_or_else(|| {
                     LangError::Engine("synth_let: value child index is not a u64".into())
                 })? as usize;
                 let lhs_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
@@ -1168,7 +1181,7 @@ impl NbeTypecheckEngine {
                     })?;
                     (n.to_string(), None)
                 };
-                let value_type = self.synth_node(lang, ast, AstRef::new(value_idx), ctx)?;
+                let value_type = self.synth_node(lang, ast, AstRef::new(inner_value_idx), ctx)?;
                 let bound_type = if let Some(ann) = annotated_type {
                     self.unify(&value_type, &ann, ctx)?;
                     ann

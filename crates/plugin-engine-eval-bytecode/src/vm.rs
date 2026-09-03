@@ -1172,9 +1172,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // arg. `incoming` is the loop pair `(in, state)` popped from the
             // operand stack by the `NativeOp` handler (see `op_is_derived_step`).
             // The body closure is applied to the current state (in on the first
-            // step, state thereafter); it returns an object:
-            //   { out: v }    → either_left(v)  (terminate)
+            // step, state thereafter); it returns:
             //   { state: v }  → either_right(v) (continue)
+            //   { out: v }    → either_left(v)  (terminate, backward compat)
+            //   bare value    → either_left(v)  (terminate, v0.1 `return v`)
             // Param destructuring: if the body closure has >1 params and the
             // current state is an object, bind each param to the corresponding
             // field by name. Mirrors the v2 tree-walk's `eval_derived_step`
@@ -1211,19 +1212,23 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     vec![current]
                 };
                 let result = self.apply_app(body_proc, &call_args)?;
-                let obj = result.as_object().ok_or_else(|| {
-                    LangError::Engine(
-                        "loop_step: body must return { out: v } or { state: v }".to_string(),
-                    )
-                })?;
-                if let Some(out) = obj.get("out") {
-                    Ok(either_left(out.clone()))
-                } else if let Some(new_state) = obj.get("state") {
-                    Ok(either_right(new_state.clone()))
+                // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
+                // Recognize bare values as exit signals, and { state: v } as continue.
+                // { out: v } is accepted for backward compatibility.
+                if let Some(obj) = result.as_object() {
+                    if let Some(new_state) = obj.get("state") {
+                        // Continue with new state.
+                        Ok(either_right(new_state.clone()))
+                    } else if let Some(out) = obj.get("out") {
+                        // Exit with out value (backward compat with { out: v } protocol).
+                        Ok(either_left(out.clone()))
+                    } else {
+                        // Object without out/state keys — treat as exit value (return).
+                        Ok(either_left(result.clone()))
+                    }
                 } else {
-                    Err(LangError::Engine(
-                        "loop_step: body must return { out: v } or { state: v }".to_string(),
-                    ))
+                    // Non-object (number, string, bool, null, array) — exit with the value.
+                    Ok(either_left(result.clone()))
                 }
             }
             // `while_step` derived step op (ADR-0052 §"Derived forms").
@@ -1294,6 +1299,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // `name` and `children: [value_idx, body_idx]`; evaluate value,
             // extend env with name=value, evaluate body, pop scope.
             "bind" => self.prim_v2_bind(node),
+            // `eval_let` — v0.1 `let` evaluation. Same payload format as
+            // `bind` (`{"name": ..., "children": [value, body]}`), so
+            // dispatch to the same handler.
+            "eval_let" => self.prim_v2_bind(node),
             // ADR-0060: json node payload is the JSON template string. When
             // the json node has children (desugared from json{...}(args)),
             // child 0 is the template node and children 1..N are args.
@@ -1991,6 +2000,14 @@ mod tests {
                 Scheme::arr_native("closure", vec![]),
             ))
             .unwrap();
+        // return -> proj_child(0) (v0.1: `return v` evaluates to `v`)
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.return",
+                "return",
+                Scheme::arr_native_lit("proj_child", vec![], json!(0u64)),
+            ))
+            .unwrap();
         // loop -> Seq(proj_child(0), Loop(loop_step(proj_child(1))))
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -2008,31 +2025,29 @@ mod tests {
         lang
     }
 
-    /// `loop 42 (x ~> { out: x })` — single-step terminate,
+    /// `loop 42 (x ~> return x)` — single-step terminate,
     /// one param (no destructuring), scalar state. Expected: 42.
     #[test]
     fn loop_step_single_step_terminate() {
         let lang = loop_lang();
         // Arena:
-        //   0: lit "out"      1: var "x"
-        //   2: entry [0, 1]   3: object {children: [2]}
-        //   4: function {params: ["x"], body: 3}
-        //   5: lit 42         6: loop {children: [5, 4]}
+        //   0: var "x"
+        //   1: return {children: [0]}      (return x)
+        //   2: function {params: ["x"], body: 1}
+        //   3: lit 42         4: loop {children: [3, 2]}
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!("out")),            // 0
-            AstNode::new("var").with_payload(json!("x")),              // 1
-            AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
-            AstNode::new("object").with_payload(json!({"children": [2]})),   // 3
-            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 3})), // 4
-            AstNode::new("lit").with_payload(json!(42)),                    // 5
-            AstNode::new("loop").with_payload(json!({"children": [5, 4]})), // 6
+            AstNode::new("var").with_payload(json!("x")),                        // 0
+            AstNode::new("return").with_payload(json!({"children": [0]})),       // 1
+            AstNode::new("function").with_payload(json!({"params": ["x"], "body": 1})), // 2
+            AstNode::new("lit").with_payload(json!(42)),                         // 3
+            AstNode::new("loop").with_payload(json!({"children": [3, 2]})),      // 4
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
-        let result = frame.exec_node(AstRef::new(6)).unwrap();
+        let result = frame.exec_node(AstRef::new(4)).unwrap();
         assert_eq!(result, json!(42));
     }
 
-    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then { out: acc }
+    /// `loop { n: 3, acc: 1 }([n, acc] ~> if n == 0 then return acc
     /// else { state: { n: n - 1, acc: acc * n } })` — multi-step with param
     /// destructuring, `if`, arithmetic, nested object construction.
     /// Computes 3! = 6.
@@ -2040,49 +2055,48 @@ mod tests {
     fn loop_step_factorial_destructured() {
         let lang = loop_lang();
         // Arena (see `loop_lang` for the schemes):
-        //   0: lit "n"        1: lit "acc"      2: lit "out"    3: lit "state"
-        //   4: lit 0          5: lit 1
-        //   6: var "n"        7: var "acc"
-        //   8: binary.eq   [6, 4]    (n == 0)
-        //   9: binary.sub  [6, 5]    (n - 1)
-        //  10: binary.mul  [7, 6]    (acc * n)
-        //  11: entry [0, 9]          (n: n - 1)
-        //  12: entry [1, 10]         (acc: acc * n)
-        //  13: object {children: [11, 12]}   (inner state {n, acc})
-        //  14: entry [2, 7]          (out: acc)
-        //  15: object {children: [14]}       (then {out: acc})
-        //  16: entry [3, 13]         (state: inner)
-        //  17: object {children: [16]}       (else {state: {...}})
-        //  18: if {children: [8, 15, 17]}
-        //  19: function {params: ["n","acc"], body: 18}
-        //  20: lit {n: 3, acc: 1}
-        //  21: loop {children: [20, 19]}
+        //   0: lit "n"        1: lit "acc"      2: lit "state"
+        //   3: lit 0          4: lit 1
+        //   5: var "n"        6: var "acc"
+        //   7: binary.eq   [5, 3]    (n == 0)
+        //   8: binary.sub  [5, 4]    (n - 1)
+        //   9: binary.mul  [6, 5]    (acc * n)
+        //  10: entry [0, 8]          (n: n - 1)
+        //  11: entry [1, 9]          (acc: acc * n)
+        //  12: object {children: [10, 11]}   (inner state {n, acc})
+        //  13: var "acc"
+        //  14: return {children: [13]}       (then: return acc)
+        //  15: entry [2, 12]         (state: inner)
+        //  16: object {children: [15]}       (else {state: {...}})
+        //  17: if {children: [7, 14, 16]}
+        //  18: function {params: ["n","acc"], body: 17}
+        //  19: lit {n: 3, acc: 1}
+        //  20: loop {children: [19, 18]}
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!("n")),              // 0
             AstNode::new("lit").with_payload(json!("acc")),            // 1
-            AstNode::new("lit").with_payload(json!("out")),            // 2
-            AstNode::new("lit").with_payload(json!("state")),          // 3
-            AstNode::new("lit").with_payload(json!(0)),                // 4
-            AstNode::new("lit").with_payload(json!(1)),                // 5
-            AstNode::new("var").with_payload(json!("n")),              // 6
-            AstNode::new("var").with_payload(json!("acc")),            // 7
-            AstNode::new("binary.eq").with_payload(json!({"children": [6, 4]})),   // 8
-            AstNode::new("binary.sub").with_payload(json!({"children": [6, 5]})),  // 9
-            AstNode::new("binary.mul").with_payload(json!({"children": [7, 6]})),  // 10
-            AstNode::new("entry").with_payload(json!({"children": [0, 9]})),       // 11
-            AstNode::new("entry").with_payload(json!({"children": [1, 10]})),      // 12
-            AstNode::new("object").with_payload(json!({"children": [11, 12]})),    // 13
-            AstNode::new("entry").with_payload(json!({"children": [2, 7]})),       // 14
-            AstNode::new("object").with_payload(json!({"children": [14]})),        // 15
-            AstNode::new("entry").with_payload(json!({"children": [3, 13]})),      // 16
-            AstNode::new("object").with_payload(json!({"children": [16]})),        // 17
-            AstNode::new("if").with_payload(json!({"children": [8, 15, 17]})),     // 18
-            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 18})), // 19
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 20
-            AstNode::new("loop").with_payload(json!({"children": [20, 19]})),      // 21
+            AstNode::new("lit").with_payload(json!("state")),          // 2
+            AstNode::new("lit").with_payload(json!(0)),                // 3
+            AstNode::new("lit").with_payload(json!(1)),                // 4
+            AstNode::new("var").with_payload(json!("n")),              // 5
+            AstNode::new("var").with_payload(json!("acc")),            // 6
+            AstNode::new("binary.eq").with_payload(json!({"children": [5, 3]})),   // 7
+            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})),  // 8
+            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})),  // 9
+            AstNode::new("entry").with_payload(json!({"children": [0, 8]})),       // 10
+            AstNode::new("entry").with_payload(json!({"children": [1, 9]})),       // 11
+            AstNode::new("object").with_payload(json!({"children": [10, 11]})),    // 12
+            AstNode::new("var").with_payload(json!("acc")),                        // 13
+            AstNode::new("return").with_payload(json!({"children": [13]})),        // 14
+            AstNode::new("entry").with_payload(json!({"children": [2, 12]})),      // 15
+            AstNode::new("object").with_payload(json!({"children": [15]})),        // 16
+            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})),     // 17
+            AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 17})), // 18
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 19
+            AstNode::new("loop").with_payload(json!({"children": [19, 18]})),      // 20
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
-        let result = frame.exec_node(AstRef::new(21)).unwrap();
+        let result = frame.exec_node(AstRef::new(20)).unwrap();
         assert_eq!(result, json!(6));
     }
 

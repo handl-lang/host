@@ -8,4 +8,4 @@
 -- Invariant: length-related predicates + Le(0, buffer) — INFERRED.
 -- Termination: Constant (side-channel; event stream passes through).
 
-loop(comp(choice(arr("state.push"), arr("state.pop")), first(id)))
+rec { (arr("state.push") ||| arr("state.pop")) >>> first(id) }

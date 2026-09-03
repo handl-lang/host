@@ -27,6 +27,8 @@
   label: choice
 - id: token.arrow.loop
   label: loop
+- id: token.arrow.rec
+  label: rec
 - id: token.arrow.app
   label: app
 # `id` is the identity arrow keyword — a nullary atom (`id`, not `id(...)`).
@@ -74,13 +76,7 @@
 # `~>` — separates proc params from body (`state ~> body`).
 - id: token.arrow.arrow
   label: '~>'
-# `-<` — arrow application (`returnA -< { ... }`, `state.f -< h`).
-- id: token.arrow.arrow_app
-  label: '-<'
-# `<-` — arrow bind (`y <- state.f -< h`).
-- id: token.arrow.arrow_bind
-  label: '<-'
-# `<=` — less-than-or-equal comparison (used in `if cmp <= 0 then ...`).
+# `<=` — less-than-or-equal comparison (used in `if cmp <= 0 ...`).
 - id: token.arrow.le
   label: '<='
 # `...` — spread/rest in list patterns and literals (`[h, ...t]`).
@@ -95,14 +91,12 @@
   label: match
 - id: token.arrow.if
   label: if
-- id: token.arrow.then
-  label: then
 - id: token.arrow.else
   label: else
 - id: token.arrow.do
   label: do
-- id: token.arrow.returnA
-  label: returnA
+- id: token.keyword.return
+  label: return
 - id: token.arrow.in
   label: in
 

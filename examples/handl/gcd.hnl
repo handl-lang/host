@@ -1,6 +1,6 @@
-loop { a: 48, b: 36 } (
-  [a, b] ~> if b == 0 then
-    returnA -< { out: a }
+while { a: 48, b: 36 } (
+  [a, b] ~> if b == 0
+    return a
   else
-    returnA -< { state: { a: b, b: a % b } }
+    { state: { a: b, b: a % b } }
 )
