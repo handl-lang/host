@@ -55,33 +55,63 @@ cap "socket.close"
 cap "sig.send"
 cap "sig.list"
 op "fs.read" : String -> String
+  requires: PathValid(path)
+  guarantee: True
 op "fs.write" : String -> Value
+  requires: PathValid(path)
+  guarantee: True
 op "fs.exists" : String -> Value
+  guarantee: True
 op "fs.remove" : String -> Value
+  guarantee: True
 op "fs.list" : String -> Value
+  guarantee: True
 op "env.get" : String -> Value
+  guarantee: True
 op "env.has" : String -> Value
+  guarantee: True
 op "env.keys" : -> Value
+  guarantee: True
 op "path.join" : String -> String
+  guarantee: IsString(output)
 op "path.resolve" : String -> String
+  guarantee: IsString(output)
 op "path.basename" : String -> String
+  guarantee: IsString(output)
 op "path.dirname" : String -> String
+  guarantee: IsString(output)
 op "path.extname" : String -> String
+  guarantee: IsString(output)
 op "time.now" : -> Value
+  guarantee: True
 op "time.epoch" : -> Value
+  guarantee: True
 op "cmd.run" : String -> Value
+  guarantee: True
 op "process.spawn" : String -> Value
+  guarantee: True
 op "process.kill" : Value -> Value
+  guarantee: True
 op "process.wait" : Value -> Value
+  guarantee: True
 op "process.status" : Value -> Value
+  guarantee: True
 op "tmp.file" : -> String
+  guarantee: IsString(output)
 op "tmp.dir" : -> String
+  guarantee: IsString(output)
 op "socket.connect" : String -> Value
+  guarantee: True
 op "socket.send" : Value -> Value
+  guarantee: True
 op "socket.recv" : Value -> String
+  guarantee: IsString(output)
 op "socket.close" : Value -> Value
+  guarantee: True
 op "sig.send" : Value -> Value
+  guarantee: True
 op "sig.list" : -> Value
+  guarantee: True
 
 handl "fs.read" = rust_fs_read
 handl "fs.write" = rust_fs_write

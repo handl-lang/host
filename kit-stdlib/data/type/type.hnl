@@ -64,15 +64,28 @@ cap "type.may"
 cap "type.not"
 cap "type.when"
 op "type.type_of" : Value -> String
+  guarantee: IsString(output)
 op "type.typeof" : Value -> String
+  guarantee: IsString(output)
 op "type.to_string" : Value -> String
+  guarantee: IsString(output)
 op "type.to_number" : Value -> Number
+  guarantee: True
 op "type.to_bool" : Value -> Bool
+  guarantee: True
 op "type.identity" : Value -> Value
+  guarantee: True
 op "type.default" : (Value, Value) -> Value
+  guarantee: True
 op "type.coalesce" : Value -> Value
+  guarantee: True
 op "type.is" : (Value, String) -> Bool
+  guarantee: True
 op "type.must" : (Value, String) -> Value
+  guarantee: True
 op "type.may" : (Value, String) -> Bool
+  guarantee: True
 op "type.not" : (Value, String) -> Bool
+  guarantee: True
 op "type.when" : (Value, String) -> Value
+  guarantee: True

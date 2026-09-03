@@ -35,17 +35,29 @@ cap "ws_rfc.frame.decode"
 cap "ws_rfc.message.from_frame"
 cap "ws_rfc.message.to_frame"
 op "ws_rfc.client" : () -> Value
+  guarantee: True
 op "ws_rfc.connect" : (Value, String) -> Value
+  guarantee: True
 op "ws_rfc.send" : (Value, Value) -> Value
+  guarantee: True
 op "ws_rfc.recv" : Value -> Value
+  guarantee: True
 op "ws_rfc.close" : Value -> Value
+  guarantee: True
 op "ws_rfc.server" : () -> Value
+  guarantee: True
 op "ws_rfc.listen" : (Value, String, Function) -> Value
+  guarantee: True
 op "ws_rfc.stop" : Value -> Value
+  guarantee: True
 op "ws_rfc.frame.encode" : Value -> String
+  guarantee: IsBase64(output)
 op "ws_rfc.frame.decode" : String -> Value
+  guarantee: True
 op "ws_rfc.message.from_frame" : Value -> Value
+  guarantee: True
 op "ws_rfc.message.to_frame" : Value -> String
+  guarantee: IsBase64(output)
 
 handl "ws_rfc.client" = rust_ws_rfc_native_client
 handl "ws_rfc.connect" = rust_ws_rfc_native_connect

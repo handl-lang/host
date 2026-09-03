@@ -39,25 +39,45 @@ cap "cmp.sort_by_desc"
 cap "cmp.min_by"
 cap "cmp.max_by"
 op "cmp.eq" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.ne" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.lt" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.le" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.gt" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.ge" : (Value, Value) -> Bool
+  guarantee: True
 op "cmp.compare" : (Value, Value) -> Number
+  guarantee: Le(output, 1)
 op "cmp.min" : Value... -> Value
+  guarantee: True
 op "cmp.max" : Value... -> Value
+  guarantee: True
 op "cmp.clamp" : (Value, Value, Value) -> Value
+  guarantee: True
 op "cmp.between" : (Value, Value, Value) -> Bool
+  guarantee: True
 op "cmp.in_range" : (Value, Value, Value) -> Bool
+  guarantee: True
 op "cmp.is_sorted" : Array -> Bool
+  guarantee: True
 op "cmp.is_sorted_desc" : Array -> Bool
+  guarantee: True
 op "cmp.sort" : Array -> Array
+  guarantee: True
 op "cmp.sort_desc" : Array -> Array
+  guarantee: True
 op "cmp.sort_by" : (Function, Array) -> Array
+  guarantee: True
 op "cmp.sort_by_desc" : (Function, Array) -> Array
+  guarantee: True
 op "cmp.min_by" : (Function, Array) -> Value
+  guarantee: True
 op "cmp.max_by" : (Function, Array) -> Value
+  guarantee: True
 
 handl "cmp.eq" = rust_cmp_eq
 handl "cmp.ne" = rust_cmp_ne

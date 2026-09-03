@@ -3,7 +3,9 @@
 cap "toml.parse"
 cap "toml.stringify"
 op "toml.parse" : String -> Value
+  guarantee: True
 op "toml.stringify" : Value -> String
+  guarantee: IsString(output)
 
 handl "toml.parse" = rust_toml_parse
 handl "toml.stringify" = rust_toml_stringify

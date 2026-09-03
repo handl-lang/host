@@ -27,19 +27,33 @@ cap "ip.cidr.broadcast"
 cap "ip.socket.parse"
 cap "ip.socket.format"
 op "ip.parse" : String -> Value
+  guarantee: True
 op "ip.format" : Value -> String
+  guarantee: IsString(output)
 op "ip.is_loopback" : Value -> Bool
+  guarantee: True
 op "ip.is_multicast" : Value -> Bool
+  guarantee: True
 op "ip.is_private" : Value -> Bool
+  guarantee: True
 op "ip.is_link_local" : Value -> Bool
+  guarantee: True
 op "ip.is_unspecified" : Value -> Bool
+  guarantee: True
 op "ip.cidr.parse" : String -> Value
+  guarantee: True
 op "ip.cidr.format" : Value -> String
+  guarantee: IsString(output)
 op "ip.cidr.contains" : (Value, Value) -> Bool
+  guarantee: True
 op "ip.cidr.network" : Value -> String
+  guarantee: IsString(output)
 op "ip.cidr.broadcast" : Value -> String
+  guarantee: IsString(output)
 op "ip.socket.parse" : String -> Value
+  guarantee: True
 op "ip.socket.format" : Value -> String
+  guarantee: IsString(output)
 
 handl "ip.parse" = rust_ip_parse
 handl "ip.format" = rust_ip_format

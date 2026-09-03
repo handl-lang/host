@@ -11,11 +11,17 @@ cap "unicode.code_points"
 cap "unicode.code_point_at"
 cap "unicode.decode"
 op "unicode.is_valid_identifier" : String -> Bool
+  guarantee: True
 op "unicode.is_xid_start" : String -> Bool
+  guarantee: True
 op "unicode.is_xid_continue" : String -> Bool
+  guarantee: True
 op "unicode.code_points" : String -> Array
+  guarantee: True
 op "unicode.code_point_at" : (String, Number) -> Value
+  guarantee: True
 op "unicode.decode" : String -> Array
+  guarantee: True
 
 handl "unicode.is_valid_identifier" = rust_unicode_is_valid_identifier
 handl "unicode.is_xid_start" = rust_unicode_is_xid_start

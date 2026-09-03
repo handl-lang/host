@@ -23,17 +23,29 @@ cap "fuzz.run"
 cap "snapshot.format"
 cap "snapshot.match"
 op "test.run" : Array -> Value
+  guarantee: True
 op "assert.equal" : (Value, Value) -> Bool
+  guarantee: True
 op "assert.not_equal" : (Value, Value) -> Bool
+  guarantee: True
 op "assert.true" : Bool -> Bool
+  guarantee: True
 op "assert.false" : Bool -> Bool
+  guarantee: True
 op "assert.contains" : (Value, Value) -> Bool
+  guarantee: True
 op "assert.throws" : Function -> Bool
+  guarantee: True
 op "property.for_all" : (Function, Number) -> Bool
+  guarantee: True
 op "benchmark.run" : (Function, Number) -> Value
+  guarantee: True
 op "fuzz.run" : (Function, Number) -> Value
+  guarantee: True
 op "snapshot.format" : Value -> String
+  guarantee: IsString(output)
 op "snapshot.match" : (String, Value, Value) -> Bool
+  guarantee: True
 
 handl "test.run" = rust_test_run
 handl "assert.equal" = rust_assert_equal

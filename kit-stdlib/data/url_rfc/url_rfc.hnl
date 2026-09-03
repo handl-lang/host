@@ -3,7 +3,9 @@
 cap "url_rfc.parse"
 cap "url_rfc.url_rfc"
 op "url_rfc.parse" : String -> Value
+  guarantee: True
 op "url_rfc.url_rfc" : () -> Value
+  guarantee: True
 
 handl "url_rfc.parse" = rust_url_rfc_parse
 handl "url_rfc.url_rfc" = rust_url_rfc_name

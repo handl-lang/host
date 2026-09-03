@@ -1,175 +1,207 @@
--- stats.stats — the canonical handl statistical aggregates.
---
--- Single source of truth for the `stats` stdlib logic: `sum`, `avg`,
--- `product`, `min`, `max`, `median`, `stddev`. The Rust bridge in
--- `plugin-lib-stats` loads this file via `include_str!`, evaluates it to
--- obtain a record of procs, and applies the requested field to the caller's
--- array argument.
---
--- Non-number handling: the prior Rust impl silently skipped non-numeric
--- elements (`filter_map(|v| v.as_f64())`). This handl port reproduces that
--- filtering using `typeof.type_of(x) == "num"`, which requires `TypeModule`
--- in the bridge runtime. (The `type.is` host function cannot be used here
--- because `is` is a handl keyword parsed as an infix mood operator, not an
--- identifier, so `type.is(...)` does not parse as a field-access call.)
--- Non-numbers are dropped before aggregation.
---
--- `stddev` calls `math.sqrt` (requires `MathModule` in the bridge runtime);
--- handl has a native `**` (pow) op but no native `sqrt`.
---
--- Iteration uses the `while { state } { [fields...] ~> ... }` form: the
--- body returns `{ out: value }` to terminate or `{ state: { ... } }` to
--- continue. `median` uses an insertion sort (handl has no native sort),
--- implemented via recursion-via-self (`[self, ...] ~> ...`).
---
--- Float vs int: handl integer/integer division truncates (like Rust i64).
--- To match the Rust f64 semantics, divisions that must produce a float
--- (avg, stddev mean/variance, median-of-even-length) coerce a divisor to
--- float by adding `0.0` or dividing by a float literal like `2.0`.
+--- stats.stats — the canonical handl statistical aggregates.
+---
+--- Single source of truth for the `stats` stdlib logic: `sum`, `avg`,
+--- `product`, `min`, `max`, `median`, `stddev`. The Rust bridge in
+--- `plugin-lib-stats` loads this file via `include_str!`, evaluates it to
+--- obtain a record of procs, and applies the requested field to the caller's
+--- array argument.
+---
+--- Non-number handling: the prior Rust impl silently skipped non-numeric
+--- elements (`filter_map(|v| v.as_f64())`). This handl port reproduces that
+--- filtering using `typeof.type_of(x) == "num"`, which requires `TypeModule`
+--- in the bridge runtime. (The `type.is` host function cannot be used here
+  --- because `is` is a handl keyword parsed as an infix mood operator, not an
+  --- identifier, so `type.is(...)` does not parse as a field-access call.)
+--- Non-numbers are dropped before aggregation.
+---
+--- `stddev` calls `math.sqrt` (requires `MathModule` in the bridge runtime);
+--- handl has a native `**` (pow) op but no native `sqrt`.
+---
+--- Iteration uses the `while { state } { [fields...] ~> ... }` form: the
+--- body returns `{ out: value }` to terminate or `{ state: { ... } }` to
+--- continue. `median` uses an insertion sort (handl has no native sort),
+--- implemented via recursion-via-self (`[self, ...] ~> ...`).
+---
+--- Float vs int: handl integer/integer division truncates (like Rust i64).
+--- To match the Rust f64 semantics, divisions that must produce a float
+--- (avg, stddev mean/variance, median-of-even-length) coerce a divisor to
+--- float by adding `0.0` or dividing by a float literal like `2.0`.
+---
+--- ## Capability and op declarations (ADR-0077 Phase 4)
+--- stats.sum — sum of the numeric elements of an array.
+--- stats.avg — arithmetic mean of the numeric elements of an array.
+--- stats.product — product of the numeric elements of an array.
+--- stats.min — minimum of the numeric elements of an array (null if empty).
+--- stats.max — maximum of the numeric elements of an array (null if empty).
+--- stats.median — median of the numeric elements of an array (0 if empty).
+--- stats.stddev — population standard deviation of the numeric elements of
+--- an array (0 if fewer than 2 elements).
+cap "stats.sum"
+cap "stats.avg"
+cap "stats.product"
+cap "stats.min"
+cap "stats.max"
+cap "stats.median"
+cap "stats.stddev"
+op "stats.sum" : Array -> Number
+  guarantee: True
+op "stats.avg" : Array -> Number
+  guarantee: True
+op "stats.product" : Array -> Number
+  guarantee: True
+op "stats.min" : Array -> Number
+  guarantee: True
+op "stats.max" : Array -> Number
+  guarantee: True
+op "stats.median" : Array -> Number
+  guarantee: True
+op "stats.stddev" : Array -> Number
+  guarantee: NonNeg(output)
+
 let
-  filter_nums = xs ~>
-    while { xs: xs, acc: [] } {
-      [xs, acc] ~> match xs {
-        []: { out: acc },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          { state: { xs: t, acc: [h, ...acc] } }
-        } else {
-          { state: { xs: t, acc: acc } }
-        }
-      }
+filter_nums = xs ~>
+while { xs: xs, acc: [] } {
+  [xs, acc] ~> match xs {
+    []: { out: acc },
+    [h, ...t]: if typeof.type_of(h) == "num" {
+      { state: { xs: t, acc: [h, ...acc] } }
+    } else {
+      { state: { xs: t, acc: acc } }
     }
+  }
+}
 in
 let
-  insert = [self, elem, sorted] ~>
-    match sorted {
-      []: [elem],
-      [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
-    }
+insert = [self, elem, sorted] ~>
+match sorted {
+  []: [elem],
+  [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
+}
 in
 let
-  sort = [self, xs] ~>
-    match xs {
-      []: [],
-      [h, ...t]: insert(insert, h, self(self, t))
-    }
+sort = [self, xs] ~>
+match xs {
+  []: [],
+  [h, ...t]: insert(insert, h, self(self, t))
+}
 in
 let
-  length = xs ~>
-    while { xs: xs, n: 0 } {
-      [xs, n] ~> match xs {
-        []: { out: n },
-        [h, ...t]: { state: { xs: t, n: n + 1 } }
-      }
-    }
+length = xs ~>
+while { xs: xs, n: 0 } {
+  [xs, n] ~> match xs {
+    []: { out: n },
+    [h, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
 in
 let
-  nth = [xs, i] ~>
-    while { xs: xs, i: i } {
-      [xs, i] ~> match xs {
-        []: { out: null },
-        [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
-      }
-    }
+nth = [xs, i] ~>
+while { xs: xs, i: i } {
+  [xs, i] ~> match xs {
+    []: { out: null },
+    [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
+  }
+}
 in
 {
   sum: xs ~>
-    while { xs: xs, acc: 0 } {
-      [xs, acc] ~> match xs {
-        []: { out: acc },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          { state: { xs: t, acc: acc + h } }
-        } else {
-          { state: { xs: t, acc: acc } }
-        }
+  while { xs: xs, acc: 0 } {
+    [xs, acc] ~> match xs {
+      []: { out: acc },
+      [h, ...t]: if typeof.type_of(h) == "num" {
+        { state: { xs: t, acc: acc + h } }
+      } else {
+        { state: { xs: t, acc: acc } }
       }
-    },
+    }
+  },
 
   product: xs ~>
-    while { xs: xs, acc: 1 } {
-      [xs, acc] ~> match xs {
-        []: { out: acc },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          { state: { xs: t, acc: acc * h } }
-        } else {
-          { state: { xs: t, acc: acc } }
-        }
+  while { xs: xs, acc: 1 } {
+    [xs, acc] ~> match xs {
+      []: { out: acc },
+      [h, ...t]: if typeof.type_of(h) == "num" {
+        { state: { xs: t, acc: acc * h } }
+      } else {
+        { state: { xs: t, acc: acc } }
       }
-    },
+    }
+  },
 
   avg: xs ~>
-    while { xs: xs, sum: 0, count: 0 } {
-      [xs, sum, count] ~> match xs {
-        []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          { state: { xs: t, sum: sum + h, count: count + 1 } }
-        } else {
-          { state: { xs: t, sum: sum, count: count } }
-        }
+  while { xs: xs, sum: 0, count: 0 } {
+    [xs, sum, count] ~> match xs {
+      []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
+      [h, ...t]: if typeof.type_of(h) == "num" {
+        { state: { xs: t, sum: sum + h, count: count + 1 } }
+      } else {
+        { state: { xs: t, sum: sum, count: count } }
       }
-    },
+    }
+  },
 
   min: xs ~>
-    while { xs: xs, best: 0, seen: false } {
-      [xs, best, seen] ~> match xs {
-        []: { out: if seen { best } else { null } },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          if seen {
-            { state: { xs: t, best: if h < best { h } else { best }, seen: true } }
-          } else {
-            { state: { xs: t, best: h, seen: true } }
-          }
+  while { xs: xs, best: 0, seen: false } {
+    [xs, best, seen] ~> match xs {
+      []: { out: if seen { best } else { null } },
+      [h, ...t]: if typeof.type_of(h) == "num" {
+        if seen {
+          { state: { xs: t, best: if h < best { h } else { best }, seen: true } }
         } else {
-          { state: { xs: t, best: best, seen: seen } }
+          { state: { xs: t, best: h, seen: true } }
         }
+      } else {
+        { state: { xs: t, best: best, seen: seen } }
       }
-    },
+    }
+  },
 
   max: xs ~>
-    while { xs: xs, best: 0, seen: false } {
-      [xs, best, seen] ~> match xs {
-        []: { out: if seen { best } else { null } },
-        [h, ...t]: if typeof.type_of(h) == "num" {
-          if seen {
-            { state: { xs: t, best: if h > best { h } else { best }, seen: true } }
-          } else {
-            { state: { xs: t, best: h, seen: true } }
-          }
+  while { xs: xs, best: 0, seen: false } {
+    [xs, best, seen] ~> match xs {
+      []: { out: if seen { best } else { null } },
+      [h, ...t]: if typeof.type_of(h) == "num" {
+        if seen {
+          { state: { xs: t, best: if h > best { h } else { best }, seen: true } }
         } else {
-          { state: { xs: t, best: best, seen: seen } }
+          { state: { xs: t, best: h, seen: true } }
         }
+      } else {
+        { state: { xs: t, best: best, seen: seen } }
       }
-    },
+    }
+  },
 
   median: xs ~>
-    let nums = filter_nums(xs) in
-    let sorted = sort(sort, nums) in
-    let n = length(sorted) in
-    if n == 0 { 0 } else {
-      if n % 2 == 1 {
-        nth(sorted, n / 2)
-      } else {
-        (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0
-      }
-    },
+  let nums = filter_nums(xs) in
+  let sorted = sort(sort, nums) in
+  let n = length(sorted) in
+  if n == 0 { 0 } else {
+    if n % 2 == 1 {
+      nth(sorted, n / 2)
+    } else {
+      (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0
+    }
+  },
 
   stddev: xs ~>
-    let nums = filter_nums(xs) in
-    let n = length(nums) in
-    if n < 2 { 0 } else {
-      let total = while { xs: nums, acc: 0 } {
-        [xs, acc] ~> match xs {
-          []: { out: acc },
-          [h, ...t]: { state: { xs: t, acc: acc + h } }
-        }
-      } in
-      let mean = total / (n + 0.0) in
-      let sq_sum = while { xs: nums, acc: 0 } {
-        [xs, acc] ~> match xs {
-          []: { out: acc },
-          [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
-        }
-      } in
-      let variance = sq_sum / (n + 0.0) in
-      math.sqrt(variance)
-    }
+  let nums = filter_nums(xs) in
+  let n = length(nums) in
+  if n < 2 { 0 } else {
+    let total = while { xs: nums, acc: 0 } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: acc + h } }
+      }
+    } in
+    let mean = total / (n + 0.0) in
+    let sq_sum = while { xs: nums, acc: 0 } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
+      }
+    } in
+    let variance = sq_sum / (n + 0.0) in
+    math.sqrt(variance)
+  }
 }

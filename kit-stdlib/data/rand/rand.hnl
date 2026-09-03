@@ -57,34 +57,63 @@ cap "rand.seeded_shuffle"
 cap "rand.seeded_string"
 cap "rand.seeded_gauss"
 op "rand.int" : Value... -> Number
+  guarantee: True
 op "rand.float" : Value... -> Number
+  guarantee: True
 op "rand.bool" : () -> Bool
+  guarantee: True
 op "rand.pick" : Array -> Value
+  guarantee: True
 op "rand.choice" : (Array, Number) -> Array
+  guarantee: True
 op "rand.sample" : (Array, Number) -> Array
+  guarantee: True
 op "rand.shuffle" : Array -> Array
+  guarantee: True
 op "rand.weighted_pick" : (Array, Array) -> Value
+  guarantee: True
 op "rand.string" : Value... -> String
+  guarantee: IsString(output)
 op "rand.bytes" : Number -> Array
+  guarantee: True
 op "rand.uuid" : () -> String
+  guarantee: IsString(output)
 op "rand.gauss" : (Number, Number) -> Number
+  guarantee: True
 op "rand.exponential" : Number -> Number
+  guarantee: True
 op "rand.poisson" : Number -> Number
+  guarantee: NonNeg(output)
 op "rand.binomial" : (Number, Number) -> Number
+  guarantee: NonNeg(output)
 op "rand.perlin_1d" : Number -> Number
+  guarantee: True
 op "rand.perlin_2d" : (Number, Number) -> Number
+  guarantee: True
 op "rand.perlin_3d" : (Number, Number, Number) -> Number
+  guarantee: True
 op "rand.simplex_2d" : (Number, Number) -> Number
+  guarantee: True
 op "rand.simplex_3d" : (Number, Number, Number) -> Number
+  guarantee: True
 op "rand.seeded_int" : (Number, Number, Number) -> Number
+  guarantee: True
 op "rand.seeded_float" : (Number, Number, Number) -> Number
+  guarantee: True
 op "rand.seeded_bool" : Number -> Bool
+  guarantee: True
 op "rand.seeded_pick" : (Number, Array) -> Value
+  guarantee: True
 op "rand.seeded_choice" : (Number, Array, Number) -> Array
+  guarantee: True
 op "rand.seeded_sample" : (Number, Array, Number) -> Array
+  guarantee: True
 op "rand.seeded_shuffle" : (Number, Array) -> Array
+  guarantee: True
 op "rand.seeded_string" : (Number, Number) -> String
+  guarantee: IsString(output)
 op "rand.seeded_gauss" : (Number, Number, Number) -> Number
+  guarantee: True
 
 handl "rand.int" = rust_rand_int
 handl "rand.float" = rust_rand_float

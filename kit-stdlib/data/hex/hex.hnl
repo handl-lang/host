@@ -3,7 +3,9 @@
 cap "hex.encode"
 cap "hex.decode"
 op "hex.encode" : String -> String
+  guarantee: IsHex(output)
 op "hex.decode" : String -> String
+  guarantee: True
 
 handl "hex.encode" = rust_hex_encode
 handl "hex.decode" = rust_hex_decode

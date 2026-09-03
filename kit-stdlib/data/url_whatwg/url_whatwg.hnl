@@ -3,7 +3,9 @@
 cap "url_whatwg.parse"
 cap "url_whatwg.url_whatwg"
 op "url_whatwg.parse" : String -> Value
+  guarantee: True
 op "url_whatwg.url_whatwg" : () -> Value
+  guarantee: True
 
 handl "url_whatwg.parse" = rust_url_whatwg_parse
 handl "url_whatwg.url_whatwg" = rust_url_whatwg_name

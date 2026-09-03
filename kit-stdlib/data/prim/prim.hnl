@@ -1,12 +1,15 @@
 --- prim.add — integer addition (irreducible atom).
 cap "prim.add"
 op "prim.add" : (Int * Int) -> Int
+  guarantee: True
 --- prim.compare — total ordering, returns -1/0/1 (irreducible atom).
 cap "prim.compare"
 op "prim.compare" : (a * b) -> Int
+  guarantee: Le(output, 1)
 --- prim.alloc — allocate an empty list (irreducible atom).
 cap "prim.alloc"
 op "prim.alloc" : Int -> List a
+  guarantee: LengthEq(output, 0)
 
 handl "prim.add" = rust_prim_add
 handl "prim.compare" = rust_prim_compare

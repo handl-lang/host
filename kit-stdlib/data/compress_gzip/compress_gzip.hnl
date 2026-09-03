@@ -3,7 +3,9 @@
 cap "gzip.compress"
 cap "gzip.decompress"
 op "gzip.compress" : String -> String
+  guarantee: IsBase64(output)
 op "gzip.decompress" : String -> String
+  guarantee: True
 
 handl "gzip.compress" = rust_gzip_compress
 handl "gzip.decompress" = rust_gzip_decompress

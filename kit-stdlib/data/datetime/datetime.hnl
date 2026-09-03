@@ -91,51 +91,97 @@ cap "datetime.start_of_year"
 cap "datetime.end_of_year"
 cap "datetime.is_valid"
 op "datetime.from_unix" : Number -> String
+  guarantee: IsString(output)
 op "datetime.to_unix" : String -> Number
+  guarantee: True
 op "datetime.from_components" : (Number, Number, Number, Number, Number, Number) -> String
+  guarantee: IsString(output)
 op "datetime.format" : (String, String) -> String
+  guarantee: IsString(output)
 op "datetime.parse" : (String, String) -> String
+  guarantee: IsString(output)
 op "datetime.to_timezone" : (String, String) -> String
+  guarantee: IsString(output)
 op "datetime.to_utc" : String -> String
+  guarantee: IsString(output)
 op "datetime.year" : String -> Number
+  guarantee: True
 op "datetime.month" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.day" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.hour" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.minute" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.second" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.weekday" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.day_of_year" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.week_of_year" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.quarter" : String -> Number
+  guarantee: NonNeg(output)
 op "datetime.is_leap_year" : String -> Bool
+  guarantee: True
 op "datetime.is_weekend" : String -> Bool
+  guarantee: True
 op "datetime.add_seconds" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_minutes" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_hours" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_days" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_weeks" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_months" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.add_years" : (String, Number) -> String
+  guarantee: IsString(output)
 op "datetime.compare" : (String, String) -> Number
+  guarantee: Le(output, 1)
 op "datetime.is_before" : (String, String) -> Bool
+  guarantee: True
 op "datetime.is_after" : (String, String) -> Bool
+  guarantee: True
 op "datetime.is_equal" : (String, String) -> Bool
+  guarantee: True
 op "datetime.is_between" : (String, String, String) -> Bool
+  guarantee: True
 op "datetime.is_between_inclusive" : (String, String, String) -> Bool
+  guarantee: True
 op "datetime.duration_between" : (String, String) -> Number
+  guarantee: True
 op "datetime.duration_seconds" : (String, String) -> Number
+  guarantee: True
 op "datetime.duration_minutes" : (String, String) -> Number
+  guarantee: True
 op "datetime.duration_hours" : (String, String) -> Number
+  guarantee: True
 op "datetime.duration_days" : (String, String) -> Number
+  guarantee: True
 op "datetime.start_of_day" : String -> String
+  guarantee: IsString(output)
 op "datetime.end_of_day" : String -> String
+  guarantee: IsString(output)
 op "datetime.start_of_hour" : String -> String
+  guarantee: IsString(output)
 op "datetime.end_of_hour" : String -> String
+  guarantee: IsString(output)
 op "datetime.start_of_month" : String -> String
+  guarantee: IsString(output)
 op "datetime.end_of_month" : String -> String
+  guarantee: IsString(output)
 op "datetime.start_of_year" : String -> String
+  guarantee: IsString(output)
 op "datetime.end_of_year" : String -> String
+  guarantee: IsString(output)
 op "datetime.is_valid" : String -> Bool
+  guarantee: True
 
 handl "datetime.from_unix" = rust_datetime_from_unix
 handl "datetime.to_unix" = rust_datetime_to_unix

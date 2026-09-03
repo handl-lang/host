@@ -3,7 +3,9 @@
 cap "base64.encode"
 cap "base64.decode"
 op "base64.encode" : String -> String
+  guarantee: IsBase64(output)
 op "base64.decode" : String -> String
+  guarantee: True
 
 handl "base64.encode" = rust_base64_encode
 handl "base64.decode" = rust_base64_decode

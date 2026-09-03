@@ -8,4 +8,6 @@
 cap "encoding.encode"
 cap "encoding.decode"
 op "encoding.encode" : Value -> Value
+  guarantee: True
 op "encoding.decode" : Value -> Value
+  guarantee: True

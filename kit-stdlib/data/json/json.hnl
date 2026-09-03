@@ -3,7 +3,9 @@
 cap "json.parse"
 cap "json.stringify"
 op "json.parse" : String -> Value
+  guarantee: True
 op "json.stringify" : Value -> String
+  guarantee: IsString(output)
 
 handl "json.parse" = rust_json_parse
 handl "json.stringify" = rust_json_stringify

@@ -17,11 +17,20 @@ cap "otlp.record_metric"
 cap "otlp.flush"
 cap "otlp.shutdown"
 op "otlp.configure" : Value -> Value
+  guarantee: True
 op "otlp.start_span" : String -> String
+  guarantee: IsString(output)
 op "otlp.end_span" : String -> Value
+  guarantee: True
 op "otlp.set_attribute" : String -> Value
+  guarantee: True
 op "otlp.add_event" : String -> Value
+  guarantee: True
 op "otlp.record_log" : String -> Value
+  guarantee: True
 op "otlp.record_metric" : String -> Value
+  guarantee: True
 op "otlp.flush" : -> Value
+  guarantee: True
 op "otlp.shutdown" : -> Value
+  guarantee: True

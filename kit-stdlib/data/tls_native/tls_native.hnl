@@ -23,17 +23,29 @@ cap "tls.write"
 cap "tls.close_conn"
 cap "tls.close_listener"
 op "tls.version" : -> Value
+  guarantee: True
 op "tls.generate_self_signed" : Value -> Value
+  guarantee: True
 op "tls.parse_cert" : String -> Value
+  guarantee: True
 op "tls.fingerprint" : String -> String
+  guarantee: IsHex(output)
 op "tls.client_config" : Value -> Value
+  guarantee: True
 op "tls.server_config" : String -> Value
+  guarantee: True
 op "tls.connect" : String -> Value
+  guarantee: True
 op "tls.accept" : String -> Value
+  guarantee: True
 op "tls.read" : Value -> String
+  guarantee: IsString(output)
 op "tls.write" : Value -> Value
+  guarantee: True
 op "tls.close_conn" : Value -> Value
+  guarantee: True
 op "tls.close_listener" : Value -> Value
+  guarantee: True
 
 handl "tls.version" = rust_tls_version
 handl "tls.generate_self_signed" = rust_tls_generate_self_signed

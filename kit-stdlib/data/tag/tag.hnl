@@ -13,12 +13,19 @@ cap "tag.is_tag"
 cap "tag.construct"
 cap "tag.match_type"
 op "tag.tag" : (String, Value) -> Value
+  guarantee: True
 op "tag.match_tag" : (Value, Value) -> Value
+  guarantee: True
 op "tag.untag" : Value -> Value
+  guarantee: True
 op "tag.tag_of" : Value -> Value
+  guarantee: True
 op "tag.is_tag" : Value -> Bool
+  guarantee: True
 op "tag.construct" : (String, Value) -> Value
+  guarantee: True
 op "tag.match_type" : (Value, Value) -> Value
+  guarantee: True
 
 handl "tag.tag" = rust_tag_tag
 handl "tag.match_tag" = rust_tag_match_tag

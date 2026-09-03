@@ -3,7 +3,9 @@
 cap "crypto.sha256"
 cap "crypto.md5"
 op "crypto.sha256" : Value -> String
+  guarantee: IsHex(output)
 op "crypto.md5" : Value -> String
+  guarantee: IsHex(output)
 
 handl "crypto.sha256" = rust_crypto_sha256
 handl "crypto.md5" = rust_crypto_md5

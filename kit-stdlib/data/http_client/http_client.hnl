@@ -13,9 +13,16 @@ cap "http.delete"
 cap "http.head"
 cap "http.request"
 op "http.get" : String -> Value
+  guarantee: True
 op "http.post" : String -> Value
+  guarantee: True
 op "http.put" : String -> Value
+  guarantee: True
 op "http.patch" : String -> Value
+  guarantee: True
 op "http.delete" : String -> Value
+  guarantee: True
 op "http.head" : String -> Value
+  guarantee: True
 op "http.request" : String -> Value
+  guarantee: True
