@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use handl_language::{ArrSource, Scheme, Value};
 
 use crate::arrow_parser::{
-    parse_arrow_file, parse_arrow_module, ExportDecl, ImportDecl, ParsedFile,
+    parse_arrow_module, parse_arrow_module_no_rewrite, ExportDecl, ImportDecl, ParsedFile,
 };
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
@@ -38,9 +38,9 @@ use crate::types::{Contract, Pred, RefinementResult};
 /// if there's only one).
 pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
     let content = fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
-    let parsed = parse_arrow_file(&content)?;
+    let parsed = parse_arrow_module_no_rewrite(&content)?;
 
-    match parsed {
+    match parsed.arrows {
         ParsedFile::Single(scheme) => Ok(scheme),
         ParsedFile::Named(map) => {
             // Return the first named arrow
@@ -59,9 +59,9 @@ pub fn load_arrow_file(path: &str) -> Result<Scheme, String> {
 /// For multi-name files, returns all named arrows.
 pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Scheme>, String> {
     let content = fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
-    let parsed = parse_arrow_file(&content)?;
+    let parsed = parse_arrow_module_no_rewrite(&content)?;
 
-    match parsed {
+    match parsed.arrows {
         ParsedFile::Single(scheme) => {
             // Use the file stem as the key
             let name = std::path::Path::new(path)
@@ -162,9 +162,11 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Scheme>) -> Result<(), String> 
                 Ok(c) => c,
                 Err(_) => continue, // skip unreadable files
             };
-            // Parse -- skip files that fail (the parser is minimal)
-            if let Ok(parsed) = parse_arrow_file(&content) {
-                match parsed {
+            // Parse — use module-aware parser (strips import/export/op/handl/cap
+            // declarations) but WITHOUT import rewriting, so bare name references
+            // are preserved for `resolve_apps`. Skip files that fail.
+            if let Ok(parsed) = parse_arrow_module_no_rewrite(&content) {
+                match parsed.arrows {
                     ParsedFile::Single(scheme) => {
                         map.insert(name, scheme);
                     }
@@ -229,6 +231,14 @@ fn resolve_apps_inner(
                     .map(|a| resolve_apps_inner(a, graph_map, depth))
                     .collect(),
             }
+        }
+
+        // `handle body with target = impl_` (ADR-0076): eliminate the handler
+        // at compile time, then resolve apps in the resulting handler-free
+        // graph.
+        Scheme::Handle { .. } => {
+            let eliminated = scheme.eliminate_handlers();
+            resolve_apps_inner(&eliminated, graph_map, depth)
         }
     }
 }
@@ -713,6 +723,14 @@ pub fn has_unresolved_apps(scheme: &Scheme, known_names: &HashSet<String>) -> bo
             has_unresolved_apps(callee, known_names)
                 || args.iter().any(|a| has_unresolved_apps(a, known_names))
         }
+        // `handle body with target = impl_` (ADR-0076): the handler is
+        // eliminated at compile time (impl inlined into body), so the
+        // combined graph's unresolved apps are the union of body's and
+        // impl's.
+        Scheme::Handle { body, impl_, .. } => {
+            has_unresolved_apps(body, known_names)
+                || has_unresolved_apps(impl_, known_names)
+        }
     }
 }
 
@@ -732,6 +750,11 @@ pub fn contains_module_ref(scheme: &Scheme) -> bool {
         Scheme::App { callee, args } => {
             contains_module_ref(callee) || args.iter().any(contains_module_ref)
         }
+        // `handle body with target = impl_` (ADR-0076): eliminated at compile
+        // time — check both body and impl for module refs.
+        Scheme::Handle { body, impl_, .. } => {
+            contains_module_ref(body) || contains_module_ref(impl_)
+        }
     }
 }
 
@@ -748,6 +771,11 @@ pub fn contains_project(scheme: &Scheme) -> bool {
         Scheme::Loop { body } => contains_project(body),
         Scheme::App { callee, args } => {
             contains_project(callee) || args.iter().any(contains_project)
+        }
+        // `handle body with target = impl_` (ADR-0076): eliminated at compile
+        // time — check both body and impl for projections.
+        Scheme::Handle { body, impl_, .. } => {
+            contains_project(body) || contains_project(impl_)
         }
     }
 }
@@ -789,6 +817,15 @@ fn transform_scheme<F>(scheme: &Scheme, f: &F) -> Scheme
 where
     F: Fn(&Scheme) -> Scheme,
 {
+    // `handle body with target = impl_` (ADR-0076): eliminate the handler at
+    // compile time, then apply the bottom-up transform to the resulting
+    // handler-free graph. This is handled before the match so the eliminated
+    // graph's children are recursively transformed (and `f` applied
+    // bottom-up) rather than only at the root.
+    if matches!(scheme, Scheme::Handle { .. }) {
+        let eliminated = scheme.eliminate_handlers();
+        return transform_scheme(&eliminated, f);
+    }
     let transformed = match scheme {
         Scheme::Arr {
             op,
@@ -819,6 +856,10 @@ where
             callee: Box::new(transform_scheme(callee, f)),
             args: args.iter().map(|a| transform_scheme(a, f)).collect(),
         },
+        // `handle body with target = impl_` (ADR-0076): eliminate the handler
+        // at compile time, then apply the bottom-up transform to the
+        // resulting handler-free graph.
+        Scheme::Handle { .. } => scheme.eliminate_handlers(),
     };
     f(&transformed)
 }
@@ -872,6 +913,9 @@ fn normalize_compile_time_inner(
     for import in &imports {
         // Recursively normalize the referenced module.
         let child_arrows = normalize_compile_time_inner(&import.path, loader, visited)?;
+        // Add file-stem aliases for single-expression modules (keyed "main")
+        // so that `import name from "path"` can find the arrow by file stem.
+        let child_arrows = arrows_with_file_stem_alias(&import.path, &child_arrows);
         let record = build_module_record(&child_arrows);
         path_records.insert(import.path.clone(), record.clone());
         for (remote_name, local_name) in &import.names {
@@ -1026,6 +1070,25 @@ fn add_module_arrows(
     }
 }
 
+/// Return a copy of `arrows` with a file-stem alias added for single-expression
+/// modules (keyed `"main"`). This ensures that `import name from "path"` can
+/// find the arrow by the file stem name (e.g. `import insert from
+/// "collection/insert"`) even when the module is a single-expression file
+/// whose arrow is keyed `"main"` by the ModuleLoader.
+fn arrows_with_file_stem_alias(
+    path: &str,
+    arrows: &HashMap<String, Scheme>,
+) -> HashMap<String, Scheme> {
+    let mut result = arrows.clone();
+    let stem = module_file_stem(path);
+    if !result.contains_key(&stem) {
+        if let Some(scheme) = result.get("main") {
+            result.insert(stem, scheme.clone());
+        }
+    }
+    result
+}
+
 /// Derive the parent directory of a module path (e.g. `"collection/sort"` ->
 /// `Some("collection")`). Returns `None` for top-level paths (no parent).
 fn module_parent_dir(path: &str) -> Option<String> {
@@ -1079,6 +1142,12 @@ fn collect_app_callee_names(scheme: &Scheme, out: &mut HashSet<String>) {
             for a in args {
                 collect_app_callee_names(a, out);
             }
+        }
+        // `handle body with target = impl_` (ADR-0076): eliminated at compile
+        // time — collect callee names from both body and impl.
+        Scheme::Handle { body, impl_, .. } => {
+            collect_app_callee_names(body, out);
+            collect_app_callee_names(impl_, out);
         }
     }
 }
@@ -1139,10 +1208,13 @@ fn load_transitive_body(
     for import in imports {
         load_transitive(&import.path, loader, visited, global_arrows)?;
         let child_loaded = loader.load(&import.path)?;
+        // Add file-stem aliases for single-expression modules (keyed "main")
+        // so that `import name from "path"` can find the arrow by file stem.
+        let child_arrows = arrows_with_file_stem_alias(&import.path, &child_loaded.arrows);
         // Bind the module path to a record of the child's arrows, so that
         // `module_ref(path)` nodes emitted by `rewrite_imports` can be
         // resolved by `resolve_all_apps`.
-        let record = build_module_record(&child_loaded.arrows);
+        let record = build_module_record(&child_arrows);
         global_arrows.insert(import.path.clone(), record.clone());
         for (remote_name, local_name) in &import.names {
             if remote_name == "*" {
@@ -1151,7 +1223,8 @@ fn load_transitive_body(
                 global_arrows.insert(local_name.clone(), record.clone());
             } else {
                 // Named import: bind local_name to the specific arrow.
-                if let Some(arrow) = child_loaded.arrows.get(remote_name) {
+                // Check both the raw arrows and the file-stem-aliased arrows.
+                if let Some(arrow) = child_arrows.get(remote_name) {
                     global_arrows.insert(local_name.clone(), arrow.clone());
                 }
             }
@@ -1253,6 +1326,7 @@ fn resolve_all_apps(
             body: Box::new(resolve_all_apps(body, known, resolving)),
         },
         Scheme::App { callee, args } => {
+            // First, try to resolve the callee as a known bare-name reference.
             if let Scheme::Arr { op, .. } = callee.as_ref() {
                 if let Some(target) = known.get(op) {
                     if !resolving.contains(op) {
@@ -1262,11 +1336,42 @@ fn resolve_all_apps(
                     }
                 }
             }
+            // Check if the callee is an import reference (project/module_ref
+            // node emitted by `rewrite_imports`). If so, resolve it and inline
+            // the result — replacing the App with the imported arrow's graph.
+            // This matches `resolve_apps` which inlines
+            // `App { callee: arr("name"), args: [] }` by replacing it with
+            // the referenced graph.
+            let is_import_ref = is_import_reference(callee);
+            let resolved_callee = resolve_all_apps(callee, known, resolving);
+            if is_import_ref && args.is_empty() && !is_import_reference(&resolved_callee) {
+                // The import reference resolved to a concrete graph — inline it.
+                return resolved_callee;
+            }
             Scheme::App {
-                callee: Box::new(resolve_all_apps(callee, known, resolving)),
+                callee: Box::new(resolved_callee),
                 args: args.iter().map(|a| resolve_all_apps(a, known, resolving)).collect(),
             }
         }
+        // `handle body with target = impl_` (ADR-0076): eliminate the handler
+        // at compile time, then resolve apps in the resulting handler-free
+        // graph.
+        Scheme::Handle { .. } => {
+            let eliminated = scheme.eliminate_handlers();
+            resolve_all_apps(&eliminated, known, resolving)
+        }
+    }
+}
+
+/// Check whether a `Scheme` is an import reference node — a `project` or
+/// `module_ref` node emitted by `rewrite_imports`. Used by
+/// `resolve_all_apps` to determine whether an `App`'s callee is an
+/// import-rewritten reference that should be inlined after resolution.
+fn is_import_reference(scheme: &Scheme) -> bool {
+    if let Scheme::Arr { op, .. } = scheme {
+        op == "project" || op == "module_ref"
+    } else {
+        false
     }
 }
 

@@ -1794,3 +1794,167 @@ fn test_flatten_program_transitive_bare_name_discovery() {
         Err(e) => panic!("flatten_program(a) should succeed: {}", e),
     }
 }
+
+// ============================================================================
+// Section 8: ADR-0077 Phase 6 — arrows/ as importable modules
+// ============================================================================
+//
+// These tests verify that `kit-stdlib/data/arrows/*.hnl` files with
+// `import`/`export` declarations are loadable via the `ModuleLoader`, and
+// that compositional inference works across the import boundary.
+//
+// The real arrow file contents are embedded via `include_str!` so the tests
+// have no filesystem dependency (they use `MemoryResolver`).
+
+/// The source text of `collection/insert.hnl` (with `export insert`).
+const INSERT_SRC: &str = include_str!("../../../kit-stdlib/data/arrows/collection/insert.hnl");
+
+/// The source text of `collection/sort.hnl` (with `import insert`).
+const SORT_SRC: &str = include_str!("../../../kit-stdlib/data/arrows/collection/sort.hnl");
+
+/// Build a `MemoryResolver` populated with the real arrow file contents,
+/// rooted at the arrows directory layout (e.g. `"collection/sort"` →
+/// `sort.hnl` content).
+fn build_real_arrows_resolver() -> MemoryResolver {
+    let mut m = MemoryResolver::new();
+    m.insert("collection/insert", INSERT_SRC);
+    m.insert("collection/sort", SORT_SRC);
+    m
+}
+
+/// (a) Basic import: Load `collection/sort.hnl` via the `ModuleLoader` with
+/// a `MemoryResolver` populated with the real arrow file contents. Verify
+/// the ModuleLoader resolves the `import insert from "collection/insert"`
+/// and `flatten_program` produces a `Scheme` for `sort` that includes
+/// `insert`'s graph (no unresolved `module_ref`, `project`, or `App` nodes
+/// to unknown names).
+#[test]
+fn test_phase6_basic_import() {
+    let mem = build_real_arrows_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    // Load sort — should succeed and parse the import declaration.
+    let _loaded = loader.load("collection/sort").expect("load collection/sort");
+    // The import should be recorded.
+    let imports = loader.get_imports("collection/sort").expect("get imports");
+    assert!(
+        imports.iter().any(|i| i.path == "collection/insert"),
+        "sort should import from collection/insert: {:?}",
+        imports
+    );
+
+    // flatten_program should inline insert's graph into sort's graph.
+    let flat = flatten_program("collection/sort", &loader).expect("flatten sort");
+    // No module_ref or project nodes should remain after flattening.
+    assert!(
+        !crate::arrow_loader::contains_module_ref(&flat),
+        "flatten_program: no module_ref should remain after inlining insert"
+    );
+    assert!(
+        !crate::arrow_loader::contains_project(&flat),
+        "flatten_program: no project should remain after inlining insert"
+    );
+    // No unresolved App nodes — insert should be fully inlined.
+    let known: HashSet<String> = HashSet::new();
+    assert!(
+        !has_unresolved_apps(&flat, &known),
+        "flatten_program: insert should be inlined, no unresolved App nodes"
+    );
+}
+
+/// (b) Compositional inference: Load `collection/sort.hnl`, flatten it
+/// (which inlines `insert`'s graph across the import boundary), and infer
+/// its contract. Verify the `Sorted(output)` contract is inferred —
+/// composing across the import boundary from `insert`'s contract.
+#[test]
+fn test_phase6_compositional_inference() {
+    let mem = build_real_arrows_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    // Flatten sort — inlines insert's graph via the import boundary.
+    let flat = flatten_program("collection/sort", &loader).expect("flatten sort");
+
+    // Infer the contract on the flattened graph.
+    let registry = ContractRegistry::minimal();
+    let result = infer_refinement(&flat, &registry).expect("infer sort (flattened)");
+    let pretty = result.guarantee.pretty();
+
+    // The Sorted contract should be inferred, composing insert's
+    // Sorted guarantee across the import boundary.
+    assert!(
+        pretty.contains("Sorted"),
+        "sort (flattened with import) should infer Sorted: {}",
+        pretty
+    );
+}
+
+/// (c) Full cascade: Verify inference composes across the full cascade
+/// `sort` → `insert` → `prim.compare`. The `insert` arrow's graph contains
+/// `prim.compare` as a primitive op; when `sort` is flattened with
+/// `insert` inlined, the inference engine sees the full graph including
+/// `prim.compare` and infers `Sorted`.
+#[test]
+fn test_phase6_full_cascade() {
+    let mem = build_real_arrows_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    // Load insert directly and verify it infers Sorted.
+    let insert_flat = flatten_program("collection/insert", &loader).expect("flatten insert");
+    let registry = ContractRegistry::minimal();
+    let insert_result = infer_refinement(&insert_flat, &registry).expect("infer insert");
+    let insert_pretty = insert_result.guarantee.pretty();
+    assert!(
+        insert_pretty.contains("Sorted"),
+        "insert should infer Sorted: {}",
+        insert_pretty
+    );
+
+    // Load sort (which imports insert) and verify the full cascade
+    // composes: sort → insert → prim.compare → Sorted.
+    let sort_flat = flatten_program("collection/sort", &loader).expect("flatten sort");
+    let sort_result = infer_refinement(&sort_flat, &registry).expect("infer sort");
+    let sort_pretty = sort_result.guarantee.pretty();
+    assert!(
+        sort_pretty.contains("Sorted"),
+        "sort full cascade (sort → insert → prim.compare) should infer Sorted: {}",
+        sort_pretty
+    );
+}
+
+/// Verify that the `export insert` declaration in `insert.hnl` is correctly
+/// parsed and the ModuleLoader reports `insert` as a public name.
+#[test]
+fn test_phase6_export_declaration() {
+    let mem = build_real_arrows_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    // insert.hnl has `export insert` — public_names should include "insert".
+    let names = loader.public_names("collection/insert").expect("public names");
+    assert!(
+        names.contains(&"insert".to_string()),
+        "insert.hnl should export 'insert': {:?}",
+        names
+    );
+}
+
+/// Verify that `normalize_compile_time` (Strategy A) also handles the
+/// import boundary — the normalized sort arrow should have no
+/// `module_ref` nodes (they are replaced by inlined records).
+#[test]
+fn test_phase6_normalize_compile_time() {
+    let mem = build_real_arrows_resolver();
+    let loader = ModuleLoader::new(Box::new(mem));
+
+    match normalize_compile_time("collection/sort", &loader) {
+        Ok(normalized) => {
+            let any_ref = normalized
+                .values()
+                .any(|s| crate::arrow_loader::contains_module_ref(s));
+            assert!(
+                !any_ref,
+                "Strategy A: no module_ref should remain after normalization"
+            );
+        }
+        Err(e) => panic!("normalize_compile_time(collection/sort) should succeed: {}", e),
+    }
+}

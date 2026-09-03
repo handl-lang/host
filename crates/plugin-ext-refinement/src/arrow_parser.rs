@@ -258,6 +258,34 @@ pub struct ParsedModule {
 /// the `arrows` field is `ParsedFile::Named` with an empty map (a pure
 /// re-export or op-only module).
 pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
+    let mut parsed = parse_arrow_module_inner(src)?;
+
+    // Rewrite references to imported names into module_ref/project nodes so
+    // the normalisation strategies (Strategy A / Strategy B) can eliminate
+    // them. Local bindings shadow imports of the same name.
+    rewrite_imports(&mut parsed.arrows, &parsed.imports);
+
+    Ok(parsed)
+}
+
+/// Parse a `.hnl` arrow module file's content, extracting import/export
+/// and `op`/`handl`/`cap` declarations, but **without** rewriting import
+/// references.
+///
+/// This is the same as [`parse_arrow_module`] except that bare name
+/// references to imported names are preserved (not rewritten to
+/// `module_ref`/`project` nodes). This is used by `load_all_arrows` and
+/// `load_arrow_file` to handle files with import/export declarations while
+/// preserving the bare-reference form that `resolve_apps` expects.
+pub fn parse_arrow_module_no_rewrite(src: &str) -> Result<ParsedModule, String> {
+    parse_arrow_module_inner(src)
+}
+
+/// Inner implementation: scan declaration lines, parse the remaining content
+/// into a [`ParsedFile`], and return a [`ParsedModule`] without import
+/// rewriting. Both [`parse_arrow_module`] (with rewriting) and
+/// [`parse_arrow_module_no_rewrite`] (without) delegate to this function.
+fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
     let stripped = strip_comments(src);
     let mut imports: Vec<ImportDecl> = Vec::new();
     let mut exports: Vec<ExportDecl> = Vec::new();
@@ -358,16 +386,11 @@ pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
     }
 
     let arrow_src = arrow_lines.join("\n");
-    let mut arrows = if arrow_src.trim().is_empty() {
+    let arrows = if arrow_src.trim().is_empty() {
         ParsedFile::Named(HashMap::new())
     } else {
         parse_arrow_file(&arrow_src)?
     };
-
-    // Rewrite references to imported names into module_ref/project nodes so
-    // the normalisation strategies (Strategy A / Strategy B) can eliminate
-    // them. Local bindings shadow imports of the same name.
-    rewrite_imports(&mut arrows, &imports);
 
     Ok(ParsedModule {
         imports,

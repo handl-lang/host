@@ -11,10 +11,17 @@ use std::collections::HashMap;
 use handl_language::Scheme;
 
 use crate::arrow_loader::{infer_file, load_all_arrows, load_arrow_file, resolve_apps};
-use crate::arrow_parser::{parse_arrow_expr, parse_arrow_file, ParsedFile};
+use crate::arrow_parser::{parse_arrow_expr, parse_arrow_file, parse_arrow_module_no_rewrite, ParsedFile};
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use crate::types::Measure;
+
+/// Parse a `.hnl` module file's arrow definitions, stripping import/export
+/// declarations without rewriting import references. Used for files that
+/// now have `import`/`export` declarations (ADR-0077 Phase 6).
+fn parse_module_arrows(src: &str) -> Result<ParsedFile, String> {
+    parse_arrow_module_no_rewrite(src).map(|m| m.arrows)
+}
 
 // Embed the actual .hnl stdlib files for testing.
 const INSERT_HNL: &str =
@@ -537,7 +544,7 @@ fn test_parse_single_expr_file() {
 
 #[test]
 fn test_parse_insert_hnl() {
-    let parsed = parse_arrow_file(INSERT_HNL).expect("parse insert.hnl");
+    let parsed = parse_module_arrows(INSERT_HNL).expect("parse insert.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(prim.compare >>> (cons ||| cons))
@@ -562,7 +569,7 @@ fn test_parse_insert_hnl() {
 
 #[test]
 fn test_parse_sort_hnl() {
-    let parsed = parse_arrow_file(SORT_HNL).expect("parse sort.hnl");
+    let parsed = parse_module_arrows(SORT_HNL).expect("parse sort.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(app(insert) >>> first(id))
@@ -1051,7 +1058,7 @@ fn test_load_reduce_rich_from_disk() {
 
 #[test]
 fn test_parsed_insert_matches_handbuilt() {
-    let parsed = parse_arrow_file(INSERT_HNL).expect("parse insert");
+    let parsed = parse_module_arrows(INSERT_HNL).expect("parse insert");
     let handbuilt = insert_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -1108,11 +1115,11 @@ fn test_parsed_fold_matches_handbuilt() {
 #[test]
 fn test_parsed_sort_resolved_matches_handbuilt() {
     // sort.hnl references insert via App -- after resolution, it should match
-    let parsed = parse_arrow_file(SORT_HNL).expect("parse sort");
+    let parsed = parse_module_arrows(SORT_HNL).expect("parse sort");
     let handbuilt = sort_graph();
 
     // Build a graph map with insert's parsed graph
-    let insert_parsed = parse_arrow_file(INSERT_HNL).expect("parse insert");
+    let insert_parsed = parse_module_arrows(INSERT_HNL).expect("parse insert");
     let mut graph_map = HashMap::new();
     if let ParsedFile::Single(insert_scheme) = insert_parsed {
         graph_map.insert("insert".to_string(), insert_scheme);
@@ -1136,7 +1143,7 @@ fn test_parsed_sort_resolved_matches_handbuilt() {
 #[test]
 fn test_infer_insert_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(INSERT_HNL).expect("parse insert");
+    let parsed = parse_module_arrows(INSERT_HNL).expect("parse insert");
     let handbuilt = insert_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -1167,13 +1174,13 @@ fn test_infer_sort_from_hnl() {
     let registry = ContractRegistry::minimal();
 
     // Build graph map for resolution
-    let insert_parsed = parse_arrow_file(INSERT_HNL).expect("parse insert");
+    let insert_parsed = parse_module_arrows(INSERT_HNL).expect("parse insert");
     let mut graph_map = HashMap::new();
     if let ParsedFile::Single(insert_scheme) = insert_parsed {
         graph_map.insert("insert".to_string(), insert_scheme);
     }
 
-    let sort_parsed = parse_arrow_file(SORT_HNL).expect("parse sort");
+    let sort_parsed = parse_module_arrows(SORT_HNL).expect("parse sort");
     let handbuilt = sort_graph();
 
     if let ParsedFile::Single(sort_scheme) = sort_parsed {
@@ -1296,7 +1303,7 @@ fn test_infer_all_five_from_hnl() {
     let registry = ContractRegistry::minimal();
 
     // Build graph map for resolution (insert needed by sort)
-    let insert_parsed = parse_arrow_file(INSERT_HNL).expect("parse insert");
+    let insert_parsed = parse_module_arrows(INSERT_HNL).expect("parse insert");
     let mut graph_map = HashMap::new();
     if let ParsedFile::Single(insert_scheme) = insert_parsed {
         graph_map.insert("insert".to_string(), insert_scheme);
@@ -1311,7 +1318,7 @@ fn test_infer_all_five_from_hnl() {
     ];
 
     for (name, hnl_src, handbuilt) in files {
-        let parsed = parse_arrow_file(hnl_src).expect(&format!("parse {}", name));
+        let parsed = parse_module_arrows(hnl_src).expect(&format!("parse {}", name));
         if let ParsedFile::Single(scheme) = parsed {
             let resolved = resolve_apps(&scheme, &graph_map);
             let parsed_result =

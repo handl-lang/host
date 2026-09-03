@@ -61,8 +61,8 @@ pub use arrow_loader::{
     normalize_compile_time,
 };
 pub use arrow_parser::{
-    parse_arrow_expr, parse_arrow_file, parse_arrow_module, ExportDecl, ImportDecl, ParsedFile,
-    ParsedModule,
+    parse_arrow_expr, parse_arrow_file, parse_arrow_module, parse_arrow_module_no_rewrite,
+    ExportDecl, ImportDecl, ParsedFile, ParsedModule,
 };
 pub use contracts::ContractRegistry;
 pub use inference::{format_scheme, infer_r, infer_refinement};

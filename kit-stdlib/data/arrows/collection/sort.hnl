@@ -1,15 +1,17 @@
--- sort: insertion sort over a list.
---
--- Written as an arrow graph over insert.
--- Contract: Sorted(output) — INFERRED from insert's inferred Sorted contract.
---
--- Graph structure:
---   loop (insert >>> first(id))
---
--- The loop processes elements one at a time:
---   - take next element from input
---   - insert it into the accumulator (which is kept sorted)
---   - repeat until input is exhausted
+--- sort: insertion sort over a list.
+---
+--- Written as an arrow graph over insert.
+--- Contract: Sorted(output) — INFERRED from insert's inferred Sorted contract.
+---
+--- Graph structure:
+---   loop (insert >>> first(id))
+---
+--- The loop processes elements one at a time:
+---   - take next element from input
+---   - insert it into the accumulator (which is kept sorted)
+---   - repeat until input is exhausted
+
+import insert from "collection/insert"
 
 rec {
   remaining: input,
@@ -19,12 +21,12 @@ rec {
     []: return state.acc,
 
     [h, ...t]:
-      inserted = insert({ elem: h, acc: state.acc }) in
-      {
-        state: {
-          remaining: t,
-          acc      : inserted
-        }
+    inserted = insert({ elem: h, acc: state.acc }) in
+    {
+      state: {
+        remaining: t,
+        acc      : inserted
       }
+    }
   }
 )

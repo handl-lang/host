@@ -1,34 +1,36 @@
--- insert: insert an element into a sorted list, maintaining sorted order.
---
--- Written as an arrow graph over prim.compare + list primitives.
--- Contract: Sorted(output) — INFERRED by the refinement engine.
---
--- Graph structure:
---   loop (compare_step >>> (cons_before ||| cons_after_and_recurse))
---
--- The loop feeds (element, list) through the body:
---   - compare element with head of list
---   - if element ≤ head: cons element before head → done
---   - if element > head:  cons head, recurse on tail
+--- insert: insert an element into a sorted list, maintaining sorted order.
+---
+--- Written as an arrow graph over prim.compare + list primitives.
+--- Contract: Sorted(output) — INFERRED by the refinement engine.
+---
+--- Graph structure:
+---   loop (compare_step >>> (cons_before ||| cons_after_and_recurse))
+---
+--- The loop feeds (element, list) through the body:
+---   - compare element with head of list
+---   - if element ≤ head: cons element before head → done
+---   - if element > head:  cons head, recurse on tail
+
+export insert
 
 rec {
   elem: input.0,
-  acc:  input.1
+  acc : input.1
 } (
   state ~> match state.acc {
     []: return [state.elem],
 
     [h, ...t]:
-      cmp = prim.compare(state.elem, h) in
-      if cmp <= 0
-        { out: [state.elem, ...state.acc] }
-      else
-        rest_inserted = insert({ elem: state.elem, acc: t }) in
-        {
-          state: {
-            elem: state.elem,
-            acc:  [h, ...rest_inserted]
-          }
-        }
+    cmp = prim.compare(state.elem, h) in
+    if cmp <= 0
+    { out: [state.elem, ...state.acc] }
+    else
+    rest_inserted = insert({ elem: state.elem, acc: t }) in
+    {
+      state: {
+        elem: state.elem,
+        acc : [h, ...rest_inserted]
+      }
+    }
   }
 )
