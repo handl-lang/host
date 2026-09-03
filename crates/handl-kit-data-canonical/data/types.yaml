@@ -2423,14 +2423,18 @@
 # v0.1 new node kinds (ADR-0074)
 # ---------------------------------------------------------------------------
 
-# `rec` — recursive region. Like `loop` (returns type.unit).
+# `rec` — recursive region (ADR-0074 ID.3, Paterson loop fixpoint typing).
+# The `synth_rec` judgment allocates a fresh metavariable per binding,
+# extends Γ, and iterates synth+unify until the binding types stabilize
+# (the fixpoint). A fuel limit prevents divergence. The result is the type
+# of the last child (or a `return` child's value). Termination is NOT
+# checked at the type level — it is a runtime/effect concern.
 - id: type.rec
   node_kind: rec
   synth: !Arr
-    op: construct
+    op: synth_rec
     args: []
     source: Judgment
-    lit: type.unit
 
 # `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
 - id: type.while

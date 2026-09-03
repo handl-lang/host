@@ -8431,3 +8431,436 @@ fn row_poly_open_unifies_open_with_extra_known_field() {
     // Both solutions should share the same fresh row variable.
     assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
 }
+
+// ===========================================================================
+// synth_rec — rec region fixpoint typing (ADR-0074 ID.3, Paterson loop)
+// ===========================================================================
+
+/// Build a [`Language`] with the type rules needed to typecheck `rec`
+/// regions: `value`, `var`, `if`, the numeric/comparison binary ops,
+/// `return`, `let`, `rec`, and a `fresh` node (whose type rule mints a fresh
+/// metavariable on every synth — used by the fuel-limit test). The rules
+/// mirror the canonical `types.yaml` schemes so the `synth_rec` judgment can
+/// synth the binding value expressions and the result expression.
+fn rec_test_lang() -> Language {
+    let mut lang = Language::new();
+    // value: node_payload >>> json_type_construct
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.value",
+            "value",
+            Scheme::seq(
+                Scheme::arr_judgment("node_payload", vec![]),
+                Scheme::arr_judgment("json_type_construct", vec![]),
+            ),
+        ))
+        .unwrap();
+    // var: node_payload >>> lookup
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.var",
+            "var",
+            Scheme::seq(
+                Scheme::arr_judgment("node_payload", vec![]),
+                Scheme::arr_judgment("lookup", vec![]),
+            ),
+        ))
+        .unwrap();
+    // if: synth cond, unify with type.bool, synth then, unify with else,
+    // return then-type (the canonical `if` synth rule).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.if",
+            "if",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("tcond")),
+                    Scheme::seq(
+                        Scheme::arr_judgment(
+                            "unify",
+                            vec![
+                                Scheme::arr_judgment_lit("result", vec![], Value::from("tcond")),
+                                Scheme::arr_judgment_lit(
+                                    "construct",
+                                    vec![],
+                                    Value::from("type.bool"),
+                                ),
+                            ],
+                        ),
+                        Scheme::seq(
+                            Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
+                            Scheme::seq(
+                                Scheme::arr_judgment_lit("bind", vec![], Value::from("tthen")),
+                                Scheme::seq(
+                                    Scheme::arr_judgment(
+                                        "unify",
+                                        vec![
+                                            Scheme::arr_judgment_lit(
+                                                "result",
+                                                vec![],
+                                                Value::from("tthen"),
+                                            ),
+                                            Scheme::arr_judgment_lit(
+                                                "synth_child",
+                                                vec![],
+                                                Value::from(2u64),
+                                            ),
+                                        ],
+                                    ),
+                                    Scheme::arr_judgment_lit(
+                                        "result",
+                                        vec![],
+                                        Value::from("tthen"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+    // Numeric binary ops (add/sub): synth child 0, unify with type.number,
+    // synth child 1, unify with type.number, return type.number.
+    for kind in ["binary.add", "binary.sub"] {
+        lang.types
+            .merge(TypeRuleDef::new(
+                format!("type.{}", kind),
+                kind,
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("bind", vec![], Value::from("a")),
+                        Scheme::seq(
+                            Scheme::arr_judgment(
+                                "unify",
+                                vec![
+                                    Scheme::arr_judgment_lit("result", vec![], Value::from("a")),
+                                    Scheme::arr_judgment_lit(
+                                        "construct",
+                                        vec![],
+                                        Value::from("type.number"),
+                                    ),
+                                ],
+                            ),
+                            Scheme::seq(
+                                Scheme::arr_judgment(
+                                    "unify",
+                                    vec![
+                                        Scheme::arr_judgment_lit(
+                                            "synth_child",
+                                            vec![],
+                                            Value::from(1u64),
+                                        ),
+                                        Scheme::arr_judgment_lit(
+                                            "construct",
+                                            vec![],
+                                            Value::from("type.number"),
+                                        ),
+                                    ],
+                                ),
+                                Scheme::arr_judgment_lit(
+                                    "construct",
+                                    vec![],
+                                    Value::from("type.number"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ))
+            .unwrap();
+    }
+    // Comparison binary ops (gt/lt): synth child 0, unify with child 1,
+    // return type.bool.
+    for kind in ["binary.gt", "binary.lt"] {
+        lang.types
+            .merge(TypeRuleDef::new(
+                format!("type.{}", kind),
+                kind,
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit("bind", vec![], Value::from("a")),
+                        Scheme::seq(
+                            Scheme::arr_judgment(
+                                "unify",
+                                vec![
+                                    Scheme::arr_judgment_lit("result", vec![], Value::from("a")),
+                                    Scheme::arr_judgment_lit(
+                                        "synth_child",
+                                        vec![],
+                                        Value::from(1u64),
+                                    ),
+                                ],
+                            ),
+                            Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![],
+                                Value::from("type.bool"),
+                            ),
+                        ),
+                    ),
+                ),
+            ))
+            .unwrap();
+    }
+    // return: synth child 0 (the return value).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.return",
+            "return",
+            Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+        ))
+        .unwrap();
+    // let: delegate to the synth_let judgment (handles the v0.1
+    // {name, children:[value, body]} shape used in the countdown test).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.let",
+            "let",
+            Scheme::arr_judgment("synth_let", vec![]),
+        ))
+        .unwrap();
+    // rec: delegate to the synth_rec judgment (fixpoint typing).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.rec",
+            "rec",
+            Scheme::arr_judgment("synth_rec", vec![]),
+        ))
+        .unwrap();
+    // fresh: mints a fresh metavariable on every synth (used by the
+    // fuel-limit test to construct a rec that never converges).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.fresh",
+            "fresh",
+            Scheme::arr_judgment("fresh_meta", vec![]),
+        ))
+        .unwrap();
+    lang
+}
+
+// ---------------------------------------------------------------------------
+// 1. Simple fixpoint: rec { x = 5; x } → type.number (no cycle)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_simple_fixpoint_is_int() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    // AST: [value(5), var("x"), assign{[1,0]}, var("x"), rec{[2,3]}]
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(5))); // 0
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 1: LHS
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [1, 0]}))); // 2: x = 5
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 3: result
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 3]}))); // 4: root
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+    assert!(result.diagnostics.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// 2. Cyclic fixpoint: rec { a = b; b = a } → shared type variable
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_cyclic_fixpoint_converges_to_shared_type_var() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    // AST: [var("b"), var("a"), assign{[1,0]} (a=b),
+    //       var("a"), var("b"), assign{[4,3]} (b=a), rec{[2,5]}]
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("b"))); // 0: b in a=b
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 1: LHS a
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [1, 0]}))); // 2: a = b
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 3: a in b=a
+    ast.push(AstNode::new("var").with_payload(json!("b"))); // 4: LHS b
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [4, 3]}))); // 5: b = a
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 5]}))); // 6: root
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // The fixpoint is a shared, unsolved metavariable (type variable). Both
+    // bindings converge to the same meta; the result is that type variable.
+    assert!(
+        extract_meta_id(&result.typ).is_some(),
+        "expected a shared type variable (metavariable), got {:?}",
+        result.typ
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 3. Countdown: let n = 5 in rec { n = if n > 0 then n - 1 else n; n } → Int
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_countdown_is_int() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    // Build the if expression: if n > 0 then n - 1 else n
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(5))); // 0: n initial
+    // n > 0
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 1: n in n>0
+    ast.push(AstNode::new("value").with_payload(json!(0))); // 2: 0 in n>0
+    ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [1, 2]}))); // 3: n>0
+    // n - 1
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 4: n in n-1
+    ast.push(AstNode::new("value").with_payload(json!(1))); // 5: 1 in n-1
+    ast.push(AstNode::new("binary.sub").with_payload(json!({"children": [4, 5]}))); // 6: n-1
+    // else: n
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 7: n (else)
+    ast.push(AstNode::new("if").with_payload(json!({"children": [3, 6, 7]}))); // 8: if ...
+    // n = if ...
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 9: LHS n
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [9, 8]}))); // 10: n = if ...
+    // result: n
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 11: result
+    // rec { n = if ...; n }
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [10, 11]}))); // 12: rec
+    // let n = 5 in rec { ... }
+    ast.push(
+        AstNode::new("let").with_payload(json!({"name": "n", "children": [0, 12]})), // 13: root
+    );
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ---------------------------------------------------------------------------
+// 4. Mutual dependency: rec { a = b + 1; b = 0; a } → Int
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_mutual_dependency_is_int() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    let mut ast = Ast::new();
+    // a = b + 1
+    ast.push(AstNode::new("var").with_payload(json!("b"))); // 0: b in b+1
+    ast.push(AstNode::new("value").with_payload(json!(1))); // 1: 1
+    ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]}))); // 2: b+1
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 3: LHS a
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [3, 2]}))); // 4: a = b+1
+    // b = 0
+    ast.push(AstNode::new("value").with_payload(json!(0))); // 5: 0
+    ast.push(AstNode::new("var").with_payload(json!("b"))); // 6: LHS b
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [6, 5]}))); // 7: b = 0
+    // result: a
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 8: result
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [4, 7, 8]}))); // 9: root
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ---------------------------------------------------------------------------
+// 5. Fuel limit: a rec that never converges in types errors (does not hang)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_fuel_limit_errors() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    // rec { a = fresh; a } — `fresh` mints a new metavariable on every synth.
+    // Each fixpoint pass solves the binding's meta to a brand-new meta, so
+    // the zonked binding type changes every pass and never stabilizes. The
+    // fuel limit (100) must fire and produce a compile error, not hang.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("fresh")); // 0: fresh (type = fresh meta each synth)
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 1: LHS a
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [1, 0]}))); // 2: a = fresh
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 3: result
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 3]}))); // 4: root
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot determine fixpoint type for rec region")),
+        "expected fixpoint fuel-limit error, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 6. Return type: rec { x = 42; return x } → Int
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_return_type_is_int() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(42))); // 0: lit 42
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 1: LHS x
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [1, 0]}))); // 2: x = 42
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 3: return value
+    ast.push(AstNode::new("return").with_payload(json!({"children": [3]}))); // 4: return x
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 4]}))); // 5: root
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ---------------------------------------------------------------------------
+// 7. Empty rec region → type.unit
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_empty_region_is_unit() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("rec").with_payload(json!({"children": []}))); // 0: root
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_unit());
+}
+
+// ---------------------------------------------------------------------------
+// 8. Occurs-check rejects a genuinely cyclic (infinite) type:
+//    rec { a = [a]; a } — a's type would be Array(a), an infinite type.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rec_occurs_check_rejects_cyclic_type() {
+    let engine = engine();
+    let lang = rec_test_lang();
+    // We need an array node whose element type is `a`. Add an `array` rule
+    // that constructs type.array{element: synth_first_child_or_unknown}.
+    let mut lang = lang;
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.array",
+            "array",
+            Scheme::arr_judgment_lit(
+                "construct",
+                vec![Scheme::arr_judgment_lit(
+                    "field",
+                    vec![Scheme::arr_judgment("synth_first_child_or_unknown", vec![])],
+                    Value::from("element"),
+                )],
+                Value::from("type.array"),
+            ),
+        ))
+        .unwrap();
+    // AST: [var("a"), array{[0]}, var("a"), assign{[2,1]} (a = [a]),
+    //       var("a"), rec{[3,4]}]
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 0: a in [a]
+    ast.push(AstNode::new("array").with_payload(json!({"children": [0]}))); // 1: [a]
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 2: LHS a
+    ast.push(AstNode::new("assign").with_payload(json!({"children": [2, 1]}))); // 3: a = [a]
+    ast.push(AstNode::new("var").with_payload(json!("a"))); // 4: result
+    ast.push(AstNode::new("rec").with_payload(json!({"children": [3, 4]}))); // 5: root
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check failed")),
+        "expected occurs-check failure for cyclic type, got {:?}",
+        err
+    );
+}

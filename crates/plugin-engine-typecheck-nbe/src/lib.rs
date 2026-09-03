@@ -320,6 +320,14 @@ impl NbeTypecheckEngine {
             }
             Scheme::Loop { .. } => Err(LangError::NotImplemented),
             Scheme::App { .. } => Err(LangError::NotImplemented),
+            // `handle body with target = impl_` (ADR-0076): eliminate the
+            // handler at compile time (rewriting every bare arr(target) in
+            // the body to the impl graph), then evaluate the resulting
+            // handler-free scheme.
+            Scheme::Handle { .. } => {
+                let eliminated = scheme.eliminate_handlers();
+                self.eval_type_scheme(lang, ast, node_ref, &eliminated, ctx, incoming)
+            }
         }
     }
 
@@ -1064,6 +1072,18 @@ impl NbeTypecheckEngine {
                     // type (metas are solved in-place).
                 }
                 Ok(unified)
+            }
+            "synth_rec" => {
+                // Typecheck a `rec` region (ADR-0074 ID.3 — Paterson loop
+                // fixpoint typing). The `rec` node is a flattened block: its
+                // children are bindings (`assign` nodes) and expressions.
+                // Bindings may reference each other cyclically. The judgment
+                // allocates a fresh metavariable per binding, extends Γ, and
+                // iterates synth+unify until the binding types stabilize
+                // (the fixpoint). A fuel limit prevents divergence. The
+                // result is the type of the last child (or a `return` child's
+                // value). Termination is NOT checked at the type level.
+                self.synth_rec_judgment(lang, ast, node_ref, ctx)
             }
             "synth_let" => {
                 // Typecheck a `let` node. Two payload shapes:
@@ -2504,6 +2524,280 @@ impl NbeTypecheckEngine {
             }
         }
         false
+    }
+
+    /// Resolve (zonk) all solved metavariables inside a type value.
+    ///
+    /// Follows `{"__meta__": id}` chains: if a metavariable has been solved
+    /// in `ctx.metas`, replaces it with its solution (recursively). Unsolved
+    /// metavariables are left as-is. Recurses into object fields and array
+    /// elements so that nested metas (e.g. inside `type.array{element: ?}`)
+    /// are resolved too. This is the read-back step that turns the NBE
+    /// metavariable store into a concrete type value (ADR-0054).
+    ///
+    /// Cycle-safe: tracks the meta ids on the current DFS path and breaks
+    /// any cycle (e.g. from mutually-solved metas `m0 := m1, m1 := m0`) by
+    /// leaving the revisited meta as-is, preventing infinite recursion.
+    fn zonk(&self, v: &Value, ctx: &TypecheckContext) -> Value {
+        let mut visited = std::collections::HashSet::new();
+        self.zonk_inner(v, ctx, &mut visited)
+    }
+
+    fn zonk_inner(
+        &self,
+        v: &Value,
+        ctx: &TypecheckContext,
+        visited: &mut std::collections::HashSet<u64>,
+    ) -> Value {
+        if let Some(id) = extract_meta_id(v) {
+            if visited.contains(&id) {
+                // Cycle — break it by leaving the meta as-is.
+                return v.clone();
+            }
+            if let Some(Some(solved)) = ctx.metas.get(id as usize) {
+                visited.insert(id);
+                let out = self.zonk_inner(solved, ctx, visited);
+                visited.remove(&id);
+                return out;
+            }
+            return v.clone();
+        }
+        match v {
+            Value::Object(map) => {
+                let mut out = serde_json::Map::new();
+                for (k, val) in map {
+                    out.insert(k.clone(), self.zonk_inner(val, ctx, visited));
+                }
+                Value::Object(out)
+            }
+            Value::Array(arr) => Value::Array(
+                arr.iter()
+                    .map(|val| self.zonk_inner(val, ctx, visited))
+                    .collect(),
+            ),
+            _ => v.clone(),
+        }
+    }
+
+    /// Extract the `(name, value_ref)` binding from an `assign` node.
+    ///
+    /// Supports two payload shapes (mirroring [`Self::synth_let`]'s
+    /// `synth_let` judgment):
+    /// - v0.1 Pratt-parsed: `payload.name` holds the binding name and child 0
+    ///   is the value expression.
+    /// - Legacy: children are `[var(name), value]` where the `var` node's
+    ///   payload is the name string.
+    fn extract_assign_binding(
+        &self,
+        ast: &Ast,
+        assign_node: &handl_language::AstNode,
+    ) -> Result<(String, AstRef), LangError> {
+        let assign_children = assign_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine(
+                    "typecheck: synth_rec: assign node has no children array".into(),
+                )
+            })?;
+        // v0.1: name in payload.name, value is child 0.
+        if let Some(name) = assign_node.payload.get("name").and_then(|v| v.as_str()) {
+            if assign_children.is_empty() {
+                return Err(LangError::Engine(
+                    "typecheck: synth_rec: assign node with payload.name needs a value child"
+                        .into(),
+                ));
+            }
+            let value_idx = assign_children[0].as_u64().ok_or_else(|| {
+                LangError::Engine(
+                    "typecheck: synth_rec: assign value index is not a u64".into(),
+                )
+            })? as usize;
+            return Ok((name.to_string(), AstRef::new(value_idx)));
+        }
+        // Legacy: children [var(name), value].
+        if assign_children.len() < 2 {
+            return Err(LangError::Engine(
+                "typecheck: synth_rec: assign node needs at least 2 children (var, value)".into(),
+            ));
+        }
+        let var_idx = assign_children[0].as_u64().ok_or_else(|| {
+            LangError::Engine("typecheck: synth_rec: assign var index is not a u64".into())
+        })? as usize;
+        let value_idx = assign_children[1].as_u64().ok_or_else(|| {
+            LangError::Engine("typecheck: synth_rec: assign value index is not a u64".into())
+        })? as usize;
+        let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: synth_rec: var node {} out of bounds",
+                var_idx
+            ))
+        })?;
+        let name = var_node.payload.as_str().ok_or_else(|| {
+            LangError::Engine("typecheck: synth_rec: var node payload is not a string".into())
+        })?;
+        Ok((name.to_string(), AstRef::new(value_idx)))
+    }
+
+    /// Typecheck a `rec` region by computing the fixpoint of its binding
+    /// types (ADR-0074 ID.3 — Paterson loop).
+    ///
+    /// The `rec` node is a flattened block (grammar `grammar.rec.prefix` with
+    /// `flatten: true`): its `children` are individual expressions. `assign`
+    /// children define bindings (`name = value`); other children are
+    /// expressions evaluated for effect/result. Bindings may reference each
+    /// other cyclically — the region is a cyclic subgraph.
+    ///
+    /// The typing algorithm:
+    /// 1. Collect the `assign` bindings and note any `return` child and the
+    ///    last child.
+    /// 2. Allocate a fresh metavariable per binding and extend Γ with
+    ///    `(name, meta)`. This lets a binding's value synth resolve sibling
+    ///    references to their (initially unknown) types.
+    /// 3. Iterate to fixpoint: synth each binding's value type under the
+    ///    current Γ and unify it with the binding's metavariable (solving or
+    ///    refining it). Repeat until the zonked binding types stabilize.
+    ///    A fuel limit (100 iterations) prevents divergence; exhausting it
+    ///    is a compile error ("cannot determine fixpoint type for rec
+    ///    region").
+    /// 4. The result type is the zonked type of the `return` child's value
+    ///    (if present), otherwise the zonked type of the last child.
+    ///
+    /// Termination is NOT checked at the type level (ADR-0074 ID.3) — it is a
+    /// runtime/effect concern. The occurs-check in [`Self::unify`] rejects
+    /// genuinely cyclic (infinite) types such as `rec { a = [a]; a }`.
+    fn synth_rec_judgment(
+        &self,
+        lang: &Language,
+        ast: &Ast,
+        node_ref: AstRef,
+        ctx: &mut TypecheckContext,
+    ) -> Result<Value, LangError> {
+        const REC_FIXPOINT_FUEL: usize = 100;
+        let node = ast.get(node_ref).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: synth_rec: node {} out of bounds",
+                node_ref.index()
+            ))
+        })?;
+        let children = node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("typecheck: synth_rec: node has no children array".into())
+            })?;
+        // Empty rec region → type.unit (mirrors empty block).
+        if children.is_empty() {
+            return ctx
+                .registry
+                .construct("type.unit", &Value::Null)
+                .ok_or_else(|| {
+                    LangError::Engine("typecheck: synth_rec: construct failed for type.unit".into())
+                });
+        }
+        // Collect bindings (assign nodes), the return child, and the last
+        // child. Each binding records (name, value_ref).
+        let mut bindings: Vec<(String, AstRef)> = Vec::new();
+        let mut return_ref: Option<AstRef> = None;
+        let mut last_ref: Option<AstRef> = None;
+        for child_entry in children {
+            let idx = child_entry.as_u64().ok_or_else(|| {
+                LangError::Engine("typecheck: synth_rec: child index is not a u64".into())
+            })? as usize;
+            let child = AstRef::new(idx);
+            let child_node = ast.get(child).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "typecheck: synth_rec: child node {} out of bounds",
+                    idx
+                ))
+            })?;
+            if child_node.kind == "assign" {
+                let (name, value_ref) = self.extract_assign_binding(ast, child_node)?;
+                bindings.push((name, value_ref));
+            } else if child_node.kind == "return" {
+                return_ref = Some(child);
+            }
+            last_ref = Some(child);
+        }
+        // Scope Γ for the rec region: all binding extensions are popped on
+        // exit so the region's locals don't leak (ADR-0054 scoped context).
+        let mark = ctx.mark();
+        // Allocate a fresh metavariable per binding and extend Γ.
+        let mut binding_metas: Vec<u64> = Vec::with_capacity(bindings.len());
+        for (name, _value_ref) in &bindings {
+            let mid = ctx.fresh_meta();
+            binding_metas.push(mid);
+            ctx.extend(name.clone(), meta_value(mid));
+        }
+        // Fixpoint iteration: synth each binding's value and unify with its
+        // meta until the zonked binding types stabilize.
+        let mut converged = false;
+        for _ in 0..REC_FIXPOINT_FUEL {
+            let prev: Vec<Value> = binding_metas
+                .iter()
+                .map(|&id| self.zonk(&meta_value(id), ctx))
+                .collect();
+            for ((_name, value_ref), &mid) in bindings.iter().zip(binding_metas.iter()) {
+                let derived = self.synth_node(lang, ast, *value_ref, ctx)?;
+                // Zonk the derived type so sibling references that already
+                // resolved to a solved meta are reconciled before unifying
+                // (this prevents forming meta cycles such as m0 := m1
+                // followed by m1 := m0). Then unify the binding's
+                // (possibly already-solved) meta with the derived type.
+                let derived = self.zonk(&derived, ctx);
+                let meta_val = self.zonk(&meta_value(mid), ctx);
+                self.unify(&meta_val, &derived, ctx)?;
+            }
+            let curr: Vec<Value> = binding_metas
+                .iter()
+                .map(|&id| self.zonk(&meta_value(id), ctx))
+                .collect();
+            if prev == curr {
+                converged = true;
+                break;
+            }
+        }
+        if !converged {
+            ctx.restore(mark);
+            return Err(LangError::Engine(
+                "typecheck: cannot determine fixpoint type for rec region".into(),
+            ));
+        }
+        // Determine the result type. A `return` child wins; otherwise the
+        // last child's type. If the last child is itself an `assign`, the
+        // rec result is that binding's value type (not type.unit), mirroring
+        // the eval semantics where the last binding's value is the result.
+        let result_type = if let Some(ret_ref) = return_ref {
+            let value_ref = child_ref(ast, ret_ref, 0)?;
+            let t = self.synth_node(lang, ast, value_ref, ctx)?;
+            self.zonk(&t, ctx)
+        } else if let Some(lref) = last_ref {
+            let lnode = ast.get(lref).ok_or_else(|| {
+                LangError::Engine(format!(
+                    "typecheck: synth_rec: last node {} out of bounds",
+                    lref.index()
+                ))
+            })?;
+            if lnode.kind == "assign" {
+                let (_name, value_ref) = self.extract_assign_binding(ast, lnode)?;
+                let t = self.synth_node(lang, ast, value_ref, ctx)?;
+                self.zonk(&t, ctx)
+            } else {
+                let t = self.synth_node(lang, ast, lref, ctx)?;
+                self.zonk(&t, ctx)
+            }
+        } else {
+            // No children (handled above) — defensive fallback.
+            ctx.registry
+                .construct("type.unit", &Value::Null)
+                .ok_or_else(|| {
+                    LangError::Engine("typecheck: synth_rec: construct failed for type.unit".into())
+                })?
+        };
+        ctx.restore(mark);
+        Ok(result_type)
     }
 
     /// Row-polymorphic record unification (ADR-0074 ID.7).
