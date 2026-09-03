@@ -17,12 +17,12 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // then retained for optional if-then backward compat.
     assert_eq!(lang.tokens.len(), 69);
 
-    // Grammar rows: 56 — v0.1 surface syntax (ADR-0074).
+    // Grammar rows: 57 — v0.1 surface syntax (ADR-0074).
     // Removed 15 old rules (arrow-app, arrow-bind, returnA, loop, pipe,
     // handle, typeof, stmt-const, stmt-module, is, may, must, not.infix,
-    // when, vau) and added 12 new rules (product, nullish, opt-chain, rec,
-    // while, for, return, law, trait, impl, infer, type).
-    assert_eq!(lang.grammar.len(), 56);
+    // when, vau) and added 14 new rules (product, nullish, opt-chain, rec,
+    // while, for, return, law, trait, impl, infer, type, do-while).
+    assert_eq!(lang.grammar.len(), 57);
 
     // Eval schemes: 60 — v0.1 surface syntax (ADR-0074).
     // Removed 9 old schemes (arrow_bind, returnA, loop, handle,
@@ -71,7 +71,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 69);
-    assert_eq!(rt.lang().grammar.len(), 56);
+    assert_eq!(rt.lang().grammar.len(), 57);
 }
 
 #[test]
@@ -124,6 +124,8 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.grammar.get_by_id("grammar.for.prefix").is_some());
     assert!(lang.grammar.get_by_id("grammar.return.prefix").is_some());
     assert!(lang.grammar.get_by_id("grammar.law.prefix").is_some());
+    // v0.1 do-while (post-test loop, ADR-0074 A.6)
+    assert!(lang.grammar.get_by_id("grammar.do-while.infix").is_some());
     // Removed grammar rules
     assert!(lang.grammar.get_by_id("grammar.vau.prefix").is_none());
     assert!(lang.grammar.get_by_id("grammar.pipe.infix").is_none());

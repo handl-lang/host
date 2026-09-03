@@ -54,7 +54,7 @@ fn fanout_eager_pair_from_source() {
 #[test]
 fn fanout_with_expressions() {
     let kit = kit();
-    // No parens needed — `+` (bp 60) binds tighter than `&&&` (bp 25).
+    // No parens needed — `+` (bp 55) binds tighter than `&&&` (bp 35/36).
     let result = kit.run("1 + 1 &&& 2 * 3").expect("fanout must eval");
     assert_eq!(result, json!([2, 6]));
 }
@@ -86,20 +86,21 @@ fn field_access_array_from_source() {
 #[test]
 fn flow_applies_closure_to_left() {
     let kit = kit();
-    // `1 >>> x ~> x + 1` — flow applies the closure to 1, yielding 2.
-    // `>>>` (bp 20) binds looser than `~>` (bp 31), so this parses as
-    // `1 >>> (x ~> x + 1)`.
-    let result = kit.run("1 >>> x ~> x + 1").expect("flow must eval");
+    // `1 >>> (x ~> x + 1)` — flow applies the closure to 1, yielding 2.
+    // Per ADR-0074, `>>>` (bp 25/26) binds tighter than `~>` (bp 10/9), so
+    // the arrow closure must be parenthesized to avoid `(1 >>> x) ~> ...`.
+    let result = kit.run("1 >>> (x ~> x + 1)").expect("flow must eval");
     assert_eq!(result, json!(2));
 }
 
 #[test]
 fn flow_chains_left_associative() {
     let kit = kit();
-    // `>>>` is left-associative (bp [20, 21]), so this parses as
+    // `>>>` is left-associative (bp [25, 26]), so this parses as
     // `(1 >>> (x ~> x + 1)) >>> (y ~> y * 2)` == `2 >>> (y ~> y * 2)` == 4.
+    // Arrows are parenthesized because `~>` (bp 10/9) is below `>>>` (bp 25/26).
     let result = kit
-        .run("1 >>> x ~> x + 1 >>> y ~> y * 2")
+        .run("1 >>> (x ~> x + 1) >>> (y ~> y * 2)")
         .expect("chained flow must eval");
     assert_eq!(result, json!(4));
 }
@@ -108,8 +109,9 @@ fn flow_chains_left_associative() {
 fn flow_three_step_chain() {
     let kit = kit();
     // `1 >>> inc >>> double >>> inc` == `inc(1)=2 → double(2)=4 → inc(4)=5`.
+    // Arrows are parenthesized because `~>` (bp 10/9) is below `>>>` (bp 25/26).
     let result = kit
-        .run("1 >>> x ~> x + 1 >>> y ~> y * 2 >>> z ~> z + 1")
+        .run("1 >>> (x ~> x + 1) >>> (y ~> y * 2) >>> (z ~> z + 1)")
         .expect("three-step flow must eval");
     assert_eq!(result, json!(5));
 }

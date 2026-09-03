@@ -17,7 +17,7 @@
 -- `stddev` calls `math.sqrt` (requires `MathModule` in the bridge runtime);
 -- handl has a native `**` (pow) op but no native `sqrt`.
 --
--- Iteration uses the `while { state }([fields...] ~> ...)` form: the
+-- Iteration uses the `while { state } { [fields...] ~> ... }` form: the
 -- body returns `{ out: value }` to terminate or `{ state: { ... } }` to
 -- continue. `median` uses an insertion sort (handl has no native sort),
 -- implemented via recursion-via-self (`[self, ...] ~> ...`).
@@ -28,7 +28,7 @@
 -- float by adding `0.0` or dividing by a float literal like `2.0`.
 let
   filter_nums = xs ~>
-    while { xs: xs, acc: [] }(
+    while { xs: xs, acc: [] } {
       [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -37,7 +37,7 @@ let
           { state: { xs: t, acc: acc } }
         }
       }
-    )
+    }
 in
 let
   insert = [self, elem, sorted] ~>
@@ -55,25 +55,25 @@ let
 in
 let
   length = xs ~>
-    while { xs: xs, n: 0 }(
+    while { xs: xs, n: 0 } {
       [xs, n] ~> match xs {
         []: { out: n },
         [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
-    )
+    }
 in
 let
   nth = [xs, i] ~>
-    while { xs: xs, i: i }(
+    while { xs: xs, i: i } {
       [xs, i] ~> match xs {
         []: { out: null },
         [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
       }
-    )
+    }
 in
 {
   sum: xs ~>
-    while { xs: xs, acc: 0 }(
+    while { xs: xs, acc: 0 } {
       [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -82,10 +82,10 @@ in
           { state: { xs: t, acc: acc } }
         }
       }
-    ),
+    },
 
   product: xs ~>
-    while { xs: xs, acc: 1 }(
+    while { xs: xs, acc: 1 } {
       [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -94,10 +94,10 @@ in
           { state: { xs: t, acc: acc } }
         }
       }
-    ),
+    },
 
   avg: xs ~>
-    while { xs: xs, sum: 0, count: 0 }(
+    while { xs: xs, sum: 0, count: 0 } {
       [xs, sum, count] ~> match xs {
         []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -106,10 +106,10 @@ in
           { state: { xs: t, sum: sum, count: count } }
         }
       }
-    ),
+    },
 
   min: xs ~>
-    while { xs: xs, best: 0, seen: false }(
+    while { xs: xs, best: 0, seen: false } {
       [xs, best, seen] ~> match xs {
         []: { out: if seen { best } else { null } },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -122,10 +122,10 @@ in
           { state: { xs: t, best: best, seen: seen } }
         }
       }
-    ),
+    },
 
   max: xs ~>
-    while { xs: xs, best: 0, seen: false }(
+    while { xs: xs, best: 0, seen: false } {
       [xs, best, seen] ~> match xs {
         []: { out: if seen { best } else { null } },
         [h, ...t]: if typeof.type_of(h) == "num" {
@@ -138,7 +138,7 @@ in
           { state: { xs: t, best: best, seen: seen } }
         }
       }
-    ),
+    },
 
   median: xs ~>
     let nums = filter_nums(xs) in
@@ -156,19 +156,19 @@ in
     let nums = filter_nums(xs) in
     let n = length(nums) in
     if n < 2 { 0 } else {
-      let total = while { xs: nums, acc: 0 }(
+      let total = while { xs: nums, acc: 0 } {
         [xs, acc] ~> match xs {
           []: { out: acc },
           [h, ...t]: { state: { xs: t, acc: acc + h } }
         }
-      ) in
+      } in
       let mean = total / (n + 0.0) in
-      let sq_sum = while { xs: nums, acc: 0 }(
+      let sq_sum = while { xs: nums, acc: 0 } {
         [xs, acc] ~> match xs {
           []: { out: acc },
           [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
         }
-      ) in
+      } in
       let variance = sq_sum / (n + 0.0) in
       math.sqrt(variance)
     }

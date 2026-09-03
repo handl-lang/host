@@ -1,4 +1,4 @@
-while { n: 942, sum: 0 } (
+while { n: 942, sum: 0 } {
   [n, sum] ~> if n == 0
     if sum < 10
       return sum
@@ -6,4 +6,4 @@ while { n: 942, sum: 0 } (
       { state: { n: sum, sum: 0 } }
   else
     { state: { n: n / 10, sum: sum + (n % 10) } }
-)
+}

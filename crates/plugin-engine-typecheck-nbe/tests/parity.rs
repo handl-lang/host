@@ -318,12 +318,15 @@ fn t_array(element: Value) -> Value {
 
 #[test]
 fn parity_let_annotated_function_type() {
-    // `let f: (type.number) ~> type.number = x ~> x in f`
-    // The annotation `(type.number) ~> type.number` is a compound type
+    // `let f: ((type.number) ~> type.number) = x ~> x in f`
+    // The annotation `((type.number) ~> type.number)` is a compound type
     // expression parsed as a `function` node; interpret_type_expr must
     // recurse into param (paren → field-access) and body (field-access).
+    // NOTE: per ADR-0074 ID.1, `:` (bp 12/13) binds tighter than `~>`
+    // (bp 10/9), so the function-type annotation must be parenthesized to
+    // prevent `~>` from escaping the type-annot's right operand.
     assert_eq!(
-        tc("let f: (type.number) ~> type.number = x ~> x in f"),
+        tc("let f: ((type.number) ~> type.number) = x ~> x in f"),
         t_function(t_number(), t_number())
     );
 }
@@ -341,9 +344,10 @@ fn parity_let_annotated_array_type() {
 
 #[test]
 fn parity_let_annotated_nested_function_array() {
-    // `(type.number) ~> [type.string]` — function returning an array.
+    // `((type.number) ~> [type.string])` — function returning an array.
+    // Parenthesized because `:` (bp 12/13) binds tighter than `~>` (bp 10/9).
     assert_eq!(
-        tc("let f: (type.number) ~> [type.string] = x ~> [\"a\"] in f"),
+        tc("let f: ((type.number) ~> [type.string]) = x ~> [\"a\"] in f"),
         t_function(t_number(), t_array(t_string()))
     );
 }

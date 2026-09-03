@@ -1,4 +1,4 @@
-while { xs: [3, 7, 2, 9, 4, 1], best: 0 } (
+while { xs: [3, 7, 2, 9, 4, 1], best: 0 } {
   [xs, best] ~> match xs {
     []: return best,
 
@@ -7,4 +7,4 @@ while { xs: [3, 7, 2, 9, 4, 1], best: 0 } (
     else
       { state: { xs: t, best: best } }
   }
-)
+}

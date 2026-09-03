@@ -2,15 +2,20 @@
 //! (tree-walk, bytecode, cranelift).
 //!
 //! ADR-0074 replaces the old `loop`/`returnA`/`then` surface syntax with
-//! v0.1 `while` syntax. The example `.hnl` files have been migrated from
-//! `loop { state } ( body )` with `returnA -< { out: v }` / `returnA -< { state: v }`
-//! to `while { state } ( body )` with `return v` (exit) / `{ state: v }` (continue).
-//! The `then` keyword is removed from `if` expressions.
+//! v0.1 `while` syntax. The example `.hnl` files use `while { state } { body }`
+//! with `return v` (exit) / `{ state: v }` (continue). The `then` keyword is
+//! removed from `if` expressions.
 //!
 //! The `while` node kind uses the kernel `Loop` combinator via `loop_step`
 //! (ADR-0052) — `loop_step` accepts bare values (from `return v`) as exit
 //! signals and `{ state: v }` as continue. `{ out: v }` is accepted for
 //! backward compatibility with the kernel `Loop` step protocol.
+//!
+//! NOTE: ADR-0074 defines `while cond { body }` as sugar over `rec` with
+//! implicit feedback. Full `rec` feedback semantics require runtime support
+//! (task 4). Until then, the eval uses the state-passing `loop_step` protocol:
+//! child 0 is the initial state object and child 1 is a block containing the
+//! body closure. The examples use this form.
 
 use handl_kit_data::{DataKit, DataKitManifest, FragmentSourceEntry};
 use handl_kit_data_canonical;
@@ -56,9 +61,10 @@ fn runtime_with_eval(eval: &str) -> handl_runtime::Runtime {
         .expect("runtime binds engines")
 }
 
-/// `(source, expected)` cases — these use v0.1 `while` syntax from the
-/// migrated example files. The `while` node uses the kernel `Loop` combinator
-/// via `loop_step` with `return v` (exit) / `{ state: v }` (continue).
+/// `(source, expected)` cases — these use v0.1 `while { state } { body }`
+/// syntax from the migrated example files. The `while` node uses the kernel
+/// `Loop` combinator via `loop_step` with `return v` (exit) / `{ state: v }`
+/// (continue).
 fn cases() -> Vec<(&'static str, serde_json::Value)> {
     vec![
         // factorial.hnl — while with destructured accumulator.

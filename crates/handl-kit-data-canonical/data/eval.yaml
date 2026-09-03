@@ -650,6 +650,14 @@
 # receives the current state (with param destructuring) and returns
 # `return v` (terminate, bare value) or `{ state: v }` (continue).
 # `{ out: v }` is accepted for backward compatibility.
+# NOTE: ADR-0074 defines `while cond { body }` as sugar over `rec` with
+# implicit feedback (child 0 = condition, child 1 = block body). Full `rec`
+# feedback semantics require runtime support (task 4). Until then, this
+# scheme uses the state-passing `loop_step` protocol: child 0 is the
+# initial state and child 1 is a block containing the body closure. This
+# is a best-effort approximation; the grammar encodes the ADR surface
+# syntax (`while cond { body }`) and the eval will be updated when `rec`
+# feedback lands.
 - id: eval.while
   node_kind: while
   scheme: !Seq

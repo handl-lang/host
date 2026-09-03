@@ -2,15 +2,34 @@
 # Removed: arrow-app, arrow-bind, returnA, loop, pipe, handle, typeof,
 #   stmt-const, stmt-module, is, may, must, not.infix, when, vau.
 # Added: product, nullish, opt-chain, rec, while, for, return, law, trait,
-#   impl, infer, type.
+#   impl, infer, type, do-while.
 # Updated: if.prefix — removed `then` from child_separators (v0.1 uses braces).
+# Updated: while.prefix — now `while cond { body }` with delimited block.
+# Updated: for.prefix — now `for x in xs { body }` with delimited block.
+# Updated: binding powers per ADR-0074 ID.1 precedence table:
+#   field-access/index/call (90), pow (65), mul/div/mod (60), add/sub (55),
+#   comparisons (50), && (48/49), || (46/47), ?? nullish (45/46),
+#   ?. opt-chain (45/46), *** product (35/36), &&& fanout (35/36),
+#   >>> flow (25/26), ||| choice (20/21), ?: ternary (15/16),
+#   : type-annot (12/13), ~> arrow (10/9, right-assoc), = assign (5/6).
 # Retained: axiom token (no grammar rule — alias for law).
+#
+# NOTE (ADR-0053 scope boundary): several v0.1 constructs are NOT expressible
+# in a declarative Pratt grammar and require parser-level contextual
+# disambiguation:
+#   - multi-way `if { c1: e1, _: e2 }` (distinguished by `{` after `if`)
+#   - `for` fold form `for x in xs, acc = init { body }` (parser checks if
+#     `,` follows `xs`)
+#   - contextual `{}` (block vs object vs map literal)
+#   - unbraced `while cond\n  body` (parser-level contextual disambiguation)
+# These are implementation tasks for the hand-written parser; the rows below
+# only encode the braced forms.
 - id: grammar.and.infix
   token: token.and
   position: Infix
   binding_power:
-  - 35
-  - 36
+  - 48
+  - 49
   child_shape:
     node_kind: binary.and
     arity: 2
@@ -18,8 +37,8 @@
   token: token.arrow
   position: Infix
   binding_power:
-  - 31
-  - 32
+  - 10
+  - 9
   child_shape:
     node_kind: function
     arity: 2
@@ -80,8 +99,8 @@
   token: token.equal
   position: Infix
   binding_power:
-  - 10
-  - 11
+  - 5
+  - 6
   child_shape:
     node_kind: assign
     arity: 2
@@ -89,8 +108,8 @@
   token: token.fanout
   position: Infix
   binding_power:
-  - 25
-  - 25
+  - 35
+  - 36
   child_shape:
     node_kind: fanout
     arity: 2
@@ -98,8 +117,8 @@
   token: token.choice
   position: Infix
   binding_power:
-  - 23
-  - 23
+  - 20
+  - 21
   child_shape:
     node_kind: choice
     arity: 2
@@ -107,8 +126,8 @@
   token: token.flow
   position: Infix
   binding_power:
-  - 20
-  - 21
+  - 25
+  - 26
   child_shape:
     node_kind: flow
     arity: 2
@@ -116,8 +135,8 @@
   token: token.product
   position: Infix
   binding_power:
-  - 50
-  - 50
+  - 35
+  - 36
   child_shape:
     node_kind: product
     arity: 2
@@ -125,8 +144,8 @@
   token: token.nullish
   position: Infix
   binding_power:
-  - 60
-  - 60
+  - 45
+  - 46
   child_shape:
     node_kind: nullish
     arity: 2
@@ -134,8 +153,8 @@
   token: token.opt_chain
   position: Infix
   binding_power:
-  - 90
-  - 91
+  - 45
+  - 46
   child_shape:
     node_kind: opt-chain
     arity: 2
@@ -246,20 +265,31 @@
       container_kind: block
       open_is_operator_token: false
       flatten: true
-# `while { state } (body)` — loop with state init and body proc.
-# BP [91, 0] (same as the old `loop` keyword) so that `while { ... } ( ... )`
-# parses as two children: the `{ state }` block (child 0, parsed with rbp=91,
-# stops before `(`) and the `( body )` expression (child 1).
+# `while cond { body }` — pre-test loop (ADR-0074 A.5).
+# child 0 is the condition expression, child 1 is the delimited block body.
+# The unbraced form `while cond\n  body` requires parser-level contextual
+# disambiguation (not expressible in declarative Pratt grammar).
 - id: grammar.while.prefix
   token: token.keyword.while
   position: Prefix
   binding_power:
-  - 91
+  - 0
   - 0
   child_shape:
     node_kind: while
     arity: 2
-# `for x in xs body` — sugar over `rec` + destructuring (ADR-0074 A.2).
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.semicolon
+      container_kind: block
+      open_is_operator_token: false
+      flatten: true
+# `for x in xs { body }` — sugar over `rec` + destructuring (ADR-0074 A.2).
+# child 0 = x, consume `in`, child 1 = xs, child 2 = delimited block `{ body }`.
+# The fold form `for x in xs, acc = init { body }` requires parser-level
+# contextual disambiguation (the parser must check if `,` follows `xs`).
+# This is the same limitation as multi-way `if`.
 - id: grammar.for.prefix
   token: token.keyword.for
   position: Prefix
@@ -271,6 +301,13 @@
     arity: 3
     child_separators:
     - !Required token.keyword.in
+    delimited:
+      open: token.lbrace
+      close: token.rbrace
+      separator: token.semicolon
+      container_kind: block
+      open_is_operator_token: false
+      flatten: true
 # `return expr` — early exit (ADR-0074).
 - id: grammar.return.prefix
   token: token.keyword.return
@@ -420,6 +457,19 @@
       container_kind: block
       open_is_operator_token: false
       flatten: true
+# `do { body } while cond` — post-test loop (ADR-0074 A.6).
+# `do` prefix produces a block; `while` in infix position (after an expression)
+# produces a do-while node. The parser distinguishes infix `while` (after an
+# expression) from prefix `while` (start of expression) by position.
+- id: grammar.do-while.infix
+  token: token.keyword.while
+  position: Infix
+  binding_power:
+  - 5
+  - 6
+  child_shape:
+    node_kind: do-while
+    arity: 2
 - id: grammar.call.infix
   token: token.lparen
   position: Infix
@@ -513,8 +563,8 @@
   token: token.or
   position: Infix
   binding_power:
-  - 25
-  - 26
+  - 46
+  - 47
   child_shape:
     node_kind: binary.or
     arity: 2

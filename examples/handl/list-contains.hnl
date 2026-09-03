@@ -1,4 +1,4 @@
-while { xs: [4, 7, 9, 12], needle: 9 } (
+while { xs: [4, 7, 9, 12], needle: 9 } {
   [xs, needle] ~> match xs {
     []: return false,
 
@@ -7,4 +7,4 @@ while { xs: [4, 7, 9, 12], needle: 9 } (
     else
       { state: { xs: t, needle: needle } }
   }
-)
+}

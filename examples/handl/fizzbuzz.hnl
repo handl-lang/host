@@ -1,4 +1,4 @@
-while { n: 1, out: 0 } (
+while { n: 1, out: 0 } {
   [n, out] ~> if n > 15
     return out
   else if n % 15 == 0
@@ -9,4 +9,4 @@ while { n: 1, out: 0 } (
     { state: { n: n + 1, out: 5 } }
   else
     { state: { n: n + 1, out: n } }
-)
+}
