@@ -8150,3 +8150,284 @@ fn row_poly_closed_unifies_open_reversed() {
     expected_extra.insert("age".to_string(), type_number());
     assert_eq!(*solved, type_record(expected_extra));
 }
+
+// ---------------------------------------------------------------------------
+// 13. Occurs check: a row variable can't be bound to a row containing itself
+//     unify(r, {name: Str | r})  ⟹  FAIL (occurs-check)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_occurs_check_rejects_cyclic_row() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Build a record that contains r in its own rest field:
+    // {name: Str | r}  — unifying r with this would create a cycle.
+    let mut fields = serde_json::Map::new();
+    fields.insert("name".to_string(), type_string());
+    let cyclic_rec = type_record_open(fields, &r);
+    // Unify r with the cyclic record — should fail the occurs check.
+    let err = engine.unify(&r, &cyclic_rec, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check")),
+        "expected occurs-check failure, got {:?}",
+        err
+    );
+    // The row variable should remain unsolved.
+    assert!(ctx.lookup_meta(r_id).is_none(), "row var should remain unsolved");
+}
+
+// ---------------------------------------------------------------------------
+// 14. Occurs check through nested row: r can't be bound to {a: Str | {b: Int | r}}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_occurs_check_nested_row() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    // Inner record: {b: Int | r}  — contains r.
+    let mut inner_fields = serde_json::Map::new();
+    inner_fields.insert("b".to_string(), type_number());
+    let inner_rec = type_record_open(inner_fields, &r);
+    // Outer record: {a: Str | inner_rec}  — r occurs nested.
+    let mut outer_fields = serde_json::Map::new();
+    outer_fields.insert("a".to_string(), type_string());
+    let cyclic_rec = type_record_open(outer_fields, &inner_rec);
+    // Unify r with the nested cyclic record — should fail the occurs check.
+    let err = engine.unify(&r, &cyclic_rec, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check")),
+        "expected occurs-check failure for nested row, got {:?}",
+        err
+    );
+    assert!(ctx.lookup_meta(r_id).is_none(), "row var should remain unsolved");
+}
+
+// ---------------------------------------------------------------------------
+// 15. Function application with row-polymorphic record subsumption
+//     A function expecting {name: Str | r} accepts {name: "L", age: 30}
+//     via the `call` rule's check_child → check_object_record path.
+//     The row variable r is solved to {age: Int}.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_function_call_subsumption() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_object_rule(&mut lang);
+    // call rule: synth_child(0) >>> bind("funtype")
+    //   >>> check_child(1, [type_field("param", [result("funtype")])])
+    //   >>> type_field("body", [result("funtype")])
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.call",
+            "call",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit(
+                            "check_child",
+                            vec![Scheme::arr_judgment_lit(
+                                "type_field",
+                                vec![Scheme::arr_judgment_lit(
+                                    "result",
+                                    vec![],
+                                    Value::from("funtype"),
+                                )],
+                                Value::from("param"),
+                            )],
+                            Value::from(1u64),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "type_field",
+                            vec![Scheme::arr_judgment_lit(
+                                "result",
+                                vec![],
+                                Value::from("funtype"),
+                            )],
+                            Value::from("body"),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+    // "fn_val" node: always synths to a fixed function type with an open
+    // record param: type.function{param: {name: Str | r}, body: Str}
+    // where r = meta 0.
+    let r = json!({"__meta__": 0});
+    let mut param_fields = serde_json::Map::new();
+    param_fields.insert("name".to_string(), type_string());
+    let open_param = type_record_open(param_fields, &r);
+    let fn_type = json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": open_param,
+        "body": type_string()
+    });
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.fn_val",
+            "fn_val",
+            Scheme::arr_native_lit("const", vec![], fn_type),
+        ))
+        .unwrap();
+    // AST: [object{entries: [{key:"name", value:"Luis"},
+    //                        {key:"age", value:30}]},
+    //       fn_val,
+    //       call{children:[1, 0]}]
+    // The call node synths the callee (fn_val) → type.function{param: {name:Str|r}, body: Str},
+    // checks the object arg against {name: Str | r} → check_object_record succeeds
+    // (extra "age" field absorbed by r), returns body type Str.
+    let mut ast = Ast::new();
+    ast.push(
+        AstNode::new("object").with_payload(json!({
+            "entries": [
+                {"key": "name", "value": "Luis"},
+                {"key": "age", "value": 30}
+            ]
+        })),
+    );
+    ast.push(AstNode::new("fn_val"));
+    ast.push(AstNode::new("call").with_payload(json!({"children": [1, 0]})));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_string());
+}
+
+// ---------------------------------------------------------------------------
+// 16. Function call subsumption fails with closed expected record + extra fields
+//     A function expecting {name: Str} (closed) rejects {name: "L", age: 30}.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_function_call_closed_rejects_extra() {
+    let engine = engine();
+    let mut lang = Language::new();
+    merge_object_rule(&mut lang);
+    // call rule (same as above).
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.call",
+            "call",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(0u64)),
+                Scheme::seq(
+                    Scheme::arr_judgment_lit("bind", vec![], Value::from("funtype")),
+                    Scheme::seq(
+                        Scheme::arr_judgment_lit(
+                            "check_child",
+                            vec![Scheme::arr_judgment_lit(
+                                "type_field",
+                                vec![Scheme::arr_judgment_lit(
+                                    "result",
+                                    vec![],
+                                    Value::from("funtype"),
+                                )],
+                                Value::from("param"),
+                            )],
+                            Value::from(1u64),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "type_field",
+                            vec![Scheme::arr_judgment_lit(
+                                "result",
+                                vec![],
+                                Value::from("funtype"),
+                            )],
+                            Value::from("body"),
+                        ),
+                    ),
+                ),
+            ),
+        ))
+        .unwrap();
+    // "fn_val" node: synths to a function with a CLOSED record param.
+    let mut param_fields = serde_json::Map::new();
+    param_fields.insert("name".to_string(), type_string());
+    let closed_param = type_record(param_fields);
+    let fn_type = json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": closed_param,
+        "body": type_string()
+    });
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.fn_val",
+            "fn_val",
+            Scheme::arr_native_lit("const", vec![], fn_type),
+        ))
+        .unwrap();
+    // AST: [object{name:"Luis", age:30}, fn_val, call{children:[1,0]}]
+    let mut ast = Ast::new();
+    ast.push(
+        AstNode::new("object").with_payload(json!({
+            "entries": [
+                {"key": "name", "value": "Luis"},
+                {"key": "age", "value": 30}
+            ]
+        })),
+    );
+    ast.push(AstNode::new("fn_val"));
+    ast.push(AstNode::new("call").with_payload(json!({"children": [1, 0]})));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("not found in expected record")),
+        "expected field-not-found error for closed record, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 17. Row variable solved through unify with a record containing a row var
+//     {name: Str | r1} ~ {name: Str, age: Int | r2}  ⟹  r1 := {age: Int | r2}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn row_poly_open_unifies_open_with_extra_known_field() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r1_id = ctx.fresh_meta();
+    let r1 = meta_value(r1_id);
+    let r2_id = ctx.fresh_meta();
+    let r2 = meta_value(r2_id);
+    // Open record A: {name: Str | r1}
+    let mut fields_a = serde_json::Map::new();
+    fields_a.insert("name".to_string(), type_string());
+    let rec_a = type_record_open(fields_a, &r1);
+    // Open record B: {name: Str, age: Int | r2}
+    let mut fields_b = serde_json::Map::new();
+    fields_b.insert("name".to_string(), type_string());
+    fields_b.insert("age".to_string(), type_number());
+    let rec_b = type_record_open(fields_b, &r2);
+    // Unify — should succeed. Per the Leijen row-unification algorithm
+    // (both-open case), a fresh row variable r3 is created and:
+    //   r1 := {age: Int | r3},  r2 := {} | r3
+    // (r2 absorbs a's extra fields — none — plus the shared fresh row var.)
+    engine.unify(&rec_a, &rec_b, &mut ctx).unwrap();
+    let solved1 = ctx.lookup_meta(r1_id).expect("r1 should be solved");
+    let solved1_tag = solved1.get("__tag__").and_then(|t| t.as_str());
+    assert_eq!(solved1_tag, Some("type.record"));
+    let solved1_fields = solved1.get("fields").and_then(|f| f.as_object()).unwrap();
+    assert_eq!(solved1_fields.get("age"), Some(&type_number()));
+    // r1's solution should carry a fresh row variable as its rest.
+    let rest1 = solved1.get("rest").expect("r1 solution should have a rest");
+    let rest1_meta = rest1.get("__meta__").and_then(|m| m.as_u64());
+    assert!(rest1_meta.is_some(), "r1's rest should be a fresh row var (meta)");
+    // r2 should also be solved (to {} | r3, sharing the same fresh row var).
+    let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
+    let solved2_tag = solved2.get("__tag__").and_then(|t| t.as_str());
+    assert_eq!(solved2_tag, Some("type.record"));
+    let solved2_fields = solved2.get("fields").and_then(|f| f.as_object()).unwrap();
+    assert!(solved2_fields.is_empty(), "r2's fields should be empty (a had no extra fields)");
+    let rest2 = solved2.get("rest").expect("r2 solution should have a rest");
+    // Both solutions should share the same fresh row variable.
+    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+}
