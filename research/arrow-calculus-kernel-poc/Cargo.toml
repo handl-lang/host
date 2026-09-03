@@ -106,6 +106,10 @@ name = "bundled_effects"
 path = "src/bundled_effects.rs"
 
 [[bin]]
+name = "decoupled_pipeline"
+path = "src/decoupled_pipeline.rs"
+
+[[bin]]
 name = "v0_1_surface"
 path = "src/v0_1_surface.rs"
 
