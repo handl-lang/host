@@ -130,6 +130,10 @@ name = "cascade_check"
 path = "src/cascade_check.rs"
 
 [[bin]]
+name = "quantified_laws"
+path = "src/quantified_laws.rs"
+
+[[bin]]
 name = "contract_inference_tests"
 path = "src/contract_inference_tests.rs"
 
