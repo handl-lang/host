@@ -87,8 +87,7 @@ impl Plugin for ConfigKit {
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_kv::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_stats::LibraryPlugin)?;

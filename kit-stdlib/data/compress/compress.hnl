@@ -1,0 +1,7 @@
+--- compress — compression abstractions for the handl runtime.
+---
+--- This is a trait-abstraction library: the Compressor, Decompressor, and
+--- Codec traits live in Rust (plugin-lib-compress) and are implemented by
+--- concrete compression crates (gzip). There are no callable handl ops
+--- here; the .hnl file exists to declare the library's capability surface
+--- for the plugin system.

@@ -1,0 +1,11 @@
+--- encoding — encoding abstractions for the handl runtime.
+---
+--- This is a trait-abstraction library: the Encoding trait and
+--- EncodingRegistry live in Rust (plugin-lib-encoding) and are implemented
+--- by concrete encoding crates (base64, hex). The op declarations below
+--- declare the encoding interface surface (encode/decode) for the plugin
+--- system; the handls are provided by the concrete impl crates.
+cap "encoding.encode"
+cap "encoding.decode"
+op "encoding.encode" : Value -> Value
+op "encoding.decode" : Value -> Value
