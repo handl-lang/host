@@ -1417,6 +1417,28 @@ impl TreeWalkEngine {
                 }
                 Ok((result, false))
             }
+            // eval_rec — recursive computation region (ADR-0074). The `rec`
+            // node's children are the flattened block bindings (grammar
+            // `grammar.rec.prefix` with `flatten: true`). Each child is an
+            // expression; `assign` children (`a = expr`) define bindings
+            // that may reference each other cyclically. The engine iterates
+            // to a fixpoint: on each pass, every binding's value expression
+            // is re-evaluated using the current values of other bindings.
+            // When no binding's value changes between passes, the fixpoint
+            // is reached. A fuel limit (10000 iterations) prevents infinite
+            // loops. `return` inside a `rec` region exits the region early
+            // with the return value. The last child's value is the result
+            // of the region (unless a `return` exits early).
+            //
+            // Bindings are NOT pre-initialized. On the first pass, a binding
+            // that references another not-yet-computed binding will either
+            // find it in an enclosing scope (if it exists there) or get an
+            // error (e.g. arithmetic on an unbound variable). Errors during
+            // binding evaluation are caught and the binding is skipped for
+            // that pass — it will be retried on the next pass once its
+            // dependencies have values. This allows mutually-dependent
+            // bindings to converge regardless of their textual order.
+            "eval_rec" => self.prim_eval_rec(ast, lang, env, current_node),
             "typeof" => {
                 let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
                 Ok((Value::from(type_tag(arg)), false))
@@ -2006,6 +2028,204 @@ impl TreeWalkEngine {
         serde_json::from_str(expr)
             .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
             .map(|v| (v, false))
+    }
+
+    /// `eval_rec` op: recursive computation region (ADR-0074).
+    ///
+    /// The `rec` node's children are the flattened block bindings. Each
+    /// child is an expression:
+    /// - `assign` children (`a = expr`) define bindings that may reference
+    ///   each other cyclically.
+    /// - `return` children exit the region early with the return value.
+    /// - Any other expression is evaluated for its side effects / result.
+    ///
+    /// The engine iterates to a fixpoint: on each pass, every binding's
+    /// value expression is re-evaluated using the current values of other
+    /// bindings. When no binding's value changes between passes, the
+    /// fixpoint is reached. A fuel limit (10000 iterations) prevents
+    /// infinite loops. The last child's value is the result of the region
+    /// (unless a `return` exits early).
+    ///
+    /// Bindings are NOT pre-initialized. On the first pass, a binding that
+    /// references another not-yet-computed binding will either find it in
+    /// an enclosing scope (if it exists there) or encounter an error (e.g.
+    /// arithmetic on an unbound variable). Errors during binding evaluation
+    /// are caught and the binding is skipped for that pass — it will be
+    /// retried on the next pass once its dependencies have values.
+    fn prim_eval_rec(
+        &self,
+        ast: &Ast,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+    ) -> Result<(Value, bool), LangError> {
+        let children = current_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| {
+                LangError::Engine("eval_rec: expected children array in payload".to_string())
+            })?;
+        if children.is_empty() {
+            return Ok((Value::Null, false));
+        }
+
+        // Push a new scope for the rec region. Bindings will be defined
+        // here as they are computed. On the first pass, variable lookups
+        // for not-yet-computed bindings fall through to the enclosing
+        // scope (if the name exists there) or return the name as a string
+        // (the default proj_env behavior for unbound variables).
+        env.push_scope();
+
+        // Track the previous value of each binding for change detection.
+        // Initialize from the enclosing scope so we can detect the first
+        // change correctly.
+        let mut prev_values: HashMap<String, Value> = HashMap::new();
+        for entry in children {
+            let child_idx = entry.as_u64().ok_or_else(|| {
+                LangError::Engine("eval_rec: child index must be a number".to_string())
+            })? as usize;
+            let child_node = ast.at(AstRef::new(child_idx))?;
+            if child_node.kind == "assign" {
+                if let Some(ac) = child_node
+                    .payload
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                {
+                    if ac.len() >= 2 {
+                        let var_idx = ac[0].as_u64().ok_or_else(|| {
+                            LangError::Engine(
+                                "eval_rec: assign var index must be a number".to_string(),
+                            )
+                        })? as usize;
+                        let var_node = ast.at(AstRef::new(var_idx))?;
+                        if let Some(name) = var_node.payload.as_str() {
+                            // Seed from the enclosing scope (before the push).
+                            // Since we already pushed a scope, lookup will
+                            // search innermost-first, but the inner scope is
+                            // empty at this point, so it falls through.
+                            let outer_val =
+                                env.lookup(name).cloned().unwrap_or(Value::Null);
+                            prev_values.insert(name.to_string(), outer_val);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut result = Value::Null;
+        const MAX_FUEL: usize = 10000;
+        let mut converged = false;
+
+        for _iter in 0..MAX_FUEL {
+            let mut changed = false;
+
+            for entry in children {
+                let child_idx = entry.as_u64().ok_or_else(|| {
+                    LangError::Engine("eval_rec: child index must be a number".to_string())
+                })? as usize;
+                let child_node = ast.at(AstRef::new(child_idx))?;
+
+                // Handle `return` — exit the region with the return value.
+                if child_node.kind == "return" {
+                    if let Some(rc) = child_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                    {
+                        if let Some(first) = rc.first() {
+                            if let Some(ret_idx) = first.as_u64() {
+                                result = self.eval_node(
+                                    ast,
+                                    AstRef::new(ret_idx as usize),
+                                    lang,
+                                    env,
+                                )?;
+                                env.pop_scope();
+                                return Ok((result, false));
+                            }
+                        }
+                    }
+                    // `return` with no value → exit with Null.
+                    env.pop_scope();
+                    return Ok((Value::Null, false));
+                }
+
+                // Handle `assign` bindings — evaluate the value expression
+                // and update the binding in the current scope. Errors are
+                // caught: a binding may reference another not-yet-computed
+                // binding (still unbound or Null), which would error. The
+                // binding is skipped for this pass and retried next pass.
+                if child_node.kind == "assign" {
+                    if let Some(ac) = child_node
+                        .payload
+                        .get("children")
+                        .and_then(|c| c.as_array())
+                    {
+                        if ac.len() >= 2 {
+                            let var_idx = ac[0].as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "eval_rec: assign var index must be a number".to_string(),
+                                )
+                            })? as usize;
+                            let value_idx = ac[1].as_u64().ok_or_else(|| {
+                                LangError::Engine(
+                                    "eval_rec: assign value index must be a number".to_string(),
+                                )
+                            })? as usize;
+                            let var_node = ast.at(AstRef::new(var_idx))?;
+                            let var_name = var_node.payload.as_str().ok_or_else(|| {
+                                LangError::Engine(
+                                    "eval_rec: assign var payload must be a string".to_string(),
+                                )
+                            })?;
+
+                            match self.eval_node(ast, AstRef::new(value_idx), lang, env) {
+                                Ok(new_val) => {
+                                    let prev = prev_values
+                                        .get(var_name)
+                                        .cloned()
+                                        .unwrap_or(Value::Null);
+                                    env.define(var_name, new_val.clone());
+                                    if new_val != prev {
+                                        changed = true;
+                                        prev_values
+                                            .insert(var_name.to_string(), new_val.clone());
+                                    }
+                                    result = new_val;
+                                }
+                                Err(_) => {
+                                    // Skip — binding couldn't be computed
+                                    // this pass (likely references a
+                                    // not-yet-computed binding). It will be
+                                    // retried on the next pass.
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                }
+
+                // Non-binding expression — evaluate normally.
+                result = self.eval_node(ast, AstRef::new(child_idx), lang, env)?;
+            }
+
+            if !changed {
+                converged = true;
+                break;
+            }
+        }
+
+        if !converged {
+            env.pop_scope();
+            return Err(LangError::Engine(
+                "rec: exceeded fuel limit (10000 iterations) without reaching fixpoint"
+                    .to_string(),
+            ));
+        }
+
+        env.pop_scope();
+        Ok((result, false))
     }
 }
 
@@ -4616,5 +4836,314 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         assert_eq!(engine.eval(&lang, &req).unwrap(), json!(5));
+    }
+
+    // -----------------------------------------------------------------
+    // rec — recursive computation region (ADR-0074)
+    // -----------------------------------------------------------------
+
+    /// Build a minimal language for `rec` eval tests: `value` (lit),
+    /// `var`, `binary.add`, `binary.sub`, `binary.gt`, `binary.lt`,
+    /// `binary.eq`, `if`, `assign`, `return`, `rec`, `let`.
+    fn rec_lang() -> Language {
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new("e.var", "var", var("$payload")))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.add",
+                "binary.add",
+                prim("add", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.sub",
+                "binary.sub",
+                prim("sub", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.gt",
+                "binary.gt",
+                prim("gt", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.lt",
+                "binary.lt",
+                prim("lt", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.eq",
+                "binary.eq",
+                prim("eq", vec![child(0), child(1)]),
+            ))
+            .unwrap();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.if",
+                "if",
+                branch(child(0), child(1), child(2)),
+            ))
+            .unwrap();
+        // `assign` — the native op evaluates child 1 (the value) and
+        // returns it. Inside `rec`, assign nodes are intercepted by the
+        // `eval_rec` handler before this scheme is used.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.assign",
+                "assign",
+                prim("assign", vec![]),
+            ))
+            .unwrap();
+        // `return` — proj_child 0. Inside `rec`, return nodes are
+        // intercepted by the `eval_rec` handler.
+        lang.eval
+            .merge(EvalSchemeDef::new("e.return", "return", child(0)))
+            .unwrap();
+        // `rec` — the recursive region native op.
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.rec",
+                "rec",
+                prim("eval_rec", vec![]),
+            ))
+            .unwrap();
+        // `let` — bind name to child(0), evaluate child(1).
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.let",
+                "let",
+                bind("$payload", child(0), child(1)),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn rec_simple_feedback() {
+        // rec { a = b + 1; b = 0; a } → 1
+        // b is not in any outer scope. On the first pass, `a = b + 1`
+        // errors (b is unbound, proj_env returns "b" string, add fails).
+        // The error is caught and a is skipped. b = 0 succeeds. On the
+        // second pass, a = 0 + 1 = 1. On the third pass, no change →
+        // fixpoint. The last child `a` evaluates to 1.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("b")),                   // 0: b in b+1
+            AstNode::new("value").with_payload(json!(1)),                   // 1: lit 1
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})), // 2: b+1
+            AstNode::new("var").with_payload(json!("a")),                   // 3: LHS a = ...
+            AstNode::new("assign").with_payload(json!({"children": [3, 2]})), // 4: a = b+1
+            AstNode::new("value").with_payload(json!(0)),                   // 5: lit 0
+            AstNode::new("var").with_payload(json!("b")),                   // 6: LHS b = ...
+            AstNode::new("assign").with_payload(json!({"children": [6, 5]})), // 7: b = 0
+            AstNode::new("var").with_payload(json!("a")),                   // 8: result expr
+            AstNode::new("rec").with_payload(json!({"children": [4, 7, 8]})), // 9: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(1));
+    }
+
+    #[test]
+    fn rec_countdown() {
+        // let n = 5 in rec { n = if n > 0 then n - 1 else n; n }
+        // n counts down from 5 to 0, then the fixpoint is reached.
+        // Result: 0.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),                   // 0: n initial
+            AstNode::new("var").with_payload(json!("n")),                   // 1: n in n>0
+            AstNode::new("value").with_payload(json!(0)),                   // 2: 0 in n>0
+            AstNode::new("binary.gt").with_payload(json!({"children": [1, 2]})), // 3: n>0
+            AstNode::new("var").with_payload(json!("n")),                   // 4: n in n-1
+            AstNode::new("value").with_payload(json!(1)),                   // 5: 1 in n-1
+            AstNode::new("binary.sub").with_payload(json!({"children": [4, 5]})), // 6: n-1
+            AstNode::new("var").with_payload(json!("n")),                   // 7: n (else)
+            AstNode::new("if").with_payload(json!({"children": [3, 6, 7]})), // 8: if n>0 then n-1 else n
+            AstNode::new("var").with_payload(json!("n")),                   // 9: LHS n = ...
+            AstNode::new("assign").with_payload(json!({"children": [9, 8]})), // 10: n = if ...
+            AstNode::new("var").with_payload(json!("n")),                   // 11: result expr
+            AstNode::new("rec").with_payload(json!({"children": [10, 11]})), // 12: rec
+            AstNode::new("let").with_payload(json!({"name": "n", "children": [0, 12]})), // 13: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    #[test]
+    fn rec_fixpoint_convergence() {
+        // let x = 0 in rec { x = if x < 10 then x + 1 else x; x }
+        // x increments from 0 to 10, then the fixpoint is reached.
+        // Result: 10.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(0)),                   // 0: x initial
+            AstNode::new("var").with_payload(json!("x")),                   // 1: x in x<10
+            AstNode::new("value").with_payload(json!(10)),                  // 2: 10 in x<10
+            AstNode::new("binary.lt").with_payload(json!({"children": [1, 2]})), // 3: x<10
+            AstNode::new("var").with_payload(json!("x")),                   // 4: x in x+1
+            AstNode::new("value").with_payload(json!(1)),                   // 5: 1 in x+1
+            AstNode::new("binary.add").with_payload(json!({"children": [4, 5]})), // 6: x+1
+            AstNode::new("var").with_payload(json!("x")),                   // 7: x (else)
+            AstNode::new("if").with_payload(json!({"children": [3, 6, 7]})), // 8: if x<10 then x+1 else x
+            AstNode::new("var").with_payload(json!("x")),                   // 9: LHS x = ...
+            AstNode::new("assign").with_payload(json!({"children": [9, 8]})), // 10: x = if ...
+            AstNode::new("var").with_payload(json!("x")),                   // 11: result expr
+            AstNode::new("rec").with_payload(json!({"children": [10, 11]})), // 12: rec
+            AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 12]})), // 13: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(10));
+    }
+
+    #[test]
+    fn rec_fuel_limit_errors() {
+        // let n = 0 in rec { n = n + 1; n }
+        // n increments forever — never converges. The fuel limit (10000)
+        // must fire and produce a runtime error, not hang.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(0)),                   // 0: n initial
+            AstNode::new("var").with_payload(json!("n")),                   // 1: n in n+1
+            AstNode::new("value").with_payload(json!(1)),                   // 2: 1 in n+1
+            AstNode::new("binary.add").with_payload(json!({"children": [1, 2]})), // 3: n+1
+            AstNode::new("var").with_payload(json!("n")),                   // 4: LHS n = ...
+            AstNode::new("assign").with_payload(json!({"children": [4, 3]})), // 5: n = n+1
+            AstNode::new("var").with_payload(json!("n")),                   // 6: result expr
+            AstNode::new("rec").with_payload(json!({"children": [5, 6]})),  // 7: rec
+            AstNode::new("let").with_payload(json!({"name": "n", "children": [0, 7]})), // 8: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("fuel limit"),
+            "expected fuel limit error, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn rec_return_exits_early() {
+        // rec { x = 42; return x } → 42
+        // The return node exits the rec region immediately with x's value.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(42)),                  // 0: lit 42
+            AstNode::new("var").with_payload(json!("x")),                   // 1: LHS x = ...
+            AstNode::new("assign").with_payload(json!({"children": [1, 0]})), // 2: x = 42
+            AstNode::new("var").with_payload(json!("x")),                   // 3: return value
+            AstNode::new("return").with_payload(json!({"children": [3]})),  // 4: return x
+            AstNode::new("rec").with_payload(json!({"children": [2, 4]})),  // 5: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn rec_return_with_bindings() {
+        // rec { x = 1; y = x + 1; return y } → 2
+        // Multiple bindings are computed, then return exits with y.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(1)),                   // 0: lit 1
+            AstNode::new("var").with_payload(json!("x")),                   // 1: LHS x = ...
+            AstNode::new("assign").with_payload(json!({"children": [1, 0]})), // 2: x = 1
+            AstNode::new("var").with_payload(json!("x")),                   // 3: x in x+1
+            AstNode::new("value").with_payload(json!(1)),                   // 4: 1 in x+1
+            AstNode::new("binary.add").with_payload(json!({"children": [3, 4]})), // 5: x+1
+            AstNode::new("var").with_payload(json!("y")),                   // 6: LHS y = ...
+            AstNode::new("assign").with_payload(json!({"children": [6, 5]})), // 7: y = x+1
+            AstNode::new("var").with_payload(json!("y")),                   // 8: return value
+            AstNode::new("return").with_payload(json!({"children": [8]})),  // 9: return y
+            AstNode::new("rec").with_payload(json!({"children": [2, 7, 9]})), // 10: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(2));
+    }
+
+    #[test]
+    fn rec_empty_returns_null() {
+        // rec { } → Null (no children)
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("rec").with_payload(json!({"children": []})), // 0: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, Value::Null);
+    }
+
+    #[test]
+    fn rec_single_binding_fixpoint() {
+        // rec { x = 5; x } → 5
+        // A single constant binding converges immediately.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(5)),                   // 0: lit 5
+            AstNode::new("var").with_payload(json!("x")),                   // 1: LHS x = ...
+            AstNode::new("assign").with_payload(json!({"children": [1, 0]})), // 2: x = 5
+            AstNode::new("var").with_payload(json!("x")),                   // 3: result expr
+            AstNode::new("rec").with_payload(json!({"children": [2, 3]})),  // 4: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn rec_mutual_dependency() {
+        // let b = 0 in let a = 1 in rec { a = b + 1; b = a - 1; a }
+        // a depends on b, b depends on a. Starting from outer a=1, b=0:
+        // Pass 1: a = 0 + 1 = 1 (no change from outer 1), b = 1 - 1 = 0 (no change from outer 0).
+        // Fixpoint reached immediately. Result: a = 1.
+        let engine = TreeWalkEngine::new();
+        let lang = rec_lang();
+        let ast = make_ast(vec![
+            // a = b + 1
+            AstNode::new("var").with_payload(json!("b")),                   // 0: b in b+1
+            AstNode::new("value").with_payload(json!(1)),                   // 1: lit 1
+            AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})), // 2: b+1
+            AstNode::new("var").with_payload(json!("a")),                   // 3: LHS a = ...
+            AstNode::new("assign").with_payload(json!({"children": [3, 2]})), // 4: a = b+1
+            // b = a - 1
+            AstNode::new("var").with_payload(json!("a")),                   // 5: a in a-1
+            AstNode::new("value").with_payload(json!(1)),                   // 6: lit 1
+            AstNode::new("binary.sub").with_payload(json!({"children": [5, 6]})), // 7: a-1
+            AstNode::new("var").with_payload(json!("b")),                   // 8: LHS b = ...
+            AstNode::new("assign").with_payload(json!({"children": [8, 7]})), // 9: b = a-1
+            // result
+            AstNode::new("var").with_payload(json!("a")),                   // 10: result expr
+            AstNode::new("rec").with_payload(json!({"children": [4, 9, 10]})), // 11: rec
+            // let a = 1 in rec { ... }
+            AstNode::new("value").with_payload(json!(1)),                   // 12: a initial
+            AstNode::new("let").with_payload(json!({"name": "a", "children": [12, 11]})), // 13: let a = 1 in rec
+            // let b = 0 in (let a = 1 in rec { ... })  [root]
+            AstNode::new("value").with_payload(json!(0)),                   // 14: b initial
+            AstNode::new("let").with_payload(json!({"name": "b", "children": [14, 13]})), // 15: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(1));
     }
 }

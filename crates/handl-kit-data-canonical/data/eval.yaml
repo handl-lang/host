@@ -635,13 +635,20 @@
 # ---------------------------------------------------------------------------
 # v0.1 new eval schemes (ADR-0074)
 # ---------------------------------------------------------------------------
-# `rec` — recursive region. Like `loop` but with 1 child (the block).
-# Full recursive region semantics require runtime support (task 4).
-# Best-effort: evaluate the block child with a Loop context.
+# `rec` — recursive computation region (ADR-0074). Introduces a cyclic
+# subgraph inside an arrow body. Bindings inside the region may depend on
+# each other cyclically. The runtime constructs the feedback graph and
+# iterates until a fixpoint is reached (no binding's value changes between
+# iterations). A fuel limit (10000 iterations) prevents infinite loops.
+# `return` inside a `rec` region exits the region early with the return value.
+# The `rec` node's children are the flattened block bindings (grammar
+# `grammar.rec.prefix` with `flatten: true`). Each child is an expression;
+# `assign` children (`a = expr`) define bindings, and the last child's value
+# is the result of the region (unless a `return` exits early).
 - id: eval.rec
   node_kind: rec
   scheme: !Arr
-    op: eval_block
+    op: eval_rec
     args: []
     source: Native
 # `while` — v0.1 feedback loop (ADR-0074 A.1). Uses the kernel `Loop`
@@ -651,13 +658,18 @@
 # `return v` (terminate, bare value) or `{ state: v }` (continue).
 # `{ out: v }` is accepted for backward compatibility.
 # NOTE: ADR-0074 defines `while cond { body }` as sugar over `rec` with
-# implicit feedback (child 0 = condition, child 1 = block body). Full `rec`
-# feedback semantics require runtime support (task 4). Until then, this
-# scheme uses the state-passing `loop_step` protocol: child 0 is the
-# initial state and child 1 is a block containing the body closure. This
-# is a best-effort approximation; the grammar encodes the ADR surface
-# syntax (`while cond { body }`) and the eval will be updated when `rec`
-# feedback lands.
+# implicit feedback (child 0 = condition, child 1 = block body). The `rec`
+# feedback primitive is now implemented (eval.rec → `eval_rec` native op
+# in the tree-walk engine). However, `while` retains the state-passing
+# `loop_step` protocol rather than desugaring to `rec` at eval time.
+# Rationale: `while` has a clear condition-then-body structure that maps
+# naturally to the `loop_step` Either-based protocol, and the existing
+# tests and corpus rely on this behavior. Desugaring `while` to `rec`
+# would require the parser to rewrite `while cond { body }` into a `rec`
+# region with implicit feedback variables, which is a parser-level change
+# outside the scope of the eval engine. The `rec` primitive is available
+# for direct use and as the desugaring target for `while`/`for`/`do-while`
+# in future parser work.
 - id: eval.while
   node_kind: while
   scheme: !Seq
