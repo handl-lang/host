@@ -1,0 +1,7 @@
+--- hex.encode — encode a string to hexadecimal.
+--- hex.decode — decode a hexadecimal string.
+op "hex.encode" : String -> String
+op "hex.decode" : String -> String
+
+handl "hex.encode" = rust_hex_encode
+handl "hex.decode" = rust_hex_decode

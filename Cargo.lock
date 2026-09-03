@@ -1724,6 +1724,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-lib-encoding",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "hex",
  "serde_json",
@@ -1959,6 +1960,7 @@ name = "handl-plugin-lib-prim"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde",
  "serde_json",
