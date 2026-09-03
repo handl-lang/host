@@ -20,11 +20,11 @@
 //! ## Wiring note
 //!
 //! The meta modules hold an [`Rc<dyn RuntimeFactory>`] which is not
-//! `Send + Sync`, so the [`LibraryPlugin`] cannot contribute its module
-//! through [`ModuleRuntime`](handl_plugin_module::ModuleRuntime). The host
-//! wires the [`RunCompiledModule`] directly via
+//! `Send + Sync`, so the [`LangRunCompiledLibraryPlugin`] cannot contribute
+//! its module through [`ModuleRuntime`](handl_plugin_module::ModuleRuntime).
+//! The host wires the [`RunCompiledModule`] directly via
 //! [`RuntimeFactory::build`](handl_runtime::RuntimeFactory::build)'s
-//! `delegate` parameter. See [`plugin::LibraryPlugin::contribute`].
+//! `delegate` parameter. See [`LangRunCompiledLibraryPlugin`].
 
 #![warn(missing_docs)]
 
@@ -125,8 +125,88 @@ impl Function for RunCompiledFn {
     }
 }
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+// ---------------------------------------------------------------------------
+// LangRunCompiledLibraryPlugin (wraps HandlLibraryPlugin, ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+
+/// The handl source declaring the `lang.run_compiled` interface. Loaded at
+/// compile time from the kit-stdlib data dir. The run_compiled engine stays
+/// Rust (ADR-0077 "Special"); this .hnl declares the interface only.
+const LANG_RUN_COMPILED_HNL: &str =
+    include_str!("../../../kit-stdlib/data/lang_run_compiled/lang_run_compiled.hnl");
+
+/// A `Library` plugin that registers the `lang.run_compiled` implementation
+/// via the generic [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The run_compiled engine logic stays in Rust (ADR-0077 "Special"); only
+/// the plugin scaffolding is wrapped with [`HandlLibraryPlugin`] for
+/// interface declaration.
+pub struct LangRunCompiledLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl LangRunCompiledLibraryPlugin {
+    /// Create a new `LangRunCompiledLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "lang.run_compiled",
+                "lib.lang.run_compiled",
+                "lib-lang-run-compiled",
+                LANG_RUN_COMPILED_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for LangRunCompiledLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for LangRunCompiledLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Legacy `LibraryPlugin` — delegates to [`LangRunCompiledLibraryPlugin`].
+pub use LangRunCompiledLibraryPlugin as LibraryPlugin;
 
 #[cfg(test)]
 mod tests;
