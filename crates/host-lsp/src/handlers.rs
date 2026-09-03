@@ -985,12 +985,8 @@ pub fn build_initialize_result(legend: &SemanticTokenLegend) -> Value {
         "capabilities": {
             "semanticTokensProvider": {
                 "legend": {
-                    "tokenTypes": legend.token_types.iter().map(|t| {
-                        json!({"name": t})
-                    }).collect::<Vec<_>>(),
-                    "tokenModifiers": legend.token_modifiers.iter().map(|m| {
-                        json!({"name": m})
-                    }).collect::<Vec<_>>(),
+                    "tokenTypes": legend.token_types.clone(),
+                    "tokenModifiers": legend.token_modifiers.clone(),
                 },
                 "full": true,
                 "range": true,
