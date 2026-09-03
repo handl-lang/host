@@ -1,6 +1,6 @@
 mod path;
 
-pub use path::{Path, PathModule};
+pub use path::{register_path_ops, Path, PathModule, PATH_OPS};
 
 pub mod path_stub;
 

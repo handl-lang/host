@@ -1,6 +1,9 @@
 mod http_client;
 
-pub use http_client::{HttpClient, HttpClientModule, HttpMethod, HttpRequest, HttpResponse};
+pub use http_client::{
+    register_http_client_ops, HttpClient, HttpClientModule, HttpMethod, HttpRequest,
+    HttpResponse, HTTP_CLIENT_OPS,
+};
 
 pub mod http_client_stub;
 

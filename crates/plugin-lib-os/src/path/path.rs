@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -173,4 +174,28 @@ impl Function for ExtnameFn {
             .map(serde_json::Value::from)
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `path` module.
+pub const PATH_OPS: &[&str] = &[
+    "path.join",
+    "path.resolve",
+    "path.basename",
+    "path.dirname",
+    "path.extname",
+];
+
+/// Register the `path` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Path`] implementation.
+pub fn register_path_ops(registry: &mut OpRegistry, path: impl Path + 'static) {
+    let path: Arc<dyn Path> = Arc::new(path);
+    registry.register("path.join", Arc::new(JoinFn { path: path.clone() }));
+    registry.register("path.resolve", Arc::new(ResolveFn { path: path.clone() }));
+    registry.register("path.basename", Arc::new(BasenameFn { path: path.clone() }));
+    registry.register("path.dirname", Arc::new(DirnameFn { path: path.clone() }));
+    registry.register("path.extname", Arc::new(ExtnameFn { path }));
 }

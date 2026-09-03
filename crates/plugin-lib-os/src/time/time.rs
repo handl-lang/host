@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -79,4 +80,22 @@ impl Function for EpochFn {
             .map(|s| serde_json::Value::from(serde_json::json!(s)))
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `time` module.
+pub const TIME_OPS: &[&str] = &[
+    "time.now",
+    "time.epoch",
+];
+
+/// Register the `time` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Time`] implementation.
+pub fn register_time_ops(registry: &mut OpRegistry, time: impl Time + 'static) {
+    let time: Arc<dyn Time> = Arc::new(time);
+    registry.register("time.now", Arc::new(NowFn { time: time.clone() }));
+    registry.register("time.epoch", Arc::new(EpochFn { time }));
 }

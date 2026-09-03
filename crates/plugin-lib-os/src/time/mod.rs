@@ -1,6 +1,6 @@
 mod time;
 
-pub use time::{Time, TimeModule};
+pub use time::{register_time_ops, Time, TimeModule, TIME_OPS};
 
 pub mod time_stub;
 

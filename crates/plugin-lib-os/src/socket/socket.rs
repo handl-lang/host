@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -177,4 +178,26 @@ impl Function for CloseFn {
         self.socket.close(handle)?;
         Ok(serde_json::Value::Null)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `socket` module.
+pub const SOCKET_OPS: &[&str] = &[
+    "socket.connect",
+    "socket.send",
+    "socket.recv",
+    "socket.close",
+];
+
+/// Register the `socket` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Socket`] implementation.
+pub fn register_socket_ops(registry: &mut OpRegistry, socket: impl Socket + 'static) {
+    let socket: Arc<dyn Socket> = Arc::new(socket);
+    registry.register("socket.connect", Arc::new(ConnectFn { socket: socket.clone() }));
+    registry.register("socket.send", Arc::new(SendFn { socket: socket.clone() }));
+    registry.register("socket.recv", Arc::new(RecvFn { socket: socket.clone() }));
+    registry.register("socket.close", Arc::new(CloseFn { socket }));
 }

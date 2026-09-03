@@ -1,6 +1,6 @@
 mod cmd;
 
-pub use cmd::{Cmd, CmdModule, CmdOutput};
+pub use cmd::{register_cmd_ops, Cmd, CmdModule, CmdOutput, CMD_OPS};
 
 pub mod cmd_stub;
 

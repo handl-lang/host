@@ -1,0 +1,29 @@
+--- http.get — issue an HTTP GET request via ureq.
+--- http.post — issue an HTTP POST request with a body via ureq.
+--- http.put — issue an HTTP PUT request with a body via ureq.
+--- http.patch — issue an HTTP PATCH request with a body via ureq.
+--- http.delete — issue an HTTP DELETE request via ureq.
+--- http.head — issue an HTTP HEAD request via ureq.
+--- http.request — issue a full HTTP request with method, url, body, and headers via ureq.
+cap "http.get"
+cap "http.post"
+cap "http.put"
+cap "http.patch"
+cap "http.delete"
+cap "http.head"
+cap "http.request"
+op "http.get" : String -> Value
+op "http.post" : String -> Value
+op "http.put" : String -> Value
+op "http.patch" : String -> Value
+op "http.delete" : String -> Value
+op "http.head" : String -> Value
+op "http.request" : String -> Value
+
+handl "http.get" = rust_http_get
+handl "http.post" = rust_http_post
+handl "http.put" = rust_http_put
+handl "http.patch" = rust_http_patch
+handl "http.delete" = rust_http_delete
+handl "http.head" = rust_http_head
+handl "http.request" = rust_http_request

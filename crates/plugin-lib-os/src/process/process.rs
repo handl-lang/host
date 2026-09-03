@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -194,4 +195,26 @@ impl Function for StatusFn {
             .map(status_to_value)
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `process` module.
+pub const PROCESS_OPS: &[&str] = &[
+    "process.spawn",
+    "process.kill",
+    "process.wait",
+    "process.status",
+];
+
+/// Register the `process` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Process`] implementation.
+pub fn register_process_ops(registry: &mut OpRegistry, process: impl Process + 'static) {
+    let process: Arc<dyn Process> = Arc::new(process);
+    registry.register("process.spawn", Arc::new(SpawnFn { process: process.clone() }));
+    registry.register("process.kill", Arc::new(KillFn { process: process.clone() }));
+    registry.register("process.wait", Arc::new(WaitFn { process: process.clone() }));
+    registry.register("process.status", Arc::new(StatusFn { process }));
 }

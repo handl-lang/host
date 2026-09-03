@@ -1,6 +1,6 @@
 mod process;
 
-pub use process::{Process, ProcessModule, ProcessStatus};
+pub use process::{register_process_ops, Process, ProcessModule, ProcessStatus, PROCESS_OPS};
 
 pub mod process_stub;
 

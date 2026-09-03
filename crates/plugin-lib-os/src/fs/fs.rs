@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -165,4 +166,28 @@ impl Function for ListDirFn {
             entries.into_iter().map(serde_json::Value::String).collect();
         Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `fs` module.
+pub const FS_OPS: &[&str] = &[
+    "fs.read",
+    "fs.write",
+    "fs.exists",
+    "fs.remove",
+    "fs.list",
+];
+
+/// Register the `fs` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Fs`] implementation.
+pub fn register_fs_ops(registry: &mut OpRegistry, fs: impl Fs + 'static) {
+    let fs: Arc<dyn Fs> = Arc::new(fs);
+    registry.register("fs.read", Arc::new(ReadFileFn { fs: fs.clone() }));
+    registry.register("fs.write", Arc::new(WriteFileFn { fs: fs.clone() }));
+    registry.register("fs.exists", Arc::new(ExistsFn { fs: fs.clone() }));
+    registry.register("fs.remove", Arc::new(RemoveFn { fs: fs.clone() }));
+    registry.register("fs.list", Arc::new(ListDirFn { fs }));
 }

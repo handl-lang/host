@@ -1,0 +1,84 @@
+--- fs.read — read a file as a UTF-8 string.
+--- fs.write — write content to a file, creating or overwriting it.
+--- fs.exists — check whether a path exists.
+--- fs.remove — remove a file or empty directory.
+--- fs.list — list directory entries as an array of strings.
+--- env.get — get an environment variable, returning null if unset.
+--- env.has — check whether an environment variable is set.
+--- env.keys — list all environment variable names.
+--- path.join — join path components into a single path string.
+--- path.resolve — join and canonicalize path components.
+--- path.basename — return the file name component of a path.
+--- path.dirname — return the directory component of a path.
+--- path.extname — return the file extension (including the leading dot).
+--- time.now — return the current time as epoch milliseconds.
+--- time.epoch — return the current time as epoch seconds.
+--- cmd.run — run a command and return { exit_code, stdout, stderr }.
+--- process.spawn — spawn a child process and return its process id.
+--- process.kill — send a kill signal to a managed process.
+--- process.wait — block until a process exits and return its exit code.
+--- process.status — poll a process and return { process_id, running, exit_code }.
+--- tmp.file — return a unique temporary file path.
+--- tmp.dir — create and return a unique temporary directory path.
+--- socket.connect — connect to a TCP address and return a handle.
+--- socket.send — send data on a socket and return bytes written.
+--- socket.recv — receive up to length bytes from a socket as a string.
+--- socket.close — close a socket handle.
+--- sig.send — send a signal to a process by id.
+--- sig.list — list supported signal names.
+cap "fs.read"
+cap "fs.write"
+cap "fs.exists"
+cap "fs.remove"
+cap "fs.list"
+cap "env.get"
+cap "env.has"
+cap "env.keys"
+cap "path.join"
+cap "path.resolve"
+cap "path.basename"
+cap "path.dirname"
+cap "path.extname"
+cap "time.now"
+cap "time.epoch"
+cap "cmd.run"
+cap "process.spawn"
+cap "process.kill"
+cap "process.wait"
+cap "process.status"
+cap "tmp.file"
+cap "tmp.dir"
+cap "socket.connect"
+cap "socket.send"
+cap "socket.recv"
+cap "socket.close"
+cap "sig.send"
+cap "sig.list"
+op "fs.read" : String -> String
+op "fs.write" : String -> Value
+op "fs.exists" : String -> Value
+op "fs.remove" : String -> Value
+op "fs.list" : String -> Value
+op "env.get" : String -> Value
+op "env.has" : String -> Value
+op "env.keys" : -> Value
+op "path.join" : String -> String
+op "path.resolve" : String -> String
+op "path.basename" : String -> String
+op "path.dirname" : String -> String
+op "path.extname" : String -> String
+op "time.now" : -> Value
+op "time.epoch" : -> Value
+op "cmd.run" : String -> Value
+op "process.spawn" : String -> Value
+op "process.kill" : Value -> Value
+op "process.wait" : Value -> Value
+op "process.status" : Value -> Value
+op "tmp.file" : -> String
+op "tmp.dir" : -> String
+op "socket.connect" : String -> Value
+op "socket.send" : Value -> Value
+op "socket.recv" : Value -> String
+op "socket.close" : Value -> Value
+op "sig.send" : Value -> Value
+op "sig.list" : -> Value

@@ -1,0 +1,18 @@
+--- http_server.new — create a new HTTP server instance and return its id.
+--- http_server.start — start accepting connections on the given address.
+--- http_server.stop — signal the server to stop accepting new connections.
+--- http_server.join — block until the server has fully shut down.
+--- http_server.route — register a handler for a method/path pattern.
+--- http_server.serve_static — serve static files from a directory under a path prefix.
+cap "http_server.new"
+cap "http_server.start"
+cap "http_server.stop"
+cap "http_server.join"
+cap "http_server.route"
+cap "http_server.serve_static"
+op "http_server.new" : -> Value
+op "http_server.start" : Value -> Value
+op "http_server.stop" : Value -> Value
+op "http_server.join" : Value -> Value
+op "http_server.route" : Value -> Value
+op "http_server.serve_static" : Value -> Value

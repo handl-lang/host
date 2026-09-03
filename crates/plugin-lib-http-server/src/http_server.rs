@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::HttpServerError;
 use crate::function_value::FunctionValue;
@@ -382,6 +383,39 @@ impl<F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static> Function for ServeS
             .map_err(Into::into)
             .map(|_| Value::Null)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `http_server.hnl` — the HTTP server interface.
+pub const HTTP_SERVER_OPS: &[&str] = &[
+    "http_server.new",
+    "http_server.start",
+    "http_server.stop",
+    "http_server.join",
+    "http_server.route",
+    "http_server.serve_static",
+];
+
+/// Register the `http_server` ops into the given [`OpRegistry`],
+/// dispatching to [`HttpServer`] instances created by the given factory.
+///
+/// The factory `F` must be `Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static`.
+/// Each call to `http_server.new` invokes the factory to create a fresh
+/// server instance.
+pub fn register_http_server_ops<F>(registry: &mut OpRegistry, factory: F)
+where
+    F: Fn() -> Arc<dyn HttpServer> + Send + Sync + 'static,
+{
+    let inner = Arc::new(Inner::new(factory));
+    registry.register("http_server.new", Arc::new(NewFn { inner: inner.clone() }));
+    registry.register("http_server.start", Arc::new(StartFn { inner: inner.clone() }));
+    registry.register("http_server.stop", Arc::new(StopFn { inner: inner.clone() }));
+    registry.register("http_server.join", Arc::new(JoinFn { inner: inner.clone() }));
+    registry.register("http_server.route", Arc::new(RouteFn { inner: inner.clone() }));
+    registry.register("http_server.serve_static", Arc::new(ServeStaticFn { inner }));
 }
 
 #[cfg(test)]

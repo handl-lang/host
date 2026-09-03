@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::HttpError;
 
@@ -380,4 +381,32 @@ impl Function for RequestFn {
             .map(response_to_value)
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `http_client.hnl` — the HTTP client interface.
+pub const HTTP_CLIENT_OPS: &[&str] = &[
+    "http.get",
+    "http.post",
+    "http.put",
+    "http.patch",
+    "http.delete",
+    "http.head",
+    "http.request",
+];
+
+/// Register the `http` ops into the given [`OpRegistry`], dispatching to the
+/// given [`HttpClient`] implementation.
+pub fn register_http_client_ops(registry: &mut OpRegistry, client: impl HttpClient + 'static) {
+    let client: Arc<dyn HttpClient> = Arc::new(client);
+    registry.register("http.get", Arc::new(GetFn { client: client.clone() }));
+    registry.register("http.post", Arc::new(PostFn { client: client.clone() }));
+    registry.register("http.put", Arc::new(PutFn { client: client.clone() }));
+    registry.register("http.patch", Arc::new(PatchFn { client: client.clone() }));
+    registry.register("http.delete", Arc::new(DeleteFn { client: client.clone() }));
+    registry.register("http.head", Arc::new(HeadFn { client: client.clone() }));
+    registry.register("http.request", Arc::new(RequestFn { client }));
 }

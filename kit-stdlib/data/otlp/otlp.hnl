@@ -1,0 +1,27 @@
+--- otlp.configure — set endpoint, service name, headers and resource attributes.
+--- otlp.start_span — start a span and return its id.
+--- otlp.end_span — end a span by id.
+--- otlp.set_attribute — set a span attribute.
+--- otlp.add_event — add a named event to a span.
+--- otlp.record_log — record a log entry.
+--- otlp.record_metric — record a numeric metric.
+--- otlp.flush — export all buffered telemetry.
+--- otlp.shutdown — end all spans, flush and release the exporter.
+cap "otlp.configure"
+cap "otlp.start_span"
+cap "otlp.end_span"
+cap "otlp.set_attribute"
+cap "otlp.add_event"
+cap "otlp.record_log"
+cap "otlp.record_metric"
+cap "otlp.flush"
+cap "otlp.shutdown"
+op "otlp.configure" : Value -> Value
+op "otlp.start_span" : String -> String
+op "otlp.end_span" : String -> Value
+op "otlp.set_attribute" : String -> Value
+op "otlp.add_event" : String -> Value
+op "otlp.record_log" : String -> Value
+op "otlp.record_metric" : String -> Value
+op "otlp.flush" : -> Value
+op "otlp.shutdown" : -> Value

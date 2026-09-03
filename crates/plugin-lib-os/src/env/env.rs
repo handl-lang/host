@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -111,4 +112,24 @@ impl Function for KeysFn {
         let arr: Vec<serde_json::Value> = keys.into_iter().map(serde_json::Value::String).collect();
         Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `env` module.
+pub const ENV_OPS: &[&str] = &[
+    "env.get",
+    "env.has",
+    "env.keys",
+];
+
+/// Register the `env` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Env`] implementation.
+pub fn register_env_ops(registry: &mut OpRegistry, env: impl Env + 'static) {
+    let env: Arc<dyn Env> = Arc::new(env);
+    registry.register("env.get", Arc::new(GetFn { env: env.clone() }));
+    registry.register("env.has", Arc::new(HasFn { env: env.clone() }));
+    registry.register("env.keys", Arc::new(KeysFn { env }));
 }

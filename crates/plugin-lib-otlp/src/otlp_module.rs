@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 use serde_json::Value;
 
 use crate::state::{MetricKind, MetricOptions, OtlpConfig, OtlpState, StartSpanOptions};
@@ -378,6 +379,37 @@ impl Function for ShutdownFn {
         self.state.shutdown().map_err(EvalError::from)?;
         Ok(serde_json::Value::from(Value::Null))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `otlp.hnl` — the OTLP interface.
+pub const OTLP_OPS: &[&str] = &[
+    "otlp.configure",
+    "otlp.start_span",
+    "otlp.end_span",
+    "otlp.set_attribute",
+    "otlp.add_event",
+    "otlp.record_log",
+    "otlp.record_metric",
+    "otlp.flush",
+    "otlp.shutdown",
+];
+
+/// Register the `otlp` ops into the given [`OpRegistry`], dispatching to
+/// the given [`OtlpState`] implementation.
+pub fn register_otlp_ops(registry: &mut OpRegistry, state: Arc<dyn OtlpState>) {
+    registry.register("otlp.configure", Arc::new(ConfigureFn { state: state.clone() }));
+    registry.register("otlp.start_span", Arc::new(StartSpanFn { state: state.clone() }));
+    registry.register("otlp.end_span", Arc::new(EndSpanFn { state: state.clone() }));
+    registry.register("otlp.set_attribute", Arc::new(SetAttributeFn { state: state.clone() }));
+    registry.register("otlp.add_event", Arc::new(AddEventFn { state: state.clone() }));
+    registry.register("otlp.record_log", Arc::new(RecordLogFn { state: state.clone() }));
+    registry.register("otlp.record_metric", Arc::new(RecordMetricFn { state: state.clone() }));
+    registry.register("otlp.flush", Arc::new(FlushFn { state: state.clone() }));
+    registry.register("otlp.shutdown", Arc::new(ShutdownFn { state }));
 }
 
 #[cfg(test)]

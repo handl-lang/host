@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -90,4 +91,22 @@ impl Function for ListFn {
             signals.into_iter().map(serde_json::Value::String).collect();
         Ok(serde_json::Value::from(serde_json::Value::Array(arr)))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `sig` module.
+pub const SIG_OPS: &[&str] = &[
+    "sig.send",
+    "sig.list",
+];
+
+/// Register the `sig` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Sig`] implementation.
+pub fn register_sig_ops(registry: &mut OpRegistry, sig: impl Sig + 'static) {
+    let sig: Arc<dyn Sig> = Arc::new(sig);
+    registry.register("sig.send", Arc::new(SendFn { sig: sig.clone() }));
+    registry.register("sig.list", Arc::new(ListFn { sig }));
 }

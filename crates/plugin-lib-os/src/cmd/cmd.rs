@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -98,4 +99,20 @@ impl Function for RunFn {
             .map(output_to_value)
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `cmd` module.
+pub const CMD_OPS: &[&str] = &[
+    "cmd.run",
+];
+
+/// Register the `cmd` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Cmd`] implementation.
+pub fn register_cmd_ops(registry: &mut OpRegistry, cmd: impl Cmd + 'static) {
+    let command: Arc<dyn Cmd> = Arc::new(cmd);
+    registry.register("cmd.run", Arc::new(RunFn { command }));
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 
 use crate::error::OsError;
 
@@ -77,4 +78,22 @@ impl Function for DirFn {
             .map(serde_json::Value::from)
             .map_err(Into::into)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `os.hnl` for the `tmp` module.
+pub const TMP_OPS: &[&str] = &[
+    "tmp.file",
+    "tmp.dir",
+];
+
+/// Register the `tmp` ops into the given [`OpRegistry`], dispatching to the
+/// given [`Tmp`] implementation.
+pub fn register_tmp_ops(registry: &mut OpRegistry, tmp: impl Tmp + 'static) {
+    let tmp: Arc<dyn Tmp> = Arc::new(tmp);
+    registry.register("tmp.file", Arc::new(FileFn { tmp: tmp.clone() }));
+    registry.register("tmp.dir", Arc::new(DirFn { tmp }));
 }
