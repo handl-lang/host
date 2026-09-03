@@ -61,8 +61,8 @@ impl Plugin for StdlibKit {
         self.registered.store(true, Ordering::SeqCst);
         ctx.register_plugin(handl_plugin_module::ModuleRuntime::default())?;
         ctx.register_plugin(HelloLibraryPlugin::new())?;
-        ctx.register_plugin(UtilsLibraryPlugin)?;
-        ctx.register_plugin(CollectionsLibraryPlugin)?;
+        ctx.register_plugin(UtilsLibraryPlugin::new())?;
+        ctx.register_plugin(CollectionsLibraryPlugin::new())?;
         Ok(())
     }
 

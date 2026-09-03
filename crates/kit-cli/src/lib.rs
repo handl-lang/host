@@ -95,9 +95,9 @@ impl Plugin for CliKit {
         // parser, evaluator) are now provided by the data-driven
         // `handl-kit-canonical::Kit` backed by `handl-runtime`.
         ctx.register_plugin(handl_plugin_lib_os_std::OsStdLibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_json::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_toml::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_yaml::LibraryPlugin::new())?;

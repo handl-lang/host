@@ -82,13 +82,13 @@ impl Plugin for ConfigKit {
         // into the ModuleRuntime. The language operations (lexer, parser,
         // evaluator) are now provided by the data-driven
         // `handl-kit-canonical::Kit` backed by `handl-runtime`.
-        ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_stats::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin::new())?;
