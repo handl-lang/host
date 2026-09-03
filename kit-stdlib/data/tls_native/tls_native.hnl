@@ -1,0 +1,49 @@
+--- tls.version — return TLS library and version information (tokio-rustls backend).
+--- tls.generate_self_signed — generate a self-signed certificate via rcgen.
+--- tls.parse_cert — parse a PEM certificate string using rustls-pemfile.
+--- tls.fingerprint — return the SHA-256 hex fingerprint of the first certificate.
+--- tls.client_config — build a rustls client configuration and return a config_id.
+--- tls.server_config — build a rustls server configuration and return a config_id.
+--- tls.connect — open a TLS client connection via tokio-rustls.
+--- tls.accept — listen on addr:port and accept a TLS connection via tokio-rustls.
+--- tls.read — read up to len bytes from a TLS connection.
+--- tls.write — write data to a TLS connection.
+--- tls.close_conn — close a TLS connection.
+--- tls.close_listener — close a TLS listener.
+cap "tls.version"
+cap "tls.generate_self_signed"
+cap "tls.parse_cert"
+cap "tls.fingerprint"
+cap "tls.client_config"
+cap "tls.server_config"
+cap "tls.connect"
+cap "tls.accept"
+cap "tls.read"
+cap "tls.write"
+cap "tls.close_conn"
+cap "tls.close_listener"
+op "tls.version" : -> Value
+op "tls.generate_self_signed" : Value -> Value
+op "tls.parse_cert" : String -> Value
+op "tls.fingerprint" : String -> String
+op "tls.client_config" : Value -> Value
+op "tls.server_config" : String -> Value
+op "tls.connect" : String -> Value
+op "tls.accept" : String -> Value
+op "tls.read" : Value -> String
+op "tls.write" : Value -> Value
+op "tls.close_conn" : Value -> Value
+op "tls.close_listener" : Value -> Value
+
+handl "tls.version" = rust_tls_version
+handl "tls.generate_self_signed" = rust_tls_generate_self_signed
+handl "tls.parse_cert" = rust_tls_parse_cert
+handl "tls.fingerprint" = rust_tls_fingerprint
+handl "tls.client_config" = rust_tls_client_config
+handl "tls.server_config" = rust_tls_server_config
+handl "tls.connect" = rust_tls_connect
+handl "tls.accept" = rust_tls_accept
+handl "tls.read" = rust_tls_read
+handl "tls.write" = rust_tls_write
+handl "tls.close_conn" = rust_tls_close_conn
+handl "tls.close_listener" = rust_tls_close_listener

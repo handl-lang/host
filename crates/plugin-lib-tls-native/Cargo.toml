@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-platform = { workspace = true }
 handl-plugin-lib-tls.workspace = true
 serde_json.workspace = true

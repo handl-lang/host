@@ -1,6 +1,16 @@
 //! # handl-lib-tls-native
 //!
 //! Concrete `tokio-rustls` implementation of `handl_plugin_lib_tls::TlsService`.
+//!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The TLS interface is declared in
+//! `kit-stdlib/data/tls/tls.hnl`, and this crate's `handl` bindings are
+//! declared in `kit-stdlib/data/tls_native/tls_native.hnl`. The Rust handls
+//! (wrapping rustls via [`NativeTls`]) are registered in an [`OpRegistry`]
+//! via [`tls_native_op_registry`], which delegates to the shared
+//! [`tls_op_registry`](handl_plugin_lib_tls::tls_op_registry) builder. The
+//! [`TlsNativeLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
+//! the op registry, eliminating the per-library `Plugin` trait scaffolding.
 
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -8,7 +18,8 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use handl_plugin_lib_tls::{TlsError, TlsService};
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+use handl_plugin_lib_tls::{tls_op_registry, TlsError, TlsService, TLS_OPS};
 use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{
@@ -378,5 +389,121 @@ fn parse_key(pem: &str) -> Result<PrivateKeyDer<'static>, TlsError> {
 #[cfg(test)]
 mod tests;
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The handl source declaring the tls-native `handl` bindings — the
+/// implementation-side declarations for the TLS ops. Loaded at compile
+/// time from the kit-stdlib data dir.
+const TLS_NATIVE_HNL: &str = include_str!("../../../kit-stdlib/data/tls_native/tls_native.hnl");
+
+/// Build the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for
+/// tls-native, registering the Rust handls (wrapping rustls via
+/// [`NativeTls`]) under the op names declared in the tls interface.
+///
+/// This delegates to the shared
+/// [`tls_op_registry`](handl_plugin_lib_tls::tls_op_registry) builder,
+/// passing [`NativeTls`] as the [`TlsService`] backend. Each op name
+/// (e.g. `"tls.connect"`) maps to a `Function` struct that parses its
+/// JSON arguments and dispatches to [`NativeTls`].
+pub fn tls_native_op_registry() -> handl_plugin_lib_handl::OpRegistry {
+    tls_op_registry(NativeTls::new())
+}
+
+// ---------------------------------------------------------------------------
+// TlsNativeLibraryPlugin (wraps HandlLibraryPlugin with op registry)
+// ---------------------------------------------------------------------------
+
+/// A `Library` plugin that registers the `tls-native` implementation via
+/// the generic [`HandlLibraryPlugin`] with an
+/// [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The TLS interface is declared in `tls.hnl`; this crate's `handl`
+/// bindings are declared in `tls_native.hnl`. The Rust handls (wrapping
+/// rustls via [`NativeTls`]) are registered in the op registry. The
+/// generic loader handles module registration.
+pub struct TlsNativeLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl TlsNativeLibraryPlugin {
+    /// Create a new `TlsNativeLibraryPlugin` backed by [`NativeTls`].
+    pub fn new() -> Self {
+        let registry = Arc::new(tls_native_op_registry());
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "tls",
+                "lib.tls-native",
+                "lib-tls-native",
+                TLS_NATIVE_HNL,
+                &[],
+            )
+            .with_ops(TLS_OPS, registry),
+        }
+    }
+}
+
+impl Default for TlsNativeLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for TlsNativeLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Build a [`HandlLibraryPlugin`] for tls-native with the op registry
+/// (backed by [`NativeTls`]).
+///
+/// This is provided for consumers that prefer to use the generic plugin
+/// directly instead of [`TlsNativeLibraryPlugin`].
+pub fn tls_native_handl_plugin() -> HandlLibraryPlugin {
+    let registry = Arc::new(tls_native_op_registry());
+    HandlLibraryPlugin::new_with_caps("tls", "lib.tls-native", "lib-tls-native", TLS_NATIVE_HNL, &[])
+        .with_ops(TLS_OPS, registry)
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`TlsNativeLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_tls_native::LibraryPlugin`.
+pub use TlsNativeLibraryPlugin as LibraryPlugin;

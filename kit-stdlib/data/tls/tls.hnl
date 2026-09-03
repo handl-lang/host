@@ -1,0 +1,36 @@
+--- tls.version — return TLS library and version information.
+--- tls.generate_self_signed — generate a self-signed certificate for the given hosts.
+--- tls.parse_cert — parse a PEM certificate string, returning { count, valid }.
+--- tls.fingerprint — return the SHA-256 hex fingerprint of the first certificate.
+--- tls.client_config — build a client configuration and return a config_id.
+--- tls.server_config — build a server configuration and return a config_id.
+--- tls.connect — open a TLS client connection to host:port using a client config.
+--- tls.accept — listen on addr:port and accept a TLS connection using a server config.
+--- tls.read — read up to len bytes from a connection as a UTF-8 string.
+--- tls.write — write data to a connection.
+--- tls.close_conn — close a connection.
+--- tls.close_listener — close a listener.
+cap "tls.version"
+cap "tls.generate_self_signed"
+cap "tls.parse_cert"
+cap "tls.fingerprint"
+cap "tls.client_config"
+cap "tls.server_config"
+cap "tls.connect"
+cap "tls.accept"
+cap "tls.read"
+cap "tls.write"
+cap "tls.close_conn"
+cap "tls.close_listener"
+op "tls.version" : -> Value
+op "tls.generate_self_signed" : Value -> Value
+op "tls.parse_cert" : String -> Value
+op "tls.fingerprint" : String -> String
+op "tls.client_config" : Value -> Value
+op "tls.server_config" : String -> Value
+op "tls.connect" : String -> Value
+op "tls.accept" : String -> Value
+op "tls.read" : Value -> String
+op "tls.write" : Value -> Value
+op "tls.close_conn" : Value -> Value
+op "tls.close_listener" : Value -> Value

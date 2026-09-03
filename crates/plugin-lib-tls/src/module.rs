@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::OpRegistry;
 use serde_json::Value;
 
 use super::error::TlsError;
@@ -405,4 +406,52 @@ impl Function for CloseListenerFn {
         self.service.close_listener(listener_id)?;
         Ok(serde_json::Value::from(Value::Null))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+/// The op names declared in `tls.hnl` — the TLS interface surface.
+pub const TLS_OPS: &[&str] = &[
+    "tls.version",
+    "tls.generate_self_signed",
+    "tls.parse_cert",
+    "tls.fingerprint",
+    "tls.client_config",
+    "tls.server_config",
+    "tls.connect",
+    "tls.accept",
+    "tls.read",
+    "tls.write",
+    "tls.close_conn",
+    "tls.close_listener",
+];
+
+/// Build an [`OpRegistry`] for the TLS ops, registering Rust handls that
+/// delegate to the given [`TlsService`] under their op names.
+///
+/// This is the shared registry builder used by both the interface crate
+/// (with [`StubTls`] for testing) and the `handl-lib-tls-native` impl crate
+/// (with `NativeTls` backed by rustls). Each op name maps to a `Function`
+/// struct that parses its JSON arguments and dispatches to the service.
+pub fn tls_op_registry(service: impl TlsService + 'static) -> OpRegistry {
+    let service: Arc<dyn TlsService> = Arc::new(service);
+    let mut registry = OpRegistry::new();
+    registry.register("tls.version", Arc::new(VersionFn { service: service.clone() }));
+    registry.register(
+        "tls.generate_self_signed",
+        Arc::new(GenerateSelfSignedFn { service: service.clone() }),
+    );
+    registry.register("tls.parse_cert", Arc::new(ParseCertFn { service: service.clone() }));
+    registry.register("tls.fingerprint", Arc::new(FingerprintFn { service: service.clone() }));
+    registry.register("tls.client_config", Arc::new(ClientConfigFn { service: service.clone() }));
+    registry.register("tls.server_config", Arc::new(ServerConfigFn { service: service.clone() }));
+    registry.register("tls.connect", Arc::new(ConnectFn { service: service.clone() }));
+    registry.register("tls.accept", Arc::new(AcceptFn { service: service.clone() }));
+    registry.register("tls.read", Arc::new(ReadFn { service: service.clone() }));
+    registry.register("tls.write", Arc::new(WriteFn { service: service.clone() }));
+    registry.register("tls.close_conn", Arc::new(CloseConnFn { service: service.clone() }));
+    registry.register("tls.close_listener", Arc::new(CloseListenerFn { service }));
+    registry
 }
