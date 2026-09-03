@@ -145,6 +145,10 @@ path = "src/dynamic_handlers.rs"
 name = "handle_elimination_tests"
 path = "src/handle_elimination_tests.rs"
 
+[[bin]]
+name = "type_level_effects"
+path = "src/type_level_effects.rs"
+
 [features]
 # Enable native Z3 (Rust crate) for the refinement-inference binary.
 # When disabled (the default), the binary falls back to the Python-subprocess
