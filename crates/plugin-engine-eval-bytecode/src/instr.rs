@@ -245,4 +245,36 @@ pub enum Instr {
     ///
     /// Emitted by `Arr { op: "route_on_type", lit: Some(tag), .. }`.
     RouteOnType(String),
+
+    // --- Typed arithmetic/comparison bytecodes (hot-path optimization) ---
+    //
+    // These mirror the `add`/`sub`/`mul`/`div`/`mod`/`eq`/`neq`/`lt`/`lte`/
+    // `gt`/`gte` cases of [`NativeOp`] but avoid the per-op `Vec` allocation
+    // and string dispatch: they pop two values directly from the operand
+    // stack and push the result. Emitted by the compiler for the
+    // corresponding `Arr { op, source: Native, .. }` ops. They produce
+    // results identical to the `NativeOp` path.
+
+    /// Pop two values, push their sum (`add`).
+    Add,
+    /// Pop two values, push their difference (`sub`).
+    Sub,
+    /// Pop two values, push their product (`mul`).
+    Mul,
+    /// Pop two values, push their quotient (`div`).
+    Div,
+    /// Pop two values, push their remainder (`mod`).
+    Mod,
+    /// Pop two values, push whether they are equal (`eq`).
+    Eq,
+    /// Pop two values, push whether they are not equal (`neq`).
+    Neq,
+    /// Pop two values, push whether the first is less than the second (`lt`).
+    Lt,
+    /// Pop two values, push whether the first is <= the second (`lte`).
+    Lte,
+    /// Pop two values, push whether the first is greater than the second (`gt`).
+    Gt,
+    /// Pop two values, push whether the first is >= the second (`gte`).
+    Gte,
 }

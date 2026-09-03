@@ -11,6 +11,7 @@ handl-language = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-engine-eval = { workspace = true }
 handl-runtime = { workspace = true }
+handl-value = { workspace = true }
 cranelift = { workspace = true }
 cranelift-module = { workspace = true }
 cranelift-jit = { workspace = true }

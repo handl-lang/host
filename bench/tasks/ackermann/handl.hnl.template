@@ -1,0 +1,9 @@
+(self ~> self(self, __ARG1__, __ARG2__))(
+  [self, m, n] ~> match m {
+    0: n + 1,
+    _: match n {
+      0: self(self, m - 1, 1),
+      _: self(self, m - 1, self(self, m, n - 1))
+    }
+  }
+)

@@ -554,7 +554,7 @@ fn declare_helper_imports_v2<M: Module>(
     sig_extend_env.params.push(AbiParam::new(ptr_type));
     sig_extend_env.returns.push(AbiParam::new(ptr_type));
 
-    // (ctx, val) -> void  (drop_value)
+    // (val) -> void  (drop_value)
     let mut sig_drop = module.make_signature();
     sig_drop.params.push(AbiParam::new(ptr_type));
 
@@ -808,7 +808,7 @@ fn compile_scheme(
                 builder.inst_results(call)[0]
             };
             // Now that both components are extracted, drop the original pair.
-            builder.ins().call(helpers.drop_value, &[ctx_param, incoming_val]);
+            builder.ins().call(helpers.drop_value, &[incoming_val]);
             let (inner_result, inner_pushed) =
                 compile_scheme(builder, inner, ctx_param, fst, helpers, pools, ptr_type);
             if inner_pushed {
@@ -1060,7 +1060,7 @@ fn compile_loop(
         builder.inst_results(call)[0]
     };
     // Drop the original pair (unpair_fst no longer consumes it).
-    builder.ins().call(helpers.drop_value, &[ctx_param, body_result]);
+    builder.ins().call(helpers.drop_value, &[body_result]);
     builder.ins().jump(done_block, &[step_out]);
 
     // --- Done ---

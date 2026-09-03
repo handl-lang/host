@@ -62,6 +62,7 @@ pub use instr::Instr;
 
 use handl_language::{Ast, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_value::TaggedValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -81,7 +82,7 @@ pub struct BytecodeEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// Global variables injected by the host (e.g. `self` -> language value).
-    globals: HashMap<String, Value>,
+    globals: HashMap<String, TaggedValue>,
 }
 
 impl BytecodeEngine {
@@ -108,7 +109,7 @@ impl BytecodeEngine {
     /// Inject a global variable into the root scope (builder style).
     /// ADR-0041 Phase 3: `self` is an ambient variable, not a function call.
     pub fn with_global(mut self, name: &str, value: Value) -> Self {
-        self.globals.insert(name.to_string(), value);
+        self.globals.insert(name.to_string(), TaggedValue::from(value));
         self
     }
 }

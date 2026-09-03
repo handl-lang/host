@@ -277,7 +277,16 @@ fn compile_arr(
     }
     match source {
         ArrSource::Native => {
-            out.push(Instr::NativeOp(op.to_string(), args.len()));
+            // Hot-path: emit a typed arithmetic/comparison instruction
+            // instead of `NativeOp(op, 2)` for the common binary numeric
+            // ops. This avoids the per-op `Vec` allocation and string
+            // dispatch in the VM. Results are identical to the `NativeOp`
+            // path.
+            if let Some(typed) = typed_binary_instr(op) {
+                out.push(typed);
+            } else {
+                out.push(Instr::NativeOp(op.to_string(), args.len()));
+            }
         }
         ArrSource::Foreign(name) => {
             out.push(Instr::ForeignOp(name.clone(), args.len()));
@@ -304,6 +313,30 @@ fn compile_arr(
 /// once, then applied per iteration via `apply_app`.)
 fn is_derived_step_op_with_sub_schemes(op: &str) -> bool {
     matches!(op, "while_step" | "for_step" | "fix_step")
+}
+
+/// Map a native binary op name to its typed [`Instr`] variant, if any.
+///
+/// Returns `Some` for the hot arithmetic/comparison ops (`add`/`sub`/`mul`/
+/// `div`/`mod`/`eq`/`neq`/`lt`/`lte`/`gt`/`gte`). These are emitted as
+/// dedicated instructions instead of `NativeOp(op, 2)` to avoid the per-op
+/// `Vec` allocation and string dispatch in the VM. All other native ops
+/// fall through to `NativeOp`.
+fn typed_binary_instr(op: &str) -> Option<Instr> {
+    Some(match op {
+        "add" => Instr::Add,
+        "sub" => Instr::Sub,
+        "mul" => Instr::Mul,
+        "div" => Instr::Div,
+        "mod" => Instr::Mod,
+        "eq" => Instr::Eq,
+        "neq" => Instr::Neq,
+        "lt" => Instr::Lt,
+        "lte" => Instr::Lte,
+        "gt" => Instr::Gt,
+        "gte" => Instr::Gte,
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -390,7 +423,7 @@ mod tests {
             vec![
                 Instr::EvalChild(0),
                 Instr::EvalChild(1),
-                Instr::NativeOp("add".into(), 2),
+                Instr::Add,
                 Instr::Return,
             ]
         );

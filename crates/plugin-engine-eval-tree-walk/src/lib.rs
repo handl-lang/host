@@ -881,8 +881,10 @@ impl TreeWalkEngine {
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
                     let p_names: Vec<String> = p.iter().map(|v| {
-                        v.as_str().unwrap_or_default().to_string()
-                    }).collect();
+                        v.as_str().ok_or_else(|| {
+                            LangError::Engine("closure: param must be a string".to_string())
+                        }).map(String::from)
+                    }).collect::<Result<_,_>>()?;
                     (p_names, b as usize)
                 } else if let Some(children) =
                     payload.get("children").and_then(|c| c.as_array())

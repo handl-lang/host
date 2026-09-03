@@ -62,6 +62,7 @@ use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
+use handl_value::{TaggedValue, tagged_to_value};
 
 use crate::compile::compile;
 use crate::instr::Instr;
@@ -70,45 +71,68 @@ use crate::instr::Instr;
 // Scope stack — identical semantics to the tree-walk interpreter
 // ---------------------------------------------------------------------------
 
-/// A scope stack: `Vec<HashMap<String, Value>>` searched innermost-first.
+/// A scope stack: a flat `Vec<(String, TaggedValue)>` of bindings with
+/// scope markers, searched innermost-first.
 ///
-/// Mirrors the tree-walk's `ScopeStack` exactly: `extend_env` pushes a child
-/// scope; lookup searches innermost-first; closure calls swap in the captured
-/// environment, bind params, evaluate the body, then restore the original
-/// scope stack.
+/// Mirrors the tree-walk's `ScopeStack` exactly: `push_scope` records a
+/// mark; lookup searches innermost-first (linear scan from the end);
+/// closure calls swap in the captured environment, bind params, evaluate
+/// the body, then restore the original scope stack. For the small scopes
+/// typical in handler programs (3-10 variables), a linear scan is faster
+/// than `HashMap` because there is no hashing overhead.
 pub(crate) struct ScopeStack {
-    /// The stack of scopes, innermost last. `pub(crate)` so the frame can
-    /// perform the closure-env swap-in.
-    pub(crate) scopes: Vec<HashMap<String, Value>>,
+    /// Flat list of (name, value) bindings, innermost last.
+    pub(crate) bindings: Vec<(String, TaggedValue)>,
+    /// Stack of mark positions — each `push_scope` records the current
+    /// length, each `pop_scope` truncates back to that length.
+    pub(crate) marks: Vec<usize>,
+    /// The captured environment root for the current closure invocation.
+    /// Searched after `bindings` so user-defined scopes shadow captured
+    /// variables. Stored as `Rc` so closure calls avoid deep-cloning the
+    /// entire captured `HashMap`.
+    pub(crate) captured_root: Option<Rc<HashMap<String, TaggedValue>>>,
 }
 
 impl ScopeStack {
     pub(crate) fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            bindings: Vec::new(),
+            marks: vec![0],
+            captured_root: None,
         }
     }
 
-    /// Look up a variable, searching innermost scope first.
-    pub(crate) fn lookup(&self, name: &str) -> Option<&Value> {
-        self.scopes.iter().rev().find_map(|s| s.get(name))
+    /// Look up a variable, searching innermost bindings first (linear scan
+    /// from the end), then falling back to the captured root (if any).
+    pub(crate) fn lookup(&self, name: &str) -> Option<&TaggedValue> {
+        // Search innermost bindings first (reverse linear scan).
+        for (n, v) in self.bindings.iter().rev() {
+            if n == name {
+                return Some(v);
+            }
+        }
+        // Fall back to captured root.
+        self.captured_root.as_ref().and_then(|m| m.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
-    pub(crate) fn define(&mut self, name: &str, value: Value) {
-        let last = self.scopes.last_mut().expect("scope stack is never empty");
-        last.insert(name.to_string(), value);
+    pub(crate) fn define(&mut self, name: &str, value: TaggedValue) {
+        self.bindings.push((name.to_string(), value));
     }
 
-    /// Push a new empty scope.
+    /// Push a new empty scope by recording the current bindings length.
     pub(crate) fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.marks.push(self.bindings.len());
     }
 
-    /// Pop the innermost scope (never pops the last scope).
+    /// Pop the innermost scope by truncating bindings back to the last
+    /// mark. Never pops the root scope (the `marks` stack always keeps at
+    /// least one entry).
     pub(crate) fn pop_scope(&mut self) {
-        if self.scopes.len() > 1 {
-            self.scopes.pop();
+        if self.marks.len() > 1 {
+            if let Some(mark) = self.marks.pop() {
+                self.bindings.truncate(mark);
+            }
         }
     }
 
@@ -116,14 +140,8 @@ impl ScopeStack {
     ///
     /// Used by the `closure` primitive to snapshot the current environment.
     /// Inner scopes shadow outer ones (later entries overwrite earlier).
-    pub(crate) fn capture(&self) -> HashMap<String, Value> {
-        let mut captured = HashMap::new();
-        for scope in &self.scopes {
-            for (k, v) in scope {
-                captured.insert(k.clone(), v.clone());
-            }
-        }
-        captured
+    pub(crate) fn capture(&self) -> HashMap<String, TaggedValue> {
+        self.bindings.iter().cloned().collect()
     }
 }
 
@@ -150,34 +168,33 @@ impl Num {
     }
 }
 
-/// Extract a number from a [`Value`].
-pub(crate) fn as_num(v: &Value) -> Result<Num, LangError> {
-    if let Some(i) = v.as_i64() {
-        return Ok(Num::Int(i));
+/// Extract a number from a [`TaggedValue`].
+pub(crate) fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
+    match v {
+        TaggedValue::Int(i) => Ok(Num::Int(*i)),
+        TaggedValue::Float(f) => Ok(Num::Float(*f)),
+        _ => Err(LangError::Engine(format!("expected number, got {:?}", v))),
     }
-    if let Some(f) = v.as_f64() {
-        return Ok(Num::Float(f));
-    }
-    Err(LangError::Engine(format!("expected number, got {}", v)))
 }
 
-/// Convert a [`Num`] back to a [`Value`].
-pub(crate) fn num_value(n: Num) -> Value {
+/// Convert a [`Num`] back to a [`TaggedValue`].
+pub(crate) fn num_value(n: Num) -> TaggedValue {
     match n {
-        Num::Int(i) => Value::from(i),
-        Num::Float(f) => Value::from(f),
+        Num::Int(i) => TaggedValue::Int(i),
+        Num::Float(f) => TaggedValue::Float(f),
     }
 }
 
-/// Whether a [`Value`] is truthy.
+/// Whether a [`TaggedValue`] is truthy.
 ///
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
-pub(crate) fn is_truthy(v: &Value) -> bool {
+pub(crate) fn is_truthy(v: &TaggedValue) -> bool {
     match v {
-        Value::Bool(b) => *b,
-        Value::Null => false,
-        Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(true),
-        Value::String(s) => !s.is_empty(),
+        TaggedValue::Bool(b) => *b,
+        TaggedValue::Null => false,
+        TaggedValue::Int(i) => *i != 0,
+        TaggedValue::Float(f) => *f != 0.0,
+        TaggedValue::Str(s) => !s.is_empty(),
         _ => true,
     }
 }
@@ -186,60 +203,59 @@ pub(crate) fn is_truthy(v: &Value) -> bool {
 // Pair / Either value-shape helpers (mirror the v2 tree-walk)
 // ---------------------------------------------------------------------------
 
-/// Construct a pair value `{"__pair__": [a, b]}`.
-fn pair(a: Value, b: Value) -> Value {
-    serde_json::json!({"__pair__": [a, b]})
+/// Construct a pair value `(a, b)`.
+fn pair(a: TaggedValue, b: TaggedValue) -> TaggedValue {
+    handl_value::pair(a, b)
 }
 
 /// Extract the first component of a pair value, or `None` if not a pair.
-fn pair_fst(v: &Value) -> Option<&Value> {
-    v.get("__pair__")
-        .and_then(|p| p.as_array())
-        .and_then(|arr| arr.first())
+fn pair_fst(v: &TaggedValue) -> Option<&TaggedValue> {
+    handl_value::pair_fst(v)
 }
 
 /// Extract the second component of a pair value, or `None` if not a pair.
-fn pair_snd(v: &Value) -> Option<&Value> {
-    v.get("__pair__")
-        .and_then(|p| p.as_array())
-        .and_then(|arr| arr.get(1))
+fn pair_snd(v: &TaggedValue) -> Option<&TaggedValue> {
+    handl_value::pair_snd(v)
 }
 
-/// Return the type tag string for a JSON value (ADR-0060).
-fn type_tag(v: &Value) -> &'static str {
+/// Return the type tag string for a [`TaggedValue`] (ADR-0060).
+fn type_tag(v: &TaggedValue) -> &'static str {
     match v {
-        Value::Null => "null",
-        Value::Bool(_) => "bool",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
+        TaggedValue::Null => "null",
+        TaggedValue::Bool(_) => "bool",
+        TaggedValue::Int(_) | TaggedValue::Float(_) => "number",
+        TaggedValue::Str(_) => "string",
+        TaggedValue::Arr(_) => "array",
+        TaggedValue::Obj(_) => "object",
+        TaggedValue::Pair(..) => "object",
+        TaggedValue::EitherLeft(_) | TaggedValue::EitherRight(_) => "object",
+        TaggedValue::Arrow { .. } => "object",
     }
 }
 
-/// Construct a `left` Either value `{"__either__": "left", "value": v}`.
-fn either_left(v: Value) -> Value {
-    serde_json::json!({"__either__": "left", "value": v})
+/// Construct a `left` Either value.
+fn either_left(v: TaggedValue) -> TaggedValue {
+    handl_value::either_left(v)
 }
 
-/// Construct a `right` Either value `{"__either__": "right", "value": v}`.
-fn either_right(v: Value) -> Value {
-    serde_json::json!({"__either__": "right", "value": v})
+/// Construct a `right` Either value.
+fn either_right(v: TaggedValue) -> TaggedValue {
+    handl_value::either_right(v)
 }
 
 /// Whether an Either value is a `left`.
-fn is_either_left(v: &Value) -> bool {
-    v.get("__either__").and_then(|s| s.as_str()) == Some("left")
+fn is_either_left(v: &TaggedValue) -> bool {
+    handl_value::is_either_left(v)
 }
 
 /// Whether an Either value is a `right`.
-fn is_either_right(v: &Value) -> bool {
-    v.get("__either__").and_then(|s| s.as_str()) == Some("right")
+fn is_either_right(v: &TaggedValue) -> bool {
+    handl_value::is_either_right(v)
 }
 
 /// Extract the carried value from an Either.
-fn either_value(v: &Value) -> Option<&Value> {
-    v.get("value")
+fn either_value(v: &TaggedValue) -> Option<&TaggedValue> {
+    handl_value::either_value(v)
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +275,7 @@ pub(crate) struct VmFrame<'a, 'h> {
     /// The module registry (for `Foreign` dispatch).
     modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
     /// Per-node v2 compilation cache: `AstRef index -> compiled instructions`.
-    cache: HashMap<usize, Vec<Instr>>,
+    cache: HashMap<usize, Rc<[Instr]>>,
     /// The scope stack.
     scopes: ScopeStack,
 }
@@ -281,7 +297,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     }
 
     /// Define a global variable in the root scope.
-    pub(crate) fn define_global(&mut self, name: &str, value: Value) {
+    pub(crate) fn define_global(&mut self, name: &str, value: TaggedValue) {
         self.scopes.define(name, value);
     }
 }
@@ -294,11 +310,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
 /// is the same AST).
 impl<'a, 'h> PatternMatchCtx for VmFrame<'a, 'h> {
     fn define_binding(&mut self, name: &str, value: Value) {
-        self.scopes.define(name, value);
+        self.scopes.define(name, TaggedValue::from(value));
     }
 
     fn eval_pattern_node(&mut self, _ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
-        self.exec_node(node_ref)
+        let val = self.exec_node_inner(node_ref)?;
+        Ok(tagged_to_value(&val))
     }
 }
 
@@ -311,7 +328,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// `[LoadPayload, Return]`), caches the result, and executes. On
     /// subsequent calls for the same [`AstRef`], the cached instructions are
     /// reused.
+    ///
+    /// This is the public(crate) boundary: returns a
+    /// [`serde_json::Value`], converting from the internal
+    /// [`TaggedValue`] representation via [`tagged_to_value`].
     pub(crate) fn exec_node(&mut self, node_ref: AstRef) -> Result<Value, LangError> {
+        let val = self.exec_node_inner(node_ref)?;
+        Ok(tagged_to_value(&val))
+    }
+
+    /// Internal node evaluator — the [`TaggedValue`] counterpart of
+    /// [`exec_node`](Self::exec_node). Returns a [`TaggedValue`].
+    pub(crate) fn exec_node_inner(&mut self, node_ref: AstRef) -> Result<TaggedValue, LangError> {
         let node = self.ast.at(node_ref)?;
 
         // Compile-on-demand with cache.
@@ -321,17 +349,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Some(def) => compile(&def.scheme, node)?,
                 None => vec![Instr::LoadPayload, Instr::Return],
             };
-            self.cache.insert(node_ref.index(), instrs);
+            self.cache.insert(node_ref.index(), Rc::from(instrs));
         }
 
-        // Clone instructions to avoid borrow conflict with recursive
-        // exec_node calls that may insert into the cache.
+        // Rc-clone the instruction slice (cheap refcount bump) to avoid
+        // borrow conflict with recursive exec_node calls that may insert
+        // into the cache.
         let instrs = self
             .cache
             .get(&node_ref.index())
             .expect("just inserted or cached")
             .clone();
-        self.exec_instrs(&instrs, node, None)
+        self.exec_instrs_inner(&instrs, node, None)
     }
 
     /// Execute a program of v2 instructions against the given current node.
@@ -339,13 +368,30 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// `incoming` is the value fed by an enclosing combinator (top-level
     /// calls pass `None`). The operand stack is fresh; the scope stack
     /// (`self.scopes`) is shared across recursive `exec_node` calls.
+    ///
+    /// This is the public(crate) boundary: accepts and returns
+    /// [`serde_json::Value`], converting to/from the internal
+    /// [`TaggedValue`] representation.
     pub(crate) fn exec_instrs(
         &mut self,
         instrs: &[Instr],
         node: &AstNode,
         incoming: Option<Value>,
     ) -> Result<Value, LangError> {
-        let mut stack: Vec<Value> = Vec::new();
+        let val = self.exec_instrs_inner(instrs, node, incoming.map(TaggedValue::from))?;
+        Ok(tagged_to_value(&val))
+    }
+
+    /// Internal instruction executor — the [`TaggedValue`] counterpart of
+    /// [`exec_instrs`](Self::exec_instrs). Operates on a `Vec<TaggedValue>`
+    /// operand stack and returns a [`TaggedValue`].
+    pub(crate) fn exec_instrs_inner(
+        &mut self,
+        instrs: &[Instr],
+        node: &AstNode,
+        incoming: Option<TaggedValue>,
+    ) -> Result<TaggedValue, LangError> {
+        let mut stack: Vec<TaggedValue> = Vec::new();
         // Push the incoming value onto the stack so that 0-arg ops using
         // `op_uses_incoming` (like `id`) can pop it. At the top level
         // (incoming = None), the stack starts empty — matching the
@@ -356,7 +402,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         let mut current_incoming = incoming;
         let mut loop_counter: usize = 0;
         const MAX_ITERS: usize = 100_000;
-        let mut loop_input: Option<Value> = None;
+        let mut loop_input: Option<TaggedValue> = None;
 
         let mut ip = 0;
         while ip < instrs.len() {
@@ -375,14 +421,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     {
                         loop_input = stack.last().cloned();
                     }
-                    stack.push(v.clone());
+                    stack.push(TaggedValue::from(v.clone()));
                 }
                 Instr::Load(name) => {
                     let val = self
                         .scopes
                         .lookup(name)
                         .cloned()
-                        .unwrap_or_else(|| Value::from(name.as_str()));
+                        .unwrap_or_else(|| TaggedValue::Str(Rc::from(name.as_str())));
                     stack.push(val);
                 }
                 Instr::LoadPayloadVar => {
@@ -397,11 +443,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .scopes
                         .lookup(&var_name)
                         .cloned()
-                        .unwrap_or_else(|| Value::from(var_name.as_str()));
+                        .unwrap_or_else(|| TaggedValue::Str(Rc::from(var_name.as_str())));
                     stack.push(val);
                 }
                 Instr::LoadPayload => {
-                    stack.push(node.payload.clone());
+                    stack.push(TaggedValue::from(node.payload.clone()));
                 }
                 Instr::EvalChild(n) => {
                     let children = node
@@ -416,7 +462,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .and_then(|v| v.as_u64())
                         .ok_or_else(|| LangError::Engine(format!("child {} not found", n)))?;
                     let child_ref = AstRef::new(arena_idx as usize);
-                    let result = self.exec_node(child_ref)?;
+                    let result = self.exec_node_inner(child_ref)?;
                     stack.push(result);
                 }
                 Instr::Store(name) => {
@@ -462,7 +508,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // ADR-0060: unpack single array arg for variable-arity
                     // call. When Call receives a single argument that is an
                     // array, unpack it into individual arguments.
-                    let actual_args: Vec<Value> = if args.len() == 1 && args[0].is_array() {
+                    let actual_args: Vec<TaggedValue> = if args.len() == 1 && args[0].is_array() {
                         args[0].as_array().unwrap().iter().cloned().collect()
                     } else {
                         args
@@ -564,11 +610,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let func = modules
                         .lookup(name)
                         .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
+                    let val_args: Vec<Value> =
+                        args.iter().map(tagged_to_value).collect();
                     let mut pctx = handl_platform::EvalContext::new();
                     let result = func
-                        .call(&args, &mut pctx)
+                        .call(&val_args, &mut pctx)
                         .map_err(|e| LangError::Engine(e.to_string()))?;
-                    stack.push(result);
+                    stack.push(TaggedValue::from(result));
                 }
                 Instr::FirstOp(start, end) => {
                     // Pop the pair from the stack, extract fst/snd, run the
@@ -584,7 +632,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .ok_or_else(|| LangError::Engine("FirstOp: not a pair".to_string()))?
                         .clone();
                     let sub = &instrs[*start..*end];
-                    let result = self.exec_instrs(sub, node, Some(a))?;
+                    let result = self.exec_instrs_inner(sub, node, Some(a))?;
                     stack.push(pair(result, b));
                     ip = *end;
                     continue;
@@ -621,7 +669,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         let new_state = either_value(&result).cloned().ok_or_else(|| {
                             LangError::Engine("Loop: right Either missing value".to_string())
                         })?;
-                        let orig = loop_input.clone().unwrap_or(Value::Null);
+                        let orig = loop_input.clone().unwrap_or(TaggedValue::Null);
                         stack.push(pair(orig, new_state));
                         ip = *loop_back;
                         continue;
@@ -641,6 +689,33 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .pop()
                         .ok_or_else(|| LangError::Engine("stack underflow on Return".to_string()));
                 }
+                // --- Typed arithmetic/comparison bytecodes ---
+                //
+                // Pop two values (second arg on top, first arg below) and
+                // push the result directly — no `Vec` allocation, no string
+                // dispatch. Logic mirrors `apply_native_v2`'s `add`/`sub`/
+                // `mul`/`div`/`mod`/`eq`/`neq`/`lt`/`lte`/`gt`/`gte` arms
+                // exactly, so results are identical to the `NativeOp` path.
+                Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Mod => {
+                    let b = stack.pop().ok_or_else(|| {
+                        LangError::Engine("stack underflow on arithmetic op".to_string())
+                    })?;
+                    let a = stack.pop().ok_or_else(|| {
+                        LangError::Engine("stack underflow on arithmetic op".to_string())
+                    })?;
+                    let result = eval_bin_arith(&instrs[ip], a, b)?;
+                    stack.push(result);
+                }
+                Instr::Eq | Instr::Neq | Instr::Lt | Instr::Lte | Instr::Gt | Instr::Gte => {
+                    let b = stack.pop().ok_or_else(|| {
+                        LangError::Engine("stack underflow on comparison op".to_string())
+                    })?;
+                    let a = stack.pop().ok_or_else(|| {
+                        LangError::Engine("stack underflow on comparison op".to_string())
+                    })?;
+                    let result = eval_bin_cmp(&instrs[ip], a, b)?;
+                    stack.push(result);
+                }
                 Instr::DerivedStepOp(op, ranges) => {
                     // Pop the loop pair (in, state) from the stack — left
                     // by the enclosing Loop. Extract the current value
@@ -650,8 +725,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             "DerivedStepOp: missing loop pair on stack".to_string(),
                         )
                     })?;
-                    let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
-                    let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                    let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+                    let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                     let current = if state.is_null() { in_val.clone() } else { state.clone() };
                     // Determine the incoming value for the arg sub-programs.
                     // - while_step / fix_step: pass `current` (the evolving
@@ -663,10 +738,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         if state.is_null() {
                             // First step: in_val = pair(count, initial).
                             // acc = snd(in_val).
-                            pair_snd(&in_val).cloned().unwrap_or(Value::Null)
+                            pair_snd(&in_val).cloned().unwrap_or(TaggedValue::Null)
                         } else {
                             // Later steps: state = pair(counter, acc).
-                            pair_snd(&state).cloned().unwrap_or(Value::Null)
+                            pair_snd(&state).cloned().unwrap_or(TaggedValue::Null)
                         }
                     } else {
                         current
@@ -674,10 +749,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // Re-evaluate each arg sub-program with `arg_incoming`
                     // as incoming. The sub-programs are at [start, end) in
                     // the current instruction stream.
-                    let mut eval_args: Vec<Value> = Vec::with_capacity(ranges.len());
+                    let mut eval_args: Vec<TaggedValue> = Vec::with_capacity(ranges.len());
                     for &(start, end) in ranges {
                         let sub = &instrs[start..end];
-                        let result = self.exec_instrs(sub, node, Some(arg_incoming.clone()))?;
+                        let result = self.exec_instrs_inner(sub, node, Some(arg_incoming.clone()))?;
                         eval_args.push(result);
                     }
                     // Dispatch to apply_native_v2 with the fresh results
@@ -706,18 +781,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     fn apply_native_v2(
         &mut self,
         op: &str,
-        args: &[Value],
+        args: &[TaggedValue],
         node: &AstNode,
-        incoming: Option<Value>,
-    ) -> Result<Value, LangError> {
+        incoming: Option<TaggedValue>,
+    ) -> Result<TaggedValue, LangError> {
         match op {
             "id" => Ok(incoming
                 .or_else(|| args.first().cloned())
-                .unwrap_or(Value::Null)),
+                .unwrap_or(TaggedValue::Null)),
             "tag" => {
                 let v = incoming
                     .or_else(|| args.first().cloned())
-                    .unwrap_or(Value::Null);
+                    .unwrap_or(TaggedValue::Null);
                 if is_truthy(&v) {
                     Ok(either_left(v))
                 } else {
@@ -730,7 +805,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     payload.get("params").and_then(|v| v.as_array()),
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
-                    (p.clone(), b as usize)
+                    let param_names: Vec<String> = p.iter().map(|v| {
+                        v.as_str().ok_or_else(|| {
+                            LangError::Engine(
+                                "closure: param must be a string".to_string(),
+                            )
+                        }).map(String::from)
+                    }).collect::<Result<_, _>>()?;
+                    (param_names, b as usize)
                 } else if let Some(children) =
                     payload.get("children").and_then(|c| c.as_array())
                 {
@@ -785,22 +867,18 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         })?;
                         vec![pname.to_string()]
                     };
-                    (
-                        param_names.into_iter().map(Value::from).collect(),
-                        body_idx,
-                    )
+                    (param_names, body_idx)
                 } else {
                     return Err(LangError::Engine(
                         "closure: missing params/body in payload".to_string(),
                     ));
                 };
                 let captured = self.scopes.capture();
-                Ok(serde_json::json!({
-                    "__arrow__": true,
-                    "params": params,
-                    "body": body,
-                    "env": captured,
-                }))
+                Ok(TaggedValue::Arrow {
+                    params: Rc::from(params),
+                    body,
+                    env: Rc::new(captured),
+                })
             }
             "array" => {
                 // Two payload shapes (mirrors v1 `array` prim):
@@ -808,7 +886,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
                 //   element is an arena index to evaluate.
                 if let Some(elements) = node.payload.get("elements") {
-                    Ok(elements.clone())
+                    Ok(TaggedValue::from(elements.clone()))
                 } else if let Some(children) =
                     node.payload.get("children").and_then(|c| c.as_array())
                 {
@@ -819,9 +897,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 "array: element index must be a number".to_string(),
                             )
                         })? as usize;
-                        result.push(self.exec_node(AstRef::new(idx))?);
+                        result.push(self.exec_node_inner(AstRef::new(idx))?);
                     }
-                    Ok(Value::Array(result))
+                    Ok(TaggedValue::Arr(Rc::from(result)))
                 } else {
                     Err(LangError::Engine(
                         "array: missing elements/children in payload".to_string(),
@@ -836,7 +914,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 if let Some(entries) =
                     node.payload.get("entries").and_then(|v| v.as_array())
                 {
-                    let mut obj = serde_json::Map::new();
+                    let mut obj = HashMap::new();
                     for entry in entries {
                         let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
                             LangError::Engine("object: entry missing key".to_string())
@@ -850,13 +928,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 key
                             )));
                         }
-                        obj.insert(key.to_string(), value.clone());
+                        obj.insert(key.to_string(), TaggedValue::from(value.clone()));
                     }
-                    Ok(Value::Object(obj))
+                    Ok(TaggedValue::Obj(Rc::new(obj)))
                 } else if let Some(children) =
                     node.payload.get("children").and_then(|c| c.as_array())
                 {
-                    let mut obj = serde_json::Map::new();
+                    let mut obj = HashMap::new();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::Engine(
@@ -914,14 +992,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             })?
                             .to_string()
                         } else {
-                            let key_val = self.exec_node(AstRef::new(key_idx))?;
+                            let key_val = self.exec_node_inner(AstRef::new(key_idx))?;
                             if let Some(s) = key_val.as_str() {
                                 s.to_string()
                             } else {
-                                key_val.to_string()
+                                tagged_to_value(&key_val).to_string()
                             }
                         };
-                        let value = self.exec_node(AstRef::new(val_idx))?;
+                        let value = self.exec_node_inner(AstRef::new(val_idx))?;
                         if handl_language::is_reserved_value_key(&key) {
                             return Err(LangError::Engine(format!(
                                 "object: key '{}' is reserved",
@@ -930,7 +1008,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         }
                         obj.insert(key, value);
                     }
-                    Ok(Value::Object(obj))
+                    Ok(TaggedValue::Obj(Rc::new(obj)))
                 } else {
                     Err(LangError::Engine(
                         "object: missing entries/children in payload".to_string(),
@@ -951,14 +1029,16 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 "index: index must be a non-negative integer".to_string(),
                             )
                         })? as usize;
-                        arr.get(i).cloned().ok_or_else(|| {
+                        let v = arr.get(i).cloned().ok_or_else(|| {
                             LangError::Engine(format!("index: index {} out of bounds", i))
-                        })
+                        })?;
+                        Ok(TaggedValue::from(v))
                     }
                     (Value::Object(obj), Value::String(key)) => {
-                        obj.get(key).cloned().ok_or_else(|| {
+                        let v = obj.get(key).cloned().ok_or_else(|| {
                             LangError::Engine(format!("index: key '{}' not found", key))
-                        })
+                        })?;
+                        Ok(TaggedValue::from(v))
                     }
                     _ => Err(LangError::Engine(
                         "index: target must be array/object and index must be number/string"
@@ -979,13 +1059,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 "assign: value index must be a number".to_string(),
                             )
                         })? as usize;
-                        return self.exec_node(AstRef::new(value_idx));
+                        return self.exec_node_inner(AstRef::new(value_idx));
                     }
                 }
                 let value = node.payload.get("value").ok_or_else(|| {
                     LangError::Engine("assign: missing value in payload".to_string())
                 })?;
-                Ok(value.clone())
+                Ok(TaggedValue::from(value.clone()))
             }
             "add" => bin_num(args, |a, b| a + b),
             "sub" => bin_num(args, |a, b| a - b),
@@ -997,8 +1077,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     return Err(LangError::Engine("division by zero".to_string()));
                 }
                 match (a, b) {
-                    (Num::Int(a), Num::Int(b)) => Ok(Value::from(a / b)),
-                    (a, b) => Ok(Value::from(a.to_f64() / b.to_f64())),
+                    (Num::Int(a), Num::Int(b)) => Ok(TaggedValue::Int(a / b)),
+                    (a, b) => Ok(TaggedValue::Float(a.to_f64() / b.to_f64())),
                 }
             }
             "mod" => {
@@ -1019,8 +1099,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     Num::Float(f) => Num::Float(-f),
                 }))
             }
-            "eq" => Ok(Value::Bool(args[0] == args[1])),
-            "neq" => Ok(Value::Bool(args[0] != args[1])),
+            "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
+            "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
             "lt" => cmp_num(args, |a, b| a < b),
             "gt" => cmp_num(args, |a, b| a > b),
             "lte" => cmp_num(args, |a, b| a <= b),
@@ -1062,11 +1142,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let call_args: Vec<Value> = args
                     .get(1)
                     .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().cloned().collect())
+                    .map(|arr| arr.iter().map(tagged_to_value).collect())
                     .unwrap_or_default();
                 let mut pctx = handl_platform::EvalContext::new();
-                func.call(&call_args, &mut pctx)
-                    .map_err(|e| LangError::Engine(e.to_string()))
+                let val = func.call(&call_args, &mut pctx)
+                    .map_err(|e| LangError::Engine(e.to_string()))?;
+                Ok(TaggedValue::from(val))
             }
             // ADR-0060: proj_rest — evaluate all children after index 0 and
             // return them as a JSON array.
@@ -1087,24 +1168,24 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             "proj_rest: child index must be a number".to_string(),
                         )
                     })? as usize;
-                    vals.push(self.exec_node(AstRef::new(idx))?);
+                    vals.push(self.exec_node_inner(AstRef::new(idx))?);
                 }
-                Ok(Value::Array(vals))
+                Ok(TaggedValue::Arr(Rc::from(vals)))
             }
             "typeof" => {
-                let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
-                Ok(Value::from(type_tag(arg)))
+                let arg = args.first().or(incoming.as_ref()).unwrap_or(&TaggedValue::Null);
+                Ok(TaggedValue::Str(Rc::from(type_tag(arg))))
             }
-            "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
-            "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-            "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+            "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
+            "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
+            "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
             "is_pos" => {
-                let v = incoming.unwrap_or(Value::Null);
+                let v = incoming.unwrap_or(TaggedValue::Null);
                 let n = as_num(&v)?;
-                Ok(Value::Bool(n.to_f64() > 0.0))
+                Ok(TaggedValue::Bool(n.to_f64() > 0.0))
             }
             "dec" => {
-                let v = incoming.unwrap_or(Value::Null);
+                let v = incoming.unwrap_or(TaggedValue::Null);
                 let n = as_num(&v)?;
                 Ok(num_value(match n {
                     Num::Int(i) => Num::Int(i - 1),
@@ -1112,7 +1193,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }))
             }
             "inc" => {
-                let v = incoming.unwrap_or(Value::Null);
+                let v = incoming.unwrap_or(TaggedValue::Null);
                 let n = as_num(&v)?;
                 Ok(num_value(match n {
                     Num::Int(i) => Num::Int(i + 1),
@@ -1120,7 +1201,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }))
             }
             "half_floor" => {
-                let v = incoming.unwrap_or(Value::Null);
+                let v = incoming.unwrap_or(TaggedValue::Null);
                 let n = as_num(&v)?;
                 Ok(num_value(match n {
                     Num::Int(i) => Num::Int(i / 2),
@@ -1128,7 +1209,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }))
             }
             "inc_fst" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&inc)
                     .ok_or_else(|| LangError::Engine("inc_fst: input is not a pair".to_string()))?
                     .clone();
@@ -1142,15 +1223,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }), b))
             }
             "countdown_step" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
+                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&inc)
                     .cloned()
                     .ok_or_else(|| LangError::Engine("countdown_step: input is not a pair".to_string()))?;
-                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let result_val = pair_fst(&a).cloned().ok_or_else(|| {
                     LangError::Engine("countdown_step: in must be pair(result, initial)".to_string())
                 })?;
-                let initial = pair_snd(&a).cloned().unwrap_or(Value::Null);
+                let initial = pair_snd(&a).cloned().unwrap_or(TaggedValue::Null);
                 let state = if b.is_null() { initial } else { b };
                 let n = as_num(&state)?;
                 if n.to_f64() > 0.0 {
@@ -1163,8 +1244,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }
             }
             "infinite_step" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
-                let b = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+                let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 Ok(either_right(b))
             }
             // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
@@ -1181,35 +1262,33 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // field by name. Mirrors the v2 tree-walk's `eval_derived_step`
             // `loop_step` arm exactly.
             "loop_step" => {
-                let inc = incoming.unwrap_or(Value::Null);
-                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
-                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let inc = incoming.unwrap_or(TaggedValue::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let body_proc = args.first().ok_or_else(|| {
                     LangError::Engine("loop_step: missing body closure".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let call_args: Vec<Value> = if let Some(obj_state) = current.as_object() {
-                    if let Some(closure_obj) = body_proc.as_object()
-                        && let Some(params) = closure_obj
-                            .get("params")
-                            .and_then(|v| v.as_array())
-                        && params.len() > 1
-                    {
-                        params
-                            .iter()
-                            .map(|p| {
-                                let name = p.as_str().unwrap_or("_");
-                                obj_state
-                                    .get(name)
-                                    .cloned()
-                                    .unwrap_or(Value::Null)
-                            })
-                            .collect()
+                let call_args: Vec<TaggedValue> = if let Some(obj_state) = current.as_object() {
+                    if let TaggedValue::Arrow { params, .. } = body_proc {
+                        if params.len() > 1 {
+                            params
+                                .iter()
+                                .map(|p| {
+                                    obj_state
+                                        .get(p.as_str())
+                                        .cloned()
+                                        .unwrap_or(TaggedValue::Null)
+                                })
+                                .collect()
+                        } else {
+                            vec![current.clone()]
+                        }
                     } else {
-                        vec![current]
+                        vec![current.clone()]
                     }
                 } else {
-                    vec![current]
+                    vec![current.clone()]
                 };
                 let result = self.apply_app(body_proc, &call_args)?;
                 // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
@@ -1238,13 +1317,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // Current = in (first step) or state (later). If cond is truthy,
             // run body and continue with its result; else terminate.
             "while_step" => {
-                let inc = incoming.unwrap_or(Value::Null);
-                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
-                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let inc = incoming.unwrap_or(TaggedValue::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let current = if state.is_null() { in_val } else { state };
-                let cond_val = args.first().cloned().unwrap_or(Value::Null);
+                let cond_val = args.first().cloned().unwrap_or(TaggedValue::Null);
                 if is_truthy(&cond_val) {
-                    let body_val = args.get(1).cloned().unwrap_or(Value::Null);
+                    let body_val = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                     Ok(either_right(body_val))
                 } else {
                     Ok(either_left(current))
@@ -1255,21 +1334,21 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // initial). While counter > 0, run body on acc and continue with
             // pair(counter-1, new_acc); else terminate with acc.
             "for_step" => {
-                let inc = incoming.unwrap_or(Value::Null);
-                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
-                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let inc = incoming.unwrap_or(TaggedValue::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let (counter, acc) = if state.is_null() {
-                    let count = pair_fst(&in_val).cloned().unwrap_or(Value::Null);
-                    let initial = pair_snd(&in_val).cloned().unwrap_or(Value::Null);
+                    let count = pair_fst(&in_val).cloned().unwrap_or(TaggedValue::Null);
+                    let initial = pair_snd(&in_val).cloned().unwrap_or(TaggedValue::Null);
                     (count, initial)
                 } else {
-                    let c = pair_fst(&state).cloned().unwrap_or(Value::Null);
-                    let a = pair_snd(&state).cloned().unwrap_or(Value::Null);
+                    let c = pair_fst(&state).cloned().unwrap_or(TaggedValue::Null);
+                    let a = pair_snd(&state).cloned().unwrap_or(TaggedValue::Null);
                     (c, a)
                 };
                 let count_n = as_num(&counter)?;
-                if count_n > Num::Int(0) {
-                    let body_val = args.first().cloned().unwrap_or(Value::Null);
+                if count_n.to_f64() > 0.0 {
+                    let body_val = args.first().cloned().unwrap_or(TaggedValue::Null);
                     let new_counter = match count_n {
                         Num::Int(i) => num_value(Num::Int(i - 1)),
                         Num::Float(f) => num_value(Num::Float(f - 1.0)),
@@ -1283,12 +1362,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // (first step) or state (later). If body result equals current,
             // terminate (fixpoint); else continue with the result.
             "fix_step" => {
-                let inc = incoming.unwrap_or(Value::Null);
-                let in_val = pair_fst(&inc).cloned().unwrap_or(Value::Null);
-                let state = pair_snd(&inc).cloned().unwrap_or(Value::Null);
+                let inc = incoming.unwrap_or(TaggedValue::Null);
+                let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
+                let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let current = if state.is_null() { in_val } else { state };
-                let new_val = args.first().cloned().unwrap_or(Value::Null);
-                if new_val == current {
+                let new_val = args.first().cloned().unwrap_or(TaggedValue::Null);
+                if handl_value::eq(&new_val, &current) {
                     Ok(either_left(new_val))
                 } else {
                     Ok(either_right(new_val))
@@ -1322,20 +1401,22 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             let idx = entry.as_u64().ok_or_else(|| {
                                 LangError::Engine("json: child index must be a number".to_string())
                             })? as usize;
-                            let val = self.exec_node(AstRef::new(idx))?;
-                            let replacement = serde_json::to_string(&val)
+                            let val = self.exec_node_inner(AstRef::new(idx))?;
+                            let replacement = serde_json::to_string(&tagged_to_value(&val))
                                 .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
                             s = s.replace(&format!("${}", i), &replacement);
                         }
-                        return serde_json::from_str(&s)
-                            .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)));
+                        return serde_json::from_str::<Value>(&s)
+                            .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                            .map(TaggedValue::from);
                     }
                 }
                 let expr = node.payload.as_str().ok_or_else(|| {
                     LangError::Engine("json: payload must be a string".to_string())
                 })?;
-                serde_json::from_str(expr)
+                serde_json::from_str::<Value>(expr)
                     .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                    .map(TaggedValue::from)
             }
             // ADR-0053: the data-driven `if → match` desugar rewrites `if`
             // nodes into `match` nodes before eval, so the v2 bytecode path
@@ -1345,19 +1426,19 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // v0.1: `product` — categorical product `***` (ADR-0074).
             // Receives [f_result, g_result] and pairs them.
             "product" => {
-                let left = args.first().cloned().unwrap_or(Value::Null);
-                let right = args.get(1).cloned().unwrap_or(Value::Null);
+                let left = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                 Ok(pair(left, right))
             }
             // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
             // If left is some(v), return v; if none or null, return right.
             "nullish" => {
-                let left = args.first().cloned().unwrap_or(Value::Null);
-                let right = args.get(1).cloned().unwrap_or(Value::Null);
+                let left = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
                 if left.is_null() {
                     Ok(right)
                 } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                    Ok(left.get("value").cloned().unwrap_or(Value::Null))
+                    Ok(left.get("value").cloned().unwrap_or(TaggedValue::Null))
                 } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
                     Ok(right)
                 } else {
@@ -1368,21 +1449,21 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // args = [input, field_name]. If some(v) → some(v.field);
             // if none or null → none.
             "opt_chain" => {
-                let input = args.first().cloned().unwrap_or(Value::Null);
+                let input = args.first().cloned().unwrap_or(TaggedValue::Null);
                 let field_name = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
                     LangError::Engine("opt_chain: field name must be a string".to_string())
                 })?;
                 if input.is_null() {
-                    Ok(serde_json::json!({"_tag": "None"}))
+                    Ok(handl_value::tval!({"_tag": "None"}))
                 } else if input.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                    let inner = input.get("value").cloned().unwrap_or(Value::Null);
-                    let field_val = inner.get(field_name).cloned().unwrap_or(Value::Null);
-                    Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
+                    let inner = input.get("value").cloned().unwrap_or(TaggedValue::Null);
+                    let field_val = inner.get(field_name).cloned().unwrap_or(TaggedValue::Null);
+                    Ok(handl_value::tval!({"_tag": "Some", "value": field_val}))
                 } else if input.get("_tag").and_then(|t| t.as_str()) == Some("None") {
-                    Ok(serde_json::json!({"_tag": "None"}))
+                    Ok(handl_value::tval!({"_tag": "None"}))
                 } else {
-                    let field_val = input.get(field_name).cloned().unwrap_or(Value::Null);
-                    Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
+                    let field_val = input.get(field_name).cloned().unwrap_or(TaggedValue::Null);
+                    Ok(handl_value::tval!({"_tag": "Some", "value": field_val}))
                 }
             }
             _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
@@ -1394,7 +1475,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// `name` and `children: [value_idx, body_idx]`. Evaluates the value
     /// child, pushes a scope with `name = value`, evaluates the body child
     /// in the extended env, then pops the scope.
-    fn prim_v2_bind(&mut self, node: &AstNode) -> Result<Value, LangError> {
+    fn prim_v2_bind(&mut self, node: &AstNode) -> Result<TaggedValue, LangError> {
         let name = node
             .payload
             .get("name")
@@ -1418,11 +1499,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .ok_or_else(|| LangError::Engine("bind: missing body child".to_string()))?
             as usize;
         // Evaluate the value in the current env.
-        let value = self.exec_node(AstRef::new(value_idx))?;
+        let value = self.exec_node_inner(AstRef::new(value_idx))?;
         // Extend env with name = value, evaluate body, pop.
         self.scopes.push_scope();
         self.scopes.define(name, value);
-        let result = self.exec_node(AstRef::new(body_idx));
+        let result = self.exec_node_inner(AstRef::new(body_idx));
         self.scopes.pop_scope();
         result
     }
@@ -1439,7 +1520,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// ADR-0053: the data-driven `if → match` desugar rewrites `if` nodes
     /// into `match` nodes before eval, so the v2 bytecode path must handle
     /// the `match` op directly.
-    fn prim_v2_match(&mut self, node: &AstNode) -> Result<Value, LangError> {
+    fn prim_v2_match(&mut self, node: &AstNode) -> Result<TaggedValue, LangError> {
         let children = node
             .payload
             .get("children")
@@ -1457,7 +1538,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             as usize;
 
         // Evaluate the scrutinee.
-        let scrut_val = self.exec_node(AstRef::new(scrut_idx))?;
+        let scrut_val = self.exec_node_inner(AstRef::new(scrut_idx))?;
+        // Convert to Value for pattern matching (which works on serde_json::Value).
+        let scrut_value = tagged_to_value(&scrut_val);
 
         // Get the block node's children (the arm indices).
         let block_node = self.ast.at(AstRef::new(block_idx))?;
@@ -1496,11 +1579,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             let matched = pattern_match::try_pattern(
                 self.ast,
                 AstRef::new(pattern_idx),
-                &scrut_val,
+                &scrut_value,
                 self,
             );
             if let Ok(true) = matched {
-                let result = self.exec_node(AstRef::new(body_idx));
+                let result = self.exec_node_inner(AstRef::new(body_idx));
                 self.scopes.pop_scope();
                 return result;
             }
@@ -1519,7 +1602,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     /// [pattern_idx, handler_idx]). The body is evaluated first; its result
     /// is matched against clause patterns. If no clause matches, the body
     /// value is returned as-is (not an error).
-    fn prim_v2_handle(&mut self, node: &AstNode) -> Result<Value, LangError> {
+    fn prim_v2_handle(&mut self, node: &AstNode) -> Result<TaggedValue, LangError> {
         let children = node
             .payload
             .get("children")
@@ -1537,7 +1620,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             as usize;
 
         // Evaluate the body first.
-        let body_val = self.exec_node(AstRef::new(body_idx))?;
+        let body_val = self.exec_node_inner(AstRef::new(body_idx))?;
+        // Convert to Value for pattern matching.
+        let body_value = tagged_to_value(&body_val);
 
         // Get the block node's children (the clause indices).
         let block_node = self.ast.at(AstRef::new(block_idx))?;
@@ -1579,11 +1664,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             let matched = pattern_match::try_pattern(
                 self.ast,
                 AstRef::new(pattern_idx),
-                &body_val,
+                &body_value,
                 self,
             );
             if let Ok(true) = matched {
-                let result = self.exec_node(AstRef::new(handler_idx));
+                let result = self.exec_node_inner(AstRef::new(handler_idx));
                 self.scopes.pop_scope();
                 return result;
             }
@@ -1599,40 +1684,23 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     ///
     /// Host-function dispatch (string callee) has been moved to the
     /// `call_host` native op. This helper only handles arrow-value
-    /// (closure) application.
-    fn apply_app(&mut self, callee: &Value, args: &[Value]) -> Result<Value, LangError> {
-        // Closure application.
-        let obj = callee
-            .as_object()
-            .ok_or_else(|| LangError::Engine("callee is not an arrow-value".to_string()))?;
-        if !obj
-            .get("__arrow__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return Err(LangError::Engine("callee is not an arrow-value".to_string()));
-        }
-        let params: Vec<String> = obj
-            .get("params")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| LangError::Engine("arrow-value missing params".to_string()))?
-            .iter()
-            .map(|v| {
-                v.as_str()
-                    .map(String::from)
-                    .ok_or_else(|| LangError::Engine("arrow-value param is not a string".to_string()))
-            })
-            .collect::<Result<_, _>>()?;
-        let body_idx = obj
-            .get("body")
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("arrow-value missing body".to_string()))?;
-        let body_ref = AstRef::new(body_idx as usize);
-        let captured_env: HashMap<String, Value> = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-            .unwrap_or_default();
+    /// (closure) application: extract params/body/env, build a fresh
+    /// scope from the captured env, bind params, evaluate the body.
+    fn apply_app(
+        &mut self,
+        callee: &TaggedValue,
+        args: &[TaggedValue],
+    ) -> Result<TaggedValue, LangError> {
+        // Closure application — match on TaggedValue::Arrow directly.
+        let (params, body_idx, captured_env) = match callee {
+            TaggedValue::Arrow { params, body, env } => {
+                (params.clone(), *body, Rc::clone(env))
+            }
+            _ => {
+                return Err(LangError::Engine("callee is not an arrow-value".to_string()));
+            }
+        };
+        let body_ref = AstRef::new(body_idx);
         if params.len() != args.len() {
             return Err(LangError::Engine(format!(
                 "arrow-value expects {} args, got {}",
@@ -1640,14 +1708,29 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 args.len()
             )));
         }
-        let saved = std::mem::replace(&mut self.scopes, ScopeStack::new());
-        self.scopes.scopes[0] = captured_env;
+        // Arrow-value invocation (ADR-0052): the arrow carries its
+        // definition-time env as data. We install the captured env as the
+        // `captured_root` (a cheap `Rc` clone — no deep HashMap clone),
+        // push a fresh scope for params, and evaluate the body. The
+        // caller's env is never mutated — we save the pre-call binding/marks
+        // lengths and `captured_root`, then truncate back after the body
+        // returns. This avoids allocating a fresh `ScopeStack` (two `Vec`
+        // allocations) on every closure call — critical for `loop_step`
+        // where `apply_app` runs once per iteration.
+        let saved_captured = self.scopes.captured_root.take();
+        let saved_marks_len = self.scopes.marks.len();
+        let saved_bindings_len = self.scopes.bindings.len();
+        self.scopes.captured_root = Some(captured_env);
         self.scopes.push_scope();
         for (param, arg) in params.iter().zip(args.iter()) {
             self.scopes.define(param, arg.clone());
         }
-        let result = self.exec_node(body_ref);
-        self.scopes = saved;
+        let result = self.exec_node_inner(body_ref);
+        // Restore: truncate bindings and marks to pre-call state, discarding
+        // any scopes the body may have pushed, and restore the captured root.
+        self.scopes.bindings.truncate(saved_bindings_len);
+        self.scopes.marks.truncate(saved_marks_len);
+        self.scopes.captured_root = saved_captured;
         result
     }
 }
@@ -1687,26 +1770,110 @@ fn op_is_derived_step(op: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 /// Binary numeric op helper. Preserves int-int arithmetic (matching v1).
-fn bin_num<F>(args: &[Value], f: F) -> Result<Value, LangError>
+fn bin_num<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
 where
     F: FnOnce(f64, f64) -> f64,
 {
     let a = as_num(&args[0])?;
     let b = as_num(&args[1])?;
     match (a, b) {
-        (Num::Int(a), Num::Int(b)) => Ok(Value::from(f(a as f64, b as f64) as i64)),
-        (a, b) => Ok(Value::from(f(a.to_f64(), b.to_f64()))),
+        (Num::Int(a), Num::Int(b)) => Ok(TaggedValue::Int(f(a as f64, b as f64) as i64)),
+        (a, b) => Ok(TaggedValue::Float(f(a.to_f64(), b.to_f64()))),
     }
 }
 
 /// Numeric comparison helper.
-fn cmp_num<F>(args: &[Value], f: F) -> Result<Value, LangError>
+fn cmp_num<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
 where
     F: FnOnce(f64, f64) -> bool,
 {
     let a = as_num(&args[0])?;
     let b = as_num(&args[1])?;
-    Ok(Value::Bool(f(a.to_f64(), b.to_f64())))
+    Ok(TaggedValue::Bool(f(a.to_f64(), b.to_f64())))
+}
+
+/// Evaluate a typed arithmetic bytecode (`Add`/`Sub`/`Mul`/`Div`/`Mod`).
+///
+/// `a` is the first argument (popped second), `b` is the second argument
+/// (popped first/top). Mirrors the corresponding `apply_native_v2` arms
+/// exactly: int-int preserves integer arithmetic; if either is a float,
+/// both are promoted to `f64`. `Div`/`Mod` error on a zero divisor.
+fn eval_bin_arith(instr: &Instr, a: TaggedValue, b: TaggedValue) -> Result<TaggedValue, LangError> {
+    let a = as_num(&a)?;
+    let b = as_num(&b)?;
+    match instr {
+        Instr::Add => Ok(num_value(match (a, b) {
+            (Num::Int(a), Num::Int(b)) => Num::Int((a as f64 + b as f64) as i64),
+            (a, b) => Num::Float(a.to_f64() + b.to_f64()),
+        })),
+        Instr::Sub => Ok(num_value(match (a, b) {
+            (Num::Int(a), Num::Int(b)) => Num::Int((a as f64 - b as f64) as i64),
+            (a, b) => Num::Float(a.to_f64() - b.to_f64()),
+        })),
+        Instr::Mul => Ok(num_value(match (a, b) {
+            (Num::Int(a), Num::Int(b)) => Num::Int((a as f64 * b as f64) as i64),
+            (a, b) => Num::Float(a.to_f64() * b.to_f64()),
+        })),
+        Instr::Div => {
+            if b.to_f64() == 0.0 {
+                return Err(LangError::Engine("division by zero".to_string()));
+            }
+            Ok(match (a, b) {
+                (Num::Int(a), Num::Int(b)) => TaggedValue::Int(a / b),
+                (a, b) => TaggedValue::Float(a.to_f64() / b.to_f64()),
+            })
+        }
+        Instr::Mod => {
+            if b.to_f64() == 0.0 {
+                return Err(LangError::Engine("modulo by zero".to_string()));
+            }
+            Ok(num_value(match (a, b) {
+                (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
+                (a, b) => Num::Float(a.to_f64() % b.to_f64()),
+            }))
+        }
+        _ => Err(LangError::Engine(format!(
+            "eval_bin_arith: not an arithmetic instruction: {:?}",
+            instr
+        ))),
+    }
+}
+
+/// Evaluate a typed comparison bytecode (`Eq`/`Neq`/`Lt`/`Lte`/`Gt`/`Gte`).
+///
+/// `a` is the first argument (popped second), `b` is the second argument
+/// (popped first/top). `Eq`/`Neq` use [`handl_value::eq`] (matching the
+/// `NativeOp` path exactly, including cross-type equality semantics); the
+/// ordered comparisons convert both operands to `f64` via [`as_num`].
+fn eval_bin_cmp(instr: &Instr, a: TaggedValue, b: TaggedValue) -> Result<TaggedValue, LangError> {
+    match instr {
+        Instr::Eq => Ok(TaggedValue::Bool(handl_value::eq(&a, &b))),
+        Instr::Neq => Ok(TaggedValue::Bool(!handl_value::eq(&a, &b))),
+        Instr::Lt => {
+            let a = as_num(&a)?;
+            let b = as_num(&b)?;
+            Ok(TaggedValue::Bool(a.to_f64() < b.to_f64()))
+        }
+        Instr::Lte => {
+            let a = as_num(&a)?;
+            let b = as_num(&b)?;
+            Ok(TaggedValue::Bool(a.to_f64() <= b.to_f64()))
+        }
+        Instr::Gt => {
+            let a = as_num(&a)?;
+            let b = as_num(&b)?;
+            Ok(TaggedValue::Bool(a.to_f64() > b.to_f64()))
+        }
+        Instr::Gte => {
+            let a = as_num(&a)?;
+            let b = as_num(&b)?;
+            Ok(TaggedValue::Bool(a.to_f64() >= b.to_f64()))
+        }
+        _ => Err(LangError::Engine(format!(
+            "eval_bin_cmp: not a comparison instruction: {:?}",
+            instr
+        ))),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1746,6 +1913,22 @@ mod tests {
         frame.exec_instrs(&instrs, node, None)
     }
 
+    /// Construct a pair value `{"__pair__": [a, b]}` as a JSON Value
+    /// (for test assertions and scheme literals at the public API boundary).
+    fn pair(a: Value, b: Value) -> Value {
+        serde_json::json!({"__pair__": [a, b]})
+    }
+
+    /// Construct a `left` Either value as a JSON Value.
+    fn either_left(v: Value) -> Value {
+        serde_json::json!({"__either__": "left", "value": v})
+    }
+
+    /// Construct a `right` Either value as a JSON Value.
+    fn either_right(v: Value) -> Value {
+        serde_json::json!({"__either__": "right", "value": v})
+    }
+
     // 1. arr const
 
     #[test]
@@ -1772,7 +1955,7 @@ mod tests {
         let node = ast.at(AstRef::new(0)).unwrap();
         let instrs = compile(&s, node).unwrap();
         let mut frame = VmFrame::new(&ast, &lang, None);
-        frame.define_global("x", json!(7));
+        frame.define_global("x", TaggedValue::from(json!(7)));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(7));
     }

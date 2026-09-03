@@ -128,6 +128,7 @@ members = [
   "crates/handl-kit-data-canonical",
   "crates/handl-kit-data-config",
   "crates/handl-defining-handl",
+  "crates/handl-value",
 ]
 resolver = "3"
 
@@ -277,6 +278,7 @@ handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
 handl-kit-data-config = { path = "crates/handl-kit-data-config" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
+handl-value = { path = "crates/handl-value" }
 
 [features]
 default = []

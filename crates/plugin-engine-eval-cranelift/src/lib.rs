@@ -112,6 +112,7 @@ use std::rc::Rc;
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
+use handl_value::{TaggedValue, tagged_to_value};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -309,6 +310,8 @@ fn run_native(
     modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
+    // Convert literals from serde_json::Value to TaggedValue at the boundary.
+    let literals: Vec<TaggedValue> = literals.iter().cloned().map(TaggedValue::from).collect();
     let mut ctx = EvalCtx {
         lang: lang as *const Language,
         ast: ast as *const Ast,
@@ -316,7 +319,7 @@ fn run_native(
         current_ref: ast.len() - 1,
         modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
         compiled: compiled.clone(),
-        literals: literals.to_vec(),
+        literals,
         names: names.to_vec(),
         error: None,
     };
@@ -331,12 +334,12 @@ fn run_native(
         .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
 
     // Top-level incoming is a boxed Null.
-    let null_incoming = unsafe { box_value(Value::Null) };
-    let result_ptr: *mut Value = unsafe {
+    let null_incoming = unsafe { box_value(TaggedValue::Null) };
+    let result_ptr: *mut TaggedValue = unsafe {
         root_fn(
             &mut ctx as *mut EvalCtx as *mut u8,
             null_incoming as *mut u8,
-        ) as *mut Value
+        ) as *mut TaggedValue
     };
 
     // Check for deferred error.
@@ -353,9 +356,10 @@ fn run_native(
             "native evaluation returned null without error".to_string(),
         ));
     }
-    // SAFETY: the helper boxed this Value with Box::into_raw. We reclaim it.
+    // SAFETY: the helper boxed this TaggedValue with Box::into_raw. We reclaim it.
     let value = unsafe { take_value(result_ptr) };
-    Ok(value)
+    // Convert the TaggedValue result back to serde_json::Value at the boundary.
+    Ok(tagged_to_value(&value))
 }
 
 // ---------------------------------------------------------------------------
@@ -392,7 +396,7 @@ pub struct EvalCtx {
     /// Used by helpers ([`helper_v2_eval_child`], [`helper_v2_apply_closure`]).
     compiled: HashMap<usize, CompiledFn>,
     /// Literal constant pool: values referenced by `const` ops.
-    literals: Vec<Value>,
+    literals: Vec<TaggedValue>,
     /// Name constant pool: variable names, primitive ops, foreign names.
     names: Vec<String>,
     /// Deferred error: set by a helper on failure, checked after native
@@ -412,7 +416,7 @@ impl EvalCtx {
     }
 
     /// Set the deferred error and return a null pointer (for helper use).
-    fn set_error(&mut self, err: LangError) -> *mut Value {
+    fn set_error(&mut self, err: LangError) -> *mut TaggedValue {
         self.error = Some(err);
         std::ptr::null_mut()
     }
@@ -443,7 +447,7 @@ impl EvalCtx {
     pub fn for_standalone(
         ast: &Ast,
         compiled: HashMap<usize, CompiledFn>,
-        literals: Vec<Value>,
+        literals: Vec<TaggedValue>,
         names: Vec<String>,
     ) -> Self {
         Self {
@@ -469,11 +473,12 @@ impl EvalCtx {
 /// pointed to by `ctx.ast`.
 impl PatternMatchCtx for EvalCtx {
     fn define_binding(&mut self, name: &str, value: Value) {
-        self.env.define(name, value);
+        self.env.define(name, TaggedValue::from(value));
     }
 
     fn eval_pattern_node(&mut self, _ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
-        eval_child_node(self, node_ref.index())
+        let val = eval_child_node(self, node_ref.index())?;
+        Ok(tagged_to_value(&val))
     }
 }
 
@@ -481,10 +486,10 @@ impl PatternMatchCtx for EvalCtx {
 // Scope stack (identical semantics to tree-walk)
 // ---------------------------------------------------------------------------
 
-/// A scope stack: `Vec<HashMap<String, Value>>` searched innermost-first.
+/// A scope stack: `Vec<HashMap<String, TaggedValue>>` searched innermost-first.
 struct ScopeStack {
     /// The stack of scope frames.
-    scopes: Vec<HashMap<String, Value>>,
+    scopes: Vec<HashMap<String, TaggedValue>>,
 }
 
 impl ScopeStack {
@@ -495,12 +500,12 @@ impl ScopeStack {
     }
 
     /// Look up a variable, searching innermost scope first.
-    fn lookup(&self, name: &str) -> Option<&Value> {
+    fn lookup(&self, name: &str) -> Option<&TaggedValue> {
         self.scopes.iter().rev().find_map(|s| s.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
-    fn define(&mut self, name: &str, value: Value) {
+    fn define(&mut self, name: &str, value: TaggedValue) {
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(name.to_string(), value);
     }
@@ -518,7 +523,7 @@ impl ScopeStack {
     }
 
     /// Capture all visible variables into a single flat map.
-    fn capture(&self) -> HashMap<String, Value> {
+    fn capture(&self) -> HashMap<String, TaggedValue> {
         let mut captured = HashMap::new();
         for scope in &self.scopes {
             for (k, v) in scope {
@@ -620,34 +625,33 @@ impl PartialOrd for Num {
     }
 }
 
-/// Extract a number from a [`Value`].
-fn as_num(v: &Value) -> Result<Num, LangError> {
-    if let Some(i) = v.as_i64() {
-        return Ok(Num::Int(i));
+/// Extract a number from a [`TaggedValue`].
+fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
+    match v {
+        TaggedValue::Int(i) => Ok(Num::Int(*i)),
+        TaggedValue::Float(f) => Ok(Num::Float(*f)),
+        _ => Err(LangError::Engine(format!("expected number, got {:?}", v))),
     }
-    if let Some(f) = v.as_f64() {
-        return Ok(Num::Float(f));
-    }
-    Err(LangError::Engine(format!("expected number, got {}", v)))
 }
 
-/// Convert a [`Num`] back to a [`Value`].
-fn num_value(n: Num) -> Value {
+/// Convert a [`Num`] back to a [`TaggedValue`].
+fn num_value(n: Num) -> TaggedValue {
     match n {
-        Num::Int(i) => Value::from(i),
-        Num::Float(f) => Value::from(f),
+        Num::Int(i) => TaggedValue::Int(i),
+        Num::Float(f) => TaggedValue::Float(f),
     }
 }
 
-/// Whether a [`Value`] is truthy.
+/// Whether a [`TaggedValue`] is truthy.
 ///
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
-fn is_truthy(v: &Value) -> bool {
+fn is_truthy(v: &TaggedValue) -> bool {
     match v {
-        Value::Bool(b) => *b,
-        Value::Null => false,
-        Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(true),
-        Value::String(s) => !s.is_empty(),
+        TaggedValue::Bool(b) => *b,
+        TaggedValue::Null => false,
+        TaggedValue::Int(i) => *i != 0,
+        TaggedValue::Float(f) => *f != 0.0,
+        TaggedValue::Str(s) => !s.is_empty(),
         _ => true,
     }
 }
@@ -656,24 +660,24 @@ fn is_truthy(v: &Value) -> bool {
 // Value boxing helpers
 // ---------------------------------------------------------------------------
 
-/// Box a [`Value`] into a heap-allocated pointer for passing to native code.
+/// Box a [`TaggedValue`] into a heap-allocated pointer for passing to native code.
 ///
 /// # Safety
 ///
 /// The returned pointer must be reclaimed with `Box::from_raw` (either by a
 /// consuming helper or by the engine for the final result).
-unsafe fn box_value(value: Value) -> *mut Value {
+unsafe fn box_value(value: TaggedValue) -> *mut TaggedValue {
     Box::into_raw(Box::new(value))
 }
 
-/// Reclaim a boxed [`Value`] pointer, moving the value out and freeing the
+/// Reclaim a boxed [`TaggedValue`] pointer, moving the value out and freeing the
 /// allocation.
 ///
 /// # Safety
 ///
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`).
-unsafe fn take_value(ptr: *mut Value) -> Value {
+unsafe fn take_value(ptr: *mut TaggedValue) -> TaggedValue {
     unsafe { std::mem::take(&mut *Box::from_raw(ptr)) }
 }
 
@@ -683,7 +687,7 @@ unsafe fn take_value(ptr: *mut Value) -> Value {
 
 /// Push a literal value (from the constant pool) as a boxed clone.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut Value {
+pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if lit_idx >= ctx.literals.len() {
@@ -698,7 +702,7 @@ pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) 
 
 /// Load a variable by name index from the scope stack.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut Value {
+pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
@@ -718,7 +722,7 @@ pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> 
 /// Load the payload variable: reads `node.payload` as a string (the variable
 /// name) and looks it up in the scope.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Value {
+pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         match ctx.current_node() {
@@ -740,11 +744,11 @@ pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Valu
 
 /// Load the current node's payload directly (no-scheme fallback).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut Value {
+pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         match ctx.current_node() {
-            Ok(node) => box_value(node.payload.clone()),
+            Ok(node) => box_value(TaggedValue::from(node.payload.clone())),
             Err(e) => ctx.set_error(e),
         }
     }
@@ -755,7 +759,7 @@ pub unsafe extern "C" fn helper_load_payload(ctx: *mut EvalCtx) -> *mut Value {
 /// Reads `node.payload["children"][n]` to get the child's `AstRef`, then
 /// calls the child's pre-compiled native function.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut Value {
+pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         let node = match ctx.current_node() {
@@ -789,8 +793,8 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         // Save and set current_ref for the child evaluation.
         let saved_ref = ctx.current_ref;
         ctx.current_ref = arena_idx;
-        let null_incoming = box_value(Value::Null);
-        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value;
+        let null_incoming = box_value(TaggedValue::Null);
+        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
         // Restore current_ref.
         ctx.current_ref = saved_ref;
         result
@@ -802,7 +806,7 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut Value) {
+pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *mut TaggedValue) {
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
@@ -831,7 +835,7 @@ pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *
 /// Pushes a new scope and defines the variable. The value pointer is
 /// consumed (reclaimed).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut Value) {
+pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut TaggedValue) {
     unsafe {
         let ctx = &mut *ctx;
         let node = match ctx.current_node() {
@@ -937,11 +941,11 @@ pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, chi
             }
         };
         let val = handl_language::ast_value(&sub);
-        ctx.env.define(&name, val);
+        ctx.env.define(&name, TaggedValue::from(val));
     }
 }
 
-/// Reclaim a boxed [`Value`] pointer, freeing the allocation.
+/// Reclaim a boxed [`TaggedValue`] pointer, freeing the allocation.
 ///
 /// This is used to free intermediate values that are checked but not consumed
 /// by a helper (e.g. a `Branch` condition).
@@ -951,7 +955,7 @@ pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, chi
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`), or null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_drop_value(val: *mut Value) {
+pub unsafe extern "C" fn helper_drop_value(val: *mut TaggedValue) {
     unsafe {
         if !val.is_null() {
             let _ = take_value(val);
@@ -964,7 +968,7 @@ pub unsafe extern "C" fn helper_drop_value(val: *mut Value) {
 /// `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
 /// Returns 1 for truthy, 0 for falsy.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 {
+pub unsafe extern "C" fn helper_is_truthy(val: *const TaggedValue) -> u8 {
     unsafe {
         if val.is_null() {
             return 0;
@@ -980,10 +984,10 @@ pub unsafe extern "C" fn helper_is_truthy(val: *const Value) -> u8 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_apply_closure(
     ctx: *mut EvalCtx,
-    callee: *mut Value,
-    args: *const *mut Value,
+    callee: *mut TaggedValue,
+    args: *const *mut TaggedValue,
     n: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if callee.is_null() {
@@ -1009,46 +1013,12 @@ pub unsafe extern "C" fn helper_apply_closure(
         }
 
         // Parse closure.
-        let obj = match closure_val.as_object() {
-            Some(o) => o,
-            None => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
-        };
-        if !obj
-            .get("__arrow__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string()));
-        }
-
-        let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
-            Some(arr) => {
-                let mut params = Vec::with_capacity(arr.len());
-                for v in arr {
-                    match v.as_str() {
-                        Some(s) => params.push(s.to_string()),
-                        None => {
-                            return ctx.set_error(LangError::Engine(
-                                "arrow-value param is not a string".to_string(),
-                            ));
-                        }
-                    }
-                }
-                params
+        let (params, body_idx, captured_env) = match &closure_val {
+            TaggedValue::Arrow { params, body, env } => {
+                (params.clone(), *body, (**env).clone())
             }
-            None => return ctx.set_error(LangError::Engine("arrow-value missing params".to_string())),
+            _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
-
-        let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
-            Some(idx) => idx as usize,
-            None => return ctx.set_error(LangError::Engine("arrow-value missing body".to_string())),
-        };
-
-        let captured_env: HashMap<String, Value> = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-            .unwrap_or_default();
 
         if params.len() != arg_vals.len() {
             return ctx.set_error(LangError::Engine(format!(
@@ -1081,8 +1051,8 @@ pub unsafe extern "C" fn helper_apply_closure(
         let saved_ref = ctx.current_ref;
         ctx.current_ref = body_idx;
 
-        let null_incoming = box_value(Value::Null);
-        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value;
+        let null_incoming = box_value(TaggedValue::Null);
+        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
 
         // Restore the original scope stack and current_ref.
         ctx.current_ref = saved_ref;
@@ -1099,9 +1069,9 @@ pub unsafe extern "C" fn helper_apply_closure(
 pub unsafe extern "C" fn helper_apply_prim(
     ctx: *mut EvalCtx,
     op_idx: usize,
-    args: *const *mut Value,
+    args: *const *mut TaggedValue,
     n: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if op_idx >= ctx.names.len() {
@@ -1146,9 +1116,9 @@ pub unsafe extern "C" fn helper_apply_prim(
 pub unsafe extern "C" fn helper_call_foreign(
     ctx: *mut EvalCtx,
     name_idx: usize,
-    args: *const *mut Value,
+    args: *const *mut TaggedValue,
     n: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
@@ -1197,10 +1167,12 @@ pub unsafe extern "C" fn helper_call_foreign(
             }
         };
 
+        // Convert TaggedValue args to serde_json::Value for the host boundary.
+        let val_args: Vec<Value> = arg_vals.iter().map(tagged_to_value).collect();
         // Call the module function.
         let mut pctx = handl_platform::EvalContext::new();
-        match func.call(&arg_vals, &mut pctx) {
-            Ok(v) => box_value(v),
+        match func.call(&val_args, &mut pctx) {
+            Ok(v) => box_value(TaggedValue::from(v)),
             Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
         }
     }
@@ -1212,9 +1184,9 @@ pub unsafe extern "C" fn helper_call_foreign(
 /// Looks up the pre-compiled native function for the node, saves/restores
 /// `current_ref`, calls the function with a boxed `Null` incoming (fresh
 /// computation — these ops do not feed an incoming value to children), and
-/// reclaims the boxed result. Returns the evaluated [`Value`] or sets
+/// reclaims the boxed result. Returns the evaluated [`TaggedValue`] or sets
 /// `ctx.error` and returns `Err`.
-fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangError> {
+fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, LangError> {
     let func = match ctx.compiled.get(&arena_idx).copied() {
         Some(f) => f,
         None => {
@@ -1226,9 +1198,9 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangErr
     };
     let saved_ref = ctx.current_ref;
     ctx.current_ref = arena_idx;
-    let null_incoming = unsafe { box_value(Value::Null) };
+    let null_incoming = unsafe { box_value(TaggedValue::Null) };
     let result_ptr = unsafe {
-        func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value
+        func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue
     };
     ctx.current_ref = saved_ref;
     if result_ptr.is_null() {
@@ -1248,7 +1220,7 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<Value, LangErr
 /// holds the arm indices. Each arm is `{"children": [pattern_idx, body_idx]}`.
 /// The first matching arm's body is evaluated in a scope holding the pattern
 /// bindings. If no arm matches, an error is returned.
-fn prim_match(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
@@ -1333,7 +1305,8 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut Value {
         };
         ctx.env.push_scope();
         let ast = unsafe { &*ctx.ast };
-        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &scrut_val, ctx) {
+        let scrut_value = tagged_to_value(&scrut_val);
+        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &scrut_value, ctx) {
             Ok(b) => b,
             Err(e) => {
                 ctx.env.pop_scope();
@@ -1360,7 +1333,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut Value {
 /// contains `arm` nodes with [pattern_idx, handler_idx]). The body is
 /// evaluated first; its result is matched against clause patterns. If no
 /// clause matches, the body value is returned as-is (not an error).
-fn prim_handle(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
@@ -1393,6 +1366,8 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut Value {
         Ok(v) => v,
         Err(e) => return ctx.set_error(e),
     };
+    // Convert to Value for pattern matching (which works on serde_json::Value).
+    let body_value = tagged_to_value(&body_val);
     let ast = unsafe { &*ctx.ast };
     let block_node = match ast.at(AstRef::new(block_idx)) {
         Ok(n) => n,
@@ -1445,7 +1420,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut Value {
         };
         ctx.env.push_scope();
         let ast = unsafe { &*ctx.ast };
-        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &body_val, ctx) {
+        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &body_value, ctx) {
             Ok(b) => b,
             Err(e) => {
                 ctx.env.pop_scope();
@@ -1466,8 +1441,26 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut Value {
     unsafe { box_value(body_val) }
 }
 
+/// Return the type tag string for a TaggedValue (ADR-0060).
+///
+/// Used by `route_on_type` and the `typeof` native op. Returns one of
+/// `"null"`, `"bool"`, `"number"`, `"string"`, `"array"`, `"object"`.
+fn type_tag(v: &TaggedValue) -> &'static str {
+    match v {
+        TaggedValue::Null => "null",
+        TaggedValue::Bool(_) => "bool",
+        TaggedValue::Int(_) | TaggedValue::Float(_) => "number",
+        TaggedValue::Str(_) => "string",
+        TaggedValue::Arr(_) => "array",
+        TaggedValue::Obj(_) => "object",
+        TaggedValue::Pair(..) => "object",
+        TaggedValue::EitherLeft(..) | TaggedValue::EitherRight(..) => "object",
+        TaggedValue::Arrow { .. } => "object",
+    }
+}
+
 /// Apply a primitive operation (shared logic).
-fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
+fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedValue {
     let result = match op {
         "add" => {
             if args.len() < 2 {
@@ -1527,13 +1520,13 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 Err(e) => Err(e),
             }
         }
-        "eq" => Ok(Value::Bool(args[0] == args[1])),
+        "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
         "lt" => {
             if args.len() < 2 {
                 return ctx.set_error(LangError::Engine("lt: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a < b)) {
-                Ok(b) => Ok(Value::Bool(b)),
+                Ok(b) => Ok(TaggedValue::Bool(b)),
                 Err(e) => Err(e),
             }
         }
@@ -1542,7 +1535,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 return ctx.set_error(LangError::Engine("gt: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a > b)) {
-                Ok(b) => Ok(Value::Bool(b)),
+                Ok(b) => Ok(TaggedValue::Bool(b)),
                 Err(e) => Err(e),
             }
         }
@@ -1562,7 +1555,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 return ctx.set_error(LangError::Engine("gte: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a >= b)) {
-                Ok(b) => Ok(Value::Bool(b)),
+                Ok(b) => Ok(TaggedValue::Bool(b)),
                 Err(e) => Err(e),
             }
         }
@@ -1571,11 +1564,11 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 return ctx.set_error(LangError::Engine("lte: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a <= b)) {
-                Ok(b) => Ok(Value::Bool(b)),
+                Ok(b) => Ok(TaggedValue::Bool(b)),
                 Err(e) => Err(e),
             }
         }
-        "neq" => Ok(Value::Bool(args[0] != args[1])),
+        "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
         "compare" => {
             if args.len() < 2 {
                 return ctx.set_error(LangError::Engine("compare: expected 2 args".to_string()));
@@ -1598,19 +1591,11 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             }
         }
         "typeof" => {
-            let type_name = match &args[0] {
-                Value::Null => "null",
-                Value::Bool(_) => "bool",
-                Value::Number(_) => "number",
-                Value::String(_) => "string",
-                Value::Array(_) => "array",
-                Value::Object(_) => "object",
-            };
-            Ok(Value::from(type_name))
+            Ok(TaggedValue::Str(Rc::from(type_tag(&args[0]))))
         }
-        "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-        "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
+        "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
+        "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
         "neg" => {
             if args.is_empty() {
                 return ctx.set_error(LangError::Engine("neg: expected 1 arg".to_string()));
@@ -1637,13 +1622,21 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 payload.get("params").and_then(|v| v.as_array()),
                 payload.get("body").and_then(|v| v.as_u64()),
             ) {
+                let param_names: Result<Vec<String>, LangError> = p.iter().map(|v| {
+                    v.as_str().ok_or_else(|| {
+                        LangError::Engine("closure: param must be a string".to_string())
+                    }).map(String::from)
+                }).collect();
+                let param_names = match param_names {
+                    Ok(names) => names,
+                    Err(e) => return ctx.set_error(e),
+                };
                 let env = ctx.env.capture();
-                Ok(serde_json::json!({
-                    "__arrow__": true,
-                    "params": p,
-                    "body": b,
-                    "env": env,
-                }))
+                Ok(TaggedValue::Arrow {
+                    params: Rc::from(param_names),
+                    body: b as usize,
+                    env: Rc::new(env),
+                })
             } else if let Some(children) =
                 payload.get("children").and_then(|c| c.as_array())
             {
@@ -1669,7 +1662,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                     Ok(n) => n,
                     Err(e) => return ctx.set_error(e),
                 };
-                let mut param_names: Vec<serde_json::Value> = Vec::new();
+                let mut param_names: Vec<String> = Vec::new();
                 if param_node.kind == "paren" || param_node.kind == "array" {
                     let param_children = match param_node
                         .payload
@@ -1698,7 +1691,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                                 "closure: param must be a var with string payload".to_string(),
                             )),
                         };
-                        param_names.push(serde_json::Value::String(pname.to_string()));
+                        param_names.push(pname.to_string());
                     }
                 } else {
                     let pname = match param_node.payload.as_str() {
@@ -1707,15 +1700,14 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                             "closure: param node must be a var with string payload".to_string(),
                         )),
                     };
-                    param_names.push(serde_json::Value::String(pname.to_string()));
+                    param_names.push(pname.to_string());
                 }
                 let env = ctx.env.capture();
-                Ok(serde_json::json!({
-                    "__arrow__": true,
-                    "params": param_names,
-                    "body": body_idx,
-                    "env": env,
-                }))
+                Ok(TaggedValue::Arrow {
+                    params: Rc::from(param_names),
+                    body: body_idx,
+                    env: Rc::new(env),
+                })
             } else {
                 return ctx.set_error(LangError::Engine(
                     "closure prim: missing params/body in payload".to_string(),
@@ -1728,7 +1720,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 Err(e) => return ctx.set_error(e),
             };
             match node.payload.get("elements") {
-                Some(elements) => Ok(elements.clone()),
+                Some(elements) => Ok(TaggedValue::from(elements.clone())),
                 None => {
                     return ctx.set_error(LangError::Engine(
                         "array: missing elements in payload".to_string(),
@@ -1749,7 +1741,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                     ));
                 }
             };
-            let mut obj = serde_json::Map::new();
+            let mut obj = HashMap::new();
             for entry in entries {
                 let key = match entry.get("key").and_then(|v| v.as_str()) {
                     Some(k) => k,
@@ -1772,9 +1764,9 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                         key
                     )));
                 }
-                obj.insert(key.to_string(), value.clone());
+                obj.insert(key.to_string(), TaggedValue::from(value.clone()));
             }
-            Ok(Value::Object(obj))
+            Ok(TaggedValue::Obj(Rc::new(obj)))
         }
         "index" => {
             let node = match ctx.current_node() {
@@ -1797,41 +1789,41 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                     ));
                 }
             };
-            match (target, index) {
-                (Value::Array(arr), Value::Number(n)) => {
-                    let i = match n.as_u64() {
-                        Some(i) => i as usize,
-                        None => {
-                            return ctx.set_error(LangError::Engine(
-                                "index: index must be a non-negative integer".to_string(),
-                            ));
-                        }
-                    };
-                    match arr.get(i) {
+            // Convert target/index to TaggedValue for matching.
+            let target_t = TaggedValue::from(target.clone());
+            let index_t = TaggedValue::from(index.clone());
+            match (&target_t, &index_t) {
+                (TaggedValue::Arr(arr), TaggedValue::Int(i)) => {
+                    let idx = *i as usize;
+                    match arr.get(idx) {
                         Some(v) => Ok(v.clone()),
-                        None => {
-                            return ctx.set_error(LangError::Engine(format!(
-                                "index: index {} out of bounds",
-                                i
-                            )));
-                        }
+                        None => Err(LangError::Engine(format!(
+                            "index: index {} out of bounds",
+                            idx
+                        ))),
                     }
                 }
-                (Value::Object(obj), Value::String(key)) => match obj.get(key) {
+                (TaggedValue::Arr(arr), TaggedValue::Float(f)) => {
+                    let idx = *f as usize;
+                    match arr.get(idx) {
+                        Some(v) => Ok(v.clone()),
+                        None => Err(LangError::Engine(format!(
+                            "index: index {} out of bounds",
+                            idx
+                        ))),
+                    }
+                }
+                (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
                     Some(v) => Ok(v.clone()),
-                    None => {
-                        return ctx.set_error(LangError::Engine(format!(
-                            "index: key '{}' not found",
-                            key
-                        )));
-                    }
+                    None => Err(LangError::Engine(format!(
+                        "index: key '{}' not found",
+                        key
+                    ))),
                 },
-                _ => {
-                    return ctx.set_error(LangError::Engine(
-                        "index: target must be array/object and index must be number/string"
-                            .to_string(),
-                    ));
-                }
+                _ => Err(LangError::Engine(
+                    "index: target must be array/object and index must be number/string"
+                        .to_string(),
+                )),
             }
         }
         "assign" => {
@@ -1860,7 +1852,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
                 }
             } else {
                 match node.payload.get("value") {
-                    Some(value) => Ok(value.clone()),
+                    Some(value) => Ok(TaggedValue::from(value.clone())),
                     None => {
                         return ctx.set_error(LangError::Engine(
                             "assign: missing value in payload".to_string(),
@@ -1879,7 +1871,8 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[Value]) -> *mut Value {
             };
             match node.payload.as_str() {
                 Some(expr) => {
-                    serde_json::from_str(expr)
+                    serde_json::from_str::<Value>(expr)
+                        .map(TaggedValue::from)
                         .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
                 }
                 None => Err(LangError::Engine("json: payload must be a string".to_string())),
@@ -1994,7 +1987,7 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
 pub unsafe extern "C" fn helper_v2_push_literal(
     ctx: *mut EvalCtx,
     lit_idx: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe { helper_push_literal(ctx, lit_idx) }
 }
 
@@ -2006,7 +1999,7 @@ pub unsafe extern "C" fn helper_v2_push_literal(
 pub unsafe extern "C" fn helper_v2_load_var(
     ctx: *mut EvalCtx,
     name_idx: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
@@ -2018,7 +2011,7 @@ pub unsafe extern "C" fn helper_v2_load_var(
         let name = &ctx.names[name_idx];
         match ctx.env.lookup(name) {
             Some(v) => box_value(v.clone()),
-            None => box_value(Value::from(name.as_str())),
+            None => box_value(TaggedValue::Str(Rc::from(name.as_str()))),
         }
     }
 }
@@ -2029,14 +2022,14 @@ pub unsafe extern "C" fn helper_v2_load_var(
 /// Unlike the v1 [`helper_load_payload_var`], an unbound variable returns the
 /// name as a string value (matching the v2 tree-walk convention).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut Value {
+pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         match ctx.current_node() {
             Ok(node) => match node.payload.as_str() {
                 Some(var_name) => match ctx.env.lookup(var_name) {
                     Some(v) => box_value(v.clone()),
-                    None => box_value(Value::from(var_name)),
+                    None => box_value(TaggedValue::Str(Rc::from(var_name))),
                 },
                 None => ctx.set_error(LangError::Engine(
                     "expected string payload for $payload var".to_string(),
@@ -2051,7 +2044,7 @@ pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut V
 ///
 /// Delegates to the v1 [`helper_load_payload`] (identical behavior).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_load_payload(ctx: *mut EvalCtx) -> *mut Value {
+pub unsafe extern "C" fn helper_v2_load_payload(ctx: *mut EvalCtx) -> *mut TaggedValue {
     unsafe { helper_load_payload(ctx) }
 }
 
@@ -2065,8 +2058,8 @@ pub unsafe extern "C" fn helper_v2_load_payload(ctx: *mut EvalCtx) -> *mut Value
 pub unsafe extern "C" fn helper_v2_eval_child(
     ctx: *mut EvalCtx,
     child_n: usize,
-    incoming: *mut Value,
-) -> *mut Value {
+    incoming: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         let node = match ctx.current_node() {
@@ -2101,7 +2094,7 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         let result = func(
             ctx as *mut EvalCtx as *mut u8,
             incoming as *mut u8,
-        ) as *mut Value;
+        ) as *mut TaggedValue;
         ctx.current_ref = saved_ref;
         result
     }
@@ -2117,8 +2110,8 @@ pub unsafe extern "C" fn helper_v2_eval_child(
 pub unsafe extern "C" fn helper_v2_extend_env(
     ctx: *mut EvalCtx,
     name_idx: usize,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
@@ -2149,8 +2142,8 @@ pub unsafe extern "C" fn helper_v2_extend_env(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_extend_env_payload(
     ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         let node = match ctx.current_node() {
@@ -2197,7 +2190,7 @@ pub unsafe extern "C" fn helper_v2_pop_scope(ctx: *mut EvalCtx) {
 ///
 /// Delegates to the v1 [`helper_drop_value`] (identical behavior).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_drop_value(val: *mut Value) {
+pub unsafe extern "C" fn helper_v2_drop_value(val: *mut TaggedValue) {
     unsafe { helper_drop_value(val) }
 }
 
@@ -2212,10 +2205,10 @@ pub unsafe extern "C" fn helper_v2_drop_value(val: *mut Value) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_apply_closure(
     ctx: *mut EvalCtx,
-    callee: *mut Value,
-    args: *const *mut Value,
+    callee: *mut TaggedValue,
+    args: *const *mut TaggedValue,
     n: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if callee.is_null() {
@@ -2252,21 +2245,18 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
 /// function only handles closure application (`__arrow__` values).
 fn apply_closure_value(
     ctx: &mut EvalCtx,
-    closure_val: Value,
-    arg_vals: Vec<Value>,
-) -> *mut Value {
+    closure_val: TaggedValue,
+    arg_vals: Vec<TaggedValue>,
+) -> *mut TaggedValue {
     // SAFETY: this is the shared core factored out of the `unsafe extern "C"`
     // helper `helper_v2_apply_closure`. It calls the unsafe `box_value`
     // helper. Callers must uphold the same safety contract as that helper:
     // `ctx` is a valid `&mut EvalCtx`.
     unsafe {
         // ADR-0060: unpack single array arg for variable-arity call.
-        // When the closure receives a single array argument, unpack it into
-        // individual values before binding params. This supports the
-        // data-driven call dispatch where args are packed into an array.
         let arg_vals = if arg_vals.len() == 1 {
-            if let Some(arr) = arg_vals[0].as_array() {
-                arr.clone()
+            if let TaggedValue::Arr(arr) = &arg_vals[0] {
+                arr.iter().cloned().collect()
             } else {
                 arg_vals
             }
@@ -2274,52 +2264,20 @@ fn apply_closure_value(
             arg_vals
         };
 
-        // Closure application.
-        let obj = match closure_val.as_object() {
-            Some(o) => o,
-            None => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
-        };
-        if !obj
-            .get("__arrow__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string()));
-        }
-
-        let params: Vec<String> = match obj.get("params").and_then(|v| v.as_array()) {
-            Some(arr) => {
-                let mut params = Vec::with_capacity(arr.len());
-                for v in arr {
-                    match v.as_str() {
-                        Some(s) => params.push(s.to_string()),
-                        None => {
-                            return ctx.set_error(LangError::Engine(
-                                "arrow-value param is not a string".to_string(),
-                            ));
-                        }
-                    }
-                }
-                params
+        // Closure application — must be a TaggedValue::Arrow.
+        let (params, body_idx, captured_env) = match &closure_val {
+            TaggedValue::Arrow { params, body, env } => {
+                (params.clone(), *body, (**env).clone())
             }
-            None => return ctx.set_error(LangError::Engine("arrow-value missing params".to_string())),
+            _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
 
-        let body_idx = match obj.get("body").and_then(|v| v.as_u64()) {
-            Some(idx) => idx as usize,
-            None => return ctx.set_error(LangError::Engine("arrow-value missing body".to_string())),
-        };
+        let param_names: Vec<String> = params.iter().map(|s| s.to_string()).collect();
 
-        let captured_env: HashMap<String, Value> = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-            .unwrap_or_default();
-
-        if params.len() != arg_vals.len() {
+        if param_names.len() != arg_vals.len() {
             return ctx.set_error(LangError::Engine(format!(
                 "arrow-value expects {} args, got {}",
-                params.len(),
+                param_names.len(),
                 arg_vals.len()
             )));
         }
@@ -2338,7 +2296,7 @@ fn apply_closure_value(
         let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
         ctx.env.scopes[0] = captured_env;
         ctx.env.push_scope();
-        for (param, arg) in params.iter().zip(arg_vals.iter()) {
+        for (param, arg) in param_names.iter().zip(arg_vals.iter()) {
             ctx.env.define(param, arg.clone());
         }
 
@@ -2346,14 +2304,11 @@ fn apply_closure_value(
         ctx.current_ref = body_idx;
 
         // Closure bodies receive a boxed Null as incoming (fresh computation).
-        let null_incoming = box_value(Value::Null);
+        let null_incoming = box_value(TaggedValue::Null);
         let result = func(
             ctx as *mut EvalCtx as *mut u8,
             null_incoming as *mut u8,
-        ) as *mut Value;
-        // Reclaim the null incoming if it wasn't consumed.
-        // The body function returns a boxed result; the null incoming leaks
-        // if not consumed — acceptable per the v1 safety model.
+        ) as *mut TaggedValue;
 
         ctx.current_ref = saved_ref;
         ctx.env = saved_env;
@@ -2367,7 +2322,7 @@ fn apply_closure_value(
 /// `children: [value_idx, body_idx]`. Evaluates the value child, pushes a
 /// scope with `name = value`, evaluates the body child in the extended env,
 /// then pops the scope.
-fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut TaggedValue {
     // Collect payload fields first, dropping the immutable `current_node`
     // borrow before the mutable `eval_child_node` calls below.
     let (name, value_idx, body_idx): (String, usize, usize) = match ctx.current_node() {
@@ -2440,22 +2395,14 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut Value {
 /// the v2 tree-walk's `eval_derived_step` `loop_step` arm exactly.
 fn prim_v2_loop_step(
     ctx: &mut EvalCtx,
-    args: &[Value],
-    incoming: Option<Value>,
-) -> *mut Value {
-    let inc = incoming.unwrap_or(Value::Null);
-    let in_val = inc
-        .get("__pair__")
-        .and_then(|p| p.as_array())
-        .and_then(|arr| arr.first())
-        .cloned()
-        .unwrap_or(Value::Null);
-    let state = inc
-        .get("__pair__")
-        .and_then(|p| p.as_array())
-        .and_then(|arr| arr.get(1))
-        .cloned()
-        .unwrap_or(Value::Null);
+    args: &[TaggedValue],
+    incoming: Option<TaggedValue>,
+) -> *mut TaggedValue {
+    let inc = incoming.unwrap_or(TaggedValue::Null);
+    let (in_val, state) = match &inc {
+        TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+        _ => (TaggedValue::Null, TaggedValue::Null),
+    };
     let body_proc = match args.first() {
         Some(b) => b.clone(),
         None => {
@@ -2464,24 +2411,22 @@ fn prim_v2_loop_step(
             ));
         }
     };
-    let current = if state.is_null() { in_val } else { state };
-    let call_args: Vec<Value> = if let Some(obj_state) = current.as_object() {
-        if let Some(closure_obj) = body_proc.as_object()
-            && let Some(params) = closure_obj.get("params").and_then(|v| v.as_array())
-            && params.len() > 1
-        {
-            params
-                .iter()
-                .map(|p| {
-                    let name = p.as_str().unwrap_or("_");
-                    obj_state.get(name).cloned().unwrap_or(Value::Null)
-                })
-                .collect()
-        } else {
-            vec![current]
+    let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+    let call_args: Vec<TaggedValue> = match &current {
+        TaggedValue::Obj(obj_state) => {
+            if let TaggedValue::Arrow { params, .. } = &body_proc {
+                if params.len() > 1 {
+                    params.iter().map(|p| {
+                        obj_state.get::<str>(p.as_ref()).cloned().unwrap_or(TaggedValue::Null)
+                    }).collect()
+                } else {
+                    vec![current]
+                }
+            } else {
+                vec![current]
+            }
         }
-    } else {
-        vec![current]
+        _ => vec![current],
     };
     let result_ptr = apply_closure_value(ctx, body_proc, call_args);
     if result_ptr.is_null() {
@@ -2492,20 +2437,23 @@ fn prim_v2_loop_step(
     // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
     // Recognize bare values as exit signals, and { state: v } as continue.
     // { out: v } is accepted for backward compatibility.
-    if let Some(obj) = result.as_object() {
-        if let Some(new_state) = obj.get("state") {
-            // Continue with new state.
-            unsafe { box_value(serde_json::json!({"__either__": "right", "value": new_state})) }
-        } else if let Some(out) = obj.get("out") {
-            // Exit with out value (backward compat with { out: v } protocol).
-            unsafe { box_value(serde_json::json!({"__either__": "left", "value": out})) }
-        } else {
-            // Object without out/state keys — treat as exit value (return).
-            unsafe { box_value(serde_json::json!({"__either__": "left", "value": result})) }
+    match &result {
+        TaggedValue::Obj(obj) => {
+            if let Some(new_state) = obj.get("state") {
+                // Continue with new state.
+                unsafe { box_value(TaggedValue::EitherRight(Rc::new(new_state.clone()))) }
+            } else if let Some(out) = obj.get("out") {
+                // Exit with out value (backward compat).
+                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(out.clone()))) }
+            } else {
+                // Object without out/state keys — treat as exit value (return).
+                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result))) }
+            }
         }
-    } else {
-        // Non-object (number, string, bool, null, array) — exit with the value.
-        unsafe { box_value(serde_json::json!({"__either__": "left", "value": result})) }
+        _ => {
+            // Non-object — exit with the value.
+            unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result))) }
+        }
     }
 }
 
@@ -2517,9 +2465,9 @@ fn prim_v2_loop_step(
 pub unsafe extern "C" fn helper_v2_call_foreign(
     ctx: *mut EvalCtx,
     name_idx: usize,
-    args: *const *mut Value,
+    args: *const *mut TaggedValue,
     n: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe { helper_call_foreign(ctx, name_idx, args, n) }
 }
 
@@ -2529,56 +2477,60 @@ pub unsafe extern "C" fn helper_v2_call_foreign(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_pair(
     _ctx: *mut EvalCtx,
-    a: *mut Value,
-    b: *mut Value,
-) -> *mut Value {
+    a: *mut TaggedValue,
+    b: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
-        let a_val = if a.is_null() { Value::Null } else { take_value(a) };
-        let b_val = if b.is_null() { Value::Null } else { take_value(b) };
-        box_value(serde_json::json!({"__pair__": [a_val, b_val]}))
+        let a_val = if a.is_null() { TaggedValue::Null } else { take_value(a) };
+        let b_val = if b.is_null() { TaggedValue::Null } else { take_value(b) };
+        box_value(TaggedValue::Pair(Rc::new((a_val, b_val))))
     }
 }
 
 /// Extract the first component of a pair value.
 ///
-/// The input pointer is consumed (reclaimed). Returns a boxed clone of the
-/// first component. If the input is not a pair, sets an error.
+/// The input pointer is **not** consumed (the caller is responsible for
+/// dropping it via `helper_v2_drop_value` when done with both `fst` and
+/// `snd`). Returns a boxed clone of the first component. If the input is
+/// not a pair, sets an error.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_unpair_fst(
     ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
             return ctx.set_error(LangError::Engine("unpair_fst: null input".to_string()));
         }
-        let v = take_value(val);
-        match v.get("__pair__").and_then(|p| p.as_array()).and_then(|arr| arr.first()) {
-            Some(fst) => box_value(fst.clone()),
-            None => ctx.set_error(LangError::Engine("unpair_fst: input is not a pair".to_string())),
+        let v = &*val;
+        match v {
+            TaggedValue::Pair(p) => box_value(p.0.clone()),
+            _ => ctx.set_error(LangError::Engine("unpair_fst: input is not a pair".to_string())),
         }
     }
 }
 
 /// Extract the second component of a pair value.
 ///
-/// The input pointer is consumed (reclaimed). Returns a boxed clone of the
-/// second component. If the input is not a pair, sets an error.
+/// The input pointer is **not** consumed (the caller is responsible for
+/// dropping it via `helper_v2_drop_value` when done with both `fst` and
+/// `snd`). Returns a boxed clone of the second component. If the input is
+/// not a pair, sets an error.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_unpair_snd(
     ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
             return ctx.set_error(LangError::Engine("unpair_snd: null input".to_string()));
         }
-        let v = take_value(val);
-        match v.get("__pair__").and_then(|p| p.as_array()).and_then(|arr| arr.get(1)) {
-            Some(snd) => box_value(snd.clone()),
-            None => ctx.set_error(LangError::Engine("unpair_snd: input is not a pair".to_string())),
+        let v = &*val;
+        match v {
+            TaggedValue::Pair(p) => box_value(p.1.clone()),
+            _ => ctx.set_error(LangError::Engine("unpair_snd: input is not a pair".to_string())),
         }
     }
 }
@@ -2589,11 +2541,11 @@ pub unsafe extern "C" fn helper_v2_unpair_snd(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_either_left(
     _ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
-        let v = if val.is_null() { Value::Null } else { take_value(val) };
-        box_value(serde_json::json!({"__either__": "left", "value": v}))
+        let v = if val.is_null() { TaggedValue::Null } else { take_value(val) };
+        box_value(TaggedValue::EitherLeft(Rc::new(v)))
     }
 }
 
@@ -2603,11 +2555,11 @@ pub unsafe extern "C" fn helper_v2_either_left(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_either_right(
     _ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
-        let v = if val.is_null() { Value::Null } else { take_value(val) };
-        box_value(serde_json::json!({"__either__": "right", "value": v}))
+        let v = if val.is_null() { TaggedValue::Null } else { take_value(val) };
+        box_value(TaggedValue::EitherRight(Rc::new(v)))
     }
 }
 
@@ -2618,14 +2570,14 @@ pub unsafe extern "C" fn helper_v2_either_right(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_either_is_left(
     _ctx: *mut EvalCtx,
-    val: *mut Value,
+    val: *mut TaggedValue,
 ) -> u8 {
     unsafe {
         if val.is_null() {
             return 0;
         }
         let v = &*val;
-        if v.get("__either__").and_then(|s| s.as_str()) == Some("left") {
+        if matches!(v, TaggedValue::EitherLeft(_)) {
             1
         } else {
             0
@@ -2640,17 +2592,17 @@ pub unsafe extern "C" fn helper_v2_either_is_left(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_either_value(
     ctx: *mut EvalCtx,
-    val: *mut Value,
-) -> *mut Value {
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
             return ctx.set_error(LangError::Engine("either_value: null input".to_string()));
         }
         let v = take_value(val);
-        match v.get("value") {
-            Some(inner) => box_value(inner.clone()),
-            None => ctx.set_error(LangError::Engine(
+        match v {
+            TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => box_value((*inner).clone()),
+            _ => ctx.set_error(LangError::Engine(
                 "either_value: input is not an Either".to_string(),
             )),
         }
@@ -2673,9 +2625,9 @@ pub unsafe extern "C" fn helper_v2_either_value(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
     ctx: *mut EvalCtx,
-    pair: *mut Value,
+    pair: *mut TaggedValue,
     op_idx: usize,
-) -> *mut Value {
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if op_idx >= ctx.names.len() {
@@ -2686,42 +2638,30 @@ pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
         }
         let op = ctx.names[op_idx].clone();
         if pair.is_null() {
-            return box_value(Value::Null);
+            return box_value(TaggedValue::Null);
         }
         let p = (*pair).clone();
-        let in_val = p
-            .get("__pair__")
-            .and_then(|arr| arr.as_array())
-            .and_then(|a| a.first())
-            .cloned()
-            .unwrap_or(Value::Null);
-        let state = p
-            .get("__pair__")
-            .and_then(|arr| arr.as_array())
-            .and_then(|a| a.get(1))
-            .cloned()
-            .unwrap_or(Value::Null);
+        let (in_val, state) = match &p {
+            TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+            _ => (TaggedValue::Null, TaggedValue::Null),
+        };
         let arg_incoming = if op == "for_step" {
-            if state.is_null() {
+            if matches!(state, TaggedValue::Null) {
                 // First step: in_val = pair(count, initial). acc = snd(in_val).
-                in_val
-                    .get("__pair__")
-                    .and_then(|arr| arr.as_array())
-                    .and_then(|a| a.get(1))
-                    .cloned()
-                    .unwrap_or(Value::Null)
+                match &in_val {
+                    TaggedValue::Pair(p) => p.1.clone(),
+                    _ => TaggedValue::Null,
+                }
             } else {
                 // Later: state = pair(counter, acc). acc = snd(state).
-                state
-                    .get("__pair__")
-                    .and_then(|arr| arr.as_array())
-                    .and_then(|a| a.get(1))
-                    .cloned()
-                    .unwrap_or(Value::Null)
+                match &state {
+                    TaggedValue::Pair(p) => p.1.clone(),
+                    _ => TaggedValue::Null,
+                }
             }
         } else {
             // while_step / fix_step: current = in (first step) or state.
-            if state.is_null() { in_val } else { state }
+            if matches!(state, TaggedValue::Null) { in_val } else { state }
         };
         box_value(arg_incoming)
     }
@@ -2739,10 +2679,10 @@ pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
 pub unsafe extern "C" fn helper_v2_apply_native(
     ctx: *mut EvalCtx,
     op_idx: usize,
-    args: *const *mut Value,
+    args: *const *mut TaggedValue,
     n: usize,
-    incoming: *mut Value,
-) -> *mut Value {
+    incoming: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if op_idx >= ctx.names.len() {
@@ -2799,7 +2739,7 @@ pub unsafe extern "C" fn helper_v2_apply_native(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn helper_v2_loop_check(
     ctx: *mut EvalCtx,
-    result: *mut Value,
+    result: *mut TaggedValue,
 ) -> u8 {
     unsafe {
         let ctx = &mut *ctx;
@@ -2808,11 +2748,11 @@ pub unsafe extern "C" fn helper_v2_loop_check(
             return 2; // arbitrary — error is set
         }
         let v = &*result;
-        if v.get("__either__").and_then(|s| s.as_str()) == Some("left") {
+        if matches!(v, TaggedValue::EitherLeft(_)) {
             0
-        } else if v.get("__either__").and_then(|s| s.as_str()) == Some("right") {
+        } else if matches!(v, TaggedValue::EitherRight(_)) {
             1
-        } else if v.get("__pair__").is_some() {
+        } else if matches!(v, TaggedValue::Pair(..)) {
             2
         } else {
             ctx.set_error(LangError::Engine(
@@ -2830,14 +2770,17 @@ pub unsafe extern "C" fn helper_v2_loop_check(
 /// shape). Returns `(params_as_values, body_arena_index)`.
 fn resolve_closure_params_body(
     ctx: &mut EvalCtx,
-) -> Result<(Vec<Value>, usize), LangError> {
+) -> Result<(Vec<String>, usize), LangError> {
     let node = ctx.current_node()?;
     let payload = &node.payload;
     if let (Some(p), Some(b)) = (
         payload.get("params").and_then(|v| v.as_array()),
         payload.get("body").and_then(|v| v.as_u64()),
     ) {
-        return Ok((p.clone(), b as usize));
+        let names: Vec<String> = p.iter().map(|v| {
+            v.as_str().map(String::from).unwrap_or_default()
+        }).collect();
+        return Ok((names, b as usize));
     }
     let children = payload
         .get("children")
@@ -2890,10 +2833,7 @@ fn resolve_closure_params_body(
         })?;
         vec![pname.to_string()]
     };
-    Ok((
-        param_names.into_iter().map(Value::from).collect(),
-        body_idx,
-    ))
+    Ok((param_names, body_idx))
 }
 
 /// v2 `array` prim: construct an array value from the current node's payload.
@@ -2902,13 +2842,13 @@ fn resolve_closure_params_body(
 /// - Rich: `{"elements": [v1, v2, ...]}` — literal values, returned as-is.
 /// - Pratt-parsed: `{"children": [elem_idx, ...]}` — each element is an arena
 ///   index evaluated via [`eval_child_node`].
-fn prim_v2_array(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
     if let Some(elements) = node.payload.get("elements") {
-        return unsafe { box_value(elements.clone()) };
+        return unsafe { box_value(TaggedValue::from(elements.clone())) };
     }
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
@@ -2939,7 +2879,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut Value {
             Err(e) => return ctx.set_error(e),
         }
     }
-    unsafe { box_value(Value::Array(result)) }
+    unsafe { box_value(TaggedValue::Arr(Rc::from(result))) }
 }
 
 /// v2 `object` prim: construct an object value from the current node's payload.
@@ -2948,13 +2888,13 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut Value {
 /// - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
 /// - Pratt-parsed: `{"children": [entry_idx, ...]}` where each entry node has
 ///   `{"children": [key_idx, value_idx]}`.
-fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
     if let Some(entries) = node.payload.get("entries").and_then(|v| v.as_array()) {
-        let mut obj = serde_json::Map::new();
+        let mut obj = HashMap::new();
         for entry in entries {
             let key = match entry.get("key").and_then(|v| v.as_str()) {
                 Some(k) => k.to_string(),
@@ -2978,9 +2918,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
                     key
                 )));
             }
-            obj.insert(key, value);
+            obj.insert(key, TaggedValue::from(value));
         }
-        return unsafe { box_value(Value::Object(obj)) };
+        return unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) };
     }
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
@@ -3057,7 +2997,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         };
         entries.push((key_idx, val_idx, direct_key));
     }
-    let mut obj = serde_json::Map::new();
+    let mut obj = HashMap::new();
     for (key_idx, val_idx, direct_key) in entries {
         let key = match direct_key {
             Some(k) => k,
@@ -3066,9 +3006,9 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
                     Ok(v) => v,
                     Err(e) => return ctx.set_error(e),
                 };
-                match key_val.as_str() {
-                    Some(k) => k.to_string(),
-                    None => key_val.to_string(),
+                match &key_val {
+                    TaggedValue::Str(s) => s.to_string(),
+                    _ => handl_value::tagged_to_value(&key_val).to_string(),
                 }
             }
         };
@@ -3084,7 +3024,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
         }
         obj.insert(key, value);
     }
-    unsafe { box_value(Value::Object(obj)) }
+    unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) }
 }
 
 /// v2 `index` prim: index into an array or object using pre-evaluated
@@ -3092,7 +3032,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut Value {
 ///
 /// - `(Array, Number)` → `arr[i]`.
 /// - `(Object, String)` → `obj[key]`.
-fn prim_v2_index(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
@@ -3113,26 +3053,31 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut Value {
             ))
         }
     };
-    let result = match (target, index) {
-        (Value::Array(arr), Value::Number(n)) => {
-            let i = match n.as_u64() {
-                Some(i) => i as usize,
-                None => {
-                    return ctx.set_error(LangError::Engine(
-                        "index: index must be a non-negative integer".to_string(),
-                    ))
-                }
-            };
-            match arr.get(i).cloned() {
-                Some(v) => Ok(v),
+    let target_t = TaggedValue::from(target.clone());
+    let index_t = TaggedValue::from(index.clone());
+    let result = match (&target_t, &index_t) {
+        (TaggedValue::Arr(arr), TaggedValue::Int(i)) => {
+            let idx = *i as usize;
+            match arr.get(idx) {
+                Some(v) => Ok(v.clone()),
                 None => Err(LangError::Engine(format!(
                     "index: index {} out of bounds",
-                    i
+                    idx
                 ))),
             }
         }
-        (Value::Object(obj), Value::String(key)) => match obj.get(key).cloned() {
-            Some(v) => Ok(v),
+        (TaggedValue::Arr(arr), TaggedValue::Float(f)) => {
+            let idx = *f as usize;
+            match arr.get(idx) {
+                Some(v) => Ok(v.clone()),
+                None => Err(LangError::Engine(format!(
+                    "index: index {} out of bounds",
+                    idx
+                ))),
+            }
+        }
+        (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
+            Some(v) => Ok(v.clone()),
             None => Err(LangError::Engine(format!(
                 "index: key '{}' not found",
                 key
@@ -3153,7 +3098,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut Value {
 /// ADR-0053: `assign { children: [var, value] }` — evaluate child 1 (the
 /// value expression) and return it. Falls back to legacy `payload.value`
 /// for hand-built ASTs.
-fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut Value {
+fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let node = match ctx.current_node() {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
@@ -3176,7 +3121,7 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut Value {
         }
     }
     match node.payload.get("value") {
-        Some(v) => unsafe { box_value(v.clone()) },
+        Some(v) => unsafe { box_value(TaggedValue::from(v.clone())) },
         None => ctx.set_error(LangError::Engine(
             "assign: missing value in payload".to_string(),
         )),
@@ -3188,181 +3133,113 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut Value {
 fn apply_native_v2(
     ctx: &mut EvalCtx,
     op: &str,
-    args: &[Value],
-    incoming: Option<Value>,
-) -> *mut Value {
+    args: &[TaggedValue],
+    incoming: Option<TaggedValue>,
+) -> *mut TaggedValue {
     let result = match op {
         "id" => Ok(incoming
             .or_else(|| args.first().cloned())
-            .unwrap_or(Value::Null)),
+            .unwrap_or(TaggedValue::Null)),
         "tag" => {
             let v = incoming
                 .or_else(|| args.first().cloned())
-                .unwrap_or(Value::Null);
+                .unwrap_or(TaggedValue::Null);
             if is_truthy(&v) {
-                Ok(serde_json::json!({"__either__": "left", "value": v}))
+                Ok(TaggedValue::EitherLeft(Rc::new(v)))
             } else {
-                Ok(serde_json::json!({"__either__": "right", "value": v}))
+                Ok(TaggedValue::EitherRight(Rc::new(v)))
             }
         }
         "closure" => {
             match resolve_closure_params_body(ctx) {
                 Ok((params, body)) => {
                     let captured = ctx.env.capture();
-                    Ok(serde_json::json!({
-                        "__arrow__": true,
-                        "params": params,
-                        "body": body,
-                        "env": captured,
-                    }))
+                    Ok(TaggedValue::Arrow {
+                        params: Rc::from(params),
+                        body,
+                        env: Rc::new(captured),
+                    })
                 }
                 Err(e) => Err(e),
             }
         }
         "bind" => return prim_v2_bind(ctx),
-        // `eval_let` — v0.1 `let` evaluation. Dispatches to `prim_v2_bind`
-        // which handles the `{"name": ..., "children": [value, body]}`
-        // payload format. For the new grammar format with an `assign`
-        // child, a dedicated handler would be needed; the corpus uses the
-        // legacy format which matches `bind`.
         "eval_let" => return prim_v2_bind(ctx),
-        // Ergonomic `loop` surface lowering (ADR-0052). args = [body_proc]
-        // — the body closure, evaluated from the carried sub-scheme
-        // arg. `incoming` is the loop pair `(in, state)` passed by the
-        // enclosing `Loop` combinator. The body closure is applied to the
-        // current state (in on the first step, state thereafter); it returns
-        // `{ state: v }` (continue), `{ out: v }` (terminate, backward compat),
-        // or a bare value (terminate, v0.1 `return v`).
-        // Param destructuring mirrors the v2 tree-walk's `loop_step` arm.
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
-        // `while_step` derived step op (ADR-0052). args = [cond_result,
-        // body_result] — re-evaluated per iteration by the compiler with
-        // the current value as incoming. `incoming` is the loop pair.
         "while_step" => {
-            let inc = incoming.unwrap_or(Value::Null);
-            let in_val = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.first())
-                .cloned()
-                .unwrap_or(Value::Null);
-            let state = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.get(1))
-                .cloned()
-                .unwrap_or(Value::Null);
-            let current = if state.is_null() { in_val } else { state };
-            let cond_val = args.first().cloned().unwrap_or(Value::Null);
+            let inc = incoming.unwrap_or(TaggedValue::Null);
+            let (in_val, state) = match &inc {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                _ => (TaggedValue::Null, TaggedValue::Null),
+            };
+            let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+            let cond_val = args.first().cloned().unwrap_or(TaggedValue::Null);
             if is_truthy(&cond_val) {
-                let body_val = args.get(1).cloned().unwrap_or(Value::Null);
-                Ok(serde_json::json!({"__either__": "right", "value": body_val}))
+                let body_val = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+                Ok(TaggedValue::EitherRight(Rc::new(body_val)))
             } else {
-                Ok(serde_json::json!({"__either__": "left", "value": current}))
+                Ok(TaggedValue::EitherLeft(Rc::new(current)))
             }
         }
-        // `for_step` derived step op. args = [body_result]. State is
-        // pair(counter, acc). First step: initialize from in = pair(count,
-        // initial). While counter > 0, continue with pair(counter-1,
-        // body(acc)); else terminate with acc.
         "for_step" => {
-            let inc = incoming.unwrap_or(Value::Null);
-            let in_val = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.first())
-                .cloned()
-                .unwrap_or(Value::Null);
-            let state = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.get(1))
-                .cloned()
-                .unwrap_or(Value::Null);
-            let (counter, acc) = if state.is_null() {
-                let count = in_val
-                    .get("__pair__")
-                    .and_then(|p| p.as_array())
-                    .and_then(|a| a.first())
-                    .cloned()
-                    .unwrap_or(Value::Null);
-                let initial = in_val
-                    .get("__pair__")
-                    .and_then(|p| p.as_array())
-                    .and_then(|a| a.get(1))
-                    .cloned()
-                    .unwrap_or(Value::Null);
+            let inc = incoming.unwrap_or(TaggedValue::Null);
+            let (in_val, state) = match &inc {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                _ => (TaggedValue::Null, TaggedValue::Null),
+            };
+            let (counter, acc) = if matches!(state, TaggedValue::Null) {
+                let (count, initial) = match &in_val {
+                    TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                    _ => (TaggedValue::Null, TaggedValue::Null),
+                };
                 (count, initial)
             } else {
-                let c = state
-                    .get("__pair__")
-                    .and_then(|p| p.as_array())
-                    .and_then(|a| a.first())
-                    .cloned()
-                    .unwrap_or(Value::Null);
-                let a = state
-                    .get("__pair__")
-                    .and_then(|p| p.as_array())
-                    .and_then(|a| a.get(1))
-                    .cloned()
-                    .unwrap_or(Value::Null);
+                let (c, a) = match &state {
+                    TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                    _ => (TaggedValue::Null, TaggedValue::Null),
+                };
                 (c, a)
             };
-            let count_i = counter.as_i64();
-            let count_f = counter.as_f64();
+            let (count_i, count_f) = match &counter {
+                TaggedValue::Int(i) => (Some(*i), None),
+                TaggedValue::Float(f) => (None, Some(*f)),
+                _ => (None, None),
+            };
             let still_going = match (count_i, count_f) {
                 (Some(i), _) => i > 0,
                 (None, Some(f)) => f > 0.0,
                 (None, None) => false,
             };
             if still_going {
-                let body_val = args.first().cloned().unwrap_or(Value::Null);
+                let body_val = args.first().cloned().unwrap_or(TaggedValue::Null);
                 let new_counter = match count_i {
-                    Some(i) => Value::from(i - 1),
-                    None => Value::from(count_f.unwrap_or(0.0) - 1.0),
+                    Some(i) => TaggedValue::Int(i - 1),
+                    None => TaggedValue::Float(count_f.unwrap_or(0.0) - 1.0),
                 };
-                let new_pair = serde_json::json!({"__pair__": [new_counter, body_val]});
-                Ok(serde_json::json!({"__either__": "right", "value": new_pair}))
+                let new_pair = TaggedValue::Pair(Rc::new((new_counter, body_val)));
+                Ok(TaggedValue::EitherRight(Rc::new(new_pair)))
             } else {
-                Ok(serde_json::json!({"__either__": "left", "value": acc}))
+                Ok(TaggedValue::EitherLeft(Rc::new(acc)))
             }
         }
-        // `fix_step` derived step op. args = [body_result]. If body result
-        // equals current, terminate (fixpoint); else continue.
         "fix_step" => {
-            let inc = incoming.unwrap_or(Value::Null);
-            let in_val = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.first())
-                .cloned()
-                .unwrap_or(Value::Null);
-            let state = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|a| a.get(1))
-                .cloned()
-                .unwrap_or(Value::Null);
-            let current = if state.is_null() { in_val } else { state };
-            let new_val = args.first().cloned().unwrap_or(Value::Null);
-            if new_val == current {
-                Ok(serde_json::json!({"__either__": "left", "value": new_val}))
+            let inc = incoming.unwrap_or(TaggedValue::Null);
+            let (in_val, state) = match &inc {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                _ => (TaggedValue::Null, TaggedValue::Null),
+            };
+            let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+            let new_val = args.first().cloned().unwrap_or(TaggedValue::Null);
+            if handl_value::eq(&new_val, &current) {
+                Ok(TaggedValue::EitherLeft(Rc::new(new_val)))
             } else {
-                Ok(serde_json::json!({"__either__": "right", "value": new_val}))
+                Ok(TaggedValue::EitherRight(Rc::new(new_val)))
             }
         }
         "array" => {
-            // Two payload shapes (mirrors v1 `array` prim):
-            // - Rich: `{"elements": [v1, v2, ...]}` — literal values.
-            // - Pratt-parsed: `{"children": [elem_idx, ...]}` — each
-            //   element is an arena index to evaluate.
             return prim_v2_array(ctx);
         }
         "object" => {
-            // Two payload shapes (mirrors v1 `object` prim):
-            // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
-            // - Pratt-parsed: `{"children": [entry_idx, ...]}` where each
-            //   entry node has `{"children": [key_idx, value_idx]}`.
             return prim_v2_object(ctx);
         }
         "index" => {
@@ -3372,18 +3249,12 @@ fn apply_native_v2(
             return prim_v2_assign(ctx);
         }
         "json" => {
-            // ADR-0060: json node payload is the JSON template string. When
-            // the json node has children (desugared from json{...}(args)),
-            // child 0 is the template node and children 1..N are args.
             let node = match ctx.current_node() {
                 Ok(n) => n,
                 Err(e) => return ctx.set_error(e),
             };
-            // Clone children to release the borrow on ctx before we
-            // mutate ctx.current_ref in the loop below.
             let children_opt = node.payload.get("children").and_then(|c| c.as_array()).cloned();
             let payload_str = node.payload.as_str().map(|s| s.to_string());
-            // Check if the json node has children (desugared from call).
             if let Some(children) = children_opt {
                 if children.len() >= 2 {
                     let template_idx = match children[0].as_u64() {
@@ -3411,24 +3282,25 @@ fn apply_native_v2(
                         };
                         ctx.current_ref = idx;
                         let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
-                        let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut Value };
+                        let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
                         let val = unsafe { (*result_ptr).clone() };
-                        let replacement = match serde_json::to_string(&val) {
+                        let val_json = handl_value::tagged_to_value(&val);
+                        let replacement = match serde_json::to_string(&val_json) {
                             Ok(r) => r,
                             Err(e) => return ctx.set_error(LangError::Engine(format!("json: {}", e))),
                         };
                         s = s.replace(&format!("${}", i), &replacement);
                     }
                     ctx.current_ref = saved_ref;
-                    return match serde_json::from_str(&s) {
-                        Ok(v) => unsafe { box_value(v) },
+                    return match serde_json::from_str::<Value>(&s) {
+                        Ok(v) => unsafe { box_value(TaggedValue::from(v)) },
                         Err(e) => ctx.set_error(LangError::Engine(format!("json: parse error: {}", e))),
                     };
                 }
             }
             match payload_str {
-                Some(expr) => match serde_json::from_str(&expr) {
-                    Ok(v) => Ok(v),
+                Some(expr) => match serde_json::from_str::<Value>(&expr) {
+                    Ok(v) => Ok(TaggedValue::from(v)),
                     Err(e) => Err(LangError::Engine(format!("json: parse error: {}", e))),
                 },
                 None => Err(LangError::Engine("json: payload must be a string".to_string())),
@@ -3477,8 +3349,8 @@ fn apply_native_v2(
                 Err(e) => Err(e),
             }
         }
-        "eq" => Ok(Value::Bool(args[0] == args[1])),
-        "neq" => Ok(Value::Bool(args[0] != args[1])),
+        "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
+        "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
         "lt" => cmp_num_v2(args, |a, b| a < b),
         "gt" => cmp_num_v2(args, |a, b| a > b),
         "lte" => cmp_num_v2(args, |a, b| a <= b),
@@ -3514,34 +3386,22 @@ fn apply_native_v2(
                 )),
             }
         }
-        // ADR-0060: route_on_type — encoded as "route_on_type:<tag>" in the
-        // op name by the cranelift compiler. Takes the value from incoming
-        // (or args[0]) and returns either_left/either_right.
         op if op.starts_with("route_on_type:") => {
             let tag = &op["route_on_type:".len()..];
             let val = incoming
                 .or_else(|| args.first().cloned())
-                .unwrap_or(Value::Null);
-            let actual_tag = match &val {
-                Value::Null => "null",
-                Value::Bool(_) => "bool",
-                Value::Number(_) => "number",
-                Value::String(_) => "string",
-                Value::Array(_) => "array",
-                Value::Object(_) => "object",
-            };
+                .unwrap_or(TaggedValue::Null);
+            let actual_tag = type_tag(&val);
             if actual_tag == tag {
-                Ok(serde_json::json!({"__either__": "left", "value": val}))
+                Ok(TaggedValue::EitherLeft(Rc::new(val)))
             } else {
-                Ok(serde_json::json!({"__either__": "right", "value": val}))
+                Ok(TaggedValue::EitherRight(Rc::new(val)))
             }
         }
-        // ADR-0060: call_host — takes a string callee (args[0]) and an args
-        // array (args[1]), looks up the callee in the module registry.
         "call_host" => {
-            let callee = match args.first().and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ctx.set_error(LangError::Engine(
+            let callee = match args.first() {
+                Some(TaggedValue::Str(s)) => s.to_string(),
+                _ => return ctx.set_error(LangError::Engine(
                     "call_host: callee must be a string".to_string(),
                 )),
             };
@@ -3552,24 +3412,22 @@ fn apply_native_v2(
                 )),
             };
             let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
-            let func = match modules.lookup(callee) {
+            let func = match modules.lookup(&callee) {
                 Some(f) => f,
                 None => return ctx.set_error(LangError::Engine(format!(
                     "call_host: function '{}' not found",
                     callee
                 ))),
             };
-            let call_args: Vec<Value> = args
-                .get(1)
-                .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().cloned().collect())
-                .unwrap_or_default();
+            let call_args: Vec<Value> = match args.get(1) {
+                Some(TaggedValue::Arr(arr)) => arr.iter().map(|v| handl_value::tagged_to_value(v)).collect(),
+                _ => Vec::new(),
+            };
             let mut pctx = handl_platform::EvalContext::new();
             func.call(&call_args, &mut pctx)
+                .map(TaggedValue::from)
                 .map_err(|e| LangError::Engine(e.to_string()))
         }
-        // ADR-0060: proj_rest — evaluate all children after index 0 and
-        // return them as a JSON array.
         "proj_rest" => {
             let children = match ctx.current_node() {
                 Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
@@ -3598,51 +3456,43 @@ fn apply_native_v2(
                 };
                 ctx.current_ref = idx;
                 let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
-                let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut Value };
+                let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
                 let val = unsafe { (*result_ptr).clone() };
                 vals.push(val);
             }
             ctx.current_ref = saved_ref;
-            Ok(Value::Array(vals))
+            Ok(TaggedValue::Arr(Rc::from(vals)))
         }
         "typeof" => {
-            let arg = args.first().or(incoming.as_ref()).unwrap_or(&Value::Null);
-            let type_name = match arg {
-                Value::Null => "null",
-                Value::Bool(_) => "bool",
-                Value::Number(_) => "number",
-                Value::String(_) => "string",
-                Value::Array(_) => "array",
-                Value::Object(_) => "object",
-            };
-            Ok(Value::from(type_name))
+            let arg = args.first().or(incoming.as_ref()).unwrap_or(&TaggedValue::Null);
+            Ok(TaggedValue::Str(Rc::from(type_tag(arg))))
         }
-        "not" => Ok(Value::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(Value::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-        "or" => Ok(Value::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
+        "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
+        "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
         "is_pos" => {
-            let v = incoming.unwrap_or(Value::Null);
-            match as_num(&v).map(|n| Value::Bool(n > Num::Int(0))) {
+            let v = incoming.unwrap_or(TaggedValue::Null);
+            match as_num(&v).map(|n| TaggedValue::Bool(n > Num::Int(0))) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
         }
         "dec" => {
-            let v = incoming.unwrap_or(Value::Null);
+            let v = incoming.unwrap_or(TaggedValue::Null);
             match as_num(&v).map(|n| num_value(n - Num::Int(1))) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
         }
         "inc" => {
-            let v = incoming.unwrap_or(Value::Null);
+            let v = incoming.unwrap_or(TaggedValue::Null);
             match as_num(&v).map(|n| num_value(n + Num::Int(1))) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
         }
         "half_floor" => {
-            let v = incoming.unwrap_or(Value::Null);
+            let v = incoming.unwrap_or(TaggedValue::Null);
             match as_num(&v).map(|n| match n {
                 Num::Int(i) => num_value(Num::Int(i / 2)),
                 Num::Float(f) => num_value(Num::Float((f / 2.0).floor())),
@@ -3652,108 +3502,116 @@ fn apply_native_v2(
             }
         }
         "inc_fst" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
-            let pair_arr = inc.get("__pair__").and_then(|p| p.as_array());
-            let a = pair_arr.and_then(|arr| arr.first()).cloned();
-            let b = pair_arr.and_then(|arr| arr.get(1)).cloned();
-            match (a, b) {
-                (Some(a), Some(b)) => match as_num(&a).map(|a_n| {
-                    let new_a = num_value(a_n + Num::Int(1));
-                    serde_json::json!({"__pair__": [new_a, b]})
-                }) {
-                    Ok(v) => Ok(v),
-                    Err(e) => Err(e),
-                },
-                _ => Err(LangError::Engine("inc_fst: input is not a pair".to_string())),
-            }
-        }
-        "countdown_step" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
-            let outer_arr = inc.get("__pair__").and_then(|p| p.as_array());
-            let a = outer_arr.and_then(|arr| arr.first()).cloned();
-            let b = outer_arr.and_then(|arr| arr.get(1)).cloned().unwrap_or(Value::Null);
-            let inner_arr = a.as_ref().and_then(|v| v.get("__pair__")).and_then(|p| p.as_array());
-            let result_val = inner_arr.and_then(|arr| arr.first()).cloned();
-            let initial = inner_arr.and_then(|arr| arr.get(1)).cloned().unwrap_or(Value::Null);
-            match result_val {
-                Some(result_val) => {
-                    let state = if b.is_null() { initial } else { b };
-                    match as_num(&state).map(|n| {
-                        if n > Num::Int(0) {
-                            serde_json::json!({"__either__": "right", "value": num_value(n - Num::Int(1))})
-                        } else {
-                            serde_json::json!({"__either__": "left", "value": result_val})
-                        }
+            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            match &inc {
+                TaggedValue::Pair(p) => {
+                    match as_num(&p.0).map(|a_n| {
+                        let new_a = num_value(a_n + Num::Int(1));
+                        TaggedValue::Pair(Rc::new((new_a, p.1.clone())))
                     }) {
                         Ok(v) => Ok(v),
                         Err(e) => Err(e),
                     }
                 }
-                None => Err(LangError::Engine(
-                    "countdown_step: in must be pair(result, initial)".to_string(),
-                )),
+                _ => Err(LangError::Engine("inc_fst: input is not a pair".to_string())),
+            }
+        }
+        "countdown_step" => {
+            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            let (outer_a, b) = match &inc {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                _ => (TaggedValue::Null, TaggedValue::Null),
+            };
+            let (result_val, initial) = match &outer_a {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                _ => (TaggedValue::Null, TaggedValue::Null),
+            };
+            let state = if matches!(b, TaggedValue::Null) { initial } else { b };
+            match as_num(&state).map(|n| {
+                if n > Num::Int(0) {
+                    TaggedValue::EitherRight(Rc::new(num_value(n - Num::Int(1))))
+                } else {
+                    TaggedValue::EitherLeft(Rc::new(result_val))
+                }
+            }) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(e),
             }
         }
         "infinite_step" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(Value::Null);
-            let b = inc
-                .get("__pair__")
-                .and_then(|p| p.as_array())
-                .and_then(|arr| arr.get(1))
-                .cloned()
-                .unwrap_or(Value::Null);
-            Ok(serde_json::json!({"__either__": "right", "value": b}))
+            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            let b = match &inc {
+                TaggedValue::Pair(p) => p.1.clone(),
+                _ => TaggedValue::Null,
+            };
+            Ok(TaggedValue::EitherRight(Rc::new(b)))
         }
-        // ADR-0053: the data-driven `if → match` desugar rewrites `if`
-        // nodes into `match` nodes before eval, so the v2 compiled path
-        // must dispatch `match`/`handle` to the existing prims (which
-        // read the current node from `ctx` and walk the arm children).
         "match" => return prim_match(ctx),
         "handle" => return prim_handle(ctx),
-        // v0.1: `product` — categorical product `***` (ADR-0074).
-        // Receives [f_result, g_result] and pairs them.
         "product" => {
-            let left = args.first().cloned().unwrap_or(Value::Null);
-            let right = args.get(1).cloned().unwrap_or(Value::Null);
-            Ok(serde_json::json!({"__pair__": [left, right]}))
+            let left = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            Ok(TaggedValue::Pair(Rc::new((left, right))))
         }
-        // v0.1: `nullish` — nullish coalescing `??` (ADR-0074 A.3).
-        // If left is some(v), return v; if none or null, return right.
         "nullish" => {
-            let left = args.first().cloned().unwrap_or(Value::Null);
-            let right = args.get(1).cloned().unwrap_or(Value::Null);
-            if left.is_null() {
+            let left = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+            if matches!(left, TaggedValue::Null) {
                 Ok(right)
-            } else if left.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                Ok(left.get("value").cloned().unwrap_or(Value::Null))
-            } else if left.get("_tag").and_then(|t| t.as_str()) == Some("None") {
-                Ok(right)
+            } else if let TaggedValue::Obj(obj) = &left {
+                let tag = obj.get("_tag").and_then(|t| if let TaggedValue::Str(s) = t { Some(s.as_ref()) } else { None });
+                if tag == Some("Some") {
+                    Ok(obj.get("value").cloned().unwrap_or(TaggedValue::Null))
+                } else if tag == Some("None") {
+                    Ok(right)
+                } else {
+                    Ok(right)
+                }
             } else {
                 Ok(right)
             }
         }
-        // v0.1: `opt_chain` — optional chaining `?.` (ADR-0074 A.4).
-        // args = [input, field_name]. If some(v) → some(v.field);
-        // if none or null → none.
         "opt_chain" => {
-            let input = args.first().cloned().unwrap_or(Value::Null);
-            let field_name = match args.get(1).and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ctx.set_error(LangError::Engine(
+            let input = args.first().cloned().unwrap_or(TaggedValue::Null);
+            let field_name = match args.get(1) {
+                Some(TaggedValue::Str(s)) => s.to_string(),
+                _ => return ctx.set_error(LangError::Engine(
                     "opt_chain: field name must be a string".to_string(),
                 )),
             };
-            if input.is_null() {
-                Ok(serde_json::json!({"_tag": "None"}))
-            } else if input.get("_tag").and_then(|t| t.as_str()) == Some("Some") {
-                let inner = input.get("value").cloned().unwrap_or(Value::Null);
-                let field_val = inner.get(field_name).cloned().unwrap_or(Value::Null);
-                Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
-            } else if input.get("_tag").and_then(|t| t.as_str()) == Some("None") {
-                Ok(serde_json::json!({"_tag": "None"}))
+            if matches!(input, TaggedValue::Null) {
+                let mut m = HashMap::new();
+                m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("None")));
+                Ok(TaggedValue::Obj(Rc::new(m)))
+            } else if let TaggedValue::Obj(obj) = &input {
+                let tag = obj.get("_tag").and_then(|t| if let TaggedValue::Str(s) = t { Some(s.as_ref()) } else { None });
+                if tag == Some("Some") {
+                    let inner = obj.get("value").cloned().unwrap_or(TaggedValue::Null);
+                    let field_val = if let TaggedValue::Obj(inner_obj) = &inner {
+                        inner_obj.get(&field_name).cloned().unwrap_or(TaggedValue::Null)
+                    } else {
+                        TaggedValue::Null
+                    };
+                    let mut m = HashMap::new();
+                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
+                    m.insert("value".to_string(), field_val);
+                    Ok(TaggedValue::Obj(Rc::new(m)))
+                } else if tag == Some("None") {
+                    let mut m = HashMap::new();
+                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("None")));
+                    Ok(TaggedValue::Obj(Rc::new(m)))
+                } else {
+                    let field_val = obj.get(&field_name).cloned().unwrap_or(TaggedValue::Null);
+                    let mut m = HashMap::new();
+                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
+                    m.insert("value".to_string(), field_val);
+                    Ok(TaggedValue::Obj(Rc::new(m)))
+                }
             } else {
-                let field_val = input.get(field_name).cloned().unwrap_or(Value::Null);
-                Ok(serde_json::json!({"_tag": "Some", "value": field_val}))
+                let mut m = HashMap::new();
+                m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
+                m.insert("value".to_string(), TaggedValue::Null);
+                Ok(TaggedValue::Obj(Rc::new(m)))
             }
         }
         _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
@@ -3766,7 +3624,7 @@ fn apply_native_v2(
 }
 
 /// Binary numeric op helper (v2). Preserves int-int arithmetic.
-fn bin_num_v2<F>(args: &[Value], f: F) -> Result<Value, LangError>
+fn bin_num_v2<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
 where
     F: FnOnce(Num, Num) -> Num,
 {
@@ -3776,13 +3634,13 @@ where
 }
 
 /// Numeric comparison helper (v2).
-fn cmp_num_v2<F>(args: &[Value], f: F) -> Result<Value, LangError>
+fn cmp_num_v2<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
 where
     F: FnOnce(Num, Num) -> bool,
 {
     let a = as_num(&args[0])?;
     let b = as_num(&args[1])?;
-    Ok(Value::Bool(f(a, b)))
+    Ok(TaggedValue::Bool(f(a, b)))
 }
 
 #[cfg(test)]

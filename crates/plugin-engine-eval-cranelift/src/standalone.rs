@@ -27,6 +27,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
 
 use handl_language::{Ast, LangError, Value};
+use handl_value::TaggedValue;
 
 use crate::compile::CompiledFn;
 use crate::{EvalCtx, take_value};
@@ -124,6 +125,7 @@ fn standalone_init_inner(
         .map_err(|e| LangError::Engine(format!("deserialize Ast: {}", e)))?;
     let literals: Vec<Value> = serde_json::from_str(lit_str)
         .map_err(|e| LangError::Engine(format!("deserialize literals: {}", e)))?;
+    let literals: Vec<TaggedValue> = literals.into_iter().map(TaggedValue::from).collect();
     let names: Vec<String> = serde_json::from_str(names_str)
         .map_err(|e| LangError::Engine(format!("deserialize names: {}", e)))?;
 
@@ -201,9 +203,9 @@ fn standalone_run_inner(
     ctx.current_ref = root_idx;
 
     // Call the root native function (v2 signature: ctx + incoming).
-    let null_incoming = unsafe { crate::box_value(Value::Null) };
-    let result_ptr: *mut Value = unsafe {
-        root_fn(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut Value
+    let null_incoming = unsafe { crate::box_value(TaggedValue::Null) };
+    let result_ptr: *mut TaggedValue = unsafe {
+        root_fn(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue
     };
 
     // Check for deferred error.
@@ -223,10 +225,11 @@ fn standalone_run_inner(
         ));
     }
 
-    // Reclaim the result value and serialize to JSON.
-    // SAFETY: the helper boxed this Value with Box::into_raw.
+    // Reclaim the result value, convert to JSON Value, and serialize.
+    // SAFETY: the helper boxed this TaggedValue with Box::into_raw.
     let value = unsafe { take_value(result_ptr) };
-    Ok(value.to_string())
+    let json_value = handl_value::tagged_to_value(&value);
+    Ok(json_value.to_string())
 }
 
 /// Free a string returned by [`handl_standalone_run`].
