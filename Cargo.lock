@@ -1295,6 +1295,7 @@ dependencies = [
  "handl-plugin-engine-eval",
  "handl-plugin-module",
  "handl-test-utils",
+ "handl-value",
  "serde_json",
 ]
 
@@ -1673,6 +1674,8 @@ name = "handl-plugin-lib-dedent"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
+ "handl-plugin-lib-utils",
  "handl-plugin-module",
  "serde_json",
 ]
