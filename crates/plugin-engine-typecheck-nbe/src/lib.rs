@@ -89,7 +89,9 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
+use handl_language::{
+    ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Scheme, Value, infer_effect_row,
+};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest, TypecheckResult};
 use handl_plugin_lib_tag::TypeRegistry;
@@ -324,10 +326,28 @@ impl NbeTypecheckEngine {
             // handler at compile time (rewriting every bare arr(target) in
             // the body to the impl graph), then evaluate the resulting
             // handler-free scheme.
+            //
+            // ADR-0054 / ADR-0076 effect row tracking: compute the effect row
+            // of this handler scheme via [`infer_effect_row`] and attach it as
+            // the `effects` field on the resulting function type (if any). The
+            // row records which capabilities the scheme manages (the `Handle`
+            // targets). Structural inference always produces a closed row.
             Scheme::Handle { .. } => {
+                let row = infer_effect_row(scheme);
                 let eliminated = handl_language::eliminate_and_check(scheme)
                     .map_err(|e| LangError::Engine(e.to_string()))?;
-                self.eval_type_scheme(lang, ast, node_ref, &eliminated, ctx, incoming)
+                let result =
+                    self.eval_type_scheme(lang, ast, node_ref, &eliminated, ctx, incoming)?;
+                // If the result is a type.function, attach the effects field.
+                if ctx.registry.as_type_tag(&result) == Some("type.function") {
+                    let effects_val = self.effect_row_to_type_value(&row, ctx)?;
+                    if let Value::Object(map) = &result {
+                        let mut new_map = map.clone();
+                        new_map.insert("effects".to_string(), effects_val);
+                        return Ok(Value::Object(new_map));
+                    }
+                }
+                Ok(result)
             }
         }
     }
@@ -2944,6 +2964,190 @@ impl NbeTypecheckEngine {
             })
     }
 
+    /// Convert an [`EffectRow`] into a `type.effects` type value
+    /// (ADR-0054 / ADR-0076).
+    ///
+    /// The resulting value is:
+    /// ```json
+    /// {"__tag__":"type.effects","__registry__":"handl.canonical",
+    ///  "ops": ["map", "serialize"], "rest": <null_or_meta_value>}
+    /// ```
+    /// `ops` is the labelled part of the row (the managed capability names).
+    /// `rest` is `null` for a closed row (`tail: None`) or a fresh
+    /// metavariable (`{"__meta__": id}`) for an open row (`tail: Some(_)`).
+    /// Structural inference via [`infer_effect_row`] always produces closed
+    /// rows, so `rest` is `null` in that path; the typechecker may attach an
+    /// open tail when ascribing a row-polymorphic type.
+    fn effect_row_to_type_value(
+        &self,
+        row: &EffectRow,
+        ctx: &mut TypecheckContext,
+    ) -> Result<Value, LangError> {
+        // For an open row, allocate a fresh metavariable for the tail. In
+        // practice infer_effect_row always produces tail: None, but this
+        // handles the general case.
+        let rest = match &row.tail {
+            None => Value::Null,
+            Some(_) => {
+                let id = ctx.fresh_meta();
+                meta_value(id)
+            }
+        };
+        self.construct_effects(
+            &row.ops.iter().cloned().collect::<Vec<_>>(),
+            if rest.is_null() { None } else { Some(&rest) },
+            ctx,
+        )
+    }
+
+    /// Construct a `type.effects` type value from an op list and an optional
+    /// `rest` (row variable). When `rest` is `None`, the row is closed.
+    fn construct_effects(
+        &self,
+        ops: &[String],
+        rest: Option<&Value>,
+        ctx: &TypecheckContext,
+    ) -> Result<Value, LangError> {
+        let ops_arr: Vec<Value> = ops.iter().map(|op| Value::from(op.as_str())).collect();
+        let mut payload = serde_json::Map::new();
+        payload.insert("ops".to_string(), Value::Array(ops_arr));
+        payload.insert("rest".to_string(), rest.cloned().unwrap_or(Value::Null));
+        ctx
+            .registry
+            .construct("type.effects", &Value::Object(payload))
+            .ok_or_else(|| {
+                LangError::Engine(
+                    "typecheck: construct_effects: failed to mint type.effects".into(),
+                )
+            })
+    }
+
+    /// Row-polymorphic effect row unification (ADR-0054 / ADR-0076).
+    ///
+    /// Unifies two `type.effects` values, handling open rows (with a `rest`
+    /// row variable) and closed rows (with `rest: null`). The algorithm is
+    /// analogous to [`unify_record`]:
+    ///
+    /// - **Both closed**: require identical op sets (extra ops on either side
+    ///   are an error).
+    /// - **One open, one closed**: the closed row's extra ops (not in the open
+    ///   row's known ops) are assigned to the open row's row variable (solve
+    ///   the metavariable to a `type.effects` with those ops). If the open row
+    ///   has ops absent from the closed row, that is an error (the closed row
+    ///   cannot supply them).
+    /// - **Both open**: create a fresh row variable `r3`; assign
+    ///   `r1 = {extra_b | r3}` and `r2 = {extra_a | r3}` where `extra_a`/
+    ///   `extra_b` are the non-common ops from each side (Leijen's row
+    ///   unification).
+    ///
+    /// Row variables are metavariables (`{"__meta__": id}`); assigning a row
+    /// variable solves the metavariable to a `type.effects` value.
+    fn unify_effects(
+        &self,
+        a: &Value,
+        b: &Value,
+        ctx: &mut TypecheckContext,
+    ) -> Result<(), LangError> {
+        let ops_a = a.get("ops").and_then(|o| o.as_array()).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: unify_effects: missing 'ops' array in {:?}",
+                a
+            ))
+        })?;
+        let ops_b = b.get("ops").and_then(|o| o.as_array()).ok_or_else(|| {
+            LangError::Engine(format!(
+                "typecheck: unify_effects: missing 'ops' array in {:?}",
+                b
+            ))
+        })?;
+        let rest_a = a.get("rest");
+        let rest_b = b.get("rest");
+
+        // Collect op names into sorted sets.
+        let set_a: std::collections::BTreeSet<String> = ops_a
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+        let set_b: std::collections::BTreeSet<String> = ops_b
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+
+        // Extra ops: in a but not in b, and in b but not in a.
+        let extra_a: Vec<String> = set_a
+            .iter()
+            .filter(|op| !set_b.contains(*op))
+            .cloned()
+            .collect();
+        let extra_b: Vec<String> = set_b
+            .iter()
+            .filter(|op| !set_a.contains(*op))
+            .cloned()
+            .collect();
+
+        // A row is open iff it has a non-null `rest` field.
+        let a_open = rest_a.map(|r| !r.is_null()).unwrap_or(false);
+        let b_open = rest_b.map(|r| !r.is_null()).unwrap_or(false);
+
+        match (a_open, b_open) {
+            // Both closed: no extra ops allowed on either side.
+            (false, false) => {
+                if !extra_a.is_empty() || !extra_b.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify closed effect rows with different ops: {:?} vs {:?}",
+                        extra_a, extra_b
+                    )));
+                }
+                Ok(())
+            }
+            // a is open, b is closed.
+            (true, false) => {
+                // The open row's known ops not in the closed row cannot be
+                // satisfied — the closed row has no more ops.
+                if !extra_a.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify open effect row with closed effect row: \
+                         open requires ops {:?} absent from closed row",
+                        extra_a
+                    )));
+                }
+                // The closed row's extra ops go to a's row variable.
+                let extra_effects = self.construct_effects(&extra_b, None, ctx)?;
+                self.unify(rest_a.unwrap(), &extra_effects, ctx)
+            }
+            // a is closed, b is open.
+            (false, true) => {
+                if !extra_b.is_empty() {
+                    return Err(LangError::Engine(format!(
+                        "typecheck: cannot unify closed effect row with open effect row: \
+                         open requires ops {:?} absent from closed row",
+                        extra_b
+                    )));
+                }
+                let extra_effects = self.construct_effects(&extra_a, None, ctx)?;
+                self.unify(&extra_effects, rest_b.unwrap(), ctx)
+            }
+            // Both open: distribute extra ops to the other's row variable via
+            // a shared fresh row variable (Leijen's row unification).
+            (true, true) => {
+                if extra_a.is_empty() && extra_b.is_empty() {
+                    // No extra ops — just link the two row variables.
+                    return self.unify(rest_a.unwrap(), rest_b.unwrap(), ctx);
+                }
+                // Create a fresh row variable shared by both sides.
+                let fresh_id = ctx.fresh_meta();
+                let fresh_row = meta_value(fresh_id);
+                // rest_a := {extra_b | fresh_row}
+                let effects_b = self.construct_effects(&extra_b, Some(&fresh_row), ctx)?;
+                self.unify(rest_a.unwrap(), &effects_b, ctx)?;
+                // rest_b := {extra_a | fresh_row}
+                let effects_a = self.construct_effects(&extra_a, Some(&fresh_row), ctx)?;
+                self.unify(&effects_a, rest_b.unwrap(), ctx)?;
+                Ok(())
+            }
+        }
+    }
+
     /// Check if type `sub` is a subtype of type `sup` (ADR-0054 subtyping).
     ///
     /// This is the subtyping judgment. Unlike [`Self::unify`] (which requires
@@ -3080,6 +3284,41 @@ impl NbeTypecheckEngine {
                 // payload keys.
                 if tag_a == "type.record" {
                     return self.unify_record(a, b, ctx);
+                }
+                // Row-polymorphic effect row unification (ADR-0054 /
+                // ADR-0076): `type.effects` values carry an `ops` array and
+                // an optional `rest` row variable. This special case must run
+                // BEFORE the general same-tag structural unification, which
+                // would try to unify the `ops` arrays as JSON arrays and the
+                // `rest` row variables as plain values.
+                if tag_a == "type.effects" {
+                    return self.unify_effects(a, b, ctx);
+                }
+                // Effect row unification (ADR-0054 / ADR-0076):
+                // `type.function` values may carry an `effects` field holding
+                // a `type.effects` value (an effect row). When both sides have
+                // an `effects` field, the rows are unified via
+                // [`unify_effects`] (row-polymorphic). When one or both sides
+                // lack `effects`, effect unification is skipped (backward
+                // compatible — the function's effects are unknown/untracked).
+                // The `param` and `body` fields are always unified
+                // structurally. This special case must run BEFORE the general
+                // same-tag structural unification, which would treat a
+                // missing `effects` field as `Null` and fail.
+                if tag_a == "type.function" {
+                    let effects_a = a.get("effects");
+                    let effects_b = b.get("effects");
+                    let param_a = a.get("param").unwrap_or(&Value::Null);
+                    let param_b = b.get("param").unwrap_or(&Value::Null);
+                    self.unify(param_a, param_b, ctx)?;
+                    let body_a = a.get("body").unwrap_or(&Value::Null);
+                    let body_b = b.get("body").unwrap_or(&Value::Null);
+                    self.unify(body_a, body_b, ctx)?;
+                    // Unify effects only when both sides carry an effects field.
+                    if let (Some(ea), Some(eb)) = (effects_a, effects_b) {
+                        self.unify_effects(ea, eb, ctx)?;
+                    }
+                    return Ok(());
                 }
                 // Both are type values with the same tag — unify payload
                 // fields.  We use `get` (not `as_object`) because the type

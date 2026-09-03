@@ -22,6 +22,16 @@ fn type_number() -> Value {
     json!({"__tag__":"type.number","__registry__":"handl.canonical"})
 }
 
+/// The expected tagged type value for `type.int` in `handl.canonical`.
+fn type_int() -> Value {
+    json!({"__tag__":"type.int","__registry__":"handl.canonical"})
+}
+
+/// The expected tagged type value for `type.float` in `handl.canonical`.
+fn type_float() -> Value {
+    json!({"__tag__":"type.float","__registry__":"handl.canonical"})
+}
+
 /// The expected tagged type value for `type.string` in `handl.canonical`.
 fn type_string() -> Value {
     json!({"__tag__":"type.string","__registry__":"handl.canonical"})
@@ -1040,7 +1050,7 @@ fn type_null() -> Value {
 fn json_type_construct_number() {
     let engine = engine();
     let mut lang = Language::new();
-    // Rule: const(42) >>> json_type_construct → type.number
+    // Rule: const(42) >>> json_type_construct → type.int (integer literal)
     lang.types
         .merge(TypeRuleDef::new(
             "type.test",
@@ -1055,7 +1065,7 @@ fn json_type_construct_number() {
     ast.push(AstNode::new("test"));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
 }
 
 // ---------------------------------------------------------------------------
@@ -1243,12 +1253,12 @@ fn value_rule_dispatches_on_json_type() {
         ))
         .unwrap();
 
-    // Number literal → type.number
+    // Number literal → type.int (integer literal)
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
 
     // String literal → type.string
     let mut ast2 = Ast::new();
@@ -1328,8 +1338,8 @@ fn let_rule_extends_gamma_and_synths_body() {
     );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    // The body is var("x"), which looks up "x" in Γ → type.number.
-    assert_eq!(result.typ, type_number());
+    // The body is var("x"), which looks up "x" in Γ → type.int.
+    assert_eq!(result.typ, type_int());
 }
 
 // ---------------------------------------------------------------------------
@@ -1413,7 +1423,7 @@ fn function_rule_constructs_function_type() {
         json!({
             "__tag__": "type.function",
             "__registry__": "handl.canonical",
-            "param": type_number(),
+            "param": type_int(),
             "body": type_string()
         })
     );
@@ -1668,7 +1678,7 @@ fn synth_last_child_synthesizes_last_child() {
     ast.push(AstNode::new("block").with_payload(json!({"children": [0, 1, 2]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
 }
 
 // ---------------------------------------------------------------------------
@@ -2622,9 +2632,9 @@ fn synth_match_arms_unifies_matching_arms() {
     //       lit(true), value(42), arm{children:[4,5]},
     //       value(0), match{children:[7,3,6]}]
     //   scrutinee = value(0) (idx 7)
-    //   arm1 (idx 3): pattern=lit(true)(idx 1), body=value(42)(idx 2) → type.number
-    //   arm2 (idx 6): pattern=lit(true)(idx 4), body=value(42)(idx 5) → type.number
-    //   Both arms unify to type.number.
+    //   arm1 (idx 3): pattern=lit(true)(idx 1), body=value(42)(idx 2) → type.int
+    //   arm2 (idx 6): pattern=lit(true)(idx 4), body=value(42)(idx 5) → type.int
+    //   Both arms unify to type.int.
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42))); // 0: scrutinee value
     ast.push(AstNode::new("lit").with_payload(json!(true))); // 1: pattern1
@@ -2639,7 +2649,7 @@ fn synth_match_arms_unifies_matching_arms() {
     );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -2685,7 +2695,7 @@ fn synth_match_arms_single_arm() {
     //       match{children:[3,2]}]
     let mut ast = Ast::new();
     ast.push(AstNode::new("lit").with_payload(json!(true))); // 0: pattern
-    ast.push(AstNode::new("value").with_payload(json!(42))); // 1: body → type.number
+    ast.push(AstNode::new("value").with_payload(json!(42))); // 1: body → type.int
     ast.push(AstNode::new("arm").with_payload(json!({"children": [0, 1]}))); // 2: arm
     ast.push(AstNode::new("value").with_payload(json!(0))); // 3: scrutinee
     ast.push(
@@ -2693,7 +2703,7 @@ fn synth_match_arms_single_arm() {
     );
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -2963,7 +2973,7 @@ fn array_rule_with_elements_carries_element_type() {
     ast.push(AstNode::new("array").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_array(type_number()));
+    assert_eq!(result.typ, type_array(type_int()));
 }
 
 // ---------------------------------------------------------------------------
@@ -3026,10 +3036,10 @@ fn index_rule_returns_element_type() {
     // AST: [value(1), value(2), array{children: [0, 1]},
     //       value(0), index{children: [2, 3]}]
     // The array node (idx 2) has children [value(1), value(2)]
-    //   → type.array{element: type.number}
+    //   → type.array{element: type.int}
     // The index node (idx 4) has children [array_node(2), value(0)(3)]
-    //   → synths child 0 (array) → type.array{element: type.number}
-    //   → array_element_type → type.number
+    //   → synths child 0 (array) → type.array{element: type.int}
+    //   → array_element_type → type.int
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(1)));
     ast.push(AstNode::new("value").with_payload(json!(2)));
@@ -3038,7 +3048,7 @@ fn index_rule_returns_element_type() {
     ast.push(AstNode::new("index").with_payload(json!({"children": [2, 3]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
 }
 
 // ===========================================================================
@@ -4387,7 +4397,7 @@ fn handle_rule_returns_body_type() {
         ))
         .unwrap();
     // AST: [value(42), block{children:[]}, handle{children:[0, 1]}]
-    // The handle's child 0 is the body (value 42 → type.number); child 1 is
+    // The handle's child 0 is the body (value 42 → type.int); child 1 is
     // the block of handler clauses (ignored by the type rule).
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
@@ -4395,7 +4405,7 @@ fn handle_rule_returns_body_type() {
     ast.push(AstNode::new("handle").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -4972,7 +4982,7 @@ fn pi_synth_creates_closure_based_pi() {
     merge_value_rule(&mut lang);
     merge_pi_rule(&mut lang);
     // AST: [value(42), value("hello"), pi{children:[0,1]}]
-    // Child 0 (value 42) synths to type.number (the param type).
+    // Child 0 (value 42) synths to type.int (the param type).
     // Child 1 (value "hello") is the body child — its arena index (1) is
     // stored in the body_closure marker (NOT evaluated eagerly).
     let mut ast = Ast::new();
@@ -4981,7 +4991,7 @@ fn pi_synth_creates_closure_based_pi() {
     ast.push(AstNode::new("pi").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    // The result should be type.pi with param=type.number and body_closure
+    // The result should be type.pi with param=type.int and body_closure
     // pointing to child index 1.
     assert_eq!(
         result.typ.get("__tag__").and_then(|v| v.as_str()),
@@ -4989,7 +4999,7 @@ fn pi_synth_creates_closure_based_pi() {
     );
     assert_eq!(
         result.typ.get("param"),
-        Some(&type_number())
+        Some(&type_int())
     );
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
@@ -5025,7 +5035,7 @@ fn sigma_synth_creates_closure_based_sigma() {
     );
     assert_eq!(
         result.typ.get("param"),
-        Some(&type_number())
+        Some(&type_int())
     );
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
@@ -5852,12 +5862,12 @@ fn fanout_rule_infers_arrow_kind_signature() {
     ast.push(AstNode::new("fanout").with_payload(json!({"children": [4, 5]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    // Expected: type.function{param: type.number,
+    // Expected: type.function{param: type.int,
     //                         body: type.array{elements: [type.string, type.bool]}}
     assert_eq!(
         result.typ,
         type_function(
-            type_number(),
+            type_int(),
             type_array_elements(vec![type_string(), type_bool()])
         )
     );
@@ -6062,8 +6072,8 @@ fn product_rule_infers_arrow_kind_signature() {
     assert_eq!(
         result.typ,
         type_function(
-            type_array_elements(vec![type_number(), type_bool()]),
-            type_array_elements(vec![type_string(), type_number()])
+            type_array_elements(vec![type_int(), type_bool()]),
+            type_array_elements(vec![type_string(), type_int()])
         )
     );
 }
@@ -6234,7 +6244,7 @@ fn choice_rule_infers_arrow_kind_signature() {
     assert_eq!(
         result.typ,
         type_function(
-            type_sum(vec![type_number(), type_bool()]),
+            type_sum(vec![type_int(), type_bool()]),
             type_string()
         )
     );
@@ -6286,7 +6296,7 @@ fn forall_synth_creates_closure_based_forall() {
     merge_value_rule(&mut lang);
     merge_forall_rule(&mut lang);
     // AST: [value(42), value("hello"), forall{children:[0,1]}]
-    // Child 0 (value 42) synths to type.number (the kind of the type param).
+    // Child 0 (value 42) synths to type.int (the kind of the type param).
     // Child 1 (value "hello") is the body child — its arena index (1) is
     // stored in the body_closure marker (NOT evaluated eagerly).
     let mut ast = Ast::new();
@@ -6295,7 +6305,7 @@ fn forall_synth_creates_closure_based_forall() {
     ast.push(AstNode::new("forall").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    // The result should be type.forall with kind=type.number and body_closure
+    // The result should be type.forall with kind=type.int and body_closure
     // pointing to child index 1.
     assert_eq!(
         result.typ.get("__tag__").and_then(|v| v.as_str()),
@@ -6303,7 +6313,7 @@ fn forall_synth_creates_closure_based_forall() {
     );
     assert_eq!(
         result.typ.get("kind"),
-        Some(&type_number())
+        Some(&type_int())
     );
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
@@ -6388,7 +6398,7 @@ fn vau_synth_creates_closure_based_vau() {
     merge_value_rule(&mut lang);
     merge_vau_rule(&mut lang);
     // AST: [value(42), value("hello"), vau{children:[0,1]}]
-    // Child 0 (value 42) synths to type.number (the param type).
+    // Child 0 (value 42) synths to type.int (the param type).
     // Child 1 (value "hello") is the body child — its arena index (1) is
     // stored in the body_closure marker (NOT evaluated eagerly).
     let mut ast = Ast::new();
@@ -6397,7 +6407,7 @@ fn vau_synth_creates_closure_based_vau() {
     ast.push(AstNode::new("vau").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    // The result should be type.vau with param=type.number and body_closure
+    // The result should be type.vau with param=type.int and body_closure
     // pointing to child index 1.
     assert_eq!(
         result.typ.get("__tag__").and_then(|v| v.as_str()),
@@ -6405,7 +6415,7 @@ fn vau_synth_creates_closure_based_vau() {
     );
     assert_eq!(
         result.typ.get("param"),
-        Some(&type_number())
+        Some(&type_int())
     );
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
@@ -8660,7 +8670,7 @@ fn rec_simple_fixpoint_is_int() {
     ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 3]}))); // 4: root
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
     assert!(result.diagnostics.is_empty());
 }
 
@@ -8802,7 +8812,7 @@ fn rec_return_type_is_int() {
     ast.push(AstNode::new("rec").with_payload(json!({"children": [2, 4]}))); // 5: root
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(result.typ, type_number());
+    assert_eq!(result.typ, type_int());
 }
 
 // ---------------------------------------------------------------------------
@@ -8863,4 +8873,393 @@ fn rec_occurs_check_rejects_cyclic_type() {
         "expected occurs-check failure for cyclic type, got {:?}",
         err
     );
+}
+
+// ===========================================================================
+// ADR-0054 / ADR-0076 — Effect row tracking: type.effects, infer_effect_row
+// wiring, and row-polymorphic effect row unification (unify_effects).
+// ===========================================================================
+
+/// Build a closed `type.effects` value with the given ops (sorted) and
+/// `rest: null`.
+fn type_effects_closed(ops: &[&str]) -> Value {
+    let ops_arr: Vec<Value> = ops.iter().map(|s| Value::from(*s)).collect();
+    json!({
+        "__tag__": "type.effects",
+        "__registry__": "handl.canonical",
+        "ops": ops_arr,
+        "rest": Value::Null
+    })
+}
+
+/// Build an open `type.effects` value with the given ops and a row variable
+/// (metavariable) in the `rest` field.
+fn type_effects_open(ops: &[&str], rest: &Value) -> Value {
+    let ops_arr: Vec<Value> = ops.iter().map(|s| Value::from(*s)).collect();
+    json!({
+        "__tag__": "type.effects",
+        "__registry__": "handl.canonical",
+        "ops": ops_arr,
+        "rest": rest.clone()
+    })
+}
+
+/// Build a `type.function` value with an `effects` field.
+fn type_function_with_effects(param: Value, body: Value, effects: Value) -> Value {
+    json!({
+        "__tag__": "type.function",
+        "__registry__": "handl.canonical",
+        "param": param,
+        "body": body,
+        "effects": effects
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 1. infer_effect_row of a Handle scheme produces a type.effects value with
+//    the right ops, attached to the resulting type.function.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn effect_row_handle_attaches_effects_to_function_type() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // A type rule whose scheme is a Handle. The body constructs
+    // type.function{param: type.number, body: type.string}; the target is
+    // "map"; the impl is a trivial const(type.number). infer_effect_row of
+    // this scheme is {map} (the Handle target). After elimination the body
+    // is unchanged (no bare arr("map") references), so the result is
+    // type.function{...} with an attached effects field.
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.handler",
+            "handler",
+            Scheme::handle(
+                Scheme::arr_judgment_lit(
+                    "construct",
+                    vec![
+                        Scheme::arr_judgment_lit(
+                            "field",
+                            vec![Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![],
+                                Value::from("type.number"),
+                            )],
+                            Value::from("param"),
+                        ),
+                        Scheme::arr_judgment_lit(
+                            "field",
+                            vec![Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![],
+                                Value::from("type.string"),
+                            )],
+                            Value::from("body"),
+                        ),
+                    ],
+                    Value::from("type.function"),
+                ),
+                "map",
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("handler"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // The result should be type.function with param=type.number,
+    // body=type.string, and effects=type.effects{ops:["map"], rest:null}.
+    assert_eq!(
+        result.typ.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.function")
+    );
+    assert_eq!(result.typ.get("param"), Some(&type_number()));
+    assert_eq!(result.typ.get("body"), Some(&type_string()));
+    let effects = result.typ.get("effects").expect("effects field should be present");
+    assert_eq!(
+        effects.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.effects")
+    );
+    let ops = effects.get("ops").and_then(|o| o.as_array()).unwrap();
+    assert_eq!(ops.len(), 1);
+    assert_eq!(ops[0], Value::from("map"));
+    assert_eq!(effects.get("rest"), Some(&Value::Null));
+}
+
+// ---------------------------------------------------------------------------
+// 2. Unifying two closed effect rows with the same ops succeeds.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_effects_closed_same_ops_succeeds() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let a = type_effects_closed(&["map", "serialize"]);
+    let b = type_effects_closed(&["map", "serialize"]);
+    engine.unify(&a, &b, &mut ctx).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// 3. Unifying two closed effect rows with different ops fails.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_effects_closed_different_ops_fails() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let a = type_effects_closed(&["map"]);
+    let b = type_effects_closed(&["map", "serialize"]);
+    let err = engine.unify(&a, &b, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed effect rows")),
+        "expected closed-effect-row mismatch, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 4. Unifying an open row with a closed row: the closed row's extra ops are
+//    assigned to the open row's variable.
+//    {map | r} ~ {map, serialize}  ⟹  r := {serialize}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_effects_open_with_closed_assigns_extra_ops() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    let open = type_effects_open(&["map"], &r);
+    let closed = type_effects_closed(&["map", "serialize"]);
+    engine.unify(&open, &closed, &mut ctx).unwrap();
+    // r should be solved to type.effects{ops:["serialize"], rest:null}.
+    let solved = ctx.lookup_meta(r_id).expect("row var should be solved");
+    assert_eq!(
+        solved.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.effects")
+    );
+    let solved_ops = solved.get("ops").and_then(|o| o.as_array()).unwrap();
+    assert_eq!(solved_ops.len(), 1);
+    assert_eq!(solved_ops[0], Value::from("serialize"));
+    assert_eq!(solved.get("rest"), Some(&Value::Null));
+}
+
+// ---------------------------------------------------------------------------
+// 5. Unifying an open row with a closed row where the open row has an op
+//    absent from the closed row fails.
+//    {map, log | r} ~ {map}  ⟹  FAIL (log required but absent)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_effects_open_requires_op_absent_from_closed_fails() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r_id = ctx.fresh_meta();
+    let r = meta_value(r_id);
+    let open = type_effects_open(&["map", "log"], &r);
+    let closed = type_effects_closed(&["map"]);
+    let err = engine.unify(&open, &closed, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("open requires ops")),
+        "expected open-requires-ops error, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 6. Two open effect rows unify (different ops) via a shared fresh row var.
+//    {map | r1} ~ {serialize | r2}
+//    ⟹  r1 := {serialize | r3}, r2 := {map | r3}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unify_effects_two_open_different_ops() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let r1_id = ctx.fresh_meta();
+    let r1 = meta_value(r1_id);
+    let r2_id = ctx.fresh_meta();
+    let r2 = meta_value(r2_id);
+    let a = type_effects_open(&["map"], &r1);
+    let b = type_effects_open(&["serialize"], &r2);
+    engine.unify(&a, &b, &mut ctx).unwrap();
+    // r1 should be solved to type.effects{ops:["serialize"], rest:<fresh>}.
+    let solved1 = ctx.lookup_meta(r1_id).expect("r1 should be solved");
+    assert_eq!(
+        solved1.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.effects")
+    );
+    let solved1_ops = solved1.get("ops").and_then(|o| o.as_array()).unwrap();
+    assert_eq!(solved1_ops.len(), 1);
+    assert_eq!(solved1_ops[0], Value::from("serialize"));
+    assert!(solved1.get("rest").is_some(), "r1's solution should have a rest");
+    // r2 should be solved to type.effects{ops:["map"], rest:<fresh>}.
+    let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
+    assert_eq!(
+        solved2.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.effects")
+    );
+    let solved2_ops = solved2.get("ops").and_then(|o| o.as_array()).unwrap();
+    assert_eq!(solved2_ops.len(), 1);
+    assert_eq!(solved2_ops[0], Value::from("map"));
+    assert!(solved2.get("rest").is_some(), "r2's solution should have a rest");
+    // Both solutions should share the same fresh row variable.
+    let rest1 = solved1.get("rest").unwrap();
+    let rest2 = solved2.get("rest").unwrap();
+    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+}
+
+// ---------------------------------------------------------------------------
+// 7. A function type with an effects field round-trips through the
+//    typechecker: unifying two type.function values that both carry effects
+//    unifies the effects rows.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn function_with_effects_unifies_effects_field() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let effects_a = type_effects_closed(&["map"]);
+    let effects_b = type_effects_closed(&["map"]);
+    let fun_a = type_function_with_effects(type_number(), type_string(), effects_a);
+    let fun_b = type_function_with_effects(type_number(), type_string(), effects_b);
+    // Should succeed: param, body, and effects all match.
+    engine.unify(&fun_a, &fun_b, &mut ctx).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// 8. A function type with effects vs one without effects: effect unification
+//    is skipped (backward compatible).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn function_with_effects_vs_without_effects_skips_effect_unify() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let effects = type_effects_closed(&["map"]);
+    let fun_with = type_function_with_effects(type_number(), type_string(), effects);
+    let fun_without = type_function(type_number(), type_string());
+    // Should succeed: param and body match; effects skipped (one side absent).
+    engine.unify(&fun_with, &fun_without, &mut ctx).unwrap();
+    engine.unify(&fun_without, &fun_with, &mut ctx).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// 9. A function type with mismatched effects fails to unify.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn function_with_mismatched_effects_fails() {
+    let engine = engine();
+    let mut ctx = TypecheckContext::new("handl.canonical");
+    let effects_a = type_effects_closed(&["map"]);
+    let effects_b = type_effects_closed(&["serialize"]);
+    let fun_a = type_function_with_effects(type_number(), type_string(), effects_a);
+    let fun_b = type_function_with_effects(type_number(), type_string(), effects_b);
+    let err = engine.unify(&fun_a, &fun_b, &mut ctx).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed effect rows")),
+        "expected closed-effect-row mismatch, got {:?}",
+        err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 10. infer_effect_row of a nested Handle scheme (Seq of two handles) unions
+//     the targets, producing a type.effects with multiple ops.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn effect_row_nested_handles_union_ops() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // A type rule whose scheme is a Seq of two Handles. The first handle
+    // targets "map", the second targets "serialize". The body of each
+    // constructs type.function{param: type.number, body: type.string}.
+    // infer_effect_row of the Seq is {map, serialize}. After elimination,
+    // the Seq evaluates to the second handle's result (threaded), which is
+    // a type.function — so the effects field is attached with both ops.
+    //
+    // Actually, the Seq threads fst's result into snd. The top-level scheme
+    // is a Seq, not a Handle, so infer_effect_row is computed only on Handle
+    // nodes. To get the union, we wrap the Seq in a Handle whose body is the
+    // Seq. The outer Handle's target adds one more op. Instead, let's use a
+    // single Handle whose body is a Seq of two sub-handles.
+    //
+    // Simpler: a Handle whose body is a Seq(handle(..., "map", ...),
+    // handle(..., "serialize", ...)). The outer Handle targets "log".
+    // infer_effect_row = {log, map, serialize}.
+    let make_fun = Scheme::arr_judgment_lit(
+        "construct",
+        vec![
+            Scheme::arr_judgment_lit(
+                "field",
+                vec![Scheme::arr_judgment_lit(
+                    "construct",
+                    vec![],
+                    Value::from("type.number"),
+                )],
+                Value::from("param"),
+            ),
+            Scheme::arr_judgment_lit(
+                "field",
+                vec![Scheme::arr_judgment_lit(
+                    "construct",
+                    vec![],
+                    Value::from("type.string"),
+                )],
+                Value::from("body"),
+            ),
+        ],
+        Value::from("type.function"),
+    );
+    let inner = Scheme::seq(
+        Scheme::handle(
+            make_fun.clone(),
+            "map",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ),
+        Scheme::handle(
+            make_fun.clone(),
+            "serialize",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ),
+    );
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.nested_handler",
+            "nhandler",
+            Scheme::handle(
+                inner,
+                "log",
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("nhandler"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // The result should be type.function with effects containing
+    // {log, map, serialize}.
+    assert_eq!(
+        result.typ.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.function")
+    );
+    let effects = result.typ.get("effects").expect("effects field should be present");
+    assert_eq!(
+        effects.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.effects")
+    );
+    let ops = effects.get("ops").and_then(|o| o.as_array()).unwrap();
+    let op_names: Vec<String> = ops
+        .iter()
+        .filter_map(|v| v.as_str().map(String::from))
+        .collect();
+    assert!(op_names.contains(&"map".to_string()), "ops should contain 'map': {:?}", op_names);
+    assert!(op_names.contains(&"serialize".to_string()), "ops should contain 'serialize': {:?}", op_names);
+    assert!(op_names.contains(&"log".to_string()), "ops should contain 'log': {:?}", op_names);
+    assert_eq!(op_names.len(), 3);
+    assert_eq!(effects.get("rest"), Some(&Value::Null));
 }
