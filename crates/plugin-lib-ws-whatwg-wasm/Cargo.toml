@@ -6,6 +6,7 @@ description = "WASM WHATWG WebSocket client module for the handl runtime."
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-platform = { workspace = true }
 serde = "1"
 serde_json = "1"

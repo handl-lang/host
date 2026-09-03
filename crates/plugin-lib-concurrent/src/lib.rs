@@ -3,6 +3,15 @@
 //! Concurrency primitives for the handl runtime, exposed as host functions
 //! and algebraic-effect operations.
 //!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The concurrent interface is declared in
+//! `kit-stdlib/data/concurrent/concurrent.hnl` via `---` doc comments
+//! and `cap` declarations. The [`ConcurrentLibraryPlugin`] wraps a
+//! generic [`HandlLibraryPlugin`] for the interface declaration (id,
+//! name, capabilities) while contributing the [`ConcurrencyModule`]
+//! into the [`ModuleRuntime`]. All the Rust `Module`/`Function` impls
+//! are preserved unchanged; only the plugin scaffolding was migrated.
+//!
 //! The first lego piece is the scheduler. `spawn`, `await`, and `yield`
 //! are implemented as [`Function`]s backed by a swappable [`Scheduler`]
 //! backend (see [`scheduler`](crate::scheduler)). The default scheduler is
@@ -55,6 +64,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+use handl_plugin_module::{ModuleRule, ModuleRuntime};
 use serde_json::Value;
 
 use crate::atomic::{AtomicRuntime, DefaultAtomicRuntime};
@@ -1498,5 +1509,97 @@ mod tests {
 #[cfg(test)]
 mod error_tests;
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+// ---------------------------------------------------------------------------
+// ConcurrentLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)
+// ---------------------------------------------------------------------------
+
+/// The handl source declaring the concurrent interface — the single
+/// source of truth for the concurrent API surface. Loaded at compile
+/// time from the kit-stdlib data dir.
+const CONCURRENT_HNL: &str =
+    include_str!("../../../kit-stdlib/data/concurrent/concurrent.hnl");
+
+/// A `Library` plugin that registers the `concurrent` module into the
+/// [`ModuleRuntime`] and declares the interface via a
+/// [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The [`HandlLibraryPlugin`] inner is used for the interface declaration
+/// — id, name, and capabilities parsed from `concurrent.hnl` — while the
+/// custom [`Plugin::contribute`] implementation registers the
+/// [`ConcurrencyModule`].
+///
+/// All the Rust `Module`/`Function` impls are preserved unchanged; only the
+/// plugin scaffolding was migrated to the op/handl form.
+pub struct ConcurrentLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl ConcurrentLibraryPlugin {
+    /// Create a new `ConcurrentLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "concurrent",
+                "lib.concurrent",
+                "lib-concurrent",
+                CONCURRENT_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for ConcurrentLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for ConcurrentLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        _capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ConcurrencyModule::new()))?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &handl_platform::CapabilityRequest,
+        _ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        Err(handl_platform::PlatformError::NotImplemented)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`ConcurrentLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_concurrent::LibraryPlugin`. Use
+/// `LibraryPlugin::new()` to construct.
+pub use ConcurrentLibraryPlugin as LibraryPlugin;

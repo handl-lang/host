@@ -86,13 +86,13 @@ impl Plugin for ConfigKit {
         ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_stats::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_ws_whatwg_native::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ws_whatwg_native::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_ip::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_archive_tar::LibraryPlugin::new())?;

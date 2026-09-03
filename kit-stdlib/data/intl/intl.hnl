@@ -1,0 +1,56 @@
+--- intl — internationalization library for the handl runtime, backed by ICU4X.
+---
+--- Provides locale-aware functions for formatting numbers, selecting
+--- plural categories, formatting lists, relative time, dates, durations,
+--- comparing strings, display names, and text segmentation.
+---
+--- All locale data is provided by ICU4X's compiled_data feature,
+--- which bundles CLDR data at compile time (600+ locales).
+---
+--- ## number formatting
+--- intl.format_number — format a number for a locale with optional options.
+--- intl.format_number_to_parts — format a number into parts array for a locale.
+---
+--- ## plural selection
+--- intl.select_plural — select the plural category for a number in a locale.
+---
+--- ## list formatting
+--- intl.format_list — format an array of items as a list for a locale.
+---
+--- ## relative time formatting
+--- intl.format_relative_time — format a value and unit as relative time for a locale.
+---
+--- ## date formatting
+--- intl.format_date — format a date string for a locale with optional options.
+--- intl.format_date_to_parts — format a date into parts array for a locale.
+---
+--- ## duration formatting
+--- intl.format_duration — format a duration in seconds for a locale.
+---
+--- ## string comparison
+--- intl.compare_strings — compare two strings using locale-aware collation.
+---
+--- ## display names
+--- intl.display_name — get a display name for a code (language, region, script) in a locale.
+---
+--- ## text segmentation
+--- intl.segment — segment text by granularity (grapheme, word, sentence, line) for a locale.
+---
+--- ## locale utilities
+--- intl.locale — parse a BCP 47 locale tag and return its components.
+--- intl.get_canonical_locales — canonicalize a locale or list of locales.
+--- intl.supported_locales_of — filter requested locales to those supported by the data provider.
+cap "intl.format_number"
+cap "intl.format_number_to_parts"
+cap "intl.select_plural"
+cap "intl.format_list"
+cap "intl.format_relative_time"
+cap "intl.format_date"
+cap "intl.format_date_to_parts"
+cap "intl.format_duration"
+cap "intl.compare_strings"
+cap "intl.display_name"
+cap "intl.segment"
+cap "intl.locale"
+cap "intl.get_canonical_locales"
+cap "intl.supported_locales_of"

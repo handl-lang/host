@@ -12,6 +12,7 @@ server = []
 [dependencies]
 handl-platform = { workspace = true }
 handl-plugin-module = { path = "../plugin-module" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-ext-eval = { path = "../plugin-ext-eval" }
 handl-plugin-lib-ws-rfc.workspace = true
 base64.workspace = true

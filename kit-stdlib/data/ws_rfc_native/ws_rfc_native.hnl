@@ -1,0 +1,61 @@
+--- ws_rfc_native — native RFC 6455 WebSocket client/server (tokio-tungstenite backend).
+---
+--- This is the native implementation of the ws_rfc interface, backed by
+--- tokio-tungstenite for real TCP/TLS WebSocket connections.
+---
+--- ## client API
+--- ws_rfc.client — create a native WebSocket client.
+--- ws_rfc.connect — connect a client to a URL via tokio-tungstenite.
+--- ws_rfc.send — send a message on a client.
+--- ws_rfc.recv — receive the next message on a client, or null if empty.
+--- ws_rfc.close — close a client connection.
+---
+--- ## server API
+--- ws_rfc.server — create a native WebSocket server.
+--- ws_rfc.listen — start a server listening on an address with a handler.
+--- ws_rfc.stop — stop a running server.
+---
+--- ## frame codec
+--- ws_rfc.frame.encode — encode a frame object into base64 frame bytes.
+--- ws_rfc.frame.decode — decode base64 frame bytes into a frame object.
+---
+--- ## message codec
+--- ws_rfc.message.from_frame — construct a message object from a frame.
+--- ws_rfc.message.to_frame — encode a message object into base64 frame bytes.
+cap "ws_rfc.client"
+cap "ws_rfc.connect"
+cap "ws_rfc.send"
+cap "ws_rfc.recv"
+cap "ws_rfc.close"
+cap "ws_rfc.server"
+cap "ws_rfc.listen"
+cap "ws_rfc.stop"
+cap "ws_rfc.frame.encode"
+cap "ws_rfc.frame.decode"
+cap "ws_rfc.message.from_frame"
+cap "ws_rfc.message.to_frame"
+op "ws_rfc.client" : () -> Value
+op "ws_rfc.connect" : (Value, String) -> Value
+op "ws_rfc.send" : (Value, Value) -> Value
+op "ws_rfc.recv" : Value -> Value
+op "ws_rfc.close" : Value -> Value
+op "ws_rfc.server" : () -> Value
+op "ws_rfc.listen" : (Value, String, Function) -> Value
+op "ws_rfc.stop" : Value -> Value
+op "ws_rfc.frame.encode" : Value -> String
+op "ws_rfc.frame.decode" : String -> Value
+op "ws_rfc.message.from_frame" : Value -> Value
+op "ws_rfc.message.to_frame" : Value -> String
+
+handl "ws_rfc.client" = rust_ws_rfc_native_client
+handl "ws_rfc.connect" = rust_ws_rfc_native_connect
+handl "ws_rfc.send" = rust_ws_rfc_native_send
+handl "ws_rfc.recv" = rust_ws_rfc_native_recv
+handl "ws_rfc.close" = rust_ws_rfc_native_close
+handl "ws_rfc.server" = rust_ws_rfc_native_server
+handl "ws_rfc.listen" = rust_ws_rfc_native_listen
+handl "ws_rfc.stop" = rust_ws_rfc_native_stop
+handl "ws_rfc.frame.encode" = rust_ws_rfc_frame_encode
+handl "ws_rfc.frame.decode" = rust_ws_rfc_frame_decode
+handl "ws_rfc.message.from_frame" = rust_ws_rfc_message_from_frame
+handl "ws_rfc.message.to_frame" = rust_ws_rfc_message_to_frame

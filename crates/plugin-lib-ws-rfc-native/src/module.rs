@@ -786,6 +786,54 @@ async fn handle_connection<S>(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Op Registry (ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+use handl_plugin_lib_handl::OpRegistry;
+
+/// The op names declared in `ws_rfc_native.hnl`.
+pub const WS_RFC_NATIVE_OPS: &[&str] = &[
+    "ws_rfc.client",
+    "ws_rfc.connect",
+    "ws_rfc.send",
+    "ws_rfc.recv",
+    "ws_rfc.close",
+    "ws_rfc.server",
+    "ws_rfc.listen",
+    "ws_rfc.stop",
+    "ws_rfc.frame.encode",
+    "ws_rfc.frame.decode",
+    "ws_rfc.message.from_frame",
+    "ws_rfc.message.to_frame",
+];
+
+/// Build the [`OpRegistry`] for ws_rfc_native, registering the Rust handls
+/// (native tokio-tungstenite client/server + re-exported frame/message
+/// helpers) under their op names.
+pub fn ws_rfc_native_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    #[cfg(feature = "client")]
+    {
+        registry.register("ws_rfc.client", Arc::new(ClientNew));
+        registry.register("ws_rfc.connect", Arc::new(ClientConnect));
+        registry.register("ws_rfc.send", Arc::new(ClientSend));
+        registry.register("ws_rfc.recv", Arc::new(ClientRecv));
+        registry.register("ws_rfc.close", Arc::new(ClientClose));
+    }
+    #[cfg(feature = "server")]
+    {
+        registry.register("ws_rfc.server", Arc::new(ServerNew));
+        registry.register("ws_rfc.listen", Arc::new(ServerListen));
+        registry.register("ws_rfc.stop", Arc::new(ServerStop));
+    }
+    registry.register("ws_rfc.frame.encode", Arc::new(FrameEncode));
+    registry.register("ws_rfc.frame.decode", Arc::new(FrameDecode));
+    registry.register("ws_rfc.message.from_frame", Arc::new(MessageFromFrame));
+    registry.register("ws_rfc.message.to_frame", Arc::new(MessageToFrame));
+    registry
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
