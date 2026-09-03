@@ -28,7 +28,7 @@ impl Module for PropertyModule {
 }
 
 #[derive(Clone, Copy)]
-struct ForAll;
+pub struct ForAll;
 impl Function for ForAll {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {

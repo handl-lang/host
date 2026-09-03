@@ -30,7 +30,7 @@ impl Module for AssertModule {
 }
 
 #[derive(Clone, Copy)]
-struct Equal;
+pub struct Equal;
 impl Function for Equal {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
@@ -49,7 +49,7 @@ impl Function for Equal {
 }
 
 #[derive(Clone, Copy)]
-struct NotEqual;
+pub struct NotEqual;
 impl Function for NotEqual {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
@@ -68,7 +68,7 @@ impl Function for NotEqual {
 }
 
 #[derive(Clone, Copy)]
-struct True;
+pub struct True;
 impl Function for True {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
@@ -84,7 +84,7 @@ impl Function for True {
 }
 
 #[derive(Clone, Copy)]
-struct False;
+pub struct False;
 impl Function for False {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
@@ -100,7 +100,7 @@ impl Function for False {
 }
 
 #[derive(Clone, Copy)]
-struct Contains;
+pub struct Contains;
 impl Function for Contains {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
@@ -129,7 +129,7 @@ impl Function for Contains {
 }
 
 #[derive(Clone, Copy)]
-struct Throws;
+pub struct Throws;
 impl Function for Throws {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;

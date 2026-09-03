@@ -1,0 +1,185 @@
+--- datetime.from_unix — convert a Unix timestamp (seconds since epoch) to an ISO 8601 datetime string.
+--- datetime.to_unix — convert an ISO 8601 datetime string to a Unix timestamp.
+--- datetime.from_components — construct a datetime from year, month, day, hour, minute, second components.
+--- datetime.format — format a datetime string using a format specifier.
+--- datetime.parse — parse a datetime string using a format specifier.
+--- datetime.to_timezone — convert a datetime to a given timezone offset.
+--- datetime.to_utc — convert a datetime to UTC.
+--- datetime.year — extract the year component of a datetime.
+--- datetime.month — extract the month component (1-12) of a datetime.
+--- datetime.day — extract the day component (1-31) of a datetime.
+--- datetime.hour — extract the hour component (0-23) of a datetime.
+--- datetime.minute — extract the minute component (0-59) of a datetime.
+--- datetime.second — extract the second component (0-59) of a datetime.
+--- datetime.weekday — return the weekday as a number (1=Monday, 7=Sunday).
+--- datetime.day_of_year — return the day of year (1-366) of a datetime.
+--- datetime.week_of_year — return the ISO week number (1-53) of a datetime.
+--- datetime.quarter — return the quarter (1-4) of a datetime.
+--- datetime.is_leap_year — test whether the year of a datetime is a leap year.
+--- datetime.is_weekend — test whether a datetime falls on a weekend.
+--- datetime.add_seconds — add a number of seconds to a datetime.
+--- datetime.add_minutes — add a number of minutes to a datetime.
+--- datetime.add_hours — add a number of hours to a datetime.
+--- datetime.add_days — add a number of days to a datetime.
+--- datetime.add_weeks — add a number of weeks to a datetime.
+--- datetime.add_months — add a number of months to a datetime.
+--- datetime.add_years — add a number of years to a datetime.
+--- datetime.compare — compare two datetimes, returning -1, 0, or 1.
+--- datetime.is_before — test whether the first datetime is before the second.
+--- datetime.is_after — test whether the first datetime is after the second.
+--- datetime.is_equal — test whether two datetimes are equal.
+--- datetime.is_between — test whether a datetime is strictly between two bounds.
+--- datetime.is_between_inclusive — test whether a datetime is between two bounds (inclusive).
+--- datetime.duration_between — compute the duration in seconds between two datetimes.
+--- datetime.duration_seconds — compute the duration in seconds between two datetimes.
+--- datetime.duration_minutes — compute the duration in minutes between two datetimes.
+--- datetime.duration_hours — compute the duration in hours between two datetimes.
+--- datetime.duration_days — compute the duration in days between two datetimes.
+--- datetime.start_of_day — return the start of the day (00:00:00) for a datetime.
+--- datetime.end_of_day — return the end of the day (23:59:59) for a datetime.
+--- datetime.start_of_hour — return the start of the hour for a datetime.
+--- datetime.end_of_hour — return the end of the hour for a datetime.
+--- datetime.start_of_month — return the start of the month for a datetime.
+--- datetime.end_of_month — return the end of the month for a datetime.
+--- datetime.start_of_year — return the start of the year for a datetime.
+--- datetime.end_of_year — return the end of the year for a datetime.
+--- datetime.is_valid — test whether a datetime string is a valid ISO 8601 datetime.
+cap "datetime.from_unix"
+cap "datetime.to_unix"
+cap "datetime.from_components"
+cap "datetime.format"
+cap "datetime.parse"
+cap "datetime.to_timezone"
+cap "datetime.to_utc"
+cap "datetime.year"
+cap "datetime.month"
+cap "datetime.day"
+cap "datetime.hour"
+cap "datetime.minute"
+cap "datetime.second"
+cap "datetime.weekday"
+cap "datetime.day_of_year"
+cap "datetime.week_of_year"
+cap "datetime.quarter"
+cap "datetime.is_leap_year"
+cap "datetime.is_weekend"
+cap "datetime.add_seconds"
+cap "datetime.add_minutes"
+cap "datetime.add_hours"
+cap "datetime.add_days"
+cap "datetime.add_weeks"
+cap "datetime.add_months"
+cap "datetime.add_years"
+cap "datetime.compare"
+cap "datetime.is_before"
+cap "datetime.is_after"
+cap "datetime.is_equal"
+cap "datetime.is_between"
+cap "datetime.is_between_inclusive"
+cap "datetime.duration_between"
+cap "datetime.duration_seconds"
+cap "datetime.duration_minutes"
+cap "datetime.duration_hours"
+cap "datetime.duration_days"
+cap "datetime.start_of_day"
+cap "datetime.end_of_day"
+cap "datetime.start_of_hour"
+cap "datetime.end_of_hour"
+cap "datetime.start_of_month"
+cap "datetime.end_of_month"
+cap "datetime.start_of_year"
+cap "datetime.end_of_year"
+cap "datetime.is_valid"
+op "datetime.from_unix" : Number -> String
+op "datetime.to_unix" : String -> Number
+op "datetime.from_components" : (Number, Number, Number, Number, Number, Number) -> String
+op "datetime.format" : (String, String) -> String
+op "datetime.parse" : (String, String) -> String
+op "datetime.to_timezone" : (String, String) -> String
+op "datetime.to_utc" : String -> String
+op "datetime.year" : String -> Number
+op "datetime.month" : String -> Number
+op "datetime.day" : String -> Number
+op "datetime.hour" : String -> Number
+op "datetime.minute" : String -> Number
+op "datetime.second" : String -> Number
+op "datetime.weekday" : String -> Number
+op "datetime.day_of_year" : String -> Number
+op "datetime.week_of_year" : String -> Number
+op "datetime.quarter" : String -> Number
+op "datetime.is_leap_year" : String -> Bool
+op "datetime.is_weekend" : String -> Bool
+op "datetime.add_seconds" : (String, Number) -> String
+op "datetime.add_minutes" : (String, Number) -> String
+op "datetime.add_hours" : (String, Number) -> String
+op "datetime.add_days" : (String, Number) -> String
+op "datetime.add_weeks" : (String, Number) -> String
+op "datetime.add_months" : (String, Number) -> String
+op "datetime.add_years" : (String, Number) -> String
+op "datetime.compare" : (String, String) -> Number
+op "datetime.is_before" : (String, String) -> Bool
+op "datetime.is_after" : (String, String) -> Bool
+op "datetime.is_equal" : (String, String) -> Bool
+op "datetime.is_between" : (String, String, String) -> Bool
+op "datetime.is_between_inclusive" : (String, String, String) -> Bool
+op "datetime.duration_between" : (String, String) -> Number
+op "datetime.duration_seconds" : (String, String) -> Number
+op "datetime.duration_minutes" : (String, String) -> Number
+op "datetime.duration_hours" : (String, String) -> Number
+op "datetime.duration_days" : (String, String) -> Number
+op "datetime.start_of_day" : String -> String
+op "datetime.end_of_day" : String -> String
+op "datetime.start_of_hour" : String -> String
+op "datetime.end_of_hour" : String -> String
+op "datetime.start_of_month" : String -> String
+op "datetime.end_of_month" : String -> String
+op "datetime.start_of_year" : String -> String
+op "datetime.end_of_year" : String -> String
+op "datetime.is_valid" : String -> Bool
+
+handl "datetime.from_unix" = rust_datetime_from_unix
+handl "datetime.to_unix" = rust_datetime_to_unix
+handl "datetime.from_components" = rust_datetime_from_components
+handl "datetime.format" = rust_datetime_format
+handl "datetime.parse" = rust_datetime_parse
+handl "datetime.to_timezone" = rust_datetime_to_timezone
+handl "datetime.to_utc" = rust_datetime_to_utc
+handl "datetime.year" = rust_datetime_year
+handl "datetime.month" = rust_datetime_month
+handl "datetime.day" = rust_datetime_day
+handl "datetime.hour" = rust_datetime_hour
+handl "datetime.minute" = rust_datetime_minute
+handl "datetime.second" = rust_datetime_second
+handl "datetime.weekday" = rust_datetime_weekday
+handl "datetime.day_of_year" = rust_datetime_day_of_year
+handl "datetime.week_of_year" = rust_datetime_week_of_year
+handl "datetime.quarter" = rust_datetime_quarter
+handl "datetime.is_leap_year" = rust_datetime_is_leap_year
+handl "datetime.is_weekend" = rust_datetime_is_weekend
+handl "datetime.add_seconds" = rust_datetime_add_seconds
+handl "datetime.add_minutes" = rust_datetime_add_minutes
+handl "datetime.add_hours" = rust_datetime_add_hours
+handl "datetime.add_days" = rust_datetime_add_days
+handl "datetime.add_weeks" = rust_datetime_add_weeks
+handl "datetime.add_months" = rust_datetime_add_months
+handl "datetime.add_years" = rust_datetime_add_years
+handl "datetime.compare" = rust_datetime_compare
+handl "datetime.is_before" = rust_datetime_is_before
+handl "datetime.is_after" = rust_datetime_is_after
+handl "datetime.is_equal" = rust_datetime_is_equal
+handl "datetime.is_between" = rust_datetime_is_between
+handl "datetime.is_between_inclusive" = rust_datetime_is_between_inclusive
+handl "datetime.duration_between" = rust_datetime_duration_between
+handl "datetime.duration_seconds" = rust_datetime_duration_seconds
+handl "datetime.duration_minutes" = rust_datetime_duration_minutes
+handl "datetime.duration_hours" = rust_datetime_duration_hours
+handl "datetime.duration_days" = rust_datetime_duration_days
+handl "datetime.start_of_day" = rust_datetime_start_of_day
+handl "datetime.end_of_day" = rust_datetime_end_of_day
+handl "datetime.start_of_hour" = rust_datetime_start_of_hour
+handl "datetime.end_of_hour" = rust_datetime_end_of_hour
+handl "datetime.start_of_month" = rust_datetime_start_of_month
+handl "datetime.end_of_month" = rust_datetime_end_of_month
+handl "datetime.start_of_year" = rust_datetime_start_of_year
+handl "datetime.end_of_year" = rust_datetime_end_of_year
+handl "datetime.is_valid" = rust_datetime_is_valid

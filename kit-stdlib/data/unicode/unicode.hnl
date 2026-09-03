@@ -1,0 +1,25 @@
+--- unicode.is_valid_identifier — test whether a string is a valid Unicode identifier (UAX #31).
+--- unicode.is_xid_start — test whether the first char of a string is an XID_Start character.
+--- unicode.is_xid_continue — test whether the first char of a string is an XID_Continue character.
+--- unicode.code_points — return an array of numeric code points for each character in a string.
+--- unicode.code_point_at — return the numeric code point at a given index, or null if out of bounds.
+--- unicode.decode — decode a UTF-8 string into an array of [byte_offset, code_point] pairs.
+cap "unicode.is_valid_identifier"
+cap "unicode.is_xid_start"
+cap "unicode.is_xid_continue"
+cap "unicode.code_points"
+cap "unicode.code_point_at"
+cap "unicode.decode"
+op "unicode.is_valid_identifier" : String -> Bool
+op "unicode.is_xid_start" : String -> Bool
+op "unicode.is_xid_continue" : String -> Bool
+op "unicode.code_points" : String -> Array
+op "unicode.code_point_at" : (String, Number) -> Value
+op "unicode.decode" : String -> Array
+
+handl "unicode.is_valid_identifier" = rust_unicode_is_valid_identifier
+handl "unicode.is_xid_start" = rust_unicode_is_xid_start
+handl "unicode.is_xid_continue" = rust_unicode_is_xid_continue
+handl "unicode.code_points" = rust_unicode_code_points
+handl "unicode.code_point_at" = rust_unicode_code_point_at
+handl "unicode.decode" = rust_unicode_decode

@@ -83,15 +83,15 @@ impl Plugin for ConfigKit {
         // evaluator) are now provided by the data-driven
         // `handl-kit-canonical::Kit` backed by `handl-runtime`.
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_crypto::LibraryPlugin::new())?;
-        ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_datetime::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_intl::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_kv_hashmap::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_unicode::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_stats::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_ws_rfc_memory::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_ws_whatwg_native::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_ip::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_compress_gzip::LibraryPlugin::new())?;

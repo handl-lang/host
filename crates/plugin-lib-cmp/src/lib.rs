@@ -10,57 +10,60 @@
 //!
 //! These are the functions that the `cmp` grammar sugars (`==`, `!=`, `<`,
 //! `<=`, `>`, `>=`, `<=>`) desugar to at parse time.
+//!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The cmp interface is declared in
+//! `kit-stdlib/data/cmp/cmp.hnl` via `op` declarations, and the Rust
+//! comparison logic is registered as handls (handlers) in an
+//! [`OpRegistry`]. The [`CmpLibraryPlugin`] wraps the generic
+//! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
+//! `Module`/`Plugin` trait scaffolding.
+//!
+//! The [`CmpModule`] re-export is preserved for backward compatibility.
 
 use std::cmp::Ordering;
+use std::sync::Arc;
 
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 use handl_plugin_lib_utils::shared::{
     apply_fn, arr as to_arr, b as to_bool, find_extremum_by, num, require_array,
     require_function_and_array, require_one_arg,
 };
 use serde_json::Value as JsonValue;
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+/// The handl source declaring the cmp `op` interface — the single source
+/// of truth for the cmp API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const CMP_HNL: &str = include_str!("../../../kit-stdlib/data/cmp/cmp.hnl");
 
-/// The `cmp` module — comparison and ordering utilities.
-///
-/// Provides functions callable as `cmp.eq(a, b)`, `cmp.lt(a, b)`,
-/// `cmp.min(a, b, ...)`, etc. in handl expressions.
-#[derive(Clone, Copy)]
-pub struct CmpModule;
+/// The op names declared in `cmp.hnl`.
+const CMP_OPS: &[&str] = &[
+    "cmp.eq",
+    "cmp.ne",
+    "cmp.lt",
+    "cmp.le",
+    "cmp.gt",
+    "cmp.ge",
+    "cmp.compare",
+    "cmp.min",
+    "cmp.max",
+    "cmp.clamp",
+    "cmp.between",
+    "cmp.in_range",
+    "cmp.is_sorted",
+    "cmp.is_sorted_desc",
+    "cmp.sort",
+    "cmp.sort_desc",
+    "cmp.sort_by",
+    "cmp.sort_by_desc",
+    "cmp.min_by",
+    "cmp.max_by",
+];
 
-impl Module for CmpModule {
-    fn name(&self) -> &str {
-        "cmp"
-    }
-
-    fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "eq" => Some(&Eq),
-            "ne" => Some(&Ne),
-            "lt" => Some(&Lt),
-            "le" => Some(&Le),
-            "gt" => Some(&Gt),
-            "ge" => Some(&Ge),
-            "compare" => Some(&Compare),
-            "min" => Some(&Min),
-            "max" => Some(&Max),
-            "clamp" => Some(&Clamp),
-            "between" => Some(&Between),
-            "in_range" => Some(&InRange),
-            "is_sorted" => Some(&IsSorted),
-            "is_sorted_desc" => Some(&IsSortedDesc),
-            "sort" => Some(&Sort),
-            "sort_desc" => Some(&SortDesc),
-            "sort_by" => Some(&SortBy),
-            "sort_by_desc" => Some(&SortByDesc),
-            "min_by" => Some(&MinBy),
-            "max_by" => Some(&MaxBy),
-            _ => None,
-        }
-    }
-}
+// ---------------------------------------------------------------------------
+// Comparison helpers (exposed for sibling crates)
+// ---------------------------------------------------------------------------
 
 fn value_kind(v: &JsonValue) -> u8 {
     match v {
@@ -151,6 +154,10 @@ fn require_three(
     }
     Ok((&args[0], &args[1], &args[2]))
 }
+
+// ---------------------------------------------------------------------------
+// Function impls (the handls — Rust bodies for the `op` declarations)
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct Eq;
@@ -509,6 +516,175 @@ impl Function for MaxBy {
         extremum_by_impl(args, ctx, true)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Op Registry
+// ---------------------------------------------------------------------------
+
+/// Build the [`OpRegistry`] for cmp, registering the Rust handls under
+/// their op names.
+pub fn cmp_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("cmp.eq", Arc::new(Eq));
+    registry.register("cmp.ne", Arc::new(Ne));
+    registry.register("cmp.lt", Arc::new(Lt));
+    registry.register("cmp.le", Arc::new(Le));
+    registry.register("cmp.gt", Arc::new(Gt));
+    registry.register("cmp.ge", Arc::new(Ge));
+    registry.register("cmp.compare", Arc::new(Compare));
+    registry.register("cmp.min", Arc::new(Min));
+    registry.register("cmp.max", Arc::new(Max));
+    registry.register("cmp.clamp", Arc::new(Clamp));
+    registry.register("cmp.between", Arc::new(Between));
+    registry.register("cmp.in_range", Arc::new(InRange));
+    registry.register("cmp.is_sorted", Arc::new(IsSorted));
+    registry.register("cmp.is_sorted_desc", Arc::new(IsSortedDesc));
+    registry.register("cmp.sort", Arc::new(Sort));
+    registry.register("cmp.sort_desc", Arc::new(SortDesc));
+    registry.register("cmp.sort_by", Arc::new(SortBy));
+    registry.register("cmp.sort_by_desc", Arc::new(SortByDesc));
+    registry.register("cmp.min_by", Arc::new(MinBy));
+    registry.register("cmp.max_by", Arc::new(MaxBy));
+    registry
+}
+
+// ---------------------------------------------------------------------------
+// CmpModule (backward compat — delegates to op functions)
+// ---------------------------------------------------------------------------
+
+/// The `cmp` module — a thin wrapper that delegates to the op-backed
+/// functions.
+///
+/// This is preserved for backward compatibility with downstream crates
+/// that register `CmpModule` directly.
+#[derive(Clone, Copy)]
+pub struct CmpModule;
+
+impl Module for CmpModule {
+    fn name(&self) -> &str {
+        "cmp"
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        match name {
+            "eq" => Some(&Eq),
+            "ne" => Some(&Ne),
+            "lt" => Some(&Lt),
+            "le" => Some(&Le),
+            "gt" => Some(&Gt),
+            "ge" => Some(&Ge),
+            "compare" => Some(&Compare),
+            "min" => Some(&Min),
+            "max" => Some(&Max),
+            "clamp" => Some(&Clamp),
+            "between" => Some(&Between),
+            "in_range" => Some(&InRange),
+            "is_sorted" => Some(&IsSorted),
+            "is_sorted_desc" => Some(&IsSortedDesc),
+            "sort" => Some(&Sort),
+            "sort_desc" => Some(&SortDesc),
+            "sort_by" => Some(&SortBy),
+            "sort_by_desc" => Some(&SortByDesc),
+            "min_by" => Some(&MinBy),
+            "max_by" => Some(&MaxBy),
+            _ => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CmpLibraryPlugin (wraps HandlLibraryPlugin with op registry)
+// ---------------------------------------------------------------------------
+
+/// A `Library` plugin that registers the `cmp` implementation via the
+/// generic [`HandlLibraryPlugin`] with an [`OpRegistry`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The cmp interface is declared in `cmp.hnl` via `op`/`handl`
+/// declarations; the Rust comparison handls are registered in the op
+/// registry. The generic loader handles module registration.
+pub struct CmpLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl CmpLibraryPlugin {
+    /// Create a new `CmpLibraryPlugin`.
+    pub fn new() -> Self {
+        let registry = Arc::new(cmp_op_registry());
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "cmp",
+                "lib.cmp",
+                "lib-cmp",
+                CMP_HNL,
+                &[],
+            )
+            .with_ops(CMP_OPS, registry),
+        }
+    }
+}
+
+impl Default for CmpLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for CmpLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Build a [`HandlLibraryPlugin`] for cmp with the op registry.
+///
+/// This is provided for consumers that prefer to use the generic plugin
+/// directly instead of [`CmpLibraryPlugin`].
+pub fn cmp_handl_plugin() -> HandlLibraryPlugin {
+    let registry = Arc::new(cmp_op_registry());
+    HandlLibraryPlugin::new_with_caps("cmp", "lib.cmp", "lib-cmp", CMP_HNL, &[])
+        .with_ops(CMP_OPS, registry)
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`CmpLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_cmp::LibraryPlugin`.
+pub use CmpLibraryPlugin as LibraryPlugin;
 
 #[cfg(test)]
 mod tests;

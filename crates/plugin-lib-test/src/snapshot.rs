@@ -25,7 +25,7 @@ impl Module for SnapshotModule {
 }
 
 #[derive(Clone, Copy)]
-struct Format;
+pub struct Format;
 impl Function for Format {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 1)?;
@@ -36,7 +36,7 @@ impl Function for Format {
 }
 
 #[derive(Clone, Copy)]
-struct Match;
+pub struct Match;
 impl Function for Match {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 3)?;

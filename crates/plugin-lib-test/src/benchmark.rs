@@ -27,7 +27,7 @@ impl Module for BenchmarkModule {
 }
 
 #[derive(Clone, Copy)]
-struct Run;
+pub struct Run;
 impl Function for Run {
     fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() < 2 {

@@ -1,0 +1,49 @@
+--- test.run — run a test suite (array of test cases) and return a report.
+--- assert.equal — assert that two values are deeply equal.
+--- assert.not_equal — assert that two values are not equal.
+--- assert.true — assert that a value is true.
+--- assert.false — assert that a value is false.
+--- assert.contains — assert that a container (array, object, or string) contains a value.
+--- assert.throws — assert that a function throws an error when called.
+--- property.for_all — run a property-based test with seeded RNG for count iterations.
+--- benchmark.run — benchmark a function for a number of iterations and return a timing report.
+--- fuzz.run — run a function with random inputs for count iterations and report failures.
+--- snapshot.format — serialize a value to a pretty-printed JSON string.
+--- snapshot.match — assert that an actual value matches an expected snapshot.
+cap "test.run"
+cap "assert.equal"
+cap "assert.not_equal"
+cap "assert.true"
+cap "assert.false"
+cap "assert.contains"
+cap "assert.throws"
+cap "property.for_all"
+cap "benchmark.run"
+cap "fuzz.run"
+cap "snapshot.format"
+cap "snapshot.match"
+op "test.run" : Array -> Value
+op "assert.equal" : (Value, Value) -> Bool
+op "assert.not_equal" : (Value, Value) -> Bool
+op "assert.true" : Bool -> Bool
+op "assert.false" : Bool -> Bool
+op "assert.contains" : (Value, Value) -> Bool
+op "assert.throws" : Function -> Bool
+op "property.for_all" : (Function, Number) -> Bool
+op "benchmark.run" : (Function, Number) -> Value
+op "fuzz.run" : (Function, Number) -> Value
+op "snapshot.format" : Value -> String
+op "snapshot.match" : (String, Value, Value) -> Bool
+
+handl "test.run" = rust_test_run
+handl "assert.equal" = rust_assert_equal
+handl "assert.not_equal" = rust_assert_not_equal
+handl "assert.true" = rust_assert_true
+handl "assert.false" = rust_assert_false
+handl "assert.contains" = rust_assert_contains
+handl "assert.throws" = rust_assert_throws
+handl "property.for_all" = rust_property_for_all
+handl "benchmark.run" = rust_benchmark_run
+handl "fuzz.run" = rust_fuzz_run
+handl "snapshot.format" = rust_snapshot_format
+handl "snapshot.match" = rust_snapshot_match
