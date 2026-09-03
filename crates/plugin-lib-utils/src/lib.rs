@@ -57,6 +57,24 @@
 //!
 //! This crate is interface-agnostic — usable from CLI, MCP, or any consumer
 //! that evaluates handl expressions.
+//!
+//! ## ADR-0077 Phase 4: op/handl migration
+//!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The aggregated utils interface is declared in
+//! `kit-stdlib/data/utils/utils.hnl` via `---` doc comments and `cap`
+//! declarations. The [`UtilsLibraryPlugin`] wraps a generic
+//! [`HandlLibraryPlugin`] for the interface declaration (id, name,
+//! capabilities) while contributing multiple [`ModuleRule`]s — one per
+//! sub-module — into the [`ModuleRuntime`]. All the Rust `Module`/`Function`
+//! impls are preserved unchanged; only the plugin scaffolding was migrated.
+
+use handl_platform::{
+    CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
+    PlatformError, Plugin, PluginContext,
+};
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 mod bool;
 mod encoding;
@@ -91,5 +109,118 @@ pub use serialize::SerializeModule;
 pub use r#str::StrModule;
 pub use r#type::TypeModule;
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+/// The handl source declaring the aggregated utils interface — the single
+/// source of truth for the utils API surface. Loaded at compile time from
+/// the kit-stdlib data dir.
+///
+/// The `.hnl` file contains `---` doc comments describing every sub-module
+/// and its ops, plus `cap` declarations for the utils-owned modules. The
+/// re-exported crates (base64, hex, json, toml, yaml, url-rfc, url-whatwg)
+/// each have their own `.hnl` files declaring their own op interfaces.
+const UTILS_HNL: &str = include_str!("../../../kit-stdlib/data/utils/utils.hnl");
+
+// ---------------------------------------------------------------------------
+// UtilsLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)
+// ---------------------------------------------------------------------------
+
+/// A `Library` plugin that registers all the utils sub-modules into the
+/// [`ModuleRuntime`] and declares the aggregated interface via a
+/// [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// Because `plugin-lib-utils` is an **aggregator** crate that registers
+/// multiple modules (bool, fn, math, mood, option, parse, result, serialize,
+/// str, typeof, encoding, plus re-exported base64/hex/json/toml/yaml/url
+/// modules), it cannot use a single [`HandlLibraryPlugin`] `contribute`
+/// (which registers exactly one module). Instead, the [`HandlLibraryPlugin`]
+/// inner is used for the interface declaration — id, name, and capabilities
+/// parsed from `utils.hnl` — while the custom [`Plugin::contribute`]
+/// implementation registers one [`ModuleRule`] per sub-module.
+///
+/// All the Rust `Module`/`Function` impls are preserved unchanged; only the
+/// plugin scaffolding was migrated to the op/handl form.
+pub struct UtilsLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl UtilsLibraryPlugin {
+    /// Create a new `UtilsLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "utils",
+                "lib.utils",
+                "lib-utils",
+                UTILS_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for UtilsLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Plugin for UtilsLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
+        None
+    }
+
+    fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
+        // Utils-owned modules (hand-rolled Module impls).
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(MathModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(StrModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(BoolModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(FnModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ResultModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(MoodModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(EncodingModule::new()))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ParseModule::new()))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(SerializeModule::new()))?;
+        // Re-exported modules from other crates.
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(Base64Module))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(HexModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(JsonModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(TomlModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(YamlModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(UrlRfcModule))?;
+        ctx.contribute::<ModuleRuntime>(ModuleRule::new(UrlWhatwgModule))?;
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        _request: &CapabilityRequest,
+        _ctx: &mut PluginContext,
+    ) -> Result<CapabilityResponse, PlatformError> {
+        Err(PlatformError::NotImplemented)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`UtilsLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_utils::LibraryPlugin`. Use
+/// `LibraryPlugin::new()` to construct.
+pub use UtilsLibraryPlugin as LibraryPlugin;

@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
 handl-platform = { workspace = true }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-base64 = { path = "../plugin-lib-base64" }
 handl-plugin-lib-encoding = { path = "../plugin-lib-encoding" }
 handl-plugin-lib-hex = { path = "../plugin-lib-hex" }
