@@ -270,6 +270,25 @@ impl Kit {
         Self::build_kit(lang, config)
     }
 
+    /// Build the canonical kit with a specific eval engine name
+    /// (e.g. `"tree-walk"`, `"bytecode"`, `"cranelift"`).
+    ///
+    /// Otherwise identical to [`Kit::new`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if fragment assembly or engine binding fails.
+    pub fn with_eval(eval_name: &str) -> Result<Self, LangError> {
+        let kit = handl_kit_data_canonical::assemble()?;
+        let lang = kit.lang().clone();
+        let config = kit
+            .runtime_config()
+            .clone()
+            .with_eval(eval_name)
+            .with_typecheck("nbe");
+        Self::build_kit(lang, config)
+    }
+
     /// Build a [`Kit`] from a caller-supplied [`Language`] and
     /// [`RuntimeConfig`], wiring the canonical engine registry, the
     /// stdlib/fp/hello/meta module chain, and the `self`/`hello` globals.
@@ -1172,10 +1191,10 @@ mod tests {
 
     #[test]
     fn typecheck_number_returns_type_value() {
-        // The `value` type rule dispatches on JSON type: 42 → type.number.
+        // The `value` type rule dispatches on JSON type: 42 → type.int.
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("42").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
         assert_eq!(typ["__registry__"], serde_json::json!("handl.canonical"));
     }
 
@@ -1192,7 +1211,7 @@ mod tests {
     fn typecheck_arithmetic_returns_type_number() {
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("1 + 2").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
     }
 
     #[test]
@@ -1209,7 +1228,7 @@ mod tests {
         // else else-expr` (no `then`). Here we use the brace-less form.
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("if true 1 else 2").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
     }
 
     #[test]
@@ -1229,7 +1248,7 @@ mod tests {
     fn typecheck_let_binds_var_and_returns_body_type() {
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("let x = 1 in x").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
     }
 
     #[test]
@@ -1243,7 +1262,7 @@ mod tests {
     fn typecheck_match_returns_arm_body_type() {
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("match 1 { 1: 2, _: 3 }").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
     }
 
     #[test]
