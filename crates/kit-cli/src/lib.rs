@@ -98,7 +98,7 @@ impl Plugin for CliKit {
         ctx.register_plugin(handl_plugin_lib_utils::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_cmp::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_collections::LibraryPlugin)?;
-        ctx.register_plugin(handl_plugin_lib_json::LibraryPlugin)?;
+        ctx.register_plugin(handl_plugin_lib_json::LibraryPlugin::new())?;
         ctx.register_plugin(handl_plugin_lib_toml::LibraryPlugin)?;
         ctx.register_plugin(handl_plugin_lib_yaml::LibraryPlugin)?;
 

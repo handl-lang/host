@@ -1,0 +1,9 @@
+--- json.parse — parse a JSON string into a value.
+--- json.stringify — serialize a value to a JSON string.
+cap "json.parse"
+cap "json.stringify"
+op "json.parse" : String -> Value
+op "json.stringify" : Value -> String
+
+handl "json.parse" = rust_json_parse
+handl "json.stringify" = rust_json_stringify
