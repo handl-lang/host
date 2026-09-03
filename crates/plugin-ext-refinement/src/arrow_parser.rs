@@ -741,10 +741,11 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
     })?;
     let kind = &node.kind;
 
-    // Special-case `named_arrow`: the eval scheme uses `extend_env` for
-    // runtime evaluation, but for static materialization we just materialize
-    // the expression (child 1). The name binding is handled at the file level.
-    if kind == "named_arrow" {
+    // Special-case `named_arrow` (pre-v0.1) and `assign` (v0.1): the eval
+    // scheme uses `extend_env`/`assign` for runtime evaluation, but for
+    // static materialization we just materialize the expression (child 1).
+    // The name binding is handled at the file level.
+    if kind == "named_arrow" || kind == "assign" {
         let children = get_children(&node.payload)?;
         let expr_idx = children
             .get(1)
@@ -753,14 +754,26 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
         return materialize_node(ast, expr_idx, lang);
     }
 
-    // Special-case `loop_rich`: the rich-loop syntax is SUGAR. The YAML
-    // grammar parses it into a `loop_rich` AST node, but the actual `Scheme`
-    // graph is determined by pattern-matching on the arrow body structure
-    // (which primitives are called, what the state transitions are) — the
-    // same heuristic as the legacy `analyze_branch`, but operating on the
-    // AST instead of raw text. The `arrow_proc` node (from `params ~> body`)
-    // has children [params, body].
-    if kind == "loop_rich" {
+    // Special-case `function` (v0.1 replacement for `arrow_proc`): a lambda
+    // `params ~> body`. For refinement, we materialize the body (child 1);
+    // the params are the input binding pattern, not a runtime concern.
+    if kind == "function" {
+        let children = get_children(&node.payload)?;
+        let body_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or("function: missing body child")? as usize;
+        return materialize_node(ast, body_idx, lang);
+    }
+
+    // Special-case `loop_rich` (pre-v0.1) and `rec` (v0.1): the rich-loop
+    // syntax is SUGAR. The YAML grammar parses it into a `loop_rich`/`rec`
+    // AST node, but the actual `Scheme` graph is determined by pattern-
+    // matching on the arrow body structure (which primitives are called,
+    // what the state transitions are) — the same heuristic as the legacy
+    // `analyze_branch`, but operating on the AST instead of raw text. The
+    // `function` node (from `params ~> body`) has children [params, body].
+    if kind == "loop_rich" || kind == "rec" {
         return rich_loop_to_scheme(ast, node);
     }
 
@@ -980,9 +993,9 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
         .get(arrow_idx)
         .ok_or("loop_rich: arrow node out of bounds")?;
 
-    if arrow_node.kind != "arrow_proc" {
+    if arrow_node.kind != "arrow_proc" && arrow_node.kind != "function" {
         return Err(format!(
-            "loop_rich: expected arrow_proc, got {}",
+            "loop_rich: expected arrow_proc or function, got {}",
             arrow_node.kind
         ));
     }
@@ -998,9 +1011,9 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
         .get(body_idx)
         .ok_or("loop_rich: body node out of bounds")?;
 
-    if body_node.kind != "arrow_match" {
+    if body_node.kind != "arrow_match" && body_node.kind != "match" {
         return Err(format!(
-            "loop_rich: expected arrow_match body, got {}",
+            "loop_rich: expected arrow_match or match body, got {}",
             body_node.kind
         ));
     }
@@ -1030,7 +1043,7 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
             .nodes()
             .get(arm_idx)
             .ok_or("loop_rich: arm node out of bounds")?;
-        if arm_node.kind != "arrow_arm" {
+        if arm_node.kind != "arrow_arm" && arm_node.kind != "arm" {
             continue;
         }
         let arm_children = get_children(&arm_node.payload)?;
@@ -1044,7 +1057,7 @@ fn rich_loop_to_scheme(ast: &Ast, node: &AstNode) -> Result<Scheme, String> {
             .ok_or("loop_rich: pattern node out of bounds")?;
 
         // Check if the pattern is an array.
-        if pattern_node.kind == "arrow_array" {
+        if pattern_node.kind == "arrow_array" || pattern_node.kind == "array" {
             let arm_body_idx = arm_children
                 .get(1)
                 .and_then(|v| v.as_u64())
@@ -1331,7 +1344,7 @@ impl PatternCollector {
         };
 
         match node.kind.as_str() {
-            "arrow_var" => {
+            "arrow_var" | "var" => {
                 // Identifier — record its name.
                 if let Some(name) = node.payload.as_str() {
                     self.var_names.insert(name.to_string());
@@ -1355,7 +1368,7 @@ impl PatternCollector {
                                 if let Ok(expr_children) = get_children(&expr_node.payload) {
                                     if let Some(callee_idx) = expr_children.first().and_then(|v| v.as_u64()) {
                                         if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
-                                            if callee_node.kind == "arrow_var" {
+                                            if callee_node.kind == "arrow_var" || callee_node.kind == "var" {
                                                 if let Some(name) = callee_node.payload.as_str() {
                                                     self.let_bound_callees.insert(name.to_string());
                                                 }
@@ -1368,18 +1381,18 @@ impl PatternCollector {
                     }
                 }
             }
-            "loop_rich" => {
+            "loop_rich" | "rec" => {
                 // Nested rich loop — record its presence.
                 self.has_nested_loop = true;
             }
-            "arrow_array" => {
+            "arrow_array" | "array" => {
                 // Check for cons-like construction: `[x, ...rest]`.
-                // An `arrow_rest` child indicates a spread/cons.
+                // An `arrow_rest`/`rest` child indicates a spread/cons.
                 if let Ok(children) = get_children(&node.payload) {
                     for child_val in children {
                         if let Some(child_idx) = child_val.as_u64() {
                             if let Some(child_node) = ast.nodes().get(child_idx as usize) {
-                                if child_node.kind == "arrow_rest" {
+                                if child_node.kind == "arrow_rest" || child_node.kind == "rest" {
                                     self.has_array_spread = true;
                                     break;
                                 }
@@ -1388,7 +1401,7 @@ impl PatternCollector {
                     }
                 }
             }
-            "arrow_call" => {
+            "arrow_call" | "call" => {
                 // `callee(args...)` function call: child 0 is callee,
                 // children 1..N are arguments.
                 if let Ok(children) = get_children(&node.payload) {
@@ -1398,10 +1411,14 @@ impl PatternCollector {
                             // like `state.f`) or an `arrow_id` (the `id`
                             // keyword, used in projection patterns like
                             // `id(state.acc)`).
-                            let callee_name = if callee_node.kind == "arrow_var" {
+                            let callee_name = if callee_node.kind == "arrow_var" || callee_node.kind == "var" {
                                 callee_node.payload.as_str().map(|s| s.to_string())
                             } else if callee_node.kind == "arrow_id" {
                                 Some("id".to_string())
+                            } else if callee_node.kind == "value" {
+                                // v0.1: `id` may parse as a `value` node with
+                                // payload "id" (keyword-as-identifier fallback).
+                                callee_node.payload.as_str().filter(|s| *s == "id").map(|s| s.to_string())
                             } else {
                                 None
                             };
@@ -1420,7 +1437,7 @@ impl PatternCollector {
                                         if let Some(arg_node) =
                                             ast.nodes().get(arg_idx as usize)
                                         {
-                                            if arg_node.kind == "arrow_var" {
+                                            if arg_node.kind == "arrow_var" || arg_node.kind == "var" {
                                                 if let Some(arg_name) =
                                                     arg_node.payload.as_str()
                                                 {
@@ -1483,7 +1500,7 @@ fn collect_var_names_recursive(ast: &Ast, idx: usize, names: &mut HashSet<String
         None => return,
     };
 
-    if node.kind == "arrow_var" {
+    if node.kind == "arrow_var" || node.kind == "var" {
         if let Some(name) = node.payload.as_str() {
             names.insert(name.to_string());
         }
@@ -1656,6 +1673,18 @@ fn tokenize(src: &str) -> Result<Vec<Token>, String> {
                     return Err("expected '>>>' but got '>>'".to_string());
                 }
                 tokens.push(Token::Flow);
+            }
+            '~' => {
+                // v0.1: `~>` is the arrow operator. In the legacy tokenizer
+                // (fallback only), treat it as a no-op separator — the
+                // data-driven parser handles it properly. This prevents
+                // "unexpected character: '~'" errors on v0.1 syntax.
+                chars.next(); // consume '~'
+                if chars.peek() == Some(&'>') {
+                    chars.next(); // consume '>'
+                }
+                // Don't push any token — `~>` separates params from body,
+                // and the legacy parser doesn't model arrow lambdas.
             }
             '|' => {
                 // Expect "|||" (the choice operator)
