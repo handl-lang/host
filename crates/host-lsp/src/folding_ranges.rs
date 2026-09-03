@@ -16,8 +16,9 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_doc_comment_kind};
+use handl_kit_canonical::{SpannedToken, is_doc_comment_kind};
 
+use crate::kit_resolver::kit_for_file;
 use crate::line_map::LineMap;
 
 // ---------------------------------------------------------------------------
@@ -28,7 +29,7 @@ use crate::line_map::LineMap;
 ///
 /// Returns an empty vector if the source cannot be lexed.
 pub fn folding_ranges(source: &str) -> Vec<Value> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };

@@ -14,9 +14,10 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_keyword_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 /// The URI used for edits in untitled buffers.
 const UNTITLED_URI: &str = "file:///untitled.hnl";
@@ -45,7 +46,7 @@ pub fn code_actions(
     actions.extend(extract_to_named_arrow_actions(source, range_start, range_end));
 
     // Lex the source for token-based actions.
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => return actions,
     };

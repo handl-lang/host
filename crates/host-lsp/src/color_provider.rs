@@ -15,9 +15,10 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_string_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_string_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 /// Named colors recognized inside `color("name")` calls.
 ///
@@ -143,7 +144,7 @@ fn parse_hex(hex: &str) -> (u8, u8, u8) {
 /// Find `color("name")` calls in `source` via the kit lexer and emit
 /// `ColorInformation` objects for recognized named colors.
 fn named_color_infos(source: &str) -> Vec<Value> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };

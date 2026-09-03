@@ -18,9 +18,10 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken};
+use handl_kit_canonical::SpannedToken;
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -39,7 +40,7 @@ pub fn selection_ranges(source: &str, positions: &[usize]) -> Vec<Value> {
     }
 
     // Lex once and reuse for every position.
-    let tokens = match Kit::new().and_then(|k| k.lex_with_spans(source)) {
+    let tokens = match kit_for_file(None).and_then(|k| k.lex_with_spans(source)) {
         Ok(t) => t,
         Err(_) => {
             // If the source cannot be lexed, fall back to line/document-only

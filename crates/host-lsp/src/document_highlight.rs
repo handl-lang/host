@@ -1,8 +1,9 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::symbols::{find_references, identifier_at_offset};
 
 /// LSP DocumentHighlightKind values.
@@ -54,7 +55,7 @@ pub fn document_highlight(source: &str, offset: usize) -> Option<Vec<Value>> {
 /// identifier matching `name` whose next non-comment token is `=` or `:`.
 fn declaration_spans(source: &str, name: &str) -> std::collections::HashSet<(usize, usize)> {
     let mut spans = std::collections::HashSet::new();
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => return spans,
     };
@@ -84,6 +85,6 @@ fn declaration_spans(source: &str, name: &str) -> std::collections::HashSet<(usi
 /// Lex the source into spanned tokens, returning `None` on failure.
 #[allow(dead_code)]
 fn lex(source: &str) -> Option<Vec<SpannedToken>> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     kit.lex_with_spans(source).ok()
 }

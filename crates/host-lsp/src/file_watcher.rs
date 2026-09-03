@@ -23,6 +23,8 @@ use std::collections::HashSet;
 
 use serde_json::{Value, json};
 
+use crate::kit_resolver::kit_for_file;
+
 /// An open document: its URI and current in-memory source text.
 pub struct OpenDocument<'a> {
     pub uri: &'a str,
@@ -124,7 +126,7 @@ fn references_any_stem(
     stems: &HashSet<String>,
     own_stem: Option<&str>,
 ) -> bool {
-    let kit = match handl_kit_canonical::Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => {
             // Fall back to a substring scan if lexing fails.

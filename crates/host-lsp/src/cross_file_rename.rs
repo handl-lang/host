@@ -20,10 +20,11 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind};
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::find_arrows_root;
 use crate::symbols::{find_definition, find_references, span_to_range};
 
@@ -152,7 +153,7 @@ pub fn rename(source: &str, offset: usize, new_name: &str, file_path: Option<&st
 /// - the identifier is neither a binding name (followed by `=` or `:`) nor
 ///   an arrow reference (matches a `.hnl` file name)
 fn identifier_at_offset_renameable(source: &str, offset: usize) -> Option<(String, Span)> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens

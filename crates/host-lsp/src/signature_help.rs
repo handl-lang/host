@@ -1,8 +1,9 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 /// Static description of a known arrow combinator's signature.
 struct CombinatorInfo {
@@ -95,7 +96,7 @@ fn known_combinator(name: &str) -> Option<CombinatorInfo> {
 /// return LSP `SignatureHelp` JSON, or `None` if the cursor is not inside a
 /// call.
 pub fn signature_help(source: &str, offset: usize) -> Option<Value> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     // Locate the unmatched `(` that encloses the cursor.

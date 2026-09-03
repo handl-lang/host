@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, is_identifier_kind, is_keyword_kind};
+
+use crate::kit_resolver::kit_for_file;
 
 /// LSP CompletionItemKind values.
 const KIND_KEYWORD: i64 = 14;
@@ -267,7 +269,7 @@ pub fn completions(source: &str) -> Vec<Value> {
     }
 
     // 3. Identifier completions, classified by role.
-    if let Ok(kit) = Kit::new() {
+    if let Ok(kit) = kit_for_file(None) {
         if let Ok(tokens) = kit.lex_with_spans(source) {
             // Collect unique names with their best (most specific) role.
             // Prefer function > type > parameter/property > binding > variable.
@@ -547,7 +549,7 @@ fn detect_context(tokens: &[SpannedToken], offset: usize, source: &str) -> Conte
 pub fn completion(source: &str, offset: usize) -> Value {
     let mut items = completions(source);
 
-    let tokens = match Kit::new().and_then(|kit| kit.lex_with_spans(source)) {
+    let tokens = match kit_for_file(None).and_then(|kit| kit.lex_with_spans(source)) {
         Ok(t) => t,
         Err(_) => return json!(items),
     };

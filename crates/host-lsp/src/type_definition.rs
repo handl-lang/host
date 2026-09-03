@@ -17,10 +17,11 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind};
+use handl_kit_canonical::{SpannedToken, is_identifier_kind};
 use handl_plugin_ext_refinement::RefTy;
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::{RefinementEngine, find_arrows_root};
 
 /// Known type predicate names from the refinement type system.
@@ -69,7 +70,7 @@ pub fn type_definition(
     refinement: &RefinementEngine,
 ) -> Option<Value> {
     // Lex the source and find the token at the cursor position.
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(file_path).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     let (index, token) = tokens

@@ -1,14 +1,15 @@
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{
-    Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind,
+    SpannedToken, is_comment_kind, is_identifier_kind, is_operator_kind,
 };
 use handl_language::Span;
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 
 pub fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, Span)> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
     for t in &tokens {
         if is_identifier_kind(&t.kind) {
@@ -21,7 +22,7 @@ pub fn identifier_at_offset(source: &str, offset: usize) -> Option<(String, Span
 }
 
 pub fn find_definition(source: &str, name: &str) -> Option<Span> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
     let mut i = 0;
     while i < tokens.len() {
@@ -41,7 +42,7 @@ pub fn find_definition(source: &str, name: &str) -> Option<Span> {
 }
 
 pub fn find_references(source: &str, name: &str) -> Vec<Span> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };

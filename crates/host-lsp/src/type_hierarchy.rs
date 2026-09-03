@@ -30,9 +30,10 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_identifier_kind, is_keyword_kind};
+use handl_kit_canonical::{SpannedToken, is_identifier_kind, is_keyword_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::{RefinementEngine, find_arrows_root};
 
 // ---------------------------------------------------------------------------
@@ -240,7 +241,7 @@ pub fn subtypes(
 
 /// Lex `source` into spanned tokens, returning `None` on failure.
 fn lex(source: &str) -> Option<Vec<SpannedToken>> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     kit.lex_with_spans(source).ok()
 }
 

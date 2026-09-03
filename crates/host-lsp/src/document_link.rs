@@ -29,9 +29,10 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, is_comment_kind, is_doc_comment_kind};
+use handl_kit_canonical::{is_comment_kind, is_doc_comment_kind};
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::find_arrows_root;
 
 /// Compute `textDocument/documentLink` results for `source`.
@@ -54,7 +55,7 @@ use crate::refinement::find_arrows_root;
 /// only URL links are returned — file references cannot be resolved without
 /// a path.
 pub fn document_links(source: &str, file_path: Option<&str>) -> Vec<Value> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(file_path) {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };

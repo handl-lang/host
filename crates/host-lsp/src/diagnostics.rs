@@ -1,9 +1,9 @@
 use serde_json::{Value, json};
 
-use handl_kit_canonical::Kit;
 use handl_language::LangError;
 use handl_plugin_ext_refinement::parse_arrow_file;
 
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::RefinementDiagnostic;
 
 pub fn offset_to_position(text: &str, offset: usize) -> (u32, u32) {
@@ -39,7 +39,7 @@ fn span_to_range(text: &str, start: usize, end: usize) -> Value {
 }
 
 pub fn collect_diagnostics(source: &str) -> Vec<Value> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(e) => {
             return vec![json!({
@@ -153,7 +153,7 @@ fn strip_comments(source: &str) -> String {
 ///
 /// Returns an empty vector when the source lexes and parses cleanly.
 pub fn parse_diagnostics(source: &str) -> Vec<RefinementDiagnostic> {
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(None) {
         Ok(k) => k,
         Err(e) => {
             return vec![RefinementDiagnostic {

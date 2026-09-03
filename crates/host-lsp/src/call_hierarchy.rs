@@ -37,10 +37,11 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use handl_kit_canonical::{
-    Kit, SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind, is_string_kind,
+    SpannedToken, is_comment_kind, is_identifier_kind, is_keyword_kind, is_string_kind,
 };
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::find_arrows_root;
 
 // ---------------------------------------------------------------------------
@@ -290,7 +291,7 @@ pub fn outgoing_calls(arrow_name: &str, file_path: Option<&str>) -> Vec<Value> {
 
 /// Lex `source` into spanned tokens, returning `None` on failure.
 fn lex(source: &str) -> Option<Vec<SpannedToken>> {
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     kit.lex_with_spans(source).ok()
 }
 

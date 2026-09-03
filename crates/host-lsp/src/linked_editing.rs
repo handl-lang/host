@@ -20,9 +20,10 @@
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken};
+use handl_kit_canonical::SpannedToken;
 
 use crate::diagnostics::offset_to_position;
+use crate::kit_resolver::kit_for_file;
 use crate::symbols::{find_references, identifier_at_offset};
 
 /// Compute `textDocument/linkedEditingRange` results for the byte `offset`
@@ -36,7 +37,7 @@ pub fn linked_editing_ranges(source: &str, offset: usize) -> Option<Value> {
         return None;
     }
 
-    let kit = Kit::new().ok()?;
+    let kit = kit_for_file(None).ok()?;
     let tokens = kit.lex_with_spans(source).ok()?;
 
     // 1. Bracket case: cursor on a bracket token.

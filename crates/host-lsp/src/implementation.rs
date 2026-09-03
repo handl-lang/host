@@ -23,8 +23,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use handl_kit_canonical::{Kit, SpannedToken, is_comment_kind, is_identifier_kind};
+use handl_kit_canonical::{SpannedToken, is_comment_kind, is_identifier_kind};
 
+use crate::kit_resolver::kit_for_file;
 use crate::refinement::{find_arrows_root, RefinementEngine};
 
 /// Return LSP `Location` objects for the arrow files that implement the
@@ -47,7 +48,7 @@ pub fn implementation(source: &str, offset: usize, file_path: Option<&str>) -> V
     // `Kit` runtimes (which are expensive — each assembles a full engine
     // registry with lex/parse/eval/typecheck/compile engines and many module
     // registries) for a single `implementation` request.
-    let kit = match Kit::new() {
+    let kit = match kit_for_file(file_path) {
         Ok(k) => k,
         Err(_) => return Vec::new(),
     };
