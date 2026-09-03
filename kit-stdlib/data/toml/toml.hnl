@@ -1,0 +1,9 @@
+--- toml.parse — parse a TOML string into a value.
+--- toml.stringify — serialize a value to a TOML string.
+cap "toml.parse"
+cap "toml.stringify"
+op "toml.parse" : String -> Value
+op "toml.stringify" : Value -> String
+
+handl "toml.parse" = rust_toml_parse
+handl "toml.stringify" = rust_toml_stringify
