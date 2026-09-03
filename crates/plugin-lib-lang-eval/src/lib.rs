@@ -19,11 +19,11 @@
 //! ## Wiring note
 //!
 //! The meta modules hold an [`Rc<dyn RuntimeFactory>`] which is not
-//! `Send + Sync`, so the [`LibraryPlugin`] cannot contribute its module
-//! through [`ModuleRuntime`](handl_plugin_module::ModuleRuntime). The host
-//! wires the [`EvalModule`] directly via
+//! `Send + Sync`, so the [`LangEvalLibraryPlugin`] cannot contribute its
+//! module through [`ModuleRuntime`](handl_plugin_module::ModuleRuntime). The
+//! host wires the [`EvalModule`] directly via
 //! [`RuntimeFactory::build`](handl_runtime::RuntimeFactory::build)'s
-//! `delegate` parameter. See [`plugin::LibraryPlugin::contribute`].
+//! `delegate` parameter. See [`LangEvalLibraryPlugin`].
 
 #![warn(missing_docs)]
 
@@ -130,8 +130,87 @@ impl Function for EvalFn {
     }
 }
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+// ---------------------------------------------------------------------------
+// LangEvalLibraryPlugin (wraps HandlLibraryPlugin, ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+
+/// The handl source declaring the `lang.eval` interface. Loaded at compile
+/// time from the kit-stdlib data dir. The eval engine stays Rust
+/// (ADR-0077 "Special"); this .hnl declares the interface only.
+const LANG_EVAL_HNL: &str = include_str!("../../../kit-stdlib/data/lang_eval/lang_eval.hnl");
+
+/// A `Library` plugin that registers the `lang.eval` implementation via
+/// the generic [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The eval engine logic stays in Rust (ADR-0077 "Special"); only the plugin
+/// scaffolding is wrapped with [`HandlLibraryPlugin`] for interface
+/// declaration.
+pub struct LangEvalLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl LangEvalLibraryPlugin {
+    /// Create a new `LangEvalLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "lang.eval",
+                "lib.lang.eval",
+                "lib-lang-eval",
+                LANG_EVAL_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for LangEvalLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for LangEvalLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Legacy `LibraryPlugin` — delegates to [`LangEvalLibraryPlugin`].
+pub use LangEvalLibraryPlugin as LibraryPlugin;
 
 #[cfg(test)]
 mod tests;

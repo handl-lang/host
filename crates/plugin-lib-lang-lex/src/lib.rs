@@ -12,7 +12,7 @@
 //! This crate is a leaf: it depends on `handl-runtime` (the abstraction +
 //! `RuntimeFactory`/`RuntimeHandle` traits), `handl-language`, and
 //! `handl-platform`/`handl-plugin-module` only — no engine impl crates, no
-//! `handl-kit-*`. The [`LibraryPlugin`] holds an [`Rc<dyn RuntimeFactory>`]
+//! `handl-kit-*`. The [`LexModule`] holds an [`Rc<dyn RuntimeFactory>`]
 //! injected by the host; each invocation calls `factory.build(lang, delegate)`
 //! then `handle.lex(...)`.
 //!
@@ -27,8 +27,8 @@
 //! Instead, the [`LexModule`] is wired directly into the runtime via
 //! [`RuntimeFactory::build`](handl_runtime::RuntimeFactory::build)'s
 //! `delegate` parameter (a [`Rc<dyn ModuleLookup>`]). The
-//! [`LibraryPlugin::contribute`](plugin::LibraryPlugin::contribute) is a
-//! no-op documenting this.
+//! [`LangLexLibraryPlugin`] wraps [`HandlLibraryPlugin`] for interface
+//! declaration; its `contribute` registers the interface module.
 
 #![warn(missing_docs)]
 
@@ -130,8 +130,87 @@ impl Function for LexFn {
     }
 }
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
+// ---------------------------------------------------------------------------
+// LangLexLibraryPlugin (wraps HandlLibraryPlugin, ADR-0077 Phase 4)
+// ---------------------------------------------------------------------------
+
+use handl_plugin_lib_handl::HandlLibraryPlugin;
+
+/// The handl source declaring the `lang.lex` interface. Loaded at compile
+/// time from the kit-stdlib data dir. The lex engine stays Rust
+/// (ADR-0077 "Special"); this .hnl declares the interface only.
+const LANG_LEX_HNL: &str = include_str!("../../../kit-stdlib/data/lang_lex/lang_lex.hnl");
+
+/// A `Library` plugin that registers the `lang.lex` implementation via
+/// the generic [`HandlLibraryPlugin`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The lex engine logic stays in Rust (ADR-0077 "Special"); only the plugin
+/// scaffolding is wrapped with [`HandlLibraryPlugin`] for interface
+/// declaration.
+pub struct LangLexLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl LangLexLibraryPlugin {
+    /// Create a new `LangLexLibraryPlugin`.
+    pub fn new() -> Self {
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "lang.lex",
+                "lib.lang.lex",
+                "lib-lang-lex",
+                LANG_LEX_HNL,
+                &[],
+            ),
+        }
+    }
+}
+
+impl Default for LangLexLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for LangLexLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Legacy `LibraryPlugin` — delegates to [`LangLexLibraryPlugin`].
+pub use LangLexLibraryPlugin as LibraryPlugin;
 
 #[cfg(test)]
 mod tests;
