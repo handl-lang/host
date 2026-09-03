@@ -337,11 +337,17 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
 
 ## Open Questions
 
-1. **Bundled-operations effect representation.** How does the effect
-   system handle a bundle of operations as one handler? A `Serializer`
-   bundle binds `serialize` and `deserialize` together; the effect
-   system must treat them as a unit. This is a design question for the
-   effect-handler mechanism, deferred from ADR-0075 §13.
+1. **Bundled-operations effect representation.** ~~How does the effect
+   system handle a bundle of operations as one handler?~~ **Prototyped.**
+   `src/bundled_effects.rs` implements `EffectGraph` with `Op` (unhandled
+   operation) and `Handle` (handler elimination) nodes. A bundle is
+   intercepted as a single effect: one `Handle` resolves all operations
+   of that bundle from the same impl. `effect_row` tracks unhandled ops;
+   `eliminate_all_handlers` rewrites `Op` nodes to concrete arrows
+   innermost-first. 12 tests pass. Still open: compile-time vs runtime
+   elimination, effect row as type-level vs runtime set, `Op`
+   continuation parameter (the prototype's `Op` is a leaf; Lean's
+   `FreerArrow.op` has a continuation `k`).
 
 2. **Dynamic handlers + laws.** Can we verify laws for runtime-chosen
    impls? Likely no — this is the static/dynamic split. A dynamic
@@ -362,13 +368,28 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
    syntax is deferred.
 
 5. **Whether single-arrow laws should be inferable or always declared.**
-   ADR-0075's primary mode was trait *inference* — the system recognizes
+   ~~ADR-0075's primary mode was trait *inference* — the system recognizes
    laws from wiring without declaration. This ADR defaults to declared
    laws (the secondary mode), because inference is proven only for
    functor laws (`TraitInference.lean`) and is not complete in general
    (the "Honest assessment" is explicit about this). Whether inference
    becomes the default for single-arrow laws is deferred pending
-   further mechanization.
+   further mechanization.~~ **Prototyped.** `src/law_inference.rs`
+   implements `infer_laws`: a law catalog of 4 CutElim-proven structural
+   patterns (functor identity/composition, coproduct functor
+   identity/composition). The system discovers laws from wiring without
+   declaration — structural recognition (`uses_first`/`uses_left`)
+   triggers the check, `law_equal` (CutElim) confirms it. 11 tests pass.
+   **Inference works for the CutElim-proven structural fragment only.**
+   Non-functor laws (roundtrip, associativity) are NOT inferable — they
+   require semantic axioms undiscoverable from wiring (confirmed by
+   test: `infer_laws` on `serialize >>> deserialize` returns empty).
+   The end-to-end pipeline (`src/decoupled_pipeline.rs`) demonstrates
+   both modes: Scenario A infers functor laws (primary mode), Scenario B
+   declares the roundtrip law (secondary mode). 13 pipeline tests pass.
+   **Answer:** single-arrow laws are inferable for the structural
+   fragment, declared for the axiom-requiring fragment. Both modes
+   coexist in the same pipeline.
 
 ## References
 
@@ -392,5 +413,16 @@ layer. Catalog storage (ADR-0075 §4) is unchanged.
 - `research/arrow-calculus-kernel-poc/src/trait_catalog.rs`,
   `trait_catalog_sqlite.rs` — the Rust prototype (catalog + CutElim
   pipeline, bottom-up congruence, SQLite storage).
+- `research/arrow-calculus-kernel-poc/src/decoupled_traits.rs` — the
+  decoupled design prototype (law-on-arrow, bundle, handler, 7 combos).
+- `research/arrow-calculus-kernel-poc/src/bundled_effects.rs` —
+  bundled-operations effect representation (`EffectGraph` with `Op`/
+  `Handle`, effect-row tracking, handler elimination).
+- `research/arrow-calculus-kernel-poc/src/law_inference.rs` — law
+  inference for single-arrow laws (primary mode for the structural
+  fragment).
+- `research/arrow-calculus-kernel-poc/src/decoupled_pipeline.rs` —
+  end-to-end pipeline (infer → bundle → handle → eliminate → normalize
+  → verify), composing all three prototypes.
 - `research/arrow-calculus-kernel-poc/RESULTS_TRAITS.md` — prototype
   results.
