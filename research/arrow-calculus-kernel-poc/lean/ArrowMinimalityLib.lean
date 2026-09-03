@@ -18,3 +18,4 @@ import ArrowMinimalityLib.AlgorithmicCompleteness
 import ArrowMinimalityLib.Termination
 import ArrowMinimalityLib.TraitInference
 import ArrowMinimalityLib.EquationalLawInference
+import ArrowMinimalityLib.EffectHandlers
