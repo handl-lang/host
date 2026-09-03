@@ -1,0 +1,57 @@
+--- ip.parse — parse an IP address string into an ip object.
+--- ip.format — format an ip object (or string) into a canonical string.
+--- ip.is_loopback — test whether an ip address is a loopback address.
+--- ip.is_multicast — test whether an ip address is a multicast address.
+--- ip.is_private — test whether an ip address is in a private range.
+--- ip.is_link_local — test whether an ip address is link-local.
+--- ip.is_unspecified — test whether an ip address is unspecified (0.0.0.0 / ::).
+--- ip.cidr.parse — parse a CIDR string into a cidr object.
+--- ip.cidr.format — format a cidr object (or string) into a canonical string.
+--- ip.cidr.contains — test whether a cidr contains an ip address.
+--- ip.cidr.network — return the network address of a cidr.
+--- ip.cidr.broadcast — return the broadcast (last) address of a cidr.
+--- ip.socket.parse — parse a socket address string into a socket object.
+--- ip.socket.format — format a socket object (or string) into a canonical string.
+cap "ip.parse"
+cap "ip.format"
+cap "ip.is_loopback"
+cap "ip.is_multicast"
+cap "ip.is_private"
+cap "ip.is_link_local"
+cap "ip.is_unspecified"
+cap "ip.cidr.parse"
+cap "ip.cidr.format"
+cap "ip.cidr.contains"
+cap "ip.cidr.network"
+cap "ip.cidr.broadcast"
+cap "ip.socket.parse"
+cap "ip.socket.format"
+op "ip.parse" : String -> Value
+op "ip.format" : Value -> String
+op "ip.is_loopback" : Value -> Bool
+op "ip.is_multicast" : Value -> Bool
+op "ip.is_private" : Value -> Bool
+op "ip.is_link_local" : Value -> Bool
+op "ip.is_unspecified" : Value -> Bool
+op "ip.cidr.parse" : String -> Value
+op "ip.cidr.format" : Value -> String
+op "ip.cidr.contains" : (Value, Value) -> Bool
+op "ip.cidr.network" : Value -> String
+op "ip.cidr.broadcast" : Value -> String
+op "ip.socket.parse" : String -> Value
+op "ip.socket.format" : Value -> String
+
+handl "ip.parse" = rust_ip_parse
+handl "ip.format" = rust_ip_format
+handl "ip.is_loopback" = rust_ip_is_loopback
+handl "ip.is_multicast" = rust_ip_is_multicast
+handl "ip.is_private" = rust_ip_is_private
+handl "ip.is_link_local" = rust_ip_is_link_local
+handl "ip.is_unspecified" = rust_ip_is_unspecified
+handl "ip.cidr.parse" = rust_ip_cidr_parse
+handl "ip.cidr.format" = rust_ip_cidr_format
+handl "ip.cidr.contains" = rust_ip_cidr_contains
+handl "ip.cidr.network" = rust_ip_cidr_network
+handl "ip.cidr.broadcast" = rust_ip_cidr_broadcast
+handl "ip.socket.parse" = rust_ip_socket_parse
+handl "ip.socket.format" = rust_ip_socket_format

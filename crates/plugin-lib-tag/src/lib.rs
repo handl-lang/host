@@ -12,6 +12,14 @@
 //! only way a value acquires a `__tag__` key is through this plugin's
 //! `tag.tag` host function. User code cannot forge a tagged value.
 //!
+//! This crate has been migrated to the `op`/`handl` declaration form
+//! (ADR-0077 Phase 4). The tag interface is declared in
+//! `kit-stdlib/data/tag/tag.hnl` via `op` declarations, and the Rust
+//! tag/match/inspect logic is registered as handls (handlers) in an
+//! [`OpRegistry`]. The [`TagLibraryPlugin`] wraps the generic
+//! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
+//! `Module`/`Plugin` trait scaffolding.
+//!
 //! This crate exposes the `tag` module with seven callables:
 //!
 //! | Callable | Role |
@@ -32,25 +40,43 @@
 //! available to any code that holds a tagged value — matching the capability
 //! discipline of ADR-0055 §1 (`tag` is restricted; `match_tag` is not).
 //!
-//! This crate is a leaf: it depends on `handl-language` (the value helpers +
-//! reserved-key predicate), `handl-platform` (`Function`/`Module`), and
-//! `handl-plugin-module` (`ModuleRuntime` registration) only — no engine
-//! crates, no `handl-runtime`.
+//! The [`TypeRegistry`] (in [`registry`]) is the type system machinery, not a
+//! callable — it is kept in Rust as pure data.
+//!
+//! The [`TagModule`] re-export is preserved for backward compatibility with
+//! downstream crates (e.g. [`kit-canonical`]) that register `TagModule`
+//! directly.
 
 #![warn(missing_docs)]
 
+use std::sync::Arc;
+
 use handl_language::{as_tag, is_tag_value, tag_value, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 
 /// The host type registry (ADR-0054).
 pub mod registry;
 pub use registry::TypeRegistry;
 
-pub mod plugin;
-pub use plugin::LibraryPlugin;
-
 #[cfg(test)]
 mod tests;
+
+/// The handl source declaring the tag `op` interface — the single source
+/// of truth for the tag API surface. Loaded at compile time from the
+/// kit-stdlib data dir.
+const TAG_HNL: &str = include_str!("../../../kit-stdlib/data/tag/tag.hnl");
+
+/// The op names declared in `tag.hnl`.
+const TAG_OPS: &[&str] = &[
+    "tag.tag",
+    "tag.match_tag",
+    "tag.untag",
+    "tag.tag_of",
+    "tag.is_tag",
+    "tag.construct",
+    "tag.match_type",
+];
 
 /// The reserved default-case key in `tag.match_tag`'s `cases` object.
 ///
@@ -59,7 +85,7 @@ mod tests;
 pub const DEFAULT_CASE_KEY: &str = "_";
 
 // ---------------------------------------------------------------------------
-// tag.tag — mint a tagged value (host capability)
+// Function impls (the handls — Rust bodies for the `op` declarations)
 // ---------------------------------------------------------------------------
 
 /// `tag.tag(name, payload)` — mint a tagged value (ADR-0055 §1, §2).
@@ -70,6 +96,9 @@ pub const DEFAULT_CASE_KEY: &str = "_";
 /// `payload` is not an object/null, or if `payload` already contains a
 /// reserved `__tag__` key (a minted value cannot be re-tagged through its
 /// payload — forgery prevention, ADR-0055 §3).
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.tag"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct Tag;
 
@@ -93,10 +122,6 @@ impl Function for Tag {
     }
 }
 
-// ---------------------------------------------------------------------------
-// tag.match_tag — dispatch on the tag of a value
-// ---------------------------------------------------------------------------
-
 /// `tag.match_tag(v, cases)` — dispatch on the tag of `v` (ADR-0055 §1).
 ///
 /// `cases` is an object mapping tag names to case arrows (arrow-values). The
@@ -113,6 +138,9 @@ impl Function for Tag {
 ///
 /// This is the inspection op: any code holding a tagged value can read its
 /// tag and fields (ADR-0055 §1). It is not a restricted capability.
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.match_tag"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct MatchTag;
 
@@ -221,6 +249,9 @@ fn destructure_args(case: &Value, payload: &Value) -> Vec<Value> {
 ///
 /// Returns `v` with the `__tag__` key removed. Returns `null` if `v` is not a
 /// tagged value.
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.untag"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct Untag;
 
@@ -237,6 +268,9 @@ impl Function for Untag {
 /// `tag.tag_of(v)` — return the tag name of a tagged value (ADR-0055 §1).
 ///
 /// Returns the tag name string, or `null` if `v` is not a tagged value.
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.tag_of"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct TagOf;
 
@@ -254,6 +288,9 @@ impl Function for TagOf {
 ///
 /// Returns `true` iff `v` is a tagged value minted by the host `tag`
 /// capability (i.e. an object carrying a string `__tag__` key).
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.is_tag"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct IsTag;
 
@@ -291,6 +328,9 @@ pub const CANONICAL_REGISTRY_ID: &str = "handl.canonical";
 /// against the host type registry. Returns an error if `tag_name` is not a
 /// string, if `payload` is not an object/null, or if `payload` smuggles a
 /// reserved `__tag__` or `__registry__` key (forgery prevention).
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.construct"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct Construct;
 
@@ -323,6 +363,9 @@ impl Function for Construct {
 /// case, that case is returned. Otherwise returns `null` — there is no
 /// default-case fallback (the caller handles non-matches, per ADR-0054).
 /// This is `match_tag` on type tags scoped to the canonical registry.
+///
+/// This is the eval-time `Function` impl registered under the op name
+/// `"tag.match_type"` in the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct MatchType;
 
@@ -340,7 +383,34 @@ impl Function for MatchType {
 }
 
 // ---------------------------------------------------------------------------
-// Module + reserved-key re-export
+// Op Registry
+// ---------------------------------------------------------------------------
+
+/// Build the [`OpRegistry`] for tag, registering the Rust handls under
+/// their op names.
+///
+/// This registry maps:
+/// - `"tag.tag"` → [`Tag`] (no runtime checker; axioms trusted)
+/// - `"tag.match_tag"` → [`MatchTag`] (no runtime checker; axioms trusted)
+/// - `"tag.untag"` → [`Untag`] (no runtime checker; axioms trusted)
+/// - `"tag.tag_of"` → [`TagOf`] (no runtime checker; axioms trusted)
+/// - `"tag.is_tag"` → [`IsTag`] (no runtime checker; axioms trusted)
+/// - `"tag.construct"` → [`Construct`] (no runtime checker; axioms trusted)
+/// - `"tag.match_type"` → [`MatchType`] (no runtime checker; axioms trusted)
+pub fn tag_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("tag.tag", Arc::new(Tag));
+    registry.register("tag.match_tag", Arc::new(MatchTag));
+    registry.register("tag.untag", Arc::new(Untag));
+    registry.register("tag.tag_of", Arc::new(TagOf));
+    registry.register("tag.is_tag", Arc::new(IsTag));
+    registry.register("tag.construct", Arc::new(Construct));
+    registry.register("tag.match_type", Arc::new(MatchType));
+    registry
+}
+
+// ---------------------------------------------------------------------------
+// TagModule (backward compat — delegates to op functions)
 // ---------------------------------------------------------------------------
 
 static TAG: Tag = Tag;
@@ -351,12 +421,14 @@ static IS_TAG: IsTag = IsTag;
 static CONSTRUCT: Construct = Construct;
 static MATCH_TYPE: MatchType = MatchType;
 
-/// The `tag` module — tagged-value host functions (ADR-0055) plus the
-/// host type registry surface (ADR-0054).
+/// The `tag` module — a thin wrapper that delegates to the op-backed
+/// functions.
 ///
-/// Provides `tag.tag`, `tag.match_tag`, `tag.untag`, `tag.tag_of`,
-/// `tag.is_tag`, `tag.construct`, and `tag.match_type` callable from handl
-/// expressions.
+/// This is preserved for backward compatibility with downstream crates
+/// (e.g. [`kit-canonical`]) that register `TagModule` directly. The
+/// module exposes `tag`, `match_tag`, `untag`, `tag_of`, `is_tag`,
+/// `construct`, and `match_type` functions that dispatch to the
+/// [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct TagModule;
 
@@ -395,3 +467,104 @@ impl Module for TagModule {
 /// enforce the `__tag__` reservation at construction sites beyond the eval
 /// engines (e.g. a future typecheck host).
 pub use handl_language::is_reserved_value_key;
+
+// ---------------------------------------------------------------------------
+// TagLibraryPlugin (wraps HandlLibraryPlugin with op registry)
+// ---------------------------------------------------------------------------
+
+/// A `Library` plugin that registers the `tag` tagged-values capability
+/// (ADR-0055) via the generic [`HandlLibraryPlugin`] with an [`OpRegistry`].
+///
+/// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
+/// The tag interface is declared in `tag.hnl` via `op`/`handl`
+/// declarations; the Rust tag/match/inspect handls are registered in the op
+/// registry. The generic loader handles module registration.
+///
+/// Registering this plugin offers the `tag.tag` minting capability (and the
+/// `tag.match_tag` / `tag.untag` / `tag.tag_of` / `tag.is_tag` inspection
+/// ops, plus `tag.construct` / `tag.match_type`) to handl programs. A host
+/// that does not register this plugin does not offer tagging — user code
+/// cannot mint tagged values without it, which is the capability boundary
+/// ADR-0055 §1 establishes.
+pub struct TagLibraryPlugin {
+    inner: HandlLibraryPlugin,
+}
+
+impl TagLibraryPlugin {
+    /// Create a new `TagLibraryPlugin`.
+    pub fn new() -> Self {
+        let registry = Arc::new(tag_op_registry());
+        Self {
+            inner: HandlLibraryPlugin::new_with_caps(
+                "tag",
+                "lib.tag",
+                "lib-tag",
+                TAG_HNL,
+                &[],
+            )
+            .with_ops(TAG_OPS, registry),
+        }
+    }
+}
+
+impl Default for TagLibraryPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl handl_platform::Plugin for TagLibraryPlugin {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn capabilities(&self) -> &[handl_platform::CapabilityId] {
+        self.inner.capabilities()
+    }
+
+    fn metadata(
+        &self,
+        capability: &handl_platform::CapabilityId,
+    ) -> Option<handl_platform::CapabilityMetadata> {
+        self.inner.metadata(capability)
+    }
+
+    fn contribute(
+        &self,
+        ctx: &mut handl_platform::ContributionContext,
+    ) -> Result<(), handl_platform::PlatformError> {
+        self.inner.contribute(ctx)
+    }
+
+    fn run(
+        &self,
+        request: &handl_platform::CapabilityRequest,
+        ctx: &mut handl_platform::PluginContext,
+    ) -> Result<handl_platform::CapabilityResponse, handl_platform::PlatformError> {
+        self.inner.run(request, ctx)
+    }
+}
+
+/// Build a [`HandlLibraryPlugin`] for tag with the op registry.
+///
+/// This is provided for consumers that prefer to use the generic plugin
+/// directly instead of [`TagLibraryPlugin`].
+pub fn tag_handl_plugin() -> HandlLibraryPlugin {
+    let registry = Arc::new(tag_op_registry());
+    HandlLibraryPlugin::new_with_caps("tag", "lib.tag", "lib-tag", TAG_HNL, &[])
+        .with_ops(TAG_OPS, registry)
+}
+
+// ---------------------------------------------------------------------------
+// Legacy LibraryPlugin (re-exported for backward compat)
+// ---------------------------------------------------------------------------
+
+/// Legacy `LibraryPlugin` — delegates to [`TagLibraryPlugin`].
+///
+/// This preserves the old `plugin::LibraryPlugin` API for downstream crates
+/// that import `handl_plugin_lib_tag::LibraryPlugin`.
+pub use TagLibraryPlugin as LibraryPlugin;
