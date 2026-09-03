@@ -44,6 +44,8 @@ pub mod lexer {
         KwType,
         KwTrue,
         KwFalse,
+        KwHandle, // handle ... with (ADR-0076 handler-based trait resolution)
+        KwWith,
         // Operators / punctuation
         Arrow,       // ~>
         Seq,         // >>>
@@ -360,6 +362,8 @@ pub mod lexer {
                 "type" => Token::KwType,
                 "true" => Token::KwTrue,
                 "false" => Token::KwFalse,
+                "handle" => Token::KwHandle,
+                "with" => Token::KwWith,
                 _ => Token::Ident(text),
             })
         }
@@ -509,6 +513,12 @@ pub mod ast {
         Block { bindings: Vec<Binding>, trailing: Option<Box<Expr>> },
         Infer { inner: InferKind },
         Paren { inner: Box<Expr> },
+        /// handle <body> with <target> = <impl>  (ADR-0076 handler installation)
+        Handle {
+            body: Box<Expr>,
+            target: String,    // capability/bundle name (e.g. "map", "Functor<List>")
+            impl_: Box<Expr>,  // the impl arrow/bundle
+        },
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -633,6 +643,7 @@ pub mod parser {
                 | Token::KwInfer
                 | Token::KwTrue
                 | Token::KwFalse
+                | Token::KwHandle
         )
     }
 
@@ -1133,6 +1144,7 @@ pub mod parser {
                     Ok(Expr::Return { value: Box::new(v) })
                 }
                 Token::KwInfer => self.parse_infer(),
+                Token::KwHandle => self.parse_handle(),
                 other => Err(self.err(&format!("unexpected token in expression: {:?}", other))),
             }
         }
@@ -1352,6 +1364,83 @@ pub mod parser {
                 let n = self.parse_ident()?;
                 Ok(Expr::Infer { inner: InferKind::Name(n) })
             }
+        }
+
+        /// handle <body> with <target> = <impl>  (ADR-0076 handler installation)
+        ///
+        /// The body is parsed as a full expression (rbp 0); `with` is a keyword
+        /// so it naturally terminates the body (it is neither an infix operator
+        /// nor an atom-start token). The target is an identifier, optionally
+        /// followed by `<type-args>` (e.g. `Functor<List>`); angle brackets are
+        /// lexed as `Ident("<")` / `Ident(">")` in this lexer, so we capture
+        /// them as a string suffix. For v0.1 only a single binding is supported
+        /// (no comma-separated list).
+        fn parse_handle(&mut self) -> Result<Expr, ParseError> {
+            self.expect(&Token::KwHandle)?;
+            let body = self.parse_expr(0)?;
+            self.expect(&Token::KwWith)?;
+            let target = self.parse_handle_target()?;
+            self.expect(&Token::Assign)?;
+            let impl_ = self.parse_expr(0)?;
+            Ok(Expr::Handle {
+                body: Box::new(body),
+                target,
+                impl_: Box::new(impl_),
+            })
+        }
+
+        /// Parse a handler target: an identifier optionally followed by
+        /// `<type-args>` (e.g. `Functor<List>`). Angle brackets are lexed as
+        /// `Ident("<")` / `Ident(">")` here, so we detect them by string value
+        /// and capture everything up to the closing `>` into the target string.
+        fn parse_handle_target(&mut self) -> Result<String, ParseError> {
+            let name = self.parse_ident()?;
+            let mut target = name;
+            // Type application: Functor<List>. `<` and `>` are Ident in this lexer.
+            if let Token::Ident(s) = self.peek() {
+                if s == "<" {
+                    self.advance(); // consume `<`
+                    target.push('<');
+                    // Capture type args until the matching `>`. We accept nested
+                    // angle brackets and idents/commas in between.
+                    let mut depth = 1;
+                    loop {
+                        match self.peek().clone() {
+                            Token::Ident(t) if t == ">" => {
+                                self.advance();
+                                depth -= 1;
+                                target.push('>');
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            Token::Ident(t) if t == "<" => {
+                                self.advance();
+                                depth += 1;
+                                target.push('<');
+                            }
+                            Token::Ident(t) => {
+                                self.advance();
+                                target.push_str(&t);
+                            }
+                            Token::Comma => {
+                                self.advance();
+                                target.push_str(", ");
+                            }
+                            Token::Eof => {
+                                return Err(self.err("unterminated type arguments in handler target"));
+                            }
+                            other => {
+                                return Err(self.err(&format!(
+                                    "unexpected token in type arguments: {:?}",
+                                    other
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(target)
         }
 
         /// Parse the body of a block `{ ... }`: a sequence of bindings with an
@@ -1668,6 +1757,14 @@ pub mod pretty {
                 InferKind::Name(n) => format!("infer {}", n),
                 InferKind::Arrow(e) => format!("infer ({})", pretty_expr(e, 0)),
             },
+            Expr::Handle { body, target, impl_ } => {
+                format!(
+                    "handle {} with {} = {}",
+                    pretty_expr(body, 0),
+                    target,
+                    pretty_expr(impl_, 0)
+                )
+            },
         }
     }
 
@@ -1810,6 +1907,10 @@ pub mod kernel {
         /// `Project { field, record }` — project a named field from a record
         /// arrow. This is `first` + `arr` (field projection), ADR-0069 / ID.16.
         Project { field: String, record: Box<Kernel> },
+        /// `Handle { body, target, impl_ }` — install a handler (ADR-0076):
+        /// resolve `target` to `impl_` within `body`. This is the IR lowering
+        /// of the `handle ... with` surface form.
+        Handle { body: Box<Kernel>, target: String, impl_: Box<Kernel> },
     }
 
     impl Kernel {
@@ -1824,6 +1925,14 @@ pub mod kernel {
         }
         pub fn module_ref(path: &str) -> Kernel {
             Kernel::ModuleRef { path: path.to_string() }
+        }
+        /// Construct a `Handle` node: install `impl_` for `target` within `body`.
+        pub fn handle(body: Kernel, target: &str, impl_: Kernel) -> Kernel {
+            Kernel::Handle {
+                body: Box::new(body),
+                target: target.to_string(),
+                impl_: Box::new(impl_),
+            }
         }
     }
 }
@@ -2119,6 +2228,12 @@ pub mod desugar {
                 InferKind::Name(n) => Kernel::arr("infer_name", vec![Kernel::Const(Lit::Str(n.clone()))]),
                 InferKind::Arrow(e) => Kernel::arr("infer_arrow", vec![desugar_expr(e)]),
             },
+            // handle body with target = impl_  ~>  Kernel::Handle (ADR-0076)
+            Expr::Handle { body, target, impl_ } => Kernel::handle(
+                desugar_expr(body),
+                target,
+                desugar_expr(impl_),
+            ),
         }
     }
 
@@ -2286,6 +2401,131 @@ fn main() {
         Err(e) => {
             println!("  FAIL [desugar parse] import sort  =>  {}", e);
             all_ok = false;
+        }
+    }
+
+    // Handler smoke tests (ADR-0076 `handle ... with` surface syntax).
+    println!("\nHandler smoke tests (handle ... with):");
+    let handle_samples = [
+        "handle sort_by intCmp list with map = map_list",
+        "handle migrate json with Serializer<JSON> = json_impl",
+        "handle body with Functor<List> = map_list",
+        "handle run prog with Eq<Int> = intEq",
+    ];
+    for s in &handle_samples {
+        match parse_expr(s) {
+            Ok(e) => {
+                let printed = pretty::pretty_expr(&e, 0);
+                // Round-trip: parse the pretty-printed form, compare ASTs.
+                match parse_expr(&printed) {
+                    Ok(e2) => {
+                        if e == e2 {
+                            println!("  PASS [round-trip] {}  =>  {}", s, printed);
+                        } else {
+                            println!("  FAIL [round-trip] {}", s);
+                            println!("       parsed:  {:?}", e);
+                            println!("       printed: {}", printed);
+                            println!("       re-parsed: {:?}", e2);
+                            all_ok = false;
+                        }
+                    }
+                    Err(e) => {
+                        println!("  FAIL [re-parse] {}  =>  {}  (printed: {})", s, e, printed);
+                        all_ok = false;
+                    }
+                }
+            }
+            Err(e) => {
+                println!("  FAIL [parse] {}  =>  {}", s, e);
+                all_ok = false;
+            }
+        }
+    }
+
+    // Handler AST shape: parse produces Expr::Handle with the right fields.
+    match parse_expr("handle sort_by intCmp list with map = map_list") {
+        Ok(e) => match e {
+            Expr::Handle { body, target, impl_ } => {
+                if target == "map"
+                    && matches!(body.as_ref(), Expr::App { .. })
+                    && matches!(impl_.as_ref(), Expr::Var(ref n) if n == "map_list")
+                {
+                    println!("  PASS [ast] handle sort_by intCmp list with map = map_list  =>  Handle {{ target: {} }}", target);
+                } else {
+                    println!("  FAIL [ast] handle: wrong fields  target={:?} body={:?} impl_={:?}", target, body, impl_);
+                    all_ok = false;
+                }
+            }
+            other => {
+                println!("  FAIL [ast] expected Expr::Handle, got {:?}", other);
+                all_ok = false;
+            }
+        },
+        Err(e) => {
+            println!("  FAIL [ast parse] handle  =>  {}", e);
+            all_ok = false;
+        }
+    }
+
+    // Handler with type args: target captures `Serializer<JSON>`.
+    match parse_expr("handle migrate json with Serializer<JSON> = json_impl") {
+        Ok(e) => match e {
+            Expr::Handle { target, .. } if target == "Serializer<JSON>" => {
+                println!("  PASS [type-args] target = {}", target);
+            }
+            Expr::Handle { target, .. } => {
+                println!("  FAIL [type-args] expected Serializer<JSON>, got {}", target);
+                all_ok = false;
+            }
+            other => {
+                println!("  FAIL [type-args] expected Expr::Handle, got {:?}", other);
+                all_ok = false;
+            }
+        },
+        Err(e) => {
+            println!("  FAIL [type-args parse]  =>  {}", e);
+            all_ok = false;
+        }
+    }
+
+    // Desugar: Expr::Handle -> Kernel::Handle.
+    match parse_expr("handle body with map = map_list") {
+        Ok(e) => {
+            let k = desugar::desugar_expr(&e);
+            let is_handle = matches!(
+                k,
+                Kernel::Handle { ref target, .. } if target == "map"
+            );
+            if is_handle {
+                println!("  PASS [desugar] handle body with map = map_list  =>  {:?}", k);
+            } else {
+                println!("  FAIL [desugar] expected Kernel::Handle with target map, got {:?}", k);
+                all_ok = false;
+            }
+        }
+        Err(e) => {
+            println!("  FAIL [desugar parse]  =>  {}", e);
+            all_ok = false;
+        }
+    }
+
+    // Parse-error cases: `handle` without `with`, and `with` without `=`.
+    match parse_expr("handle sort_by intCmp list") {
+        Ok(e) => {
+            println!("  FAIL [error] handle-without-with should fail, got: {:?}", e);
+            all_ok = false;
+        }
+        Err(e) => {
+            println!("  PASS [error] handle-without-with  =>  {}", e);
+        }
+    }
+    match parse_expr("handle body with map map_list") {
+        Ok(e) => {
+            println!("  FAIL [error] with-without-eq should fail, got: {:?}", e);
+            all_ok = false;
+        }
+        Err(e) => {
+            println!("  PASS [error] with-without-eq  =>  {}", e);
         }
     }
 
