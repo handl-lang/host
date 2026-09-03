@@ -80,6 +80,67 @@ fn strip_comment_lines(src: &str) -> String {
         .join("\n")
 }
 
+/// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
+///
+/// Scans each line for the top-level `cap "name"` form, extracting the
+/// quoted capability name. Comment lines (`-- ...`) are skipped. Lines that
+/// do not match the `cap` form are silently ignored (resilient parsing).
+///
+/// This is a lightweight line-based scan that avoids a dependency on
+/// `plugin-ext-refinement` (which is inference-side). It mirrors the
+/// `parse_cap_line` logic in `arrow_parser.rs`.
+///
+/// # Example
+///
+/// ```
+/// use handl_plugin_lib_handl::parse_cap_declarations;
+///
+/// let src = r#"
+/// cap "fs.read"
+/// cap "fs.write"
+/// op "fs.read" : Path -> Bytes
+/// "#;
+/// let caps = parse_cap_declarations(src);
+/// assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
+/// ```
+pub fn parse_cap_declarations(src: &str) -> Vec<String> {
+    let mut caps = Vec::new();
+    for line in src.lines() {
+        let trimmed = line.trim();
+        // Skip comment lines and empty lines.
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+        // Check for `cap` prefix followed by whitespace (whole-word match).
+        let rest = match trimmed.strip_prefix("cap") {
+            Some(rest) if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') => {
+                rest.trim_start()
+            }
+            _ => continue,
+        };
+        // Extract the quoted capability name.
+        if let Some(name) = extract_quoted_cap_name(rest) {
+            caps.push(name);
+        }
+    }
+    caps
+}
+
+/// Extract a quoted string from the start of `s`, returning the content.
+///
+/// Supports both `"..."` and `'...'` quoting. Returns `None` if the string
+/// does not start with a quote or has no closing quote.
+fn extract_quoted_cap_name(s: &str) -> Option<String> {
+    let s = s.trim_start();
+    let quote = s.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let rest = &s[quote.len_utf8()..];
+    let end = rest.find(quote)?;
+    Some(rest[..end].to_string())
+}
+
 /// Escape a Rust string for embedding inside a handl `"..."` string literal.
 ///
 /// Only `"` and `\` need escaping: the delimited lexer consumes any other
@@ -477,6 +538,9 @@ pub struct HandlLibraryPlugin {
     op_names: Vec<String>,
     /// The shared op registry (if any ops are declared).
     op_registry: Option<Arc<OpRegistry>>,
+    /// Capability names declared in the `.hnl` source (via `cap`
+    /// declarations, ADR-0077 Phase 5).
+    capabilities: Vec<CapabilityId>,
 }
 
 impl HandlLibraryPlugin {
@@ -503,6 +567,7 @@ impl HandlLibraryPlugin {
             dependencies: Vec::new(),
             op_names: Vec::new(),
             op_registry: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -535,6 +600,41 @@ impl HandlLibraryPlugin {
         self
     }
 
+    /// Set the capabilities declared by this library's `.hnl` source
+    /// (ADR-0077 Phase 5).
+    ///
+    /// The capability names (e.g. `"base64.encode"`) are exposed via
+    /// [`Plugin::capabilities`] and contributed via
+    /// [`ContributionContext`] in [`contribute`](Plugin::contribute).
+    pub fn with_capabilities(mut self, caps: Vec<CapabilityId>) -> Self {
+        self.capabilities = caps;
+        self
+    }
+
+    /// Create a [`HandlLibraryPlugin`], automatically extracting `cap`
+    /// declarations from the `.hnl` source (ADR-0077 Phase 5).
+    ///
+    /// This is a convenience constructor that parses `cap "name"` lines from
+    /// `hnl_source` via [`parse_cap_declarations`] and passes them to
+    /// [`with_capabilities`](Self::with_capabilities).
+    ///
+    /// - `module_name` — the module namespace (e.g. `"base64"`)
+    /// - `plugin_id` — the stable plugin id (e.g. `"lib.base64"`)
+    /// - `plugin_name` — the display name (e.g. `"lib-base64"`)
+    /// - `hnl_source` — the `.hnl` source (typically via `include_str!`)
+    /// - `func_names` — the record field names exposed as callable functions
+    pub fn new_with_caps(
+        module_name: impl Into<String>,
+        plugin_id: impl Into<String>,
+        plugin_name: impl Into<String>,
+        hnl_source: &str,
+        func_names: &[&str],
+    ) -> Self {
+        let caps = parse_cap_declarations(hnl_source);
+        Self::new(module_name, plugin_id, plugin_name, hnl_source, func_names)
+            .with_capabilities(caps.into_iter().map(CapabilityId::from).collect())
+    }
+
     /// Build the [`HandlModule`] from this plugin's configuration.
     fn build_module(&self) -> HandlModule {
         let func_refs: Vec<&str> = self.func_names.iter().map(|s| s.as_str()).collect();
@@ -561,7 +661,7 @@ impl Plugin for HandlLibraryPlugin {
     }
 
     fn capabilities(&self) -> &[CapabilityId] {
-        &[]
+        &self.capabilities
     }
 
     fn metadata(&self, _capability: &CapabilityId) -> Option<CapabilityMetadata> {
@@ -803,5 +903,97 @@ mod tests {
         assert_eq!(runtime.module_count(), 1);
         assert!(runtime.lookup("test.upper").is_some());
         assert!(runtime.lookup("test.double").is_some());
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0077 Phase 5: cap declaration parsing tests
+    // -----------------------------------------------------------------------
+
+    /// A `.hnl` source with `cap` declarations for testing.
+    const TEST_CAPS_HNL: &str = r#"
+-- A module with capability declarations.
+cap "fs.read"
+cap "fs.write"
+op "fs.read" : Path -> Bytes
+op "fs.write" : (Path * Bytes) -> Unit
+"#;
+
+    #[test]
+    fn parse_cap_declarations_extracts_caps() {
+        let caps = parse_cap_declarations(TEST_CAPS_HNL);
+        assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
+    }
+
+    #[test]
+    fn parse_cap_declarations_skips_comments() {
+        let src = "-- cap \"not.a.cap\"\ncap \"real.cap\"\n-- another comment\ncap \"second.cap\"";
+        let caps = parse_cap_declarations(src);
+        assert_eq!(caps, vec!["real.cap".to_string(), "second.cap".to_string()]);
+    }
+
+    #[test]
+    fn parse_cap_declarations_ignores_non_cap_lines() {
+        let src = r#"
+op "test.op" : Int -> Int
+handl "test.op" = rust_fn
+let x = 1 in x
+"#;
+        let caps = parse_cap_declarations(src);
+        assert!(caps.is_empty());
+    }
+
+    #[test]
+    fn parse_cap_declarations_empty_source() {
+        let caps = parse_cap_declarations("");
+        assert!(caps.is_empty());
+    }
+
+    #[test]
+    fn parse_cap_declarations_supports_single_quotes() {
+        let src = "cap 'my.cap'\ncap \"other.cap\"";
+        let caps = parse_cap_declarations(src);
+        assert_eq!(caps, vec!["my.cap".to_string(), "other.cap".to_string()]);
+    }
+
+    #[test]
+    fn parse_cap_declarations_ignores_cap_prefix_in_words() {
+        // "capacity" should not be matched as a `cap` declaration.
+        let src = "capacity 100\ncap \"real.cap\"";
+        let caps = parse_cap_declarations(src);
+        assert_eq!(caps, vec!["real.cap".to_string()]);
+    }
+
+    #[test]
+    fn handl_library_plugin_with_capabilities_exposes_them() {
+        use handl_platform::Plugin;
+        let plugin = HandlLibraryPlugin::new_with_caps(
+            "test", "lib.test", "lib-test", TEST_CAPS_HNL, &[],
+        );
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "fs.read");
+        assert_eq!(caps[1].as_str(), "fs.write");
+    }
+
+    #[test]
+    fn handl_library_plugin_with_capabilities_manual() {
+        use handl_platform::Plugin;
+        let plugin = HandlLibraryPlugin::new(
+            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
+        )
+        .with_capabilities(vec!["custom.cap".into(), "other.cap".into()]);
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "custom.cap");
+        assert_eq!(caps[1].as_str(), "other.cap");
+    }
+
+    #[test]
+    fn handl_library_plugin_no_caps_returns_empty() {
+        use handl_platform::Plugin;
+        let plugin = HandlLibraryPlugin::new(
+            "test", "lib.test", "lib-test", TEST_HNL, &["double"],
+        );
+        assert!(plugin.capabilities().is_empty());
     }
 }

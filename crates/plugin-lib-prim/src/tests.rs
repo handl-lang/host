@@ -209,3 +209,27 @@ fn prim_module_works_in_module_registry() {
     let result = func.call(&[json!(2), json!(3)], &mut ctx).unwrap();
     assert_eq!(result, json!(5));
 }
+
+// -----------------------------------------------------------------------
+// ADR-0077 Phase 5: capability declaration tests
+// -----------------------------------------------------------------------
+
+#[test]
+fn prim_plugin_exposes_declared_capabilities() {
+    let plugin = PrimLibraryPlugin::new();
+    let caps = plugin.capabilities();
+    assert_eq!(caps.len(), 3);
+    assert_eq!(caps[0].as_str(), "prim.add");
+    assert_eq!(caps[1].as_str(), "prim.compare");
+    assert_eq!(caps[2].as_str(), "prim.alloc");
+}
+
+#[test]
+fn prim_handl_plugin_exposes_declared_capabilities() {
+    let plugin = prim_handl_plugin();
+    let caps = plugin.capabilities();
+    assert_eq!(caps.len(), 3);
+    assert_eq!(caps[0].as_str(), "prim.add");
+    assert_eq!(caps[1].as_str(), "prim.compare");
+    assert_eq!(caps[2].as_str(), "prim.alloc");
+}

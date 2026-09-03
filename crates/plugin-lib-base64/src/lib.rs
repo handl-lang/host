@@ -258,7 +258,7 @@ impl Base64LibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(base64_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new(
+            inner: HandlLibraryPlugin::new_with_caps(
                 "base64",
                 "lib.base64",
                 "lib-base64",
@@ -318,7 +318,7 @@ impl handl_platform::Plugin for Base64LibraryPlugin {
 /// directly instead of [`Base64LibraryPlugin`].
 pub fn base64_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(base64_op_registry());
-    HandlLibraryPlugin::new("base64", "lib.base64", "lib-base64", BASE64_HNL, &[])
+    HandlLibraryPlugin::new_with_caps("base64", "lib.base64", "lib-base64", BASE64_HNL, &[])
         .with_ops(BASE64_OPS, registry)
 }
 
@@ -521,5 +521,27 @@ mod tests {
         let mut ctx = EvalContext::new();
         let result = op_func.call(&[json!("aGVsbG8=")], &mut ctx).unwrap();
         assert_eq!(result, json!("hello"));
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0077 Phase 5: capability declaration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn base64_plugin_exposes_declared_capabilities() {
+        let plugin = Base64LibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "base64.encode");
+        assert_eq!(caps[1].as_str(), "base64.decode");
+    }
+
+    #[test]
+    fn base64_handl_plugin_exposes_declared_capabilities() {
+        let plugin = base64_handl_plugin();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "base64.encode");
+        assert_eq!(caps[1].as_str(), "base64.decode");
     }
 }

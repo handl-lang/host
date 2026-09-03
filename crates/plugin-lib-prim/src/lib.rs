@@ -87,7 +87,7 @@ impl PrimLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(prim_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new(
+            inner: HandlLibraryPlugin::new_with_caps(
                 "prim",
                 "lib.prim",
                 "lib-prim",
@@ -147,7 +147,7 @@ impl handl_platform::Plugin for PrimLibraryPlugin {
 /// directly instead of [`PrimLibraryPlugin`].
 pub fn prim_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(prim_op_registry());
-    HandlLibraryPlugin::new("prim", "lib.prim", "lib-prim", PRIM_HNL, &[])
+    HandlLibraryPlugin::new_with_caps("prim", "lib.prim", "lib-prim", PRIM_HNL, &[])
         .with_ops(PRIM_OPS, registry)
 }
 

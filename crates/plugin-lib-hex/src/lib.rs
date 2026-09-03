@@ -249,7 +249,7 @@ impl HexLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(hex_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new(
+            inner: HandlLibraryPlugin::new_with_caps(
                 "hex",
                 "lib.hex",
                 "lib-hex",
@@ -309,7 +309,7 @@ impl handl_platform::Plugin for HexLibraryPlugin {
 /// directly instead of [`HexLibraryPlugin`].
 pub fn hex_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(hex_op_registry());
-    HandlLibraryPlugin::new("hex", "lib.hex", "lib-hex", HEX_HNL, &[])
+    HandlLibraryPlugin::new_with_caps("hex", "lib.hex", "lib-hex", HEX_HNL, &[])
         .with_ops(HEX_OPS, registry)
 }
 
@@ -512,5 +512,27 @@ mod tests {
         let mut ctx = EvalContext::new();
         let result = op_func.call(&[json!("68656c6c6f")], &mut ctx).unwrap();
         assert_eq!(result, json!("hello"));
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0077 Phase 5: capability declaration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn hex_plugin_exposes_declared_capabilities() {
+        let plugin = HexLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "hex.encode");
+        assert_eq!(caps[1].as_str(), "hex.decode");
+    }
+
+    #[test]
+    fn hex_handl_plugin_exposes_declared_capabilities() {
+        let plugin = hex_handl_plugin();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(caps[0].as_str(), "hex.encode");
+        assert_eq!(caps[1].as_str(), "hex.decode");
     }
 }
