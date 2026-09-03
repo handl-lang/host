@@ -208,7 +208,7 @@ mod tests {
         host.load().unwrap();
 
         let names = host.plugins().names();
-        assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
+        assert!(names.iter().any(|n| n == "lib-hello"), "names: {names:?}");
 
         let _ = fs::remove_file(&path);
     }
@@ -228,7 +228,7 @@ mod tests {
         host.load().unwrap();
 
         let names = host.plugins().names();
-        assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
+        assert!(names.iter().any(|n| n == "lib-hello"), "names: {names:?}");
         assert!(
             names.iter().any(|n| n == "default-applier"),
             "names: {names:?}"
@@ -278,7 +278,7 @@ register = "lib.hello"
         host.load().unwrap();
 
         let names = host.plugins().names();
-        assert!(names.iter().any(|n| n == "hello"), "names: {names:?}");
+        assert!(names.iter().any(|n| n == "lib-hello"), "names: {names:?}");
         assert!(names.iter().any(|n| n == "options"), "names: {names:?}");
 
         let _ = fs::remove_file(&config_path);
