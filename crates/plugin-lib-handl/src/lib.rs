@@ -47,7 +47,7 @@
 #![warn(missing_docs)]
 
 pub mod op_registry;
-pub use op_registry::{OpFunction, OpRegistry};
+pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
