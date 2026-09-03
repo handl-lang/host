@@ -995,9 +995,103 @@ pub fn flatten_program(entry_path: &str, loader: &ModuleLoader) -> Result<Scheme
     }
 }
 
+/// Derive the file stem from a module path (e.g. `"collection/insert"` ->
+/// `"insert"`). Used to alias single-expression modules (keyed `"main"`) so
+/// bare-name references like `insert` can resolve to `collection/insert.hnl`.
+fn module_file_stem(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(path)
+        .to_string()
+}
+
+/// Add a module's arrows to the global map. For single-expression modules
+/// (keyed `"main"`), also add an alias under the module path's file stem so
+/// bare-name references (e.g. `insert` -> `collection/insert.hnl`) resolve.
+fn add_module_arrows(
+    global_arrows: &mut HashMap<String, Scheme>,
+    path: &str,
+    arrows: &HashMap<String, Scheme>,
+) {
+    for (name, scheme) in arrows {
+        global_arrows.insert(name.clone(), scheme.clone());
+    }
+    // File-stem alias for single-expression modules (keyed "main").
+    let stem = module_file_stem(path);
+    if !arrows.contains_key(&stem) {
+        if let Some(scheme) = arrows.get("main") {
+            global_arrows.insert(stem, scheme.clone());
+        }
+    }
+}
+
+/// Derive the parent directory of a module path (e.g. `"collection/sort"` ->
+/// `Some("collection")`). Returns `None` for top-level paths (no parent).
+fn module_parent_dir(path: &str) -> Option<String> {
+    std::path::Path::new(path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+}
+
+/// Build candidate module paths to try when auto-discovering a bare-name
+/// `App` callee. The bare name is tried first (e.g. `"insert"`), then the
+/// name relative to the current module's directory (e.g. `"collection/insert"`
+/// when the current module is `"collection/sort"`). This handles both resolver
+/// layouts: root at the file's parent (bare name works) and root at the
+/// arrows directory (relative path needed).
+fn discovery_candidates(name: &str, current_path: &str) -> Vec<String> {
+    let mut candidates = vec![name.to_string()];
+    if let Some(dir) = module_parent_dir(current_path) {
+        candidates.push(format!("{}/{}", dir, name));
+    }
+    candidates
+}
+
+/// Collect the callee names of all `App { callee: Arr { op: name, .. } }`
+/// nodes in a `Scheme`. Used by `load_transitive` to discover bare-name
+/// references to arrows that are not explicitly imported (kit-stdlib files
+/// reference other arrows without import declarations).
+fn collect_app_callee_names(scheme: &Scheme, out: &mut HashSet<String>) {
+    match scheme {
+        Scheme::Arr { args, .. } => {
+            for a in args {
+                collect_app_callee_names(a, out);
+            }
+        }
+        Scheme::Seq { fst, snd } => {
+            collect_app_callee_names(fst, out);
+            collect_app_callee_names(snd, out);
+        }
+        Scheme::First { inner } => collect_app_callee_names(inner, out),
+        Scheme::Choice { l, r } => {
+            collect_app_callee_names(l, out);
+            collect_app_callee_names(r, out);
+        }
+        Scheme::Loop { body } => collect_app_callee_names(body, out),
+        Scheme::App { callee, args } => {
+            if let Scheme::Arr { op, .. } = callee.as_ref() {
+                out.insert(op.clone());
+            }
+            collect_app_callee_names(callee, out);
+            for a in args {
+                collect_app_callee_names(a, out);
+            }
+        }
+    }
+}
+
 /// Recursively load a module and all its transitive imports, populating
 /// `global_arrows` with every known arrow name → `Scheme` mapping. Cycle
 /// detection via the `visited` stack.
+///
+/// Beyond explicit `import` declarations, this also auto-discovers bare-name
+/// `App` callees (e.g. `sort` calling `insert` with no import) by attempting
+/// to load each unresolved name as a module path. Single-expression modules
+/// (keyed `"main"`) are also aliased under their file stem so bare-name
+/// references resolve.
 fn load_transitive(
     path: &str,
     loader: &ModuleLoader,
@@ -1014,18 +1108,35 @@ fn load_transitive(
         cycle.push(path.to_string());
         return Err(LoadError::Cycle(cycle));
     }
-    visited.push(path.to_string());
 
+    // Resolve + parse before committing to the visited stack, so a load
+    // failure doesn't leave a stale entry that would cause false cycle
+    // detection later.
     let loaded = loader.load(path)?;
     let imports = loader.get_imports(path)?;
 
-    // Add this module's arrows to the global map.
-    for (name, scheme) in &loaded.arrows {
-        global_arrows.insert(name.clone(), scheme.clone());
-    }
+    visited.push(path.to_string());
+    let result = load_transitive_body(path, &loaded, &imports, loader, visited, global_arrows);
+    visited.pop();
+    result
+}
+
+/// Body of [`load_transitive`], run after the module is loaded and `path` is
+/// pushed onto the `visited` stack. Separated so the `visited` pop always
+/// runs, even on error.
+fn load_transitive_body(
+    path: &str,
+    loaded: &LoadedModule,
+    imports: &[ImportDecl],
+    loader: &ModuleLoader,
+    visited: &mut Vec<String>,
+    global_arrows: &mut HashMap<String, Scheme>,
+) -> Result<(), LoadError> {
+    // Add this module's arrows to the global map (with file-stem alias).
+    add_module_arrows(global_arrows, path, &loaded.arrows);
 
     // Process imports: load child modules and bind local names.
-    for import in &imports {
+    for import in imports {
         load_transitive(&import.path, loader, visited, global_arrows)?;
         let child_loaded = loader.load(&import.path)?;
         // Bind the module path to a record of the child's arrows, so that
@@ -1047,7 +1158,31 @@ fn load_transitive(
         }
     }
 
-    visited.pop();
+    // Auto-discover bare-name App callees that are not explicitly imported.
+    // kit-stdlib files reference other arrows (e.g. `sort` calling `insert`)
+    // without import declarations. For each unresolved callee name, try to
+    // load it as a module path; if it resolves, recurse into it. Names that
+    // don't resolve (e.g. primitive ops like `list.head`) are skipped.
+    let mut callee_names: HashSet<String> = HashSet::new();
+    for scheme in loaded.arrows.values() {
+        collect_app_callee_names(scheme, &mut callee_names);
+    }
+    for name in &callee_names {
+        if !global_arrows.contains_key(name) && !visited.contains(name) {
+            // Try candidate module paths: the bare name, then the name
+            // relative to the current module's directory (e.g. `insert`
+            // -> `collection/insert` when current module is `collection/sort`).
+            // This handles both resolver layouts (root at file parent vs.
+            // root at arrows directory).
+            for candidate in discovery_candidates(name, path) {
+                if !visited.contains(&candidate) && loader.load(&candidate).is_ok() {
+                    load_transitive(&candidate, loader, visited, global_arrows)?;
+                    break;
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 

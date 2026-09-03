@@ -412,6 +412,15 @@ fn test_file_resolver_kit_stdlib() {
                     "flatten_program({}): no project should remain for single-file module",
                     name
                 );
+                // All App nodes should be inlined — no residual unresolved
+                // apps. Bare-name references (e.g. sort calling insert) are
+                // auto-discovered and inlined by load_transitive.
+                let known: HashSet<String> = HashSet::new();
+                assert!(
+                    !has_unresolved_apps(&flat, &known),
+                    "flatten_program({}): no unresolved App nodes should remain",
+                    name
+                );
             }
             Err(e) => {
                 eprintln!("  [skip] flatten_program({}) failed: {}", name, e);

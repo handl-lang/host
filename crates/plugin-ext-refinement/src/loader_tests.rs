@@ -1567,3 +1567,131 @@ fn test_e2e_flatten_program_whole_module_import() {
         Err(e) => panic!("flatten_program(main_whole) should succeed: {}", e),
     }
 }
+
+// ============================================================================
+// Section 7: Bare-name App discovery and file-stem aliasing
+// ============================================================================
+
+/// `flatten_program` should auto-discover bare-name `App` callees that are
+/// not explicitly imported. kit-stdlib files (e.g. `sort.hnl`) reference
+/// other arrows (e.g. `insert`) without import declarations; the loader
+/// must load the referenced module and inline its graph.
+#[test]
+fn test_flatten_program_bare_name_app_discovery() {
+    // `insert` is a single-expression file (keyed "main" by the loader).
+    // `sort` references `insert` via `App { callee: arr("insert") }` with no
+    // import. The fix: load_transitive discovers `insert`, loads it, and
+    // aliases it under its file stem so `resolve_all_apps` can inline it.
+    let mut mem = MemoryResolver::new();
+    mem.insert("insert", "arr(\"cons\")");
+    mem.insert("sort", "loop(comp(insert, first(id)))");
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("sort", &loader) {
+        Ok(flat) => {
+            // After flattening, no App nodes should remain — `insert` is
+            // inlined.
+            let known: HashSet<String> = HashSet::new();
+            assert!(
+                !has_unresolved_apps(&flat, &known),
+                "flatten_program: bare-name App callee 'insert' should be discovered and inlined, no unresolved apps"
+            );
+        }
+        Err(e) => panic!("flatten_program(sort) should succeed: {}", e),
+    }
+}
+
+/// Single-expression modules are keyed "main" by `ModuleLoader::load`, but
+/// `load_transitive` should also alias them under their file stem so
+/// bare-name references resolve. This test verifies the aliasing directly
+/// by checking that a bare-name App to a single-expression module's stem
+/// is inlined.
+#[test]
+fn test_flatten_program_file_stem_alias_for_single_expression() {
+    // `helper` is a single-expression file. `caller` references `helper`
+    // by its file stem (not "main") with no import. A bare identifier
+    // parses to `App { callee: arr("helper"), args: [] }`.
+    let mut mem = MemoryResolver::new();
+    mem.insert("helper", "arr(\"id\")");
+    mem.insert("caller", "helper");
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("caller", &loader) {
+        Ok(flat) => {
+            let known: HashSet<String> = HashSet::new();
+            assert!(
+                !has_unresolved_apps(&flat, &known),
+                "flatten_program: single-expression module should be aliased by file stem, no unresolved apps"
+            );
+        }
+        Err(e) => panic!("flatten_program(caller) should succeed: {}", e),
+    }
+}
+
+/// A graph that contains only primitive ops (bare `Arr` nodes, no `App`
+/// nodes) should have zero unresolved apps — `has_unresolved_apps` only
+/// flags `App` nodes, not bare `Arr` references to primitive ops.
+#[test]
+fn test_flatten_program_primitive_ops_no_unresolved_apps() {
+    let mut mem = MemoryResolver::new();
+    // A single-expression file using primitive ops (no App nodes).
+    mem.insert(
+        "prim_only",
+        "loop(comp(arr(\"prim.compare\"), choice(arr(\"cons\"), arr(\"cons\"))))",
+    );
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("prim_only", &loader) {
+        Ok(flat) => {
+            let known: HashSet<String> = HashSet::new();
+            assert!(
+                !has_unresolved_apps(&flat, &known),
+                "flatten_program: primitive ops (bare Arr, no App) should have zero unresolved apps"
+            );
+        }
+        Err(e) => panic!("flatten_program(prim_only) should succeed: {}", e),
+    }
+}
+
+/// Bare-name App callees that don't resolve to any module (e.g. primitive
+/// op names that appear as App callees) should be skipped during discovery
+/// without crashing. The App remains, but this is an edge case — the
+/// important thing is the loader doesn't error.
+#[test]
+fn test_flatten_program_unresolvable_bare_name_skipped() {
+    let mut mem = MemoryResolver::new();
+    // `mystery` is not a module and not imported — discovery skips it.
+    // A bare identifier parses to `App { callee: arr("mystery"), args: [] }`.
+    mem.insert("main", "mystery");
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("main", &loader) {
+        Ok(flat) => {
+            // The App to "mystery" remains (unresolvable), but flatten
+            // should not crash.
+            let known: HashSet<String> = HashSet::new();
+            assert!(
+                has_unresolved_apps(&flat, &known),
+                "flatten_program: unresolvable bare-name App should remain unresolved"
+            );
+        }
+        Err(e) => panic!("flatten_program(main) should succeed even with unresolvable callee: {}", e),
+    }
+}
+
+/// Transitive bare-name discovery: `a` references `b` (no import), `b`
+/// references `c` (no import). All three should be loaded and inlined.
+#[test]
+fn test_flatten_program_transitive_bare_name_discovery() {
+    let mut mem = MemoryResolver::new();
+    mem.insert("c", "arr(\"id\")");
+    mem.insert("b", "c");
+    mem.insert("a", "b");
+    let loader = ModuleLoader::new(Box::new(mem));
+    match flatten_program("a", &loader) {
+        Ok(flat) => {
+            let known: HashSet<String> = HashSet::new();
+            assert!(
+                !has_unresolved_apps(&flat, &known),
+                "flatten_program: transitive bare-name discovery should inline all references"
+            );
+        }
+        Err(e) => panic!("flatten_program(a) should succeed: {}", e),
+    }
+}
