@@ -46,6 +46,8 @@ pub mod lexer {
         KwFalse,
         KwHandle, // handle ... with (ADR-0076 handler-based trait resolution)
         KwWith,
+        KwLaw,    // law <name>: <equation>  (ADR-0076 law declaration)
+        KwForall, // forall <vars>. <expr>   (universal quantifier for laws)
         // Operators / punctuation
         Arrow,       // ~>
         Seq,         // >>>
@@ -364,6 +366,8 @@ pub mod lexer {
                 "false" => Token::KwFalse,
                 "handle" => Token::KwHandle,
                 "with" => Token::KwWith,
+                "law" => Token::KwLaw,
+                "forall" => Token::KwForall,
                 _ => Token::Ident(text),
             })
         }
@@ -519,6 +523,13 @@ pub mod ast {
             target: String,    // capability/bundle name (e.g. "map", "Functor<List>")
             impl_: Box<Expr>,  // the impl arrow/bundle
         },
+        /// law <name>: [forall <vars>.] <lhs> = <rhs>  (ADR-0076 law declaration)
+        Law {
+            name: String,
+            vars: Vec<String>,      // universally quantified variables (empty if no forall)
+            lhs: Box<Expr>,         // left-hand side of the equation
+            rhs: Box<Expr>,         // right-hand side of the equation
+        },
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -644,6 +655,7 @@ pub mod parser {
                 | Token::KwTrue
                 | Token::KwFalse
                 | Token::KwHandle
+                | Token::KwLaw
         )
     }
 
@@ -1145,6 +1157,7 @@ pub mod parser {
                 }
                 Token::KwInfer => self.parse_infer(),
                 Token::KwHandle => self.parse_handle(),
+                Token::KwLaw => self.parse_law(),
                 other => Err(self.err(&format!("unexpected token in expression: {:?}", other))),
             }
         }
@@ -1386,6 +1399,44 @@ pub mod parser {
                 body: Box::new(body),
                 target,
                 impl_: Box::new(impl_),
+            })
+        }
+
+        /// law <name>: [forall <vars>.] <lhs> = <rhs>  (ADR-0076 law declaration)
+        ///
+        /// The name is an identifier. After the colon, an optional
+        /// `forall <vars>.` prefix binds universally quantified variables.
+        /// Then the lhs and rhs are parsed as expressions separated by `=`.
+        /// The `.` separating the quantifier from the body is `Token::Dot`
+        /// (the lexer never produces `Token::Ident(".")`).
+        fn parse_law(&mut self) -> Result<Expr, ParseError> {
+            self.expect(&Token::KwLaw)?;
+            let name = self.parse_ident()?;
+            self.expect(&Token::Colon)?;
+
+            // Optional: forall <var1> <var2> ... .
+            let mut vars = Vec::new();
+            if *self.peek() == Token::KwForall {
+                self.advance(); // consume forall
+                // Parse one or more identifiers until we hit a Dot. The lexer
+                // produces Token::Dot for `.` (never Token::Ident(".")), so the
+                // while-let simply stops matching when it sees the Dot.
+                while let Token::Ident(s) = self.peek().clone() {
+                    self.advance();
+                    vars.push(s);
+                }
+                self.expect(&Token::Dot)?; // the . after forall vars
+            }
+
+            let lhs = self.parse_expr(0)?;
+            self.expect(&Token::Assign)?;
+            let rhs = self.parse_expr(0)?;
+
+            Ok(Expr::Law {
+                name,
+                vars,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
             })
         }
 
@@ -1763,6 +1814,20 @@ pub mod pretty {
                     pretty_expr(body, 0),
                     target,
                     pretty_expr(impl_, 0)
+                )
+            },
+            Expr::Law { name, vars, lhs, rhs } => {
+                let forall_part = if vars.is_empty() {
+                    String::new()
+                } else {
+                    format!("forall {}. ", vars.join(" "))
+                };
+                format!(
+                    "law {}: {}{} = {}",
+                    name,
+                    forall_part,
+                    pretty_expr(lhs, 0),
+                    pretty_expr(rhs, 0)
                 )
             },
         }
@@ -2234,6 +2299,21 @@ pub mod desugar {
                 target,
                 desugar_expr(impl_),
             ),
+            // law <name>: [forall <vars>.] <lhs> = <rhs>  (ADR-0076)
+            // Laws are meta-level equations, not arrow-valued expressions.
+            // They are not part of the kernel arrow IR; a later lowering pass
+            // (quantified_laws) collects them into a QuantifiedLaw catalog.
+            // Here we emit a placeholder `arr("law", ...)` so the desugar map
+            // stays total; the real law extraction happens upstream of desugar.
+            Expr::Law { name, vars, lhs, rhs } => {
+                let mut args = vec![Kernel::Const(Lit::Str(name.clone()))];
+                for v in vars {
+                    args.push(Kernel::Const(Lit::Str(v.clone())));
+                }
+                args.push(desugar_expr(lhs));
+                args.push(desugar_expr(rhs));
+                Kernel::arr("law", args)
+            }
         }
     }
 

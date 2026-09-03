@@ -305,5 +305,158 @@ fn main() {
         }
     }
 
+    // ------------------------------------------------------------------
+    // 6. Law declarations (ADR-0076 `law ... forall ...` surface syntax)
+    // ------------------------------------------------------------------
+    println!("\nSection 6: Laws (law / forall)");
+
+    // 6a. Simple law (no forall): law roundtrip: serialize >>> deserialize = id
+    match parse_expr("law roundtrip: serialize >>> deserialize = id") {
+        Ok(e) => match e {
+            Expr::Law { name, vars, lhs, rhs } => {
+                if name == "roundtrip"
+                    && vars.is_empty()
+                    && matches!(lhs.as_ref(), Expr::Compose { l, r }
+                        if matches!(l.as_ref(), Expr::Var(ref n) if n == "serialize")
+                        && matches!(r.as_ref(), Expr::Var(ref n) if n == "deserialize"))
+                    && matches!(rhs.as_ref(), Expr::Var(ref n) if n == "id")
+                {
+                    println!("  PASS [ast] law roundtrip (no forall)");
+                } else {
+                    println!("  FAIL [ast] law roundtrip: name={:?} vars={:?} lhs={:?} rhs={:?}", name, vars, lhs, rhs);
+                    std::process::exit(1);
+                }
+            }
+            other => {
+                println!("  FAIL [ast] expected Expr::Law, got {:?}", other);
+                std::process::exit(1);
+            }
+        },
+        Err(e) => {
+            println!("  FAIL [parse] law roundtrip  =>  {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // 6b. Law with forall (two vars): law map_comp: forall f g. first(f >>> g) = first(f) >>> first(g)
+    match parse_expr("law map_comp: forall f g. first(f >>> g) = first(f) >>> first(g)") {
+        Ok(e) => match e {
+            Expr::Law { name, vars, lhs, rhs } => {
+                let vars_ok = vars == vec!["f".to_string(), "g".to_string()];
+                // lhs: first(f >>> g)  ~>  App(Var("first"), Paren(Compose(Var f, Var g)))
+                // (the parser wraps parenthesized args in Expr::Paren)
+                let lhs_ok = matches!(lhs.as_ref(),
+                    Expr::App { f, arg }
+                        if matches!(f.as_ref(), Expr::Var(ref n) if n == "first")
+                        && matches!(arg.as_ref(), Expr::Paren { inner }
+                            if matches!(inner.as_ref(), Expr::Compose { l, r }
+                                if matches!(l.as_ref(), Expr::Var(ref n) if n == "f")
+                                && matches!(r.as_ref(), Expr::Var(ref n) if n == "g"))));
+                // rhs: first(f) >>> first(g)  ~>  Compose(App(first, Paren(f)), App(first, Paren(g)))
+                let rhs_ok = matches!(rhs.as_ref(),
+                    Expr::Compose { l, r }
+                        if matches!(l.as_ref(), Expr::App { f, arg }
+                            if matches!(f.as_ref(), Expr::Var(ref n) if n == "first")
+                            && matches!(arg.as_ref(), Expr::Paren { inner }
+                                if matches!(inner.as_ref(), Expr::Var(ref n) if n == "f")))
+                        && matches!(r.as_ref(), Expr::App { f, arg }
+                            if matches!(f.as_ref(), Expr::Var(ref n) if n == "first")
+                            && matches!(arg.as_ref(), Expr::Paren { inner }
+                                if matches!(inner.as_ref(), Expr::Var(ref n) if n == "g"))));
+                if name == "map_comp" && vars_ok && lhs_ok && rhs_ok {
+                    println!("  PASS [ast] law map_comp (forall f g)");
+                } else {
+                    println!("  FAIL [ast] law map_comp: name={:?} vars={:?} lhs={:?} rhs={:?}", name, vars, lhs, rhs);
+                    std::process::exit(1);
+                }
+            }
+            other => {
+                println!("  FAIL [ast] expected Expr::Law, got {:?}", other);
+                std::process::exit(1);
+            }
+        },
+        Err(e) => {
+            println!("  FAIL [parse] law map_comp  =>  {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // 6c. Law with single-var forall: law map_id: forall f. first(id) = id
+    match parse_expr("law map_id: forall f. first(id) = id") {
+        Ok(e) => match e {
+            Expr::Law { name, vars, lhs, rhs } => {
+                let vars_ok = vars == vec!["f".to_string()];
+                // lhs: first(id)  ~>  App(Var("first"), Paren(Var("id")))
+                let lhs_ok = matches!(lhs.as_ref(),
+                    Expr::App { f, arg }
+                        if matches!(f.as_ref(), Expr::Var(ref n) if n == "first")
+                        && matches!(arg.as_ref(), Expr::Paren { inner }
+                            if matches!(inner.as_ref(), Expr::Var(ref n) if n == "id")));
+                // rhs: id  ~>  Var("id")
+                let rhs_ok = matches!(rhs.as_ref(), Expr::Var(ref n) if n == "id");
+                if name == "map_id" && vars_ok && lhs_ok && rhs_ok {
+                    println!("  PASS [ast] law map_id (forall f)");
+                } else {
+                    println!("  FAIL [ast] law map_id: name={:?} vars={:?} lhs={:?} rhs={:?}", name, vars, lhs, rhs);
+                    std::process::exit(1);
+                }
+            }
+            other => {
+                println!("  FAIL [ast] expected Expr::Law, got {:?}", other);
+                std::process::exit(1);
+            }
+        },
+        Err(e) => {
+            println!("  FAIL [parse] law map_id  =>  {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // 6d. Pretty-print round-trip for laws.
+    check_round_trip("law no forall", "law roundtrip: serialize >>> deserialize = id");
+    check_round_trip("law forall single", "law map_id: forall f. first(id) = id");
+    check_round_trip("law forall two", "law map_comp: forall f g. first(f >>> g) = first(f) >>> first(g)");
+
+    // 6e. Law as a binding value (a law can appear at the expression level).
+    match parse("map_law = law roundtrip: serialize >>> deserialize = id") {
+        Ok(p) => {
+            if p.bindings.len() == 1 {
+                match &p.bindings[0].value {
+                    Expr::Law { name, vars, .. } if name == "roundtrip" && vars.is_empty() => {
+                        println!("  PASS [binding] law as binding value");
+                    }
+                    other => {
+                        println!("  FAIL [binding] expected Law value, got {:?}", other);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                println!("  FAIL [binding] expected 1 binding, got {}", p.bindings.len());
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            println!("  FAIL [binding parse] law as binding  =>  {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // 6f. Program-level round-trip with a law as a binding value.
+    check_prog_round_trip(
+        "program with law binding",
+        "roundtrip = law roundtrip: serialize >>> deserialize = id",
+    );
+    check_prog_round_trip(
+        "program with quantified law binding",
+        "mc = law map_comp: forall f g. first(f >>> g) = first(f) >>> first(g)",
+    );
+
+    // 6g. Desugar: a law lowers to a placeholder Kernel::Arr { op: "law", .. }.
+    check_desugar(
+        "law",
+        "law roundtrip: serialize >>> deserialize = id",
+        &|k| matches!(k, Kernel::Arr { op, .. } if op == "law"),
+    );
+
     println!("\nAll tests passed.");
 }
