@@ -43,6 +43,9 @@
     type: object
 - id: ast.block
   node_kind: block
+  children:
+  - role: statements
+    variadic: true
   payload_schema:
     properties:
       children:
@@ -54,6 +57,9 @@
     type: object
 - id: ast.assign
   node_kind: assign
+  children:
+  - role: target
+  - role: value
   payload_schema:
     properties:
       target:
@@ -341,6 +347,9 @@
     type: object
 - id: ast.function
   node_kind: function
+  children:
+  - role: params
+  - role: body
   payload_schema:
     properties:
       body:
@@ -488,6 +497,8 @@
     - !Keep 1
 - id: ast.paren
   node_kind: paren
+  children:
+  - role: body
   payload_schema:
     properties:
       children:
@@ -532,6 +543,9 @@
     type: object
 - id: ast.type-annot
   node_kind: type-annot
+  children:
+  - role: subject
+  - role: annot
   payload_schema:
     properties:
       type:
@@ -630,6 +644,8 @@
 # `return` — early exit (1 child: the value).
 - id: ast.return
   node_kind: return
+  children:
+  - role: value
   payload_schema:
     properties:
       children:
