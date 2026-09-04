@@ -424,16 +424,8 @@
       open_is_operator_token: false
       flatten: true
 
-# `return expr` — early exit (ADR-0074). Prefix, arity 1.
-- id: grammar.keyword.return.prefix
-  token: token.keyword.return
-  position: Prefix
-  binding_power:
-    - 0
-    - 0
-  child_shape:
-    node_kind: arrow_return
-    arity: 1
+# `return expr` — provided by canonical grammar (grammar.return.prefix).
+# Removed here to avoid collision (ADR-0079 unification).
 
 # Number literal — for comparison values like `cmp <= 0`. Nullary; the
 # number value rides in the node payload.

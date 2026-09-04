@@ -33,6 +33,8 @@
 # Mirrors `arrow_parser.rs` `parse_seq` → `Scheme::Seq`.
 - id: eval.arrow.flow
   node_kind: flow
+  replaces:
+  - eval.flow
   scheme: !Seq
     fst: !Arr
       op: proj_child

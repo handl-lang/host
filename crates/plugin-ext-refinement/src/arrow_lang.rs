@@ -1,13 +1,16 @@
-//! Loads the arrow DSL YAML language definition into a [`Language`] struct.
+//! Loads the arrow DSL language definition into a [`Language`] struct.
 //!
-//! The arrow DSL (ADR-0069) is defined as data files in `data/`:
-//! `tokens.yaml`, `lexer_rules.yaml`, `grammar.yaml`, `eval.yaml`, `ast.yaml`.
-//! The key semantic difference from the main handl language: `>>>` means
-//! `Seq` (arrow composition), not `App` (pipe).
+//! Starting from ADR-0079, the arrow DSL is built on top of the canonical
+//! handl language. The canonical language (`handl-kit-data-canonical`)
+//! provides the base tokens, lexer rules, grammar, eval schemes, and AST
+//! shapes. Arrow-specific fragments (keywords like `arr`/`comp`/`first`,
+//! dotted identifiers, `>>>`→`Seq` eval, `loop_rich`/`rec` grammar) are
+//! merged on top as an overlay.
 //!
-//! This module embeds the YAML files at compile time via `include_str!` and
-//! deserializes them into a [`Language`] using the same fragment-merge
-//! approach as `handl-kit-data-canonical`.
+//! This approach unifies the two dialects at the engine level while
+//! preserving arrow-specific lexer behavior (e.g. `.` in identifiers for
+//! `prim.compare` and `state.acc`) that cannot be expressed in the
+//! canonical identifier rule without breaking field-access parsing.
 
 use std::sync::OnceLock;
 
@@ -15,54 +18,69 @@ use handl_language::{
     AstShapeDef, EvalSchemeDef, GrammarRow, Language, LexerRuleDef, TokenKindDef,
 };
 
-// Embed the arrow DSL YAML data files at compile time.
+// Embed the arrow-specific overlay YAML data files at compile time.
+// These contain ONLY arrow-specific fragments — the base language comes
+// from `handl_kit_data_canonical::language_from_yaml()`.
 const TOKENS_YAML: &str = include_str!("../data/tokens.yaml");
 const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
 const GRAMMAR_YAML: &str = include_str!("../data/grammar.yaml");
 const EVAL_YAML: &str = include_str!("../data/eval.yaml");
 const AST_YAML: &str = include_str!("../data/ast.yaml");
 
-/// Build the arrow DSL [`Language`] from the embedded YAML data files.
+/// Build the arrow DSL [`Language`] by loading the canonical language as a
+/// base and merging arrow-specific fragments on top (ADR-0079).
 ///
-/// Each file contains a YAML list of fragments of one type. The fragments are
-/// deserialized and merged into a single [`Language`].
+/// The canonical language provides all base tokens, lexer rules, grammar
+/// rows, eval schemes, and AST shapes. The arrow overlay adds:
+/// - Arrow keywords (`arr`, `comp`, `first`, `choice`, `loop`, `rec`,
+///   `app`, `id`) and their grammar rows
+/// - Dotted identifiers (`prim.compare`, `state.acc`) via a separate
+///   lexer rule
+/// - `>>>` → `Scheme::Seq` eval (replaces canonical's `App`)
+/// - Arrow-specific node kinds (`arr_call`, `first_call`, `loop_rich`,
+///   `arrow_var`, `arrow_match`, etc.)
 ///
 /// # Errors
 ///
-/// Returns a `String` error message if any YAML file fails to deserialize or
-/// a merge fails.
+/// Returns a `String` error message if any YAML file fails to deserialize
+/// or a merge fails.
 fn build_arrow_language() -> Result<Language, String> {
-    let mut lang = Language::new();
+    // Start with the canonical language as base (ADR-0079 unification).
+    let mut lang = handl_kit_data_canonical::language_from_yaml()
+        .map_err(|e| format!("canonical language: {}", e))?;
 
-    // Token kinds (union -- idempotent merge).
+    // Merge arrow-specific token kinds (union -- idempotent merge).
     let tokens: Vec<TokenKindDef> = serde_yaml::from_str(TOKENS_YAML)
         .map_err(|e| format!("tokens.yaml: {}", e))?;
     for frag in tokens {
         lang.tokens.merge(frag).map_err(|e| format!("tokens merge: {e}"))?;
     }
 
-    // Lexer rules (union -- idempotent merge).
+    // Merge arrow-specific lexer rules (union -- idempotent merge).
     let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(LEXER_RULES_YAML)
         .map_err(|e| format!("lexer_rules.yaml: {}", e))?;
     for frag in lexer_rules {
         lang.lexer_rules.merge(frag).map_err(|e| format!("lexer_rules merge: {e}"))?;
     }
 
-    // Grammar rows (non-union -- pre-resolved, no collisions).
+    // Merge arrow-specific grammar rows (non-union -- no collisions with
+    // canonical because arrow rows use `token.arrow.*` token names).
     let grammar: Vec<GrammarRow> = serde_yaml::from_str(GRAMMAR_YAML)
         .map_err(|e| format!("grammar.yaml: {}", e))?;
     for frag in grammar {
         lang.grammar.merge(frag).map_err(|e| format!("grammar merge: {e}"))?;
     }
 
-    // Eval schemes (non-union -- pre-resolved, no collisions).
+    // Merge arrow-specific eval schemes (non-union). The `eval.arrow.flow`
+    // entry uses `replaces: ["eval.flow"]` to override canonical's `App`
+    // with `Seq` for the `>>>` operator.
     let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(EVAL_YAML)
         .map_err(|e| format!("eval.yaml: {}", e))?;
     for frag in eval {
         lang.eval.merge(frag).map_err(|e| format!("eval merge: {e}"))?;
     }
 
-    // AST shapes (union -- idempotent merge).
+    // Merge arrow-specific AST shapes (union -- idempotent merge).
     let ast: Vec<AstShapeDef> = serde_yaml::from_str(AST_YAML)
         .map_err(|e| format!("ast.yaml: {}", e))?;
     for frag in ast {

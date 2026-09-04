@@ -27,9 +27,9 @@ Merge into one unified dialect with all features from both, using graph blocks a
 
 3. **`eval_block` binds assigns:** The tree-walk evaluator's `eval_block` pushes a scope, binds each `assign` child (`x = y`) as a local wire, and returns the last child's value. This makes graph blocks executable at runtime.
 
-4. **Unified grammar:** Merge arrow-dialect grammar rows (`arr_call`, `first_call`, `loop_rich`, `>>>`→`Seq`, `|||`→`Choice`) into `crates/handl-kit-data-canonical/data/grammar.yaml`. Add eval rules for them. Point `arrow_parser` at the unified grammar. Delete `crates/plugin-ext-refinement/data/{grammar,eval,ast,tokens,lexer_rules}.yaml`.
+4. **Unified grammar (overlay approach):** The arrow DSL language is built on top of the canonical language: `arrow_lang.rs` calls `handl_kit_data_canonical::language_from_yaml()` as the base, then merges arrow-specific fragments (tokens, lexer rules, grammar rows, eval schemes, AST shapes) on top as an overlay. The `eval.arrow.flow` entry uses `replaces: ["eval.flow"]` to override canonical's `App` with `Seq` for `>>>`. The duplicate `grammar.keyword.return.prefix` row is removed from the arrow grammar (canonical provides it). Full deletion of the arrow YAMLs is deferred because the arrow dialect uses `.` in identifiers (`prim.compare`, `state.acc`) which is fundamentally incompatible with canonical's field-access `.` handling — merging the lexer rules would break one dialect or the other.
 
-5. **`>>>` semantics:** Use host-call semantics (main's current `!App`) for now. Kernel `Seq` semantics (arrow's `!Seq`) is a future migration once the arrow-calculus kernel runtime is productized from the POC. Surface syntax is identical either way.
+5. **`>>>` semantics:** Canonical uses `App` (host-call) for `>>>`; the arrow overlay replaces it with `Seq` (arrow composition) via `replaces`. The runtime never encounters `>>>` (no canonical `.hnl` file uses it). Full `Seq` semantics for the runtime is a future migration once the arrow-calculus kernel is productized.
 
 6. **Remove `let` and `in`:** Delete `grammar.let.prefix` and `grammar.arrow.in.infix` after all files are converted.
 
@@ -41,16 +41,16 @@ Merge into one unified dialect with all features from both, using graph blocks a
 
 **Migration order (each step additive and reversible until the removal step):**
 
-1. Engine: contextual `{}` + `eval_block` binds (additive, `let` still works)
-2. Convert `dedent.hnl` → test
-3. Convert `stats.hnl` → test
-4. Convert arrow files → refinement tests
-5. Remove `let` + `in` grammar rows → workspace test
-6. Merge arrow grammar into canonical → refinement tests
-7. Delete old dialect YAMLs → workspace test
+1. Engine: contextual `{}` + `eval_block` binds (additive, `let` still works) ✅
+2. Convert `dedent.hnl` → test ✅
+3. Convert `stats.hnl` → test ✅
+4. Convert arrow files → refinement tests ✅
+5. Remove `let` + `in` grammar rows → workspace test ✅
+6. Arrow parser loads canonical as base + arrow overlay → refinement tests ✅
+7. (Deferred) Full YAML deletion — blocked by dotted-identifier incompatibility
 
 References: ADR-0074 (v0.1 surface syntax), ADR-0069 (files are arrows), ADR-0052 (arrow calculus kernel), ADR-0053 (data-driven Pratt parser).
 
 ## Status
 
-Proposed
+Accepted (steps 1–6 complete; step 7 deferred)
