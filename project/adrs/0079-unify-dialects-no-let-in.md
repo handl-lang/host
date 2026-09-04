@@ -4,9 +4,9 @@
 
 The handl platform has two dialects that share the same data-driven Pratt parser but diverge in surface syntax and post-parse handling:
 
-1. **Main dialect** (`crates/handl-kit-data-canonical/data/*.yaml`): Used by ~55 runtime libs in `kit-stdlib/data/{dedent,stats,...}/*.hnl`, loaded via `HandlModule` (tree-walk evaluator). Uses `let x = y in body` for local bindings. Has full operators, literals, `op`/`handl`/`cap`/`law`/`trait`/`impl`/`infer`/`type` declarations, `while`/`for`/`do-while`, `import`/`export`.
+1. **Main dialect** (`crates/handl-kit-data-canonical/data/*.yaml`): Used by ~55 runtime libs in `handl-packages/{dedent,stats,...}/*.hnl`, loaded via `HandlModule` (tree-walk evaluator). Uses `let x = y in body` for local bindings. Has full operators, literals, `op`/`handl`/`cap`/`law`/`trait`/`impl`/`infer`/`type` declarations, `while`/`for`/`do-while`, `import`/`export`.
 
-2. **Arrow dialect** (`crates/plugin-ext-refinement/data/*.yaml`): Used by 23 files in `kit-stdlib/data/arrows/**/*.hnl`, loaded via `arrow_parser` → `ast_to_scheme` → `Scheme` IR → refinement inference. Uses `x = y in body` (no `let` keyword) and graph blocks `{ x = y; ... }`. Has `arr("op")`, `first(...)`, `comp(...)`, `choice(...)`, `app(...)`, `loop { state } ( body )`, `rec { state } ( body )`, `>>>` as `Seq`, `|||` as `Choice`. No runtime evaluator (eval.yaml is "DEFINITION ONLY").
+2. **Arrow dialect** (`crates/plugin-ext-refinement/data/*.yaml`): Used by 23 files in `handl-packages/{collection,fn,state,...}/**/*.hnl`, loaded via `arrow_parser` → `ast_to_scheme` → `Scheme` IR → refinement inference. Uses `x = y in body` (no `let` keyword) and graph blocks `{ x = y; ... }`. Has `arr("op")`, `first(...)`, `comp(...)`, `choice(...)`, `app(...)`, `loop { state } ( body )`, `rec { state } ( body )`, `>>>` as `Seq`, `|||` as `Choice`. No runtime evaluator (eval.yaml is "DEFINITION ONLY").
 
 The split creates maintenance burden, syntax inconsistency, and confusion. ADR-0074 already specifies the target surface (graph blocks, §7.1–7.2) but the engine hasn't fully implemented it.
 

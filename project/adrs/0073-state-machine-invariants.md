@@ -99,7 +99,7 @@ in the refinement inference engine. No user annotations are required.
 State machine atoms and arrow files are in:
 - `contracts/state.hnl` — atoms: state.inc, state.dec, state.push,
   state.pop, state.is_empty, state.idle_to_active, state.active_to_done
-- `kit-stdlib/data/arrows/state/` — arrow files: counter.hnl,
+- `handl-packages/state/` — arrow files: counter.hnl,
   buffer.hnl, protocol.hnl
 - `src/state_tests.rs` — tests verifying invariant discovery
 

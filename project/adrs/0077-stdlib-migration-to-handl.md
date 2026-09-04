@@ -16,7 +16,7 @@ standard library. Each crate is Rust. They fall into two populations:
 
 1. **Pure-logic libs** (`hello`, `stats`, `collections`, `utils`, `parse`,
    …) — the logic is already handl-authored in `.hnl` files under
-   `kit-stdlib/data/`, but each crate carries ~400 lines of hand-rolled
+   `handl-packages/`, but each crate carries ~400 lines of hand-rolled
    Rust bridge code (`bridge.rs`, `module.rs`, `plugin.rs`, `lib.rs`) that
    `include_str!`s the `.hnl` source, builds a cached per-thread `Runtime`,
    and evaluates `(source).func(args)` per call.
@@ -65,7 +65,7 @@ declaration.
 Rust offers no proof mechanism. The stdlib's correctness story —
 refinement contracts, termination guarantees, compositional inference —
 can only be expressed and verified in handl. Today the axioms for
-irreducible Rust primitives live in `kit-stdlib/data/contracts/prim.hnl`,
+irreducible Rust primitives live in `handl-packages/contracts/prim.hnl`,
 but they are disconnected from the actual Rust `Function` impls they
 describe, and they are not enforced at the eval boundary.
 
@@ -284,13 +284,13 @@ migrated libs.
 
 ### Phase 6 — ADR-0069 Phase 7: arrows/ as importable modules
 
-Move `kit-stdlib/data/arrows/` to be importable `.hnl` modules (ADR-0069
+Move `handl-packages/` arrow files to be importable `.hnl` modules (ADR-0069
 Phase 7). The loader already supports this; the eval wiring from Phase 1
 makes the imported arrows callable. Verify the full cascade: atoms →
 insert → sort → user programs, all via imports with compositional
 inference, under each of the three normalization strategies.
 
-**Done when:** `kit-stdlib/data/arrows/*.hnl` are importable; a user
+**Done when:** `handl-packages/**/*.hnl` are importable; a user
 program can `import sort from "collection/sort"` and call it; inference
 composes across the import boundary.
 

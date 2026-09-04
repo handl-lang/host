@@ -526,7 +526,7 @@ the cache.
 
 ### Phase 7 — stdlib as importable arrow files
 
-Move the stdlib arrow definitions (`kit-stdlib/data/arrows/`) to be
+Move the stdlib arrow definitions (`handl-packages/`) to be
 importable `.hnl` files. Verify the full cascade works: atoms → insert →
 sort → user programs, all via imports with compositional inference, under
 each of the three strategies.
