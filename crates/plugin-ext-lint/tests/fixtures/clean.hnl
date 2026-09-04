@@ -1,0 +1,4 @@
+-- A clean, canonical module exercising the v0.1 surface.
+import greet from "mod"
+
+my_func = x ~> greet(x)
