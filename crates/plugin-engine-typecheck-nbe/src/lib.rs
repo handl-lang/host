@@ -91,11 +91,15 @@ use std::rc::Rc;
 
 use handl_language::{
     infer_effect_row, ArrSource, Ast, AstNode, AstRef, EffectRow, LangError, Language, Scheme,
-    Value,
+    Value, Verdict,
 };
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest, TypecheckResult};
+use handl_plugin_engine_typecheck::{
+    TypecheckDiagnostic, TypecheckEngine, TypecheckRequest, TypecheckResult,
+};
 use handl_plugin_lib_tag::TypeRegistry;
+
+mod predicate_eval;
 
 /// The key under which a metavariable id is encoded in a type value.
 ///
@@ -1519,8 +1523,17 @@ impl NbeTypecheckEngine {
                 // Typecheck a `type-annot` node (`expr: T`). Child 0 is the
                 // annotated expression, child 1 is the type expression (e.g.
                 // `type.number` parses as `field-access(var("type"), "number")`).
-                // We synth child 0, interpret child 1 as a type value, unify
-                // them, and return the annotation type.
+                //
+                // ADR-0068 step B1: If the type expression evaluates to a
+                // predicate (a closure returning `type.bool`), normalize
+                // `T(e)` via the bound eval engine. `Proven` → accept
+                // statically (no runtime check); `Disproved` → reject;
+                // `Blocked` → accept with a runtime backstop. Otherwise, fall
+                // back to the existing synth-then-unify path.
+                //
+                // This branch is data-driven: it inspects the *value's* shape
+                // (type tag / closure marker), not the AST node kind, per the
+                // engine-genericity rule.
                 let node = ast.get(node_ref).ok_or_else(|| {
                     LangError::engine(format!(
                         "synth_type_annot: node {} out of bounds",
@@ -1552,9 +1565,125 @@ impl NbeTypecheckEngine {
                         type_idx
                     ))
                 })?;
-                let annotation_type = interpret_type_expr(lang, ast, type_node, &ctx.registry)?;
-                self.unify(&expr_type, &annotation_type, ctx)?;
-                Ok(annotation_type)
+
+                // Try the existing type-syntax path first (handles
+                // `type.number`, `(type.number) -> type.bool`, etc.).
+                let annotation_result =
+                    interpret_type_expr(lang, ast, type_node, &ctx.registry);
+
+                match annotation_result {
+                    Ok(annotation_type) => {
+                        // If the annotation is a `type.function` whose body
+                        // is `type.bool`, it is a predicate type: evaluate
+                        // the type expression to get the predicate closure
+                        // and apply it to the expression value.
+                        let body_is_bool = annotation_type
+                            .get("body")
+                            .map(|b| ctx.registry.as_type_tag(b) == Some("type.bool"))
+                            .unwrap_or(false);
+                        let is_predicate =
+                            ctx.registry.as_type_tag(&annotation_type) == Some("type.function")
+                                && body_is_bool;
+
+                        if is_predicate {
+                            let proof = self.check_predicate_application(
+                                lang,
+                                ast,
+                                AstRef::new(type_idx),
+                                AstRef::new(expr_idx),
+                                100_000,
+                            );
+                            // B2: if B1 (concrete eval) is blocked, try
+                            // symbolic normalization — the expression may
+                            // have free variables that B1 can't handle but
+                            // B2 can reason about symbolically.
+                            let proof = if proof.verdict == Verdict::Blocked {
+                                // The type expression is a `function` node
+                                // (predicate). Find it in the AST to pass
+                                // to the symbolic checker.
+                                let sym_proof = self.check_predicate_symbolic(
+                                    ast,
+                                    AstRef::new(type_idx),
+                                    AstRef::new(expr_idx),
+                                    100_000,
+                                );
+                                // Only use the symbolic result if it's
+                                // better (Proven or Disproved); otherwise
+                                // keep the original Blocked.
+                                if sym_proof.verdict != Verdict::Blocked {
+                                    sym_proof
+                                } else {
+                                    proof
+                                }
+                            } else {
+                                proof
+                            };
+                            return self.resolve_predicate_proof(
+                                proof,
+                                &expr_type,
+                                &annotation_type,
+                                ctx,
+                            );
+                        }
+
+                        // Not a predicate — use the existing unify path.
+                        self.unify(&expr_type, &annotation_type, ctx)?;
+                        Ok(annotation_type)
+                    }
+                    Err(interp_err) => {
+                        // `interpret_type_expr` failed — the type expression
+                        // might be a value expression (e.g. `DivisibleBy(3)`
+                        // or `(n) -> n % 3 == 0`). Try evaluating it via the
+                        // eval engine to get a predicate closure.
+                        if self.pure {
+                            if let Err(_e) = check_pure(lang, ast, AstRef::new(type_idx)) {
+                                // Impure type expression — can't evaluate
+                                // safely. Return the original
+                                // `interpret_type_expr` error.
+                                return Err(interp_err);
+                            }
+                        }
+                        let sub = ast.subtree(AstRef::new(type_idx))?;
+                        let req = EvalRequest::new(sub);
+                        match self.eval_engine.eval(lang, &req) {
+                            Ok(type_val) if Self::is_closure_value(&type_val) => {
+                                // It's a predicate closure. Apply it to the
+                                // expression value.
+                                let proof = self.check_predicate_application(
+                                    lang,
+                                    ast,
+                                    AstRef::new(type_idx),
+                                    AstRef::new(expr_idx),
+                                    100_000,
+                                );
+                                // B2: if B1 is blocked, try symbolic
+                                // normalization.
+                                let proof = if proof.verdict == Verdict::Blocked {
+                                    let sym_proof = self.check_predicate_symbolic(
+                                        ast,
+                                        AstRef::new(type_idx),
+                                        AstRef::new(expr_idx),
+                                        100_000,
+                                    );
+                                    if sym_proof.verdict != Verdict::Blocked {
+                                        sym_proof
+                                    } else {
+                                        proof
+                                    }
+                                } else {
+                                    proof
+                                };
+                                // The annotation type for a closure-valued
+                                // predicate is the expression's own type
+                                // (the predicate is a runtime contract, not
+                                // a static type tag).
+                                self.resolve_predicate_proof(proof, &expr_type, &expr_type, ctx)
+                            }
+                            Ok(_) => Err(interp_err),
+                            Err(_) => Err(interp_err),
+                        }
+                    }
+                }
             }
             "synth_first_child_or_unknown" => {
                 // Synthesize the type of the first child of the current node.
@@ -3342,7 +3471,9 @@ impl NbeTypecheckEngine {
                 // Both are type values with the same tag — unify payload
                 // fields.  We use `get` (not `as_object`) because the type
                 // value is always a JSON object (the registry guarantees
-                // this).
+                // this).  We still guard with `ok_or_else` so a malformed
+                // (non-object) type value surfaces as a `LangError` instead
+                // of panicking.
                 let obj_a = a
                     .as_object()
                     .ok_or_else(|| LangError::engine("typecheck: type value is not an object"))?;
@@ -3393,7 +3524,7 @@ impl TypecheckEngine for NbeTypecheckEngine {
         let typ = self.synth_node(lang, &req.ast, root_ref, &mut ctx)?;
         Ok(TypecheckResult {
             typ,
-            diagnostics: vec![],
+            diagnostics: ctx.diagnostics,
         })
     }
 
@@ -3432,6 +3563,9 @@ struct TypecheckContext {
     results: HashMap<String, Value>,
     /// The host type registry (for `construct` / `match_type`).
     registry: TypeRegistry,
+    /// Non-fatal diagnostics accumulated during typechecking (ADR-0068:
+    /// runtime-assert requirements from `Blocked` predicate annotations).
+    diagnostics: Vec<TypecheckDiagnostic>,
 }
 
 impl TypecheckContext {
@@ -3442,6 +3576,7 @@ impl TypecheckContext {
             gamma: Vec::new(),
             results: HashMap::new(),
             registry: TypeRegistry::new(registry_id),
+            diagnostics: Vec::new(),
         }
     }
 

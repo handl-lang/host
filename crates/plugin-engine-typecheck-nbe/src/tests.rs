@@ -9159,3 +9159,464 @@ fn effect_row_nested_handles_union_ops() {
     assert_eq!(op_names.len(), 3);
     assert_eq!(effects.get("rest"), Some(&Value::Null));
 }
+
+// ===========================================================================
+// ADR-0068 step B1: Predicate annotation checking
+//
+// When a type annotation is a predicate (a function value returning bool),
+// the typechecker normalizes `predicate(expr)` via the bound eval engine.
+// Proven → accept statically; Disproved → reject; Blocked → accept with
+// runtime fallback.
+// ===========================================================================
+
+/// Build a minimal language with eval + type rules for predicate annotation
+/// checking: `lit`, `var`, `function`, `call`, `binary.mod`, `binary.eq`,
+/// and `type-annot`.
+fn predicate_lang() -> Language {
+    let mut lang = Language::new();
+
+    // --- eval schemes ---
+    // lit: no eval scheme → tree-walk returns node.payload directly.
+    // var: lookup name from env ($payload = node's payload string).
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.var",
+            "var",
+            Scheme::arr_native_lit("proj_env", vec![], Value::from("$payload")),
+        ))
+        .unwrap();
+    // function: create a closure.
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.function",
+            "function",
+            Scheme::arr_native("closure", vec![]),
+        ))
+        .unwrap();
+    // call: apply child 0 (callee) to child 1 (arg).
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.call",
+            "call",
+            Scheme::app(
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))],
+            ),
+        ))
+        .unwrap();
+    // binary.mod: mod(child(0), child(1))
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.binary.mod",
+            "binary.mod",
+            Scheme::arr_native(
+                "mod",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            ),
+        ))
+        .unwrap();
+    // binary.eq: eq(child(0), child(1))
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "eval.binary.eq",
+            "binary.eq",
+            Scheme::arr_native(
+                "eq",
+                vec![
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                ],
+            ),
+        ))
+        .unwrap();
+
+    // --- type rules ---
+    // lit → type.number
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.lit",
+            "lit",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    // var → lookup from Γ
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.var",
+            "var",
+            Scheme::arr_judgment_lit("lookup", vec![], Value::from("$payload")),
+        ))
+        .unwrap();
+    // function → synth_function (constructs type.function{param, body})
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.function",
+            "function",
+            Scheme::arr_judgment("synth_function", vec![]),
+        ))
+        .unwrap();
+    // binary.mod → type.number
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.binary.mod",
+            "binary.mod",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+        ))
+        .unwrap();
+    // binary.eq → type.bool
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.binary.eq",
+            "binary.eq",
+            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
+        ))
+        .unwrap();
+    // type-annot → synth_type_annot
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.type-annot",
+            "type-annot",
+            Scheme::arr_judgment("synth_type_annot", vec![]),
+        ))
+        .unwrap();
+
+    lang
+}
+
+/// Build an AST for `expr: (n) -> n % 3 == 0` where `expr` is a lit node
+/// with value `expr_val`.
+///
+/// AST layout:
+///   0: var("n")                          — parameter
+///   1: lit(3)                            — divisor
+///   2: binary.mod{children:[0,1]}        — n % 3
+///   3: lit(0)                            — zero
+///   4: binary.eq{children:[2,3]}         — n % 3 == 0
+///   5: function{children:[0,4]}          — (n) -> n % 3 == 0
+///   6: lit(expr_val)                     — the expression
+///   7: type-annot{children:[6,5]}        — expr: (n) -> n % 3 == 0
+fn divisibility_ast(expr_val: i64) -> Ast {
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n")));           // 0
+    ast.push(AstNode::new("lit").with_payload(json!(3)));             // 1
+    ast.push(
+        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
+    ); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(0)));             // 3
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
+    ); // 4
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
+    ); // 5
+    ast.push(AstNode::new("lit").with_payload(json!(expr_val)));      // 6
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [6, 5]})),
+    ); // 7
+    ast
+}
+
+#[test]
+fn predicate_annotation_proven() {
+    // `9: (n) -> n % 3 == 0` — 9 % 3 == 0 is true → Proven.
+    let engine = engine();
+    let lang = predicate_lang();
+    let ast = divisibility_ast(9);
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    // The annotation is accepted; the result type is the expression's type
+    // (type.number for a lit).
+    assert_eq!(result.typ, type_number());
+    assert!(result.diagnostics.is_empty());
+}
+
+#[test]
+fn predicate_annotation_disproved() {
+    // `10: (n) -> n % 3 == 0` — 10 % 3 == 1 ≠ 0 is false → Disproved.
+    let engine = engine();
+    let lang = predicate_lang();
+    let ast = divisibility_ast(10);
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("disproved")),
+        "expected disproved error, got {:?}",
+        err
+    );
+}
+
+#[test]
+fn predicate_annotation_blocked() {
+    // A predicate that errors during evaluation → Blocked → accepted with
+    // a `runtime_assert` diagnostic. We use a predicate whose body
+    // references an unbound variable (not in the closure's params),
+    // causing an eval error.
+    //
+    // AST:
+    //   0: var("n")                          — parameter
+    //   1: var("unknown")                    — unbound variable in body
+    //   2: function{children:[0,1]}          — (n) -> unknown  (will error)
+    //   3: lit(9)                            — expression
+    //   4: type-annot{children:[3,2]}        — 9: (n) -> unknown
+    let engine = engine();
+    let lang = predicate_lang();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n")));            // 0
+    ast.push(AstNode::new("var").with_payload(json!("unknown")));      // 1
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 1]})),
+    ); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(9)));              // 3
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [3, 2]})),
+    ); // 4
+    let req = TypecheckRequest::new(ast);
+    // Blocked → accepted (not rejected), with a runtime_assert diagnostic.
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+    // Exactly one diagnostic: the runtime_assert from the Blocked predicate.
+    assert_eq!(result.diagnostics.len(), 1, "expected 1 diagnostic");
+    assert_eq!(result.diagnostics[0].severity, "runtime_assert");
+    assert!(
+        result.diagnostics[0].message.contains("runtime assert required"),
+        "diagnostic message: {}",
+        result.diagnostics[0].message
+    );
+}
+
+#[test]
+fn predicate_annotation_proven_no_diagnostic() {
+    // A proven predicate annotation should produce zero diagnostics —
+    // no runtime assert is needed.
+    let engine = engine();
+    let lang = predicate_lang();
+    let ast = divisibility_ast(9);
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+    assert!(
+        result.diagnostics.is_empty(),
+        "proven annotation should have no diagnostics, got {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn non_predicate_annotation_regression() {
+    // `42: type.number` — a non-predicate annotation should still work via
+    // the existing unify path. The type expression is `field-access(var("type"),
+    // "number")` which `interpret_type_expr` handles.
+    let engine = engine();
+    let mut lang = predicate_lang();
+    // var type rule for "type" variable — we need it in Γ. Use extend.
+    // Actually, for `type.number`, the type expression is a field-access
+    // node. We need a `field-access` type rule that interpret_type_expr
+    // handles. But interpret_type_expr is called directly, not via a type
+    // rule. So we just need the type-annot rule (already in predicate_lang)
+    // and the field-access node to be interpretable.
+    // The field-access node has children [var("type"), var("number")].
+    // interpret_type_expr reads the field name from child 1's payload.
+    // We need var nodes with string payloads.
+    // No additional type rules needed — interpret_type_expr bypasses
+    // synth_node for the type expression.
+    let _ = &mut lang; // suppress unused mut warning
+
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("type")));         // 0
+    ast.push(AstNode::new("var").with_payload(json!("number")));       // 1
+    ast.push(
+        AstNode::new("field-access").with_payload(json!({"children": [0, 1]})),
+    ); // 2
+    ast.push(AstNode::new("lit").with_payload(json!(42)));             // 3
+    ast.push(
+        AstNode::new("type-annot").with_payload(json!({"children": [3, 2]})),
+    ); // 4
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, type_number());
+}
+
+// ===========================================================================
+// ADR-0068 step B2: Symbolic normalization for predicates with free variables
+//
+// B2 fires when B1 (concrete eval) returns Blocked. The symbolic normalizer
+// works on the AST directly, handling free variables and compound expressions
+// that the eval engine can't evaluate.
+// ===========================================================================
+
+#[test]
+fn b2_symbolic_reflexivity_proven() {
+    // Predicate: (n) -> n == n
+    // Expression: var("x") (a free variable)
+    //
+    // B1: eval engine tries to evaluate `predicate(x)` — `x` is unbound →
+    //     error → Blocked.
+    // B2: symbolic normalizer substitutes n = x, then normalizes
+    //     `Eq(Var("x"), Var("x"))` → `Bool(true)` → Proven!
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [0, 0]})),
+    ); // 1: n == n
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 1]})),
+    ); // 2: (n) -> n == n
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 3: var("x")
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(2),
+        AstRef::new(3),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Proven);
+}
+
+#[test]
+fn b2_symbolic_arithmetic_normalization() {
+    // Predicate: (n) -> n == n + 0
+    // Expression: var("x")
+    //
+    // B2: normalizes x + 0 → x, then x == x → true → Proven.
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 1: lit(0)
+    ast.push(
+        AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
+    ); // 2: n + 0
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [0, 2]})),
+    ); // 3: n == n + 0
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 3]})),
+    ); // 4: (n) -> n == n + 0
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 5
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(4),
+        AstRef::new(5),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Proven);
+}
+
+#[test]
+fn b2_symbolic_concrete_disproved() {
+    // Predicate: (n) -> n % 3 == 0
+    // Expression: lit(10) — 10 % 3 == 1 ≠ 0 → false → Disproved.
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
+    ast.push(
+        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
+    ); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
+    ); // 4: n % 3 == 0
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
+    ); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("lit").with_payload(json!(10)));  // 6: lit(10)
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(5),
+        AstRef::new(6),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Disproved);
+}
+
+#[test]
+fn b2_symbolic_concrete_proven() {
+    // Predicate: (n) -> n % 3 == 0
+    // Expression: lit(9) — 9 % 3 == 0 → true → Proven.
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
+    ast.push(
+        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
+    ); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
+    ); // 4: n % 3 == 0
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
+    ); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("lit").with_payload(json!(9)));   // 6: lit(9)
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(5),
+        AstRef::new(6),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Proven);
+}
+
+#[test]
+fn b2_symbolic_free_variable_blocked() {
+    // Predicate: (n) -> n % 3 == 0
+    // Expression: var("x") — free variable
+    //
+    // B2: x % 3 can't reduce → stuck → Blocked (correct: we can't prove
+    //     x % 3 == 0 without knowing x).
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("lit").with_payload(json!(3)));   // 1: lit(3)
+    ast.push(
+        AstNode::new("binary.mod").with_payload(json!({"children": [0, 1]})),
+    ); // 2: n % 3
+    ast.push(AstNode::new("lit").with_payload(json!(0)));   // 3: lit(0)
+    ast.push(
+        AstNode::new("binary.eq").with_payload(json!({"children": [2, 3]})),
+    ); // 4: n % 3 == 0
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 4]})),
+    ); // 5: (n) -> n % 3 == 0
+    ast.push(AstNode::new("var").with_payload(json!("x"))); // 6: var("x")
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(5),
+        AstRef::new(6),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Blocked);
+}
+
+#[test]
+fn b2_symbolic_unsupported_op_blocked() {
+    // Predicate body uses an unsupported operation (field-access).
+    // B2 should return Blocked.
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("var").with_payload(json!("n"))); // 0: param
+    ast.push(AstNode::new("lit").with_payload(json!("field"))); // 1
+    ast.push(
+        AstNode::new("field-access").with_payload(json!({"children": [0, 1]})),
+    ); // 2: n.field
+    ast.push(
+        AstNode::new("function").with_payload(json!({"children": [0, 2]})),
+    ); // 3: (n) -> n.field
+    ast.push(AstNode::new("lit").with_payload(json!(42)));  // 4
+
+    let proof = engine.check_predicate_symbolic(
+        &ast,
+        AstRef::new(3),
+        AstRef::new(4),
+        100_000,
+    );
+    assert_eq!(proof.verdict, Verdict::Blocked);
+}

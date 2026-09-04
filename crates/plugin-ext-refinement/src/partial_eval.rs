@@ -38,65 +38,10 @@ use std::fmt;
 // Proof verdicts
 // ============================================================================
 
-/// The outcome of checking a type-position proposition.
-///
-/// - [`Proven`](Verdict::Proven): normalization succeeded and the equality
-///   holds — the annotation is accepted statically.
-/// - [`Disproved`](Verdict::Disproved): normalization succeeded and the
-///   equality is false — the annotation is rejected.
-/// - [`Blocked`](Verdict::Blocked): normalization could not finish (a
-///   symbolic value it cannot reduce, an effect, a termination-guard budget
-///   exhausted). Per ADR-0068 the caller should accept the annotation with a
-///   runtime backstop `assert T(e)` rather than reject it.
-///
-/// This is the "graduated guarantees" switch: static proof where the checker
-/// can normalize, runtime fallback where it cannot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Verdict {
-    Proven,
-    Disproved,
-    Blocked,
-}
-
-impl fmt::Display for Verdict {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Verdict::Proven => write!(f, "proven"),
-            Verdict::Disproved => write!(f, "disproved"),
-            Verdict::Blocked => write!(f, "blocked (runtime fallback)"),
-        }
-    }
-}
-
-/// A proof result: a verdict plus a human-readable explanation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Proof {
-    pub verdict: Verdict,
-    pub reason: String,
-}
-
-impl Proof {
-    fn ok(reason: impl Into<String>) -> Self {
-        Proof {
-            verdict: Verdict::Proven,
-            reason: reason.into(),
-        }
-    }
-
-    fn no(reason: impl Into<String>) -> Self {
-        Proof {
-            verdict: Verdict::Disproved,
-            reason: reason.into(),
-        }
-    }
-
-    fn blocked(reason: impl Into<String>) -> Self {
-        Proof {
-            verdict: Verdict::Blocked,
-            reason: reason.into(),
-        }
-    }
-}
+// `Verdict` and `Proof` live in `handl_language::verdict` (ADR-0068) so the
+// typecheck engine and the refinement crate share them. Re-export here for
+// backward compatibility with existing callers of this module.
+pub use handl_language::{Proof, Verdict};
 
 // ============================================================================
 // Checker directives

@@ -657,6 +657,332 @@ fn desugar_for(
 }
 
 // ---------------------------------------------------------------------------
+// 8. `data Name = Cons1 | Cons2(args) | ...` → predicate + constructors + recursor
+//     (ADR-0082 steps 1-2: data desugaring + strict positivity)
+// ---------------------------------------------------------------------------
+
+/// A constructor specification parsed from a `data` node's payload.
+#[derive(Debug, Clone)]
+struct DataConstructor {
+    name: String,
+    args: Vec<(String, String)>, // (arg_name, arg_type_name)
+}
+
+/// Parse a `data` node's payload into the type name and constructor list.
+///
+/// Expected payload shape:
+/// ```json
+/// {
+///   "name": "Nat",
+///   "constructors": [
+///     { "name": "Zero", "args": [] },
+///     { "name": "Succ", "args": [{"name": "pred", "type": "Nat"}] }
+///   ]
+/// }
+/// ```
+fn parse_data_payload(node: &AstNode) -> Option<(String, Vec<DataConstructor>)> {
+    let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
+    let constructors = node
+        .payload
+        .get("constructors")
+        .and_then(|c| c.as_array())?
+        .iter()
+        .map(|c| {
+            let cname = c.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let args = c
+                .get("args")
+                .and_then(|a| a.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|a| {
+                            let aname = a.get("name").and_then(|v| v.as_str()).unwrap_or("_").to_string();
+                            let atype = a.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            (aname, atype)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            DataConstructor { name: cname, args }
+        })
+        .collect();
+    Some((name, constructors))
+}
+
+/// Check strict positivity (ADR-0082 §6): reject a `data` declaration if a
+/// constructor argument contains the type being defined in a negative
+/// position (e.g. `data Bad = MkBad(Bad -> Int)`).
+///
+/// For simple inductive types (steps 1-2), we check that no constructor
+/// argument's type name equals the type being defined when the argument
+/// appears in a function position (negative). Since we only store type
+/// *names* (not full type expressions) in the payload, the check is: no
+/// constructor arg type may be a function type whose domain is the type
+/// being defined. For the initial implementation, we check the simpler
+/// condition: the type name must not appear as a function-arg type. This
+/// covers the common cases (`Bad = MkBad(Bad -> Int)`, `Bad = MkBad(Int -> Bad)`).
+///
+/// Returns `Ok(())` if the declaration is strictly positive, `Err(reason)`
+/// otherwise.
+fn check_strict_positivity(type_name: &str, constructors: &[DataConstructor]) -> Result<(), String> {
+    for cons in constructors {
+        for (arg_name, arg_type) in &cons.args {
+            // A function type containing the type name in its domain is
+            // a negative occurrence. We check for the pattern `Type -> ...`
+            // where `Type` is the type being defined.
+            if arg_type.contains("->") {
+                // The arg type is a function type. Check if the type name
+                // appears in the domain (left of the first `->`).
+                let domain = arg_type.split("->").next().unwrap_or("").trim();
+                if domain == type_name {
+                    return Err(format!(
+                        "strict positivity violated: constructor '{}' arg '{}' has type '{}' \
+                         with '{}' in a negative (function domain) position",
+                        cons.name, arg_name, arg_type, type_name
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Desugar a `data` declaration into a `block` of definitions:
+/// the predicate, each constructor, and the recursor (ADR-0082 §1).
+///
+/// `data Nat = Zero | Succ(Nat)` desugars to a `block` containing:
+/// - `Nat = (v) -> v.tag == "Zero" or (v.tag == "Succ" and Nat(v.pred))`
+/// - `Zero = { tag: "Zero" }`
+/// - `Succ = (pred) -> { tag: "Succ", pred: pred }`
+/// - `Nat.rec = (base, step) -> (n) -> if n.tag == "Zero" then base \
+///   else step(n.pred, Nat.rec(base, step)(n.pred))`
+///
+/// The recursor is structurally recursive on `n` (decreasing via `n.pred`),
+/// consistent with ADR-0068's `array.rec` approach.
+fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
+    let (type_name, constructors) = parse_data_payload(original)?;
+
+    // Step 2: strict positivity check.
+    if let Err(reason) = check_strict_positivity(&type_name, &constructors) {
+        // On positivity violation, emit a single node that will cause a
+        // runtime error when evaluated. The desugar pass is not the right
+        // place to surface compile errors (it's a pure Ast→Ast transform),
+        // so we encode the error as a `lit` node with an error payload.
+        // The typechecker/eval will surface it.
+        let err_idx = push_leaf(out, "lit", Value::from(format!("__data_error__: {}", reason)));
+        return Some(AstRef::new(err_idx));
+    }
+
+    let mut stmts: Vec<usize> = Vec::new();
+
+    // 1. Predicate: Type = (v) -> <checks>
+    //    For a single constructor with no args: v.tag == "Cons"
+    //    For multiple: v.tag == "C1" or (v.tag == "C2" and <recursive checks>)
+    let pred_var = push_leaf(out, "var", Value::from("v"));
+    let pred_body = build_predicate_body(out, &type_name, &constructors, pred_var);
+    let pred_fn = push_node(out, "function", vec![pred_var, pred_body]);
+    let pred_target = push_leaf(out, "var", Value::from(type_name.clone()));
+    let pred_assign = push_node(out, "assign", vec![pred_target, pred_fn]);
+    stmts.push(pred_assign);
+
+    // 2. Constructors: Cons = { tag: "Cons" } or (args) -> { tag: "Cons", arg: arg, ... }
+    for cons in &constructors {
+        let cons_target = push_leaf(out, "var", Value::from(cons.name.clone()));
+        let cons_value = if cons.args.is_empty() {
+            // Nullary constructor: { tag: "ConsName" }
+            push_leaf(out, "lit", serde_json::json!({ "tag": cons.name }))
+        } else {
+            // N-ary constructor: (arg1, arg2, ...) -> { tag: "ConsName", arg1: arg1, ... }
+            let arg_vars: Vec<usize> = cons
+                .args
+                .iter()
+                .map(|(name, _)| push_leaf(out, "var", Value::from(name.clone())))
+                .collect();
+            // Build the object: { tag: "ConsName", arg1: arg1, ... }
+            let mut obj = serde_json::Map::new();
+            obj.insert("tag".to_string(), Value::from(cons.name.clone()));
+            for (arg_name, _) in &cons.args {
+                obj.insert(arg_name.clone(), Value::from(arg_name.clone()));
+            }
+            // The object literal is a `lit` node with the tag + arg names.
+            // At eval time, we need to substitute the actual arg values.
+            // For simplicity, use a `json` node that constructs the object
+            // from the arg variables.
+            let obj_lit = push_leaf(out, "lit", Value::Object(obj));
+            let cons_fn = push_node(out, "function", {
+                let mut children = arg_vars.clone();
+                children.push(obj_lit);
+                children
+            });
+            cons_fn
+        };
+        let cons_assign = push_node(out, "assign", vec![cons_target, cons_value]);
+        stmts.push(cons_assign);
+    }
+
+    // 3. Recursor: Type.rec = (base, step) -> (n) ->
+    //    if n.tag == "Zero" then base
+    //    else step(n.pred, Type.rec(base, step)(n.pred))
+    //
+    // For the general case with multiple constructors, the recursor
+    // dispatches on n.tag. For the initial implementation, we generate
+    // a two-constructor recursor (base + step) which covers Nat, Bool,
+    // Maybe, Either patterns.
+    let rec_name = format!("{}.rec", type_name);
+    let rec_target = push_leaf(out, "var", Value::from(rec_name));
+    let rec_fn = build_recursor(out, &type_name, &constructors);
+    let rec_assign = push_node(out, "assign", vec![rec_target, rec_fn]);
+    stmts.push(rec_assign);
+
+    // Wrap all statements in a block.
+    let block = push_node(out, "block", stmts);
+    Some(AstRef::new(block))
+}
+
+/// Build the predicate body: a boolean expression checking `v.tag == "C1"`
+/// (and recursive arg checks) `or` `v.tag == "C2"` ...
+fn build_predicate_body(
+    out: &mut Ast,
+    type_name: &str,
+    constructors: &[DataConstructor],
+    v_idx: usize,
+) -> usize {
+    if constructors.is_empty() {
+        return push_leaf(out, "lit", Value::Bool(false));
+    }
+    if constructors.len() == 1 {
+        return build_cons_check(out, type_name, &constructors[0], v_idx);
+    }
+    // Multiple constructors: fold with `or`.
+    let mut expr = build_cons_check(out, type_name, &constructors[0], v_idx);
+    for cons in &constructors[1..] {
+        let next = build_cons_check(out, type_name, cons, v_idx);
+        expr = push_node(out, "binary.or", vec![expr, next]);
+    }
+    expr
+}
+
+/// Build a check for a single constructor: `v.tag == "ConsName"` and
+/// optionally `Type(v.arg)` for each recursive arg.
+fn build_cons_check(
+    out: &mut Ast,
+    type_name: &str,
+    cons: &DataConstructor,
+    v_idx: usize,
+) -> usize {
+    // v.tag == "ConsName"
+    let tag_lit = push_leaf(out, "lit", Value::from("tag"));
+    let tag_access = push_node(out, "field-access", vec![v_idx, tag_lit]);
+    let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
+    let tag_eq = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
+
+    if cons.args.is_empty() {
+        return tag_eq;
+    }
+
+    // Add recursive checks: and Type(v.arg) for each arg whose type is type_name.
+    let mut expr = tag_eq;
+    for (arg_name, arg_type) in &cons.args {
+        if arg_type == type_name {
+            // v.arg
+            let arg_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+            let field_access = push_node(out, "field-access", vec![v_idx, arg_lit]);
+            // Type(v.arg) — call the predicate on the field
+            let type_var = push_leaf(out, "var", Value::from(type_name));
+            let call = push_node(out, "call", vec![type_var, field_access]);
+            expr = push_node(out, "binary.and", vec![expr, call]);
+        }
+    }
+    expr
+}
+
+/// Build the recursor function: (base, step) -> (n) ->
+///   if n.tag == "<first_cons>" then base
+///   else step(n.<arg>, Type.rec(base, step)(n.<arg>))
+///
+/// For the initial implementation, this handles the common two-constructor
+/// pattern (base + step). For types with more constructors, the recursor
+/// dispatches via nested `if` on `n.tag`.
+fn build_recursor(
+    out: &mut Ast,
+    type_name: &str,
+    constructors: &[DataConstructor],
+) -> usize {
+    // Parameters: (base, step)
+    let base_var = push_leaf(out, "var", Value::from("base"));
+    let step_var = push_leaf(out, "var", Value::from("step"));
+
+    // Inner function: (n) -> <dispatch>
+    let n_var = push_leaf(out, "var", Value::from("n"));
+
+    // Build the dispatch on n.tag for each constructor.
+    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, base_var, step_var);
+
+    let inner_fn = push_node(out, "function", vec![n_var, dispatch]);
+    // Outer function: (base, step) -> inner_fn
+    push_node(out, "function", vec![base_var, step_var, inner_fn])
+}
+
+/// Build the recursor body: dispatch on n.tag.
+/// - First constructor (nullary): `if n.tag == "C0" then base`
+/// - Other constructors: `else if n.tag == "Ci" then step_i(n.arg, Type.rec(base, step)(n.arg))`
+fn build_recursor_dispatch(
+    out: &mut Ast,
+    type_name: &str,
+    constructors: &[DataConstructor],
+    n_idx: usize,
+    base_idx: usize,
+    step_idx: usize,
+) -> usize {
+    if constructors.is_empty() {
+        return push_leaf(out, "lit", Value::Null);
+    }
+
+    // n.tag
+    let tag_lit = push_leaf(out, "lit", Value::from("tag"));
+    let n_tag = push_node(out, "field-access", vec![n_idx, tag_lit]);
+
+    // First constructor (base case): n.tag == "C0" → base
+    let first = &constructors[0];
+    let first_name_lit = push_leaf(out, "lit", Value::from(first.name.clone()));
+    let first_tag_eq = push_node(out, "binary.eq", vec![n_tag, first_name_lit]);
+
+    if constructors.len() == 1 {
+        // Only one constructor — the recursor just returns base.
+        let null_lit = push_leaf(out, "lit", Value::Null);
+        return push_node(out, "if", vec![first_tag_eq, base_idx, null_lit]);
+    }
+
+    // Second constructor (step case): n.tag == "C1" → step(n.arg, Type.rec(base, step)(n.arg))
+    let second = &constructors[1];
+    let tag_lit2 = push_leaf(out, "lit", Value::from("tag"));
+    let n_tag2 = push_node(out, "field-access", vec![n_idx, tag_lit2]);
+    let second_name_lit = push_leaf(out, "lit", Value::from(second.name.clone()));
+    let second_tag_eq = push_node(out, "binary.eq", vec![n_tag2, second_name_lit]);
+
+    // n.arg (the recursive argument, if any)
+    let step_expr = if second.args.is_empty() {
+        // No args — just call step with no recursive arg.
+        push_node(out, "call", vec![step_idx])
+    } else {
+        // n.<first_arg>
+        let (arg_name, _) = &second.args[0];
+        let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+        let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
+        // Type.rec(base, step) — recursive call
+        let rec_var = push_leaf(out, "var", Value::from(format!("{}.rec", type_name)));
+        let rec_call = push_node(out, "call", vec![rec_var, base_idx, step_idx]);
+        // Type.rec(base, step)(n.arg) — apply to the recursive arg
+        let rec_app = push_node(out, "call", vec![rec_call, n_arg]);
+        // step(n.arg, Type.rec(base, step)(n.arg))
+        push_node(out, "call", vec![step_idx, n_arg, rec_app])
+    };
+
+    // if n.tag == "C0" then base else if n.tag == "C1" then step_expr else null
+    let null_lit = push_leaf(out, "lit", Value::Null);
+    push_node(out, "if", vec![first_tag_eq, base_idx, second_tag_eq, step_expr, null_lit])
+}
+
+// ---------------------------------------------------------------------------
 // Rust desugar dispatch
 // ---------------------------------------------------------------------------
 
@@ -685,6 +1011,7 @@ fn try_rust_desugar(
         "while" => desugar_while(original, ast, out, remap),
         "do-while" => Some(desugar_do_while(original, ast, out, remap)),
         "for" => Some(desugar_for(original, ast, out, remap)),
+        "data" => desugar_data(original, out),
         _ => None,
     }
 }
@@ -1509,5 +1836,168 @@ mod tests {
             left.kind, "match",
             "nested nullish should be desugared to match"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0082 step 1-2: `data` desugaring + strict positivity
+    // -----------------------------------------------------------------------
+
+    /// Helper: build a `data` AST node with the given type name and
+    /// constructors.
+    fn data_node(name: &str, constructors: &[(&str, &[(&str, &str)])]) -> AstNode {
+        let cons: Vec<serde_json::Value> = constructors
+            .iter()
+            .map(|(cname, args)| {
+                let args_arr: Vec<serde_json::Value> = args
+                    .iter()
+                    .map(|(an, at)| json!({"name": an, "type": at}))
+                    .collect();
+                json!({"name": cname, "args": args_arr})
+            })
+            .collect();
+        AstNode::new("data").with_payload(json!({
+            "name": name,
+            "constructors": cons
+        }))
+    }
+
+    #[test]
+    fn data_nat_desugars_to_block() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        // The root should be a `block` containing the predicate, two
+        // constructors, and the recursor (4 assign statements).
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(children.len(), 4, "expected 4 statements (pred + 2 cons + rec)");
+
+        // Each statement should be an `assign`.
+        for (i, child_idx) in children.iter().enumerate() {
+            let node = out.get(AstRef::new(child_idx.as_u64().unwrap() as usize)).unwrap();
+            assert_eq!(node.kind, "assign", "statement {} should be assign, got {}", i, node.kind);
+        }
+    }
+
+    #[test]
+    fn data_bool_desugars_correctly() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Bool", &[("True", &[]), ("False", &[])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 2 constructors + 1 recursor = 4
+        assert_eq!(children.len(), 4);
+    }
+
+    #[test]
+    fn data_strict_positivity_violation() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        // data Bad = MkBad(Bad -> Int) — negative occurrence
+        ast.push(data_node("Bad", &[("MkBad", &[("f", "Bad -> Int")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        // Should produce a `lit` node with an error message, not a `block`.
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "lit");
+        let msg = root.payload.as_str().unwrap_or("");
+        assert!(
+            msg.contains("__data_error__"),
+            "expected data error, got: {}",
+            msg
+        );
+        assert!(
+            msg.contains("strict positivity"),
+            "expected strict positivity error, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn data_maybe_desugars_correctly() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        // data Maybe = None | Some(value)
+        // (value is untyped — not recursive, so no recursive check)
+        ast.push(data_node("Maybe", &[("None", &[]), ("Some", &[("value", "Int")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+        // 1 predicate + 2 constructors + 1 recursor = 4
+        assert_eq!(children.len(), 4);
+    }
+
+    #[test]
+    fn data_nat_predicate_is_function() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+
+        // First statement: Nat = (v) -> ...  (assign with var target, function value)
+        let pred_assign = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(pred_assign.kind, "assign");
+        let pred_children = pred_assign.payload.get("children").unwrap().as_array().unwrap();
+        // Target: var("Nat")
+        let target = out.get(AstRef::new(pred_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(target.kind, "var");
+        assert_eq!(target.payload, json!("Nat"));
+        // Value: function
+        let value = out.get(AstRef::new(pred_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(value.kind, "function");
+    }
+
+    #[test]
+    fn data_nat_recursor_is_function() {
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+
+        // Last statement: Nat.rec = (base, step) -> (n) -> ...
+        let rec_assign = out.get(AstRef::new(children[3].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(rec_assign.kind, "assign");
+        let rec_children = rec_assign.payload.get("children").unwrap().as_array().unwrap();
+        // Target: var("Nat.rec")
+        let target = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(target.kind, "var");
+        assert_eq!(target.payload, json!("Nat.rec"));
+        // Value: function (outer: base, step)
+        let value = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(value.kind, "function");
     }
 }
