@@ -9346,6 +9346,9 @@ fn predicate_annotation_disproved() {
     assert!(
         matches!(err, LangError::Engine { ref message, .. } if message.contains("disproved")),
         "expected disproved error, got {:?}",
+        err
+    );
+}
 
 // ---------------------------------------------------------------------------
 // ADR-0083: FFI marshalling types, marshalable judgment op, foreign_type
@@ -9553,7 +9556,10 @@ fn predicate_annotation_blocked() {
         result.diagnostics[0].message.contains("runtime assert required"),
         "diagnostic message: {}",
         result.diagnostics[0].message
+    );
+}
 
+#[test]
 fn foreign_type_errors_without_module_registry() {
     let engine = engine();
     let mut lang = Language::new();
@@ -9591,7 +9597,10 @@ fn predicate_annotation_proven_no_diagnostic() {
         result.diagnostics.is_empty(),
         "proven annotation should have no diagnostics, got {:?}",
         result.diagnostics
+    );
+}
 
+#[test]
 fn type_signature_trait_works_with_mock() {
     use handl_platform::{EvalContext, EvalError, Function, TypeSignature};
     struct MockOp;
@@ -9834,7 +9843,9 @@ fn b2_symbolic_unsupported_op_blocked() {
         100_000,
     );
     assert_eq!(proof.verdict, Verdict::Blocked);
+}
 
+#[test]
 fn module_registry_lookup_type_signature_returns_signature() {
     let registry = ModuleRegistry::new().with(ffi_mock::FfiModule);
     let sig = registry.lookup_type_signature("ffi.puts");
