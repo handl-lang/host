@@ -234,8 +234,61 @@ impl<K: Plugin> ToolingHost<K> {
     }
 
     /// Parses `source` and returns diagnostics for the resulting module.
-    pub fn diagnose(&self, _source: &str) -> Vec<Diagnostic> {
-        Vec::new()
+    ///
+    /// Lexes and parses `source` with the canonical kit, then runs the
+    /// data-driven [`handl_plugin_engine_lint::LintEngine`] over the
+    /// resulting AST. Parse errors are converted to error-level diagnostics;
+    /// lint diagnostics are mapped to the host-tooling [`Diagnostic`] type.
+    pub fn diagnose(&self, source: &str) -> Vec<Diagnostic> {
+        let kit = match handl_kit_canonical::Kit::new() {
+            Ok(kit) => kit,
+            Err(e) => {
+                return vec![Diagnostic {
+                    level: DiagnosticLevel::Error,
+                    message: format!("failed to assemble canonical kit: {e}"),
+                    span: None,
+                }];
+            }
+        };
+        let ast = match kit.parse(source) {
+            Ok(ast) => ast,
+            Err(e) => {
+                return vec![Diagnostic {
+                    level: DiagnosticLevel::Error,
+                    message: format!("parse error: {e}"),
+                    span: None,
+                }];
+            }
+        };
+        if ast.is_empty() {
+            return Vec::new();
+        }
+        let root = handl_language::AstRef::new(ast.len() - 1);
+        let lang = kit.runtime().lang();
+        match handl_plugin_engine_lint::LintEngine::new().lint(lang, &ast, root) {
+            Ok(lint_diags) => lint_diags
+                .into_iter()
+                .map(|d| Diagnostic {
+                    level: match d.level {
+                        handl_plugin_engine_lint::DiagnosticLevel::Error => DiagnosticLevel::Error,
+                        handl_plugin_engine_lint::DiagnosticLevel::Warning => {
+                            DiagnosticLevel::Warning
+                        }
+                        handl_plugin_engine_lint::DiagnosticLevel::Info => DiagnosticLevel::Info,
+                    },
+                    message: d.message,
+                    span: d.span.map(|s| handl_platform::Span {
+                        start: s.start,
+                        end: s.end,
+                    }),
+                })
+                .collect(),
+            Err(e) => vec![Diagnostic {
+                level: DiagnosticLevel::Error,
+                message: format!("lint error: {e}"),
+                span: None,
+            }],
+        }
     }
 
     /// Hover placeholder: returns the formatted expression for the whole source.
