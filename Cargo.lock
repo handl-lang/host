@@ -1028,6 +1028,10 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-diag-expression",
+ "handl-plugin-engine-fmt",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
@@ -1304,6 +1308,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-engine-fmt"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-engine-lex"
 version = "0.1.0"
 dependencies = [
@@ -1487,7 +1501,9 @@ dependencies = [
 name = "handl-plugin-ext-fmt"
 version = "0.1.0"
 dependencies = [
+ "handl-language",
  "handl-platform",
+ "handl-plugin-engine-fmt",
  "serde_json",
 ]
 

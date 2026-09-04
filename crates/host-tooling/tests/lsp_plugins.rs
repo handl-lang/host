@@ -1,4 +1,5 @@
 use handl_host_tooling::{Location, TextContentChange, ToolingHost};
+use handl_kit_canonical::Kit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
@@ -97,6 +98,11 @@ fn incremental_change_appends_text() {
 #[ignore = "LSP plugins are stubbed"]
 fn format_still_works() {
     let h = host();
-    let out = h.format("a = 1").unwrap();
+    let lang = Kit::new()
+        .expect("canonical kit should assemble")
+        .runtime()
+        .lang()
+        .clone();
+    let out = h.format(&lang, "a = 1").unwrap();
     assert_eq!(out, "a = 1;");
 }

@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
+handl-plugin-engine-fmt = { workspace = true }
+handl-language = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
