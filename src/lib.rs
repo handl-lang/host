@@ -139,7 +139,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the `lang.lex` interface. Loaded at compile
 /// time from the kit-stdlib data dir. The lex engine stays Rust
 /// (ADR-0077 "Special"); this .hnl declares the interface only.
-const LANG_LEX_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/lang_lex/lang_lex.hnl");
+const LANG_LEX_HNL: &str = include_str!("../../../handl-packages/lang_lex/lang_lex.hnl");
 
 /// A `Library` plugin that registers the `lang.lex` implementation via
 /// the generic [`HandlLibraryPlugin`].
