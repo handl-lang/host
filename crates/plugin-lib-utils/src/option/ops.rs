@@ -1,7 +1,23 @@
+//! Rust `Function` impls for the `option` module — the handls (handlers)
+//! for the `op`/`handl` declarations in `option.hnl`.
+//!
+//! All 15 functions are FFI atoms: they manipulate `serde_json::Value`
+//! option values (using the `_tag` convention: `{"_tag": "Some", "value":
+//! ...}` / `{"_tag": "None"}`) and call `apply_fn` from `crate::shared`.
+//! They cannot be expressed as pure handl arrows without losing the exact
+//! `TypeMismatch` error messages the tests rely on. The `op`/`handl`
+//! declaration form (ADR-0077 Phase 2) declares the interface in
+//! `option.hnl`; these impls provide the logic and are registered in an
+//! [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Value as JsonValue, json};
 
 use crate::shared::{apply_fn, is_truthy_value, require_function_value};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 fn as_option_tag(value: &JsonValue) -> Option<&str> {
     value.get("_tag")?.as_str()
@@ -30,6 +46,10 @@ fn require_option(arg: &serde_json::Value) -> Result<(), EvalError> {
 fn get_value(arg: &serde_json::Value) -> Option<&JsonValue> {
     arg.get("value")
 }
+
+// ---------------------------------------------------------------------------
+// Constructors
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct SomeFn;
@@ -62,6 +82,10 @@ impl Function for NoneFn {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Predicates
+// ---------------------------------------------------------------------------
+
 #[derive(Clone, Copy)]
 pub struct IsSome;
 impl Function for IsSome {
@@ -93,6 +117,10 @@ impl Function for IsNone {
         Ok(serde_json::Value::from(json!(is_none(arg))))
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unwrap
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct Unwrap;
@@ -163,6 +191,10 @@ impl Function for UnwrapOrElse {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Map / FlatMap / AndThen / Filter
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct Map;
@@ -251,6 +283,10 @@ impl Function for Filter {
     }
 }
 
+// ---------------------------------------------------------------------------
+// MapOr
+// ---------------------------------------------------------------------------
+
 #[derive(Clone, Copy)]
 pub struct MapOr;
 impl Function for MapOr {
@@ -276,6 +312,10 @@ impl Function for MapOr {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Or / OrElse / And / Xor
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct Or;

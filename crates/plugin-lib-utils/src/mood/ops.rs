@@ -1,4 +1,14 @@
-use handl_platform::Module;
+//! Rust `Function` impls for the `mood` module — the handls (handlers)
+//! for the `op`/`handl` declarations in `mood.hnl`.
+//!
+//! All 6 functions are FFI atoms: they use `as_kind`, `project`,
+//! `complement`, `matches`, `ok_result`, and `err_result` from
+//! `crate::shared` and cannot be expressed as pure handl arrows without
+//! losing the exact error messages the tests rely on. The `op`/`handl`
+//! declaration form (ADR-0077 Phase 2) declares the interface in
+//! `mood.hnl`; these impls provide the logic and are registered in an
+//! [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value as JsonValue;
 
@@ -103,25 +113,5 @@ impl Function for MoodCnd {
         let kind = as_kind(&args[1])?;
         let default = &args[2];
         Ok(project(value, kind).unwrap_or_else(|| serde_json::Value::from(default.clone())))
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct MoodModule;
-impl Module for MoodModule {
-    fn name(&self) -> &str {
-        "mood"
-    }
-
-    fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "ind" => Some(&MoodInd),
-            "int" => Some(&MoodInt),
-            "norm" => Some(&MoodNorm),
-            "pot" => Some(&MoodPot),
-            "neg" => Some(&MoodNeg),
-            "cnd" => Some(&MoodCnd),
-            _ => None,
-        }
     }
 }

@@ -1,6 +1,6 @@
 use handl_platform::Module;
 
-use super::module::TypeModule;
+use super::TypeModule;
 use handl_platform::{EvalContext, EvalError};
 
 fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
