@@ -1,0 +1,8 @@
+--- kv — key-value store abstraction for the handl runtime.
+---
+--- This is a trait-abstraction library: the KeyValueStore trait lives in
+--- Rust (plugin-lib-kv) and is implemented by concrete backend crates
+--- (kv-hashmap). The kv.* functions (kv.get, kv.set, kv.remove, kv.has,
+--- kv.clear, kv.size) are callable from handl expressions via the impl
+--- crate's op/handl bindings. This .hnl file declares the library's
+--- capability surface for the plugin system.

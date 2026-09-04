@@ -1,0 +1,420 @@
+--- utils — standard library utility modules for the handl runtime.
+---
+--- This is an aggregator crate: it bundles many small modules (bool, fn,
+--- math, mood, option, parse, result, serialize, str, typeof, encoding)
+--- and re-exports modules from other crates (base64, hex, json, toml,
+--- yaml, url-rfc, url-whatwg). The Rust Module/Function impls live in
+--- plugin-lib-utils; this .hnl file declares the aggregated interface
+--- surface (capabilities) for the plugin system.
+---
+--- The re-exported crates (base64, hex, json, toml, yaml, url-rfc,
+--- url-whatwg) each have their own .hnl files declaring their own op
+--- interfaces; they are registered here as concrete modules but their
+--- capability declarations live in their respective data dirs.
+---
+--- ## bool module
+--- bool.and — logical conjunction of two booleans.
+--- bool.or — logical disjunction of two booleans.
+--- bool.not — logical negation of a boolean.
+--- bool.xor — exclusive-or of two booleans.
+--- bool.nand — negated conjunction (not-and) of two booleans.
+--- bool.nor — negated disjunction (not-or) of two booleans.
+--- bool.implies — logical implication (a implies b).
+--- bool.eq — test whether two booleans are equal.
+---
+--- ## fn module
+--- fn.pipe — pipe a value through a sequence of functions left-to-right.
+--- fn.flow — alias of pipe: flow a value through functions left-to-right.
+--- fn.compose — compose two functions right-to-left.
+--- fn.fanout — apply a value to multiple functions, collecting results.
+--- fn.fanout_fn — fanout returning a function for deferred application.
+--- fn.choice — select between two functions based on a predicate.
+--- fn.apply — apply a function to a single argument.
+--- fn.map — map a function over an array.
+--- fn.filter — filter an array by a predicate.
+--- fn.reduce — reduce an array with a function and initial value.
+--- fn.flat_map — map then flatten one level.
+--- fn.find — find the first element satisfying a predicate.
+--- fn.some — test whether any element satisfies a predicate.
+--- fn.every — test whether all elements satisfy a predicate.
+--- fn.group_by — group array elements by a key function.
+--- fn.partition — partition an array into satisfying/non-satisfying.
+--- fn.count_by — count elements per key from a key function.
+--- fn.tap — apply a side-effect function, returning the original value.
+--- fn.match — pattern-match dispatch over a tagged value.
+--- fn.constantly — return a function that always yields a constant.
+--- fn.flip — flip the argument order of a binary function.
+--- fn.partial — partially apply (curry) the first argument of a function.
+--- fn.when — apply a function only when a predicate holds.
+--- fn.unless — apply a function only when a predicate does not hold.
+--- fn.converge — apply multiple functions to one input then combine.
+---
+--- ## math module
+--- math.abs — absolute value of a number.
+--- math.add — add two numbers.
+--- math.ceil — ceiling of a number.
+--- math.clamp — clamp a number between a lower and upper bound.
+--- math.cos — cosine of a number (radians).
+--- math.cosh — hyperbolic cosine of a number.
+--- math.cbrt — cube root of a number.
+--- math.asin — arc sine of a number.
+--- math.acos — arc cosine of a number.
+--- math.atan — arc tangent of a number.
+--- math.atan2 — arc tangent of y/x using signs of both arguments.
+--- math.asinh — inverse hyperbolic sine.
+--- math.acosh — inverse hyperbolic cosine.
+--- math.atanh — inverse hyperbolic tangent.
+--- math.degrees — convert radians to degrees.
+--- math.div — divide two numbers.
+--- math.e — Euler's number (e).
+--- math.exp — exponential function e^x.
+--- math.factorial — factorial of a non-negative integer.
+--- math.floor — floor of a number.
+--- math.floor_div — integer (floored) division.
+--- math.fract — fractional part of a number.
+--- math.gcd — greatest common divisor of two integers.
+--- math.hypot — hypotenuse: sqrt(a^2 + b^2).
+--- math.infinity — positive infinity constant.
+--- math.is_finite — test whether a number is finite.
+--- math.is_infinite — test whether a number is infinite.
+--- math.is_integer — test whether a number is an integer.
+--- math.is_nan — test whether a number is NaN.
+--- math.lcm — least common multiple of two integers.
+--- math.lerp — linear interpolation between two values.
+--- math.log — natural logarithm of a number.
+--- math.log10 — base-10 logarithm of a number.
+--- math.log2 — base-2 logarithm of a number.
+--- math.map_range — map a value from one range to another.
+--- math.max — maximum of two numbers.
+--- math.min — minimum of two numbers.
+--- math.mod — modulo of two numbers.
+--- math.mul — multiply two numbers.
+--- math.nan — NaN constant.
+--- math.pi — pi constant.
+--- math.pow — raise a number to a power.
+--- math.radians — convert degrees to radians.
+--- math.round — round a number to the nearest integer.
+--- math.round_to — round a number to a given precision.
+--- math.sign — sign of a number (-1, 0, or 1).
+--- math.sin — sine of a number (radians).
+--- math.sinh — hyperbolic sine of a number.
+--- math.sqrt — square root of a number.
+--- math.sub — subtract two numbers.
+--- math.tan — tangent of a number (radians).
+--- math.tanh — hyperbolic tangent of a number.
+--- math.tau — tau (2*pi) constant.
+--- math.trunc — truncate a number toward zero.
+---
+--- ## mood module
+--- mood.ind — inductive mood: project a value to a kind or error.
+--- mood.int — interrogative mood: test whether a value matches a kind.
+--- mood.norm — normative mood: project to a kind, returning a Result.
+--- mood.pot — potential mood: project to a kind, defaulting to null.
+--- mood.neg — negative mood: complement of a value w.r.t. a kind.
+--- mood.cnd — conditional mood: project to a kind with a default value.
+---
+--- ## option module
+--- option.some — construct a Some option wrapping a value.
+--- option.none — construct a None option.
+--- option.is_some — test whether an option is Some.
+--- option.is_none — test whether an option is None.
+--- option.unwrap — extract the value from Some, error on None.
+--- option.unwrap_or — extract the value or return a default.
+--- option.unwrap_or_else — extract the value or compute via a function.
+--- option.map — transform the inner value of a Some option.
+--- option.flat_map — map then flatten an option (alias: and_then).
+--- option.and_then — alias of flat_map.
+--- option.filter — keep a Some only if the predicate holds.
+--- option.map_or — map a Some, returning a default for None.
+--- option.or — return this option or an alternative if None.
+--- option.or_else — return this option or compute an alternative if None.
+--- option.and — combine two options, returning None if either is None.
+--- option.xor — exclusive-or of two options (Some only if exactly one is Some).
+---
+--- ## parse module
+--- parse.parse — parse a string with a named parser (url_rfc, url_whatwg).
+---
+--- ## result module
+--- result.ok — construct an Ok result wrapping a value.
+--- result.err — construct an Err result wrapping an error.
+--- result.is_ok — test whether a result is Ok.
+--- result.is_err — test whether a result is Err.
+---
+--- ## serialize module
+--- serialize.serialize — serialize a value to a string with a named format.
+--- serialize.deserialize — deserialize a string to a value with a named format.
+---
+--- ## str module
+--- str.upper — convert a string to uppercase.
+--- str.lower — convert a string to lowercase.
+--- str.trim — trim whitespace from both ends of a string.
+--- str.trim_start — trim whitespace from the start of a string.
+--- str.trim_end — trim whitespace from the end of a string.
+--- str.trim_matches — trim characters matching a pattern from both ends.
+--- str.reverse — reverse the characters of a string.
+--- str.length — return the character length of a string.
+--- str.concat — concatenate two or more strings.
+--- str.is_empty — test whether a string is empty.
+--- str.equals — test whether two strings are equal.
+--- str.is_alpha — test whether a string is all alphabetic.
+--- str.is_numeric — test whether a string is all numeric.
+--- str.is_alphanumeric — test whether a string is all alphanumeric.
+--- str.contains — test whether a string contains a substring.
+--- str.starts_with — test whether a string starts with a prefix.
+--- str.ends_with — test whether a string ends with a suffix.
+--- str.count — count non-overlapping occurrences of a substring.
+--- str.find — find the byte index of the first occurrence of a substring.
+--- str.rfind — find the byte index of the last occurrence of a substring.
+--- str.levenshtein — compute the Levenshtein edit distance between two strings.
+--- str.similarity — compute a normalized similarity ratio (0..1) between two strings.
+--- str.split — split a string by a separator into an array.
+--- str.join — join an array of strings with a separator.
+--- str.replace — replace all occurrences of a pattern in a string.
+--- str.replace_first — replace the first occurrence of a pattern in a string.
+--- str.repeat — repeat a string n times.
+--- str.char_at — return the character at a given index.
+--- str.slice — slice a string by start and end indices.
+--- str.pad_left — pad a string on the left to a target width.
+--- str.pad_right — pad a string on the right to a target width.
+--- str.strip_prefix — remove a leading prefix if present.
+--- str.strip_suffix — remove a trailing suffix if present.
+--- str.lines — split a string into lines (array).
+--- str.split_at — split a string at a byte index into two parts.
+--- str.split_whitespace — split a string on whitespace into an array.
+--- str.truncate — truncate a string to at most n characters.
+--- str.slugify — convert a string to a URL-safe slug.
+--- str.word_wrap — wrap a string to a maximum line width.
+--- str.capitalize — capitalize the first character of a string.
+--- str.title_case — convert a string to Title Case.
+--- str.snake_case — convert a string to snake_case.
+--- str.camel_case — convert a string to camelCase.
+--- str.pascal_case — convert a string to PascalCase.
+--- str.kebab_case — convert a string to kebab-case.
+---
+--- ## typeof module (type)
+--- typeof.string — type tag for strings.
+--- typeof.str — short type tag for strings.
+--- typeof.number — type tag for numbers.
+--- typeof.num — short type tag for numbers.
+--- typeof.bool — type tag for booleans.
+--- typeof.null — type tag for null.
+--- typeof.array — type tag for arrays.
+--- typeof.arr — short type tag for arrays.
+--- typeof.object — type tag for objects.
+--- typeof.obj — short type tag for objects.
+--- typeof.any — universal type tag (matches anything).
+--- typeof.unknown — unknown type tag.
+--- typeof.is — test whether a value is of a given kind.
+--- typeof.must — assert a value is of a given kind (error on mismatch).
+--- typeof.may — test whether a value may be of a given kind.
+--- typeof.not — test whether a value is not of a given kind.
+--- typeof.when — conditional type guard returning the value or null.
+--- typeof.to_string — coerce a value to a string.
+--- typeof.to_number — coerce a value to a number.
+--- typeof.to_bool — coerce a value to a boolean.
+--- typeof.type_of — return the type name of a value.
+--- typeof.typeof — alias of type_of.
+--- typeof.identity — return the value unchanged.
+--- typeof.default — return the value or a default if null.
+--- typeof.coalesce — return the first non-null value among arguments.
+---
+--- ## encoding module
+--- encoding.encode — encode a value to a string with a named codec.
+--- encoding.decode — decode a string with a named codec.
+---
+--- ## re-exported modules
+--- base64 — re-exported from plugin-lib-base64 (see base64/base64.hnl).
+--- hex — re-exported from plugin-lib-hex (see hex/hex.hnl).
+--- json — re-exported from plugin-lib-json (see json/json.hnl).
+--- toml — re-exported from plugin-lib-toml (see toml/toml.hnl).
+--- yaml — re-exported from plugin-lib-yaml (see yaml/yaml.hnl).
+--- url_rfc — re-exported from plugin-lib-url-rfc (see url_rfc/url_rfc.hnl).
+--- url_whatwg — re-exported from plugin-lib-url-whatwg (see url_whatwg/url_whatwg.hnl).
+cap "bool.and"
+cap "bool.or"
+cap "bool.not"
+cap "bool.xor"
+cap "bool.nand"
+cap "bool.nor"
+cap "bool.implies"
+cap "bool.eq"
+cap "fn.pipe"
+cap "fn.flow"
+cap "fn.compose"
+cap "fn.fanout"
+cap "fn.fanout_fn"
+cap "fn.choice"
+cap "fn.apply"
+cap "fn.map"
+cap "fn.filter"
+cap "fn.reduce"
+cap "fn.flat_map"
+cap "fn.find"
+cap "fn.some"
+cap "fn.every"
+cap "fn.group_by"
+cap "fn.partition"
+cap "fn.count_by"
+cap "fn.tap"
+cap "fn.match"
+cap "fn.constantly"
+cap "fn.flip"
+cap "fn.partial"
+cap "fn.when"
+cap "fn.unless"
+cap "fn.converge"
+cap "math.abs"
+cap "math.add"
+cap "math.ceil"
+cap "math.clamp"
+cap "math.cos"
+cap "math.cosh"
+cap "math.cbrt"
+cap "math.asin"
+cap "math.acos"
+cap "math.atan"
+cap "math.atan2"
+cap "math.asinh"
+cap "math.acosh"
+cap "math.atanh"
+cap "math.degrees"
+cap "math.div"
+cap "math.e"
+cap "math.exp"
+cap "math.factorial"
+cap "math.floor"
+cap "math.floor_div"
+cap "math.fract"
+cap "math.gcd"
+cap "math.hypot"
+cap "math.infinity"
+cap "math.is_finite"
+cap "math.is_infinite"
+cap "math.is_integer"
+cap "math.is_nan"
+cap "math.lcm"
+cap "math.lerp"
+cap "math.log"
+cap "math.log10"
+cap "math.log2"
+cap "math.map_range"
+cap "math.max"
+cap "math.min"
+cap "math.mod"
+cap "math.mul"
+cap "math.nan"
+cap "math.pi"
+cap "math.pow"
+cap "math.radians"
+cap "math.round"
+cap "math.round_to"
+cap "math.sign"
+cap "math.sin"
+cap "math.sinh"
+cap "math.sqrt"
+cap "math.sub"
+cap "math.tan"
+cap "math.tanh"
+cap "math.tau"
+cap "math.trunc"
+cap "mood.ind"
+cap "mood.int"
+cap "mood.norm"
+cap "mood.pot"
+cap "mood.neg"
+cap "mood.cnd"
+cap "option.some"
+cap "option.none"
+cap "option.is_some"
+cap "option.is_none"
+cap "option.unwrap"
+cap "option.unwrap_or"
+cap "option.unwrap_or_else"
+cap "option.map"
+cap "option.flat_map"
+cap "option.and_then"
+cap "option.filter"
+cap "option.map_or"
+cap "option.or"
+cap "option.or_else"
+cap "option.and"
+cap "option.xor"
+cap "parse.parse"
+cap "result.ok"
+cap "result.err"
+cap "result.is_ok"
+cap "result.is_err"
+cap "serialize.serialize"
+cap "serialize.deserialize"
+cap "str.upper"
+cap "str.lower"
+cap "str.trim"
+cap "str.trim_start"
+cap "str.trim_end"
+cap "str.trim_matches"
+cap "str.reverse"
+cap "str.length"
+cap "str.concat"
+cap "str.is_empty"
+cap "str.equals"
+cap "str.is_alpha"
+cap "str.is_numeric"
+cap "str.is_alphanumeric"
+cap "str.contains"
+cap "str.starts_with"
+cap "str.ends_with"
+cap "str.count"
+cap "str.find"
+cap "str.rfind"
+cap "str.levenshtein"
+cap "str.similarity"
+cap "str.split"
+cap "str.join"
+cap "str.replace"
+cap "str.replace_first"
+cap "str.repeat"
+cap "str.char_at"
+cap "str.slice"
+cap "str.pad_left"
+cap "str.pad_right"
+cap "str.strip_prefix"
+cap "str.strip_suffix"
+cap "str.lines"
+cap "str.split_at"
+cap "str.split_whitespace"
+cap "str.truncate"
+cap "str.slugify"
+cap "str.word_wrap"
+cap "str.capitalize"
+cap "str.title_case"
+cap "str.snake_case"
+cap "str.camel_case"
+cap "str.pascal_case"
+cap "str.kebab_case"
+cap "typeof.string"
+cap "typeof.str"
+cap "typeof.number"
+cap "typeof.num"
+cap "typeof.bool"
+cap "typeof.null"
+cap "typeof.array"
+cap "typeof.arr"
+cap "typeof.object"
+cap "typeof.obj"
+cap "typeof.any"
+cap "typeof.unknown"
+cap "typeof.is"
+cap "typeof.must"
+cap "typeof.may"
+cap "typeof.not"
+cap "typeof.when"
+cap "typeof.to_string"
+cap "typeof.to_number"
+cap "typeof.to_bool"
+cap "typeof.type_of"
+cap "typeof.typeof"
+cap "typeof.identity"
+cap "typeof.default"
+cap "typeof.coalesce"
+cap "encoding.encode"
+cap "encoding.decode"

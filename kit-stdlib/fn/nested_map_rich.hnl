@@ -1,0 +1,51 @@
+-- nested_map: a nested rich loop — outer loop iterates over a list of lists,
+-- inner loop maps a function over each inner list.
+-- This demonstrates nested loop support in the rich-loop DSL.
+--
+-- Graph structure:
+--   loop(loop(first(fn.apply)))
+--
+-- The outer loop processes outer-list elements one at a time:
+--   - for each inner list, run an inner loop that maps f over it
+--   - cons the mapped inner list onto the output
+--   - repeat until the outer list is exhausted
+
+rec {
+  remaining: input.0,
+  f:         input.1,
+  acc:       []
+} (
+  state ~> match state.remaining {
+    []: return state.acc,
+
+    [h, ...t]: {
+      mapped = rec {
+        remaining: h,
+        f:         state.f,
+        acc:       []
+      } (
+        inner_state ~> match inner_state.remaining {
+          []: return inner_state.acc,
+
+          [h2, ...t2]: {
+            y = inner_state.f(h2)
+            {
+              state: {
+                remaining: t2,
+                f:         inner_state.f,
+                acc:       [y, ...inner_state.acc]
+              }
+            }
+          }
+        }
+      )
+      {
+        state: {
+          remaining: t,
+          f:         state.f,
+          acc:       [mapped, ...state.acc]
+        }
+      }
+    }
+  }
+)

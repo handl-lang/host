@@ -1,0 +1,7 @@
+--- archive — archive format abstractions for the handl runtime.
+---
+--- This is a trait-abstraction library: the Archive trait and ArchiveEntry
+--- live in Rust (plugin-lib-archive) and are implemented by concrete
+--- archive format crates (tar). There are no callable handl ops here;
+--- the .hnl file exists to declare the library's capability surface for
+--- the plugin system.

@@ -1,0 +1,4 @@
+category:
+  slug: url
+  title: URL
+  description: URL parsing and serialization (RFC 3986 and WHATWG).

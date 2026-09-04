@@ -1,0 +1,3 @@
+--- lang.parse — the parse meta function: parse tokens into an AST.
+--- Called as parse.parse(lang, tokens) → JSON-serialized Ast.
+--- The parse engine stays Rust (ADR-0077 "Special"); this .hnl declares the interface.
