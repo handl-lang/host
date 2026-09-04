@@ -2047,16 +2047,7 @@
           source: Judgment
           lit: body
 
-# `let` — delegates to the `synth_let` judgment, which synth child 0
-# (value) → type T, reads the var name from the assign child's `var`
-# node payload, extends Γ with (name, T), and synth child 1 (body)
-# → return body type.
-- id: type.let
-  node_kind: let
-  synth: !Arr
-    op: synth_let
-    args: []
-    source: Judgment
+# ADR-0079: `type.let` removed (let keyword deleted, graph blocks replace it).
 
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown
@@ -2860,12 +2851,7 @@
 # Statement kinds
 # ---------------------------------------------------------------------------
 
-- id: type.stmt.let
-  node_kind: stmt.let
-  synth: !Arr
-    op: synth_let
-    args: []
-    source: Judgment
+# ADR-0079: `type.stmt.let` removed (no grammar row, let keyword deleted).
 
 - id: type.stmt.export
   node_kind: stmt.export

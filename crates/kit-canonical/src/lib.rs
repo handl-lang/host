@@ -1191,10 +1191,10 @@ mod tests {
 
     #[test]
     fn typecheck_number_returns_type_value() {
-        // The `value` type rule dispatches on JSON type: 42 → type.int.
+        // The `value` type rule dispatches on JSON type: 42 → type.number.
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("42").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
         assert_eq!(typ["__registry__"], serde_json::json!("handl.canonical"));
     }
 
@@ -1211,7 +1211,7 @@ mod tests {
     fn typecheck_arithmetic_returns_type_number() {
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("1 + 2").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
@@ -1228,7 +1228,7 @@ mod tests {
         // else else-expr` (no `then`). Here we use the brace-less form.
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("if true 1 else 2").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
@@ -1246,9 +1246,10 @@ mod tests {
 
     #[test]
     fn typecheck_let_binds_var_and_returns_body_type() {
+        // ADR-0079: `let ... in` removed. Use `do { x = 1; x }` graph block.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("let x = 1 in x").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
+        let typ = kit.typecheck("do { x = 1; x }").unwrap();
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
@@ -1262,7 +1263,7 @@ mod tests {
     fn typecheck_match_returns_arm_body_type() {
         let kit = Kit::new().unwrap();
         let typ = kit.typecheck("match 1 { 1: 2, _: 3 }").unwrap();
-        assert_eq!(typ["__tag__"], serde_json::json!("type.int"));
+        assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
@@ -1299,18 +1300,22 @@ mod tests {
     // as future work. These two tests are ignored until that lands.
     #[test]
     fn typecheck_let_with_annotation_checks_value() {
+        // ADR-0079: `let ... in` removed. Graph blocks don't support type
+        // annotations yet — use untyped `do { x = 2; x }`.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("let x: type.number = 2 in x").unwrap();
+        let typ = kit.typecheck("do { x = 2; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
     #[test]
     fn typecheck_let_with_annotation_rejects_mismatch() {
+        // ADR-0079: `let ... in` removed. Type-annotated graph block bindings
+        // are future work. This test now checks a simpler mismatch case.
         let kit = Kit::new().unwrap();
-        let res = kit.typecheck("let x: type.string = 2 in x");
+        let res = kit.typecheck("if 42 1 else 2");
         assert!(
             res.is_err(),
-            "expected typecheck error for let annotation mismatch"
+            "expected typecheck error for non-bool if condition"
         );
     }
 

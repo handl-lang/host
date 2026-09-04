@@ -445,12 +445,7 @@
     op: eval_block
     args: []
     source: Native
-- id: eval.let
-  node_kind: let
-  scheme: !Arr
-    op: eval_let
-    args: []
-    source: Native
+# ADR-0079: `eval.let` removed (let keyword deleted, graph blocks replace it).
 - id: eval.match
   node_kind: match
   scheme: !Arr

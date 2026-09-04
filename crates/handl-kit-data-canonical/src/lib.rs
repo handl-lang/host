@@ -349,11 +349,9 @@ mod tests {
     #[test]
     fn types_yaml_loads() {
         let lang = language_from_yaml().unwrap();
-        // 60 type rules in types.yaml (one per canonical node kind,
-        // plus type.pi and type.sigma for dependent types, ADR-0054,
-        // plus type.forall and type.vau for polymorphism/fexpr, ADR-0054,
-        // plus type.choice for the categorical `|||` combinator, ADR-0074 #3).
-        assert_eq!(lang.types.len(), 60);
+        // 58 type rules in types.yaml. ADR-0079 removed `type.let` and
+        // `type.stmt.let` (let keyword deleted, graph blocks replace it).
+        assert_eq!(lang.types.len(), 58);
         // The `value` kind (literals) must have a rule.
         assert!(lang.types.get_by_identity("value").is_some());
         // Spot-check a few meaningful rules.

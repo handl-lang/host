@@ -47,10 +47,10 @@ Merge into one unified dialect with all features from both, using graph blocks a
 4. Convert arrow files → refinement tests ✅
 5. Remove `let` + `in` grammar rows → workspace test ✅
 6. Arrow parser loads canonical as base + arrow overlay → refinement tests ✅
-7. (Deferred) Full YAML deletion — blocked by dotted-identifier incompatibility
+7. Delete arrow YAMLs, unify on canonical language → workspace test ✅
 
 References: ADR-0074 (v0.1 surface syntax), ADR-0069 (files are arrows), ADR-0052 (arrow calculus kernel), ADR-0053 (data-driven Pratt parser).
 
 ## Status
 
-Accepted (steps 1–6 complete; step 7 deferred)
+Accepted
