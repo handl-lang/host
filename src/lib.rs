@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The encoding interface is declared in
-//! `kit-stdlib/data/encoding/encoding.hnl`. The [`Encoding`] trait and
+//! `handl-packages/kit-stdlib/encoding/encoding.hnl`. The [`Encoding`] trait and
 //! [`EncodingRegistry`] remain in Rust — they are implemented by concrete
 //! encoding crates (e.g. `plugin-lib-base64`, `plugin-lib-hex`). The
 //! [`EncodingLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
@@ -25,7 +25,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the encoding interface — the single source
 /// of truth for the encoding API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const ENCODING_HNL: &str = include_str!("../../../kit-stdlib/data/encoding/encoding.hnl");
+const ENCODING_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/encoding/encoding.hnl");
 
 /// Errors that can occur when encoding or decoding.
 #[derive(Debug, Error)]
