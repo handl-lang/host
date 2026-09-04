@@ -240,7 +240,7 @@ fn compile_into(
         // capabilities as a compile-time error.
         Scheme::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
-                .map_err(|e| LangError::engine(e.to_string()))?;
+                .map_err(|e| LangError::engine_node(e.to_string(), node))?;
             compile_into(&eliminated, ast, node, out)
         }
     }
@@ -264,9 +264,9 @@ fn compile_arr(
             return Ok(false);
         }
         "proj_env" => {
-            let name = lit
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::engine("proj_env: missing name literal".to_string()))?;
+            let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
+                LangError::engine_node("proj_env: missing name literal".to_string(), node)
+            })?;
             if name == "$payload" {
                 out.push(Instr::LoadPayloadVar);
             } else {
@@ -276,15 +276,15 @@ fn compile_arr(
         }
         "proj_child" => {
             let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
-                LangError::engine("proj_child: missing index literal".to_string())
+                LangError::engine_node("proj_child: missing index literal".to_string(), node)
             })?;
             out.push(Instr::EvalChild(idx as usize));
             return Ok(false);
         }
         "extend_env" => {
-            let name = lit
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::engine("extend_env: missing name literal".to_string()))?;
+            let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
+                LangError::engine_node("extend_env: missing name literal".to_string(), node)
+            })?;
             if name == "$payload" {
                 out.push(Instr::StorePayloadName);
             } else {
@@ -302,7 +302,7 @@ fn compile_arr(
                 }
             }
             let tag = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                LangError::engine("route_on_type: missing type tag literal".to_string())
+                LangError::engine_node("route_on_type: missing type tag literal".to_string(), node)
             })?;
             out.push(Instr::RouteOnType(tag.to_string()));
             return Ok(false);

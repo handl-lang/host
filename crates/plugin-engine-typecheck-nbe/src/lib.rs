@@ -178,7 +178,10 @@ impl NbeTypecheckEngine {
             ))
         })?;
         let rule = lang.types.get_by_identity(&node.kind).ok_or_else(|| {
-            LangError::engine(format!("typecheck: no type rule for kind '{}'", node.kind))
+            LangError::engine_node(
+                format!("typecheck: no type rule for kind '{}'", node.kind),
+                node,
+            )
         })?;
         self.eval_type_scheme(lang, ast, node_ref, &rule.synth, ctx, None)
     }
@@ -200,7 +203,10 @@ impl NbeTypecheckEngine {
             ))
         })?;
         let rule = lang.types.get_by_identity(&node.kind).ok_or_else(|| {
-            LangError::engine(format!("typecheck: no type rule for kind '{}'", node.kind))
+            LangError::engine_node(
+                format!("typecheck: no type rule for kind '{}'", node.kind),
+                node,
+            )
         })?;
         if let Some(check_scheme) = &rule.check {
             self.eval_type_scheme(
@@ -759,7 +765,10 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("typecheck: synth_last_child: node has no children array")
+                        LangError::engine_node(
+                            "typecheck: synth_last_child: node has no children array",
+                            node,
+                        )
                     })?;
                 if children.is_empty() {
                     // Empty block → type.unit
@@ -767,11 +776,17 @@ impl NbeTypecheckEngine {
                         .registry
                         .construct("type.unit", &Value::Null)
                         .ok_or_else(|| {
-                            LangError::engine("typecheck: construct failed for type.unit")
+                            LangError::engine_node(
+                                "typecheck: construct failed for type.unit",
+                                node,
+                            )
                         });
                 }
                 let last_idx = children.last().and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine("typecheck: synth_last_child: last child index is not a u64")
+                    LangError::engine_node(
+                        "typecheck: synth_last_child: last child index is not a u64",
+                        node,
+                    )
                 })?;
                 let child = AstRef::new(last_idx as usize);
                 self.synth_node(lang, ast, child, ctx)
@@ -794,7 +809,10 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("typecheck: synth_block: node has no children array")
+                        LangError::engine_node(
+                            "typecheck: synth_block: node has no children array",
+                            node,
+                        )
                     })?;
                 if children.is_empty() {
                     return ctx
@@ -807,7 +825,10 @@ impl NbeTypecheckEngine {
                         });
                 }
                 let last_idx = children.last().and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine("typecheck: synth_block: last child index is not a u64")
+                    LangError::engine_node(
+                        "typecheck: synth_block: last child index is not a u64",
+                        node,
+                    )
                 })? as usize;
                 // Bind each assign child (all children except the last, which
                 // is the block's result expression).
@@ -816,7 +837,10 @@ impl NbeTypecheckEngine {
                         break;
                     }
                     let child_idx = entry.as_u64().ok_or_else(|| {
-                        LangError::engine("typecheck: synth_block: child index is not a u64")
+                        LangError::engine_node(
+                            "typecheck: synth_block: child index is not a u64",
+                            node,
+                        )
                     })? as usize;
                     let child_node = ast.get(AstRef::new(child_idx)).ok_or_else(|| {
                         LangError::engine(format!(
@@ -1008,7 +1032,7 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("check_last_child: node has no children array")
+                        LangError::engine_node("check_last_child: node has no children array", node)
                     })?;
                 if children.is_empty() {
                     // Empty block — accept any expected type (the block is
@@ -1017,7 +1041,7 @@ impl NbeTypecheckEngine {
                     return Ok(Value::Null);
                 }
                 let last_idx = children.last().and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine("check_last_child: last child index is not a u64")
+                    LangError::engine_node("check_last_child: last child index is not a u64", node)
                 })?;
                 let child = AstRef::new(last_idx as usize);
                 self.check_node(lang, ast, child, &expected, ctx)?;
@@ -1043,22 +1067,23 @@ impl NbeTypecheckEngine {
                     .payload
                     .get("children")
                     .and_then(|c| c.as_array())
-                    .ok_or_else(|| LangError::engine("check_block: node has no children array"))?;
+                    .ok_or_else(|| {
+                        LangError::engine_node("check_block: node has no children array", node)
+                    })?;
                 if children.is_empty() {
                     return Ok(Value::Null);
                 }
                 let last_idx = children.last().and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine("check_block: last child index is not a u64")
+                    LangError::engine_node("check_block: last child index is not a u64", node)
                 })? as usize;
                 // Bind each assign child (all children except the last).
                 for (i, entry) in children.iter().enumerate() {
                     if i == children.len() - 1 {
                         break;
                     }
-                    let child_idx = entry
-                        .as_u64()
-                        .ok_or_else(|| LangError::engine("check_block: child index is not a u64"))?
-                        as usize;
+                    let child_idx = entry.as_u64().ok_or_else(|| {
+                        LangError::engine_node("check_block: child index is not a u64", node)
+                    })? as usize;
                     let child_node = ast.get(AstRef::new(child_idx)).ok_or_else(|| {
                         LangError::engine(format!(
                             "check_block: child node {} out of bounds",
@@ -1074,79 +1099,105 @@ impl NbeTypecheckEngine {
                         .get("children")
                         .and_then(|c| c.as_array())
                         .ok_or_else(|| {
-                            LangError::engine("check_block: assign has no children array")
+                            LangError::engine_node(
+                                "check_block: assign has no children array",
+                                node,
+                            )
                         })?;
-                    let (name, value_ref, ann_ref) = if let Some(n) =
-                        child_node.payload.get("name").and_then(|v| v.as_str())
-                    {
-                        if assign_children.is_empty() {
-                            return Err(LangError::engine(
-                                "check_block: assign with payload.name needs a value child",
-                            ));
-                        }
-                        let vidx = assign_children[0].as_u64().ok_or_else(|| {
-                            LangError::engine("check_block: assign value index is not a u64")
-                        })? as usize;
-                        (n.to_string(), AstRef::new(vidx), None)
-                    } else {
-                        if assign_children.len() < 2 {
-                            return Err(LangError::engine(
-                                "check_block: assign needs at least 2 children",
-                            ));
-                        }
-                        let lhs_idx = assign_children[0].as_u64().ok_or_else(|| {
-                            LangError::engine("check_block: assign lhs index is not a u64")
-                        })? as usize;
-                        let vidx = assign_children[1].as_u64().ok_or_else(|| {
-                            LangError::engine("check_block: assign value index is not a u64")
-                        })? as usize;
-                        let lhs_node = ast.get(AstRef::new(lhs_idx)).ok_or_else(|| {
-                            LangError::engine(format!(
-                                "check_block: lhs node {} out of bounds",
-                                lhs_idx
-                            ))
-                        })?;
-                        if lhs_node.kind == "type-annot" {
-                            let ta_children = lhs_node
-                                .payload
-                                .get("children")
-                                .and_then(|c| c.as_array())
-                                .ok_or_else(|| {
-                                    LangError::engine("check_block: type-annot has no children")
-                                })?;
-                            if ta_children.len() < 2 {
+                    let (name, value_ref, ann_ref) =
+                        if let Some(n) = child_node.payload.get("name").and_then(|v| v.as_str()) {
+                            if assign_children.is_empty() {
                                 return Err(LangError::engine(
-                                    "check_block: type-annot needs 2 children",
+                                    "check_block: assign with payload.name needs a value child",
                                 ));
                             }
-                            let inner_var_idx = ta_children[0].as_u64().ok_or_else(|| {
-                                LangError::engine("check_block: type-annot var index is not a u64")
+                            let vidx = assign_children[0].as_u64().ok_or_else(|| {
+                                LangError::engine_node(
+                                    "check_block: assign value index is not a u64",
+                                    node,
+                                )
                             })? as usize;
-                            let type_expr_idx = ta_children[1].as_u64().ok_or_else(|| {
-                                LangError::engine("check_block: type-annot type index is not a u64")
-                            })? as usize;
-                            let inner_var =
-                                ast.get(AstRef::new(inner_var_idx)).ok_or_else(|| {
-                                    LangError::engine(format!(
-                                        "check_block: inner var node {} out of bounds",
-                                        inner_var_idx
-                                    ))
-                                })?;
-                            let n = inner_var.payload.as_str().ok_or_else(|| {
-                                LangError::engine("check_block: inner var payload is not a string")
-                            })?;
-                            (
-                                n.to_string(),
-                                AstRef::new(vidx),
-                                Some(AstRef::new(type_expr_idx)),
-                            )
-                        } else {
-                            let n = lhs_node.payload.as_str().ok_or_else(|| {
-                                LangError::engine("check_block: var payload is not a string")
-                            })?;
                             (n.to_string(), AstRef::new(vidx), None)
-                        }
-                    };
+                        } else {
+                            if assign_children.len() < 2 {
+                                return Err(LangError::engine(
+                                    "check_block: assign needs at least 2 children",
+                                ));
+                            }
+                            let lhs_idx = assign_children[0].as_u64().ok_or_else(|| {
+                                LangError::engine_node(
+                                    "check_block: assign lhs index is not a u64",
+                                    node,
+                                )
+                            })? as usize;
+                            let vidx = assign_children[1].as_u64().ok_or_else(|| {
+                                LangError::engine_node(
+                                    "check_block: assign value index is not a u64",
+                                    node,
+                                )
+                            })? as usize;
+                            let lhs_node = ast.get(AstRef::new(lhs_idx)).ok_or_else(|| {
+                                LangError::engine(format!(
+                                    "check_block: lhs node {} out of bounds",
+                                    lhs_idx
+                                ))
+                            })?;
+                            if lhs_node.kind == "type-annot" {
+                                let ta_children = lhs_node
+                                    .payload
+                                    .get("children")
+                                    .and_then(|c| c.as_array())
+                                    .ok_or_else(|| {
+                                        LangError::engine_node(
+                                            "check_block: type-annot has no children",
+                                            node,
+                                        )
+                                    })?;
+                                if ta_children.len() < 2 {
+                                    return Err(LangError::engine(
+                                        "check_block: type-annot needs 2 children",
+                                    ));
+                                }
+                                let inner_var_idx = ta_children[0].as_u64().ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "check_block: type-annot var index is not a u64",
+                                        node,
+                                    )
+                                })? as usize;
+                                let type_expr_idx = ta_children[1].as_u64().ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "check_block: type-annot type index is not a u64",
+                                        node,
+                                    )
+                                })? as usize;
+                                let inner_var =
+                                    ast.get(AstRef::new(inner_var_idx)).ok_or_else(|| {
+                                        LangError::engine(format!(
+                                            "check_block: inner var node {} out of bounds",
+                                            inner_var_idx
+                                        ))
+                                    })?;
+                                let n = inner_var.payload.as_str().ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "check_block: inner var payload is not a string",
+                                        node,
+                                    )
+                                })?;
+                                (
+                                    n.to_string(),
+                                    AstRef::new(vidx),
+                                    Some(AstRef::new(type_expr_idx)),
+                                )
+                            } else {
+                                let n = lhs_node.payload.as_str().ok_or_else(|| {
+                                    LangError::engine_node(
+                                        "check_block: var payload is not a string",
+                                        node,
+                                    )
+                                })?;
+                                (n.to_string(), AstRef::new(vidx), None)
+                            }
+                        };
                     let value_type = self.synth_node(lang, ast, value_ref, ctx)?;
                     let bound_type = if let Some(ann_ref) = ann_ref {
                         let type_expr_node = ast.get(ann_ref).ok_or_else(|| {
@@ -1188,11 +1239,14 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("check_all_children: node has no children array")
+                        LangError::engine_node(
+                            "check_all_children: node has no children array",
+                            node,
+                        )
                     })?;
                 for child_entry in children {
                     let child_idx = child_entry.as_u64().ok_or_else(|| {
-                        LangError::engine("check_all_children: child index is not a u64")
+                        LangError::engine_node("check_all_children: child index is not a u64", node)
                     })? as usize;
                     let child_ref = AstRef::new(child_idx);
                     self.check_node(lang, ast, child_ref, &expected, ctx)?;
@@ -1219,7 +1273,7 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("synth_match_arms: node has no children array")
+                        LangError::engine_node("synth_match_arms: node has no children array", node)
                     })?;
                 if children.len() < 2 {
                     // No arms — return type.unknown
@@ -1227,14 +1281,17 @@ impl NbeTypecheckEngine {
                         .registry
                         .construct("type.unknown", &Value::Null)
                         .ok_or_else(|| {
-                            LangError::engine("synth_match_arms: construct failed for type.unknown")
+                            LangError::engine_node(
+                                "synth_match_arms: construct failed for type.unknown",
+                                node,
+                            )
                         });
                 }
                 // Child 1 is a `block` node whose children are the arms.
                 // If it is a block, iterate its children; otherwise iterate
                 // match's children 1.. directly (legacy form).
                 let block_idx = children[1].as_u64().ok_or_else(|| {
-                    LangError::engine("synth_match_arms: arm child index is not a u64")
+                    LangError::engine_node("synth_match_arms: arm child index is not a u64", node)
                 })? as usize;
                 let block_ref = AstRef::new(block_idx);
                 let arm_indices: Vec<usize> = {
@@ -1257,7 +1314,10 @@ impl NbeTypecheckEngine {
                             .iter()
                             .map(|v| {
                                 v.as_u64().ok_or_else(|| {
-                                    LangError::engine("synth_match_arms: arm index is not a u64")
+                                    LangError::engine_node(
+                                        "synth_match_arms: arm index is not a u64",
+                                        node,
+                                    )
                                 }) as Result<u64, LangError>
                             })
                             .map(|r| r.map(|v| v as usize))
@@ -1268,7 +1328,10 @@ impl NbeTypecheckEngine {
                             .iter()
                             .map(|v| {
                                 v.as_u64().ok_or_else(|| {
-                                    LangError::engine("synth_match_arms: arm index is not a u64")
+                                    LangError::engine_node(
+                                        "synth_match_arms: arm index is not a u64",
+                                        node,
+                                    )
                                 }) as Result<u64, LangError>
                             })
                             .map(|r| r.map(|v| v as usize))
@@ -1290,7 +1353,10 @@ impl NbeTypecheckEngine {
                         .get("children")
                         .and_then(|c| c.as_array())
                         .ok_or_else(|| {
-                            LangError::engine("synth_match_arms: arm node has no children array")
+                            LangError::engine_node(
+                                "synth_match_arms: arm node has no children array",
+                                node,
+                            )
                         })?;
                     if arm_children.len() < 2 {
                         return Err(LangError::engine(
@@ -1298,7 +1364,10 @@ impl NbeTypecheckEngine {
                         ));
                     }
                     let body_idx = arm_children[1].as_u64().ok_or_else(|| {
-                        LangError::engine("synth_match_arms: body child index is not a u64")
+                        LangError::engine_node(
+                            "synth_match_arms: body child index is not a u64",
+                            node,
+                        )
                     })? as usize;
                     let body_ref = AstRef::new(body_idx);
                     let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
@@ -1310,7 +1379,10 @@ impl NbeTypecheckEngine {
                         .registry
                         .construct("type.unknown", &Value::Null)
                         .ok_or_else(|| {
-                            LangError::engine("synth_match_arms: construct failed for type.unknown")
+                            LangError::engine_node(
+                                "synth_match_arms: construct failed for type.unknown",
+                                node,
+                            )
                         });
                 }
                 let unified = arm_types[0].clone();
@@ -1355,7 +1427,7 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("synth_function: node has no children array")
+                        LangError::engine_node("synth_function: node has no children array", node)
                     })?;
                 if children.len() < 2 {
                     return Err(LangError::engine(
@@ -1363,10 +1435,10 @@ impl NbeTypecheckEngine {
                     ));
                 }
                 let params_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine("synth_function: params child index is not a u64")
+                    LangError::engine_node("synth_function: params child index is not a u64", node)
                 })? as usize;
                 let body_idx = children[1].as_u64().ok_or_else(|| {
-                    LangError::engine("synth_function: body child index is not a u64")
+                    LangError::engine_node("synth_function: body child index is not a u64", node)
                 })? as usize;
                 // Navigate paren → child 0 (var) → payload (name).
                 let params_node = ast.get(AstRef::new(params_idx)).ok_or_else(|| {
@@ -1381,7 +1453,10 @@ impl NbeTypecheckEngine {
                         .get("children")
                         .and_then(|c| c.as_array())
                         .ok_or_else(|| {
-                            LangError::engine("synth_function: paren node has no children array")
+                            LangError::engine_node(
+                                "synth_function: paren node has no children array",
+                                node,
+                            )
                         })?;
                     if params_children.is_empty() {
                         return Err(LangError::engine(
@@ -1389,7 +1464,7 @@ impl NbeTypecheckEngine {
                         ));
                     }
                     let var_idx = params_children[0].as_u64().ok_or_else(|| {
-                        LangError::engine("synth_function: var index is not a u64")
+                        LangError::engine_node("synth_function: var index is not a u64", node)
                     })? as usize;
                     let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
                         LangError::engine(format!(
@@ -1398,11 +1473,17 @@ impl NbeTypecheckEngine {
                         ))
                     })?;
                     var_node.payload.as_str().ok_or_else(|| {
-                        LangError::engine("synth_function: var node payload is not a string")
+                        LangError::engine_node(
+                            "synth_function: var node payload is not a string",
+                            node,
+                        )
                     })?
                 } else if params_node.kind == "var" {
                     params_node.payload.as_str().ok_or_else(|| {
-                        LangError::engine("synth_function: var node payload is not a string")
+                        LangError::engine_node(
+                            "synth_function: var node payload is not a string",
+                            node,
+                        )
                     })?
                 } else {
                     return Err(LangError::engine(format!(
@@ -1418,7 +1499,10 @@ impl NbeTypecheckEngine {
                 ctx.registry
                     .construct("type.function", &payload)
                     .ok_or_else(|| {
-                        LangError::engine("synth_function: construct failed for type.function")
+                        LangError::engine_node(
+                            "synth_function: construct failed for type.function",
+                            node,
+                        )
                     })
             }
             "synth_type_annot" => {
@@ -1438,7 +1522,7 @@ impl NbeTypecheckEngine {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("synth_type_annot: node has no children array")
+                        LangError::engine_node("synth_type_annot: node has no children array", node)
                     })?;
                 if children.len() < 2 {
                     return Err(LangError::engine(
@@ -1446,10 +1530,10 @@ impl NbeTypecheckEngine {
                     ));
                 }
                 let expr_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine("synth_type_annot: expr child index is not a u64")
+                    LangError::engine_node("synth_type_annot: expr child index is not a u64", node)
                 })? as usize;
                 let type_idx = children[1].as_u64().ok_or_else(|| {
-                    LangError::engine("synth_type_annot: type child index is not a u64")
+                    LangError::engine_node("synth_type_annot: type child index is not a u64", node)
                 })? as usize;
                 let expr_type = self.synth_node(lang, ast, AstRef::new(expr_idx), ctx)?;
                 let type_node = ast.get(AstRef::new(type_idx)).ok_or_else(|| {
@@ -1575,15 +1659,21 @@ impl NbeTypecheckEngine {
                     .get("entries")
                     .and_then(|e| e.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("synth_object_record: node has no entries array")
+                        LangError::engine_node(
+                            "synth_object_record: node has no entries array",
+                            node,
+                        )
                     })?;
                 let mut fields = serde_json::Map::new();
                 for entry in entries {
                     let key = entry.get("key").and_then(|k| k.as_str()).ok_or_else(|| {
-                        LangError::engine("synth_object_record: entry missing 'key' string")
+                        LangError::engine_node(
+                            "synth_object_record: entry missing 'key' string",
+                            node,
+                        )
                     })?;
                     let value = entry.get("value").ok_or_else(|| {
-                        LangError::engine("synth_object_record: entry missing 'value'")
+                        LangError::engine_node("synth_object_record: entry missing 'value'", node)
                     })?;
                     let tag = match value {
                         Value::Number(_) => "type.number",
@@ -1608,7 +1698,10 @@ impl NbeTypecheckEngine {
                 ctx.registry
                     .construct("type.record", &Value::Object(payload))
                     .ok_or_else(|| {
-                        LangError::engine("synth_object_record: construct failed for type.record")
+                        LangError::engine_node(
+                            "synth_object_record: construct failed for type.record",
+                            node,
+                        )
                     })
             }
             "check_object_record" => {
@@ -1651,17 +1744,23 @@ impl NbeTypecheckEngine {
                     .get("entries")
                     .and_then(|e| e.as_array())
                     .ok_or_else(|| {
-                        LangError::engine("check_object_record: node has no entries array")
+                        LangError::engine_node(
+                            "check_object_record: node has no entries array",
+                            node,
+                        )
                     })?;
                 // Collect extra fields (entries not in expected_fields) for
                 // the row variable when the expected record is open.
                 let mut extra_fields: serde_json::Map<String, Value> = serde_json::Map::new();
                 for entry in entries {
                     let key = entry.get("key").and_then(|k| k.as_str()).ok_or_else(|| {
-                        LangError::engine("check_object_record: entry missing 'key' string")
+                        LangError::engine_node(
+                            "check_object_record: entry missing 'key' string",
+                            node,
+                        )
                     })?;
                     let value = entry.get("value").ok_or_else(|| {
-                        LangError::engine("check_object_record: entry missing 'value'")
+                        LangError::engine_node("check_object_record: entry missing 'value'", node)
                     })?;
                     let field_type = expected_fields.get(key);
                     match field_type {
@@ -2549,7 +2648,10 @@ impl NbeTypecheckEngine {
             ))
         })?;
         let name = var_node.payload.as_str().ok_or_else(|| {
-            LangError::engine("typecheck: synth_rec: var node payload is not a string")
+            LangError::engine_node(
+                "typecheck: synth_rec: var node payload is not a string",
+                var_node,
+            )
         })?;
         Ok((name.to_string(), AstRef::new(value_idx)))
     }
@@ -2599,14 +2701,19 @@ impl NbeTypecheckEngine {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("typecheck: synth_rec: node has no children array"))?;
+            .ok_or_else(|| {
+                LangError::engine_node("typecheck: synth_rec: node has no children array", node)
+            })?;
         // Empty rec region → type.unit (mirrors empty block).
         if children.is_empty() {
             return ctx
                 .registry
                 .construct("type.unit", &Value::Null)
                 .ok_or_else(|| {
-                    LangError::engine("typecheck: synth_rec: construct failed for type.unit")
+                    LangError::engine_node(
+                        "typecheck: synth_rec: construct failed for type.unit",
+                        node,
+                    )
                 });
         }
         // Collect bindings (assign nodes), the return child, and the last
@@ -2616,7 +2723,7 @@ impl NbeTypecheckEngine {
         let mut last_ref: Option<AstRef> = None;
         for child_entry in children {
             let idx = child_entry.as_u64().ok_or_else(|| {
-                LangError::engine("typecheck: synth_rec: child index is not a u64")
+                LangError::engine_node("typecheck: synth_rec: child index is not a u64", node)
             })? as usize;
             let child = AstRef::new(idx);
             let child_node = ast.get(child).ok_or_else(|| {
@@ -2705,7 +2812,10 @@ impl NbeTypecheckEngine {
             ctx.registry
                 .construct("type.unit", &Value::Null)
                 .ok_or_else(|| {
-                    LangError::engine("typecheck: synth_rec: construct failed for type.unit")
+                    LangError::engine_node(
+                        "typecheck: synth_rec: construct failed for type.unit",
+                        node,
+                    )
                 })?
         };
         ctx.restore(mark);
@@ -3536,7 +3646,10 @@ fn interpret_type_expr(
                 .or_else(|| field_node.payload.get("value").and_then(|v| v.as_str()))
                 .or_else(|| field_node.payload.as_str().map(|s| s))
                 .ok_or_else(|| {
-                    LangError::engine("interpret_type_expr: field node has no name/value string")
+                    LangError::engine_node(
+                        "interpret_type_expr: field node has no name/value string",
+                        field_node,
+                    )
                 })?;
             let tag = format!("type.{}", field);
             registry.construct(&tag, &Value::Null).ok_or_else(|| {
@@ -3607,7 +3720,10 @@ fn interpret_type_expr(
             registry
                 .construct("type.function", &payload)
                 .ok_or_else(|| {
-                    LangError::engine("interpret_type_expr: failed to construct type.function")
+                    LangError::engine_node(
+                        "interpret_type_expr: failed to construct type.function",
+                        body_node,
+                    )
                 })
         }
         "array" => {

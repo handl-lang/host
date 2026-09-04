@@ -881,7 +881,10 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
             None => {
-                return ctx.set_error(LangError::engine(format!("child {} not found", child_n)));
+                return ctx.set_error(LangError::engine_node(
+                    format!("child {} not found", child_n),
+                    node,
+                ));
             }
         };
         // Look up the compiled function for the child.
@@ -1354,7 +1357,12 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => return ctx.set_error(LangError::engine("match: missing block child".to_string())),
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "match: missing block child".to_string(),
+                node,
+            ))
+        }
     };
     let scrut_val = match eval_child_node(ctx, scrut_idx) {
         Ok(v) => v,
@@ -1460,11 +1468,21 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
     };
     let body_idx = match children.get(0).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => return ctx.set_error(LangError::engine("handle: missing body child".to_string())),
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "handle: missing body child".to_string(),
+                node,
+            ))
+        }
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => return ctx.set_error(LangError::engine("handle: missing block child".to_string())),
+        None => {
+            return ctx.set_error(LangError::engine_node(
+                "handle: missing block child".to_string(),
+                node,
+            ))
+        }
     };
     let body_val = match eval_child_node(ctx, body_idx) {
         Ok(v) => v,
@@ -1742,7 +1760,10 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     .map(|v| {
                         v.as_str()
                             .ok_or_else(|| {
-                                LangError::engine("closure: param must be a string".to_string())
+                                LangError::engine_node(
+                                    "closure: param must be a string".to_string(),
+                                    node,
+                                )
                             })
                             .map(String::from)
                     })
@@ -1870,8 +1891,10 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 let key = match entry.get("key").and_then(|v| v.as_str()) {
                     Some(k) => k,
                     None => {
-                        return ctx
-                            .set_error(LangError::engine("object: entry missing key".to_string()));
+                        return ctx.set_error(LangError::engine_node(
+                            "object: entry missing key".to_string(),
+                            node,
+                        ));
                     }
                 };
                 let value = match entry.get("value") {
@@ -1939,7 +1962,10 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 }
                 (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
                     Some(v) => Ok(v.clone()),
-                    None => Err(LangError::engine(format!("index: key '{}' not found", key))),
+                    None => Err(LangError::engine_node(
+                        format!("index: key '{}' not found", key),
+                        node,
+                    )),
                 },
                 _ => Err(LangError::engine(
                     "index: target must be array/object and index must be number/string"
@@ -1993,7 +2019,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
             match node.payload.as_str() {
                 Some(expr) => serde_json::from_str::<Value>(expr)
                     .map(TaggedValue::from)
-                    .map_err(|e| LangError::engine(format!("json: parse error: {}", e))),
+                    .map_err(|e| LangError::engine_node(format!("json: parse error: {}", e), node)),
                 None => Err(LangError::engine(
                     "json: payload must be a string".to_string(),
                 )),
@@ -2198,7 +2224,10 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
             None => {
-                return ctx.set_error(LangError::engine(format!("child {} not found", child_n)));
+                return ctx.set_error(LangError::engine_node(
+                    format!("child {} not found", child_n),
+                    node,
+                ));
             }
         };
         let func = match ctx.compiled.get(&arena_idx).copied() {
@@ -3076,17 +3105,17 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
     let children = payload
         .get("children")
         .and_then(|c| c.as_array())
-        .ok_or_else(|| LangError::engine("closure: missing params/body in payload".to_string()))?;
-    let param_idx = children
-        .first()
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| LangError::engine("closure: missing param child".to_string()))?
-        as usize;
-    let body_idx = children
-        .get(1)
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| LangError::engine("closure: missing body child".to_string()))?
-        as usize;
+        .ok_or_else(|| {
+            LangError::engine_node("closure: missing params/body in payload".to_string(), node)
+        })?;
+    let param_idx =
+        children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("closure: missing param child".to_string(), node)
+        })? as usize;
+    let body_idx =
+        children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("closure: missing body child".to_string(), node)
+        })? as usize;
     let ast = unsafe { &*ctx.ast };
     let param_node = ast.at(AstRef::new(param_idx))?;
     let param_names: Vec<String> = if param_node.kind == "paren" || param_node.kind == "array" {
@@ -3094,22 +3123,30 @@ fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize)
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("closure: params missing children".to_string()))?;
+            .ok_or_else(|| {
+                LangError::engine_node("closure: params missing children".to_string(), node)
+            })?;
         let mut names = Vec::with_capacity(param_children.len());
         for pc in param_children {
             let pidx = pc.as_u64().ok_or_else(|| {
-                LangError::engine("closure: param index must be a number".to_string())
+                LangError::engine_node("closure: param index must be a number".to_string(), node)
             })? as usize;
             let pnode = ast.at(AstRef::new(pidx))?;
             let pname = pnode.payload.as_str().ok_or_else(|| {
-                LangError::engine("closure: param must be a var with string payload".to_string())
+                LangError::engine_node(
+                    "closure: param must be a var with string payload".to_string(),
+                    node,
+                )
             })?;
             names.push(pname.to_string());
         }
         names
     } else {
         let pname = param_node.payload.as_str().ok_or_else(|| {
-            LangError::engine("closure: param node must be a var with string payload".to_string())
+            LangError::engine_node(
+                "closure: param node must be a var with string payload".to_string(),
+                node,
+            )
         })?;
         vec![pname.to_string()]
     };
@@ -3179,15 +3216,19 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let key = match entry.get("key").and_then(|v| v.as_str()) {
                 Some(k) => k.to_string(),
                 None => {
-                    return ctx
-                        .set_error(LangError::engine("object: entry missing key".to_string()))
+                    return ctx.set_error(LangError::engine_node(
+                        "object: entry missing key".to_string(),
+                        node,
+                    ))
                 }
             };
             let value = match entry.get("value") {
                 Some(v) => v.clone(),
                 None => {
-                    return ctx
-                        .set_error(LangError::engine("object: entry missing value".to_string()))
+                    return ctx.set_error(LangError::engine_node(
+                        "object: entry missing value".to_string(),
+                        node,
+                    ))
                 }
             };
             if handl_language::is_reserved_value_key(&key) {
@@ -3358,7 +3399,10 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         }
         (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
             Some(v) => Ok(v.clone()),
-            None => Err(LangError::engine(format!("index: key '{}' not found", key))),
+            None => Err(LangError::engine_node(
+                format!("index: key '{}' not found", key),
+                node,
+            )),
         },
         _ => Err(LangError::engine(
             "index: target must be array/object and index must be number/string".to_string(),
@@ -3610,7 +3654,10 @@ fn apply_native_v2(
             match payload_str {
                 Some(expr) => match serde_json::from_str::<Value>(&expr) {
                     Ok(v) => Ok(TaggedValue::from(v)),
-                    Err(e) => Err(LangError::engine(format!("json: parse error: {}", e))),
+                    Err(e) => Err(LangError::engine_node(
+                        format!("json: parse error: {}", e),
+                        node,
+                    )),
                 },
                 None => Err(LangError::engine(
                     "json: payload must be a string".to_string(),

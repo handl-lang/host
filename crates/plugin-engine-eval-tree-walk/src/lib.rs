@@ -400,13 +400,26 @@ impl TreeWalkEngine {
             }
             Scheme::First { inner } => {
                 let inc = incoming.ok_or_else(|| {
-                    LangError::engine("First: missing incoming value".to_string())
+                    LangError::engine_node(
+                        "First: missing incoming value".to_string(),
+                        current_node,
+                    )
                 })?;
                 let a = pair_fst(&inc)
-                    .ok_or_else(|| LangError::engine("First: incoming is not a pair".to_string()))?
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "First: incoming is not a pair".to_string(),
+                            current_node,
+                        )
+                    })?
                     .clone();
                 let b = pair_snd(&inc)
-                    .ok_or_else(|| LangError::engine("First: incoming is not a pair".to_string()))?
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "First: incoming is not a pair".to_string(),
+                            current_node,
+                        )
+                    })?
                     .clone();
                 let (inner_result, pushed) =
                     self.eval_inner(inner, ast, node_ref, lang, env, current_node, Some(a))?;
@@ -417,19 +430,28 @@ impl TreeWalkEngine {
             }
             Scheme::Choice { l, r } => {
                 let inc = incoming.ok_or_else(|| {
-                    LangError::engine("Choice: missing incoming value".to_string())
+                    LangError::engine_node(
+                        "Choice: missing incoming value".to_string(),
+                        current_node,
+                    )
                 })?;
                 let (val, pushed) = if is_either_left(&inc) {
                     let v = either_value(&inc)
                         .ok_or_else(|| {
-                            LangError::engine("Choice: left Either missing value".to_string())
+                            LangError::engine_node(
+                                "Choice: left Either missing value".to_string(),
+                                current_node,
+                            )
                         })?
                         .clone();
                     self.eval_inner(l, ast, node_ref, lang, env, current_node, Some(v))?
                 } else if is_either_right(&inc) {
                     let v = either_value(&inc)
                         .ok_or_else(|| {
-                            LangError::engine("Choice: right Either missing value".to_string())
+                            LangError::engine_node(
+                                "Choice: right Either missing value".to_string(),
+                                current_node,
+                            )
                         })?
                         .clone();
                     self.eval_inner(r, ast, node_ref, lang, env, current_node, Some(v))?
@@ -467,7 +489,10 @@ impl TreeWalkEngine {
                 {
                     if *source == ArrSource::Native && op == "loop_step" {
                         let body_proc = args.first().ok_or_else(|| {
-                            LangError::engine("loop_step: missing body proc".to_string())
+                            LangError::engine_node(
+                                "loop_step: missing body proc".to_string(),
+                                current_node,
+                            )
                         })?;
                         // Evaluate the closure once, before the loop.
                         let closure_val = self.eval_scheme_tagged(
@@ -494,7 +519,10 @@ impl TreeWalkEngine {
                             let either = interpret_loop_step_result(&result);
                             if is_either_left(&either) {
                                 let out = either_value(&either).cloned().ok_or_else(|| {
-                                    LangError::engine("Loop: left Either missing value".to_string())
+                                    LangError::engine_node(
+                                        "Loop: left Either missing value".to_string(),
+                                        current_node,
+                                    )
                                 })?;
                                 return Ok((out, false));
                             }
@@ -529,20 +557,29 @@ impl TreeWalkEngine {
                     }
                     if is_either_left(&result) {
                         let out = either_value(&result).cloned().ok_or_else(|| {
-                            LangError::engine("Loop: left Either missing value".to_string())
+                            LangError::engine_node(
+                                "Loop: left Either missing value".to_string(),
+                                current_node,
+                            )
                         })?;
                         return Ok((out, false));
                     }
                     if is_either_right(&result) {
                         state = either_value(&result).cloned().ok_or_else(|| {
-                            LangError::engine("Loop: right Either missing value".to_string())
+                            LangError::engine_node(
+                                "Loop: right Either missing value".to_string(),
+                                current_node,
+                            )
                         })?;
                         continue;
                     }
                     // Not an Either → single-step mode: expect a pair
                     // (Out, State) and return Out.
                     let out = pair_fst(&result).ok_or_else(|| {
-                        LangError::engine("Loop: body did not return a pair or Either".to_string())
+                        LangError::engine_node(
+                            "Loop: body did not return a pair or Either".to_string(),
+                            current_node,
+                        )
                     })?;
                     return Ok((out.clone(), false));
                 }
@@ -589,7 +626,10 @@ impl TreeWalkEngine {
                     arg_vals[0]
                         .as_array()
                         .ok_or_else(|| {
-                            LangError::engine("App: expected array argument".to_string())
+                            LangError::engine_node(
+                                "App: expected array argument".to_string(),
+                                current_node,
+                            )
                         })?
                         .iter()
                         .cloned()
@@ -615,7 +655,7 @@ impl TreeWalkEngine {
                         e.clone()
                     } else {
                         let e = handl_language::eliminate_and_check(scheme)
-                            .map_err(|e| LangError::engine(e.to_string()))?;
+                            .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
                         cache.insert(current_node.kind.to_string(), e.clone());
                         e
                     }
@@ -705,13 +745,12 @@ impl TreeWalkEngine {
                 incoming,
             ),
             ArrSource::Foreign(name) => {
-                let modules = self
-                    .modules
-                    .as_ref()
-                    .ok_or_else(|| LangError::engine(format!("unregistered foreign: {}", name)))?;
-                let func = modules
-                    .lookup(name)
-                    .ok_or_else(|| LangError::engine(format!("unregistered foreign: {}", name)))?;
+                let modules = self.modules.as_ref().ok_or_else(|| {
+                    LangError::engine_node(format!("unregistered foreign: {}", name), current_node)
+                })?;
+                let func = modules.lookup(name).ok_or_else(|| {
+                    LangError::engine_node(format!("unregistered foreign: {}", name), current_node)
+                })?;
                 // Convert TaggedValue args to Value for the host function
                 // boundary (host functions still use serde_json::Value).
                 let value_args: Vec<Value> = arg_vals.iter().map(tagged_to_value).collect();
@@ -719,7 +758,7 @@ impl TreeWalkEngine {
                 pctx.set_value_callable(Rc::new(TreeWalkCallable));
                 let val = func
                     .call(&value_args, &mut pctx)
-                    .map_err(|e| LangError::engine(e.to_string()))?;
+                    .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
                 Ok((TaggedValue::from(val), false))
             }
             ArrSource::DynamicForeign => self.apply_native(
@@ -770,10 +809,16 @@ impl TreeWalkEngine {
                 // `cond` on it; if truthy, run `body` and continue with
                 // its result; else terminate with the current value.
                 let cond = raw_args.first().ok_or_else(|| {
-                    LangError::engine("while_step: missing cond sub-arrow".to_string())
+                    LangError::engine_node(
+                        "while_step: missing cond sub-arrow".to_string(),
+                        current_node,
+                    )
                 })?;
                 let body = raw_args.get(1).ok_or_else(|| {
-                    LangError::engine("while_step: missing body sub-arrow".to_string())
+                    LangError::engine_node(
+                        "while_step: missing body sub-arrow".to_string(),
+                        current_node,
+                    )
                 })?;
                 let current = if state.is_null() { in_val } else { state };
                 let cond_val = self.eval_scheme_tagged(
@@ -807,7 +852,10 @@ impl TreeWalkEngine {
                 // continue with pair(counter-1, new_acc); else terminate
                 // with `acc`.
                 let body = raw_args.first().ok_or_else(|| {
-                    LangError::engine("for_step: missing body sub-arrow".to_string())
+                    LangError::engine_node(
+                        "for_step: missing body sub-arrow".to_string(),
+                        current_node,
+                    )
                 })?;
                 let (counter, acc) = if state.is_null() {
                     let count = pair_fst(&in_val).cloned().ok_or_else(|| {
@@ -820,7 +868,10 @@ impl TreeWalkEngine {
                     (count, initial)
                 } else {
                     let c = pair_fst(&state).cloned().ok_or_else(|| {
-                        LangError::engine("for_step: state must be pair(counter, acc)".to_string())
+                        LangError::engine_node(
+                            "for_step: state must be pair(counter, acc)".to_string(),
+                            current_node,
+                        )
                     })?;
                     let a = pair_snd(&state).cloned().unwrap_or(TaggedValue::Null);
                     (c, a)
@@ -848,7 +899,10 @@ impl TreeWalkEngine {
                 // the result equals the current value, the fixpoint is
                 // reached — terminate; else continue with the result.
                 let body = raw_args.first().ok_or_else(|| {
-                    LangError::engine("fix_step: missing body sub-arrow".to_string())
+                    LangError::engine_node(
+                        "fix_step: missing body sub-arrow".to_string(),
+                        current_node,
+                    )
                 })?;
                 let current = if state.is_null() { in_val } else { state };
                 let new_val = self.eval_scheme_tagged(
@@ -885,9 +939,9 @@ impl TreeWalkEngine {
                 // the loop by the `Scheme::Loop` arm in `eval_inner` (see
                 // the optimization there). This path is only reached when
                 // `loop_step` appears in a non-hoisted position.
-                let body_proc = raw_args
-                    .first()
-                    .ok_or_else(|| LangError::engine("loop_step: missing body proc".to_string()))?;
+                let body_proc = raw_args.first().ok_or_else(|| {
+                    LangError::engine_node("loop_step: missing body proc".to_string(), current_node)
+                })?;
                 let current = if state.is_null() { in_val } else { state };
                 let closure_val = self.eval_scheme_tagged(
                     body_proc,
@@ -940,7 +994,10 @@ impl TreeWalkEngine {
             }
             "proj_env" => {
                 let name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine("proj_env: missing name literal".to_string())
+                    LangError::engine_node(
+                        "proj_env: missing name literal".to_string(),
+                        current_node,
+                    )
                 })?;
                 let var_name = if name == "$payload" {
                     current_node
@@ -965,7 +1022,10 @@ impl TreeWalkEngine {
             }
             "proj_child" => {
                 let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
-                    LangError::engine("proj_child: missing index literal".to_string())
+                    LangError::engine_node(
+                        "proj_child: missing index literal".to_string(),
+                        current_node,
+                    )
                 })?;
                 let children = current_node
                     .payload
@@ -980,7 +1040,10 @@ impl TreeWalkEngine {
                     .get(idx as usize)
                     .and_then(|v| v.as_u64())
                     .ok_or_else(|| {
-                        LangError::engine(format!("proj_child: child {} not found", idx))
+                        LangError::engine_node(
+                            format!("proj_child: child {} not found", idx),
+                            current_node,
+                        )
                     })?;
                 let target_ref = AstRef::new(arena_idx as usize);
                 let val = self.eval_node_inner(ast, target_ref, lang, env)?;
@@ -1036,7 +1099,10 @@ impl TreeWalkEngine {
                         .map(|v| {
                             v.as_str()
                                 .ok_or_else(|| {
-                                    LangError::engine("closure: param must be a string".to_string())
+                                    LangError::engine_node(
+                                        "closure: param must be a string".to_string(),
+                                        current_node,
+                                    )
                                 })
                                 .map(String::from)
                         })
@@ -1044,10 +1110,16 @@ impl TreeWalkEngine {
                     (p_names, b as usize)
                 } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
                     let param_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::engine("closure: missing param child".to_string())
+                        LangError::engine_node(
+                            "closure: missing param child".to_string(),
+                            current_node,
+                        )
                     })? as usize;
                     let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
-                        LangError::engine("closure: missing body child".to_string())
+                        LangError::engine_node(
+                            "closure: missing body child".to_string(),
+                            current_node,
+                        )
                     })? as usize;
                     let param_node = ast.at(AstRef::new(param_idx))?;
                     let param_names: Vec<String> = if param_node.kind == "paren"
@@ -1058,7 +1130,10 @@ impl TreeWalkEngine {
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
-                                LangError::engine("closure: params missing children".to_string())
+                                LangError::engine_node(
+                                    "closure: params missing children".to_string(),
+                                    current_node,
+                                )
                             })?;
                         let mut names = Vec::with_capacity(param_children.len());
                         for pc in param_children {
@@ -1113,7 +1188,10 @@ impl TreeWalkEngine {
                     let mut result = Vec::with_capacity(children.len());
                     for entry in children {
                         let idx = entry.as_u64().ok_or_else(|| {
-                            LangError::engine("array: element index must be a number".to_string())
+                            LangError::engine_node(
+                                "array: element index must be a number".to_string(),
+                                current_node,
+                            )
                         })? as usize;
                         let child_ref = AstRef::new(idx);
                         // Spread: if the child is a `rest` node (from
@@ -1151,10 +1229,16 @@ impl TreeWalkEngine {
                     let mut obj = FxHashMap::default();
                     for entry in entries {
                         let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
-                            LangError::engine("object: entry missing key".to_string())
+                            LangError::engine_node(
+                                "object: entry missing key".to_string(),
+                                current_node,
+                            )
                         })?;
                         let value = entry.get("value").ok_or_else(|| {
-                            LangError::engine("object: entry missing value".to_string())
+                            LangError::engine_node(
+                                "object: entry missing value".to_string(),
+                                current_node,
+                            )
                         })?;
                         if handl_language::is_reserved_value_key(key) {
                             return Err(LangError::engine(format!(
@@ -1197,7 +1281,10 @@ impl TreeWalkEngine {
                     let mut obj = FxHashMap::default();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
-                            LangError::engine("object: entry index must be a number".to_string())
+                            LangError::engine_node(
+                                "object: entry index must be a number".to_string(),
+                                current_node,
+                            )
                         })? as usize;
                         let entry_node = ast.at(AstRef::new(entry_idx))?;
                         // Spread entry: if the child is not an `entry` node,
@@ -1218,14 +1305,20 @@ impl TreeWalkEngine {
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
-                                LangError::engine("object: entry node missing children".to_string())
+                                LangError::engine_node(
+                                    "object: entry node missing children".to_string(),
+                                    current_node,
+                                )
                             })?;
                         let key_idx =
                             entry_children
                                 .get(0)
                                 .and_then(|v| v.as_u64())
                                 .ok_or_else(|| {
-                                    LangError::engine("object: entry missing key child".to_string())
+                                    LangError::engine_node(
+                                        "object: entry missing key child".to_string(),
+                                        current_node,
+                                    )
                                 })? as usize;
                         let val_idx =
                             entry_children
@@ -1293,10 +1386,16 @@ impl TreeWalkEngine {
             }
             "index" => {
                 let target = current_node.payload.get("target").ok_or_else(|| {
-                    LangError::engine("index: missing target in payload".to_string())
+                    LangError::engine_node(
+                        "index: missing target in payload".to_string(),
+                        current_node,
+                    )
                 })?;
                 let index = current_node.payload.get("index").ok_or_else(|| {
-                    LangError::engine("index: missing index in payload".to_string())
+                    LangError::engine_node(
+                        "index: missing index in payload".to_string(),
+                        current_node,
+                    )
                 })?;
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
@@ -1306,13 +1405,19 @@ impl TreeWalkEngine {
                             )
                         })? as usize;
                         let v = arr.get(i).cloned().ok_or_else(|| {
-                            LangError::engine(format!("index: index {} out of bounds", i))
+                            LangError::engine_node(
+                                format!("index: index {} out of bounds", i),
+                                current_node,
+                            )
                         })?;
                         Ok((TaggedValue::from(v), false))
                     }
                     (Value::Object(obj), Value::String(key)) => {
                         let v = obj.get(key).cloned().ok_or_else(|| {
-                            LangError::engine(format!("index: key '{}' not found", key))
+                            LangError::engine_node(
+                                format!("index: key '{}' not found", key),
+                                current_node,
+                            )
                         })?;
                         Ok((TaggedValue::from(v), false))
                     }
@@ -1335,15 +1440,24 @@ impl TreeWalkEngine {
                 {
                     if children.len() >= 2 {
                         let value_idx = children[1].as_u64().ok_or_else(|| {
-                            LangError::engine("assign: value index must be a number".to_string())
+                            LangError::engine_node(
+                                "assign: value index must be a number".to_string(),
+                                current_node,
+                            )
                         })? as usize;
                         if children.len() == 3 {
                             // `x = y in body` — bind and evaluate body.
                             let var_idx = children[0].as_u64().ok_or_else(|| {
-                                LangError::engine("assign: var index must be a number".to_string())
+                                LangError::engine_node(
+                                    "assign: var index must be a number".to_string(),
+                                    current_node,
+                                )
                             })? as usize;
                             let body_idx = children[2].as_u64().ok_or_else(|| {
-                                LangError::engine("assign: body index must be a number".to_string())
+                                LangError::engine_node(
+                                    "assign: body index must be a number".to_string(),
+                                    current_node,
+                                )
                             })? as usize;
                             let var_name = {
                                 let var_node = ast.at(AstRef::new(var_idx))?;
@@ -1375,7 +1489,10 @@ impl TreeWalkEngine {
                     // Legacy shape: `assign { target, value }` (hand-built
                     // ASTs). Just return the value.
                     let value = current_node.payload.get("value").ok_or_else(|| {
-                        LangError::engine("assign: missing value in payload".to_string())
+                        LangError::engine_node(
+                            "assign: missing value in payload".to_string(),
+                            current_node,
+                        )
                     })?;
                     Ok((TaggedValue::from(value.clone()), false))
                 }
@@ -1392,7 +1509,10 @@ impl TreeWalkEngine {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
                 if b.to_f64() == 0.0 {
-                    return Err(LangError::engine("division by zero".to_string()));
+                    return Err(LangError::engine_node(
+                        "division by zero".to_string(),
+                        current_node,
+                    ));
                 }
                 Ok((num_value(a / b), false))
             }
@@ -1400,7 +1520,10 @@ impl TreeWalkEngine {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
                 if b.to_f64() == 0.0 {
-                    return Err(LangError::engine("modulo by zero".to_string()));
+                    return Err(LangError::engine_node(
+                        "modulo by zero".to_string(),
+                        current_node,
+                    ));
                 }
                 let val = match (a, b) {
                     (Num::Int(a), Num::Int(b)) => num_value(Num::Int(a % b)),
@@ -1436,9 +1559,9 @@ impl TreeWalkEngine {
             "compare" => {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
-                let cmp = a
-                    .partial_cmp(&b)
-                    .ok_or_else(|| LangError::engine("compare: incomparable values".to_string()))?;
+                let cmp = a.partial_cmp(&b).ok_or_else(|| {
+                    LangError::engine_node("compare: incomparable values".to_string(), current_node)
+                })?;
                 Ok((
                     num_value(Num::Int(match cmp {
                         std::cmp::Ordering::Less => -1,
@@ -1453,7 +1576,10 @@ impl TreeWalkEngine {
             // type matches, either_right(value) otherwise.
             "route_on_type" => {
                 let tag = lit.and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine("route_on_type: missing type tag literal".to_string())
+                    LangError::engine_node(
+                        "route_on_type: missing type tag literal".to_string(),
+                        current_node,
+                    )
                 })?;
                 let val = args
                     .first()
@@ -1473,13 +1599,22 @@ impl TreeWalkEngine {
             // elements as individual arguments.
             "call_host" => {
                 let callee = incoming.as_ref().and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine("call_host: callee must be a string".to_string())
+                    LangError::engine_node(
+                        "call_host: callee must be a string".to_string(),
+                        current_node,
+                    )
                 })?;
                 let modules = self.modules.as_ref().ok_or_else(|| {
-                    LangError::engine("call_host: no module registry".to_string())
+                    LangError::engine_node(
+                        "call_host: no module registry".to_string(),
+                        current_node,
+                    )
                 })?;
                 let func = modules.lookup(callee).ok_or_else(|| {
-                    LangError::engine(format!("call_host: function '{}' not found", callee))
+                    LangError::engine_node(
+                        format!("call_host: function '{}' not found", callee),
+                        current_node,
+                    )
                 })?;
                 let call_args: Vec<Value> = args
                     .first()
@@ -1490,7 +1625,7 @@ impl TreeWalkEngine {
                 pctx.set_value_callable(Rc::new(TreeWalkCallable));
                 let val = func
                     .call(&call_args, &mut pctx)
-                    .map_err(|e| LangError::engine(e.to_string()))?;
+                    .map_err(|e| LangError::engine_node(e.to_string(), current_node))?;
                 Ok((TaggedValue::from(val), false))
             }
             // ADR-0060: proj_rest — evaluate all children after index 0 and
@@ -1509,7 +1644,10 @@ impl TreeWalkEngine {
                 let mut vals = Vec::new();
                 for entry in children.iter().skip(1) {
                     let idx = entry.as_u64().ok_or_else(|| {
-                        LangError::engine("proj_rest: child index must be a number".to_string())
+                        LangError::engine_node(
+                            "proj_rest: child index must be a number".to_string(),
+                            current_node,
+                        )
                     })? as usize;
                     vals.push(self.eval_node_inner(ast, AstRef::new(idx), lang, env)?);
                 }
@@ -1538,7 +1676,10 @@ impl TreeWalkEngine {
                 let mut eval_err: Option<LangError> = None;
                 'block: for entry in children.iter() {
                     let idx = entry.as_u64().ok_or_else(|| {
-                        LangError::engine("eval_block: child index must be a number".to_string())
+                        LangError::engine_node(
+                            "eval_block: child index must be a number".to_string(),
+                            current_node,
+                        )
                     })? as usize;
                     let child_node = ast.at(AstRef::new(idx))?;
                     if child_node.kind == "assign" {
@@ -1671,10 +1812,20 @@ impl TreeWalkEngine {
                     .or(incoming)
                     .unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&inc)
-                    .ok_or_else(|| LangError::engine("inc_fst: input is not a pair".to_string()))?
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "inc_fst: input is not a pair".to_string(),
+                            current_node,
+                        )
+                    })?
                     .clone();
                 let b = pair_snd(&inc)
-                    .ok_or_else(|| LangError::engine("inc_fst: input is not a pair".to_string()))?
+                    .ok_or_else(|| {
+                        LangError::engine_node(
+                            "inc_fst: input is not a pair".to_string(),
+                            current_node,
+                        )
+                    })?
                     .clone();
                 let a_n = as_num(&a)?;
                 let new_a = num_value(a_n + Num::Int(1));
@@ -1692,7 +1843,10 @@ impl TreeWalkEngine {
                     .or(incoming)
                     .unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&inc).cloned().ok_or_else(|| {
-                    LangError::engine("countdown_step: input is not a pair".to_string())
+                    LangError::engine_node(
+                        "countdown_step: input is not a pair".to_string(),
+                        current_node,
+                    )
                 })?;
                 let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let result_val = pair_fst(&a).cloned().ok_or_else(|| {
@@ -1752,7 +1906,10 @@ impl TreeWalkEngine {
             "opt_chain" => {
                 let input = args.first().cloned().unwrap_or(TaggedValue::Null);
                 let field_name = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::engine("opt_chain: field name must be a string".to_string())
+                    LangError::engine_node(
+                        "opt_chain: field name must be a string".to_string(),
+                        current_node,
+                    )
                 })?;
                 if input.is_null() {
                     // null → none
@@ -1777,7 +1934,10 @@ impl TreeWalkEngine {
                     ))
                 }
             }
-            _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
+            _ => Err(LangError::engine_node(
+                format!("unknown v2 native op: {}", op),
+                current_node,
+            )),
         }
     }
 
@@ -1870,10 +2030,16 @@ impl TreeWalkEngine {
                 // Fallback for `foreign.<name>` node kinds.
                 if let Some(foreign_name) = node.kind.strip_prefix("foreign.") {
                     let modules = self.modules.as_ref().ok_or_else(|| {
-                        LangError::engine(format!("unregistered foreign: {}", foreign_name))
+                        LangError::engine_node(
+                            format!("unregistered foreign: {}", foreign_name),
+                            node,
+                        )
                     })?;
                     let func = modules.lookup(foreign_name).ok_or_else(|| {
-                        LangError::engine(format!("unregistered foreign: {}", foreign_name))
+                        LangError::engine_node(
+                            format!("unregistered foreign: {}", foreign_name),
+                            node,
+                        )
                     })?;
                     let mut arg_vals = Vec::new();
                     if let Some(children) = node.payload.get("children").and_then(|c| c.as_array())
@@ -1890,7 +2056,7 @@ impl TreeWalkEngine {
                     pctx.set_value_callable(Rc::new(TreeWalkCallable));
                     let val = func
                         .call(&arg_vals, &mut pctx)
-                        .map_err(|e| LangError::engine(e.to_string()))?;
+                        .map_err(|e| LangError::engine_node(e.to_string(), node))?;
                     Ok(TaggedValue::from(val))
                 } else {
                     Ok(TaggedValue::from(node.payload.clone()))
@@ -1956,24 +2122,25 @@ impl TreeWalkEngine {
             .payload
             .get("name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::engine("bind: missing name".to_string()))?;
+            .ok_or_else(|| {
+                LangError::engine_node("bind: missing name".to_string(), current_node)
+            })?;
         let children = current_node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| {
-                LangError::engine("bind: expected children array in payload".to_string())
+                LangError::engine_node(
+                    "bind: expected children array in payload".to_string(),
+                    current_node,
+                )
             })?;
-        let value_idx = children
-            .first()
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("bind: missing value child".to_string()))?
-            as usize;
-        let body_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("bind: missing body child".to_string()))?
-            as usize;
+        let value_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("bind: missing value child".to_string(), current_node)
+        })? as usize;
+        let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("bind: missing body child".to_string(), current_node)
+        })? as usize;
         // Evaluate the value in the current env.
         let value = self.eval_node_inner(ast, AstRef::new(value_idx), lang, env)?;
         // Extend env with name = value, evaluate body, pop.
@@ -2007,17 +2174,18 @@ impl TreeWalkEngine {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("match: missing children in payload".to_string()))?;
-        let scrut_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("match: missing scrutinee child".to_string()))?
-            as usize;
-        let block_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("match: missing block child".to_string()))?
-            as usize;
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "match: missing children in payload".to_string(),
+                    current_node,
+                )
+            })?;
+        let scrut_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("match: missing scrutinee child".to_string(), current_node)
+        })? as usize;
+        let block_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("match: missing block child".to_string(), current_node)
+        })? as usize;
 
         // Evaluate the scrutinee.
         let scrut_val = self.eval_node_inner(ast, AstRef::new(scrut_idx), lang, env)?;
@@ -2030,30 +2198,50 @@ impl TreeWalkEngine {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("match: block node missing children".to_string()))?;
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "match: block node missing children".to_string(),
+                    current_node,
+                )
+            })?;
 
         // Try each arm.
         for arm_entry in arm_indices {
-            let arm_idx = arm_entry
-                .as_u64()
-                .ok_or_else(|| LangError::engine("match: arm index must be a number".to_string()))?
-                as usize;
+            let arm_idx = arm_entry.as_u64().ok_or_else(|| {
+                LangError::engine_node(
+                    "match: arm index must be a number".to_string(),
+                    current_node,
+                )
+            })? as usize;
             let arm_node = ast.at(AstRef::new(arm_idx))?;
             let arm_children = arm_node
                 .payload
                 .get("children")
                 .and_then(|c| c.as_array())
-                .ok_or_else(|| LangError::engine("match: arm node missing children".to_string()))?;
+                .ok_or_else(|| {
+                    LangError::engine_node(
+                        "match: arm node missing children".to_string(),
+                        current_node,
+                    )
+                })?;
             let pattern_idx = arm_children
                 .get(0)
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::engine("match: arm missing pattern child".to_string()))?
-                as usize;
+                .ok_or_else(|| {
+                    LangError::engine_node(
+                        "match: arm missing pattern child".to_string(),
+                        current_node,
+                    )
+                })? as usize;
             let body_idx = arm_children
                 .get(1)
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::engine("match: arm missing body child".to_string()))?
-                as usize;
+                .ok_or_else(|| {
+                    LangError::engine_node(
+                        "match: arm missing body child".to_string(),
+                        current_node,
+                    )
+                })? as usize;
 
             // Interpret the pattern node structurally (ADR-0061: shared
             // pattern matching logic).
@@ -2073,7 +2261,10 @@ impl TreeWalkEngine {
             env.pop_scope();
         }
 
-        Err(LangError::engine("match: no arm matched".to_string()))
+        Err(LangError::engine_node(
+            "match: no arm matched".to_string(),
+            current_node,
+        ))
     }
 
     /// `handle` op: evaluate a body, then dispatch the result to the
@@ -2095,17 +2286,18 @@ impl TreeWalkEngine {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("handle: missing children in payload".to_string()))?;
-        let body_idx = children
-            .get(0)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("handle: missing body child".to_string()))?
-            as usize;
-        let block_idx = children
-            .get(1)
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::engine("handle: missing block child".to_string()))?
-            as usize;
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "handle: missing children in payload".to_string(),
+                    current_node,
+                )
+            })?;
+        let body_idx = children.get(0).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("handle: missing body child".to_string(), current_node)
+        })? as usize;
+        let block_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+            LangError::engine_node("handle: missing block child".to_string(), current_node)
+        })? as usize;
 
         // Evaluate the body.
         let body_val = self.eval_node_inner(ast, AstRef::new(body_idx), lang, env)?;
@@ -2118,12 +2310,20 @@ impl TreeWalkEngine {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::engine("handle: block node missing children".to_string()))?;
+            .ok_or_else(|| {
+                LangError::engine_node(
+                    "handle: block node missing children".to_string(),
+                    current_node,
+                )
+            })?;
 
         // Try each clause.
         for clause_entry in clause_indices {
             let clause_idx = clause_entry.as_u64().ok_or_else(|| {
-                LangError::engine("handle: clause index must be a number".to_string())
+                LangError::engine_node(
+                    "handle: clause index must be a number".to_string(),
+                    current_node,
+                )
             })? as usize;
             let clause_node = ast.at(AstRef::new(clause_idx))?;
             let clause_children = clause_node
@@ -2131,19 +2331,28 @@ impl TreeWalkEngine {
                 .get("children")
                 .and_then(|c| c.as_array())
                 .ok_or_else(|| {
-                    LangError::engine("handle: clause node missing children".to_string())
+                    LangError::engine_node(
+                        "handle: clause node missing children".to_string(),
+                        current_node,
+                    )
                 })?;
             let pattern_idx = clause_children
                 .get(0)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| {
-                    LangError::engine("handle: clause missing pattern child".to_string())
+                    LangError::engine_node(
+                        "handle: clause missing pattern child".to_string(),
+                        current_node,
+                    )
                 })? as usize;
             let handler_idx = clause_children
                 .get(1)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| {
-                    LangError::engine("handle: clause missing handler child".to_string())
+                    LangError::engine_node(
+                        "handle: clause missing handler child".to_string(),
+                        current_node,
+                    )
                 })? as usize;
 
             env.push_scope();
@@ -2193,34 +2402,46 @@ impl TreeWalkEngine {
             if children.len() >= 2 {
                 // Child 0 is the original json template node.
                 let template_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine("json: child index must be a number".to_string())
+                    LangError::engine_node(
+                        "json: child index must be a number".to_string(),
+                        current_node,
+                    )
                 })? as usize;
                 let template_node = ast.at(AstRef::new(template_idx))?;
                 let template = template_node.payload.as_str().ok_or_else(|| {
-                    LangError::engine("json: template payload must be a string".to_string())
+                    LangError::engine_node(
+                        "json: template payload must be a string".to_string(),
+                        current_node,
+                    )
                 })?;
                 let mut s = template.to_string();
                 for (i, arg_entry) in children[1..].iter().enumerate() {
                     let idx = arg_entry.as_u64().ok_or_else(|| {
-                        LangError::engine("json: child index must be a number".to_string())
+                        LangError::engine_node(
+                            "json: child index must be a number".to_string(),
+                            current_node,
+                        )
                     })? as usize;
                     let val = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
-                    let replacement = serde_json::to_string(&tagged_to_value(&val))
-                        .map_err(|e| LangError::engine(format!("json: {}", e)))?;
+                    let replacement =
+                        serde_json::to_string(&tagged_to_value(&val)).map_err(|e| {
+                            LangError::engine_node(format!("json: {}", e), current_node)
+                        })?;
                     s = s.replace(&format!("${}", i), &replacement);
                 }
                 return serde_json::from_str::<Value>(&s)
-                    .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
+                    .map_err(|e| {
+                        LangError::engine_node(format!("json: parse error: {}", e), current_node)
+                    })
                     .map(|v| (TaggedValue::from(v), false));
             }
         }
         // No children: parse the payload string as JSON directly.
-        let expr = current_node
-            .payload
-            .as_str()
-            .ok_or_else(|| LangError::engine("json: payload must be a string".to_string()))?;
+        let expr = current_node.payload.as_str().ok_or_else(|| {
+            LangError::engine_node("json: payload must be a string".to_string(), current_node)
+        })?;
         serde_json::from_str::<Value>(expr)
-            .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
+            .map_err(|e| LangError::engine_node(format!("json: parse error: {}", e), current_node))
             .map(|v| (TaggedValue::from(v), false))
     }
 
@@ -2258,7 +2479,10 @@ impl TreeWalkEngine {
             .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| {
-                LangError::engine("eval_rec: expected children array in payload".to_string())
+                LangError::engine_node(
+                    "eval_rec: expected children array in payload".to_string(),
+                    current_node,
+                )
             })?;
         if children.is_empty() {
             return Ok((TaggedValue::Null, false));
@@ -2277,7 +2501,10 @@ impl TreeWalkEngine {
         let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
         for entry in children {
             let child_idx = entry.as_u64().ok_or_else(|| {
-                LangError::engine("eval_rec: child index must be a number".to_string())
+                LangError::engine_node(
+                    "eval_rec: child index must be a number".to_string(),
+                    current_node,
+                )
             })? as usize;
             let child_node = ast.at(AstRef::new(child_idx))?;
             if child_node.kind == "assign" {
@@ -2315,7 +2542,10 @@ impl TreeWalkEngine {
 
             for entry in children {
                 let child_idx = entry.as_u64().ok_or_else(|| {
-                    LangError::engine("eval_rec: child index must be a number".to_string())
+                    LangError::engine_node(
+                        "eval_rec: child index must be a number".to_string(),
+                        current_node,
+                    )
                 })? as usize;
                 let child_node = ast.at(AstRef::new(child_idx))?;
 
