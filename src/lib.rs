@@ -155,7 +155,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// compile time from the kit-stdlib data dir. The typecheck engine stays
 /// Rust (ADR-0077 "Special"); this .hnl declares the interface only.
 const LANG_TYPECHECK_HNL: &str =
-    include_str!("../../../kit-stdlib/data/lang_typecheck/lang_typecheck.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/lang_typecheck/lang_typecheck.hnl");
 
 /// A `Library` plugin that registers the `lang.typecheck` implementation
 /// via the generic [`HandlLibraryPlugin`].
