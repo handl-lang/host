@@ -8,11 +8,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use handl_language::{Ast, AstNode, Language, Token, Tokens, language_value};
 use handl_language::LangError;
+use handl_language::{language_value, Ast, AstNode, Language, Token, Tokens};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{RuntimeFactory, RuntimeHandle};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::ParseModule;
 
@@ -71,10 +71,7 @@ impl RuntimeHandle for MockHandle {
         Err(LangError::NotImplemented)
     }
 
-    fn run_compiled(
-        &self,
-        _handle: &handl_runtime::CompiledHandle,
-    ) -> Result<Value, LangError> {
+    fn run_compiled(&self, _handle: &handl_runtime::CompiledHandle) -> Result<Value, LangError> {
         Err(LangError::NotImplemented)
     }
 }
@@ -267,7 +264,11 @@ fn call_with_non_language_first_arg_errors() {
 fn call_with_missing_tokens_arg_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
     let err = call(&module, &[lang_arg()]).unwrap_err();
-    assert!(err.to_string().contains("expected (lang, tokens)"), "got: {}", err);
+    assert!(
+        err.to_string().contains("expected (lang, tokens)"),
+        "got: {}",
+        err
+    );
 }
 
 #[test]
@@ -280,10 +281,7 @@ fn call_with_non_deserializable_tokens_errors() {
 
 #[test]
 fn call_propagates_factory_build_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_build_err(LangError::Engine("build-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_build_err(LangError::engine("build-boom")));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), tokens_arg()]).unwrap_err();
     assert!(err.to_string().contains("build-boom"), "got: {}", err);
@@ -291,10 +289,7 @@ fn call_propagates_factory_build_error() {
 
 #[test]
 fn call_propagates_handle_parse_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_parse_err(LangError::Engine("parse-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_parse_err(LangError::engine("parse-boom")));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), tokens_arg()]).unwrap_err();
     assert!(err.to_string().contains("parse-boom"), "got: {}", err);
