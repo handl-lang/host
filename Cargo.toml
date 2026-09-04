@@ -125,6 +125,7 @@ members = [
   "crates/plugin-engine-eval-cranelift",
   "crates/plugin-engine-fmt",
   "crates/plugin-engine-lint",
+  "crates/plugin-ffi",
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",

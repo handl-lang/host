@@ -130,6 +130,7 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 }
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
+use handl_platform::Function;
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_value::{tagged_to_value, TaggedValue};
@@ -150,19 +151,52 @@ use handl_value::{tagged_to_value, TaggedValue};
 pub struct CraneliftEngine {
     /// The module registry for `Foreign` dispatch (may be `None`).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// FFI bindings for direct C ABI dispatch (ADR-0083 §4).
+    ///
+    /// Maps Foreign op names to FFI bindings. When a `Foreign` op name
+    /// matches an entry here, the compiler emits a call to
+    /// `helper_v2_call_ffi_raw` (direct C ABI) instead of
+    /// `helper_v2_call_foreign` (ModuleLookup trait object dispatch).
+    ffi_bindings: HashMap<String, handl_plugin_ffi::FfiBinding>,
 }
 
 impl CraneliftEngine {
     /// Create a new cranelift engine with no module registry.
     pub fn new() -> Self {
-        Self { modules: None }
+        Self {
+            modules: None,
+            ffi_bindings: HashMap::new(),
+        }
     }
 
     /// Attach a module registry (builder style).
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
             modules: Some(modules),
+            ffi_bindings: HashMap::new(),
         }
+    }
+
+    /// Register an FFI binding for direct C ABI dispatch (ADR-0083 §4).
+    ///
+    /// When a `Foreign` op name matches `op_name`, the compiler will emit
+    /// a call to `helper_v2_call_ffi_raw` (direct C ABI via `dlsym`) instead
+    /// of the general `helper_v2_call_foreign` path (ModuleLookup trait
+    /// object dispatch). This is the "raw C ABI / dlsym" fast path.
+    ///
+    /// Non-FFI Foreign ops continue to use the existing `ModuleLookup` path,
+    /// preserving backward compatibility.
+    pub fn register_ffi(&mut self, op_name: &str, binding: handl_plugin_ffi::FfiBinding) {
+        self.ffi_bindings.insert(op_name.to_string(), binding);
+    }
+
+    /// Attach FFI bindings (builder style).
+    pub fn with_ffi_bindings(
+        mut self,
+        bindings: HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ) -> Self {
+        self.ffi_bindings = bindings;
+        self
     }
 
     /// Compile the language + AST to an on-disk object file.
@@ -258,6 +292,7 @@ impl CraneliftEngine {
             &result.literals,
             &result.names,
             self.modules.as_ref(),
+            &self.ffi_bindings,
         )
     }
 }
@@ -285,7 +320,7 @@ impl EvalEngine for CraneliftEngine {
         // Compile all nodes in the AST to native functions.
         // The scheme lookup (lang.eval[node.kind]) happens here, at compile
         // time — it is erased from the compiled code (ADR §7).
-        let compile_result = compile_all_nodes_jit(lang, ast)?;
+        let compile_result = compile_all_nodes_jit(lang, ast, &self.ffi_bindings)?;
 
         run_native(
             lang,
@@ -294,6 +329,7 @@ impl EvalEngine for CraneliftEngine {
             &compile_result.literals,
             &compile_result.names,
             self.modules.as_ref(),
+            &self.ffi_bindings,
         )
     }
 
@@ -328,10 +364,17 @@ fn run_native(
     literals: &[Value],
     names: &[String],
     modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
     // Convert literals from serde_json::Value to TaggedValue at the boundary.
     let literals: Vec<TaggedValue> = literals.iter().cloned().map(TaggedValue::from).collect();
+
+    // Build the FFI table from the registered bindings, in a deterministic
+    // order (sorted by op name) so indices are stable.
+    let mut ffi_table: Vec<handl_plugin_ffi::FfiBinding> = ffi_bindings.values().cloned().collect();
+    ffi_table.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+
     let mut ctx = EvalCtx {
         lang: lang as *const Language,
         ast: ast as *const Ast,
@@ -342,6 +385,8 @@ fn run_native(
         literals,
         names: names.to_vec(),
         error: None,
+        ffi_table,
+        ffi_cache: handl_plugin_ffi::FfiLibraryCache::new(),
     };
 
     // Call the root node's compiled native function.
@@ -429,6 +474,16 @@ pub struct EvalCtx {
     /// Deferred error: set by a helper on failure, checked after native
     /// execution returns.
     error: Option<LangError>,
+    /// FFI binding table (ADR-0083 §4 direct C ABI fast path).
+    ///
+    /// Populated at engine construction time from registered FFI bindings.
+    /// When a `Foreign` op name matches an entry in this table, the compiled
+    /// code calls `helper_v2_call_ffi_raw` with the binding's index instead
+    /// of the general `helper_v2_call_foreign` path (which goes through
+    /// `ModuleLookup` trait object dispatch).
+    ffi_table: Vec<handl_plugin_ffi::FfiBinding>,
+    /// Shared FFI library cache (ADR-0083 §4: "dlopen once, reuse").
+    ffi_cache: handl_plugin_ffi::FfiLibraryCache,
 }
 
 impl EvalCtx {
@@ -492,6 +547,8 @@ impl EvalCtx {
             literals,
             names,
             error: None,
+            ffi_table: Vec::new(),
+            ffi_cache: handl_plugin_ffi::FfiLibraryCache::new(),
         }
     }
 }
@@ -1304,6 +1361,67 @@ pub unsafe extern "C" fn helper_call_foreign(
         // Call the module function.
         let mut pctx = handl_platform::EvalContext::new();
         match func.call(&val_args, &mut pctx) {
+            Ok(v) => box_value(TaggedValue::from(v)),
+            Err(e) => ctx.set_error(LangError::engine(e.to_string())),
+        }
+    }
+}
+
+/// Call a raw C function by FFI binding index (ADR-0083 §4 direct FFI
+/// dispatch).
+///
+/// This is the fast path that bypasses the `ModuleLookup` trait object
+/// indirection: the cranelift engine calls the C symbol directly via
+/// `dlsym`, marshal, call, unmarshal — all in native code.
+///
+/// The `ffi_idx` is an index into `ctx.ffi_table`, which is built at engine
+/// construction time from the registered FFI bindings. All argument value
+/// pointers are consumed (reclaimed).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_call_ffi_raw(
+    ctx: *mut EvalCtx,
+    ffi_idx: usize,
+    args: *const *mut TaggedValue,
+    n: usize,
+) -> *mut TaggedValue {
+    unsafe {
+        let ctx = &mut *ctx;
+
+        // Collect arg values.
+        let mut arg_vals = Vec::with_capacity(n);
+        for i in 0..n {
+            let arg_ptr = *args.add(i);
+            if arg_ptr.is_null() {
+                for j in (i + 1)..n {
+                    let p = *args.add(j);
+                    if !p.is_null() {
+                        let _ = take_value(p);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(arg_ptr));
+        }
+
+        // Look up the FFI binding from the table.
+        let binding = match ctx.ffi_table.get(ffi_idx) {
+            Some(b) => b.clone(),
+            None => {
+                return ctx.set_error(LangError::engine(format!(
+                    "ffi: binding index {} out of bounds (table has {} entries)",
+                    ffi_idx,
+                    ctx.ffi_table.len()
+                )));
+            }
+        };
+
+        // Convert TaggedValue args to serde_json::Value for the FFI boundary.
+        let val_args: Vec<Value> = arg_vals.iter().map(tagged_to_value).collect();
+
+        // Create an FfiDispatcher sharing the ctx's library cache and call it.
+        let dispatcher = ctx.ffi_cache.dispatcher(binding);
+        let mut pctx = handl_platform::EvalContext::new();
+        match dispatcher.call(&val_args, &mut pctx) {
             Ok(v) => box_value(TaggedValue::from(v)),
             Err(e) => ctx.set_error(LangError::engine(e.to_string())),
         }
@@ -2127,7 +2245,7 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
                 lang.scheme_version
             )));
         }
-        let result = compile_all_nodes_jit(lang, ast)?;
+        let result = compile_all_nodes_jit(lang, ast, &std::collections::HashMap::new())?;
         Ok(Box::new(CraneliftArtifact {
             result: Some(Rc::new(result)),
             lang: lang.clone(),
@@ -5148,7 +5266,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5163,7 +5281,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5178,7 +5296,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v").with_payload(json!("x"))]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5203,7 +5321,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5239,7 +5357,7 @@ mod tests {
             AstNode::new("var").with_payload(json!("x")),
             AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5272,7 +5390,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(1)),
             AstNode::new("call").with_payload(json!({"children": [0, 1]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5301,7 +5419,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("if").with_payload(json!({"children": [0, 1, 2]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5326,7 +5444,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5351,7 +5469,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(21)),
             AstNode::new("dbl").with_payload(json!({"children": [0]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -5360,7 +5478,7 @@ mod tests {
         let mut lang = Language::new();
         lang.scheme_version = SchemeVersion::new("v3");
         let ast = make_ast(vec![AstNode::new("lit").with_payload(json!(42))]);
-        match compile_all_nodes_jit(&lang, &ast) {
+        match compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new()) {
             Ok(_) => panic!("expected version mismatch error, got Ok"),
             Err(e) => {
                 let msg = format!("{}", e);
@@ -6430,7 +6548,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(3)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let compile_result = compile_all_nodes_jit(&lang, &ast).unwrap();
+        let compile_result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new()).unwrap();
         let engine = CraneliftEngineV2::new();
         let result = engine.run_compiled(&lang, &ast, &compile_result).unwrap();
         assert_eq!(result, json!(5));
@@ -6463,7 +6581,7 @@ mod tests {
         let mode = CompileMode::Object {
             output_path: tmp.clone(),
         };
-        let result = compile_all_nodes(&lang, &ast, &mode).unwrap();
+        let result = compile_all_nodes(&lang, &ast, &mode, &std::collections::HashMap::new()).unwrap();
         assert!(tmp.exists());
         assert!(std::fs::metadata(&tmp)
             .map(|m| m.len() > 0)
@@ -6609,5 +6727,106 @@ mod tests {
                 name, bc_result, cl_result
             );
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0083 §4: FFI direct C ABI dispatch fast path tests
+    // -----------------------------------------------------------------------
+
+    /// A test C function for FFI dispatch (loaded via Library::this()).
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ffi_cranelift_test_double_i32(x: i32) -> i32 {
+        x * 2
+    }
+
+    /// Test that the cranelift engine can dispatch a Foreign op via the
+    /// FFI fast path (helper_v2_call_ffi_raw → raw C ABI call).
+    ///
+    /// This registers an FFI binding for a Foreign op name, compiles and
+    /// evaluates a Scheme that calls that Foreign op, and verifies the
+    /// result comes from the raw C function.
+    #[test]
+    fn ffi_fast_path_dispatches_to_raw_c_symbol() {
+        use handl_plugin_ffi::{FfiBinding, MarshalType};
+        use std::collections::HashMap;
+
+        // Build a language with a single node kind "test" whose eval scheme
+        // calls the foreign op "ffi.double" with a literal argument.
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.ffi_double",
+                "test",
+                Scheme::arr_foreign(
+                    "ffi.double",
+                    vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+                ),
+            ))
+            .unwrap();
+
+        let ast = make_ast(vec![AstNode::new("test")]);
+
+        // Register the FFI binding.
+        let mut ffi_bindings = HashMap::new();
+        ffi_bindings.insert(
+            "ffi.double".to_string(),
+            FfiBinding {
+                library: "self".to_string(),
+                symbol: "ffi_cranelift_test_double_i32".to_string(),
+                arg_types: vec![MarshalType::I32],
+                return_type: MarshalType::I32,
+            },
+        );
+
+        let engine = CraneliftEngine::new().with_ffi_bindings(ffi_bindings);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    /// Test that non-FFI Foreign ops still use the ModuleLookup path
+    /// (backward compatibility).
+    #[test]
+    fn non_ffi_foreign_ops_use_module_lookup_path() {
+        use handl_plugin_ffi::{FfiBinding, MarshalType};
+        use std::collections::HashMap;
+
+        // Build a language with a node kind "test" whose eval scheme
+        // calls the foreign op "double" (non-FFI, goes through ModuleLookup).
+        let mut lang = Language::new();
+        lang.eval
+            .merge(EvalSchemeDef::new(
+                "e.double",
+                "test",
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit("const", vec![], json!(21))],
+                ),
+            ))
+            .unwrap();
+
+        let ast = make_ast(vec![AstNode::new("test")]);
+
+        // Register an FFI binding for a DIFFERENT op name — "double" should
+        // still go through ModuleLookup.
+        let mut ffi_bindings = HashMap::new();
+        ffi_bindings.insert(
+            "ffi.other".to_string(),
+            FfiBinding {
+                library: "self".to_string(),
+                symbol: "ffi_cranelift_test_double_i32".to_string(),
+                arg_types: vec![MarshalType::I32],
+                return_type: MarshalType::I32,
+            },
+        );
+
+        // Set up the module registry with "double".
+        let modules: Rc<dyn handl_platform::ModuleLookup> =
+            Rc::new(ModuleRegistry::new().with(ConformanceModule));
+
+        let engine = CraneliftEngine::with_modules(modules).with_ffi_bindings(ffi_bindings);
+        let req = EvalRequest::new(ast);
+        let result = engine.eval(&lang, &req).unwrap();
+        assert_eq!(result, json!(42));
     }
 }

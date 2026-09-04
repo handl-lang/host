@@ -1289,6 +1289,7 @@ dependencies = [
  "handl-plugin-engine-eval",
  "handl-plugin-engine-eval-bytecode",
  "handl-plugin-engine-eval-tree-walk",
+ "handl-plugin-ffi",
  "handl-plugin-module",
  "handl-runtime",
  "handl-test-utils",
