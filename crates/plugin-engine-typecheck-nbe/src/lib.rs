@@ -905,7 +905,7 @@ impl NbeTypecheckEngine {
                                 lhs_idx
                             ))
                         })?;
-                        if lhs_node.kind == "type-annot" {
+                        if is_type_annot(lang, &lhs_node) {
                             let ta_children = lhs_node
                                 .payload
                                 .get("children")
@@ -964,7 +964,7 @@ impl NbeTypecheckEngine {
                                 ann_ref.index()
                             ))
                         })?;
-                        let ann = interpret_type_expr(ast, type_expr_node, &ctx.registry)?;
+                        let ann = interpret_type_expr(lang, ast, type_expr_node, &ctx.registry)?;
                         self.unify(&value_type, &ann, ctx)?;
                         ann
                     } else {
@@ -1142,7 +1142,7 @@ impl NbeTypecheckEngine {
                                     lhs_idx
                                 ))
                             })?;
-                            if lhs_node.kind == "type-annot" {
+                            if is_type_annot(lang, &lhs_node) {
                                 let ta_children = lhs_node
                                     .payload
                                     .get("children")
@@ -1206,7 +1206,7 @@ impl NbeTypecheckEngine {
                                 ann_ref.index()
                             ))
                         })?;
-                        let ann = interpret_type_expr(ast, type_expr_node, &ctx.registry)?;
+                        let ann = interpret_type_expr(lang, ast, type_expr_node, &ctx.registry)?;
                         self.unify(&value_type, &ann, ctx)?;
                         ann
                     } else {
@@ -1301,7 +1301,7 @@ impl NbeTypecheckEngine {
                             block_idx
                         ))
                     })?;
-                    if block_node.kind == "block" {
+                    if is_block_node(lang, &block_node) {
                         block_node
                             .payload
                             .get("children")
@@ -1434,42 +1434,52 @@ impl NbeTypecheckEngine {
                         "synth_function: node needs at least 2 children (params, body)",
                     ));
                 }
-                let params_idx = children[0].as_u64().ok_or_else(|| {
-                    LangError::engine_node("synth_function: params child index is not a u64", node)
-                })? as usize;
-                let body_idx = children[1].as_u64().ok_or_else(|| {
-                    LangError::engine_node("synth_function: body child index is not a u64", node)
-                })? as usize;
-                // Navigate paren → child 0 (var) → payload (name).
-                let params_node = ast.get(AstRef::new(params_idx)).ok_or_else(|| {
+                // Resolve params/body by child role (ADR-0081), falling back
+                // to the positional children for role-less shapes.
+                let params_ref = role_child_ref(lang, node, "params").or_else(|| {
+                    children
+                        .first()
+                        .and_then(|v| v.as_u64())
+                        .map(|i| AstRef::new(i as usize))
+                });
+                let body_ref = role_child_ref(lang, node, "body").or_else(|| {
+                    children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .map(|i| AstRef::new(i as usize))
+                });
+                let params_ref = params_ref.ok_or_else(|| {
+                    LangError::engine_node("synth_function: no params child", node)
+                })?;
+                let body_ref = body_ref
+                    .ok_or_else(|| LangError::engine_node("synth_function: no body child", node))?;
+                let params_node = ast.get(params_ref).ok_or_else(|| {
                     LangError::engine(format!(
                         "synth_function: params node {} out of bounds",
-                        params_idx
+                        params_ref.index()
                     ))
                 })?;
-                let param_name = if params_node.kind == "paren" {
-                    let params_children = params_node
-                        .payload
-                        .get("children")
-                        .and_then(|c| c.as_array())
+                // Unwrap the params wrapper (paren{body}) by role, falling
+                // back to its first child; a bare var params node carries the
+                // name directly in its payload.
+                let param_name = if is_paren_node(lang, &params_node) {
+                    let var_ref = role_child_ref(lang, &params_node, "body")
+                        .or_else(|| {
+                            params_node
+                                .payload
+                                .get("children")?
+                                .as_array()?
+                                .first()
+                                .and_then(|v| v.as_u64())
+                                .map(|i| AstRef::new(i as usize))
+                        })
                         .ok_or_else(|| {
-                            LangError::engine_node(
-                                "synth_function: paren node has no children array",
-                                node,
-                            )
+                            LangError::engine("synth_function: paren node has no param children")
                         })?;
-                    if params_children.is_empty() {
-                        return Err(LangError::engine(
-                            "synth_function: paren node has no param children",
-                        ));
-                    }
-                    let var_idx = params_children[0].as_u64().ok_or_else(|| {
-                        LangError::engine_node("synth_function: var index is not a u64", node)
-                    })? as usize;
-                    let var_node = ast.get(AstRef::new(var_idx)).ok_or_else(|| {
+                    let var_node = ast.get(var_ref).ok_or_else(|| {
                         LangError::engine(format!(
                             "synth_function: var node {} out of bounds",
-                            var_idx
+                            var_ref.index()
                         ))
                     })?;
                     var_node.payload.as_str().ok_or_else(|| {
@@ -1494,7 +1504,7 @@ impl NbeTypecheckEngine {
                 let param_meta = ctx.fresh_meta();
                 let param_type = meta_value(param_meta);
                 ctx.extend(param_name.to_string(), param_type.clone());
-                let body_type = self.synth_node(lang, ast, AstRef::new(body_idx), ctx)?;
+                let body_type = self.synth_node(lang, ast, body_ref, ctx)?;
                 let payload = serde_json::json!({"param": param_type, "body": body_type});
                 ctx.registry
                     .construct("type.function", &payload)
@@ -1542,7 +1552,7 @@ impl NbeTypecheckEngine {
                         type_idx
                     ))
                 })?;
-                let annotation_type = interpret_type_expr(ast, type_node, &ctx.registry)?;
+                let annotation_type = interpret_type_expr(lang, ast, type_node, &ctx.registry)?;
                 self.unify(&expr_type, &annotation_type, ctx)?;
                 Ok(annotation_type)
             }
@@ -2732,10 +2742,10 @@ impl NbeTypecheckEngine {
                     idx
                 ))
             })?;
-            if child_node.kind == "assign" {
+            if is_assign_node(lang, &child_node) {
                 let (name, value_ref) = self.extract_assign_binding(ast, child_node)?;
                 bindings.push((name, value_ref));
-            } else if child_node.kind == "return" {
+            } else if is_return_node(lang, &child_node) {
                 return_ref = Some(child);
             }
             last_ref = Some(child);
@@ -2799,7 +2809,7 @@ impl NbeTypecheckEngine {
                     lref.index()
                 ))
             })?;
-            if lnode.kind == "assign" {
+            if is_assign_node(lang, &lnode) {
                 let (_name, value_ref) = self.extract_assign_binding(ast, lnode)?;
                 let t = self.synth_node(lang, ast, value_ref, ctx)?;
                 self.zonk(&t, ctx)
@@ -3583,6 +3593,78 @@ fn child_ref(ast: &Ast, node_ref: AstRef, idx: u64) -> Result<AstRef, LangError>
     Ok(AstRef::new(child_idx as usize))
 }
 
+// --- ADR-0081 data-driven child roles --------------------------------------
+//
+// Engines must resolve AST child positions by **named role** from
+// `AstShapeDef` (`data/ast.yaml`), never by `kind ==` shape heuristics or
+// bare positional indices. Each helper falls back to the legacy positional
+// behavior only when a node's shape declares no roles (opaque shapes), so
+// the canonical language and role-declaring languages behave identically.
+
+/// Resolve a child role to its positional index for `node_kind`.
+///
+/// `None` = the node kind has no shape or declares no such role; callers
+/// keep their positional fallback.
+fn role_index_of(lang: &Language, node_kind: &str, role: &str) -> Option<usize> {
+    lang.child_role_index(node_kind, role).ok().flatten()
+}
+
+/// Whether `node_kind`'s shape declares the given child role.
+fn role_declared(lang: &Language, node_kind: &str, role: &str) -> bool {
+    role_index_of(lang, node_kind, role).is_some()
+}
+
+/// Project the child arena ref at `role` from `node`'s payload children.
+///
+/// `None` = no such role declared or no children payload; callers fall back
+/// to the positional index.
+fn role_child_ref(
+    lang: &Language,
+    node: &AstNode,
+    role: &str,
+) -> Option<AstRef> {
+    let idx = role_index_of(lang, &node.kind, role)?;
+    let arena = node
+        .payload
+        .get("children")?
+        .as_array()?
+        .get(idx)?
+        .as_u64()?;
+    Some(AstRef::new(arena as usize))
+}
+
+/// Whether `node` is a binding (assign-like) node: its shape declares a
+/// `target` role. Falls back to the legacy kind check for role-less shapes.
+fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
+    role_declared(lang, &node.kind, "target") || node.kind == "assign"
+}
+
+/// Whether `node` is a return node: its shape declares a `value` role but no
+/// `target` role (a binding declares both). Falls back to the legacy kind
+/// check for role-less shapes.
+fn is_return_node(lang: &Language, node: &AstNode) -> bool {
+    (role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target"))
+        || node.kind == "return"
+}
+
+/// Whether `node` is a type annotation: its shape declares an `annot` role.
+/// Falls back to the legacy kind check for role-less shapes.
+fn is_type_annot(lang: &Language, node: &AstNode) -> bool {
+    role_declared(lang, &node.kind, "annot") || node.kind == "type-annot"
+}
+
+/// Whether `node` is a block: its shape declares a `statements` role.
+/// Falls back to the legacy kind check for role-less shapes.
+fn is_block_node(lang: &Language, node: &AstNode) -> bool {
+    role_declared(lang, &node.kind, "statements") || node.kind == "block"
+}
+
+/// Whether `node` is a paren wrapper: its shape declares a `body` role.
+/// Falls back to the legacy kind check for role-less shapes.
+fn is_paren_node(lang: &Language, node: &AstNode) -> bool {
+    role_declared(lang, &node.kind, "body") || node.kind == "paren"
+}
+
 /// Encode a metavariable id as `{"__meta__": id}`.
 fn meta_value(id: u64) -> Value {
     let mut map = serde_json::Map::new();
@@ -3612,6 +3694,7 @@ fn extract_meta_id(v: &Value) -> Option<u64> {
 /// Compound forms recurse on their children, so `(type.number) -> [type.string]`
 /// produces `type.function{param: type.number, body: type.array{element: type.string}}`.
 fn interpret_type_expr(
+    lang: &Language,
     ast: &Ast,
     node: &handl_language::AstNode,
     registry: &TypeRegistry,
@@ -3668,7 +3751,7 @@ fn interpret_type_expr(
                     child_idx
                 ))
             })?;
-            interpret_type_expr(ast, child, registry)
+            interpret_type_expr(lang, ast, child, registry)
         }
         "function" => {
             // `(T) -> U` → type.function{param: T, body: U}.
@@ -3684,12 +3767,20 @@ fn interpret_type_expr(
                     "interpret_type_expr: function needs 2 children (param, body)",
                 ));
             }
-            let param_idx = children[0].as_u64().ok_or_else(|| {
-                LangError::engine("interpret_type_expr: param child index is not a u64")
-            })? as usize;
-            let body_idx = children[1].as_u64().ok_or_else(|| {
-                LangError::engine("interpret_type_expr: body child index is not a u64")
-            })? as usize;
+            // Resolve param/body by child role (ADR-0081), falling back to
+            // the positional children for role-less shapes.
+            let param_idx = role_child_ref(lang, node, "params")
+                .map(|r| r.index())
+                .or_else(|| children[0].as_u64().map(|i| i as usize))
+                .ok_or_else(|| {
+                    LangError::engine("interpret_type_expr: param child index is not a u64")
+                })?;
+            let body_idx = role_child_ref(lang, node, "body")
+                .map(|r| r.index())
+                .or_else(|| children[1].as_u64().map(|i| i as usize))
+                .ok_or_else(|| {
+                    LangError::engine("interpret_type_expr: body child index is not a u64")
+                })?;
             let param_node = ast.get(AstRef::new(param_idx)).ok_or_else(|| {
                 LangError::engine(format!(
                     "interpret_type_expr: param node {} out of bounds",
@@ -3702,20 +3793,26 @@ fn interpret_type_expr(
                     body_idx
                 ))
             })?;
-            // The param child is a `paren` node wrapping the param type expr.
-            let param_type = if param_node.kind == "paren" {
-                let inner_idx = first_child_idx(param_node)?;
+            // The param child is a paren wrapper (paren{body}) around the
+            // param type expr; unwrap by role when declared.
+            let param_type = if is_paren_node(lang, param_node) {
+                let inner_idx = role_child_ref(lang, param_node, "body")
+                    .map(|r| r.index())
+                    .or_else(|| first_child_idx(param_node).ok())
+                    .ok_or_else(|| {
+                        LangError::engine("interpret_type_expr: param has no body child")
+                    })?;
                 let inner = ast.get(AstRef::new(inner_idx)).ok_or_else(|| {
                     LangError::engine(format!(
                         "interpret_type_expr: param paren child {} out of bounds",
                         inner_idx
                     ))
                 })?;
-                interpret_type_expr(ast, inner, registry)?
+                interpret_type_expr(lang, ast, inner, registry)?
             } else {
-                interpret_type_expr(ast, param_node, registry)?
+                interpret_type_expr(lang, ast, param_node, registry)?
             };
-            let body_type = interpret_type_expr(ast, body_node, registry)?;
+            let body_type = interpret_type_expr(lang, ast, body_node, registry)?;
             let payload = serde_json::json!({"param": param_type, "body": body_type});
             registry
                 .construct("type.function", &payload)
@@ -3735,7 +3832,7 @@ fn interpret_type_expr(
                     child_idx
                 ))
             })?;
-            let element_type = interpret_type_expr(ast, child, registry)?;
+            let element_type = interpret_type_expr(lang, ast, child, registry)?;
             let payload = serde_json::json!({"element": element_type});
             registry.construct("type.array", &payload).ok_or_else(|| {
                 LangError::engine("interpret_type_expr: failed to construct type.array")
