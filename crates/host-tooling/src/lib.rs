@@ -1,5 +1,6 @@
 //! Tooling / LSP host stubs; full implementation pending migration.
 
+use handl_language::Language;
 use handl_platform::{PlatformError, Plugin};
 
 /// A diagnostic message with severity and optional source span.
@@ -195,9 +196,41 @@ impl<K: Plugin> ToolingHost<K> {
         }
     }
 
-    /// Parses `source` and returns a formatted canonical source string.
-    pub fn format(&self, _source: &str) -> Result<String, PlatformError> {
-        Err(PlatformError::NotImplemented)
+    /// Parses `source` using the data-driven lex + Pratt parse pipeline and
+    /// returns a formatted canonical source string via [`FormatEngine`].
+    ///
+    /// The caller supplies the [`Language`] so the formatter and parser are
+    /// fully data-driven — no hardcoded kind strings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PlatformError::Plugin`] if lexing, parsing, or formatting
+    /// fails.
+    pub fn format(&self, lang: &Language, source: &str) -> Result<String, PlatformError> {
+        use handl_plugin_engine_parse::ParserEngine;
+        use handl_plugin_engine_parse_pratt::PrattEngine;
+        use handl_plugin_engine_lex_pattern::lex;
+        use handl_plugin_engine_fmt::FormatEngine;
+        use handl_language::AstRef;
+        use handl_plugin_engine_parse::ParserRequest;
+
+        let tokens = lex(lang, source).map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        if tokens.as_slice().is_empty() {
+            return Ok(String::new());
+        }
+        let engine = PrattEngine::new();
+        let req = ParserRequest::new(tokens);
+        let ast = engine
+            .parse(lang, &req)
+            .map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        if ast.is_empty() {
+            return Ok(String::new());
+        }
+        // Root = last node pushed (Pratt convention).
+        let root = AstRef::new(ast.len() - 1);
+        FormatEngine::new()
+            .format(lang, &ast, root)
+            .map_err(|e| PlatformError::Plugin(e.to_string()))
     }
 
     /// Parses `source` and returns diagnostics for the resulting module.

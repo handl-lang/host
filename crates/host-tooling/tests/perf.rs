@@ -5,6 +5,7 @@
 use std::time::{Duration, Instant};
 
 use handl_host_tooling::ToolingHost;
+use handl_kit_canonical::Kit;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     PlatformError, Plugin, PluginContext,
@@ -42,6 +43,14 @@ fn host() -> ToolingHost<StubKit> {
     ToolingHost::new(StubKit)
 }
 
+fn lang() -> handl_language::Language {
+    Kit::new()
+        .expect("canonical kit should assemble")
+        .runtime()
+        .lang()
+        .clone()
+}
+
 fn pipe_expr(n: usize) -> String {
     let mut s = "1".to_string();
     for _ in 0..n {
@@ -63,7 +72,7 @@ fn format_long_pipe_100() {
     let h = host();
     let input = pipe_expr(100);
     let start = Instant::now();
-    let result = h.format(&input);
+    let result = h.format(&lang(), &input);
     let elapsed = start.elapsed();
     eprintln!("format 100 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());
@@ -80,7 +89,7 @@ fn format_long_pipe_1000() {
     let h = host();
     let input = pipe_expr(1000);
     let start = Instant::now();
-    let result = h.format(&input);
+    let result = h.format(&lang(), &input);
     let elapsed = start.elapsed();
     eprintln!("format 1000 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());
@@ -97,7 +106,7 @@ fn format_long_pipe_10000() {
     let h = host();
     let input = pipe_expr(10000);
     let start = Instant::now();
-    let result = h.format(&input);
+    let result = h.format(&lang(), &input);
     let elapsed = start.elapsed();
     eprintln!("format 10000 pipes: {:?}", elapsed);
     assert!(result.is_ok(), "format failed: {:?}", result.err());

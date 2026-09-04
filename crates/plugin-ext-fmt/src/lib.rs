@@ -1,6 +1,23 @@
-//! `handl-plugin-ext-fmt` is a thin re-export of the platform `Format` operation.
+//! `handl-plugin-ext-fmt` is a thin re-export of the platform `Format`
+//! operation and the data-driven [`FormatEngine`].
 
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
+pub use handl_plugin_engine_fmt::FormatEngine;
+
+use handl_language::{Ast, AstRef, LangError, Language};
+
+/// Format the subtree rooted at `root` in `ast` using `lang` data.
+///
+/// This is the primary formatting entry point for callers that have a full
+/// [`Ast`] arena (as opposed to the single-node [`FormatRequest`] used by the
+/// `BasicFormatter` rule-acceptor plugin).
+///
+/// # Errors
+///
+/// Returns [`LangError`] if the formatter encounters a malformed AST.
+pub fn format_ast(lang: &Language, ast: &Ast, root: AstRef) -> Result<String, LangError> {
+    FormatEngine::new().format(lang, ast, root)
+}
 
 #[cfg(test)]
 mod tests {
