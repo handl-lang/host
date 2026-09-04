@@ -132,7 +132,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the `lang.parse` interface. Loaded at compile
 /// time from the kit-stdlib data dir. The parse engine stays Rust
 /// (ADR-0077 "Special"); this .hnl declares the interface only.
-const LANG_PARSE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/lang_parse/lang_parse.hnl");
+const LANG_PARSE_HNL: &str = include_str!("../../../handl-packages/lang_parse/lang_parse.hnl");
 
 /// A `Library` plugin that registers the `lang.parse` implementation via
 /// the generic [`HandlLibraryPlugin`].
