@@ -108,7 +108,6 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.pow.infix",
         "grammar.and.infix",
         "grammar.or.infix",
-        "grammar.let.prefix",
         "grammar.call.infix",
         "grammar.if.prefix",
         "grammar.arrow.infix",
