@@ -797,20 +797,30 @@ fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
                 .iter()
                 .map(|(name, _)| push_leaf(out, "var", Value::from(name.clone())))
                 .collect();
-            // Build the object: { tag: "ConsName", arg1: arg1, ... }
-            let mut obj = serde_json::Map::new();
-            obj.insert("tag".to_string(), Value::from(cons.name.clone()));
-            for (arg_name, _) in &cons.args {
-                obj.insert(arg_name.clone(), Value::from(arg_name.clone()));
+            // Build the body as a `json` template node (ADR-0053/0060): the
+            // template references the arg variables via `$0, $1, ...`
+            // placeholders, and the json node's children are the template
+            // node followed by the arg `var` nodes. Engines substitute the
+            // evaluated arg values into the template at eval time, so the
+            // object fields hold the actual argument values (not the arg
+            // names as strings). The `json` kind is data-driven
+            // (ast.yaml/eval.yaml), per the engine-genericity rule.
+            let mut template = String::from("{\"tag\": ");
+            template.push_str(&serde_json::to_string(&cons.name).unwrap_or_default());
+            for (i, (arg_name, _)) in cons.args.iter().enumerate() {
+                template.push_str(", ");
+                template.push_str(&serde_json::to_string(arg_name).unwrap_or_default());
+                template.push_str(": $");
+                template.push_str(&i.to_string());
             }
-            // The object literal is a `lit` node with the tag + arg names.
-            // At eval time, we need to substitute the actual arg values.
-            // For simplicity, use a `json` node that constructs the object
-            // from the arg variables.
-            let obj_lit = push_leaf(out, "lit", Value::Object(obj));
+            template.push('}');
+            let template_idx = push_leaf(out, "json", Value::from(template));
+            let mut body_children = vec![template_idx];
+            body_children.extend(arg_vars.iter().copied());
+            let body_idx = push_node(out, "json", body_children);
             let cons_fn = push_node(out, "function", {
                 let mut children = arg_vars.clone();
-                children.push(obj_lit);
+                children.push(body_idx);
                 children
             });
             cons_fn

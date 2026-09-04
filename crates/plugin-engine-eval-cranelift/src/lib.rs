@@ -1607,6 +1607,10 @@ fn type_tag(v: &TaggedValue) -> &'static str {
         TaggedValue::Pair(..) => "object",
         TaggedValue::EitherLeft(..) | TaggedValue::EitherRight(..) => "object",
         TaggedValue::Arrow { .. } => "object",
+        // ADR-0083 §2.1: `Bytes` is a scalar type in `value_types.yaml`.
+        TaggedValue::Bytes(_) => "bytes",
+        // ADR-0083 §2.2: opaque foreign resource handle.
+        TaggedValue::Resource(_) => "resource",
     }
 }
 

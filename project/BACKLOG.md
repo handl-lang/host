@@ -2,24 +2,25 @@
 
 ## Tooling (low priority — self-hosting, see `project/rfcs/`)
 
-Bootstrap tooling (ADR-0085..0090, `crates/tooling-*`) is high priority and
-tracked in TODO.md. Everything below is the *low priority* self-hosting
-follow-up: rewriting the tooling in handl itself once the language is
-stable, and deleting the bootstrap crates.
+Bootstrap tooling (ADR-0085..0091 — improving the existing `plugin-*`
+crates; no new tooling crates) is high priority and tracked in TODO.md. Everything below is the *low priority* self-hosting
+follow-up: porting the tooling to handl itself once the language is stable.
+The generic Rust substrate (plugin system, `plugin-ext-*`,
+`plugin-engine-*`) stays as bootstrap and fallback (ADR-0085 rule 6).
 
 - **RFC-0001 — Plugin system in handl.** Extract the Rust plugin system
   (`platform` crate: Capability/Plugin/Kit/Host) into handl: capabilities
   and plugins as values, kits as module lists, hosts as handlers.
-- **RFC-0002 — Formatter in handl.** Refactor of bootstrap `tooling-fmt`;
+- **RFC-0002 — Formatter in handl.** Refactor of bootstrap `plugin-ext-fmt`;
   formatter as a pure arrow, rules compose by `>>>`, idempotence as a law.
-- **RFC-0003 — Linter in handl.** Refactor of bootstrap `tooling-linter`;
+- **RFC-0003 — Linter in handl.** Refactor of bootstrap `plugin-ext-lint`;
   rules are pure arrows `Ast ~> [Diagnostic]`, `--fix` as a fixpoint
   pipeline, cross-module rules over the module graph.
 - **RFC-0004 — Typechecker in handl.** Refactor of bootstrap
-  `tooling-typechecker`; adds the deferred scope (traits, refinements,
+  `plugin-engine-typecheck`; adds the deferred scope (traits, refinements,
   invariants, row variables). Blocked on compiled backends (perf).
 - **RFC-0005 — Test runner in handl.** Refactor of bootstrap
-  `tooling-test-runner`; adds parallel execution (ADR-0072), properties,
+  `plugin-lib-test`; adds parallel execution (ADR-0072), properties,
   benchmarks.
 - **RFC-0006 — LSP server in handl.** Hardest target, intentionally last;
   session as a fold over the message stream, features as arrows, thin Rust

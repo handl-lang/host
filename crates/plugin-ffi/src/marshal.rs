@@ -13,6 +13,7 @@
 //! | `"f64"`        | `double` (value)        | number               |
 //! | `"cstr"`       | `const char *`          | string (NUL-checked) |
 //! | `"ptr"`        | `void *`                | number (address)     |
+//! | `"handle"`     | `void *`                | `{"__resource__": {"ptr": N}}` (opaque handle, ADR-0083 §2.2) |
 //! | `"void"`       | `void` (return)         | — (returns null)     |
 //! | `"in_buf"`     | `const void * + size_t` | `Bytes`              |
 //! | `"cbytes"`     | `const void * + size_t` | `Bytes`              |
@@ -137,6 +138,24 @@ pub(crate) fn marshal_arg(
             let n = value
                 .as_i64()
                 .ok_or_else(|| EvalError::TypeMismatch("expected number for ptr".to_string()))?;
+            Ok(CArg::Int(n))
+        }
+        // `handle` accepts a `{"__resource__": {"ptr": N}}` JSON value (the
+        // debug form of `TaggedValue::Resource`) and passes the raw pointer
+        // through to the C call. A bare number is also accepted for
+        // convenience (e.g. a POSIX fd passed as an i32).
+        "handle" => {
+            if let Some(ptr_n) = value
+                .as_object()
+                .and_then(|obj| obj.get("__resource__"))
+                .and_then(|r| r.get("ptr"))
+                .and_then(|v| v.as_i64())
+            {
+                return Ok(CArg::Int(ptr_n));
+            }
+            let n = value.as_i64().ok_or_else(|| {
+                EvalError::TypeMismatch("expected resource or number for handle".to_string())
+            })?;
             Ok(CArg::Int(n))
         }
         other => Err(EvalError::TypeMismatch(format!(
@@ -312,7 +331,7 @@ pub(crate) fn wrap_out_buf_return(raw_ret: &JsonValue, out_bufs: &[OutBuf]) -> J
 pub(crate) fn return_kind(descriptor: &str) -> Result<CRetKind, EvalError> {
     match descriptor {
         "i32" => Ok(CRetKind::Int32),
-        "i64" | "ptr" | "cstr" => Ok(CRetKind::Int64),
+        "i64" | "ptr" | "cstr" | "handle" => Ok(CRetKind::Int64),
         "f64" => Ok(CRetKind::Float),
         "void" => Ok(CRetKind::Void),
         other => Err(EvalError::TypeMismatch(format!(
@@ -348,6 +367,25 @@ pub(crate) fn unmarshal_return(descriptor: &str, ret: &CRet) -> Result<JsonValue
             CRet::Int(v) => Ok(JsonValue::from(*v)),
             _ => Err(EvalError::Other(
                 "expected integer return for ptr".to_string(),
+            )),
+        },
+        // `handle` wraps the raw C return pointer in the JSON debug form of
+        // a `TaggedValue::Resource` (ADR-0083 §2.2): `{"__resource__":
+        // {"ptr": N}}`. The finalizer cannot be carried across the JSON
+        // boundary — when this JSON is decoded back to a `TaggedValue`, the
+        // resulting `Resource` has `finalizer = None`. The `FfiOpFunction`
+        // stores an optional finalizer field for future use once the
+        // dispatcher returns `TaggedValue` directly instead of JSON.
+        "handle" => match ret {
+            CRet::Int(v) => {
+                let mut inner = Map::new();
+                inner.insert("ptr".to_string(), JsonValue::from(*v));
+                let mut outer = Map::new();
+                outer.insert("__resource__".to_string(), JsonValue::Object(inner));
+                Ok(JsonValue::Object(outer))
+            }
+            _ => Err(EvalError::Other(
+                "expected integer return for handle".to_string(),
             )),
         },
         "cstr" => match ret {

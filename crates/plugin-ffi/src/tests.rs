@@ -480,3 +480,204 @@ fn in_buf_wrong_value_type_errors() {
         "expected TypeMismatch for non-Bytes in_buf, got {result:?}"
     );
 }
+
+// -------------------------------------------------------------------------
+// Handle descriptor (ADR-0083 §2.2 — finalizable values / RAII)
+//
+// The `"handle"` return descriptor wraps the raw C return pointer in the
+// JSON debug form of a `TaggedValue::Resource`: `{"__resource__": {"ptr":
+// N}}`. These tests verify the wrapping using a real syscall (`open` on a
+// temp file) and that the JSON decodes back to a `TaggedValue::Resource`
+// with the correct pointer.
+// -------------------------------------------------------------------------
+
+#[test]
+fn handle_return_wraps_pointer_in_resource_json() {
+    // Create a temp file, then open(2) it with return descriptor "handle".
+    // The returned JSON should be {"__resource__": {"ptr": N}} where N is
+    // the raw fd (a small non-negative integer cast to a pointer).
+    let dir = std::env::temp_dir();
+    let path = dir.join("handl-ffi-handle-test.txt");
+    std::fs::write(&path, b"hello").expect("write temp file");
+
+    let open_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "open",
+        vec!["cstr".to_string(), "i32".to_string()],
+        "handle",
+        true,
+    );
+    let result = call(&open_fn, &[
+        json!(path.to_str().unwrap()),
+        json!(0), // O_RDONLY
+    ])
+    .expect("open should succeed");
+    let obj = result
+        .as_object()
+        .expect("handle return should be a {__resource__:{ptr:N}} object");
+    let res = obj
+        .get("__resource__")
+        .expect("should have __resource__ key");
+    let ptr = res
+        .get("ptr")
+        .and_then(|v| v.as_i64())
+        .expect("should have ptr field");
+    assert!(ptr >= 0, "fd should be non-negative, got {ptr}");
+
+    // Clean up: close the fd (it leaked here since the JSON form has no
+    // finalizer — this is expected; the finalizer mechanism is documented
+    // as not-yet-wired for the JSON return path).
+    close_fd(ptr as i32);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn handle_return_decodes_to_tagged_value_resource() {
+    // Verify the JSON form produced by the "handle" descriptor decodes back
+    // to a TaggedValue::Resource with the correct pointer and no finalizer.
+    use handl_value::TaggedValue;
+
+    let dir = std::env::temp_dir();
+    let path = dir.join("handl-ffi-handle-decode-test.txt");
+    std::fs::write(&path, b"hello").expect("write temp file");
+
+    let open_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "open",
+        vec!["cstr".to_string(), "i32".to_string()],
+        "handle",
+        true,
+    );
+    let result = call(&open_fn, &[
+        json!(path.to_str().unwrap()),
+        json!(0), // O_RDONLY
+    ])
+    .expect("open should succeed");
+
+    // Convert the JSON return to a TaggedValue — it should be a Resource.
+    let tv: TaggedValue = result.into();
+    match &tv {
+        TaggedValue::Resource(r) => {
+            let ptr = r.ptr() as i64;
+            assert!(ptr >= 0, "fd should be non-negative, got {ptr}");
+            assert!(
+                r.finalizer.is_none(),
+                "decoded resource has no finalizer (JSON cannot carry one)"
+            );
+            close_fd(ptr as i32);
+        }
+        other => panic!("expected TaggedValue::Resource, got {other:?}"),
+    }
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn handle_arg_accepts_resource_json() {
+    // The "handle" *arg* descriptor accepts a {"__resource__":{"ptr":N}}
+    // value and passes the pointer through. Verify by opening a file with
+    // "handle" return, then passing that result to close(2) via a "handle"
+    // arg descriptor.
+    let dir = std::env::temp_dir();
+    let path = dir.join("handl-ffi-handle-arg-test.txt");
+    std::fs::write(&path, b"hello").expect("write temp file");
+
+    let open_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "open",
+        vec!["cstr".to_string(), "i32".to_string()],
+        "handle",
+        true,
+    );
+    let handle_val = call(&open_fn, &[
+        json!(path.to_str().unwrap()),
+        json!(0), // O_RDONLY
+    ])
+    .expect("open should succeed");
+    let ptr = handle_val
+        .get("__resource__")
+        .and_then(|r| r.get("ptr"))
+        .and_then(|v| v.as_i64())
+        .expect("extract ptr from handle");
+    assert!(ptr >= 0);
+
+    // close(fd) via a "handle" arg descriptor — should succeed (return 0).
+    let close_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "close",
+        vec!["handle".to_string()],
+        "i32",
+        true,
+    );
+    let result = call(&close_fn, &[handle_val]).expect("close should succeed");
+    assert_eq!(result.as_i64(), Some(0), "close should return 0 on success");
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn handle_arg_accepts_bare_number() {
+    // The "handle" arg descriptor also accepts a bare number (e.g. a POSIX
+    // fd) for convenience.
+    let dir = std::env::temp_dir();
+    let path = dir.join("handl-ffi-handle-bare-test.txt");
+    std::fs::write(&path, b"hello").expect("write temp file");
+
+    // Open with a plain "i32" return to get the raw fd.
+    let open_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "open",
+        vec!["cstr".to_string(), "i32".to_string()],
+        "i32",
+        true,
+    );
+    let fd_val = call(&open_fn, &[
+        json!(path.to_str().unwrap()),
+        json!(0), // O_RDONLY
+    ])
+    .expect("open should succeed");
+    let fd = fd_val.as_i64().expect("fd should be a number") as i32;
+    assert!(fd >= 0);
+
+    // close(fd) via a "handle" arg descriptor with a bare number.
+    let close_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "close",
+        vec!["handle".to_string()],
+        "i32",
+        true,
+    );
+    let result = call(&close_fn, &[json!(fd)]).expect("close should succeed");
+    assert_eq!(result.as_i64(), Some(0));
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn with_finalizer_attaches_finalizer() {
+    // Verify the builder method stores the finalizer. We don't call a real
+    // cleanup function here — just check the field is set.
+    unsafe extern "C" fn dummy_finalizer(_ptr: *mut std::ffi::c_void) {
+        // no-op for testing
+    }
+    let func = FfiOpFunction::new("libc.so.6", "getpid", vec![], "i32", false);
+    assert!(func.finalizer().is_none());
+    let func = unsafe { func.with_finalizer(dummy_finalizer) };
+    assert!(func.finalizer().is_some());
+}
+
+#[test]
+fn handle_return_unmarshal_unit() {
+    // Direct unit test: unmarshal a CRet::Int as "handle" produces the
+    // {"__resource__":{"ptr":N}} JSON form.
+    use crate::marshal::unmarshal_return;
+    use crate::marshal::CRet;
+    let ret = CRet::Int(0x1234);
+    let v = unmarshal_return("handle", &ret).expect("handle unmarshal");
+    let obj = v.as_object().expect("object form");
+    let ptr = obj
+        .get("__resource__")
+        .and_then(|r| r.get("ptr"))
+        .and_then(|v| v.as_i64());
+    assert_eq!(ptr, Some(0x1234));
+}

@@ -29,6 +29,7 @@
 //! | `"f64"`    | `double` (value)  | number              |
 //! | `"cstr"`   | `const char *`    | string (NUL-checked)|
 //! | `"ptr"`    | `void *`          | number (address)    |
+//! | `"handle"` | `void *`          | `{"__resource__": {"ptr": N}}` (opaque handle, ADR-0083 §2.2) |
 //! | `"void"`   | `void` (return)   | — (returns null)    |
 //! | `"in_buf"` | `const void * + size_t` | `Bytes` (`{__bytes__:[...]}` or `[...]`) |
 //! | `"cbytes"` | `const void * + size_t` | `Bytes` (raw, no NUL termination)        |
@@ -292,6 +293,19 @@ fn call_c(sym: *mut c_void, ret: CRetKind, args: &[CArg]) -> Result<CRet, EvalEr
 /// negative, the dispatcher reads `errno` synchronously and returns
 /// `Err(EvalError::Other(format!("errno: {errno}")))` instead of the raw
 /// return value.
+///
+/// ## Handle lifecycle (ADR-0083 §2.2)
+///
+/// When `return_descriptor` is `"handle"`, the raw C return pointer is
+/// wrapped in the JSON debug form of a `TaggedValue::Resource`
+/// (`{"__resource__": {"ptr": N}}`). The optional [`finalizer`](Self::finalizer)
+/// field is the mechanism for attaching a cleanup function (e.g.
+/// `libc::close`) to the resource so it is released automatically when the
+/// handl value goes out of scope (RAII). Because the current dispatcher
+/// returns `serde_json::Value` (which cannot carry a function pointer), the
+/// finalizer is not yet wired into the return path — it defaults to `None`.
+/// Once the dispatcher is upgraded to return `handl_value::TaggedValue`
+/// directly, the finalizer will be attached to the `Resource` on return.
 #[derive(Clone)]
 pub struct FfiOpFunction {
     /// Library name passed to `dlopen` (e.g. `"libc.so.6"`).
@@ -300,10 +314,17 @@ pub struct FfiOpFunction {
     symbol: String,
     /// Per-argument marshalling descriptors (e.g. `["i32", "cstr"]`).
     arg_descriptors: Vec<String>,
-    /// Return-value descriptor (e.g. `"i32"`, `"void"`).
+    /// Return-value descriptor (e.g. `"i32"`, `"void"`, `"handle"`).
     return_descriptor: String,
     /// When `true`, a negative integer return triggers an errno extraction.
     error_on_lt_zero: bool,
+    /// Optional finalizer for `"handle"` return values (ADR-0083 §2.2).
+    ///
+    /// When `Some`, this function is attached to the `Resource` wrapping the
+    /// C return pointer so the underlying resource is released when the
+    /// handl value drops. Currently not wired into the JSON return path (see
+    /// the type-level docs); set via [`with_finalizer`](Self::with_finalizer).
+    finalizer: Option<unsafe extern "C" fn(*mut c_void)>,
 }
 
 impl FfiOpFunction {
@@ -327,7 +348,35 @@ impl FfiOpFunction {
             arg_descriptors,
             return_descriptor: return_descriptor.into(),
             error_on_lt_zero,
+            finalizer: None,
         }
+    }
+
+    /// Attach a finalizer to this FFI op function for `"handle"` return
+    /// values (ADR-0083 §2.2 — finalizable values).
+    ///
+    /// The finalizer is a C-ABI cleanup function (e.g. `libc::close`) that
+    /// will be called with the opaque handle pointer when the handl
+    /// `Resource` value wrapping it goes out of scope. This is the RAII
+    /// mechanism that prevents fd / mmap / socket leaks in long-running
+    /// processes (the Phase 4 async-runtime prerequisite).
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `finalizer` is safe to call with the opaque
+    /// pointer returned by the C symbol and that it releases the underlying
+    /// resource exactly once.
+    pub unsafe fn with_finalizer(
+        mut self,
+        finalizer: unsafe extern "C" fn(*mut c_void),
+    ) -> Self {
+        self.finalizer = Some(finalizer);
+        self
+    }
+
+    /// Returns the finalizer currently attached to this op function, if any.
+    pub fn finalizer(&self) -> Option<unsafe extern "C" fn(*mut c_void)> {
+        self.finalizer
     }
 }
 
