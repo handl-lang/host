@@ -1,4 +1,4 @@
-    //! End-to-end regression for Bug #1 (ADR-0082 / misc.md task 0.1):
+//! End-to-end regression for Bug #1 (ADR-0082 / misc.md task 0.1):
 //! the `data`-desugar constructor body must substitute the *argument value*
 //! into the `json` template (via a `var` reference), not embed the argument's
 //! *name* as a string literal.
@@ -95,17 +95,12 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
     let succ_fn = desugared.get(AstRef::new(succ_fn_idx)).unwrap();
     assert_eq!(succ_fn.kind, "function");
 
-    // function children: [pred var (param), body]
-    let fn_children: Vec<usize> = succ_fn
+    // function payload: { params: ["pred"], body: <body_idx> }
+    let body_json_idx = succ_fn
         .payload
-        .get("children")
-        .and_then(|c| c.as_array())
-        .unwrap()
-        .iter()
-        .map(|v| v.as_u64().unwrap() as usize)
-        .collect();
-    assert_eq!(fn_children.len(), 2);
-    let body_json_idx = fn_children[1];
+        .get("body")
+        .and_then(|v| v.as_u64())
+        .unwrap() as usize;
     let body_json = desugared.get(AstRef::new(body_json_idx)).unwrap();
     assert_eq!(
         body_json.kind, "json",
