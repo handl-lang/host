@@ -897,8 +897,19 @@ fn compile_scheme(
         }
 
         Scheme::App { callee, args } => {
+            // Clone incoming for the callee so that the callee and the args
+            // don't share the same consumable pointer. Without this, if the
+            // callee is a consuming combinator (First/Choice/Loop/extend_env)
+            // it frees `incoming_val`, and the args would receive a dangling
+            // pointer — double-free. The original `incoming_val` leaks if no
+            // arg consumes it, which is acceptable per the Phase 7 safety
+            // model (documented leaks for intermediate values).
+            let callee_incoming = {
+                let call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+                builder.inst_results(call)[0]
+            };
             let (callee_val, c_pushed) =
-                compile_scheme(builder, callee, ctx_param, incoming_val, helpers, pools, ptr_type)?;
+                compile_scheme(builder, callee, ctx_param, callee_incoming, helpers, pools, ptr_type)?;
             if c_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -1371,11 +1382,21 @@ fn compile_args_v2(
     }
 
     for i in 0..n {
+        // Clone incoming for each arg so that multiple args don't share the
+        // same consumable pointer. Without this, if two args are consuming
+        // combinators (First/Choice/Loop/extend_env) they would both try to
+        // free the same `incoming_val` — double-free. The original
+        // `incoming_val` is not consumed here; it leaks if unused, which is
+        // acceptable per the Phase 7 safety model.
+        let arg_incoming = {
+            let call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+            builder.inst_results(call)[0]
+        };
         let (arg_ptr, arg_pushed) = compile_scheme(
             builder,
             &args[i],
             ctx_param,
-            incoming_val,
+            arg_incoming,
             helpers,
             pools,
             ptr_type,

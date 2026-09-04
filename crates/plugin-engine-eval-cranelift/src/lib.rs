@@ -686,6 +686,56 @@ fn is_truthy(v: &TaggedValue) -> bool {
 // Value boxing helpers
 // ---------------------------------------------------------------------------
 
+// Debug-mode allocation registry: tracks every live `box_value` pointer so
+// `take_value` can detect double-frees and use-after-frees. Zero overhead in
+// release builds. The registry is thread-local (evaluation is single-threaded)
+// and only holds currently-live addresses, so it stays bounded.
+#[cfg(debug_assertions)]
+thread_local! {
+    static LIVE_VALUES: std::cell::RefCell<rustc_hash::FxHashSet<usize>> =
+        std::cell::RefCell::new(rustc_hash::FxHashSet::default());
+}
+
+#[cfg(debug_assertions)]
+fn debug_track_alloc(ptr: *mut TaggedValue) {
+    if !ptr.is_null() {
+        let addr = ptr as usize;
+        LIVE_VALUES.with(|s| {
+            if !s.borrow_mut().insert(addr) {
+                panic!(
+                    "box_value: pointer {:p} already live — possible use-after-free \
+                     (allocator reused a freed address without a matching take_value)",
+                    ptr
+                );
+            }
+        });
+    }
+}
+
+#[cfg(debug_assertions)]
+fn debug_track_free(ptr: *mut TaggedValue) {
+    if !ptr.is_null() {
+        let addr = ptr as usize;
+        LIVE_VALUES.with(|s| {
+            if !s.borrow_mut().remove(&addr) {
+                panic!(
+                    "take_value: pointer {:p} not in live set — double-free or \
+                     use-after-free",
+                    ptr
+                );
+            }
+        });
+    }
+}
+
+#[cfg(not(debug_assertions))]
+#[inline]
+fn debug_track_alloc(_ptr: *mut TaggedValue) {}
+
+#[cfg(not(debug_assertions))]
+#[inline]
+fn debug_track_free(_ptr: *mut TaggedValue) {}
+
 /// Box a [`TaggedValue`] into a heap-allocated pointer for passing to native code.
 ///
 /// # Safety
@@ -693,7 +743,9 @@ fn is_truthy(v: &TaggedValue) -> bool {
 /// The returned pointer must be reclaimed with `Box::from_raw` (either by a
 /// consuming helper or by the engine for the final result).
 unsafe fn box_value(value: TaggedValue) -> *mut TaggedValue {
-    Box::into_raw(Box::new(value))
+    let ptr = Box::into_raw(Box::new(value));
+    debug_track_alloc(ptr);
+    ptr
 }
 
 /// Reclaim a boxed [`TaggedValue`] pointer, moving the value out and freeing the
@@ -704,6 +756,7 @@ unsafe fn box_value(value: TaggedValue) -> *mut TaggedValue {
 /// `ptr` must be a valid pointer returned by [`box_value`] (or
 /// `Box::into_raw`).
 unsafe fn take_value(ptr: *mut TaggedValue) -> TaggedValue {
+    debug_track_free(ptr);
     unsafe { std::mem::take(&mut *Box::from_raw(ptr)) }
 }
 
