@@ -27,10 +27,11 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, Contribution,
     PlatformError, Plugin, PluginContext, RuleAcceptor,
 };
+use serde_json::Value;
 
 // Re-export the core traits so consumers of `plugin-module` don't need a
 // direct dependency on `handl-platform` just for `Module`/`Function`.
-pub use handl_platform::{Function, Module, ModuleLookup};
+pub use handl_platform::{Function, Module, ModuleLookup, TypeSignature};
 
 // ---------------------------------------------------------------------------
 // ModuleRegistry
@@ -128,6 +129,11 @@ impl ModuleLookup for ModuleRegistry {
         } else {
             None
         }
+    }
+
+    fn lookup_type_signature(&self, qualified_name: &str) -> Option<Value> {
+        let func = self.lookup(qualified_name)?;
+        func.as_type_signature().map(|ts| ts.type_signature())
     }
 }
 
@@ -273,6 +279,10 @@ impl RuleAcceptor for ModuleRuntime {
 impl ModuleLookup for ModuleRuntime {
     fn lookup(&self, qualified_name: &str) -> Option<&dyn Function> {
         self.registry.lookup(qualified_name)
+    }
+
+    fn lookup_type_signature(&self, qualified_name: &str) -> Option<Value> {
+        self.registry.lookup_type_signature(qualified_name)
     }
 }
 

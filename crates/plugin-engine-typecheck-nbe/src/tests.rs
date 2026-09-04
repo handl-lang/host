@@ -6,6 +6,7 @@
 use super::*;
 use handl_language::fragments::{EvalSchemeDef, TypeRuleDef};
 use handl_language::{Ast, AstNode, Language, Scheme, Value};
+use handl_platform::ModuleLookup;
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 use handl_plugin_module::ModuleRegistry;
@@ -9160,6 +9161,7 @@ fn effect_row_nested_handles_union_ops() {
     assert_eq!(effects.get("rest"), Some(&Value::Null));
 }
 
+
 // ===========================================================================
 // ADR-0068 step B1: Predicate annotation checking
 //
@@ -9344,11 +9346,178 @@ fn predicate_annotation_disproved() {
     assert!(
         matches!(err, LangError::Engine { ref message, .. } if message.contains("disproved")),
         "expected disproved error, got {:?}",
+
+// ---------------------------------------------------------------------------
+// ADR-0083: FFI marshalling types, marshalable judgment op, foreign_type
+// ---------------------------------------------------------------------------
+
+/// The expected tagged type value for `type.i32` in `handl.canonical`.
+fn type_i32() -> Value {
+    json!({"__tag__":"type.i32","__registry__":"handl.canonical"})
+}
+
+/// The expected tagged type value for `type.cstr` in `handl.canonical`.
+fn type_cstr() -> Value {
+    json!({"__tag__":"type.cstr","__registry__":"handl.canonical"})
+}
+
+#[test]
+fn is_marshalable_identifies_ffi_types() {
+    let registry = handl_plugin_lib_tag::TypeRegistry::new("handl.canonical");
+    assert!(is_marshalable(&registry, &type_i32()));
+    assert!(is_marshalable(&registry, &type_cstr()));
+    assert!(!is_marshalable(&registry, &type_number()));
+    assert!(!is_marshalable(&registry, &type_string()));
+}
+
+#[test]
+fn marshalable_judgment_accepts_ffi_type() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct(type.i32) >>> marshalable
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.ffi_arg",
+            "ffi_arg",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.i32")),
+                Scheme::arr_judgment("marshalable", vec![]),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("ffi_arg"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(result.typ, Value::Bool(true));
+}
+
+#[test]
+fn marshalable_judgment_rejects_non_ffi_type() {
+    let engine = engine();
+    let mut lang = Language::new();
+    // Rule: construct(type.number) >>> marshalable  (should error)
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.ffi_arg",
+            "ffi_arg",
+            Scheme::seq(
+                Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                Scheme::arr_judgment("marshalable", vec![]),
+            ),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("ffi_arg"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("not FFI-marshalable")),
+        "expected not-marshalable error, got {:?}",
+        err
+    );
+}
+
+// --- mock module with a TypeSignature op for foreign_type tests ---
+
+mod ffi_mock {
+    use super::*;
+    use handl_platform::{EvalContext, EvalError, Function, Module, TypeSignature};
+
+    /// A mock op `ffi.puts` with a declared type signature.
+    struct PutsOp;
+    impl Function for PutsOp {
+        fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+            Ok(Value::Null)
+        }
+        fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
+            Some(self)
+        }
+    }
+    impl TypeSignature for PutsOp {
+        fn type_signature(&self) -> Value {
+            json!({"__tag__":"type.function","__registry__":"handl.canonical"})
+        }
+    }
+
+    /// A mock op with no type signature (plain `Function`).
+    struct PlainOp;
+    impl Function for PlainOp {
+        fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+            Ok(Value::Null)
+        }
+    }
+
+    pub struct FfiModule;
+    impl Module for FfiModule {
+        fn name(&self) -> &str {
+            "ffi"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
+            match name {
+                "puts" => Some(&PutsOp),
+                "plain" => Some(&PlainOp),
+                _ => None,
+            }
+        }
+    }
+}
+
+#[test]
+fn foreign_type_looks_up_signature_from_module_registry() {
+    let registry = ModuleRegistry::new().with(ffi_mock::FfiModule);
+    let lookup: Rc<dyn handl_platform::ModuleLookup> = Rc::new(registry);
+    let engine = NbeTypecheckEngine::new(Box::new(TreeWalkEngine::new()))
+        .with_modules(lookup.clone())
+        .box_clone();
+    let mut lang = Language::new();
+    // Rule: foreign_type("ffi.puts")
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.ffi_call",
+            "ffi_call",
+            Scheme::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts")),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("ffi_call"));
+    let req = TypecheckRequest::new(ast);
+    let result = engine.typecheck(&lang, &req).unwrap();
+    assert_eq!(
+        result.typ.get("__tag__").and_then(|t| t.as_str()),
+        Some("type.function")
+    );
+}
+
+#[test]
+fn foreign_type_errors_when_op_has_no_signature() {
+    let registry = ModuleRegistry::new().with(ffi_mock::FfiModule);
+    let lookup: Rc<dyn handl_platform::ModuleLookup> = Rc::new(registry);
+    let engine = NbeTypecheckEngine::new(Box::new(TreeWalkEngine::new()))
+        .with_modules(lookup.clone())
+        .box_clone();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.ffi_call",
+            "ffi_call",
+            Scheme::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.plain")),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("ffi_call"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("no registered type signature")),
+        "expected no-signature error, got {:?}",
+
         err
     );
 }
 
 #[test]
+
 fn predicate_annotation_blocked() {
     // A predicate that errors during evaluation → Blocked → accepted with
     // a `runtime_assert` diagnostic. We use a predicate whose body
@@ -9384,10 +9553,31 @@ fn predicate_annotation_blocked() {
         result.diagnostics[0].message.contains("runtime assert required"),
         "diagnostic message: {}",
         result.diagnostics[0].message
+
+fn foreign_type_errors_without_module_registry() {
+    let engine = engine();
+    let mut lang = Language::new();
+    lang.types
+        .merge(TypeRuleDef::new(
+            "type.ffi_call",
+            "ffi_call",
+            Scheme::arr_judgment_lit("foreign_type", vec![], Value::from("ffi.puts")),
+        ))
+        .unwrap();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("ffi_call"));
+    let req = TypecheckRequest::new(ast);
+    let err = engine.typecheck(&lang, &req).unwrap_err();
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("requires a module registry")),
+        "expected no-registry error, got {:?}",
+        err
+
     );
 }
 
 #[test]
+
 fn predicate_annotation_proven_no_diagnostic() {
     // A proven predicate annotation should produce zero diagnostics —
     // no runtime assert is needed.
@@ -9401,10 +9591,35 @@ fn predicate_annotation_proven_no_diagnostic() {
         result.diagnostics.is_empty(),
         "proven annotation should have no diagnostics, got {:?}",
         result.diagnostics
+
+fn type_signature_trait_works_with_mock() {
+    use handl_platform::{EvalContext, EvalError, Function, TypeSignature};
+    struct MockOp;
+    impl Function for MockOp {
+        fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+            Ok(Value::Null)
+        }
+        fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
+            Some(self)
+        }
+    }
+    impl TypeSignature for MockOp {
+        fn type_signature(&self) -> Value {
+            json!({"__tag__":"type.function","__registry__":"handl.canonical"})
+        }
+    }
+    let op = MockOp;
+    let func: &dyn Function = &op;
+    let ts = func.as_type_signature().expect("should expose TypeSignature");
+    assert_eq!(
+        ts.type_signature().get("__tag__").and_then(|t| t.as_str()),
+        Some("type.function")
+
     );
 }
 
 #[test]
+
 fn non_predicate_annotation_regression() {
     // `42: type.number` — a non-predicate annotation should still work via
     // the existing unify path. The type expression is `field-access(var("type"),
@@ -9619,4 +9834,18 @@ fn b2_symbolic_unsupported_op_blocked() {
         100_000,
     );
     assert_eq!(proof.verdict, Verdict::Blocked);
+
+fn module_registry_lookup_type_signature_returns_signature() {
+    let registry = ModuleRegistry::new().with(ffi_mock::FfiModule);
+    let sig = registry.lookup_type_signature("ffi.puts");
+    assert!(sig.is_some());
+    assert_eq!(
+        sig.unwrap().get("__tag__").and_then(|t| t.as_str()),
+        Some("type.function")
+    );
+    // Plain op has no signature.
+    assert!(registry.lookup_type_signature("ffi.plain").is_none());
+    // Unknown op.
+    assert!(registry.lookup_type_signature("ffi.missing").is_none());
+
 }
