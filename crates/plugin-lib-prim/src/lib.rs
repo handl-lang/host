@@ -8,6 +8,7 @@
 //! - `prim.add(a: Int, b: Int) -> Int` — integer addition
 //! - `prim.compare(a: Int, b: Int) -> Int` — returns -1, 0, or 1
 //! - `prim.alloc(n: Int) -> List` — creates an empty array of size n
+//! - `prim.or(a: Int, b: Int) -> Int` — bitwise OR (flag composition)
 //!
 //! Everything else in the stdlib is built atop these via handl arrow graphs.
 //!
@@ -29,7 +30,7 @@ use std::sync::Arc;
 
 use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 
-use ops::{Add, Alloc, Compare};
+use ops::{Add, Alloc, Compare, Or};
 
 /// The handl source declaring the prim `op` interface — the single source
 /// of truth for the prim API surface. Loaded at compile time from the
@@ -37,7 +38,7 @@ use ops::{Add, Alloc, Compare};
 const PRIM_HNL: &str = include_str!("../../../handl-packages/prim/prim.hnl");
 
 /// The op names declared in `prim.hnl`.
-const PRIM_OPS: &[&str] = &["prim.add", "prim.compare", "prim.alloc"];
+const PRIM_OPS: &[&str] = &["prim.add", "prim.compare", "prim.alloc", "prim.or"];
 
 pub mod module;
 pub mod ops;
@@ -55,6 +56,7 @@ pub use module::PrimModule;
 /// - `"prim.add"` → [`Add`] (no runtime checker; atom is trusted)
 /// - `"prim.compare"` → [`Compare`] (no runtime checker; atom is trusted)
 /// - `"prim.alloc"` → [`Alloc`] (no runtime checker; atom is trusted)
+/// - `"prim.or"` → [`Or`] (no runtime checker; atom is trusted)
 ///
 /// No guarantee checkers are attached — the prim atoms are trusted. Their
 /// guarantees are structural and handled by the inference engine's
@@ -64,6 +66,7 @@ pub fn prim_op_registry() -> OpRegistry {
     registry.register("prim.add", Arc::new(Add));
     registry.register("prim.compare", Arc::new(Compare));
     registry.register("prim.alloc", Arc::new(Alloc));
+    registry.register("prim.or", Arc::new(Or));
     registry
 }
 

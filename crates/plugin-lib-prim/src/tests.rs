@@ -132,17 +132,54 @@ fn alloc_missing_args_errors() {
     assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
 }
 
+#[test]
+fn or_basic() {
+    assert_eq!(
+        call(&PrimModule, "or", &[n(0b0011), n(0b0101)]).as_i64(),
+        Some(0b0111)
+    );
+}
+
+#[test]
+fn or_with_zero() {
+    assert_eq!(
+        call(&PrimModule, "or", &[n(0b1010), n(0)]).as_i64(),
+        Some(0b1010)
+    );
+}
+
+#[test]
+fn or_all_bits() {
+    assert_eq!(
+        call(&PrimModule, "or", &[n(-1), n(0)]).as_i64(),
+        Some(-1)
+    );
+}
+
+#[test]
+fn or_missing_args_errors() {
+    let result = call_err(&PrimModule, "or", &[n(1)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn or_non_integer_errors() {
+    let result = call_err(&PrimModule, "or", &[s("a"), n(1)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
 // -----------------------------------------------------------------------
 // ADR-0077 Phase 2: op/handl form tests
 // -----------------------------------------------------------------------
 
 #[test]
-fn op_registry_registers_all_three_ops() {
+fn op_registry_registers_all_four_ops() {
     let registry = prim_op_registry();
     assert!(registry.contains("prim.add"));
     assert!(registry.contains("prim.compare"));
     assert!(registry.contains("prim.alloc"));
-    assert_eq!(registry.len(), 3);
+    assert!(registry.contains("prim.or"));
+    assert_eq!(registry.len(), 4);
 }
 
 #[test]
@@ -174,12 +211,22 @@ fn op_registry_alloc_dispatches() {
 }
 
 #[test]
+fn op_registry_or_dispatches() {
+    let registry = std::sync::Arc::new(prim_op_registry());
+    let op_func = handl_plugin_lib_handl::OpFunction::new("prim.or", registry);
+    let mut ctx = EvalContext::new();
+    let result = op_func.call(&[json!(0b0011), json!(0b0101)], &mut ctx).unwrap();
+    assert_eq!(result, json!(0b0111));
+}
+
+#[test]
 fn prim_ops_have_no_checkers_trusted() {
     // The prim atoms are trusted — no runtime checkers attached.
     let registry = prim_op_registry();
     assert!(registry.get_checker("prim.add").is_none());
     assert!(registry.get_checker("prim.compare").is_none());
     assert!(registry.get_checker("prim.alloc").is_none());
+    assert!(registry.get_checker("prim.or").is_none());
 }
 
 #[test]
@@ -218,18 +265,20 @@ fn prim_module_works_in_module_registry() {
 fn prim_plugin_exposes_declared_capabilities() {
     let plugin = PrimLibraryPlugin::new();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 3);
+    assert_eq!(caps.len(), 4);
     assert_eq!(caps[0].as_str(), "prim.add");
     assert_eq!(caps[1].as_str(), "prim.compare");
     assert_eq!(caps[2].as_str(), "prim.alloc");
+    assert_eq!(caps[3].as_str(), "prim.or");
 }
 
 #[test]
 fn prim_handl_plugin_exposes_declared_capabilities() {
     let plugin = prim_handl_plugin();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 3);
+    assert_eq!(caps.len(), 4);
     assert_eq!(caps[0].as_str(), "prim.add");
     assert_eq!(caps[1].as_str(), "prim.compare");
     assert_eq!(caps[2].as_str(), "prim.alloc");
+    assert_eq!(caps[3].as_str(), "prim.or");
 }

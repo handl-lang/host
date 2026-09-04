@@ -1555,6 +1555,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ffi"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "libloading",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-archive"
 version = "0.1.0"
 dependencies = [

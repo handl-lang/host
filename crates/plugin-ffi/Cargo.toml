@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-ffi"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform.workspace = true
+libloading.workspace = true
+serde_json.workspace = true

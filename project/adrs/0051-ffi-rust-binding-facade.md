@@ -2,14 +2,18 @@
 
 ## Status
 
-Proposed
+**Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
 
-Implements build step 1 of [ADR-0050 — Plugin System in handl
-Itself](./0050-plugin-system-in-handl.md) (the permanent "binding lib" Rust layer).
-Refines the binding mechanism introduced by [ADR-0040 — VM is an Operation, not a
-Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md) (`ModuleRuntime` + `ModuleRule`
-in `plugin-module`), which this ADR keeps as the substrate but removes from the
-per-library authoring path.
+This ADR proposed a Rust closure binding façade (`plugin-ffi-rust`) to
+collapse `Module`/`Function`/`Plugin` boilerplate. It was never built.
+ADR-0083 eliminates the Rust closure layer entirely — native libs bind
+directly to C/POSIX via `ffi(...)` data declarations, not Rust closures.
+The per-library authoring problem this ADR solved is solved more
+completely by making bindings data, not Rust.
+
+Originally proposed as build step 1 of [ADR-0050 — Plugin System in handl
+Itself](./0050-plugin-system-in-handl.md). ADR-0083 fulfills that role
+instead.
 
 ## Context
 

@@ -236,11 +236,24 @@ return value (where feasible). Tests cover both.
 
 ### Phase 4 — Native libs migrated to handl interfaces
 
+**Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
+
+This phase proposed keeping Rust `Function` bodies as the `handl`
+implementations for native libs (`handl "fs.read" = rust_fs_read`). ADR-0083
+replaces this with direct C/POSIX FFI data bindings (`handl "libc.open" =
+host.ffi_bind "libc" "open" ...`), eliminating the Rust body layer entirely.
+
+The `op`/`handl` declaration form (Phase 2) and axiom wiring (Phase 3)
+remain valid. Only the `handl` binding target changes: `host.ffi_bind`
+instead of `rust_x`. See ADR-0083 for the full design and migration plan.
+
+**Historical text (superseded):**
+
 Migrate all native-primitive libs (`base64`, `crypto`, `fs`, `http`,
 `tls`, `os`, `rand`, …) to `.hnl` interface files using the Phase 2
 `op` form + Phase 3 axiom wiring.
 
-Each native lib becomes:
+Each native lib was to become:
 
 - A `.hnl` file with `op` declarations + `---` doc comments + axioms.
 - A Rust crate that registers `Function` impls (the handls) under the
@@ -252,8 +265,8 @@ The Rust that remains is pure implementation: `fn call(&self, args) ->
 Result<Value, EvalError>` bodies. No trait boilerplate, no bridge code,
 no per-lib plugin scaffolding.
 
-**Done when:** all native libs are migrated; their `Module`/`Plugin`
-trait impls deleted; only the `Function` bodies remain in Rust.
+**Done when:** all native libs are migrated per ADR-0083 (FFI bindings,
+not Rust bodies); their Rust crates deleted entirely.
 
 ### Phase 5 — Capability declaration in handl
 
@@ -371,18 +384,28 @@ inherent in the design.
 
 ## What stays Rust forever
 
-- **Native function bodies** — the actual I/O, crypto, syscall, TLS
-  handshake implementations. These are irreducible; handl cannot
-  implement `fs.read` or a TLS handshake.
+**Updated by [ADR-0083](./0083-ffi-native-stdlib.md):** native function
+bodies are **no longer Rust** — they are handl over direct C/POSIX FFI
+bindings. The Rust surface is reduced to the kernel only.
+
 - **The `plugin-lib-handl` crate** — the generic loader itself.
+- **The `plugin-ffi` crate** (ADR-0083) — the FFI dispatcher.
 - **The engine crates** (`plugin-engine-lex-pattern`,
-  `plugin-engine-parse-pratt`, `plugin-engine-eval-tree-walk`, …) — the
-  language runtime.
+  `plugin-engine-parse-pratt`, `plugin-engine-eval-tree-walk`,
+  `plugin-engine-eval-cranelift`, `plugin-engine-eval-bytecode`,
+  `plugin-engine-typecheck-nbe`, …) — the language runtime.
+- **The `plugin-lib-lang-*` crates** (6 crates) — the self-hosting
+  bridge: `eval`, `lex`, `parse`, `compile`, `typecheck`,
+  `run_compiled`. These expose the kernel's own engines to handl code
+  (e.g. `eval.eval(lang, ast)`). They are irreducible — handl cannot
+  eval handl without an evaluator.
 - **The host crates** (`host-cli`, `host-lsp`, `host-tooling`) — the
   platform.
+- **The core crates** (`handl-language`, `handl-runtime`,
+  `handl-value`, `platform`, `plugin-module`, `plugin-loader-native`).
 
 Everything else — logic, declarations, contracts, proofs, capabilities,
-doc comments — lives in `.hnl` files.
+doc comments, **and native implementations** — lives in `.hnl` files.
 
 ## Consequences
 

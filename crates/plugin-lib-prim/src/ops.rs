@@ -154,3 +154,30 @@ impl Function for Alloc {
         Ok(serde_json::Value::Array(vec![]))
     }
 }
+
+/// `prim.or(a: Int, b: Int) -> Int`
+///
+/// Bitwise OR on two integers. Used for composing POSIX flag constants
+/// (e.g. `prim.or(O_RDONLY, O_CLOEXEC)`). Both arguments must be integers;
+/// otherwise the call errors.
+#[derive(Clone, Copy)]
+pub struct Or;
+
+impl Function for Or {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b_arg) = require_two(args)?;
+        let av = a.as_i64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer",
+        )))?;
+        let bv = b_arg.as_i64().ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer",
+        )))?;
+        Ok(serde_json::Value::from(av | bv))
+    }
+}
