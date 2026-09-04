@@ -1,5 +1,12 @@
 # Backlog
 
+## Arrow macros (ADR-0084)
+
+- Ref: [ADR-0084 — Arrow Macros](../project/adrs/0084-arrow-macros.md)
+- Type-safe compile-time metaprogramming. Macros are arrows (`Ast ~> Ast`), typechecked before expansion. No new calculus primitives.
+- Subsumes `const` (ADR-0083 §5.1) and `data` (ADR-0082) as degenerate macros. Enables derivation (`derive_show`, `derive_eq`) and DSL embedding (SQL, regex, HTML).
+- Low priority — not blocking ADR-0083 (FFI-Native Stdlib). `const` + `prim.or` cover the immediate POSIX constants need.
+
 ## lib-utils
 
 - Add non-crypto hashes — hash.fnv1a(input), hash.murmur3(input, seed?), hash.xxhash(input, seed?). Fast non-cryptographic hashes returning numbers (not hex digests). For sharding, bucket keys, dedup. NOT in lib-crypto (not security-related). Low priority — build only if needed.
