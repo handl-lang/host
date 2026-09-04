@@ -1,20 +1,16 @@
 --- tag.tag — mint a tagged value (host capability, ADR-0055).
---- tag.match_tag — dispatch on the tag of a value; cases bind the payload.
 --- tag.untag — return the payload of a tagged value (inspection).
 --- tag.tag_of — return the tag name of a tagged value (inspection).
 --- tag.is_tag — test whether a value is a tagged value (inspection).
 --- tag.construct — mint a registry-scoped type value (ADR-0054).
 --- tag.match_type — dispatch on the type tag of a value (ADR-0054).
 cap "tag.tag"
-cap "tag.match_tag"
 cap "tag.untag"
 cap "tag.tag_of"
 cap "tag.is_tag"
 cap "tag.construct"
 cap "tag.match_type"
 op "tag.tag" : (String, Value) -> Value
-  guarantee: True
-op "tag.match_tag" : (Value, Value) -> Value
   guarantee: True
 op "tag.untag" : Value -> Value
   guarantee: True
@@ -28,7 +24,6 @@ op "tag.match_type" : (Value, Value) -> Value
   guarantee: True
 
 handl "tag.tag" = rust_tag_tag
-handl "tag.match_tag" = rust_tag_match_tag
 handl "tag.untag" = rust_tag_untag
 handl "tag.tag_of" = rust_tag_tag_of
 handl "tag.is_tag" = rust_tag_is_tag
