@@ -147,7 +147,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// compile time from the kit-stdlib data dir. The compile engine stays
 /// Rust (ADR-0077 "Special"); this .hnl declares the interface only.
 const LANG_COMPILE_HNL: &str =
-    include_str!("../../../kit-stdlib/data/lang_compile/lang_compile.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/lang_compile/lang_compile.hnl");
 
 /// A `Library` plugin that registers the `lang.compile` implementation
 /// via the generic [`HandlLibraryPlugin`].
