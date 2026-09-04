@@ -6,7 +6,12 @@ edition.workspace = true
 [dependencies]
 handl-language = { workspace = true }
 handl-platform = { workspace = true }
+handl-plugin-ext-diag = { workspace = true, features = ["lang-span"] }
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 
 [dev-dependencies]
 handl-plugin-module = { workspace = true }
