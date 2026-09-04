@@ -6,7 +6,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The parse interface is declared in
-//! `handl-packages/kit-stdlib/parse/parse.hnl`. The [`Parser`] and [`DynParser`]
+//! `handl-packages/parse/parse.hnl`. The [`Parser`] and [`DynParser`]
 //! traits remain in Rust — they are implemented by concrete parser crates
 //! (e.g. `plugin-lib-url-rfc`, `plugin-lib-url-whatwg`). The
 //! [`ParseLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
@@ -20,7 +20,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the parse interface — the single source of
 /// truth for the parse API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const PARSE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/parse/parse.hnl");
+const PARSE_HNL: &str = include_str!("../../../handl-packages/parse/parse.hnl");
 
 /// Shared error for all parser failures.
 #[derive(Debug, thiserror::Error)]
