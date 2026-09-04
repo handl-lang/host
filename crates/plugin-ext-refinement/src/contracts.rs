@@ -85,6 +85,15 @@ impl ContractRegistry {
         }
     }
 
+    /// Iterate over all `(op_name, source_key, contract)` entries.
+    ///
+    /// The `source_key` is the string representation of the `ArrSource`
+    /// (as produced by `source_key`), suitable for reconstruction via
+    /// `parse_source_key` in the `checker` module.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &String, &Contract)> {
+        self.contracts.iter().map(|((op, src), c)| (op, src, c))
+    }
+
     /// The minimal set of contracts: only the three irreducible Rust atoms.
     ///
     /// This is the reduced registry for the minimal 3-atom setup. It models
