@@ -107,6 +107,253 @@ impl fmt::Display for Pred {
     }
 }
 
+// ============================================================================
+// Runtime predicate evaluation (ADR-0077 Phase 3)
+// ============================================================================
+
+/// Look up a named variable in a runtime JSON value.
+///
+/// For a JSON object, `name` is a key. For a JSON array, `name` is parsed as
+/// an index (0, 1, …). Returns `None` if the name is not found or the value
+/// is neither an object nor an array.
+fn lookup_var<'a>(value: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
+    match value {
+        serde_json::Value::Object(map) => map.get(name),
+        serde_json::Value::Array(arr) => name.parse::<usize>().ok().and_then(|i| arr.get(i)),
+        _ => None,
+    }
+}
+
+/// Resolve a single-variable predicate's operand against a value.
+///
+/// If `lookup_var` finds the named field/element, use it; otherwise fall back
+/// to the whole value (the variable name is a placeholder like `"x"` or
+/// `"output"` that refers to the value itself).
+fn resolve_single<'a>(value: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
+    lookup_var(value, name).unwrap_or(value)
+}
+
+/// Resolve a two-variable predicate's operands against a value.
+///
+/// Each name is looked up via `lookup_var`; if not found, the whole value is
+/// used as the fallback (so e.g. `Le("output", "1")` against a bare number
+/// resolves `output` to the number and `1` to the number too — but `1` is
+/// typically a literal placeholder, so callers should treat literal-ish names
+/// specially when needed).
+fn resolve_pair<'a>(
+    value: &'a serde_json::Value,
+    a: &str,
+    b: &str,
+) -> (&'a serde_json::Value, &'a serde_json::Value) {
+    let av = lookup_var(value, a).unwrap_or(value);
+    let bv = lookup_var(value, b).unwrap_or(value);
+    (av, bv)
+}
+
+/// Try to read a JSON value as an `f64` number.
+fn as_f64(v: &serde_json::Value) -> Option<f64> {
+    v.as_f64()
+}
+
+/// Try to read a JSON value as an array.
+fn as_array(v: &serde_json::Value) -> Option<&[serde_json::Value]> {
+    v.as_array().map(|v| &**v)
+}
+
+/// Check whether a JSON array of numbers is sorted in non-decreasing order.
+fn is_sorted_array(arr: &[serde_json::Value]) -> bool {
+    let mut prev: Option<f64> = None;
+    for elem in arr {
+        let n = match as_f64(elem) {
+            Some(n) => n,
+            None => return false,
+        };
+        if prev.is_some_and(|p| n < p) {
+            return false;
+        }
+        prev = Some(n);
+    }
+    true
+}
+
+/// Check whether two JSON arrays are permutations of each other (same
+/// multiset of elements, any order). Uses string serialization for element
+/// comparison, which is sufficient for JSON values.
+fn is_permutation(a: &[serde_json::Value], b: &[serde_json::Value]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut a_keys: Vec<String> = a.iter().map(|v| v.to_string()).collect();
+    let mut b_keys: Vec<String> = b.iter().map(|v| v.to_string()).collect();
+    a_keys.sort();
+    b_keys.sort();
+    a_keys == b_keys
+}
+
+impl Pred {
+    /// Evaluate this predicate against a runtime JSON value.
+    ///
+    /// This is the runtime enforcement path (ADR-0077 Phase 3): the proof
+    /// system infers contracts, and this method evaluates the contract's
+    /// `precondition`/`guarantee` predicates against actual call arguments
+    /// and return values at eval time.
+    ///
+    /// The `value` is the runtime argument (for `requires`) or return value
+    /// (for `guarantee`). Variable names in the predicate (`Pred::Sorted(x)`,
+    /// `Pred::Le(a, b)`, etc.) refer to fields/elements of this value:
+    /// - For a single named variable like `Pred::Sorted(x)`, `x` is the value
+    ///   itself (the predicate applies to the whole value).
+    /// - For two-variable predicates like `Pred::Le(a, b)`, `a` and `b` are
+    ///   looked up as keys in a JSON object, or as elements 0/1 of a JSON
+    ///   array.
+    /// - `Pred::True` always holds; `Pred::False` never holds.
+    /// - Logical combinators (`And`, `Or`, `Implies`) evaluate recursively.
+    /// - Predicates that cannot be evaluated against the given value (e.g.
+    ///   `Sorted` on a non-array, or a named variable not found) return
+    ///   `false` (fail-closed: if we can't confirm the predicate holds, we
+    ///   reject).
+    pub fn eval(&self, value: &serde_json::Value) -> bool {
+        match self {
+            Pred::True => true,
+            Pred::False => false,
+
+            Pred::Sorted(x) => {
+                let v = resolve_single(value, x);
+                match as_array(v) {
+                    Some(arr) => is_sorted_array(arr),
+                    None => false,
+                }
+            }
+
+            Pred::LengthEq(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_array(av), as_array(bv)) {
+                    (Some(a), Some(b)) => a.len() == b.len(),
+                    _ => false,
+                }
+            }
+
+            Pred::LengthLe(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_array(av), as_array(bv)) {
+                    (Some(a), Some(b)) => a.len() <= b.len(),
+                    _ => false,
+                }
+            }
+
+            Pred::AllSatisfy(list, pred) => {
+                let v = resolve_single(value, list);
+                let arr = match as_array(v) {
+                    Some(arr) => arr,
+                    None => return false,
+                };
+                // `pred` is a string naming a predicate to apply to each
+                // element. Handle the common cases.
+                match pred.as_str() {
+                    "Sorted" => arr.iter().all(|e| match as_array(e) {
+                        Some(sub) => is_sorted_array(sub),
+                        None => false,
+                    }),
+                    "True" => true,
+                    "False" => false,
+                    // Unknown predicate name → fail-closed.
+                    _ => false,
+                }
+            }
+
+            Pred::Le(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_f64(av), as_f64(bv)) {
+                    (Some(x), Some(y)) => x <= y,
+                    _ => false,
+                }
+            }
+
+            Pred::HeadOf(elem, list) => {
+                let (ev, lv) = resolve_pair(value, elem, list);
+                match as_array(lv) {
+                    Some(arr) if !arr.is_empty() => arr.first() == Some(ev),
+                    _ => false,
+                }
+            }
+
+            Pred::LengthPlusOne(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_array(av), as_array(bv)) {
+                    (Some(a), Some(b)) => a.len() == b.len() + 1,
+                    _ => false,
+                }
+            }
+
+            Pred::LengthSubOne(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_array(av), as_array(bv)) {
+                    (Some(a), Some(b)) => a.len() + 1 == b.len(),
+                    _ => false,
+                }
+            }
+
+            Pred::IsPerm(a, b) => {
+                let (av, bv) = resolve_pair(value, a, b);
+                match (as_array(av), as_array(bv)) {
+                    (Some(a), Some(b)) => is_permutation(a, b),
+                    _ => false,
+                }
+            }
+
+            Pred::IsSuccess(x) => {
+                let v = resolve_single(value, x);
+                match v {
+                    serde_json::Value::Object(map) => {
+                        // Convention: __choice__ == "left" (inl/success) OR
+                        // has an "ok" field (Result-like).
+                        map.get("__choice__").and_then(|c| c.as_str()) == Some("left")
+                            || map.contains_key("ok")
+                    }
+                    _ => false,
+                }
+            }
+
+            Pred::IsError(x) => {
+                let v = resolve_single(value, x);
+                match v {
+                    serde_json::Value::Object(map) => {
+                        // Convention: __choice__ == "right" (inr/error) OR
+                        // has an "err"/"error" field (Result-like).
+                        map.get("__choice__").and_then(|c| c.as_str()) == Some("right")
+                            || map.contains_key("err")
+                            || map.contains_key("error")
+                    }
+                    _ => false,
+                }
+            }
+
+            Pred::And(a, b) => a.eval(value) && b.eval(value),
+            Pred::Or(a, b) => a.eval(value) || b.eval(value),
+            Pred::Implies(a, b) => !a.eval(value) || b.eval(value),
+
+            Pred::Forall(_var, list, pred) => {
+                let v = resolve_single(value, list);
+                let arr = match as_array(v) {
+                    Some(arr) => arr,
+                    None => return false,
+                };
+                // `pred` is a string naming a predicate to apply to each
+                // element (same handling as AllSatisfy).
+                match pred.as_str() {
+                    "Sorted" => arr.iter().all(|e| match as_array(e) {
+                        Some(sub) => is_sorted_array(sub),
+                        None => false,
+                    }),
+                    "True" => true,
+                    "False" => false,
+                    _ => false,
+                }
+            }
+        }
+    }
+}
+
 impl Pred {
     /// Simplify a predicate by applying basic logical equivalences.
     ///

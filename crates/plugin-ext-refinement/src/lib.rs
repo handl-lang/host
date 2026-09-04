@@ -41,6 +41,7 @@
 pub mod arrow_lang;
 pub mod arrow_loader;
 pub mod arrow_parser;
+pub mod checker;
 pub mod contracts;
 pub mod inference;
 pub mod loader;
@@ -66,6 +67,7 @@ pub use arrow_parser::{
     ExportDecl, ImportDecl, ParsedFile, ParsedModule,
 };
 pub use contracts::ContractRegistry;
+pub use checker::{ContractChecker, register_contract_checkers};
 pub use inference::{format_scheme, infer_r, infer_refinement};
 pub use loader::{load_dir, load_standard_axioms, parse_contracts};
 pub use loop_invariant::{
@@ -85,6 +87,9 @@ pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefinementResult
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod checker_tests;
 
 #[cfg(test)]
 mod e2e_tests;
