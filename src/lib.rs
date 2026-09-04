@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The serialize interface is declared in
-//! `handl-packages/kit-stdlib/serialize/serialize.hnl`. The [`Encoder`], [`Decoder`],
+//! `handl-packages/serialize/serialize.hnl`. The [`Encoder`], [`Decoder`],
 //! [`Serializer`], and [`SerializerRegistry`] traits remain in Rust — they
 //! are implemented by concrete format crates (e.g. `plugin-lib-json`,
 //! `plugin-lib-toml`, `plugin-lib-yaml`). The [`SerializeLibraryPlugin`]
@@ -27,7 +27,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the serialize interface — the single source
 /// of truth for the serialize API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const SERIALIZE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/serialize/serialize.hnl");
+const SERIALIZE_HNL: &str = include_str!("../../../handl-packages/serialize/serialize.hnl");
 
 /// Serialize a value using the provided encoder.
 pub fn serialize<T, E>(value: &T, encoder: &E) -> Result<E::Output, SerializeError>
