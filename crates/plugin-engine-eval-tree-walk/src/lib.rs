@@ -1122,7 +1122,12 @@ impl TreeWalkEngine {
                         )
                     })? as usize;
                     let param_node = ast.at(AstRef::new(param_idx))?;
-                    let param_names: Vec<String> = if param_node.kind == "paren"
+                    // Collection-vs-single params is a shape question
+                    // (ADR-0081): a shape declaring a variadic role (e.g.
+                    // `params`) is a param list; the legacy `paren`/`array`
+                    // kinds remain only as the role-less fallback.
+                    let param_names: Vec<String> = if shape_has_variadic_role(lang, &param_node.kind)
+                        || param_node.kind == "paren"
                         || param_node.kind == "array"
                     {
                         let param_children = param_node
@@ -1339,26 +1344,18 @@ impl TreeWalkEngine {
                         // are desugared to `paren { expr }` before eval
                         // (ADR-0058), so they fall into the `else` branch.
                         let key_node = ast.at(AstRef::new(key_idx))?;
-                        let key = if key_node.kind == "var" {
-                            key_node
-                                .payload
-                                .as_str()
-                                .ok_or_else(|| {
-                                    LangError::engine(
-                                        "object: var key missing string payload".to_string(),
-                                    )
-                                })?
-                                .to_string()
-                        } else if key_node.kind == "string" {
-                            key_node
-                                .payload
-                                .as_str()
-                                .ok_or_else(|| {
-                                    LangError::engine(
-                                        "object: string key missing payload".to_string(),
-                                    )
-                                })?
-                                .to_string()
+                        // Static vs computed key is a payload question, not a
+                        // kind question (ADR-0081): a static key (bare
+                        // identifier or string literal) carries its key text
+                        // directly as a string payload — don't evaluate it.
+                        // This makes `{ n: 5 }` use key "n" and `{ "s": 5 }`
+                        // use key "s". Otherwise (computed key), evaluate
+                        // the key expression and use its string
+                        // representation. Bracket computed keys `[expr]:`
+                        // are desugared to `paren { expr }` before eval
+                        // (ADR-0058), so they fall into the `else` branch.
+                        let key = if let Some(key_text) = key_node.payload.as_str() {
+                            key_text.to_string()
                         } else {
                             let key_val =
                                 self.eval_node_inner(ast, AstRef::new(key_idx), lang, env)?;
@@ -1682,24 +1679,32 @@ impl TreeWalkEngine {
                         )
                     })? as usize;
                     let child_node = ast.at(AstRef::new(idx))?;
-                    if child_node.kind == "assign" {
+                    if is_assign_node(lang, &child_node) {
                         if let Some(ac) = child_node
                             .payload
                             .get("children")
                             .and_then(|c| c.as_array())
                         {
                             if ac.len() == 2 {
-                                let var_idx = ac[0].as_u64().ok_or_else(|| {
-                                    LangError::engine(
-                                        "eval_block: assign var index must be a number".to_string(),
-                                    )
-                                })? as usize;
-                                let value_idx = ac[1].as_u64().ok_or_else(|| {
-                                    LangError::engine(
-                                        "eval_block: assign value index must be a number"
-                                            .to_string(),
-                                    )
-                                })? as usize;
+                                // Binding target/value by child role
+                                // (ADR-0081), falling back to the positional
+                                // children for role-less shapes.
+                                let var_idx = role_child_arena(lang, &child_node, "target")
+                                    .or_else(|| ac[0].as_u64().map(|i| i as usize))
+                                    .ok_or_else(|| {
+                                        LangError::engine(
+                                            "eval_block: assign var index must be a number"
+                                                .to_string(),
+                                        )
+                                    })?;
+                                let value_idx = role_child_arena(lang, &child_node, "value")
+                                    .or_else(|| ac[1].as_u64().map(|i| i as usize))
+                                    .ok_or_else(|| {
+                                        LangError::engine(
+                                            "eval_block: assign value index must be a number"
+                                                .to_string(),
+                                        )
+                                    })?;
                                 let var_name = {
                                     let var_node = ast.at(AstRef::new(var_idx))?;
                                     var_node.payload.as_str().ok_or_else(|| {
@@ -2507,18 +2512,20 @@ impl TreeWalkEngine {
                 )
             })? as usize;
             let child_node = ast.at(AstRef::new(child_idx))?;
-            if child_node.kind == "assign" {
+            if is_assign_node(lang, &child_node) {
                 if let Some(ac) = child_node
                     .payload
                     .get("children")
                     .and_then(|c| c.as_array())
                 {
                     if ac.len() >= 2 {
-                        let var_idx = ac[0].as_u64().ok_or_else(|| {
-                            LangError::engine(
-                                "eval_rec: assign var index must be a number".to_string(),
-                            )
-                        })? as usize;
+                        let var_idx = role_child_arena(lang, &child_node, "target")
+                            .or_else(|| ac[0].as_u64().map(|i| i as usize))
+                            .ok_or_else(|| {
+                                LangError::engine(
+                                    "eval_rec: assign var index must be a number".to_string(),
+                                )
+                            })?;
                         let var_node = ast.at(AstRef::new(var_idx))?;
                         if let Some(name) = var_node.payload.as_str() {
                             // Seed from the enclosing scope (before the push).
@@ -2550,7 +2557,7 @@ impl TreeWalkEngine {
                 let child_node = ast.at(AstRef::new(child_idx))?;
 
                 // Handle `return` — exit the region with the return value.
-                if child_node.kind == "return" {
+                if is_return_node(lang, &child_node) {
                     if let Some(rc) = child_node
                         .payload
                         .get("children")
@@ -2579,23 +2586,27 @@ impl TreeWalkEngine {
                 // caught: a binding may reference another not-yet-computed
                 // binding (still unbound or Null), which would error. The
                 // binding is skipped for this pass and retried next pass.
-                if child_node.kind == "assign" {
+                if is_assign_node(lang, &child_node) {
                     if let Some(ac) = child_node
                         .payload
                         .get("children")
                         .and_then(|c| c.as_array())
                     {
                         if ac.len() >= 2 {
-                            let var_idx = ac[0].as_u64().ok_or_else(|| {
-                                LangError::engine(
-                                    "eval_rec: assign var index must be a number".to_string(),
-                                )
-                            })? as usize;
-                            let value_idx = ac[1].as_u64().ok_or_else(|| {
-                                LangError::engine(
-                                    "eval_rec: assign value index must be a number".to_string(),
-                                )
-                            })? as usize;
+                            let var_idx = role_child_arena(lang, &child_node, "target")
+                                .or_else(|| ac[0].as_u64().map(|i| i as usize))
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "eval_rec: assign var index must be a number".to_string(),
+                                    )
+                                })?;
+                            let value_idx = role_child_arena(lang, &child_node, "value")
+                                .or_else(|| ac[1].as_u64().map(|i| i as usize))
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "eval_rec: assign value index must be a number".to_string(),
+                                    )
+                                })?;
                             let var_node = ast.at(AstRef::new(var_idx))?;
                             let var_name = var_node.payload.as_str().ok_or_else(|| {
                                 LangError::engine(
@@ -3062,6 +3073,68 @@ fn interpret_loop_step_result(result: &TaggedValue) -> TaggedValue {
     }
     // Non-object (number, string, bool, null, array) — exit with the value.
     either_left(result.clone())
+}
+
+// ---------------------------------------------------------------------------
+// ADR-0081 data-driven child roles
+//
+// Engines resolve AST child positions by **named role** from `AstShapeDef`
+// (`data/ast.yaml`), never by `kind ==` shape heuristics alone. Each helper
+// falls back to the legacy positional behavior only when a node's shape
+// declares no roles, so the canonical language and role-declaring languages
+// behave identically.
+// ---------------------------------------------------------------------------
+
+/// Resolve a child role to its positional index for `node_kind`.
+///
+/// `None` = the node kind has no shape or declares no such role; callers
+/// keep their positional fallback.
+fn role_index_of(lang: &Language, node_kind: &str, role: &str) -> Option<usize> {
+    lang.child_role_index(node_kind, role).ok().flatten()
+}
+
+/// Whether `node_kind`'s shape declares the given child role.
+fn role_declared(lang: &Language, node_kind: &str, role: &str) -> bool {
+    role_index_of(lang, node_kind, role).is_some()
+}
+
+/// Whether `node_kind`'s shape declares any variadic role (a role that spans
+/// all children from its start index onward, e.g. a statement or param list).
+fn shape_has_variadic_role(lang: &Language, node_kind: &str) -> bool {
+    lang.ast
+        .get_by_identity(node_kind)
+        .and_then(|def| def.children.as_ref())
+        .map(|children| children.iter().any(|spec| spec.variadic))
+        .unwrap_or(false)
+}
+
+/// Project the child arena index at `role` from `node`'s payload children.
+///
+/// `None` = no such role declared or no children payload; callers fall back
+/// to the positional index.
+fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize> {
+    let idx = role_index_of(lang, &node.kind, role)?;
+    let arena = node
+        .payload
+        .get("children")?
+        .as_array()?
+        .get(idx)?
+        .as_u64()?;
+    Some(arena as usize)
+}
+
+/// Whether `node` is a binding (assign-like) node: its shape declares a
+/// `target` role. Falls back to the legacy kind check for role-less shapes.
+fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
+    role_declared(lang, &node.kind, "target") || node.kind == "assign"
+}
+
+/// Whether `node` is a return node: its shape declares a `value` role but no
+/// `target` role (a binding declares both). Falls back to the legacy kind
+/// check for role-less shapes.
+fn is_return_node(lang: &Language, node: &AstNode) -> bool {
+    (role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target"))
+        || node.kind == "return"
 }
 
 // ---------------------------------------------------------------------------
