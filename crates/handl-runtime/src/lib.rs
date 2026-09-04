@@ -71,11 +71,11 @@ use handl_language::{Ast, LangError, Language, Source, Tokens, Value};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
-use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
 /// implementations can name it without a direct dependency on
 /// `handl-plugin-engine-typecheck` (ADR-0054).
 pub use handl_plugin_engine_typecheck::TypecheckResult;
+use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 
 // ---------------------------------------------------------------------------
 // Compiled-handle / artifact / compile-engine traits (ADR-0047 §3)
@@ -812,7 +812,7 @@ impl Runtime {
         let engine = self
             .compile_engines
             .get(target)
-            .ok_or_else(|| LangError::Engine(format!("unknown compile target: {}", target)))?;
+            .ok_or_else(|| LangError::engine(format!("unknown compile target: {}", target)))?;
         let artifact = engine.compile(&self.lang, ast, target)?;
         let id = COMPILED_NEXT_ID.fetch_add(1, Ordering::SeqCst) + 1;
         COMPILED_REGISTRY.with(|r| {
@@ -845,7 +845,7 @@ impl Runtime {
             let reg = r.borrow();
             reg.get(&handle.id)
                 .ok_or_else(|| {
-                    LangError::Engine(format!(
+                    LangError::engine(format!(
                         "run_compiled: no compiled program for handle {}",
                         handle.id
                     ))
@@ -900,7 +900,7 @@ impl Runtime {
                 registry
                     .lex_engine(&config.lex)
                     .ok_or_else(|| {
-                        LangError::Engine(format!("unknown lex engine: {}", config.lex))
+                        LangError::engine(format!("unknown lex engine: {}", config.lex))
                     })?
                     .box_clone(),
             )
@@ -914,7 +914,7 @@ impl Runtime {
                 registry
                     .parse_engine(&config.parse)
                     .ok_or_else(|| {
-                        LangError::Engine(format!("unknown parse engine: {}", config.parse))
+                        LangError::engine(format!("unknown parse engine: {}", config.parse))
                     })?
                     .box_clone(),
             )
@@ -925,7 +925,7 @@ impl Runtime {
             None
         } else {
             let reg_engine = registry.eval_engine(&config.eval).ok_or_else(|| {
-                LangError::Engine(format!("unknown eval engine: {}", config.eval))
+                LangError::engine(format!("unknown eval engine: {}", config.eval))
             })?;
             let mut engine = match modules.clone() {
                 Some(m) => reg_engine.with_modules(m),
@@ -951,9 +951,11 @@ impl Runtime {
         let typecheck_engine: Option<Box<dyn TypecheckEngine>> = if config.typecheck.is_empty() {
             None
         } else {
-            let reg_engine = registry.typecheck_engine(&config.typecheck).ok_or_else(|| {
-                LangError::Engine(format!("unknown typecheck engine: {}", config.typecheck))
-            })?;
+            let reg_engine = registry
+                .typecheck_engine(&config.typecheck)
+                .ok_or_else(|| {
+                    LangError::engine(format!("unknown typecheck engine: {}", config.typecheck))
+                })?;
             let engine = match modules.clone() {
                 Some(m) => reg_engine.with_modules(m),
                 None => reg_engine.box_clone(),
@@ -985,9 +987,10 @@ impl RuntimeFactory for Runtime {
         lang: Language,
         _delegate: Option<Rc<dyn handl_platform::ModuleLookup>>,
     ) -> Result<Box<dyn RuntimeHandle>, LangError> {
-        let registry = self.registry.as_ref().ok_or_else(|| {
-            LangError::Engine("RuntimeFactory::build: runtime has no registry".into())
-        })?;
+        let registry = self
+            .registry
+            .as_ref()
+            .ok_or_else(|| LangError::engine("RuntimeFactory::build: runtime has no registry"))?;
         // Re-attach this runtime's module chain (which includes the meta
         // functions) so the sub-runtime can recurse via Foreign dispatch.
         let modules = self.modules.clone();
@@ -1044,7 +1047,7 @@ mod tests {
     use handl_plugin_engine_lex::Lexer;
     use handl_plugin_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
 
     // -----------------------------------------------------------------------
     // Stub engines for independent dispatch testing
@@ -1201,10 +1204,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                    Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
-                ]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang
@@ -1388,11 +1394,8 @@ mod tests {
         let reg = default_registry();
         let config = RuntimeConfig::new().with_eval("nonsense");
         let err = Runtime::from_registry(lang, &reg, &config).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
-        assert_eq!(
-            err,
-            LangError::Engine("unknown eval engine: nonsense".into())
-        );
+        assert!(matches!(err, LangError::Engine { .. }));
+        assert_eq!(err, LangError::engine("unknown eval engine: nonsense"));
     }
 
     #[test]
@@ -1418,10 +1421,7 @@ mod tests {
         let reg = default_registry();
         let config = RuntimeConfig::new().with_parse("chumsky");
         let err = Runtime::from_registry(lang, &reg, &config).unwrap_err();
-        assert_eq!(
-            err,
-            LangError::Engine("unknown parse engine: chumsky".into())
-        );
+        assert_eq!(err, LangError::engine("unknown parse engine: chumsky"));
     }
 
     #[test]
@@ -1430,7 +1430,7 @@ mod tests {
         let reg = default_registry();
         let config = RuntimeConfig::new().with_lex("pratt");
         let err = Runtime::from_registry(lang, &reg, &config).unwrap_err();
-        assert_eq!(err, LangError::Engine("unknown lex engine: pratt".into()));
+        assert_eq!(err, LangError::engine("unknown lex engine: pratt"));
     }
 
     #[test]

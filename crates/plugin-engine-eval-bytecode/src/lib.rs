@@ -109,7 +109,8 @@ impl BytecodeEngine {
     /// Inject a global variable into the root scope (builder style).
     /// ADR-0041 Phase 3: `self` is an ambient variable, not a function call.
     pub fn with_global(mut self, name: &str, value: Value) -> Self {
-        self.globals.insert(Rc::from(name), TaggedValue::from(value));
+        self.globals
+            .insert(Rc::from(name), TaggedValue::from(value));
         self
     }
 }
@@ -128,7 +129,7 @@ impl EvalEngine for BytecodeEngine {
         }
         // Scheme version check -- the engine supports v2 only.
         if !SchemeVersion::v2().supports(&lang.scheme_version) {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
@@ -217,7 +218,7 @@ impl handl_runtime::CompileEngine for BytecodeCompileEngine {
         _target: &str,
     ) -> Result<Box<dyn handl_runtime::CompiledArtifact>, LangError> {
         if !SchemeVersion::v2().supports(&lang.scheme_version) {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "compile: unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
@@ -486,7 +487,7 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
@@ -751,9 +752,9 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),               // 0
-            AstNode::new("lit").with_payload(json!(1)),               // 1
-            AstNode::new("var").with_payload(json!("x")),             // 2
+            AstNode::new("lit").with_payload(json!(5)),   // 0
+            AstNode::new("lit").with_payload(json!(1)),   // 1
+            AstNode::new("var").with_payload(json!("x")), // 2
             AstNode::new("binary.add").with_payload(json!({"children": [2, 1]})), // 3
             AstNode::new("bind").with_payload(json!({"name": "x", "children": [0, 3]})), // 4
         ]);

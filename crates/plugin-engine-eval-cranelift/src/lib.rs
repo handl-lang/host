@@ -101,8 +101,8 @@ mod compile;
 mod standalone;
 
 pub use compile::{
-    CompileMode, CompiledBackend, CompiledFn, CompiledResult, ObjectResult, compile_all_nodes,
-    compile_all_nodes_jit, compile_all_nodes_object,
+    compile_all_nodes, compile_all_nodes_jit, compile_all_nodes_object, CompileMode,
+    CompiledBackend, CompiledFn, CompiledResult, ObjectResult,
 };
 
 use rustc_hash::FxHashMap;
@@ -132,7 +132,7 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
-use handl_value::{TaggedValue, tagged_to_value};
+use handl_value::{tagged_to_value, TaggedValue};
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -276,7 +276,7 @@ impl EvalEngine for CraneliftEngine {
         }
         // Scheme version check — the engine supports v2 only.
         if !SchemeVersion::v2().supports(&lang.scheme_version) {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
@@ -351,7 +351,7 @@ fn run_native(
         .compiled
         .get(&root_idx)
         .copied()
-        .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
+        .ok_or_else(|| LangError::engine("no compiled function for root".to_string()))?;
 
     // Top-level incoming is a boxed Null (reused sentinel — Fix #8).
     let null_incoming = null_incoming_ptr();
@@ -365,14 +365,16 @@ fn run_native(
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {
         if !result_ptr.is_null() {
-            unsafe { let _ = take_value(result_ptr); }
+            unsafe {
+                let _ = take_value(result_ptr);
+            }
         }
         return Err(err);
     }
 
     // Reclaim the result value.
     if result_ptr.is_null() {
-        return Err(LangError::Engine(
+        return Err(LangError::engine(
             "native evaluation returned null without error".to_string(),
         ));
     }
@@ -477,7 +479,7 @@ impl EvalCtx {
             current_ref: if ast.is_empty() { 0 } else { ast.len() - 1 },
             modules: None,
             compiled,
-            
+
             literals,
             names,
             error: None,
@@ -656,7 +658,7 @@ fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
     match v {
         TaggedValue::Int(i) => Ok(Num::Int(*i)),
         TaggedValue::Float(f) => Ok(Num::Float(*f)),
-        _ => Err(LangError::Engine(format!("expected number, got {:?}", v))),
+        _ => Err(LangError::engine(format!("expected number, got {:?}", v))),
     }
 }
 
@@ -768,7 +770,10 @@ unsafe fn take_value(ptr: *mut TaggedValue) -> TaggedValue {
 /// Used by the `Loop` combinator to save a clone of the incoming value before
 /// `pair` consumes the original (Fix #8: pre-existing loop double-free fix).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_clone(_ctx: *mut EvalCtx, val: *mut TaggedValue) -> *mut TaggedValue {
+pub unsafe extern "C" fn helper_v2_clone(
+    _ctx: *mut EvalCtx,
+    val: *mut TaggedValue,
+) -> *mut TaggedValue {
     unsafe {
         if val.is_null() {
             return box_value(TaggedValue::Null);
@@ -783,11 +788,14 @@ pub unsafe extern "C" fn helper_v2_clone(_ctx: *mut EvalCtx, val: *mut TaggedVal
 
 /// Push a literal value (from the constant pool) as a boxed clone.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_push_literal(ctx: *mut EvalCtx, lit_idx: usize) -> *mut TaggedValue {
+pub unsafe extern "C" fn helper_push_literal(
+    ctx: *mut EvalCtx,
+    lit_idx: usize,
+) -> *mut TaggedValue {
     unsafe {
         let ctx = &mut *ctx;
         if lit_idx >= ctx.literals.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "literal index {} out of bounds",
                 lit_idx
             )));
@@ -802,7 +810,7 @@ pub unsafe extern "C" fn helper_load_var(ctx: *mut EvalCtx, name_idx: usize) -> 
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
@@ -829,7 +837,7 @@ pub unsafe extern "C" fn helper_load_payload_var(ctx: *mut EvalCtx) -> *mut Tagg
                         name: var_name.to_string(),
                     }),
                 },
-                None => ctx.set_error(LangError::Engine(
+                None => ctx.set_error(LangError::engine(
                     "expected string payload for $payload var".to_string(),
                 )),
             },
@@ -865,7 +873,7 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         let children = match node.payload.get("children").and_then(|c| c.as_array()) {
             Some(arr) => arr,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "expected children array in payload".to_string(),
                 ));
             }
@@ -873,14 +881,14 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
             None => {
-                return ctx.set_error(LangError::Engine(format!("child {} not found", child_n)));
+                return ctx.set_error(LangError::engine(format!("child {} not found", child_n)));
             }
         };
         // Look up the compiled function for the child.
         let func = match ctx.compiled.get(&arena_idx).copied() {
             Some(f) => f,
             None => {
-                return ctx.set_error(LangError::Engine(format!(
+                return ctx.set_error(LangError::engine(format!(
                     "no compiled function for node {}",
                     arena_idx
                 )));
@@ -890,7 +898,8 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         let saved_ref = ctx.current_ref;
         ctx.current_ref = arena_idx;
         let null_incoming = null_incoming_ptr();
-        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
+        let result =
+            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
         // Restore current_ref.
         ctx.current_ref = saved_ref;
         result
@@ -906,7 +915,7 @@ pub unsafe extern "C" fn helper_store(ctx: *mut EvalCtx, name_idx: usize, val: *
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
-            ctx.set_error(LangError::Engine(format!(
+            ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
@@ -947,7 +956,7 @@ pub unsafe extern "C" fn helper_store_payload(ctx: *mut EvalCtx, val: *mut Tagge
         let bind_name = match node.payload.get("name").and_then(|v| v.as_str()) {
             Some(s) => s.to_string(),
             None => {
-                ctx.set_error(LangError::Engine(
+                ctx.set_error(LangError::engine(
                     "expected name in payload for $payload bind".to_string(),
                 ));
                 if !val.is_null() {
@@ -995,7 +1004,7 @@ pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, chi
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
-            ctx.set_error(LangError::Engine(format!(
+            ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
@@ -1012,7 +1021,7 @@ pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, chi
         let children = match node.payload.get("children").and_then(|c| c.as_array()) {
             Some(arr) => arr,
             None => {
-                ctx.set_error(LangError::Engine(
+                ctx.set_error(LangError::engine(
                     "expected children array in payload".to_string(),
                 ));
                 return;
@@ -1021,7 +1030,7 @@ pub unsafe extern "C" fn helper_vau_bind(ctx: *mut EvalCtx, name_idx: usize, chi
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
             None => {
-                ctx.set_error(LangError::Engine(format!(
+                ctx.set_error(LangError::engine(format!(
                     "vau: child {} not found",
                     child_n
                 )));
@@ -1070,7 +1079,11 @@ pub unsafe extern "C" fn helper_is_truthy(val: *const TaggedValue) -> u8 {
             return 0;
         }
         let v = &*val;
-        if is_truthy(v) { 1 } else { 0 }
+        if is_truthy(v) {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -1087,7 +1100,7 @@ pub unsafe extern "C" fn helper_apply_closure(
     unsafe {
         let ctx = &mut *ctx;
         if callee.is_null() {
-            return ctx.set_error(LangError::Engine("closure callee is null".to_string()));
+            return ctx.set_error(LangError::engine("closure callee is null".to_string()));
         }
         let closure_val = take_value(callee);
 
@@ -1111,14 +1124,16 @@ pub unsafe extern "C" fn helper_apply_closure(
         // Parse closure. Share the captured env via Rc::clone instead of
         // deep-cloning the HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
-            TaggedValue::Arrow { params, body, env } => {
-                (params.clone(), *body, Rc::clone(env))
+            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+            _ => {
+                return ctx.set_error(LangError::engine(
+                    "callee is not an arrow-value".to_string(),
+                ))
             }
-            _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
 
         if params.len() != arg_vals.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
                 arg_vals.len()
@@ -1129,7 +1144,7 @@ pub unsafe extern "C" fn helper_apply_closure(
         let func = match ctx.compiled.get(&body_idx).copied() {
             Some(f) => f,
             None => {
-                return ctx.set_error(LangError::Engine(format!(
+                return ctx.set_error(LangError::engine(format!(
                     "no compiled function for closure body {}",
                     body_idx
                 )));
@@ -1149,7 +1164,8 @@ pub unsafe extern "C" fn helper_apply_closure(
         ctx.current_ref = body_idx;
 
         let null_incoming = null_incoming_ptr();
-        let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
+        let result =
+            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
 
         // Restore the original scope stack and current_ref.
         ctx.current_ref = saved_ref;
@@ -1179,7 +1195,7 @@ pub unsafe extern "C" fn helper_apply_prim(
                     let _ = take_value(p);
                 }
             }
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "op index {} out of bounds",
                 op_idx
             )));
@@ -1225,7 +1241,7 @@ pub unsafe extern "C" fn helper_call_foreign(
                     let _ = take_value(p);
                 }
             }
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
@@ -1252,7 +1268,7 @@ pub unsafe extern "C" fn helper_call_foreign(
         let modules_ptr = match ctx.modules {
             Some(ptr) => ptr,
             None => {
-                return ctx.set_error(LangError::Engine(format!("unregistered foreign: {}", name)));
+                return ctx.set_error(LangError::engine(format!("unregistered foreign: {}", name)));
             }
         };
         // SAFETY: modules_ptr is a valid trait-object pointer set by the engine.
@@ -1260,7 +1276,7 @@ pub unsafe extern "C" fn helper_call_foreign(
         let func = match modules.lookup(&name) {
             Some(f) => f,
             None => {
-                return ctx.set_error(LangError::Engine(format!("unregistered foreign: {}", name)));
+                return ctx.set_error(LangError::engine(format!("unregistered foreign: {}", name)));
             }
         };
 
@@ -1270,7 +1286,7 @@ pub unsafe extern "C" fn helper_call_foreign(
         let mut pctx = handl_platform::EvalContext::new();
         match func.call(&val_args, &mut pctx) {
             Ok(v) => box_value(TaggedValue::from(v)),
-            Err(e) => ctx.set_error(LangError::Engine(e.to_string())),
+            Err(e) => ctx.set_error(LangError::engine(e.to_string())),
         }
     }
 }
@@ -1287,7 +1303,7 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
     let func = match ctx.compiled.get(&arena_idx).copied() {
         Some(f) => f,
         None => {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "no compiled function for node {}",
                 arena_idx
             )))
@@ -1304,9 +1320,7 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
         return Err(ctx
             .error
             .take()
-            .unwrap_or_else(|| {
-                LangError::Engine("eval_child_node: null result".to_string())
-            }));
+            .unwrap_or_else(|| LangError::engine("eval_child_node: null result".to_string())));
     }
     Ok(unsafe { take_value(result_ptr) })
 }
@@ -1325,7 +1339,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "match: missing children in payload".to_string(),
             ))
         }
@@ -1333,18 +1347,14 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let scrut_idx = match children.get(0).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "match: missing scrutinee child".to_string(),
             ))
         }
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "match: missing block child".to_string(),
-            ))
-        }
+        None => return ctx.set_error(LangError::engine("match: missing block child".to_string())),
     };
     let scrut_val = match eval_child_node(ctx, scrut_idx) {
         Ok(v) => v,
@@ -1355,10 +1365,14 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
-    let arm_indices = match block_node.payload.get("children").and_then(|c| c.as_array()) {
+    let arm_indices = match block_node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+    {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "match: block node missing children".to_string(),
             ))
         }
@@ -1367,7 +1381,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let arm_idx = match arm_entry.as_u64() {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "match: arm index must be a number".to_string(),
                 ))
             }
@@ -1379,7 +1393,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let arm_children = match arm_node.payload.get("children").and_then(|c| c.as_array()) {
             Some(c) => c,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "match: arm node missing children".to_string(),
                 ))
             }
@@ -1387,7 +1401,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let pattern_idx = match arm_children.get(0).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "match: arm missing pattern child".to_string(),
                 ))
             }
@@ -1395,7 +1409,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let body_idx = match arm_children.get(1).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "match: arm missing body child".to_string(),
                 ))
             }
@@ -1403,13 +1417,14 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         ctx.env.push_scope();
         let ast = unsafe { &*ctx.ast };
         let scrut_value = tagged_to_value(&scrut_val);
-        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &scrut_value, ctx) {
-            Ok(b) => b,
-            Err(e) => {
-                ctx.env.pop_scope();
-                return ctx.set_error(e);
-            }
-        };
+        let matched =
+            match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &scrut_value, ctx) {
+                Ok(b) => b,
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            };
         if matched {
             let result = eval_child_node(ctx, body_idx);
             ctx.env.pop_scope();
@@ -1420,7 +1435,7 @@ fn prim_match(ctx: &mut EvalCtx) -> *mut TaggedValue {
         }
         ctx.env.pop_scope();
     }
-    ctx.set_error(LangError::Engine("match: no arm matched".to_string()))
+    ctx.set_error(LangError::engine("match: no arm matched".to_string()))
 }
 
 /// `handle` prim: evaluate a body, then dispatch the result to the first
@@ -1438,26 +1453,18 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "handle: missing children in payload".to_string(),
             ))
         }
     };
     let body_idx = match children.get(0).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "handle: missing body child".to_string(),
-            ))
-        }
+        None => return ctx.set_error(LangError::engine("handle: missing body child".to_string())),
     };
     let block_idx = match children.get(1).and_then(|v| v.as_u64()) {
         Some(i) => i as usize,
-        None => {
-            return ctx.set_error(LangError::Engine(
-                "handle: missing block child".to_string(),
-            ))
-        }
+        None => return ctx.set_error(LangError::engine("handle: missing block child".to_string())),
     };
     let body_val = match eval_child_node(ctx, body_idx) {
         Ok(v) => v,
@@ -1470,10 +1477,14 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Ok(n) => n,
         Err(e) => return ctx.set_error(e),
     };
-    let clause_indices = match block_node.payload.get("children").and_then(|c| c.as_array()) {
+    let clause_indices = match block_node
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+    {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "handle: block node missing children".to_string(),
             ))
         }
@@ -1482,7 +1493,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let clause_idx = match clause_entry.as_u64() {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "handle: clause index must be a number".to_string(),
                 ))
             }
@@ -1491,10 +1502,14 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
-        let clause_children = match clause_node.payload.get("children").and_then(|c| c.as_array()) {
+        let clause_children = match clause_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+        {
             Some(c) => c,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "handle: clause node missing children".to_string(),
                 ))
             }
@@ -1502,7 +1517,7 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let pattern_idx = match clause_children.get(0).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "handle: clause missing pattern child".to_string(),
                 ))
             }
@@ -1510,20 +1525,21 @@ fn prim_handle(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let handler_idx = match clause_children.get(1).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "handle: clause missing handler child".to_string(),
                 ))
             }
         };
         ctx.env.push_scope();
         let ast = unsafe { &*ctx.ast };
-        let matched = match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &body_value, ctx) {
-            Ok(b) => b,
-            Err(e) => {
-                ctx.env.pop_scope();
-                return ctx.set_error(e);
-            }
-        };
+        let matched =
+            match pattern_match::try_pattern(ast, AstRef::new(pattern_idx), &body_value, ctx) {
+                Ok(b) => b,
+                Err(e) => {
+                    ctx.env.pop_scope();
+                    return ctx.set_error(e);
+                }
+            };
         if matched {
             let result = eval_child_node(ctx, handler_idx);
             ctx.env.pop_scope();
@@ -1561,7 +1577,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
     let result = match op {
         "add" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("add: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("add: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a + b)) {
                 Ok(n) => Ok(num_value(n)),
@@ -1570,7 +1586,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "sub" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("sub: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("sub: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a - b)) {
                 Ok(n) => Ok(num_value(n)),
@@ -1579,7 +1595,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "mul" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("mul: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("mul: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a * b)) {
                 Ok(n) => Ok(num_value(n)),
@@ -1588,13 +1604,13 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "div" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("div: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("div: expected 2 args".to_string()));
             }
             let b_num = as_num(&args[1]);
             // Match tree-walk: if b.to_f64() == 0.0, return error.
             if let Ok(bn) = &b_num {
                 if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::Engine("division by zero".to_string()));
+                    return ctx.set_error(LangError::engine("division by zero".to_string()));
                 }
             }
             match as_num(&args[0]).and_then(|a| b_num.map(|b| a / b)) {
@@ -1604,12 +1620,12 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "mod" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("mod: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("mod: expected 2 args".to_string()));
             }
             let b_num = as_num(&args[1]);
             if let Ok(bn) = &b_num {
                 if bn.to_f64() == 0.0 {
-                    return ctx.set_error(LangError::Engine("modulo by zero".to_string()));
+                    return ctx.set_error(LangError::engine("modulo by zero".to_string()));
                 }
             }
             match as_num(&args[0]).and_then(|a| b_num.map(|b| a % b)) {
@@ -1620,7 +1636,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         "eq" => Ok(TaggedValue::Bool(handl_value::eq(&args[0], &args[1]))),
         "lt" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("lt: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("lt: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a < b)) {
                 Ok(b) => Ok(TaggedValue::Bool(b)),
@@ -1629,7 +1645,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "gt" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("gt: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("gt: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a > b)) {
                 Ok(b) => Ok(TaggedValue::Bool(b)),
@@ -1638,7 +1654,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "pow" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("pow: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("pow: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| {
                 as_num(&args[1]).map(|b| num_value(Num::Float(a.to_f64().powf(b.to_f64()))))
@@ -1649,7 +1665,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "gte" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("gte: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("gte: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a >= b)) {
                 Ok(b) => Ok(TaggedValue::Bool(b)),
@@ -1658,7 +1674,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         }
         "lte" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("lte: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("lte: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| as_num(&args[1]).map(|b| a <= b)) {
                 Ok(b) => Ok(TaggedValue::Bool(b)),
@@ -1668,7 +1684,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
         "neq" => Ok(TaggedValue::Bool(!handl_value::eq(&args[0], &args[1]))),
         "compare" => {
             if args.len() < 2 {
-                return ctx.set_error(LangError::Engine("compare: expected 2 args".to_string()));
+                return ctx.set_error(LangError::engine("compare: expected 2 args".to_string()));
             }
             match as_num(&args[0]).and_then(|a| {
                 as_num(&args[1]).map(|b| {
@@ -1687,15 +1703,17 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 Err(e) => Err(e),
             }
         }
-        "typeof" => {
-            Ok(TaggedValue::Str(Rc::from(type_tag(&args[0]))))
-        }
+        "typeof" => Ok(TaggedValue::Str(Rc::from(type_tag(&args[0])))),
         "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-        "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "and" => Ok(TaggedValue::Bool(
+            is_truthy(&args[0]) && is_truthy(&args[1]),
+        )),
+        "or" => Ok(TaggedValue::Bool(
+            is_truthy(&args[0]) || is_truthy(&args[1]),
+        )),
         "neg" => {
             if args.is_empty() {
-                return ctx.set_error(LangError::Engine("neg: expected 1 arg".to_string()));
+                return ctx.set_error(LangError::engine("neg: expected 1 arg".to_string()));
             }
             match as_num(&args[0]).map(|a| match a {
                 Num::Int(i) => num_value(Num::Int(-i)),
@@ -1719,11 +1737,16 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 payload.get("params").and_then(|v| v.as_array()),
                 payload.get("body").and_then(|v| v.as_u64()),
             ) {
-                let param_names: Result<Vec<String>, LangError> = p.iter().map(|v| {
-                    v.as_str().ok_or_else(|| {
-                        LangError::Engine("closure: param must be a string".to_string())
-                    }).map(String::from)
-                }).collect();
+                let param_names: Result<Vec<String>, LangError> = p
+                    .iter()
+                    .map(|v| {
+                        v.as_str()
+                            .ok_or_else(|| {
+                                LangError::engine("closure: param must be a string".to_string())
+                            })
+                            .map(String::from)
+                    })
+                    .collect();
                 let param_names = match param_names {
                     Ok(names) => names,
                     Err(e) => return ctx.set_error(e),
@@ -1734,26 +1757,22 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     body: b as usize,
                     env: Rc::new(env),
                 })
-            } else if let Some(children) =
-                payload.get("children").and_then(|c| c.as_array())
-            {
-                let param_idx = match children
-                    .first()
-                    .and_then(|v| v.as_u64())
-                {
+            } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
+                let param_idx = match children.first().and_then(|v| v.as_u64()) {
                     Some(idx) => idx as usize,
-                    None => return ctx.set_error(LangError::Engine(
-                        "closure: missing param child".to_string(),
-                    )),
+                    None => {
+                        return ctx.set_error(LangError::engine(
+                            "closure: missing param child".to_string(),
+                        ))
+                    }
                 };
-                let body_idx = match children
-                    .get(1)
-                    .and_then(|v| v.as_u64())
-                {
+                let body_idx = match children.get(1).and_then(|v| v.as_u64()) {
                     Some(idx) => idx as usize,
-                    None => return ctx.set_error(LangError::Engine(
-                        "closure: missing body child".to_string(),
-                    )),
+                    None => {
+                        return ctx.set_error(LangError::engine(
+                            "closure: missing body child".to_string(),
+                        ))
+                    }
                 };
                 let param_node = match ctx.ast_at(AstRef::new(param_idx)) {
                     Ok(n) => n,
@@ -1767,16 +1786,20 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                         .and_then(|c| c.as_array())
                     {
                         Some(c) => c,
-                        None => return ctx.set_error(LangError::Engine(
-                            "closure: params missing children".to_string(),
-                        )),
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "closure: params missing children".to_string(),
+                            ))
+                        }
                     };
                     for pc in param_children {
                         let pidx = match pc.as_u64() {
                             Some(idx) => idx as usize,
-                            None => return ctx.set_error(LangError::Engine(
-                                "closure: param index must be a number".to_string(),
-                            )),
+                            None => {
+                                return ctx.set_error(LangError::engine(
+                                    "closure: param index must be a number".to_string(),
+                                ))
+                            }
                         };
                         let pnode = match ctx.ast_at(AstRef::new(pidx)) {
                             Ok(n) => n,
@@ -1784,18 +1807,22 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                         };
                         let pname = match pnode.payload.as_str() {
                             Some(s) => s,
-                            None => return ctx.set_error(LangError::Engine(
-                                "closure: param must be a var with string payload".to_string(),
-                            )),
+                            None => {
+                                return ctx.set_error(LangError::engine(
+                                    "closure: param must be a var with string payload".to_string(),
+                                ))
+                            }
                         };
                         param_names.push(pname.to_string());
                     }
                 } else {
                     let pname = match param_node.payload.as_str() {
                         Some(s) => s,
-                        None => return ctx.set_error(LangError::Engine(
-                            "closure: param node must be a var with string payload".to_string(),
-                        )),
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "closure: param node must be a var with string payload".to_string(),
+                            ))
+                        }
                     };
                     param_names.push(pname.to_string());
                 }
@@ -1806,7 +1833,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     env: Rc::new(env),
                 })
             } else {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "closure prim: missing params/body in payload".to_string(),
                 ));
             }
@@ -1819,7 +1846,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
             match node.payload.get("elements") {
                 Some(elements) => Ok(TaggedValue::from(elements.clone())),
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "array: missing elements in payload".to_string(),
                     ));
                 }
@@ -1833,7 +1860,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
             let entries = match node.payload.get("entries").and_then(|v| v.as_array()) {
                 Some(arr) => arr,
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "object: missing entries in payload".to_string(),
                     ));
                 }
@@ -1844,19 +1871,19 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     Some(k) => k,
                     None => {
                         return ctx
-                            .set_error(LangError::Engine("object: entry missing key".to_string()));
+                            .set_error(LangError::engine("object: entry missing key".to_string()));
                     }
                 };
                 let value = match entry.get("value") {
                     Some(v) => v,
                     None => {
-                        return ctx.set_error(LangError::Engine(
+                        return ctx.set_error(LangError::engine(
                             "object: entry missing value".to_string(),
                         ));
                     }
                 };
                 if handl_language::is_reserved_value_key(key) {
-                    return ctx.set_error(LangError::Engine(format!(
+                    return ctx.set_error(LangError::engine(format!(
                         "object: key '{}' is reserved",
                         key
                     )));
@@ -1873,7 +1900,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
             let target = match node.payload.get("target") {
                 Some(t) => t,
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "index: missing target in payload".to_string(),
                     ));
                 }
@@ -1881,7 +1908,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
             let index = match node.payload.get("index") {
                 Some(i) => i,
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "index: missing index in payload".to_string(),
                     ));
                 }
@@ -1894,7 +1921,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     let idx = *i as usize;
                     match arr.get(idx) {
                         Some(v) => Ok(v.clone()),
-                        None => Err(LangError::Engine(format!(
+                        None => Err(LangError::engine(format!(
                             "index: index {} out of bounds",
                             idx
                         ))),
@@ -1904,7 +1931,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     let idx = *f as usize;
                     match arr.get(idx) {
                         Some(v) => Ok(v.clone()),
-                        None => Err(LangError::Engine(format!(
+                        None => Err(LangError::engine(format!(
                             "index: index {} out of bounds",
                             idx
                         ))),
@@ -1912,12 +1939,9 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 }
                 (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
                     Some(v) => Ok(v.clone()),
-                    None => Err(LangError::Engine(format!(
-                        "index: key '{}' not found",
-                        key
-                    ))),
+                    None => Err(LangError::engine(format!("index: key '{}' not found", key))),
                 },
-                _ => Err(LangError::Engine(
+                _ => Err(LangError::engine(
                     "index: target must be array/object and index must be number/string"
                         .to_string(),
                 )),
@@ -1936,14 +1960,14 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     let value_idx = match children[1].as_u64() {
                         Some(i) => i as usize,
                         None => {
-                            return ctx.set_error(LangError::Engine(
+                            return ctx.set_error(LangError::engine(
                                 "assign: value index must be a number".to_string(),
                             ));
                         }
                     };
                     eval_child_node(ctx, value_idx)
                 } else {
-                    Err(LangError::Engine(
+                    Err(LangError::engine(
                         "assign: expected at least 2 children".to_string(),
                     ))
                 }
@@ -1951,7 +1975,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 match node.payload.get("value") {
                     Some(value) => Ok(TaggedValue::from(value.clone())),
                     None => {
-                        return ctx.set_error(LangError::Engine(
+                        return ctx.set_error(LangError::engine(
                             "assign: missing value in payload".to_string(),
                         ));
                     }
@@ -1967,15 +1991,15 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                 Err(e) => return ctx.set_error(e),
             };
             match node.payload.as_str() {
-                Some(expr) => {
-                    serde_json::from_str::<Value>(expr)
-                        .map(TaggedValue::from)
-                        .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
-                }
-                None => Err(LangError::Engine("json: payload must be a string".to_string())),
+                Some(expr) => serde_json::from_str::<Value>(expr)
+                    .map(TaggedValue::from)
+                    .map_err(|e| LangError::engine(format!("json: parse error: {}", e))),
+                None => Err(LangError::engine(
+                    "json: payload must be a string".to_string(),
+                )),
             }
         }
-        _ => Err(LangError::Engine(format!("unknown prim: {}", op))),
+        _ => Err(LangError::engine(format!("unknown prim: {}", op))),
     };
 
     match result {
@@ -2009,7 +2033,7 @@ impl handl_runtime::CompiledArtifact for CraneliftArtifact {
         let result = self
             .result
             .as_ref()
-            .ok_or_else(|| LangError::Engine("run: no compiled result (empty program)".into()))?;
+            .ok_or_else(|| LangError::engine("run: no compiled result (empty program)"))?;
         let engine = match modules {
             Some(m) => CraneliftEngine::with_modules(m),
             None => CraneliftEngine::new(),
@@ -2048,7 +2072,7 @@ impl handl_runtime::CompileEngine for CraneliftCompileEngine {
             }));
         }
         if !handl_language::SchemeVersion::v2().supports(&lang.scheme_version) {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "compile: unsupported scheme version: {} (engine supports v2)",
                 lang.scheme_version
             )));
@@ -2100,7 +2124,7 @@ pub unsafe extern "C" fn helper_v2_load_var(
     unsafe {
         let ctx = &mut *ctx;
         if name_idx >= ctx.names.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
@@ -2128,7 +2152,7 @@ pub unsafe extern "C" fn helper_v2_load_payload_var(ctx: *mut EvalCtx) -> *mut T
                     Some(v) => box_value(v.clone()),
                     None => box_value(TaggedValue::Str(Rc::from(var_name))),
                 },
-                None => ctx.set_error(LangError::Engine(
+                None => ctx.set_error(LangError::engine(
                     "expected string payload for $payload var".to_string(),
                 )),
             },
@@ -2166,7 +2190,7 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         let children = match node.payload.get("children").and_then(|c| c.as_array()) {
             Some(arr) => arr,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "expected children array in payload".to_string(),
                 ));
             }
@@ -2174,13 +2198,13 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         let arena_idx = match children.get(child_n).and_then(|v| v.as_u64()) {
             Some(idx) => idx as usize,
             None => {
-                return ctx.set_error(LangError::Engine(format!("child {} not found", child_n)));
+                return ctx.set_error(LangError::engine(format!("child {} not found", child_n)));
             }
         };
         let func = match ctx.compiled.get(&arena_idx).copied() {
             Some(f) => f,
             None => {
-                return ctx.set_error(LangError::Engine(format!(
+                return ctx.set_error(LangError::engine(format!(
                     "no compiled v2 function for node {}",
                     arena_idx
                 )));
@@ -2188,10 +2212,7 @@ pub unsafe extern "C" fn helper_v2_eval_child(
         };
         let saved_ref = ctx.current_ref;
         ctx.current_ref = arena_idx;
-        let result = func(
-            ctx as *mut EvalCtx as *mut u8,
-            incoming as *mut u8,
-        ) as *mut TaggedValue;
+        let result = func(ctx as *mut EvalCtx as *mut u8, incoming as *mut u8) as *mut TaggedValue;
         ctx.current_ref = saved_ref;
         result
     }
@@ -2215,14 +2236,14 @@ pub unsafe extern "C" fn helper_v2_extend_env(
             if !val.is_null() {
                 let _ = take_value(val);
             }
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "name index {} out of bounds",
                 name_idx
             )));
         }
         let name = ctx.names[name_idx].clone();
         if val.is_null() {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "extend_env: incoming value is null".to_string(),
             ));
         }
@@ -2258,13 +2279,14 @@ pub unsafe extern "C" fn helper_v2_extend_env_payload(
                 if !val.is_null() {
                     let _ = take_value(val);
                 }
-                return ctx.set_error(LangError::Engine(
-                    "expected name in payload for $payload extend_env".to_string(),
+                return ctx.set_error(LangError::engine_node(
+                    "expected name in payload for $payload extend_env",
+                    node,
                 ));
             }
         };
         if val.is_null() {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "extend_env: incoming value is null".to_string(),
             ));
         }
@@ -2309,7 +2331,7 @@ pub unsafe extern "C" fn helper_v2_apply_closure(
     unsafe {
         let ctx = &mut *ctx;
         if callee.is_null() {
-            return ctx.set_error(LangError::Engine("closure callee is null".to_string()));
+            return ctx.set_error(LangError::engine("closure callee is null".to_string()));
         }
         let closure_val = take_value(callee);
 
@@ -2365,16 +2387,18 @@ fn apply_closure_value(
         // Share the captured env via Rc::clone instead of deep-cloning the
         // HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
-            TaggedValue::Arrow { params, body, env } => {
-                (params.clone(), *body, Rc::clone(env))
+            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
+            _ => {
+                return ctx.set_error(LangError::engine(
+                    "callee is not an arrow-value".to_string(),
+                ))
             }
-            _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
 
         let param_names: Vec<String> = params.iter().map(|s| s.to_string()).collect();
 
         if param_names.len() != arg_vals.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 param_names.len(),
                 arg_vals.len()
@@ -2384,7 +2408,7 @@ fn apply_closure_value(
         let func = match ctx.compiled.get(&body_idx).copied() {
             Some(f) => f,
             None => {
-                return ctx.set_error(LangError::Engine(format!(
+                return ctx.set_error(LangError::engine(format!(
                     "no compiled v2 function for closure body {}",
                     body_idx
                 )));
@@ -2405,10 +2429,8 @@ fn apply_closure_value(
         // Closure bodies receive a boxed Null as incoming (fresh computation).
         // Reuse the shared sentinel to avoid per-call allocation (Fix #8).
         let null_incoming = null_incoming_ptr();
-        let result = func(
-            ctx as *mut EvalCtx as *mut u8,
-            null_incoming as *mut u8,
-        ) as *mut TaggedValue;
+        let result =
+            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
 
         ctx.current_ref = saved_ref;
         ctx.env = saved_env;
@@ -2430,15 +2452,13 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let name = match node.payload.get("name").and_then(|v| v.as_str()) {
                 Some(n) => n.to_string(),
                 None => {
-                    return ctx.set_error(LangError::Engine(
-                        "bind: missing name".to_string(),
-                    ));
+                    return ctx.set_error(LangError::engine("bind: missing name".to_string()));
                 }
             };
             let children = match node.payload.get("children").and_then(|c| c.as_array()) {
                 Some(c) => c,
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "bind: expected children array in payload".to_string(),
                     ));
                 }
@@ -2446,17 +2466,15 @@ fn prim_v2_bind(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let value_idx = match children.first().and_then(|v| v.as_u64()) {
                 Some(i) => i as usize,
                 None => {
-                    return ctx.set_error(LangError::Engine(
-                        "bind: missing value child".to_string(),
-                    ));
+                    return ctx
+                        .set_error(LangError::engine("bind: missing value child".to_string()));
                 }
             };
             let body_idx = match children.get(1).and_then(|v| v.as_u64()) {
                 Some(i) => i as usize,
                 None => {
-                    return ctx.set_error(LangError::Engine(
-                        "bind: missing body child".to_string(),
-                    ));
+                    return ctx
+                        .set_error(LangError::engine("bind: missing body child".to_string()));
                 }
             };
             (name, value_idx, body_idx)
@@ -2506,19 +2524,29 @@ fn prim_v2_loop_step(
     let body_proc = match args.first() {
         Some(b) => b.clone(),
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "loop_step: missing body closure".to_string(),
             ));
         }
     };
-    let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+    let current = if matches!(state, TaggedValue::Null) {
+        in_val
+    } else {
+        state
+    };
     let call_args: Vec<TaggedValue> = match &current {
         TaggedValue::Obj(obj_state) => {
             if let TaggedValue::Arrow { params, .. } = &body_proc {
                 if params.len() > 1 {
-                    params.iter().map(|p| {
-                        obj_state.get::<str>(p.as_ref()).cloned().unwrap_or(TaggedValue::Null)
-                    }).collect()
+                    params
+                        .iter()
+                        .map(|p| {
+                            obj_state
+                                .get::<str>(p.as_ref())
+                                .cloned()
+                                .unwrap_or(TaggedValue::Null)
+                        })
+                        .collect()
                 } else {
                     vec![current]
                 }
@@ -2583,8 +2611,16 @@ pub unsafe extern "C" fn helper_v2_pair(
     b: *mut TaggedValue,
 ) -> *mut TaggedValue {
     unsafe {
-        let a_val = if a.is_null() { TaggedValue::Null } else { take_value(a) };
-        let b_val = if b.is_null() { TaggedValue::Null } else { take_value(b) };
+        let a_val = if a.is_null() {
+            TaggedValue::Null
+        } else {
+            take_value(a)
+        };
+        let b_val = if b.is_null() {
+            TaggedValue::Null
+        } else {
+            take_value(b)
+        };
         box_value(TaggedValue::Pair(Rc::new((a_val, b_val))))
     }
 }
@@ -2603,12 +2639,14 @@ pub unsafe extern "C" fn helper_v2_unpair_fst(
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
-            return ctx.set_error(LangError::Engine("unpair_fst: null input".to_string()));
+            return ctx.set_error(LangError::engine("unpair_fst: null input".to_string()));
         }
         let v = &*val;
         match v {
             TaggedValue::Pair(p) => box_value(p.0.clone()),
-            _ => ctx.set_error(LangError::Engine("unpair_fst: input is not a pair".to_string())),
+            _ => ctx.set_error(LangError::engine(
+                "unpair_fst: input is not a pair".to_string(),
+            )),
         }
     }
 }
@@ -2627,12 +2665,14 @@ pub unsafe extern "C" fn helper_v2_unpair_snd(
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
-            return ctx.set_error(LangError::Engine("unpair_snd: null input".to_string()));
+            return ctx.set_error(LangError::engine("unpair_snd: null input".to_string()));
         }
         let v = &*val;
         match v {
             TaggedValue::Pair(p) => box_value(p.1.clone()),
-            _ => ctx.set_error(LangError::Engine("unpair_snd: input is not a pair".to_string())),
+            _ => ctx.set_error(LangError::engine(
+                "unpair_snd: input is not a pair".to_string(),
+            )),
         }
     }
 }
@@ -2646,7 +2686,11 @@ pub unsafe extern "C" fn helper_v2_either_left(
     val: *mut TaggedValue,
 ) -> *mut TaggedValue {
     unsafe {
-        let v = if val.is_null() { TaggedValue::Null } else { take_value(val) };
+        let v = if val.is_null() {
+            TaggedValue::Null
+        } else {
+            take_value(val)
+        };
         box_value(TaggedValue::EitherLeft(Rc::new(v)))
     }
 }
@@ -2660,7 +2704,11 @@ pub unsafe extern "C" fn helper_v2_either_right(
     val: *mut TaggedValue,
 ) -> *mut TaggedValue {
     unsafe {
-        let v = if val.is_null() { TaggedValue::Null } else { take_value(val) };
+        let v = if val.is_null() {
+            TaggedValue::Null
+        } else {
+            take_value(val)
+        };
         box_value(TaggedValue::EitherRight(Rc::new(v)))
     }
 }
@@ -2670,10 +2718,7 @@ pub unsafe extern "C" fn helper_v2_either_right(
 /// Returns 1 if the value is `{"__either__": "left", ...}`, 0 otherwise. The
 /// input pointer is NOT consumed (it is read-only).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_either_is_left(
-    _ctx: *mut EvalCtx,
-    val: *mut TaggedValue,
-) -> u8 {
+pub unsafe extern "C" fn helper_v2_either_is_left(_ctx: *mut EvalCtx, val: *mut TaggedValue) -> u8 {
     unsafe {
         if val.is_null() {
             return 0;
@@ -2699,12 +2744,14 @@ pub unsafe extern "C" fn helper_v2_either_value(
     unsafe {
         let ctx = &mut *ctx;
         if val.is_null() {
-            return ctx.set_error(LangError::Engine("either_value: null input".to_string()));
+            return ctx.set_error(LangError::engine("either_value: null input".to_string()));
         }
         let v = take_value(val);
         match v {
-            TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => box_value((*inner).clone()),
-            _ => ctx.set_error(LangError::Engine(
+            TaggedValue::EitherLeft(inner) | TaggedValue::EitherRight(inner) => {
+                box_value((*inner).clone())
+            }
+            _ => ctx.set_error(LangError::engine(
                 "either_value: input is not an Either".to_string(),
             )),
         }
@@ -2733,7 +2780,7 @@ pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
     unsafe {
         let ctx = &mut *ctx;
         if op_idx >= ctx.names.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "derived_step_arg_incoming: op index {} out of bounds",
                 op_idx
             )));
@@ -2763,7 +2810,11 @@ pub unsafe extern "C" fn helper_v2_derived_step_arg_incoming(
             }
         } else {
             // while_step / fix_step: current = in (first step) or state.
-            if matches!(state, TaggedValue::Null) { in_val } else { state }
+            if matches!(state, TaggedValue::Null) {
+                in_val
+            } else {
+                state
+            }
         };
         box_value(arg_incoming)
     }
@@ -2794,7 +2845,7 @@ pub unsafe extern "C" fn helper_v2_apply_native(
                     let _ = take_value(p);
                 }
             }
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "op index {} out of bounds",
                 op_idx
             )));
@@ -2952,7 +3003,7 @@ pub unsafe extern "C" fn helper_v2_int_arith(
 
         // Look up the op name for the slow path.
         if op_idx >= ctx.names.len() {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "op index {} out of bounds",
                 op_idx
             )));
@@ -2981,14 +3032,11 @@ pub unsafe extern "C" fn helper_v2_int_arith(
 /// The input pointer is NOT consumed (the caller uses it to extract the
 /// carried value / new state / fst after the tag is checked).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn helper_v2_loop_check(
-    ctx: *mut EvalCtx,
-    result: *mut TaggedValue,
-) -> u8 {
+pub unsafe extern "C" fn helper_v2_loop_check(ctx: *mut EvalCtx, result: *mut TaggedValue) -> u8 {
     unsafe {
         let ctx = &mut *ctx;
         if result.is_null() {
-            ctx.set_error(LangError::Engine("loop_check: null result".to_string()));
+            ctx.set_error(LangError::engine("loop_check: null result".to_string()));
             return 2; // arbitrary — error is set
         }
         let v = &*result;
@@ -2999,7 +3047,7 @@ pub unsafe extern "C" fn helper_v2_loop_check(
         } else if matches!(v, TaggedValue::Pair(..)) {
             2
         } else {
-            ctx.set_error(LangError::Engine(
+            ctx.set_error(LangError::engine(
                 "Loop: body did not return a pair or Either".to_string(),
             ));
             2
@@ -3012,68 +3060,56 @@ pub unsafe extern "C" fn helper_v2_loop_check(
 /// Mirrors the v2 tree-walk's `closure` op: reads `params`/`body` from the
 /// payload (rich shape), or falls back to the `children` array (Pratt-parsed
 /// shape). Returns `(params_as_values, body_arena_index)`.
-fn resolve_closure_params_body(
-    ctx: &mut EvalCtx,
-) -> Result<(Vec<String>, usize), LangError> {
+fn resolve_closure_params_body(ctx: &mut EvalCtx) -> Result<(Vec<String>, usize), LangError> {
     let node = ctx.current_node()?;
     let payload = &node.payload;
     if let (Some(p), Some(b)) = (
         payload.get("params").and_then(|v| v.as_array()),
         payload.get("body").and_then(|v| v.as_u64()),
     ) {
-        let names: Vec<String> = p.iter().map(|v| {
-            v.as_str().map(String::from).unwrap_or_default()
-        }).collect();
+        let names: Vec<String> = p
+            .iter()
+            .map(|v| v.as_str().map(String::from).unwrap_or_default())
+            .collect();
         return Ok((names, b as usize));
     }
     let children = payload
         .get("children")
         .and_then(|c| c.as_array())
-        .ok_or_else(|| LangError::Engine("closure: missing params/body in payload".to_string()))?;
+        .ok_or_else(|| LangError::engine("closure: missing params/body in payload".to_string()))?;
     let param_idx = children
         .first()
         .and_then(|v| v.as_u64())
-        .ok_or_else(|| LangError::Engine("closure: missing param child".to_string()))?
+        .ok_or_else(|| LangError::engine("closure: missing param child".to_string()))?
         as usize;
     let body_idx = children
         .get(1)
         .and_then(|v| v.as_u64())
-        .ok_or_else(|| LangError::Engine("closure: missing body child".to_string()))?
+        .ok_or_else(|| LangError::engine("closure: missing body child".to_string()))?
         as usize;
     let ast = unsafe { &*ctx.ast };
     let param_node = ast.at(AstRef::new(param_idx))?;
-    let param_names: Vec<String> = if param_node.kind == "paren"
-        || param_node.kind == "array"
-    {
+    let param_names: Vec<String> = if param_node.kind == "paren" || param_node.kind == "array" {
         let param_children = param_node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| {
-                LangError::Engine("closure: params missing children".to_string())
-            })?;
+            .ok_or_else(|| LangError::engine("closure: params missing children".to_string()))?;
         let mut names = Vec::with_capacity(param_children.len());
         for pc in param_children {
-            let pidx = pc
-                .as_u64()
-                .ok_or_else(|| {
-                    LangError::Engine("closure: param index must be a number".to_string())
-                })?
-                as usize;
+            let pidx = pc.as_u64().ok_or_else(|| {
+                LangError::engine("closure: param index must be a number".to_string())
+            })? as usize;
             let pnode = ast.at(AstRef::new(pidx))?;
             let pname = pnode.payload.as_str().ok_or_else(|| {
-                LangError::Engine(
-                    "closure: param must be a var with string payload".to_string(),
-                )
+                LangError::engine("closure: param must be a var with string payload".to_string())
             })?;
             names.push(pname.to_string());
         }
         names
     } else {
         let pname = param_node.payload.as_str().ok_or_else(|| {
-            LangError::Engine(
-                "closure: param node must be a var with string payload".to_string(),
-            )
+            LangError::engine("closure: param node must be a var with string payload".to_string())
         })?;
         vec![pname.to_string()]
     };
@@ -3097,7 +3133,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "array: missing elements/children in payload".to_string(),
             ))
         }
@@ -3111,7 +3147,7 @@ fn prim_v2_array(ctx: &mut EvalCtx) -> *mut TaggedValue {
     {
         Some(v) => v,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "array: element index must be a number".to_string(),
             ))
         }
@@ -3143,21 +3179,19 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let key = match entry.get("key").and_then(|v| v.as_str()) {
                 Some(k) => k.to_string(),
                 None => {
-                    return ctx.set_error(LangError::Engine(
-                        "object: entry missing key".to_string(),
-                    ))
+                    return ctx
+                        .set_error(LangError::engine("object: entry missing key".to_string()))
                 }
             };
             let value = match entry.get("value") {
                 Some(v) => v.clone(),
                 None => {
-                    return ctx.set_error(LangError::Engine(
-                        "object: entry missing value".to_string(),
-                    ))
+                    return ctx
+                        .set_error(LangError::engine("object: entry missing value".to_string()))
                 }
             };
             if handl_language::is_reserved_value_key(&key) {
-                return ctx.set_error(LangError::Engine(format!(
+                return ctx.set_error(LangError::engine(format!(
                     "object: key '{}' is reserved",
                     key
                 )));
@@ -3169,7 +3203,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let children = match node.payload.get("children").and_then(|c| c.as_array()) {
         Some(c) => c,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "object: missing entries/children in payload".to_string(),
             ))
         }
@@ -3183,7 +3217,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     {
         Some(v) => v,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "object: entry index must be a number".to_string(),
             ))
         }
@@ -3191,18 +3225,20 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let ast = unsafe { &*ctx.ast };
     // Collect (key_idx, val_idx, direct_key) for each entry. Releasing
     // borrows before evaluating children below.
-    let mut entries: Vec<(usize, usize, Option<String>)> =
-        Vec::with_capacity(entry_indices.len());
+    let mut entries: Vec<(usize, usize, Option<String>)> = Vec::with_capacity(entry_indices.len());
     for entry_idx in &entry_indices {
         let entry_node = match ast.at(AstRef::new(*entry_idx)) {
             Ok(n) => n,
             Err(e) => return ctx.set_error(e),
         };
-        let entry_children = match entry_node.payload.get("children").and_then(|c| c.as_array())
+        let entry_children = match entry_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
         {
             Some(c) => c,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "object: entry node missing children".to_string(),
                 ))
             }
@@ -3210,7 +3246,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let key_idx = match entry_children.first().and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "object: entry missing key child".to_string(),
                 ))
             }
@@ -3218,7 +3254,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         let val_idx = match entry_children.get(1).and_then(|v| v.as_u64()) {
             Some(i) => i as usize,
             None => {
-                return ctx.set_error(LangError::Engine(
+                return ctx.set_error(LangError::engine(
                     "object: entry missing value child".to_string(),
                 ))
             }
@@ -3261,7 +3297,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
             Err(e) => return ctx.set_error(e),
         };
         if handl_language::is_reserved_value_key(&key) {
-            return ctx.set_error(LangError::Engine(format!(
+            return ctx.set_error(LangError::engine(format!(
                 "object: key '{}' is reserved",
                 key
             )));
@@ -3284,7 +3320,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let target = match node.payload.get("target") {
         Some(t) => t,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "index: missing target in payload".to_string(),
             ))
         }
@@ -3292,7 +3328,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
     let index = match node.payload.get("index") {
         Some(i) => i,
         None => {
-            return ctx.set_error(LangError::Engine(
+            return ctx.set_error(LangError::engine(
                 "index: missing index in payload".to_string(),
             ))
         }
@@ -3304,7 +3340,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let idx = *i as usize;
             match arr.get(idx) {
                 Some(v) => Ok(v.clone()),
-                None => Err(LangError::Engine(format!(
+                None => Err(LangError::engine(format!(
                     "index: index {} out of bounds",
                     idx
                 ))),
@@ -3314,7 +3350,7 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let idx = *f as usize;
             match arr.get(idx) {
                 Some(v) => Ok(v.clone()),
-                None => Err(LangError::Engine(format!(
+                None => Err(LangError::engine(format!(
                     "index: index {} out of bounds",
                     idx
                 ))),
@@ -3322,12 +3358,9 @@ fn prim_v2_index(ctx: &mut EvalCtx) -> *mut TaggedValue {
         }
         (TaggedValue::Obj(obj), TaggedValue::Str(key)) => match obj.get(key.as_ref()) {
             Some(v) => Ok(v.clone()),
-            None => Err(LangError::Engine(format!(
-                "index: key '{}' not found",
-                key
-            ))),
+            None => Err(LangError::engine(format!("index: key '{}' not found", key))),
         },
-        _ => Err(LangError::Engine(
+        _ => Err(LangError::engine(
             "index: target must be array/object and index must be number/string".to_string(),
         )),
     };
@@ -3352,7 +3385,7 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut TaggedValue {
             let value_idx = match children[1].as_u64() {
                 Some(idx) => idx as usize,
                 None => {
-                    return ctx.set_error(LangError::Engine(
+                    return ctx.set_error(LangError::engine(
                         "assign: value index must be a number".to_string(),
                     ));
                 }
@@ -3366,7 +3399,7 @@ fn prim_v2_assign(ctx: &mut EvalCtx) -> *mut TaggedValue {
     }
     match node.payload.get("value") {
         Some(v) => unsafe { box_value(TaggedValue::from(v.clone())) },
-        None => ctx.set_error(LangError::Engine(
+        None => ctx.set_error(LangError::engine(
             "assign: missing value in payload".to_string(),
         )),
     }
@@ -3394,19 +3427,17 @@ fn apply_native_v2(
                 Ok(TaggedValue::EitherRight(Rc::new(v)))
             }
         }
-        "closure" => {
-            match resolve_closure_params_body(ctx) {
-                Ok((params, body)) => {
-                    let captured = ctx.env.capture();
-                    Ok(TaggedValue::Arrow {
-                        params: Rc::from(params),
-                        body,
-                        env: Rc::new(captured),
-                    })
-                }
-                Err(e) => Err(e),
+        "closure" => match resolve_closure_params_body(ctx) {
+            Ok((params, body)) => {
+                let captured = ctx.env.capture();
+                Ok(TaggedValue::Arrow {
+                    params: Rc::from(params),
+                    body,
+                    env: Rc::new(captured),
+                })
             }
-        }
+            Err(e) => Err(e),
+        },
         "bind" => return prim_v2_bind(ctx),
         "eval_let" => return prim_v2_bind(ctx),
         "loop_step" => return prim_v2_loop_step(ctx, args, incoming),
@@ -3416,7 +3447,11 @@ fn apply_native_v2(
                 TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
                 _ => (TaggedValue::Null, TaggedValue::Null),
             };
-            let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+            let current = if matches!(state, TaggedValue::Null) {
+                in_val
+            } else {
+                state
+            };
             let cond_val = args.first().cloned().unwrap_or(TaggedValue::Null);
             if is_truthy(&cond_val) {
                 let body_val = args.get(1).cloned().unwrap_or(TaggedValue::Null);
@@ -3472,7 +3507,11 @@ fn apply_native_v2(
                 TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
                 _ => (TaggedValue::Null, TaggedValue::Null),
             };
-            let current = if matches!(state, TaggedValue::Null) { in_val } else { state };
+            let current = if matches!(state, TaggedValue::Null) {
+                in_val
+            } else {
+                state
+            };
             let new_val = args.first().cloned().unwrap_or(TaggedValue::Null);
             if handl_value::eq(&new_val, &current) {
                 Ok(TaggedValue::EitherLeft(Rc::new(new_val)))
@@ -3497,13 +3536,21 @@ fn apply_native_v2(
                 Ok(n) => n,
                 Err(e) => return ctx.set_error(e),
             };
-            let children_opt = node.payload.get("children").and_then(|c| c.as_array()).cloned();
+            let children_opt = node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .cloned();
             let payload_str = node.payload.as_str().map(|s| s.to_string());
             if let Some(children) = children_opt {
                 if children.len() >= 2 {
                     let template_idx = match children[0].as_u64() {
                         Some(v) => v as usize,
-                        None => return ctx.set_error(LangError::Engine("json: child index must be a number".to_string())),
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "json: child index must be a number".to_string(),
+                            ))
+                        }
                     };
                     let template_node = match ctx.ast_at(AstRef::new(template_idx)) {
                         Ok(n) => n,
@@ -3511,43 +3558,63 @@ fn apply_native_v2(
                     };
                     let template = match template_node.payload.as_str() {
                         Some(s) => s.to_string(),
-                        None => return ctx.set_error(LangError::Engine("json: template payload must be a string".to_string())),
+                        None => {
+                            return ctx.set_error(LangError::engine(
+                                "json: template payload must be a string".to_string(),
+                            ))
+                        }
                     };
                     let mut s = template;
                     let saved_ref = ctx.current_ref;
                     for (i, entry) in children[1..].iter().enumerate() {
                         let idx = match entry.as_u64() {
                             Some(v) => v as usize,
-                            None => return ctx.set_error(LangError::Engine("json: child index must be a number".to_string())),
+                            None => {
+                                return ctx.set_error(LangError::engine(
+                                    "json: child index must be a number".to_string(),
+                                ))
+                            }
                         };
                         let func = match ctx.compiled.get(&idx).copied() {
                             Some(f) => f,
-                            None => return ctx.set_error(LangError::Engine(format!("json: no compiled function for node {}", idx))),
+                            None => {
+                                return ctx.set_error(LangError::engine(format!(
+                                    "json: no compiled function for node {}",
+                                    idx
+                                )))
+                            }
                         };
                         ctx.current_ref = idx;
                         let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
-                        let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
+                        let result_ptr =
+                            unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
                         let val = unsafe { (*result_ptr).clone() };
                         let val_json = handl_value::tagged_to_value(&val);
                         let replacement = match serde_json::to_string(&val_json) {
                             Ok(r) => r,
-                            Err(e) => return ctx.set_error(LangError::Engine(format!("json: {}", e))),
+                            Err(e) => {
+                                return ctx.set_error(LangError::engine(format!("json: {}", e)))
+                            }
                         };
                         s = s.replace(&format!("${}", i), &replacement);
                     }
                     ctx.current_ref = saved_ref;
                     return match serde_json::from_str::<Value>(&s) {
                         Ok(v) => unsafe { box_value(TaggedValue::from(v)) },
-                        Err(e) => ctx.set_error(LangError::Engine(format!("json: parse error: {}", e))),
+                        Err(e) => {
+                            ctx.set_error(LangError::engine(format!("json: parse error: {}", e)))
+                        }
                     };
                 }
             }
             match payload_str {
                 Some(expr) => match serde_json::from_str::<Value>(&expr) {
                     Ok(v) => Ok(TaggedValue::from(v)),
-                    Err(e) => Err(LangError::Engine(format!("json: parse error: {}", e))),
+                    Err(e) => Err(LangError::engine(format!("json: parse error: {}", e))),
                 },
-                None => Err(LangError::Engine("json: payload must be a string".to_string())),
+                None => Err(LangError::engine(
+                    "json: payload must be a string".to_string(),
+                )),
             }
         }
         "add" => bin_num_v2(args, |a, b| a + b),
@@ -3559,7 +3626,7 @@ fn apply_native_v2(
             match (a, b) {
                 (Ok(a), Ok(b)) => {
                     if b.to_f64() == 0.0 {
-                        Err(LangError::Engine("division by zero".to_string()))
+                        Err(LangError::engine("division by zero".to_string()))
                     } else {
                         Ok(num_value(a / b))
                     }
@@ -3573,7 +3640,7 @@ fn apply_native_v2(
             match (a, b) {
                 (Ok(a), Ok(b)) => {
                     if b.to_f64() == 0.0 {
-                        Err(LangError::Engine("modulo by zero".to_string()))
+                        Err(LangError::engine("modulo by zero".to_string()))
                     } else {
                         Ok(num_value(match (a, b) {
                             (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
@@ -3625,7 +3692,7 @@ fn apply_native_v2(
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
                 }))),
-                None => Err(LangError::Engine(
+                None => Err(LangError::engine(
                     "compare: incomparable values".to_string(),
                 )),
             }
@@ -3645,40 +3712,51 @@ fn apply_native_v2(
         "call_host" => {
             let callee = match args.first() {
                 Some(TaggedValue::Str(s)) => s.to_string(),
-                _ => return ctx.set_error(LangError::Engine(
-                    "call_host: callee must be a string".to_string(),
-                )),
+                _ => {
+                    return ctx.set_error(LangError::engine(
+                        "call_host: callee must be a string".to_string(),
+                    ))
+                }
             };
             let modules_ptr = match ctx.modules {
                 Some(p) => p,
-                None => return ctx.set_error(LangError::Engine(
-                    "call_host: no module registry".to_string(),
-                )),
+                None => {
+                    return ctx.set_error(LangError::engine(
+                        "call_host: no module registry".to_string(),
+                    ))
+                }
             };
             let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
             let func = match modules.lookup(&callee) {
                 Some(f) => f,
-                None => return ctx.set_error(LangError::Engine(format!(
-                    "call_host: function '{}' not found",
-                    callee
-                ))),
+                None => {
+                    return ctx.set_error(LangError::engine(format!(
+                        "call_host: function '{}' not found",
+                        callee
+                    )))
+                }
             };
             let call_args: Vec<Value> = match args.get(1) {
-                Some(TaggedValue::Arr(arr)) => arr.iter().map(|v| handl_value::tagged_to_value(v)).collect(),
+                Some(TaggedValue::Arr(arr)) => arr
+                    .iter()
+                    .map(|v| handl_value::tagged_to_value(v))
+                    .collect(),
                 _ => Vec::new(),
             };
             let mut pctx = handl_platform::EvalContext::new();
             func.call(&call_args, &mut pctx)
                 .map(TaggedValue::from)
-                .map_err(|e| LangError::Engine(e.to_string()))
+                .map_err(|e| LangError::engine(e.to_string()))
         }
         "proj_rest" => {
             let children = match ctx.current_node() {
                 Ok(node) => match node.payload.get("children").and_then(|c| c.as_array()) {
                     Some(c) => c.clone(),
-                    None => return ctx.set_error(LangError::Engine(
-                        "proj_rest: expected children array in payload".to_string(),
-                    )),
+                    None => {
+                        return ctx.set_error(LangError::engine(
+                            "proj_rest: expected children array in payload".to_string(),
+                        ))
+                    }
                 },
                 Err(e) => return ctx.set_error(e),
             };
@@ -3687,16 +3765,20 @@ fn apply_native_v2(
             for entry in children.iter().skip(1) {
                 let idx = match entry.as_u64() {
                     Some(i) => i as usize,
-                    None => return ctx.set_error(LangError::Engine(
-                        "proj_rest: child index must be a number".to_string(),
-                    )),
+                    None => {
+                        return ctx.set_error(LangError::engine(
+                            "proj_rest: child index must be a number".to_string(),
+                        ))
+                    }
                 };
                 let func = match ctx.compiled.get(&idx).copied() {
                     Some(f) => f,
-                    None => return ctx.set_error(LangError::Engine(format!(
-                        "proj_rest: no compiled function for node {}",
-                        idx
-                    ))),
+                    None => {
+                        return ctx.set_error(LangError::engine(format!(
+                            "proj_rest: no compiled function for node {}",
+                            idx
+                        )))
+                    }
                 };
                 ctx.current_ref = idx;
                 let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
@@ -3708,12 +3790,19 @@ fn apply_native_v2(
             Ok(TaggedValue::Arr(Rc::from(vals)))
         }
         "typeof" => {
-            let arg = args.first().or(incoming.as_ref()).unwrap_or(&TaggedValue::Null);
+            let arg = args
+                .first()
+                .or(incoming.as_ref())
+                .unwrap_or(&TaggedValue::Null);
             Ok(TaggedValue::Str(Rc::from(type_tag(arg))))
         }
         "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
-        "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-        "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+        "and" => Ok(TaggedValue::Bool(
+            is_truthy(&args[0]) && is_truthy(&args[1]),
+        )),
+        "or" => Ok(TaggedValue::Bool(
+            is_truthy(&args[0]) || is_truthy(&args[1]),
+        )),
         "is_pos" => {
             let v = incoming.unwrap_or(TaggedValue::Null);
             match as_num(&v).map(|n| TaggedValue::Bool(n > Num::Int(0))) {
@@ -3746,7 +3835,11 @@ fn apply_native_v2(
             }
         }
         "inc_fst" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            let inc = args
+                .first()
+                .cloned()
+                .or(incoming)
+                .unwrap_or(TaggedValue::Null);
             match &inc {
                 TaggedValue::Pair(p) => {
                     match as_num(&p.0).map(|a_n| {
@@ -3757,11 +3850,17 @@ fn apply_native_v2(
                         Err(e) => Err(e),
                     }
                 }
-                _ => Err(LangError::Engine("inc_fst: input is not a pair".to_string())),
+                _ => Err(LangError::engine(
+                    "inc_fst: input is not a pair".to_string(),
+                )),
             }
         }
         "countdown_step" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            let inc = args
+                .first()
+                .cloned()
+                .or(incoming)
+                .unwrap_or(TaggedValue::Null);
             let (outer_a, b) = match &inc {
                 TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
                 _ => (TaggedValue::Null, TaggedValue::Null),
@@ -3770,7 +3869,11 @@ fn apply_native_v2(
                 TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
                 _ => (TaggedValue::Null, TaggedValue::Null),
             };
-            let state = if matches!(b, TaggedValue::Null) { initial } else { b };
+            let state = if matches!(b, TaggedValue::Null) {
+                initial
+            } else {
+                b
+            };
             match as_num(&state).map(|n| {
                 if n > Num::Int(0) {
                     TaggedValue::EitherRight(Rc::new(num_value(n - Num::Int(1))))
@@ -3783,7 +3886,11 @@ fn apply_native_v2(
             }
         }
         "infinite_step" => {
-            let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+            let inc = args
+                .first()
+                .cloned()
+                .or(incoming)
+                .unwrap_or(TaggedValue::Null);
             let b = match &inc {
                 TaggedValue::Pair(p) => p.1.clone(),
                 _ => TaggedValue::Null,
@@ -3803,7 +3910,13 @@ fn apply_native_v2(
             if matches!(left, TaggedValue::Null) {
                 Ok(right)
             } else if let TaggedValue::Obj(obj) = &left {
-                let tag = obj.get("_tag").and_then(|t| if let TaggedValue::Str(s) = t { Some(s.as_ref()) } else { None });
+                let tag = obj.get("_tag").and_then(|t| {
+                    if let TaggedValue::Str(s) = t {
+                        Some(s.as_ref())
+                    } else {
+                        None
+                    }
+                });
                 if tag == Some("Some") {
                     Ok(obj.get("value").cloned().unwrap_or(TaggedValue::Null))
                 } else if tag == Some("None") {
@@ -3819,20 +3932,31 @@ fn apply_native_v2(
             let input = args.first().cloned().unwrap_or(TaggedValue::Null);
             let field_name = match args.get(1) {
                 Some(TaggedValue::Str(s)) => s.to_string(),
-                _ => return ctx.set_error(LangError::Engine(
-                    "opt_chain: field name must be a string".to_string(),
-                )),
+                _ => {
+                    return ctx.set_error(LangError::engine(
+                        "opt_chain: field name must be a string".to_string(),
+                    ))
+                }
             };
             if matches!(input, TaggedValue::Null) {
                 let mut m = FxHashMap::default();
                 m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
                 Ok(TaggedValue::Obj(Rc::new(m)))
             } else if let TaggedValue::Obj(obj) = &input {
-                let tag = obj.get("_tag").and_then(|t| if let TaggedValue::Str(s) = t { Some(s.as_ref()) } else { None });
+                let tag = obj.get("_tag").and_then(|t| {
+                    if let TaggedValue::Str(s) = t {
+                        Some(s.as_ref())
+                    } else {
+                        None
+                    }
+                });
                 if tag == Some("Some") {
                     let inner = obj.get("value").cloned().unwrap_or(TaggedValue::Null);
                     let field_val = if let TaggedValue::Obj(inner_obj) = &inner {
-                        inner_obj.get(field_name.as_str()).cloned().unwrap_or(TaggedValue::Null)
+                        inner_obj
+                            .get(field_name.as_str())
+                            .cloned()
+                            .unwrap_or(TaggedValue::Null)
                     } else {
                         TaggedValue::Null
                     };
@@ -3845,7 +3969,10 @@ fn apply_native_v2(
                     m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
                     Ok(TaggedValue::Obj(Rc::new(m)))
                 } else {
-                    let field_val = obj.get(field_name.as_str()).cloned().unwrap_or(TaggedValue::Null);
+                    let field_val = obj
+                        .get(field_name.as_str())
+                        .cloned()
+                        .unwrap_or(TaggedValue::Null);
                     let mut m = FxHashMap::default();
                     m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
                     m.insert(Rc::from("value"), field_val);
@@ -3858,7 +3985,7 @@ fn apply_native_v2(
                 Ok(TaggedValue::Obj(Rc::new(m)))
             }
         }
-        _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
+        _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
     };
 
     match result {
@@ -4003,7 +4130,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4032,7 +4163,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4041,7 +4176,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4063,7 +4202,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("unknown".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("unknown".into())),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("var")]);
         let req = EvalRequest::new(ast);
@@ -4079,7 +4222,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4096,7 +4245,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4105,7 +4258,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4125,7 +4282,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4134,7 +4295,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4156,13 +4321,23 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
@@ -4173,9 +4348,9 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!(5)),               // 0
-            AstNode::new("lit").with_payload(json!(1)),               // 1
-            AstNode::new("var").with_payload(json!("x")),             // 2
+            AstNode::new("lit").with_payload(json!(5)),   // 0
+            AstNode::new("lit").with_payload(json!(1)),   // 1
+            AstNode::new("var").with_payload(json!("x")), // 2
             AstNode::new("binary.add").with_payload(json!({"children": [2, 1]})), // 3
             AstNode::new("bind").with_payload(json!({"name": "x", "children": [0, 3]})), // 4
         ]);
@@ -4192,8 +4367,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -4216,8 +4397,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -4240,8 +4427,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -4284,7 +4477,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4304,7 +4503,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.sub",
                 "binary.sub",
-                Scheme::arr_native("sub", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "sub",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4324,7 +4529,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.mul",
                 "binary.mul",
-                Scheme::arr_native("mul", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "mul",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4344,7 +4555,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::arr_native("div", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "div",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4364,7 +4581,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.div",
                 "binary.div",
-                Scheme::arr_native("div", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "div",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4374,7 +4597,7 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
@@ -4385,7 +4608,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.eq",
                 "binary.eq",
-                Scheme::arr_native("eq", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "eq",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4405,14 +4634,26 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.lt",
                 "binary.lt",
-                Scheme::arr_native("lt", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "lt",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.gt",
                 "binary.gt",
-                Scheme::arr_native("gt", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "gt",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4440,21 +4681,40 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.not",
                 "unary.not",
-                Scheme::arr_native("not", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_native(
+                    "not",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.and",
                 "binary.and",
-                Scheme::arr_native("and", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "and",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.or",
                 "binary.or",
-                Scheme::arr_native("or", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "or",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
 
@@ -4508,7 +4768,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::arr_foreign("double", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4527,7 +4794,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::arr_foreign("double", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4552,20 +4826,37 @@ mod tests {
             ))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(1u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4585,7 +4876,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4594,7 +4889,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4604,7 +4903,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
@@ -4618,7 +4923,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(1u64),
+                    )],
+                ),
             ))
             .unwrap();
         // let x = 10 in let f = fn(y) { x + y } in f(5) → 15
@@ -4642,7 +4954,11 @@ mod tests {
         let engine = CraneliftEngine::new();
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4651,7 +4967,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4661,7 +4981,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4713,7 +5039,11 @@ mod tests {
     fn compile_lit_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
+            .merge(EvalSchemeDef::new(
+                "e.c",
+                "c",
+                Scheme::arr_native_lit("const", vec![], json!(42)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
         let result = compile_all_nodes_jit(&lang, &ast);
@@ -4724,7 +5054,11 @@ mod tests {
     fn compile_var_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.v", "v", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.v",
+                "v",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
         let result = compile_all_nodes_jit(&lang, &ast);
@@ -4735,7 +5069,11 @@ mod tests {
     fn compile_var_payload_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.v", "v", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.v",
+                "v",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v").with_payload(json!("x"))]);
         let result = compile_all_nodes_jit(&lang, &ast);
@@ -4749,7 +5087,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.a",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4765,7 +5109,11 @@ mod tests {
     fn compile_bind_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4774,7 +5122,11 @@ mod tests {
                 Scheme::seq(
                     Scheme::seq(
                         Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
-                        Scheme::arr_native_lit("extend_env", vec![], Value::String("$payload".into())),
+                        Scheme::arr_native_lit(
+                            "extend_env",
+                            vec![],
+                            Value::String("$payload".into()),
+                        ),
                     ),
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
                 ),
@@ -4803,7 +5155,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(1u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4823,8 +5182,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(2u64)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -4845,7 +5210,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4864,7 +5235,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.dbl",
                 "dbl",
-                Scheme::arr_foreign("double", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -4909,7 +5287,7 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.vau",
                 "vau",
-                Scheme::vau(vec!["x".into()], Scheme::arr_native_lit("const", vec![], json!(42))),
+                Scheme::vau(vec!["x"], Scheme::arr_native_lit("const", vec![], json!(42))),
             ))
             .unwrap();
         // 0: lit(1), 1: lit(0), 2: binary.div {children:[0,1]} — would error
@@ -4931,7 +5309,11 @@ mod tests {
     fn match_lang() -> Language {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -4951,7 +5333,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang
@@ -5030,7 +5418,7 @@ mod tests {
         ]);
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
@@ -5123,10 +5511,7 @@ mod tests {
             AstNode::new("match").with_payload(json!({"children": [0, 9]})),
         ]);
         let req = EvalRequest::new(ast);
-        assert_eq!(
-            engine.eval(&lang, &req).unwrap(),
-            json!({"y": 2, "z": 3})
-        );
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!({"y": 2, "z": 3}));
     }
 
     #[test]
@@ -5177,7 +5562,11 @@ mod tests {
     fn v2_arr_const_returns_literal() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
+            .merge(EvalSchemeDef::new(
+                "e.c",
+                "c",
+                Scheme::arr_native_lit("const", vec![], json!(42)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
         let engine = CraneliftEngineV2::new();
@@ -5189,7 +5578,11 @@ mod tests {
     fn v2_arr_const_null_when_no_literal() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], Value::Null)))
+            .merge(EvalSchemeDef::new(
+                "e.c",
+                "c",
+                Scheme::arr_native_lit("const", vec![], Value::Null),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
         let engine = CraneliftEngineV2::new();
@@ -5203,7 +5596,11 @@ mod tests {
     fn v2_arr_proj_env_bound_lookup() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -5228,7 +5625,11 @@ mod tests {
     fn v2_arr_proj_env_unbound_returns_name() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.v", "v", Scheme::arr_native_lit("proj_env", vec![], Value::String("unknown".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.v",
+                "v",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("unknown".into())),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
         let engine = CraneliftEngineV2::new();
@@ -5243,7 +5644,11 @@ mod tests {
         // let x = 5 in id(x) — lowered to Seq(const 5, id)
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -5262,7 +5667,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.id",
                 "id",
-                Scheme::arr_native("id", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_native(
+                    "id",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5281,7 +5693,11 @@ mod tests {
     fn v2_bind_shape_extend_env_then_proj_env() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -5312,8 +5728,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("const", vec![], json!(true)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("const", vec![], json!(1)), Scheme::arr_native_lit("const", vec![], json!(2))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("const", vec![], json!(true)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("const", vec![], json!(1)),
+                        Scheme::arr_native_lit("const", vec![], json!(2)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -5331,8 +5753,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("const", vec![], json!(false)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("const", vec![], json!(1)), Scheme::arr_native_lit("const", vec![], json!(2))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("const", vec![], json!(false)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("const", vec![], json!(1)),
+                        Scheme::arr_native_lit("const", vec![], json!(2)),
+                    ),
                 ),
             ))
             .unwrap();
@@ -5351,7 +5779,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5371,7 +5805,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.eq",
                 "binary.eq",
-                Scheme::arr_native("eq", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "eq",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5393,7 +5833,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5441,7 +5887,11 @@ mod tests {
         let mut lang = Language::new();
         lang.scheme_version = SchemeVersion::v2();
         lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
+            .merge(EvalSchemeDef::new(
+                "e.c",
+                "c",
+                Scheme::arr_native_lit("const", vec![], json!(42)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
         let engine = CraneliftEngineV2::new();
@@ -5457,7 +5907,7 @@ mod tests {
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
         let err = engine.eval(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     // 10. Foreign dispatch
@@ -5469,7 +5919,14 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.double",
                 "double",
-                Scheme::arr_foreign("double", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))]),
+                Scheme::arr_foreign(
+                    "double",
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(0u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5495,20 +5952,37 @@ mod tests {
             ))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
                 "e.call",
                 "call",
-                Scheme::app(Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::app(
+                    Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                    vec![Scheme::arr_native_lit(
+                        "proj_child",
+                        vec![],
+                        Value::from(1u64),
+                    )],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5534,7 +6008,11 @@ mod tests {
     fn loop_lang() -> Language {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+            ))
             .unwrap();
         for (id, kind, op) in [
             ("e.eq", "binary.eq", "eq"),
@@ -5572,14 +6050,26 @@ mod tests {
             ))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.object", "object", Scheme::arr_native("object", vec![])))
+            .merge(EvalSchemeDef::new(
+                "e.object",
+                "object",
+                Scheme::arr_native("object", vec![]),
+            ))
             .unwrap();
         lang.eval
-            .merge(EvalSchemeDef::new("e.function", "function", Scheme::arr_native("closure", vec![])))
+            .merge(EvalSchemeDef::new(
+                "e.function",
+                "function",
+                Scheme::arr_native("closure", vec![]),
+            ))
             .unwrap();
         // return -> proj_child(0) (v0.1: `return v` evaluates to `v`)
         lang.eval
-            .merge(EvalSchemeDef::new("e.return", "return", Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64))))
+            .merge(EvalSchemeDef::new(
+                "e.return",
+                "return",
+                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -5589,7 +6079,11 @@ mod tests {
                     Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
                     Scheme::loop_feedback(Scheme::arr_native(
                         "loop_step",
-                        vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))],
+                        vec![Scheme::arr_native_lit(
+                            "proj_child",
+                            vec![],
+                            Value::from(1u64),
+                        )],
                     )),
                 ),
             ))
@@ -5603,11 +6097,11 @@ mod tests {
     fn v2_loop_step_single_step_terminate() {
         let lang = loop_lang();
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),                         // 0
-            AstNode::new("return").with_payload(json!({"children": [0]})),        // 1
+            AstNode::new("var").with_payload(json!("x")), // 0
+            AstNode::new("return").with_payload(json!({"children": [0]})), // 1
             AstNode::new("function").with_payload(json!({"params": ["x"], "body": 1})), // 2
-            AstNode::new("lit").with_payload(json!(42)),                          // 3
-            AstNode::new("loop").with_payload(json!({"children": [3, 2]})),       // 4
+            AstNode::new("lit").with_payload(json!(42)),  // 3
+            AstNode::new("loop").with_payload(json!({"children": [3, 2]})), // 4
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
@@ -5622,27 +6116,27 @@ mod tests {
     fn v2_loop_step_factorial_destructured() {
         let lang = loop_lang();
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!("n")),                        // 0
-            AstNode::new("lit").with_payload(json!("acc")),                      // 1
-            AstNode::new("lit").with_payload(json!("state")),                    // 2
-            AstNode::new("lit").with_payload(json!(0)),                          // 3
-            AstNode::new("lit").with_payload(json!(1)),                          // 4
-            AstNode::new("var").with_payload(json!("n")),                        // 5
-            AstNode::new("var").with_payload(json!("acc")),                      // 6
+            AstNode::new("lit").with_payload(json!("n")),     // 0
+            AstNode::new("lit").with_payload(json!("acc")),   // 1
+            AstNode::new("lit").with_payload(json!("state")), // 2
+            AstNode::new("lit").with_payload(json!(0)),       // 3
+            AstNode::new("lit").with_payload(json!(1)),       // 4
+            AstNode::new("var").with_payload(json!("n")),     // 5
+            AstNode::new("var").with_payload(json!("acc")),   // 6
             AstNode::new("binary.eq").with_payload(json!({"children": [5, 3]})), // 7
-            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})),// 8
-            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})),// 9
-            AstNode::new("entry").with_payload(json!({"children": [0, 8]})),     // 10
-            AstNode::new("entry").with_payload(json!({"children": [1, 9]})),     // 11
-            AstNode::new("object").with_payload(json!({"children": [10, 11]})),  // 12
-            AstNode::new("var").with_payload(json!("acc")),                      // 13
-            AstNode::new("return").with_payload(json!({"children": [13]})),      // 14
-            AstNode::new("entry").with_payload(json!({"children": [2, 12]})),    // 15
-            AstNode::new("object").with_payload(json!({"children": [15]})),      // 16
-            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})),   // 17
+            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})), // 8
+            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})), // 9
+            AstNode::new("entry").with_payload(json!({"children": [0, 8]})), // 10
+            AstNode::new("entry").with_payload(json!({"children": [1, 9]})), // 11
+            AstNode::new("object").with_payload(json!({"children": [10, 11]})), // 12
+            AstNode::new("var").with_payload(json!("acc")),   // 13
+            AstNode::new("return").with_payload(json!({"children": [13]})), // 14
+            AstNode::new("entry").with_payload(json!({"children": [2, 12]})), // 15
+            AstNode::new("object").with_payload(json!({"children": [15]})), // 16
+            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})), // 17
             AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 17})), // 18
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),         // 19
-            AstNode::new("loop").with_payload(json!({"children": [19, 18]})),    // 20
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})), // 19
+            AstNode::new("loop").with_payload(json!({"children": [19, 18]})), // 20
         ]);
         let engine = CraneliftEngineV2::new();
         let req = EvalRequest::new(ast);
@@ -5820,7 +6314,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5830,9 +6330,7 @@ mod tests {
         ]);
         let compile_result = compile_all_nodes_jit(&lang, &ast).unwrap();
         let engine = CraneliftEngineV2::new();
-        let result = engine
-            .run_compiled(&lang, &ast, &compile_result)
-            .unwrap();
+        let result = engine.run_compiled(&lang, &ast, &compile_result).unwrap();
         assert_eq!(result, json!(5));
     }
 
@@ -5845,7 +6343,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.add",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -5859,7 +6363,9 @@ mod tests {
         };
         let result = compile_all_nodes(&lang, &ast, &mode).unwrap();
         assert!(tmp.exists());
-        assert!(std::fs::metadata(&tmp).map(|m| m.len() > 0).unwrap_or(false));
+        assert!(std::fs::metadata(&tmp)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false));
         // compiled map is empty for Object mode.
         assert!(result.compiled.is_empty());
         let _ = std::fs::remove_file(&tmp);
@@ -5874,7 +6380,11 @@ mod tests {
             {
                 let mut lang = Language::new();
                 lang.eval
-                    .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
+                    .merge(EvalSchemeDef::new(
+                        "e.c",
+                        "c",
+                        Scheme::arr_native_lit("const", vec![], json!(42)),
+                    ))
                     .unwrap();
                 ("lit", lang, make_ast(vec![AstNode::new("c")]))
             },
@@ -5885,7 +6395,13 @@ mod tests {
                     .merge(EvalSchemeDef::new(
                         "e.add",
                         "binary.add",
-                        Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                        Scheme::arr_native(
+                            "add",
+                            vec![
+                                Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                                Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                            ],
+                        ),
                     ))
                     .unwrap();
                 (
@@ -5906,8 +6422,14 @@ mod tests {
                         "e.if",
                         "if",
                         Scheme::seq(
-                            Scheme::seq(Scheme::arr_native_lit("const", vec![], json!(true)), Scheme::arr_native("tag", vec![])),
-                            Scheme::choice(Scheme::arr_native_lit("const", vec![], json!(1)), Scheme::arr_native_lit("const", vec![], json!(2))),
+                            Scheme::seq(
+                                Scheme::arr_native_lit("const", vec![], json!(true)),
+                                Scheme::arr_native("tag", vec![]),
+                            ),
+                            Scheme::choice(
+                                Scheme::arr_native_lit("const", vec![], json!(1)),
+                                Scheme::arr_native_lit("const", vec![], json!(2)),
+                            ),
                         ),
                     ))
                     .unwrap();
@@ -5921,8 +6443,14 @@ mod tests {
                         "e.if",
                         "if",
                         Scheme::seq(
-                            Scheme::seq(Scheme::arr_native_lit("const", vec![], json!(false)), Scheme::arr_native("tag", vec![])),
-                            Scheme::choice(Scheme::arr_native_lit("const", vec![], json!(1)), Scheme::arr_native_lit("const", vec![], json!(2))),
+                            Scheme::seq(
+                                Scheme::arr_native_lit("const", vec![], json!(false)),
+                                Scheme::arr_native("tag", vec![]),
+                            ),
+                            Scheme::choice(
+                                Scheme::arr_native_lit("const", vec![], json!(1)),
+                                Scheme::arr_native_lit("const", vec![], json!(2)),
+                            ),
                         ),
                     ))
                     .unwrap();
@@ -5932,7 +6460,11 @@ mod tests {
             {
                 let mut lang = Language::new();
                 lang.eval
-                    .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+                    .merge(EvalSchemeDef::new(
+                        "e.var",
+                        "var",
+                        Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+                    ))
                     .unwrap();
                 lang.eval
                     .merge(EvalSchemeDef::new(
@@ -5941,7 +6473,11 @@ mod tests {
                         Scheme::seq(
                             Scheme::seq(
                                 Scheme::arr_native_lit("const", vec![], json!(10)),
-                                Scheme::arr_native_lit("extend_env", vec![], Value::String("x".into())),
+                                Scheme::arr_native_lit(
+                                    "extend_env",
+                                    vec![],
+                                    Value::String("x".into()),
+                                ),
                             ),
                             Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
                         ),

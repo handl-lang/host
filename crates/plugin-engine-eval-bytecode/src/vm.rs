@@ -61,7 +61,7 @@ use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
-use handl_value::{TaggedValue, tagged_to_value};
+use handl_value::{tagged_to_value, TaggedValue};
 use rustc_hash::FxHashMap;
 
 use crate::compile::compile;
@@ -173,7 +173,7 @@ pub(crate) fn as_num(v: &TaggedValue) -> Result<Num, LangError> {
     match v {
         TaggedValue::Int(i) => Ok(Num::Int(*i)),
         TaggedValue::Float(f) => Ok(Num::Float(*f)),
-        _ => Err(LangError::Engine(format!("expected number, got {:?}", v))),
+        _ => Err(LangError::engine(format!("expected number, got {:?}", v))),
     }
 }
 
@@ -329,7 +329,6 @@ impl<'a, 'h> PatternMatchCtx for VmFrame<'a, 'h> {
 }
 
 impl<'a, 'h> VmFrame<'a, 'h> {
-
     /// Compile (if not cached) and execute a single node using v2 bytecode.
     ///
     /// Looks up `lang.eval[node.kind]` to find the node's `Scheme`, compiles
@@ -451,7 +450,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .payload
                         .as_str()
                         .ok_or_else(|| {
-                            LangError::Engine("expected string payload for $payload var".to_string())
+                            LangError::engine(
+                                "expected string payload for $payload var".to_string(),
+                            )
                         })?
                         .to_string();
                     let val = self
@@ -470,12 +471,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .get("children")
                         .and_then(|c| c.as_array())
                         .ok_or_else(|| {
-                            LangError::Engine("expected children array in payload".to_string())
+                            LangError::engine("expected children array in payload".to_string())
                         })?;
                     let arena_idx = children
                         .get(*n)
                         .and_then(|v| v.as_u64())
-                        .ok_or_else(|| LangError::Engine(format!("child {} not found", n)))?;
+                        .ok_or_else(|| LangError::engine(format!("child {} not found", n)))?;
                     let child_ref = AstRef::new(arena_idx as usize);
                     let result = self.exec_node_inner(child_ref)?;
                     stack.push(result);
@@ -483,23 +484,22 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Store(name) => {
                     let val = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Store".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Store".to_string()))?;
                     self.scopes.push_scope();
                     self.scopes.define(name, val);
                 }
                 Instr::StorePayloadName => {
-                    let val = stack
-                        .pop()
-                        .ok_or_else(|| {
-                            LangError::Engine("stack underflow on StorePayloadName".to_string())
-                        })?;
+                    let val = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on StorePayloadName".to_string())
+                    })?;
                     let bind_name = node
                         .payload
                         .get("name")
                         .and_then(|v| v.as_str())
                         .ok_or_else(|| {
-                            LangError::Engine(
-                                "expected name in payload for $payload extend_env".to_string(),
+                            LangError::engine_node(
+                                "expected name in payload for $payload extend_env",
+                                node,
                             )
                         })?
                         .to_string();
@@ -513,13 +513,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
                         args.push(stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on Call".to_string())
+                            LangError::engine("stack underflow on Call".to_string())
                         })?);
                     }
                     args.reverse();
                     let callee = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call".to_string()))?;
                     // ADR-0060: unpack single array arg for variable-arity
                     // call. When Call receives a single argument that is an
                     // array, unpack it into individual arguments.
@@ -527,7 +527,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         args[0]
                             .as_array()
                             .ok_or_else(|| {
-                                LangError::Engine("Call: expected array argument".to_string())
+                                LangError::engine("Call: expected array argument".to_string())
                             })?
                             .iter()
                             .cloned()
@@ -546,17 +546,17 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Call1 => {
                     let arg0 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call1".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call1".to_string()))?;
                     let callee = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call1".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call1".to_string()))?;
                     // ADR-0060: unpack single array arg for variable-arity
                     // call.
                     let result = if arg0.is_array() {
                         let actual: Vec<TaggedValue> = arg0
                             .as_array()
                             .ok_or_else(|| {
-                                LangError::Engine("Call1: expected array argument".to_string())
+                                LangError::engine("Call1: expected array argument".to_string())
                             })?
                             .iter()
                             .cloned()
@@ -570,43 +570,39 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Call2 => {
                     let arg1 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call2".to_string()))?;
                     let arg0 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call2".to_string()))?;
                     let callee = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call2".to_string()))?;
                     let result = self.apply_app(&callee, &[arg0, arg1])?;
                     stack.push(result);
                 }
                 Instr::Call3 => {
                     let arg2 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call3".to_string()))?;
                     let arg1 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call3".to_string()))?;
                     let arg0 = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call3".to_string()))?;
                     let callee = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Call3".to_string()))?;
                     let result = self.apply_app(&callee, &[arg0, arg1, arg2])?;
                     stack.push(result);
                 }
                 Instr::ChoiceJump(left_target, right_target) => {
-                    let either = stack
-                        .pop()
-                        .ok_or_else(|| {
-                            LangError::Engine("stack underflow on ChoiceJump".to_string())
-                        })?;
-                    let val = either_value(&either)
-                        .cloned()
-                        .ok_or_else(|| {
-                            LangError::Engine("Choice: Either missing value".to_string())
-                        })?;
+                    let either = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on ChoiceJump".to_string())
+                    })?;
+                    let val = either_value(&either).cloned().ok_or_else(|| {
+                        LangError::engine("Choice: Either missing value".to_string())
+                    })?;
                     if is_either_left(&either) {
                         stack.push(val);
                         ip = *left_target;
@@ -616,7 +612,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         ip = *right_target;
                         continue;
                     } else {
-                        return Err(LangError::Engine(
+                        return Err(LangError::engine(
                             "Choice: incoming is not an Either".to_string(),
                         ));
                     }
@@ -626,11 +622,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     continue;
                 }
                 Instr::RouteOnType(tag) => {
-                    let val = stack
-                        .pop()
-                        .ok_or_else(|| {
-                            LangError::Engine("stack underflow on RouteOnType".to_string())
-                        })?;
+                    let val = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on RouteOnType".to_string())
+                    })?;
                     if type_tag(&val) == tag.as_str() {
                         stack.push(either_left(val));
                     } else {
@@ -660,13 +654,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
                         args.push(stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on NativeOp".to_string())
+                            LangError::engine("stack underflow on NativeOp".to_string())
                         })?);
                     }
                     args.reverse();
                     let inc = if is_derived_step {
                         Some(stack.pop().ok_or_else(|| {
-                            LangError::Engine(
+                            LangError::engine(
                                 "derived step op: missing loop pair on stack".to_string(),
                             )
                         })?)
@@ -680,36 +674,35 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut args = Vec::with_capacity(*n);
                     for _ in 0..*n {
                         args.push(stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on ForeignOp".to_string())
+                            LangError::engine("stack underflow on ForeignOp".to_string())
                         })?);
                     }
                     args.reverse();
-                    let modules = self
-                        .modules
-                        .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
-                    let func = modules
-                        .lookup(name)
-                        .ok_or_else(|| LangError::Engine(format!("unregistered foreign: {}", name)))?;
-                    let val_args: Vec<Value> =
-                        args.iter().map(tagged_to_value).collect();
+                    let modules = self.modules.ok_or_else(|| {
+                        LangError::engine(format!("unregistered foreign: {}", name))
+                    })?;
+                    let func = modules.lookup(name).ok_or_else(|| {
+                        LangError::engine(format!("unregistered foreign: {}", name))
+                    })?;
+                    let val_args: Vec<Value> = args.iter().map(tagged_to_value).collect();
                     let mut pctx = handl_platform::EvalContext::new();
                     let result = func
                         .call(&val_args, &mut pctx)
-                        .map_err(|e| LangError::Engine(e.to_string()))?;
+                        .map_err(|e| LangError::engine(e.to_string()))?;
                     stack.push(TaggedValue::from(result));
                 }
                 Instr::FirstOp(start, end) => {
                     // Pop the pair from the stack, extract fst/snd, run the
                     // inner sub-program at [start, end) with fst as incoming
                     // on a fresh stack, then re-pair the result with snd.
-                    let p = stack
-                        .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on FirstOp".to_string()))?;
+                    let p = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on FirstOp".to_string())
+                    })?;
                     let a = pair_fst(&p)
-                        .ok_or_else(|| LangError::Engine("FirstOp: not a pair".to_string()))?
+                        .ok_or_else(|| LangError::engine("FirstOp: not a pair".to_string()))?
                         .clone();
                     let b = pair_snd(&p)
-                        .ok_or_else(|| LangError::Engine("FirstOp: not a pair".to_string()))?
+                        .ok_or_else(|| LangError::engine("FirstOp: not a pair".to_string()))?
                         .clone();
                     let sub = &instrs[*start..*end];
                     let result = self.exec_instrs_inner(sub, node, Some(a))?;
@@ -720,34 +713,32 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 Instr::Pair => {
                     let a = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Pair".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Pair".to_string()))?;
                     let b = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Pair".to_string()))?;
+                        .ok_or_else(|| LangError::engine("stack underflow on Pair".to_string()))?;
                     stack.push(pair(b, a));
                 }
                 Instr::LoopCheck(loop_back) => {
                     loop_counter += 1;
                     if loop_counter > MAX_ITERS {
-                        return Err(LangError::Engine(
+                        return Err(LangError::engine(
                             "Loop: exceeded max iterations".to_string(),
                         ));
                     }
-                    let result = stack
-                        .pop()
-                        .ok_or_else(|| {
-                            LangError::Engine("stack underflow on LoopCheck".to_string())
-                        })?;
+                    let result = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on LoopCheck".to_string())
+                    })?;
                     if is_either_left(&result) {
                         let out = either_value(&result).cloned().ok_or_else(|| {
-                            LangError::Engine("Loop: left Either missing value".to_string())
+                            LangError::engine("Loop: left Either missing value".to_string())
                         })?;
                         stack.push(out);
                         loop_counter = 0;
                         loop_input = None;
                     } else if is_either_right(&result) {
                         let new_state = either_value(&result).cloned().ok_or_else(|| {
-                            LangError::Engine("Loop: right Either missing value".to_string())
+                            LangError::engine("Loop: right Either missing value".to_string())
                         })?;
                         let orig = loop_input.clone().unwrap_or(TaggedValue::Null);
                         stack.push(pair(orig, new_state));
@@ -755,7 +746,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         continue;
                     } else {
                         let out = pair_fst(&result).ok_or_else(|| {
-                            LangError::Engine(
+                            LangError::engine(
                                 "Loop: body did not return a pair or Either".to_string(),
                             )
                         })?;
@@ -765,9 +756,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     }
                 }
                 Instr::Return => {
-                    let result = stack
-                        .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Return".to_string()))?;
+                    let result = stack.pop().ok_or_else(|| {
+                        LangError::engine("stack underflow on Return".to_string())
+                    })?;
                     // Return the scratch stack allocation for reuse by the
                     // next `exec_instrs_inner` call.
                     self.scratch_stack = stack;
@@ -782,20 +773,20 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 // exactly, so results are identical to the `NativeOp` path.
                 Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Mod => {
                     let b = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on arithmetic op".to_string())
+                        LangError::engine("stack underflow on arithmetic op".to_string())
                     })?;
                     let a = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on arithmetic op".to_string())
+                        LangError::engine("stack underflow on arithmetic op".to_string())
                     })?;
                     let result = eval_bin_arith(&instrs[ip], a, b)?;
                     stack.push(result);
                 }
                 Instr::Eq | Instr::Neq | Instr::Lt | Instr::Lte | Instr::Gt | Instr::Gte => {
                     let b = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on comparison op".to_string())
+                        LangError::engine("stack underflow on comparison op".to_string())
                     })?;
                     let a = stack.pop().ok_or_else(|| {
-                        LangError::Engine("stack underflow on comparison op".to_string())
+                        LangError::engine("stack underflow on comparison op".to_string())
                     })?;
                     let result = eval_bin_cmp(&instrs[ip], a, b)?;
                     stack.push(result);
@@ -821,7 +812,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         FxHashMap::with_capacity_and_hasher(keys.len(), Default::default());
                     for key in keys.iter().rev() {
                         let val = stack.pop().ok_or_else(|| {
-                            LangError::Engine("stack underflow on MakeObj".to_string())
+                            LangError::engine("stack underflow on MakeObj".to_string())
                         })?;
                         obj.insert(Rc::clone(key), val);
                     }
@@ -847,13 +838,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // by the enclosing Loop. Extract the current value
                     // (in on first step, state thereafter).
                     let inc = stack.pop().ok_or_else(|| {
-                        LangError::Engine(
-                            "DerivedStepOp: missing loop pair on stack".to_string(),
-                        )
+                        LangError::engine("DerivedStepOp: missing loop pair on stack".to_string())
                     })?;
                     let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
                     let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
-                    let current = if state.is_null() { in_val.clone() } else { state.clone() };
+                    let current = if state.is_null() {
+                        in_val.clone()
+                    } else {
+                        state.clone()
+                    };
                     // Determine the incoming value for the arg sub-programs.
                     // - while_step / fix_step: pass `current` (the evolving
                     //   value) to cond/body.
@@ -878,17 +871,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut eval_args: Vec<TaggedValue> = Vec::with_capacity(ranges.len());
                     for &(start, end) in ranges {
                         let sub = &instrs[start..end];
-                        let result = self.exec_instrs_inner(sub, node, Some(arg_incoming.clone()))?;
+                        let result =
+                            self.exec_instrs_inner(sub, node, Some(arg_incoming.clone()))?;
                         eval_args.push(result);
                     }
                     // Dispatch to apply_native_v2 with the fresh results
                     // and the loop pair as incoming.
-                    let result = self.apply_native_v2(
-                        op,
-                        &eval_args,
-                        node,
-                        Some(inc),
-                    )?;
+                    let result = self.apply_native_v2(op, &eval_args, node, Some(inc))?;
                     stack.push(result);
                 }
             }
@@ -896,7 +885,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         }
         stack
             .pop()
-            .ok_or_else(|| LangError::Engine("empty operand stack at end of program".to_string()))
+            .ok_or_else(|| LangError::engine("empty operand stack at end of program".to_string()))
     }
 
     /// Apply a native v2 op. Mirrors the v2 tree-walk's `apply_native` exactly.
@@ -931,29 +920,24 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     payload.get("params").and_then(|v| v.as_array()),
                     payload.get("body").and_then(|v| v.as_u64()),
                 ) {
-                    let param_names: Vec<String> = p.iter().map(|v| {
-                        v.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "closure: param must be a string".to_string(),
-                            )
-                        }).map(String::from)
-                    }).collect::<Result<_, _>>()?;
+                    let param_names: Vec<String> = p
+                        .iter()
+                        .map(|v| {
+                            v.as_str()
+                                .ok_or_else(|| {
+                                    LangError::engine("closure: param must be a string".to_string())
+                                })
+                                .map(String::from)
+                        })
+                        .collect::<Result<_, _>>()?;
                     (param_names, b as usize)
-                } else if let Some(children) =
-                    payload.get("children").and_then(|c| c.as_array())
-                {
-                    let param_idx = children
-                        .first()
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::Engine("closure: missing param child".to_string())
-                        })? as usize;
-                    let body_idx = children
-                        .get(1)
-                        .and_then(|v| v.as_u64())
-                        .ok_or_else(|| {
-                            LangError::Engine("closure: missing body child".to_string())
-                        })? as usize;
+                } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
+                    let param_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
+                        LangError::engine("closure: missing param child".to_string())
+                    })? as usize;
+                    let body_idx = children.get(1).and_then(|v| v.as_u64()).ok_or_else(|| {
+                        LangError::engine("closure: missing body child".to_string())
+                    })? as usize;
                     let param_node = self.ast.at(AstRef::new(param_idx))?;
                     let param_names: Vec<String> = if param_node.kind == "paren"
                         || param_node.kind == "array"
@@ -963,22 +947,19 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
-                                LangError::Engine(
-                                    "closure: params missing children".to_string(),
-                                )
+                                LangError::engine("closure: params missing children".to_string())
                             })?;
                         let mut names = Vec::with_capacity(param_children.len());
                         for pc in param_children {
                             let pidx = pc.as_u64().ok_or_else(|| {
-                                LangError::Engine(
+                                LangError::engine(
                                     "closure: param index must be a number".to_string(),
                                 )
                             })? as usize;
                             let pnode = self.ast.at(AstRef::new(pidx))?;
                             let pname = pnode.payload.as_str().ok_or_else(|| {
-                                LangError::Engine(
-                                    "closure: param must be a var with string payload"
-                                        .to_string(),
+                                LangError::engine(
+                                    "closure: param must be a var with string payload".to_string(),
                                 )
                             })?;
                             names.push(pname.to_string());
@@ -986,16 +967,15 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         names
                     } else {
                         let pname = param_node.payload.as_str().ok_or_else(|| {
-                            LangError::Engine(
-                                "closure: param node must be a var with string payload"
-                                    .to_string(),
+                            LangError::engine(
+                                "closure: param node must be a var with string payload".to_string(),
                             )
                         })?;
                         vec![pname.to_string()]
                     };
                     (param_names, body_idx)
                 } else {
-                    return Err(LangError::Engine(
+                    return Err(LangError::engine(
                         "closure: missing params/body in payload".to_string(),
                     ));
                 };
@@ -1019,15 +999,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut result = Vec::with_capacity(children.len());
                     for entry in children {
                         let idx = entry.as_u64().ok_or_else(|| {
-                            LangError::Engine(
-                                "array: element index must be a number".to_string(),
-                            )
+                            LangError::engine("array: element index must be a number".to_string())
                         })? as usize;
                         result.push(self.exec_node_inner(AstRef::new(idx))?);
                     }
                     Ok(TaggedValue::Arr(Rc::from(result)))
                 } else {
-                    Err(LangError::Engine(
+                    Err(LangError::engine(
                         "array: missing elements/children in payload".to_string(),
                     ))
                 }
@@ -1037,19 +1015,17 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
                 // - Pratt-parsed: `{"children": [entry_idx, ...]}` where each
                 //   entry node has `{"children": [key_idx, value_idx]}`.
-                if let Some(entries) =
-                    node.payload.get("entries").and_then(|v| v.as_array())
-                {
+                if let Some(entries) = node.payload.get("entries").and_then(|v| v.as_array()) {
                     let mut obj = FxHashMap::default();
                     for entry in entries {
                         let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
-                            LangError::Engine("object: entry missing key".to_string())
+                            LangError::engine("object: entry missing key".to_string())
                         })?;
                         let value = entry.get("value").ok_or_else(|| {
-                            LangError::Engine("object: entry missing value".to_string())
+                            LangError::engine("object: entry missing value".to_string())
                         })?;
                         if handl_language::is_reserved_value_key(key) {
-                            return Err(LangError::Engine(format!(
+                            return Err(LangError::engine(format!(
                                 "object: key '{}' is reserved",
                                 key
                             )));
@@ -1063,9 +1039,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     let mut obj = FxHashMap::default();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
-                            LangError::Engine(
-                                "object: entry index must be a number".to_string(),
-                            )
+                            LangError::engine("object: entry index must be a number".to_string())
                         })? as usize;
                         let entry_node = self.ast.at(AstRef::new(entry_idx))?;
                         let entry_children = entry_node
@@ -1073,26 +1047,24 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                             .get("children")
                             .and_then(|c| c.as_array())
                             .ok_or_else(|| {
-                                LangError::Engine(
-                                    "object: entry node missing children".to_string(),
-                                )
+                                LangError::engine("object: entry node missing children".to_string())
                             })?;
-                        let key_idx = entry_children
-                            .get(0)
-                            .and_then(|v| v.as_u64())
-                            .ok_or_else(|| {
-                                LangError::Engine(
-                                    "object: entry missing key child".to_string(),
-                                )
-                            })? as usize;
-                        let val_idx = entry_children
-                            .get(1)
-                            .and_then(|v| v.as_u64())
-                            .ok_or_else(|| {
-                                LangError::Engine(
-                                    "object: entry missing value child".to_string(),
-                                )
-                            })? as usize;
+                        let key_idx =
+                            entry_children
+                                .get(0)
+                                .and_then(|v| v.as_u64())
+                                .ok_or_else(|| {
+                                    LangError::engine("object: entry missing key child".to_string())
+                                })? as usize;
+                        let val_idx =
+                            entry_children
+                                .get(1)
+                                .and_then(|v| v.as_u64())
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "object: entry missing value child".to_string(),
+                                    )
+                                })? as usize;
                         // Object key: if the key node is a `var` (bare
                         // identifier) or `string` literal, use its payload
                         // as the key string directly — don't evaluate it.
@@ -1104,19 +1076,25 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         // tree-walk's object prim.
                         let key_node = self.ast.at(AstRef::new(key_idx))?;
                         let key = if key_node.kind == "var" {
-                            key_node.payload.as_str().ok_or_else(|| {
-                                LangError::Engine(
-                                    "object: var key missing string payload".to_string(),
-                                )
-                            })?
-                            .to_string()
+                            key_node
+                                .payload
+                                .as_str()
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "object: var key missing string payload".to_string(),
+                                    )
+                                })?
+                                .to_string()
                         } else if key_node.kind == "string" {
-                            key_node.payload.as_str().ok_or_else(|| {
-                                LangError::Engine(
-                                    "object: string key missing payload".to_string(),
-                                )
-                            })?
-                            .to_string()
+                            key_node
+                                .payload
+                                .as_str()
+                                .ok_or_else(|| {
+                                    LangError::engine(
+                                        "object: string key missing payload".to_string(),
+                                    )
+                                })?
+                                .to_string()
                         } else {
                             let key_val = self.exec_node_inner(AstRef::new(key_idx))?;
                             if let Some(s) = key_val.as_str() {
@@ -1127,7 +1105,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         };
                         let value = self.exec_node_inner(AstRef::new(val_idx))?;
                         if handl_language::is_reserved_value_key(&key) {
-                            return Err(LangError::Engine(format!(
+                            return Err(LangError::engine(format!(
                                 "object: key '{}' is reserved",
                                 key
                             )));
@@ -1136,37 +1114,37 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     }
                     Ok(TaggedValue::Obj(Rc::new(obj)))
                 } else {
-                    Err(LangError::Engine(
+                    Err(LangError::engine(
                         "object: missing entries/children in payload".to_string(),
                     ))
                 }
             }
             "index" => {
                 let target = node.payload.get("target").ok_or_else(|| {
-                    LangError::Engine("index: missing target in payload".to_string())
+                    LangError::engine("index: missing target in payload".to_string())
                 })?;
                 let index = node.payload.get("index").ok_or_else(|| {
-                    LangError::Engine("index: missing index in payload".to_string())
+                    LangError::engine("index: missing index in payload".to_string())
                 })?;
                 match (target, index) {
                     (Value::Array(arr), Value::Number(n)) => {
                         let i = n.as_u64().ok_or_else(|| {
-                            LangError::Engine(
+                            LangError::engine(
                                 "index: index must be a non-negative integer".to_string(),
                             )
                         })? as usize;
                         let v = arr.get(i).cloned().ok_or_else(|| {
-                            LangError::Engine(format!("index: index {} out of bounds", i))
+                            LangError::engine(format!("index: index {} out of bounds", i))
                         })?;
                         Ok(TaggedValue::from(v))
                     }
                     (Value::Object(obj), Value::String(key)) => {
                         let v = obj.get(key).cloned().ok_or_else(|| {
-                            LangError::Engine(format!("index: key '{}' not found", key))
+                            LangError::engine(format!("index: key '{}' not found", key))
                         })?;
                         Ok(TaggedValue::from(v))
                     }
-                    _ => Err(LangError::Engine(
+                    _ => Err(LangError::engine(
                         "index: target must be array/object and index must be number/string"
                             .to_string(),
                     )),
@@ -1176,20 +1154,16 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 // ADR-0053: `assign { children: [var, value] }` — evaluate
                 // child 1 (value) and return it. Fall back to legacy
                 // `payload.value` for hand-built ASTs.
-                if let Some(children) =
-                    node.payload.get("children").and_then(|c| c.as_array())
-                {
+                if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
                     if children.len() >= 2 {
                         let value_idx = children[1].as_u64().ok_or_else(|| {
-                            LangError::Engine(
-                                "assign: value index must be a number".to_string(),
-                            )
+                            LangError::engine("assign: value index must be a number".to_string())
                         })? as usize;
                         return self.exec_node_inner(AstRef::new(value_idx));
                     }
                 }
                 let value = node.payload.get("value").ok_or_else(|| {
-                    LangError::Engine("assign: missing value in payload".to_string())
+                    LangError::engine("assign: missing value in payload".to_string())
                 })?;
                 Ok(TaggedValue::from(value.clone()))
             }
@@ -1200,7 +1174,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
                 if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("division by zero".to_string()));
+                    return Err(LangError::engine("division by zero".to_string()));
                 }
                 match (a, b) {
                     (Num::Int(a), Num::Int(b)) => Ok(TaggedValue::Int(a / b)),
@@ -1211,7 +1185,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
                 if b.to_f64() == 0.0 {
-                    return Err(LangError::Engine("modulo by zero".to_string()));
+                    return Err(LangError::engine("modulo by zero".to_string()));
                 }
                 Ok(num_value(match (a, b) {
                     (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
@@ -1239,9 +1213,10 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             "compare" => {
                 let a = as_num(&args[0])?;
                 let b = as_num(&args[1])?;
-                let cmp = a.to_f64().partial_cmp(&b.to_f64()).ok_or_else(|| {
-                    LangError::Engine("compare: incomparable values".to_string())
-                })?;
+                let cmp = a
+                    .to_f64()
+                    .partial_cmp(&b.to_f64())
+                    .ok_or_else(|| LangError::engine("compare: incomparable values".to_string()))?;
                 Ok(num_value(Num::Int(match cmp {
                     std::cmp::Ordering::Less => -1,
                     std::cmp::Ordering::Equal => 0,
@@ -1253,17 +1228,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             // registry, and invokes the host function with the array
             // elements as individual arguments.
             "call_host" => {
-                let callee = args
-                    .first()
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        LangError::Engine("call_host: callee must be a string".to_string())
-                    })?;
+                let callee = args.first().and_then(|v| v.as_str()).ok_or_else(|| {
+                    LangError::engine("call_host: callee must be a string".to_string())
+                })?;
                 let modules = self.modules.ok_or_else(|| {
-                    LangError::Engine("call_host: no module registry".to_string())
+                    LangError::engine("call_host: no module registry".to_string())
                 })?;
                 let func = modules.lookup(callee).ok_or_else(|| {
-                    LangError::Engine(format!("call_host: function '{}' not found", callee))
+                    LangError::engine(format!("call_host: function '{}' not found", callee))
                 })?;
                 let call_args: Vec<Value> = args
                     .get(1)
@@ -1271,8 +1243,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     .map(|arr| arr.iter().map(tagged_to_value).collect())
                     .unwrap_or_default();
                 let mut pctx = handl_platform::EvalContext::new();
-                let val = func.call(&call_args, &mut pctx)
-                    .map_err(|e| LangError::Engine(e.to_string()))?;
+                let val = func
+                    .call(&call_args, &mut pctx)
+                    .map_err(|e| LangError::engine(e.to_string()))?;
                 Ok(TaggedValue::from(val))
             }
             // ADR-0060: proj_rest — evaluate all children after index 0 and
@@ -1283,28 +1256,33 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     .get("children")
                     .and_then(|c| c.as_array())
                     .ok_or_else(|| {
-                        LangError::Engine(
+                        LangError::engine(
                             "proj_rest: expected children array in payload".to_string(),
                         )
                     })?;
                 let mut vals = Vec::new();
                 for entry in children.iter().skip(1) {
                     let idx = entry.as_u64().ok_or_else(|| {
-                        LangError::Engine(
-                            "proj_rest: child index must be a number".to_string(),
-                        )
+                        LangError::engine("proj_rest: child index must be a number".to_string())
                     })? as usize;
                     vals.push(self.exec_node_inner(AstRef::new(idx))?);
                 }
                 Ok(TaggedValue::Arr(Rc::from(vals)))
             }
             "typeof" => {
-                let arg = args.first().or(incoming.as_ref()).unwrap_or(&TaggedValue::Null);
+                let arg = args
+                    .first()
+                    .or(incoming.as_ref())
+                    .unwrap_or(&TaggedValue::Null);
                 Ok(TaggedValue::Str(Rc::from(type_tag(arg))))
             }
             "not" => Ok(TaggedValue::Bool(!is_truthy(&args[0]))),
-            "and" => Ok(TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1]))),
-            "or" => Ok(TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1]))),
+            "and" => Ok(TaggedValue::Bool(
+                is_truthy(&args[0]) && is_truthy(&args[1]),
+            )),
+            "or" => Ok(TaggedValue::Bool(
+                is_truthy(&args[0]) || is_truthy(&args[1]),
+            )),
             "is_pos" => {
                 let v = incoming.unwrap_or(TaggedValue::Null);
                 let n = as_num(&v)?;
@@ -1335,27 +1313,40 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }))
             }
             "inc_fst" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+                let inc = args
+                    .first()
+                    .cloned()
+                    .or(incoming)
+                    .unwrap_or(TaggedValue::Null);
                 let a = pair_fst(&inc)
-                    .ok_or_else(|| LangError::Engine("inc_fst: input is not a pair".to_string()))?
+                    .ok_or_else(|| LangError::engine("inc_fst: input is not a pair".to_string()))?
                     .clone();
                 let b = pair_snd(&inc)
-                    .ok_or_else(|| LangError::Engine("inc_fst: input is not a pair".to_string()))?
+                    .ok_or_else(|| LangError::engine("inc_fst: input is not a pair".to_string()))?
                     .clone();
                 let a_n = as_num(&a)?;
-                Ok(pair(num_value(match a_n {
-                    Num::Int(i) => Num::Int(i + 1),
-                    Num::Float(f) => Num::Float(f + 1.0),
-                }), b))
+                Ok(pair(
+                    num_value(match a_n {
+                        Num::Int(i) => Num::Int(i + 1),
+                        Num::Float(f) => Num::Float(f + 1.0),
+                    }),
+                    b,
+                ))
             }
             "countdown_step" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
-                let a = pair_fst(&inc)
+                let inc = args
+                    .first()
                     .cloned()
-                    .ok_or_else(|| LangError::Engine("countdown_step: input is not a pair".to_string()))?;
+                    .or(incoming)
+                    .unwrap_or(TaggedValue::Null);
+                let a = pair_fst(&inc).cloned().ok_or_else(|| {
+                    LangError::engine("countdown_step: input is not a pair".to_string())
+                })?;
                 let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let result_val = pair_fst(&a).cloned().ok_or_else(|| {
-                    LangError::Engine("countdown_step: in must be pair(result, initial)".to_string())
+                    LangError::engine(
+                        "countdown_step: in must be pair(result, initial)".to_string(),
+                    )
                 })?;
                 let initial = pair_snd(&a).cloned().unwrap_or(TaggedValue::Null);
                 let state = if b.is_null() { initial } else { b };
@@ -1370,7 +1361,11 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 }
             }
             "infinite_step" => {
-                let inc = args.first().cloned().or(incoming).unwrap_or(TaggedValue::Null);
+                let inc = args
+                    .first()
+                    .cloned()
+                    .or(incoming)
+                    .unwrap_or(TaggedValue::Null);
                 let b = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 Ok(either_right(b))
             }
@@ -1392,7 +1387,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 let in_val = pair_fst(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let state = pair_snd(&inc).cloned().unwrap_or(TaggedValue::Null);
                 let body_proc = args.first().ok_or_else(|| {
-                    LangError::Engine("loop_step: missing body closure".to_string())
+                    LangError::engine("loop_step: missing body closure".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
                 let call_args: Vec<TaggedValue> = if let Some(obj_state) = current.as_object() {
@@ -1516,32 +1511,32 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 if let Some(children) = node.payload.get("children").and_then(|c| c.as_array()) {
                     if children.len() >= 2 {
                         let template_idx = children[0].as_u64().ok_or_else(|| {
-                            LangError::Engine("json: child index must be a number".to_string())
+                            LangError::engine("json: child index must be a number".to_string())
                         })? as usize;
                         let template_node = self.ast.at(AstRef::new(template_idx))?;
                         let template = template_node.payload.as_str().ok_or_else(|| {
-                            LangError::Engine("json: template payload must be a string".to_string())
+                            LangError::engine("json: template payload must be a string".to_string())
                         })?;
                         let mut s = template.to_string();
                         for (i, entry) in children[1..].iter().enumerate() {
                             let idx = entry.as_u64().ok_or_else(|| {
-                                LangError::Engine("json: child index must be a number".to_string())
+                                LangError::engine("json: child index must be a number".to_string())
                             })? as usize;
                             let val = self.exec_node_inner(AstRef::new(idx))?;
                             let replacement = serde_json::to_string(&tagged_to_value(&val))
-                                .map_err(|e| LangError::Engine(format!("json: {}", e)))?;
+                                .map_err(|e| LangError::engine(format!("json: {}", e)))?;
                             s = s.replace(&format!("${}", i), &replacement);
                         }
                         return serde_json::from_str::<Value>(&s)
-                            .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                            .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
                             .map(TaggedValue::from);
                     }
                 }
                 let expr = node.payload.as_str().ok_or_else(|| {
-                    LangError::Engine("json: payload must be a string".to_string())
+                    LangError::engine("json: payload must be a string".to_string())
                 })?;
                 serde_json::from_str::<Value>(expr)
-                    .map_err(|e| LangError::Engine(format!("json: parse error: {}", e)))
+                    .map_err(|e| LangError::engine(format!("json: parse error: {}", e)))
                     .map(TaggedValue::from)
             }
             // ADR-0053: the data-driven `if → match` desugar rewrites `if`
@@ -1577,7 +1572,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             "opt_chain" => {
                 let input = args.first().cloned().unwrap_or(TaggedValue::Null);
                 let field_name = args.get(1).and_then(|v| v.as_str()).ok_or_else(|| {
-                    LangError::Engine("opt_chain: field name must be a string".to_string())
+                    LangError::engine("opt_chain: field name must be a string".to_string())
                 })?;
                 if input.is_null() {
                     Ok(handl_value::tval!({"_tag": "None"}))
@@ -1592,7 +1587,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     Ok(handl_value::tval!({"_tag": "Some", "value": field_val}))
                 }
             }
-            _ => Err(LangError::Engine(format!("unknown v2 native op: {}", op))),
+            _ => Err(LangError::engine(format!("unknown v2 native op: {}", op))),
         }
     }
 
@@ -1606,23 +1601,23 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .payload
             .get("name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| LangError::Engine("bind: missing name".to_string()))?;
+            .ok_or_else(|| LangError::engine("bind: missing name".to_string()))?;
         let children = node
             .payload
             .get("children")
             .and_then(|c| c.as_array())
             .ok_or_else(|| {
-                LangError::Engine("bind: expected children array in payload".to_string())
+                LangError::engine("bind: expected children array in payload".to_string())
             })?;
         let value_idx = children
             .first()
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("bind: missing value child".to_string()))?
+            .ok_or_else(|| LangError::engine("bind: missing value child".to_string()))?
             as usize;
         let body_idx = children
             .get(1)
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("bind: missing body child".to_string()))?
+            .ok_or_else(|| LangError::engine("bind: missing body child".to_string()))?
             as usize;
         // Evaluate the value in the current env.
         let value = self.exec_node_inner(AstRef::new(value_idx))?;
@@ -1651,16 +1646,16 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("match: missing children in payload".to_string()))?;
+            .ok_or_else(|| LangError::engine("match: missing children in payload".to_string()))?;
         let scrut_idx = children
             .get(0)
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing scrutinee child".to_string()))?
+            .ok_or_else(|| LangError::engine("match: missing scrutinee child".to_string()))?
             as usize;
         let block_idx = children
             .get(1)
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("match: missing block child".to_string()))?
+            .ok_or_else(|| LangError::engine("match: missing block child".to_string()))?
             as usize;
 
         // Evaluate the scrutinee.
@@ -1674,40 +1669,36 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("match: block node missing children".to_string()))?;
+            .ok_or_else(|| LangError::engine("match: block node missing children".to_string()))?;
 
         // Try each arm.
         for arm_entry in arm_indices {
             let arm_idx = arm_entry
                 .as_u64()
-                .ok_or_else(|| LangError::Engine("match: arm index must be a number".to_string()))?
+                .ok_or_else(|| LangError::engine("match: arm index must be a number".to_string()))?
                 as usize;
             let arm_node = self.ast.at(AstRef::new(arm_idx))?;
             let arm_children = arm_node
                 .payload
                 .get("children")
                 .and_then(|c| c.as_array())
-                .ok_or_else(|| LangError::Engine("match: arm node missing children".to_string()))?;
+                .ok_or_else(|| LangError::engine("match: arm node missing children".to_string()))?;
             let pattern_idx = arm_children
                 .get(0)
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing pattern child".to_string()))?
+                .ok_or_else(|| LangError::engine("match: arm missing pattern child".to_string()))?
                 as usize;
             let body_idx = arm_children
                 .get(1)
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("match: arm missing body child".to_string()))?
+                .ok_or_else(|| LangError::engine("match: arm missing body child".to_string()))?
                 as usize;
 
             // Interpret the pattern node structurally (ADR-0061: shared
             // pattern matching logic).
             self.scopes.push_scope();
-            let matched = pattern_match::try_pattern(
-                self.ast,
-                AstRef::new(pattern_idx),
-                &scrut_value,
-                self,
-            );
+            let matched =
+                pattern_match::try_pattern(self.ast, AstRef::new(pattern_idx), &scrut_value, self);
             if let Ok(true) = matched {
                 let result = self.exec_node_inner(AstRef::new(body_idx));
                 self.scopes.pop_scope();
@@ -1716,7 +1707,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             self.scopes.pop_scope();
             matched?;
         }
-        Err(LangError::Engine("match: no arm matched".to_string()))
+        Err(LangError::engine("match: no arm matched".to_string()))
     }
 
     /// `handle` native op: evaluate a body, then dispatch the result to the
@@ -1733,16 +1724,16 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("handle: missing children in payload".to_string()))?;
+            .ok_or_else(|| LangError::engine("handle: missing children in payload".to_string()))?;
         let body_idx = children
             .get(0)
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing body child".to_string()))?
+            .ok_or_else(|| LangError::engine("handle: missing body child".to_string()))?
             as usize;
         let block_idx = children
             .get(1)
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| LangError::Engine("handle: missing block child".to_string()))?
+            .ok_or_else(|| LangError::engine("handle: missing block child".to_string()))?
             as usize;
 
         // Evaluate the body first.
@@ -1756,12 +1747,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             .payload
             .get("children")
             .and_then(|c| c.as_array())
-            .ok_or_else(|| LangError::Engine("handle: block node missing children".to_string()))?;
+            .ok_or_else(|| LangError::engine("handle: block node missing children".to_string()))?;
 
         // Try each clause.
         for clause_entry in clause_indices {
             let clause_idx = clause_entry.as_u64().ok_or_else(|| {
-                LangError::Engine("handle: clause index must be a number".to_string())
+                LangError::engine("handle: clause index must be a number".to_string())
             })? as usize;
             let clause_node = self.ast.at(AstRef::new(clause_idx))?;
             let clause_children = clause_node
@@ -1769,30 +1760,24 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 .get("children")
                 .and_then(|c| c.as_array())
                 .ok_or_else(|| {
-                    LangError::Engine("handle: clause node missing children".to_string())
+                    LangError::engine("handle: clause node missing children".to_string())
                 })?;
             let pattern_idx = clause_children
                 .get(0)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| {
-                    LangError::Engine("handle: clause missing pattern child".to_string())
-                })?
-                as usize;
+                    LangError::engine("handle: clause missing pattern child".to_string())
+                })? as usize;
             let handler_idx = clause_children
                 .get(1)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| {
-                    LangError::Engine("handle: clause missing handler child".to_string())
-                })?
-                as usize;
+                    LangError::engine("handle: clause missing handler child".to_string())
+                })? as usize;
 
             self.scopes.push_scope();
-            let matched = pattern_match::try_pattern(
-                self.ast,
-                AstRef::new(pattern_idx),
-                &body_value,
-                self,
-            );
+            let matched =
+                pattern_match::try_pattern(self.ast, AstRef::new(pattern_idx), &body_value, self);
             if let Ok(true) = matched {
                 let result = self.exec_node_inner(AstRef::new(handler_idx));
                 self.scopes.pop_scope();
@@ -1819,16 +1804,16 @@ impl<'a, 'h> VmFrame<'a, 'h> {
     ) -> Result<TaggedValue, LangError> {
         // Closure application — match on TaggedValue::Arrow directly.
         let (params, body_idx, captured_env) = match callee {
-            TaggedValue::Arrow { params, body, env } => {
-                (params.clone(), *body, Rc::clone(env))
-            }
+            TaggedValue::Arrow { params, body, env } => (params.clone(), *body, Rc::clone(env)),
             _ => {
-                return Err(LangError::Engine("callee is not an arrow-value".to_string()));
+                return Err(LangError::engine(
+                    "callee is not an arrow-value".to_string(),
+                ));
             }
         };
         let body_ref = AstRef::new(body_idx);
         if params.len() != args.len() {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "arrow-value expects {} args, got {}",
                 params.len(),
                 args.len()
@@ -1869,8 +1854,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
 fn op_uses_incoming(op: &str) -> bool {
     matches!(
         op,
-        "id" | "tag" | "is_pos" | "dec" | "inc" | "half_floor" | "inc_fst"
-            | "countdown_step" | "infinite_step"
+        "id" | "tag"
+            | "is_pos"
+            | "dec"
+            | "inc"
+            | "half_floor"
+            | "inc_fst"
+            | "countdown_step"
+            | "infinite_step"
     )
 }
 
@@ -1942,7 +1933,7 @@ fn eval_bin_arith(instr: &Instr, a: TaggedValue, b: TaggedValue) -> Result<Tagge
         })),
         Instr::Div => {
             if b.to_f64() == 0.0 {
-                return Err(LangError::Engine("division by zero".to_string()));
+                return Err(LangError::engine("division by zero".to_string()));
             }
             Ok(match (a, b) {
                 (Num::Int(a), Num::Int(b)) => TaggedValue::Int(a / b),
@@ -1951,14 +1942,14 @@ fn eval_bin_arith(instr: &Instr, a: TaggedValue, b: TaggedValue) -> Result<Tagge
         }
         Instr::Mod => {
             if b.to_f64() == 0.0 {
-                return Err(LangError::Engine("modulo by zero".to_string()));
+                return Err(LangError::engine("modulo by zero".to_string()));
             }
             Ok(num_value(match (a, b) {
                 (Num::Int(a), Num::Int(b)) => Num::Int(a % b),
                 (a, b) => Num::Float(a.to_f64() % b.to_f64()),
             }))
         }
-        _ => Err(LangError::Engine(format!(
+        _ => Err(LangError::engine(format!(
             "eval_bin_arith: not an arithmetic instruction: {:?}",
             instr
         ))),
@@ -1995,7 +1986,7 @@ fn eval_bin_cmp(instr: &Instr, a: TaggedValue, b: TaggedValue) -> Result<TaggedV
             let b = as_num(&b)?;
             Ok(TaggedValue::Bool(a.to_f64() >= b.to_f64()))
         }
-        _ => Err(LangError::Engine(format!(
+        _ => Err(LangError::engine(format!(
             "eval_bin_cmp: not a comparison instruction: {:?}",
             instr
         ))),
@@ -2235,7 +2226,9 @@ mod tests {
             Scheme::loop_feedback(Scheme::arr_native("infinite_step", vec![])),
         );
         let err = eval_standalone(&s).unwrap_err();
-        assert!(matches!(err, LangError::Engine(ref m) if m.contains("max iterations")));
+        assert!(
+            matches!(err, LangError::Engine { ref message, .. } if message.contains("max iterations"))
+        );
     }
 
     // 8c. `loop_step` derived op — the ergonomic `loop` surface lowering
@@ -2345,11 +2338,11 @@ mod tests {
         //   2: function {params: ["x"], body: 1}
         //   3: lit 42         4: loop {children: [3, 2]}
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("x")),                        // 0
-            AstNode::new("return").with_payload(json!({"children": [0]})),       // 1
+            AstNode::new("var").with_payload(json!("x")), // 0
+            AstNode::new("return").with_payload(json!({"children": [0]})), // 1
             AstNode::new("function").with_payload(json!({"params": ["x"], "body": 1})), // 2
-            AstNode::new("lit").with_payload(json!(42)),                         // 3
-            AstNode::new("loop").with_payload(json!({"children": [3, 2]})),      // 4
+            AstNode::new("lit").with_payload(json!(42)),  // 3
+            AstNode::new("loop").with_payload(json!({"children": [3, 2]})), // 4
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_node(AstRef::new(4)).unwrap();
@@ -2382,27 +2375,27 @@ mod tests {
         //  19: lit {n: 3, acc: 1}
         //  20: loop {children: [19, 18]}
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!("n")),              // 0
-            AstNode::new("lit").with_payload(json!("acc")),            // 1
-            AstNode::new("lit").with_payload(json!("state")),          // 2
-            AstNode::new("lit").with_payload(json!(0)),                // 3
-            AstNode::new("lit").with_payload(json!(1)),                // 4
-            AstNode::new("var").with_payload(json!("n")),              // 5
-            AstNode::new("var").with_payload(json!("acc")),            // 6
-            AstNode::new("binary.eq").with_payload(json!({"children": [5, 3]})),   // 7
-            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})),  // 8
-            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})),  // 9
-            AstNode::new("entry").with_payload(json!({"children": [0, 8]})),       // 10
-            AstNode::new("entry").with_payload(json!({"children": [1, 9]})),       // 11
-            AstNode::new("object").with_payload(json!({"children": [10, 11]})),    // 12
-            AstNode::new("var").with_payload(json!("acc")),                        // 13
-            AstNode::new("return").with_payload(json!({"children": [13]})),        // 14
-            AstNode::new("entry").with_payload(json!({"children": [2, 12]})),      // 15
-            AstNode::new("object").with_payload(json!({"children": [15]})),        // 16
-            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})),     // 17
+            AstNode::new("lit").with_payload(json!("n")),     // 0
+            AstNode::new("lit").with_payload(json!("acc")),   // 1
+            AstNode::new("lit").with_payload(json!("state")), // 2
+            AstNode::new("lit").with_payload(json!(0)),       // 3
+            AstNode::new("lit").with_payload(json!(1)),       // 4
+            AstNode::new("var").with_payload(json!("n")),     // 5
+            AstNode::new("var").with_payload(json!("acc")),   // 6
+            AstNode::new("binary.eq").with_payload(json!({"children": [5, 3]})), // 7
+            AstNode::new("binary.sub").with_payload(json!({"children": [5, 4]})), // 8
+            AstNode::new("binary.mul").with_payload(json!({"children": [6, 5]})), // 9
+            AstNode::new("entry").with_payload(json!({"children": [0, 8]})), // 10
+            AstNode::new("entry").with_payload(json!({"children": [1, 9]})), // 11
+            AstNode::new("object").with_payload(json!({"children": [10, 11]})), // 12
+            AstNode::new("var").with_payload(json!("acc")),   // 13
+            AstNode::new("return").with_payload(json!({"children": [13]})), // 14
+            AstNode::new("entry").with_payload(json!({"children": [2, 12]})), // 15
+            AstNode::new("object").with_payload(json!({"children": [15]})), // 16
+            AstNode::new("if").with_payload(json!({"children": [7, 14, 16]})), // 17
             AstNode::new("function").with_payload(json!({"params": ["n", "acc"], "body": 17})), // 18
-            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})),           // 19
-            AstNode::new("loop").with_payload(json!({"children": [19, 18]})),      // 20
+            AstNode::new("lit").with_payload(json!({"n": 3, "acc": 1})), // 19
+            AstNode::new("loop").with_payload(json!({"children": [19, 18]})), // 20
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_node(AstRef::new(20)).unwrap();
@@ -2426,10 +2419,10 @@ mod tests {
         //   5: entry {children: [1, 3]}   (b: 2)
         //   6: object {children: [4, 5]}  ({ a: 1, b: 2 })
         let ast = make_ast(vec![
-            AstNode::new("var").with_payload(json!("a")),                    // 0
-            AstNode::new("var").with_payload(json!("b")),                    // 1
-            AstNode::new("lit").with_payload(json!(1)),                      // 2
-            AstNode::new("lit").with_payload(json!(2)),                      // 3
+            AstNode::new("var").with_payload(json!("a")), // 0
+            AstNode::new("var").with_payload(json!("b")), // 1
+            AstNode::new("lit").with_payload(json!(1)),   // 2
+            AstNode::new("lit").with_payload(json!(2)),   // 3
             AstNode::new("entry").with_payload(json!({"children": [0, 2]})), // 4
             AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
             AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
@@ -2453,10 +2446,10 @@ mod tests {
         //   5: entry {children: [1, 3]}
         //   6: object {children: [4, 5]}
         let ast = make_ast(vec![
-            AstNode::new("string").with_payload(json!("x")),                 // 0
-            AstNode::new("string").with_payload(json!("y")),                 // 1
-            AstNode::new("lit").with_payload(json!(10)),                     // 2
-            AstNode::new("lit").with_payload(json!(20)),                     // 3
+            AstNode::new("string").with_payload(json!("x")), // 0
+            AstNode::new("string").with_payload(json!("y")), // 1
+            AstNode::new("lit").with_payload(json!(10)),     // 2
+            AstNode::new("lit").with_payload(json!(20)),     // 3
             AstNode::new("entry").with_payload(json!({"children": [0, 2]})), // 4
             AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
             AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
@@ -2478,10 +2471,10 @@ mod tests {
         //   2: entry {children: [0, 1]}
         //   3: object {children: [2]}
         let ast = make_ast(vec![
-            AstNode::new("lit").with_payload(json!("dyn")),                  // 0
-            AstNode::new("lit").with_payload(json!(99)),                     // 1
+            AstNode::new("lit").with_payload(json!("dyn")), // 0
+            AstNode::new("lit").with_payload(json!(99)),    // 1
             AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
-            AstNode::new("object").with_payload(json!({"children": [2]})),   // 3
+            AstNode::new("object").with_payload(json!({"children": [2]})), // 3
         ]);
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_node(AstRef::new(3)).unwrap();
@@ -2655,7 +2648,9 @@ mod tests {
     fn unknown_native_op_errors() {
         let s = Scheme::arr_native("bogus", vec![]);
         let err = eval_standalone(&s).unwrap_err();
-        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unknown v2 native op")));
+        assert!(
+            matches!(err, LangError::Engine { ref message, .. } if message.contains("unknown v2 native op"))
+        );
     }
 
     // 12. Foreign dispatch
@@ -2715,7 +2710,9 @@ mod tests {
             vec![Scheme::arr_native_lit("const", vec![], json!(21))],
         );
         let err = eval_standalone(&s).unwrap_err();
-        assert!(matches!(err, LangError::Engine(ref m) if m.contains("unregistered foreign")));
+        assert!(
+            matches!(err, LangError::Engine { ref message, .. } if message.contains("unregistered foreign"))
+        );
     }
 
     // 13. exec_node (v2 scheme from lang.eval)

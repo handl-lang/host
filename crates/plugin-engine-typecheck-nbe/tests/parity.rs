@@ -428,8 +428,12 @@ fn parity_block_multi() {
 fn parity_block_empty() {
     // Empty block returns type.unit.
     let result = tc("do { }");
-    assert!(result["__tag__"].as_str() == Some("type.unit") || result["__tag__"].as_str() == Some("type.null"),
-        "expected type.unit or type.null, got: {:?}", result);
+    assert!(
+        result["__tag__"].as_str() == Some("type.unit")
+            || result["__tag__"].as_str() == Some("type.null"),
+        "expected type.unit or type.null, got: {:?}",
+        result
+    );
 }
 
 // ===========================================================================
@@ -442,8 +446,11 @@ fn parity_unbound_var_errors() {
     // because Γ is empty.
     let err = tc_err("x");
     eprintln!("unbound var error: {:?}", err);
-    assert!(matches!(err, LangError::Engine(_)),
-        "expected Engine error for unbound var, got {:?}", err);
+    assert!(
+        matches!(err, LangError::Engine { .. }),
+        "expected Engine error for unbound var, got {:?}",
+        err
+    );
 }
 
 #[test]
@@ -452,8 +459,11 @@ fn parity_type_mismatch_add_errors() {
     // string literal synthesizes type.string, so unification fails.
     let err = tc_err("1 + \"hello\"");
     eprintln!("type mismatch error: {:?}", err);
-    assert!(matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
-        "expected unification failure for 1 + \"hello\", got {:?}", err);
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
+        "expected unification failure for 1 + \"hello\", got {:?}",
+        err
+    );
 }
 
 #[test]
@@ -462,8 +472,11 @@ fn parity_type_mismatch_and_errors() {
     // literal synthesizes type.number, so unification fails.
     let err = tc_err("true && 1");
     eprintln!("type mismatch (&&) error: {:?}", err);
-    assert!(matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
-        "expected unification failure for true && 1, got {:?}", err);
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
+        "expected unification failure for true && 1, got {:?}",
+        err
+    );
 }
 
 #[test]
@@ -472,6 +485,9 @@ fn parity_if_branch_mismatch_errors() {
     // else-branch (type.string) must unify; they don't.
     let err = tc_err("if true 42 else \"hello\"");
     eprintln!("if branch mismatch error: {:?}", err);
-    assert!(matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
-        "expected unification failure for if branch mismatch, got {:?}", err);
+    assert!(
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
+        "expected unification failure for if branch mismatch, got {:?}",
+        err
+    );
 }

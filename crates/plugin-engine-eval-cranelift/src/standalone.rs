@@ -30,7 +30,7 @@ use handl_language::{Ast, LangError, Value};
 use handl_value::TaggedValue;
 
 use crate::compile::CompiledFn;
-use crate::{EvalCtx, take_value};
+use crate::{take_value, EvalCtx};
 
 /// Opaque standalone context.
 ///
@@ -113,21 +113,21 @@ fn standalone_init_inner(
     // Parse the JSON strings.
     let ast_str = unsafe { CStr::from_ptr(ast_json) }
         .to_str()
-        .map_err(|e| LangError::Engine(format!("ast_json not valid UTF-8: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("ast_json not valid UTF-8: {}", e)))?;
     let lit_str = unsafe { CStr::from_ptr(literals_json) }
         .to_str()
-        .map_err(|e| LangError::Engine(format!("literals_json not valid UTF-8: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("literals_json not valid UTF-8: {}", e)))?;
     let names_str = unsafe { CStr::from_ptr(names_json) }
         .to_str()
-        .map_err(|e| LangError::Engine(format!("names_json not valid UTF-8: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("names_json not valid UTF-8: {}", e)))?;
 
     let ast: Ast = serde_json::from_str(ast_str)
-        .map_err(|e| LangError::Engine(format!("deserialize Ast: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("deserialize Ast: {}", e)))?;
     let literals: Vec<Value> = serde_json::from_str(lit_str)
-        .map_err(|e| LangError::Engine(format!("deserialize literals: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("deserialize literals: {}", e)))?;
     let literals: Vec<TaggedValue> = literals.into_iter().map(TaggedValue::from).collect();
     let names: Vec<String> = serde_json::from_str(names_str)
-        .map_err(|e| LangError::Engine(format!("deserialize names: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("deserialize names: {}", e)))?;
 
     // Box the Ast so its address is stable.
     let ast = Box::new(ast);
@@ -196,7 +196,7 @@ fn standalone_run_inner(
     // Look up the root function.
     let root_fn =
         ctx.compiled.get(&root_idx).copied().ok_or_else(|| {
-            LangError::Engine(format!("no compiled function for root {}", root_idx))
+            LangError::engine(format!("no compiled function for root {}", root_idx))
         })?;
 
     // Set current_ref to the root (matches run_native).
@@ -220,7 +220,7 @@ fn standalone_run_inner(
     }
 
     if result_ptr.is_null() {
-        return Err(LangError::Engine(
+        return Err(LangError::engine(
             "native evaluation returned null without error".to_string(),
         ));
     }
@@ -415,7 +415,7 @@ pub(crate) fn generate_c_driver(
 /// found, runs `cargo build` to produce it.
 pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| LangError::Engine("CARGO_MANIFEST_DIR not set".to_string()))?;
+        .map_err(|_| LangError::engine("CARGO_MANIFEST_DIR not set".to_string()))?;
     let manifest_path = PathBuf::from(&manifest_dir).join("Cargo.toml");
 
     // Get the target directory from cargo metadata.
@@ -424,19 +424,19 @@ pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
         .arg("--manifest-path")
         .arg(&manifest_path)
         .output()
-        .map_err(|e| LangError::Engine(format!("cargo metadata failed: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("cargo metadata failed: {}", e)))?;
     if !output.status.success() {
-        return Err(LangError::Engine(format!(
+        return Err(LangError::engine(format!(
             "cargo metadata error: {}",
             String::from_utf8_lossy(&output.stderr)
         )));
     }
     let metadata: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| LangError::Engine(format!("parse cargo metadata: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("parse cargo metadata: {}", e)))?;
     let target_dir = metadata
         .get("target_directory")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| LangError::Engine("no target_directory in metadata".to_string()))?;
+        .ok_or_else(|| LangError::engine("no target_directory in metadata".to_string()))?;
 
     let lib_name = "libhandl_plugin_engine_eval_cranelift.a";
 
@@ -453,9 +453,9 @@ pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
         .args(["build", "-p", "handl-plugin-engine-eval-cranelift"])
         .current_dir(&manifest_dir)
         .status()
-        .map_err(|e| LangError::Engine(format!("cargo build failed: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("cargo build failed: {}", e)))?;
     if !build_status.success() {
-        return Err(LangError::Engine(
+        return Err(LangError::engine(
             "cargo build for staticlib failed".to_string(),
         ));
     }
@@ -468,7 +468,7 @@ pub(crate) fn find_staticlib() -> Result<PathBuf, LangError> {
         }
     }
 
-    Err(LangError::Engine(format!(
+    Err(LangError::engine(format!(
         "static library {} not found in {}/debug or {}/release",
         lib_name, target_dir, target_dir
     )))
@@ -500,10 +500,10 @@ pub(crate) fn link_executable(
         .arg("-ldl")
         .arg("-lm")
         .output()
-        .map_err(|e| LangError::Engine(format!("cc invocation failed: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("cc invocation failed: {}", e)))?;
 
     if !result.status.success() {
-        return Err(LangError::Engine(format!(
+        return Err(LangError::engine(format!(
             "cc linking failed:\n{}",
             String::from_utf8_lossy(&result.stderr)
         )));
@@ -548,16 +548,16 @@ pub(crate) fn compile_to_executable(
         let driver =
             "/* empty AST */\n#include <stdio.h>\nint main(void){printf(\"null\\n\");return 0;}\n";
         std::fs::write(&main_c_path, driver)
-            .map_err(|e| LangError::Engine(format!("write main.c: {}", e)))?;
+            .map_err(|e| LangError::engine(format!("write main.c: {}", e)))?;
         let result = Command::new("cc")
             .arg(&main_c_path)
             .arg("-o")
             .arg(output_path)
             .output()
-            .map_err(|e| LangError::Engine(format!("cc invocation failed: {}", e)))?;
+            .map_err(|e| LangError::engine(format!("cc invocation failed: {}", e)))?;
         let _ = std::fs::remove_file(&main_c_path);
         if !result.status.success() {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "cc linking (empty AST) failed:\n{}",
                 String::from_utf8_lossy(&result.stderr)
             )));
@@ -571,11 +571,11 @@ pub(crate) fn compile_to_executable(
 
     // 2. Serialize constant pools + AST to JSON.
     let ast_json = serde_json::to_string(ast)
-        .map_err(|e| LangError::Engine(format!("serialize Ast: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("serialize Ast: {}", e)))?;
     let literals_json = serde_json::to_string(&obj_result.literals)
-        .map_err(|e| LangError::Engine(format!("serialize literals: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("serialize literals: {}", e)))?;
     let names_json = serde_json::to_string(&obj_result.names)
-        .map_err(|e| LangError::Engine(format!("serialize names: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("serialize names: {}", e)))?;
 
     // 3. Generate the C driver.
     let root_idx = ast.len() - 1;
@@ -588,7 +588,7 @@ pub(crate) fn compile_to_executable(
         root_idx,
     );
     std::fs::write(&main_c_path, &driver)
-        .map_err(|e| LangError::Engine(format!("write main.c: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("write main.c: {}", e)))?;
 
     // 4. Find the staticlib.
     let staticlib = find_staticlib()?;

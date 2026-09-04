@@ -100,11 +100,12 @@ fn rest_binder_name(ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangE
         .payload
         .get("children")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| LangError::Engine("rest pattern: missing children".to_string()))?;
-    let var_idx = children
-        .first()
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| LangError::Engine("rest pattern: missing binder".to_string()))?;
+        .ok_or_else(|| {
+            LangError::engine_node("rest pattern: missing children".to_string(), &rest_node)
+        })?;
+    let var_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
+        LangError::engine_node("rest pattern: missing binder".to_string(), &rest_node)
+    })?;
     let var_node = ast.at(AstRef::new(var_idx as usize))?;
     if var_node.kind == "var" {
         if let Some(name) = var_node.payload.as_str() {
@@ -114,8 +115,9 @@ fn rest_binder_name(ast: &Ast, rest_ref: AstRef) -> Result<Option<String>, LangE
             return Ok(Some(name.to_string()));
         }
     }
-    Err(LangError::Engine(
+    Err(LangError::engine_node(
         "rest pattern: binder is not a var".to_string(),
+        &rest_node,
     ))
 }
 
@@ -135,7 +137,9 @@ fn try_array_pattern(
         .payload
         .get("children")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| LangError::Engine("array pattern: missing children".to_string()))?;
+        .ok_or_else(|| {
+            LangError::engine_node("array pattern: missing children".to_string(), &pattern_node)
+        })?;
     let scrut_arr = match scrut.as_array() {
         Some(a) => a,
         None => return Ok(false),
@@ -145,15 +149,15 @@ fn try_array_pattern(
     let mut rest_idx: Option<usize> = None;
     let mut positional: Vec<usize> = Vec::new();
     for child in children {
-        let idx = child
-            .as_u64()
-            .ok_or_else(|| LangError::Engine("array pattern: bad child index".to_string()))?
-            as usize;
+        let idx = child.as_u64().ok_or_else(|| {
+            LangError::engine_node("array pattern: bad child index".to_string(), &pattern_node)
+        })? as usize;
         let child_node = ast.at(AstRef::new(idx))?;
         if child_node.kind == "rest" {
             if rest_idx.is_some() {
-                return Err(LangError::Engine(
+                return Err(LangError::engine_node(
                     "array pattern: multiple rest patterns".to_string(),
+                    &pattern_node,
                 ));
             }
             rest_idx = Some(idx);
@@ -205,7 +209,12 @@ fn try_object_pattern(
         .payload
         .get("children")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| LangError::Engine("object pattern: missing children".to_string()))?;
+        .ok_or_else(|| {
+            LangError::engine_node(
+                "object pattern: missing children".to_string(),
+                &pattern_node,
+            )
+        })?;
     let scrut_obj = match scrut.as_object() {
         Some(o) => o,
         None => return Ok(false),
@@ -217,12 +226,12 @@ fn try_object_pattern(
     for child in children {
         let idx = child
             .as_u64()
-            .ok_or_else(|| LangError::Engine("object pattern: bad child index".to_string()))?
+            .ok_or_else(|| LangError::engine("object pattern: bad child index".to_string()))?
             as usize;
         let child_node = ast.at(AstRef::new(idx))?;
         if child_node.kind == "rest" {
             if rest_idx.is_some() {
-                return Err(LangError::Engine(
+                return Err(LangError::engine(
                     "object pattern: multiple rest patterns".to_string(),
                 ));
             }
@@ -232,17 +241,13 @@ fn try_object_pattern(
                 .payload
                 .get("children")
                 .and_then(|v| v.as_array())
-                .ok_or_else(|| LangError::Engine("object pattern: malformed entry".to_string()))?;
-            let key_idx = entry_children[0]
-                .as_u64()
-                .ok_or_else(|| {
-                    LangError::Engine("object pattern: bad entry key index".to_string())
-                })? as usize;
-            let val_idx = entry_children[1]
-                .as_u64()
-                .ok_or_else(|| {
-                    LangError::Engine("object pattern: bad entry val index".to_string())
-                })? as usize;
+                .ok_or_else(|| LangError::engine("object pattern: malformed entry".to_string()))?;
+            let key_idx = entry_children[0].as_u64().ok_or_else(|| {
+                LangError::engine("object pattern: bad entry key index".to_string())
+            })? as usize;
+            let val_idx = entry_children[1].as_u64().ok_or_else(|| {
+                LangError::engine("object pattern: bad entry val index".to_string())
+            })? as usize;
             let key_node = ast.at(AstRef::new(key_idx))?;
             // Key can be a `var` (identifier) or a `value` (string literal).
             let key = if key_node.kind == "var" {

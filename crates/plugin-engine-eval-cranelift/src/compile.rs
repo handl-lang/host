@@ -68,10 +68,10 @@ use cranelift::codegen::ir::{FuncRef, UserFuncName};
 use cranelift::codegen::isa::TargetIsa;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
+use cranelift_module::{default_libcall_names, FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
-use handl_language::{ArrSource, Ast, LangError, Language, Scheme, SchemeVersion};
 use handl_language::Value as JsonValue;
+use handl_language::{ArrSource, Ast, LangError, Language, Scheme, SchemeVersion};
 
 /// Type alias for a compiled native function pointer.
 ///
@@ -297,12 +297,9 @@ pub fn compile_all_nodes(
 ///
 /// Returns [`LangError`] on unsupported scheme version or cranelift JIT
 /// setup/compilation failure.
-pub fn compile_all_nodes_jit(
-    lang: &Language,
-    ast: &Ast,
-) -> Result<CompiledResult, LangError> {
+pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResult, LangError> {
     let mut builder = JITBuilder::new(default_libcall_names())
-        .map_err(|e| LangError::Engine(format!("JIT setup error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("JIT setup error: {}", e)))?;
     // Register all helper symbols.
     builder.symbol(
         "helper_v2_push_literal",
@@ -329,8 +326,14 @@ pub fn compile_all_nodes_jit(
         "helper_v2_extend_env_payload",
         crate::helper_v2_extend_env_payload as *const u8,
     );
-    builder.symbol("helper_v2_pop_scope", crate::helper_v2_pop_scope as *const u8);
-    builder.symbol("helper_v2_drop_value", crate::helper_v2_drop_value as *const u8);
+    builder.symbol(
+        "helper_v2_pop_scope",
+        crate::helper_v2_pop_scope as *const u8,
+    );
+    builder.symbol(
+        "helper_v2_drop_value",
+        crate::helper_v2_drop_value as *const u8,
+    );
     builder.symbol(
         "helper_v2_apply_closure",
         crate::helper_v2_apply_closure as *const u8,
@@ -380,25 +383,21 @@ pub fn compile_all_nodes_jit(
         "helper_v2_derived_step_arg_incoming",
         crate::helper_v2_derived_step_arg_incoming as *const u8,
     );
-    builder.symbol(
-        "helper_v2_clone",
-        crate::helper_v2_clone as *const u8,
-    );
+    builder.symbol("helper_v2_clone", crate::helper_v2_clone as *const u8);
 
     let mut module = JITModule::new(builder);
     let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Local)?;
 
     module
         .finalize_definitions()
-        .map_err(|e| LangError::Engine(format!("finalize error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("finalize error: {}", e)))?;
 
     let mut compiled = HashMap::new();
     for (i, func_id) in &func_ids {
         let ptr = module.get_finalized_function(*func_id);
-        compiled.insert(
-            *i,
-            unsafe { std::mem::transmute::<*const u8, CompiledFn>(ptr) },
-        );
+        compiled.insert(*i, unsafe {
+            std::mem::transmute::<*const u8, CompiledFn>(ptr)
+        });
     }
 
     Ok(CompiledResult {
@@ -427,7 +426,7 @@ pub fn compile_all_nodes_object(
 ) -> Result<ObjectResult, LangError> {
     let isa = make_host_isa()?;
     let builder = ObjectBuilder::new(isa, "handl_compiled_v2.o", default_libcall_names())
-        .map_err(|e| LangError::Engine(format!("object builder error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("object builder error: {}", e)))?;
     let mut module = ObjectModule::new(builder);
 
     let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Export)?;
@@ -440,10 +439,10 @@ pub fn compile_all_nodes_object(
     let product = module.finish();
     let bytes = product
         .emit()
-        .map_err(|e| LangError::Engine(format!("object emit error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("object emit error: {}", e)))?;
 
     std::fs::write(output_path, &bytes)
-        .map_err(|e| LangError::Engine(format!("write object file error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("write object file error: {}", e)))?;
 
     Ok(ObjectResult {
         literals: pools.literals,
@@ -460,11 +459,11 @@ pub fn compile_all_nodes_object(
 /// Build a host-target ISA for the object backend.
 fn make_host_isa() -> Result<Arc<dyn TargetIsa>, LangError> {
     let isa_builder = cranelift::native::builder()
-        .map_err(|e| LangError::Engine(format!("native isa builder error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("native isa builder error: {}", e)))?;
     let flags = settings::Flags::new(settings::builder());
     isa_builder
         .finish(flags)
-        .map_err(|e| LangError::Engine(format!("isa finish error: {}", e)))
+        .map_err(|e| LangError::engine(format!("isa finish error: {}", e)))
 }
 
 /// The backend-agnostic v2 core: declare helpers + node functions, and compile
@@ -486,7 +485,7 @@ fn compile_core_v2<M: Module>(
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
     // Scheme version check — v2 engine accepts v1 AND v2.
     if !SchemeVersion::v2().supports(&lang.scheme_version) {
-        return Err(LangError::Engine(format!(
+        return Err(LangError::engine(format!(
             "unsupported scheme version: {} (v2 engine supports v1 and v2)",
             lang.scheme_version
         )));
@@ -505,7 +504,7 @@ fn compile_core_v2<M: Module>(
         sig.returns.push(AbiParam::new(ptr_type));
         let func_id = module
             .declare_function(&name, node_linkage, &sig)
-            .map_err(|e| LangError::Engine(format!("declare error: {}", e)))?;
+            .map_err(|e| LangError::engine(format!("declare error: {}", e)))?;
         func_ids.insert(i, func_id);
     }
 
@@ -639,7 +638,7 @@ fn declare_helper_imports_v2<M: Module>(
 
     let declare = |m: &mut M, name: &str, sig: &Signature| -> Result<FuncId, LangError> {
         m.declare_function(name, Linkage::Import, sig)
-            .map_err(|e| LangError::Engine(format!("declare import error: {}", e)))
+            .map_err(|e| LangError::engine(format!("declare import error: {}", e)))
     };
 
     Ok(HelperIds {
@@ -649,11 +648,7 @@ fn declare_helper_imports_v2<M: Module>(
         load_payload: declare(module, "helper_v2_load_payload", &sig_1arg_ret)?,
         eval_child: declare(module, "helper_v2_eval_child", &sig_eval_child)?,
         extend_env: declare(module, "helper_v2_extend_env", &sig_extend_env)?,
-        extend_env_payload: declare(
-            module,
-            "helper_v2_extend_env_payload",
-            &sig_2arg_ret,
-        )?,
+        extend_env_payload: declare(module, "helper_v2_extend_env_payload", &sig_2arg_ret)?,
         pop_scope: declare(module, "helper_v2_pop_scope", &sig_1arg_void)?,
         drop_value: declare(module, "helper_v2_drop_value", &sig_drop)?,
         apply_closure: declare(module, "helper_v2_apply_closure", &sig_apply_closure)?,
@@ -719,10 +714,8 @@ fn compile_node<M: Module>(
                 .declare_func_in_func(helper_ids.extend_env_payload, &mut builder.func),
             pop_scope: module.declare_func_in_func(helper_ids.pop_scope, &mut builder.func),
             drop_value: module.declare_func_in_func(helper_ids.drop_value, &mut builder.func),
-            apply_closure: module
-                .declare_func_in_func(helper_ids.apply_closure, &mut builder.func),
-            call_foreign: module
-                .declare_func_in_func(helper_ids.call_foreign, &mut builder.func),
+            apply_closure: module.declare_func_in_func(helper_ids.apply_closure, &mut builder.func),
+            call_foreign: module.declare_func_in_func(helper_ids.call_foreign, &mut builder.func),
             pair: module.declare_func_in_func(helper_ids.pair, &mut builder.func),
             unpair_fst: module.declare_func_in_func(helper_ids.unpair_fst, &mut builder.func),
             unpair_snd: module.declare_func_in_func(helper_ids.unpair_snd, &mut builder.func),
@@ -731,10 +724,8 @@ fn compile_node<M: Module>(
             either_is_left: module
                 .declare_func_in_func(helper_ids.either_is_left, &mut builder.func),
             either_value: module.declare_func_in_func(helper_ids.either_value, &mut builder.func),
-            apply_native: module
-                .declare_func_in_func(helper_ids.apply_native, &mut builder.func),
-            int_arith: module
-                .declare_func_in_func(helper_ids.int_arith, &mut builder.func),
+            apply_native: module.declare_func_in_func(helper_ids.apply_native, &mut builder.func),
+            int_arith: module.declare_func_in_func(helper_ids.int_arith, &mut builder.func),
             loop_check: module.declare_func_in_func(helper_ids.loop_check, &mut builder.func),
             derived_step_arg_incoming: module
                 .declare_func_in_func(helper_ids.derived_step_arg_incoming, &mut builder.func),
@@ -754,8 +745,15 @@ fn compile_node<M: Module>(
         let result = match scheme {
             Some(s) => {
                 // Compile the Scheme directly (already v2).
-                let (val, _pushed) =
-                    compile_scheme(&mut builder, s, ctx_param, incoming_param, &helpers, pools, ptr_type)?;
+                let (val, _pushed) = compile_scheme(
+                    &mut builder,
+                    s,
+                    ctx_param,
+                    incoming_param,
+                    &helpers,
+                    pools,
+                    ptr_type,
+                )?;
                 val
             }
             None => {
@@ -771,7 +769,7 @@ fn compile_node<M: Module>(
 
     module
         .define_function(func_id, &mut ctx)
-        .map_err(|e| LangError::Engine(format!("define function error: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("define function error: {}", e)))?;
     module.clear_context(&mut ctx);
     Ok(())
 }
@@ -815,8 +813,15 @@ fn compile_scheme(
         ),
 
         Scheme::Seq { fst, snd } => {
-            let (fst_val, fst_pushed) =
-                compile_scheme(builder, fst, ctx_param, incoming_val, helpers, pools, ptr_type)?;
+            let (fst_val, fst_pushed) = compile_scheme(
+                builder,
+                fst,
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+            )?;
             let (snd_val, snd_pushed) =
                 compile_scheme(builder, snd, ctx_param, fst_val, helpers, pools, ptr_type)?;
             if fst_pushed {
@@ -827,11 +832,15 @@ fn compile_scheme(
 
         Scheme::First { inner } => {
             let fst = {
-                let call = builder.ins().call(helpers.unpair_fst, &[ctx_param, incoming_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.unpair_fst, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
             let snd = {
-                let call = builder.ins().call(helpers.unpair_snd, &[ctx_param, incoming_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.unpair_snd, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
             // Now that both components are extracted, drop the original pair.
@@ -841,13 +850,17 @@ fn compile_scheme(
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
-            let pair_call = builder.ins().call(helpers.pair, &[ctx_param, inner_result, snd]);
+            let pair_call = builder
+                .ins()
+                .call(helpers.pair, &[ctx_param, inner_result, snd]);
             let result = builder.inst_results(pair_call)[0];
             Ok((result, false))
         }
 
         Scheme::Choice { l, r } => {
-            let is_left = builder.ins().call(helpers.either_is_left, &[ctx_param, incoming_val]);
+            let is_left = builder
+                .ins()
+                .call(helpers.either_is_left, &[ctx_param, incoming_val]);
             let is_left_val = builder.inst_results(is_left)[0];
 
             let left_block = builder.create_block();
@@ -863,7 +876,9 @@ fn compile_scheme(
             builder.switch_to_block(left_block);
             builder.seal_block(left_block);
             let left_val = {
-                let call = builder.ins().call(helpers.either_value, &[ctx_param, incoming_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
             let (l_result, l_pushed) =
@@ -877,7 +892,9 @@ fn compile_scheme(
             builder.switch_to_block(right_block);
             builder.seal_block(right_block);
             let right_val = {
-                let call = builder.ins().call(helpers.either_value, &[ctx_param, incoming_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
             let (r_result, r_pushed) =
@@ -892,9 +909,15 @@ fn compile_scheme(
             Ok((builder.block_params(merge_block)[0], false))
         }
 
-        Scheme::Loop { body } => {
-            compile_loop(builder, body, ctx_param, incoming_val, helpers, pools, ptr_type)
-        }
+        Scheme::Loop { body } => compile_loop(
+            builder,
+            body,
+            ctx_param,
+            incoming_val,
+            helpers,
+            pools,
+            ptr_type,
+        ),
 
         Scheme::App { callee, args } => {
             // Clone incoming for the callee so that the callee and the args
@@ -905,16 +928,32 @@ fn compile_scheme(
             // arg consumes it, which is acceptable per the Phase 7 safety
             // model (documented leaks for intermediate values).
             let callee_incoming = {
-                let call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+                let call = builder
+                    .ins()
+                    .call(helpers.clone, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (callee_val, c_pushed) =
-                compile_scheme(builder, callee, ctx_param, callee_incoming, helpers, pools, ptr_type)?;
+            let (callee_val, c_pushed) = compile_scheme(
+                builder,
+                callee,
+                ctx_param,
+                callee_incoming,
+                helpers,
+                pools,
+                ptr_type,
+            )?;
             if c_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
-            let arg_ptrs =
-                compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type)?;
+            let arg_ptrs = compile_args_v2(
+                builder,
+                args,
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+            )?;
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
             let call = builder.ins().call(
                 helpers.apply_closure,
@@ -929,8 +968,16 @@ fn compile_scheme(
         // bytecode, and typecheck engines.
         Scheme::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
-                .map_err(|e| LangError::Engine(e.to_string()))?;
-            compile_scheme(builder, &eliminated, ctx_param, incoming_val, helpers, pools, ptr_type)
+                .map_err(|e| LangError::engine(e.to_string()))?;
+            compile_scheme(
+                builder,
+                &eliminated,
+                ctx_param,
+                incoming_val,
+                helpers,
+                pools,
+                ptr_type,
+            )
         }
     }
 }
@@ -962,21 +1009,22 @@ fn compile_loop(
         0,
     ));
     let saved_addr = builder.ins().stack_addr(ptr_type, saved_slot, 0);
-    let clone_call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+    let clone_call = builder
+        .ins()
+        .call(helpers.clone, &[ctx_param, incoming_val]);
     let cloned_incoming = builder.inst_results(clone_call)[0];
     builder
         .ins()
         .store(MemFlags::trusted(), cloned_incoming, saved_addr, 0);
 
     // Iteration counter slot.
-    let counter_slot = builder.create_sized_stack_slot(StackSlotData::new(
-        StackSlotKind::ExplicitSlot,
-        8,
-        0,
-    ));
+    let counter_slot =
+        builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 0));
     let counter_addr = builder.ins().stack_addr(ptr_type, counter_slot, 0);
     let zero = builder.ins().iconst(types::I64, 0);
-    builder.ins().store(MemFlags::trusted(), zero, counter_addr, 0);
+    builder
+        .ins()
+        .store(MemFlags::trusted(), zero, counter_addr, 0);
 
     // Construct the initial pair (incoming, Null).  This consumes (frees)
     // `incoming_val`, which is safe because we saved a clone above.
@@ -989,7 +1037,9 @@ fn compile_loop(
         builder.inst_results(call)[0]
     };
     let initial_pair = {
-        let call = builder.ins().call(helpers.pair, &[ctx_param, incoming_val, null_val]);
+        let call = builder
+            .ins()
+            .call(helpers.pair, &[ctx_param, incoming_val, null_val]);
         builder.inst_results(call)[0]
     };
 
@@ -1013,14 +1063,20 @@ fn compile_loop(
     let current_pair = builder.block_params(loop_block)[0];
 
     // Increment the iteration counter.
-    let cur_count = builder.ins().load(types::I64, MemFlags::trusted(), counter_addr, 0);
+    let cur_count = builder
+        .ins()
+        .load(types::I64, MemFlags::trusted(), counter_addr, 0);
     let one = builder.ins().iconst(types::I64, 1);
     let new_count = builder.ins().iadd(cur_count, one);
-    builder.ins().store(MemFlags::trusted(), new_count, counter_addr, 0);
+    builder
+        .ins()
+        .store(MemFlags::trusted(), new_count, counter_addr, 0);
 
     // Check max iterations (100_000).
     let max_iters = builder.ins().iconst(types::I64, 100_000);
-    let over_limit = builder.ins().icmp(IntCC::SignedGreaterThan, new_count, max_iters);
+    let over_limit = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThan, new_count, max_iters);
     let overflow_block = builder.create_block();
     let body_cont_block = builder.create_block();
     builder
@@ -1036,8 +1092,15 @@ fn compile_loop(
     // Body continuation: compile the body with current_pair as incoming.
     builder.switch_to_block(body_cont_block);
     builder.seal_block(body_cont_block);
-    let (body_result, body_pushed) =
-        compile_scheme(builder, body, ctx_param, current_pair, helpers, pools, ptr_type)?;
+    let (body_result, body_pushed) = compile_scheme(
+        builder,
+        body,
+        ctx_param,
+        current_pair,
+        helpers,
+        pools,
+        ptr_type,
+    )?;
     if body_pushed {
         builder.ins().call(helpers.pop_scope, &[ctx_param]);
     }
@@ -1061,7 +1124,9 @@ fn compile_loop(
     builder.switch_to_block(left_block);
     builder.seal_block(left_block);
     let left_out = {
-        let call = builder.ins().call(helpers.either_value, &[ctx_param, body_result]);
+        let call = builder
+            .ins()
+            .call(helpers.either_value, &[ctx_param, body_result]);
         builder.inst_results(call)[0]
     };
     builder.ins().jump(done_block, &[left_out]);
@@ -1080,7 +1145,9 @@ fn compile_loop(
     builder.switch_to_block(right_block);
     builder.seal_block(right_block);
     let new_state = {
-        let call = builder.ins().call(helpers.either_value, &[ctx_param, body_result]);
+        let call = builder
+            .ins()
+            .call(helpers.either_value, &[ctx_param, body_result]);
         builder.inst_results(call)[0]
     };
     let saved_incoming = builder
@@ -1091,7 +1158,9 @@ fn compile_loop(
     // pointer for subsequent loop-backs; without this clone, the second
     // loop-back would load a dangling pointer and double-free.
     let saved_clone = {
-        let call = builder.ins().call(helpers.clone, &[ctx_param, saved_incoming]);
+        let call = builder
+            .ins()
+            .call(helpers.clone, &[ctx_param, saved_incoming]);
         builder.inst_results(call)[0]
     };
     let new_pair = {
@@ -1110,7 +1179,9 @@ fn compile_loop(
     builder.switch_to_block(single_step_block);
     builder.seal_block(single_step_block);
     let step_out = {
-        let call = builder.ins().call(helpers.unpair_fst, &[ctx_param, body_result]);
+        let call = builder
+            .ins()
+            .call(helpers.unpair_fst, &[ctx_param, body_result]);
         builder.inst_results(call)[0]
     };
     // Drop the original pair (unpair_fst no longer consumes it).
@@ -1226,8 +1297,15 @@ fn compile_arr(
             &[ctx_param, incoming_val, op_idx_val],
         );
         let arg_incoming = builder.inst_results(arg_incoming_call)[0];
-        let arg_ptrs =
-            compile_args_v2(builder, args, ctx_param, arg_incoming, helpers, pools, ptr_type)?;
+        let arg_ptrs = compile_args_v2(
+            builder,
+            args,
+            ctx_param,
+            arg_incoming,
+            helpers,
+            pools,
+            ptr_type,
+        )?;
         let n_val = builder.ins().iconst(types::I64, args.len() as i64);
         let call = builder.ins().call(
             helpers.apply_native,
@@ -1236,8 +1314,15 @@ fn compile_arr(
         return Ok((builder.inst_results(call)[0], false));
     }
 
-    let arg_ptrs =
-        compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type)?;
+    let arg_ptrs = compile_args_v2(
+        builder,
+        args,
+        ctx_param,
+        incoming_val,
+        helpers,
+        pools,
+        ptr_type,
+    )?;
     let n_val = builder.ins().iconst(types::I64, args.len() as i64);
     match source {
         ArrSource::Native => {
@@ -1269,7 +1354,14 @@ fn compile_arr(
                     let op_code_val = builder.ins().iconst(types::I64, op_code as i64);
                     let call = builder.ins().call(
                         helpers.int_arith,
-                        &[ctx_param, op_code_val, op_idx_val, a_ptr, b_ptr, incoming_val],
+                        &[
+                            ctx_param,
+                            op_code_val,
+                            op_idx_val,
+                            a_ptr,
+                            b_ptr,
+                            incoming_val,
+                        ],
                     );
                     return Ok((builder.inst_results(call)[0], false));
                 }
@@ -1389,7 +1481,9 @@ fn compile_args_v2(
         // `incoming_val` is not consumed here; it leaks if unused, which is
         // acceptable per the Phase 7 safety model.
         let arg_incoming = {
-            let call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+            let call = builder
+                .ins()
+                .call(helpers.clone, &[ctx_param, incoming_val]);
             builder.inst_results(call)[0]
         };
         let (arg_ptr, arg_pushed) = compile_scheme(
@@ -1438,7 +1532,11 @@ mod tests {
     fn compile_v2_lit_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.c", "c", Scheme::arr_native_lit("const", vec![], json!(42))))
+            .merge(EvalSchemeDef::new(
+                "e.c",
+                "c",
+                Scheme::arr_native_lit("const", vec![], json!(42)),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
         let result = compile_all_nodes_jit(&lang, &ast);
@@ -1449,7 +1547,11 @@ mod tests {
     fn compile_v2_var_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.v", "v", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.v",
+                "v",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
         let result = compile_all_nodes_jit(&lang, &ast);
@@ -1463,7 +1565,13 @@ mod tests {
             .merge(EvalSchemeDef::new(
                 "e.a",
                 "binary.add",
-                Scheme::arr_native("add", vec![Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)), Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64))]),
+                Scheme::arr_native(
+                    "add",
+                    vec![
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(0u64)),
+                        Scheme::arr_native_lit("proj_child", vec![], Value::from(1u64)),
+                    ],
+                ),
             ))
             .unwrap();
         let ast = make_ast(vec![
@@ -1479,7 +1587,11 @@ mod tests {
     fn compile_v2_bind_succeeds() {
         let mut lang = Language::new();
         lang.eval
-            .merge(EvalSchemeDef::new("e.var", "var", Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into()))))
+            .merge(EvalSchemeDef::new(
+                "e.var",
+                "var",
+                Scheme::arr_native_lit("proj_env", vec![], Value::String("x".into())),
+            ))
             .unwrap();
         lang.eval
             .merge(EvalSchemeDef::new(
@@ -1507,8 +1619,14 @@ mod tests {
                 "e.if",
                 "if",
                 Scheme::seq(
-                    Scheme::seq(Scheme::arr_native_lit("const", vec![], json!(true)), Scheme::arr_native("tag", vec![])),
-                    Scheme::choice(Scheme::arr_native_lit("const", vec![], json!(1)), Scheme::arr_native_lit("const", vec![], json!(2))),
+                    Scheme::seq(
+                        Scheme::arr_native_lit("const", vec![], json!(true)),
+                        Scheme::arr_native("tag", vec![]),
+                    ),
+                    Scheme::choice(
+                        Scheme::arr_native_lit("const", vec![], json!(1)),
+                        Scheme::arr_native_lit("const", vec![], json!(2)),
+                    ),
                 ),
             ))
             .unwrap();

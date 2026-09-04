@@ -86,7 +86,10 @@ impl PrattEngine {
             }
             LiteralKind::Bool => Value::from(token.text == "true"),
             LiteralKind::Null => Value::Null,
-            LiteralKind::String { delim_chars, escapes } => {
+            LiteralKind::String {
+                delim_chars,
+                escapes,
+            } => {
                 if token.text.len() >= 2 * delim_chars {
                     let inner = &token.text[delim_chars..token.text.len() - delim_chars];
                     let mut result = inner.to_string();
@@ -98,7 +101,11 @@ impl PrattEngine {
                     Value::from(token.text.as_str())
                 }
             }
-            LiteralKind::StripAffix { prefix, suffix, wrap } => {
+            LiteralKind::StripAffix {
+                prefix,
+                suffix,
+                wrap,
+            } => {
                 let text = token.text.as_str();
                 let stripped = if text.starts_with(&prefix) && text.ends_with(&suffix) {
                     let start = prefix.len();
@@ -197,7 +204,7 @@ impl<'a> Cursor<'a> {
                 self.pos += 1;
                 Ok(t.clone())
             }
-            None => Err(LangError::Engine("unexpected end of input".to_string())),
+            None => Err(LangError::engine("unexpected end of input".to_string())),
         }
     }
 }
@@ -217,7 +224,7 @@ impl PrattEngine {
 
         // 1. Look up the prefix row for this token.
         let prefix_row = Self::lookup_row(lang, &token.kind, GrammarPosition::Prefix)
-            .ok_or_else(|| LangError::Engine(format!("unexpected token: {}", token.kind)))?;
+            .ok_or_else(|| LangError::engine(format!("unexpected token: {}", token.kind)))?;
 
         let shape = &prefix_row.child_shape;
         let arity = shape.arity;
@@ -243,7 +250,7 @@ impl PrattEngine {
             for spec in &shape.payload_tokens {
                 let tok = cursor.advance()?;
                 if tok.kind != spec.token {
-                    return Err(LangError::Engine(format!(
+                    return Err(LangError::engine(format!(
                         "expected payload token {}, got {}",
                         spec.token, tok.kind
                     )));
@@ -262,7 +269,10 @@ impl PrattEngine {
             };
             for i in 0..normal {
                 let child = if shape.block_children.contains(&i)
-                    && cursor.peek().map(|t| t.kind.as_str() == "token.lbrace").unwrap_or(false)
+                    && cursor
+                        .peek()
+                        .map(|t| t.kind.as_str() == "token.lbrace")
+                        .unwrap_or(false)
                 {
                     let block_delim = DelimitedShape {
                         open: "token.lbrace".into(),
@@ -308,9 +318,10 @@ impl PrattEngine {
                 }
             }
             // Build payload: start with extracted fields, then add children.
-            payload_fields.insert("children".to_string(), Value::Array(
-                children.iter().map(|i| Value::from(*i)).collect(),
-            ));
+            payload_fields.insert(
+                "children".to_string(),
+                Value::Array(children.iter().map(|i| Value::from(*i)).collect()),
+            );
             let payload = Value::Object(payload_fields);
             let node = AstNode::new(kind).with_payload(payload);
             self.ast.borrow_mut().push(node)
@@ -325,7 +336,7 @@ impl PrattEngine {
             };
 
             let (lbp, rbp_right) = infix_row.binding_power.ok_or_else(|| {
-                LangError::Engine(format!("infix row {} has no binding power", infix_row.id))
+                LangError::engine(format!("infix row {} has no binding power", infix_row.id))
             })?;
 
             if lbp < rbp {
@@ -352,7 +363,10 @@ impl PrattEngine {
             for i in 0..normal {
                 let child_idx = i + 1;
                 let child = if shape.block_children.contains(&child_idx)
-                    && cursor.peek().map(|t| t.kind.as_str() == "token.lbrace").unwrap_or(false)
+                    && cursor
+                        .peek()
+                        .map(|t| t.kind.as_str() == "token.lbrace")
+                        .unwrap_or(false)
                 {
                     let block_delim = DelimitedShape {
                         open: "token.lbrace".into(),
@@ -405,15 +419,12 @@ impl PrattEngine {
     }
 
     /// Consume a [`ChildSeparator`] from the cursor (ADR-0053).
-    fn consume_separator(
-        cursor: &mut Cursor<'_>,
-        sep: &ChildSeparator,
-    ) -> Result<(), LangError> {
+    fn consume_separator(cursor: &mut Cursor<'_>, sep: &ChildSeparator) -> Result<(), LangError> {
         match sep {
             ChildSeparator::Required(kind) => {
                 let tok = cursor.advance()?;
                 if tok.kind != *kind {
-                    return Err(LangError::Engine(format!(
+                    return Err(LangError::engine(format!(
                         "expected separator {}, got {}",
                         kind, tok.kind
                     )));
@@ -429,7 +440,7 @@ impl PrattEngine {
             ChildSeparator::OneOf(kinds) => {
                 let tok = cursor.advance()?;
                 if !kinds.iter().any(|k| k == &tok.kind) {
-                    return Err(LangError::Engine(format!(
+                    return Err(LangError::engine(format!(
                         "expected one of {:?}, got {}",
                         kinds, tok.kind
                     )));
@@ -464,7 +475,7 @@ impl PrattEngine {
         if !delim.open_is_operator_token {
             let open = cursor.advance()?;
             if open.kind != delim.open {
-                return Err(LangError::Engine(format!(
+                return Err(LangError::engine(format!(
                     "expected opening delimiter {}, got {}",
                     delim.open, open.kind
                 )));
@@ -497,7 +508,9 @@ impl PrattEngine {
                 } else {
                     let node = AstNode::new(&delim.container_kind)
                         .with_payload(serde_json::json!({ "children": elements }));
-                    Ok(DelimitedResult::Container(self.ast.borrow_mut().push(node).index()))
+                    Ok(DelimitedResult::Container(
+                        self.ast.borrow_mut().push(node).index(),
+                    ))
                 };
             }
         }
@@ -522,12 +535,16 @@ impl PrattEngine {
                 // blocks alongside `{ key: val }` objects in the same
                 // delimited form (ADR-0074 v0.1).
                 let lhs = self.expression_inner(lang, cursor, rbp)?;
-                let is_pair_sep = cursor.peek().map(|t| t.kind == pair.separator).unwrap_or(false);
+                let is_pair_sep = cursor
+                    .peek()
+                    .map(|t| t.kind == pair.separator)
+                    .unwrap_or(false);
                 if is_pair_sep {
                     let _ = cursor.advance()?; // consume pair separator
                     let rhs = self.expression_inner(lang, cursor, 0)?;
-                    let node = AstNode::new(&pair.node_kind)
-                        .with_payload(serde_json::json!({ "children": [lhs.index(), rhs.index()] }));
+                    let node = AstNode::new(&pair.node_kind).with_payload(
+                        serde_json::json!({ "children": [lhs.index(), rhs.index()] }),
+                    );
                     let arm_ref = self.ast.borrow_mut().push(node);
                     elements.push(arm_ref.index());
                 } else {
@@ -544,7 +561,7 @@ impl PrattEngine {
             match next {
                 Some(t) if delim.separator.as_deref() == Some(t.kind.as_str()) => {
                     let _ = cursor.advance()?; // consume separator
-                    // Tolerate a trailing separator immediately before close.
+                                               // Tolerate a trailing separator immediately before close.
                     if let Some(t2) = cursor.peek() {
                         if t2.kind == delim.close {
                             break;
@@ -554,12 +571,20 @@ impl PrattEngine {
                 }
                 Some(t) if t.kind == delim.close => break,
                 None => {
-                    return Err(LangError::Engine(
+                    return Err(LangError::engine(
                         "unexpected end of input in delimited block".to_string(),
                     ));
                 }
                 Some(_) if delim.separator.is_none() => {
-                    if cursor.peek().map(|t| t.kind.as_str() == "token.comma" || t.kind.as_str() == "token.arrow.comma" || t.kind.as_str() == "token.semicolon").unwrap_or(false) {
+                    if cursor
+                        .peek()
+                        .map(|t| {
+                            t.kind.as_str() == "token.comma"
+                                || t.kind.as_str() == "token.arrow.comma"
+                                || t.kind.as_str() == "token.semicolon"
+                        })
+                        .unwrap_or(false)
+                    {
                         let _ = cursor.advance()?;
                         if let Some(t2) = cursor.peek() {
                             if t2.kind == delim.close {
@@ -570,7 +595,7 @@ impl PrattEngine {
                     continue;
                 }
                 Some(t) => {
-                    return Err(LangError::Engine(format!(
+                    return Err(LangError::engine(format!(
                         "expected separator {} or closing {}, got {}",
                         delim.separator.as_deref().unwrap_or("(none)"),
                         delim.close,
@@ -583,7 +608,7 @@ impl PrattEngine {
         // Consume the closing delimiter.
         let close = cursor.advance()?;
         if close.kind != delim.close {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "expected closing delimiter {}, got {}",
                 delim.close, close.kind
             )));
@@ -594,7 +619,9 @@ impl PrattEngine {
         } else {
             let node = AstNode::new(&delim.container_kind)
                 .with_payload(serde_json::json!({ "children": elements }));
-            Ok(DelimitedResult::Container(self.ast.borrow_mut().push(node).index()))
+            Ok(DelimitedResult::Container(
+                self.ast.borrow_mut().push(node).index(),
+            ))
         }
     }
 }
@@ -623,10 +650,7 @@ mod tests {
         let mut lang = Language::new();
         // Token kinds
         lang.tokens
-            .merge(
-                TokenKindDef::new("token.number")
-                    .with_literal(LiteralKind::Number),
-            )
+            .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
             .unwrap();
         lang.tokens.merge(TokenKindDef::new("token.plus")).unwrap();
         lang.tokens.merge(TokenKindDef::new("token.star")).unwrap();
@@ -806,7 +830,7 @@ mod tests {
         // token.bang has no prefix or infix rule.
         let req = ParserRequest::new(Tokens(vec![tok("token.bang", "!")]));
         let err = engine.parse(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
         let msg = format!("{}", err);
         assert!(msg.contains("unexpected token"));
     }
@@ -822,7 +846,7 @@ mod tests {
             tok("token.bang", "!"),
         ]));
         let err = engine.parse(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
@@ -845,7 +869,7 @@ mod tests {
             tok("token.number", "2"),
         ]));
         let err = engine.parse(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
         let msg = format!("{}", err);
         assert!(msg.contains("binding power"));
     }
@@ -1056,7 +1080,7 @@ mod tests {
         let lang = arith_lang();
         let req = ParserRequest::new(Tokens(vec![tok("token.minus", "-")]));
         let err = engine.parse(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
@@ -1167,10 +1191,7 @@ mod tests {
         use handl_language::DelimitedShape;
         let mut lang = Language::new();
         lang.tokens
-            .merge(
-                TokenKindDef::new("token.number")
-                    .with_literal(LiteralKind::Number),
-            )
+            .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
             .unwrap();
         for k in [
             "token.identifier",
@@ -1329,7 +1350,7 @@ mod tests {
             tok("token.number", "1"),
         ]));
         let err = engine.parse(&lang, &req).unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
         let msg = format!("{}", err);
         assert!(msg.contains("opening delimiter"));
     }
@@ -1342,10 +1363,7 @@ mod tests {
         let mut lang = Language::new();
         // Token kinds with LiteralKind dispatch (ADR-0053).
         lang.tokens
-            .merge(
-                TokenKindDef::new("token.number")
-                    .with_literal(LiteralKind::Number),
-            )
+            .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
             .unwrap();
         lang.tokens
             .merge(

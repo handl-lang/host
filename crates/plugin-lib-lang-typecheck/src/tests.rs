@@ -9,12 +9,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use handl_language::{Ast, AstNode, Language, ast_value, language_value};
 use handl_language::LangError;
+use handl_language::{ast_value, language_value, Ast, AstNode, Language};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_plugin_engine_typecheck::TypecheckResult;
 use handl_runtime::{CompiledHandle, RuntimeFactory, RuntimeHandle};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::TypecheckModule;
 
@@ -72,18 +72,11 @@ impl RuntimeHandle for MockHandle {
         }
     }
 
-    fn compile(
-        &self,
-        _ast: &Ast,
-        _target: &str,
-    ) -> Result<CompiledHandle, LangError> {
+    fn compile(&self, _ast: &Ast, _target: &str) -> Result<CompiledHandle, LangError> {
         Err(LangError::NotImplemented)
     }
 
-    fn run_compiled(
-        &self,
-        _handle: &CompiledHandle,
-    ) -> Result<Value, LangError> {
+    fn run_compiled(&self, _handle: &CompiledHandle) -> Result<Value, LangError> {
         Err(LangError::NotImplemented)
     }
 }
@@ -289,7 +282,11 @@ fn call_with_non_language_first_arg_errors() {
 fn call_with_missing_ast_arg_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
     let err = call(&module, &[lang_arg()]).unwrap_err();
-    assert!(err.to_string().contains("expected (lang, ast)"), "got: {}", err);
+    assert!(
+        err.to_string().contains("expected (lang, ast)"),
+        "got: {}",
+        err
+    );
 }
 
 #[test]
@@ -303,10 +300,7 @@ fn call_with_non_deserializable_ast_errors() {
 
 #[test]
 fn call_propagates_factory_build_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_build_err(LangError::Engine("build-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_build_err(LangError::engine("build-boom")));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), raw_ast_arg()]).unwrap_err();
     assert!(err.to_string().contains("build-boom"), "got: {}", err);
@@ -314,10 +308,8 @@ fn call_propagates_factory_build_error() {
 
 #[test]
 fn call_propagates_handle_typecheck_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_typecheck_err(LangError::Engine("typecheck-boom".into())),
-    );
+    let factory =
+        Rc::new(MockFactory::new().with_typecheck_err(LangError::engine("typecheck-boom")));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), raw_ast_arg()]).unwrap_err();
     assert!(err.to_string().contains("typecheck-boom"), "got: {}", err);

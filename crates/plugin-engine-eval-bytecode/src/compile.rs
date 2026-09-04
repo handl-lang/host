@@ -116,7 +116,7 @@ fn compile_into(
             }
             let left_jump_pos = out.len();
             out.push(Instr::Jump(0)); // placeholder -- skip right branch
-            // Right branch.
+                                      // Right branch.
             let right_target = out.len();
             let r_pushed = compile_into(r, ast, node, out)?;
             if r_pushed {
@@ -138,7 +138,10 @@ fn compile_into(
             // scope via `capture()`) on every iteration. Mirrors the
             // tree-walk optimization at
             // `plugin-engine-eval-tree-walk/src/lib.rs:402-456`.
-            if let Scheme::Arr { op, args, source, .. } = body.as_ref() {
+            if let Scheme::Arr {
+                op, args, source, ..
+            } = body.as_ref()
+            {
                 if *source == ArrSource::Native && op == "loop_step" && !args.is_empty() {
                     let body_proc = &args[0];
                     // Compile the body closure once, before the loop. This
@@ -237,7 +240,7 @@ fn compile_into(
         // capabilities as a compile-time error.
         Scheme::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
-                .map_err(|e| LangError::Engine(e.to_string()))?;
+                .map_err(|e| LangError::engine(e.to_string()))?;
             compile_into(&eliminated, ast, node, out)
         }
     }
@@ -263,7 +266,7 @@ fn compile_arr(
         "proj_env" => {
             let name = lit
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("proj_env: missing name literal".to_string()))?;
+                .ok_or_else(|| LangError::engine("proj_env: missing name literal".to_string()))?;
             if name == "$payload" {
                 out.push(Instr::LoadPayloadVar);
             } else {
@@ -272,16 +275,16 @@ fn compile_arr(
             return Ok(false);
         }
         "proj_child" => {
-            let idx = lit
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| LangError::Engine("proj_child: missing index literal".to_string()))?;
+            let idx = lit.and_then(|v| v.as_u64()).ok_or_else(|| {
+                LangError::engine("proj_child: missing index literal".to_string())
+            })?;
             out.push(Instr::EvalChild(idx as usize));
             return Ok(false);
         }
         "extend_env" => {
             let name = lit
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| LangError::Engine("extend_env: missing name literal".to_string()))?;
+                .ok_or_else(|| LangError::engine("extend_env: missing name literal".to_string()))?;
             if name == "$payload" {
                 out.push(Instr::StorePayloadName);
             } else {
@@ -298,11 +301,9 @@ fn compile_arr(
                     out.push(Instr::PopScope);
                 }
             }
-            let tag = lit
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    LangError::Engine("route_on_type: missing type tag literal".to_string())
-                })?;
+            let tag = lit.and_then(|v| v.as_str()).ok_or_else(|| {
+                LangError::engine("route_on_type: missing type tag literal".to_string())
+            })?;
             out.push(Instr::RouteOnType(tag.to_string()));
             return Ok(false);
         }
@@ -356,9 +357,7 @@ fn compile_arr(
             for &val_idx in keys.value_indices.iter() {
                 out.push(Instr::EvalNode(val_idx));
             }
-            out.push(Instr::MakeObj {
-                keys: keys.keys,
-            });
+            out.push(Instr::MakeObj { keys: keys.keys });
             return Ok(false);
         }
     }
@@ -410,7 +409,7 @@ fn compile_arr(
             out.push(Instr::NativeOp(op.to_string(), args.len()));
         }
         ArrSource::Judgment => {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "compile: judgment op '{}' is not supported by the eval engine (ADR-0054: judgment ops are dispatched by the typecheck engine)",
                 op
             )));
@@ -491,7 +490,11 @@ fn try_extract_static_object_keys(
             None => return Ok(None),
         };
         let entry_node = ast.at(AstRef::new(entry_idx))?;
-        let entry_children = match entry_node.payload.get("children").and_then(|c| c.as_array()) {
+        let entry_children = match entry_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+        {
             Some(c) => c,
             None => return Ok(None),
         };
@@ -520,7 +523,7 @@ fn try_extract_static_object_keys(
 
         // Reject reserved keys (mirrors the `object` native op's check).
         if handl_language::is_reserved_value_key(&key_str) {
-            return Err(LangError::Engine(format!(
+            return Err(LangError::engine(format!(
                 "object: key '{}' is reserved",
                 key_str
             )));
@@ -596,9 +599,7 @@ fn try_extract_closure_params_body(
             None => return Ok(None),
         };
         let param_node = ast.at(AstRef::new(param_idx))?;
-        let names: Vec<String> = if param_node.kind == "paren"
-            || param_node.kind == "array"
-        {
+        let names: Vec<String> = if param_node.kind == "paren" || param_node.kind == "array" {
             let param_children = match param_node
                 .payload
                 .get("children")
@@ -788,11 +789,11 @@ mod tests {
         assert_eq!(
             instrs,
             vec![
-                Instr::Push(json!(5)),     // 0: const 5
-                Instr::Store("x".into()),  // 1: extend_env "x"
-                Instr::Load("x".into()),   // 2: proj_env "x"
-                Instr::PopScope,           // 3: pop scope (outer Seq)
-                Instr::Return,             // 4
+                Instr::Push(json!(5)),    // 0: const 5
+                Instr::Store("x".into()), // 1: extend_env "x"
+                Instr::Load("x".into()),  // 2: proj_env "x"
+                Instr::PopScope,          // 3: pop scope (outer Seq)
+                Instr::Return,            // 4
             ]
         );
     }
@@ -827,10 +828,10 @@ mod tests {
             instrs,
             vec![
                 Instr::ChoiceJump(1, 3), // 0: route left/right
-                Instr::Push(json!(1)),    // 1: left branch
-                Instr::Jump(4),           // 2: skip right
-                Instr::Push(json!(2)),    // 3: right branch
-                Instr::Return,            // 4: end
+                Instr::Push(json!(1)),   // 1: left branch
+                Instr::Jump(4),          // 2: skip right
+                Instr::Push(json!(2)),   // 3: right branch
+                Instr::Return,           // 4: end
             ]
         );
     }
@@ -844,7 +845,7 @@ mod tests {
         assert_eq!(
             instrs,
             vec![
-                Instr::Push(Value::Null),            // 0: initial state
+                Instr::Push(Value::Null),             // 0: initial state
                 Instr::Pair,                          // 1: pair(incoming, Null)
                 Instr::NativeOp("inc_fst".into(), 0), // 2: body (loop_back = 2)
                 Instr::LoopCheck(2),                  // 3: check + loop back
@@ -875,10 +876,7 @@ mod tests {
 
     #[test]
     fn compile_app_no_args() {
-        let s = Scheme::app(
-            Scheme::arr_native_lit("proj_env", vec![], "f"),
-            vec![],
-        );
+        let s = Scheme::app(Scheme::arr_native_lit("proj_env", vec![], "f"), vec![]);
         let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
@@ -906,12 +904,12 @@ mod tests {
             instrs,
             vec![
                 Instr::Push(json!(true)),         // 0: const true
-                Instr::NativeOp("tag".into(), 0),  // 1: tag
-                Instr::ChoiceJump(3, 5),           // 2: route left/right
-                Instr::Push(json!("yes")),         // 3: left (then)
-                Instr::Jump(6),                    // 4: skip right
-                Instr::Push(json!("no")),          // 5: right (else)
-                Instr::Return,                     // 6: end
+                Instr::NativeOp("tag".into(), 0), // 1: tag
+                Instr::ChoiceJump(3, 5),          // 2: route left/right
+                Instr::Push(json!("yes")),        // 3: left (then)
+                Instr::Jump(6),                   // 4: skip right
+                Instr::Push(json!("no")),         // 5: right (else)
+                Instr::Return,                    // 6: end
             ]
         );
     }

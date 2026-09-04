@@ -46,8 +46,8 @@ use std::path::Path;
 use handl_emitters::Emitter;
 use handl_kit_data::{DataKit, DataKitManifest, EmitterRegistry, FragmentSourceEntry};
 use handl_language::{
-    AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language,
-    LexerRuleDef, OptionSchema, TokenKindDef, TypeRuleDef,
+    AstShapeDef, CapabilityDecl, EvalSchemeDef, GrammarRow, LangError, Language, LexerRuleDef,
+    OptionSchema, TokenKindDef, TypeRuleDef,
 };
 use handl_runtime::RuntimeConfig;
 
@@ -130,14 +130,14 @@ fn merge_fragments(
 
     // Token kinds (union — idempotent merge).
     let tokens: Vec<TokenKindDef> = serde_yaml::from_str(tokens_yaml)
-        .map_err(|e| LangError::Engine(format!("tokens.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("tokens.yaml: {}", e)))?;
     for frag in tokens {
         lang.tokens.merge(frag)?;
     }
 
     // Grammar rows (non-union — pre-resolved, no collisions).
     let grammar: Vec<GrammarRow> = serde_yaml::from_str(grammar_yaml)
-        .map_err(|e| LangError::Engine(format!("grammar.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("grammar.yaml: {}", e)))?;
     for frag in grammar {
         lang.grammar.merge(frag)?;
     }
@@ -145,42 +145,42 @@ fn merge_fragments(
     // Eval schemes (arrow-calculus kernel, ADR-0052; non-union — pre-resolved,
     // no collisions).
     let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(eval_yaml)
-        .map_err(|e| LangError::Engine(format!("eval.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("eval.yaml: {}", e)))?;
     for frag in eval {
         lang.eval.merge(frag)?;
     }
 
     // Type rules (ADR-0054 — non-union, pre-resolved).
     let types: Vec<TypeRuleDef> = serde_yaml::from_str(types_yaml)
-        .map_err(|e| LangError::Engine(format!("types.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("types.yaml: {}", e)))?;
     for frag in types {
         lang.types.merge(frag)?;
     }
 
     // AST shapes (union — idempotent merge).
     let ast: Vec<AstShapeDef> = serde_yaml::from_str(ast_yaml)
-        .map_err(|e| LangError::Engine(format!("ast.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("ast.yaml: {}", e)))?;
     for frag in ast {
         lang.ast.merge(frag)?;
     }
 
     // Capabilities (union — idempotent merge).
     let caps: Vec<CapabilityDecl> = serde_yaml::from_str(caps_yaml)
-        .map_err(|e| LangError::Engine(format!("caps.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("caps.yaml: {}", e)))?;
     for frag in caps {
         lang.caps.merge(frag)?;
     }
 
     // Options (non-union).
     let options: Vec<OptionSchema> = serde_yaml::from_str(options_yaml)
-        .map_err(|e| LangError::Engine(format!("options.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("options.yaml: {}", e)))?;
     for frag in options {
         lang.options.merge(frag)?;
     }
 
     // Lexer rules (non-union).
     let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(lexer_rules_yaml)
-        .map_err(|e| LangError::Engine(format!("lexer_rules.yaml: {}", e)))?;
+        .map_err(|e| LangError::engine(format!("lexer_rules.yaml: {}", e)))?;
     for frag in lexer_rules {
         lang.lexer_rules.merge(frag)?;
     }
@@ -202,7 +202,7 @@ fn merge_fragments(
 /// missing or unreadable, or a fragment fails to deserialize/merge.
 pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
     if !dir.is_dir() {
-        return Err(LangError::Engine(format!(
+        return Err(LangError::engine(format!(
             "language_from_dir: {:?} is not a directory",
             dir
         )));
@@ -210,7 +210,7 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
 
     let read = |name: &str| -> Result<String, LangError> {
         std::fs::read_to_string(dir.join(name))
-            .map_err(|e| LangError::Engine(format!("{}: {}", name, e)))
+            .map_err(|e| LangError::engine(format!("{}: {}", name, e)))
     };
 
     let tokens_yaml = read("tokens.yaml")?;

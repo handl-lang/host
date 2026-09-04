@@ -262,8 +262,8 @@ fn registry_unknown_emitter_errors() {
     let err = reg
         .resolve_source(&FragmentSourceSerde::Emitter("ghost".into()))
         .unwrap_err();
-    assert!(matches!(err, LangError::Engine(_)));
-    assert_eq!(err, LangError::Engine("unknown emitter: ghost".into()));
+    assert!(matches!(err, LangError::Engine { .. }));
+    assert_eq!(err, LangError::engine("unknown emitter: ghost"));
 }
 
 #[test]
@@ -534,10 +534,7 @@ fn extends_unknown_parent_errors() {
     let reg = EmitterRegistry::new();
     let manifest = DataKitManifest::new().with_extends("ghost-kit");
     let err = DataKit::assemble(&manifest, &reg).unwrap_err();
-    assert_eq!(
-        err,
-        LangError::Engine("unknown parent kit: ghost-kit".into())
-    );
+    assert_eq!(err, LangError::engine("unknown parent kit: ghost-kit"));
 }
 
 #[test]
@@ -602,7 +599,7 @@ fn data_file_source_returns_not_implemented_style_error() {
     let manifest =
         DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", "x.toml"));
     let err = DataKit::assemble(&manifest, &reg).unwrap_err();
-    assert!(matches!(err, LangError::Engine(_)));
+    assert!(matches!(err, LangError::Engine { .. }));
 }
 
 // ---------------------------------------------------------------------------
@@ -664,10 +661,7 @@ fn into_runtime_unknown_eval_engine_errors() {
     engine_reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
     let engine_reg = Rc::new(engine_reg);
     let err = kit.into_runtime(&engine_reg, None).unwrap_err();
-    assert_eq!(
-        err,
-        LangError::Engine("unknown eval engine: nonsense".into())
-    );
+    assert_eq!(err, LangError::engine("unknown eval engine: nonsense"));
 }
 
 // ---------------------------------------------------------------------------

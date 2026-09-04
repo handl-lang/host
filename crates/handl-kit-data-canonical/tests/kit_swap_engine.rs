@@ -81,10 +81,7 @@ fn swap_parse_to_chumsky_errors_clearly() {
         );
     let kit = DataKit::assemble(&manifest, &reg).unwrap();
     let err = kit.into_runtime(&registry, None).unwrap_err();
-    assert_eq!(
-        err,
-        LangError::Engine("unknown parse engine: chumsky".into())
-    );
+    assert_eq!(err, LangError::engine("unknown parse engine: chumsky"));
 }
 
 #[test]

@@ -267,7 +267,7 @@ impl EmitterRegistry {
             FragmentSourceSerde::Emitter(name) => self
                 .resolve_emitter(name)
                 .map(FragmentSource::Emitter)
-                .ok_or_else(|| LangError::Engine(format!("unknown emitter: {}", name))),
+                .ok_or_else(|| LangError::engine(format!("unknown emitter: {}", name))),
             FragmentSourceSerde::DataFile(path) => Ok(FragmentSource::DataFile(path.clone())),
         }
     }
@@ -335,7 +335,7 @@ impl DataKit {
         let mut lang = if let Some(parent_name) = &manifest.extends {
             let parent_manifest = registry
                 .resolve_kit(parent_name)
-                .ok_or_else(|| LangError::Engine(format!("unknown parent kit: {}", parent_name)))?;
+                .ok_or_else(|| LangError::engine(format!("unknown parent kit: {}", parent_name)))?;
             let parent = DataKit::assemble(parent_manifest, registry)?;
             parent.lang
         } else {
@@ -407,7 +407,7 @@ fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
             // Phase 5 models the type but does not implement file loading —
             // the emitters are the active path during migration. Surfacing a
             // clear error keeps the data-file branch honest.
-            Err(LangError::Engine(format!(
+            Err(LangError::engine(format!(
                 "data-file fragment sources are not implemented yet: {}",
                 path.display()
             )))

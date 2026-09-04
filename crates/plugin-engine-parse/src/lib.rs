@@ -94,7 +94,7 @@ impl<'a, 'e, E: ParserEngine + ?Sized> ParserContext<'a, 'e, E> {
                 self.pos += 1;
                 Ok(token.clone())
             }
-            None => Err(LangError::Engine("unexpected end of input".to_string())),
+            None => Err(LangError::engine("unexpected end of input".to_string())),
         }
     }
 
@@ -269,7 +269,7 @@ mod tests {
         let mut ctx = ParserContext::new(&engine, &lang, &toks);
         ctx.advance().unwrap();
         let err = ctx.advance().unwrap_err();
-        assert!(matches!(err, LangError::Engine(_)));
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]

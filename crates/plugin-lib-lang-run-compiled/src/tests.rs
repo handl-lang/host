@@ -8,14 +8,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use handl_language::Language;
 use handl_language::LangError;
+use handl_language::Language;
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{
-    CompiledHandle, RuntimeFactory, RuntimeHandle, as_compiled_id, as_compiled_target,
-    compiled_value,
+    as_compiled_id, as_compiled_target, compiled_value, CompiledHandle, RuntimeFactory,
+    RuntimeHandle,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::RunCompiledModule;
 
@@ -256,7 +256,11 @@ fn call_with_handle_missing_target_defaults_to_empty() {
 fn call_with_no_args_errors_about_handle() {
     let module = make_module(Rc::new(MockFactory::new()));
     let err = call(&module, &[]).unwrap_err();
-    assert!(err.to_string().contains("expected (handle)"), "got: {}", err);
+    assert!(
+        err.to_string().contains("expected (handle)"),
+        "got: {}",
+        err
+    );
 }
 
 #[test]
@@ -283,10 +287,7 @@ fn call_with_null_value_errors() {
 
 #[test]
 fn call_propagates_factory_build_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_build_err(LangError::Engine("build-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_build_err(LangError::engine("build-boom")));
     let module = make_module(factory);
     let err = call(&module, &[compiled_value(1, "native")]).unwrap_err();
     assert!(err.to_string().contains("build-boom"), "got: {}", err);
@@ -294,10 +295,7 @@ fn call_propagates_factory_build_error() {
 
 #[test]
 fn call_propagates_handle_run_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_run_err(LangError::Engine("run-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_run_err(LangError::engine("run-boom")));
     let module = make_module(factory);
     let err = call(&module, &[compiled_value(1, "native")]).unwrap_err();
     assert!(err.to_string().contains("run-boom"), "got: {}", err);

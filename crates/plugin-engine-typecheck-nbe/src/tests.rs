@@ -48,7 +48,7 @@ fn typecheck_empty_ast_errors() {
     let req = TypecheckRequest::new(Ast::new());
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("empty ast")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("empty ast")),
         "expected empty-ast error, got {:?}",
         err
     );
@@ -67,7 +67,7 @@ fn typecheck_no_rule_errors() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("no type rule for kind 'lit'")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("no type rule for kind 'lit'")),
         "expected no-rule error, got {:?}",
         err
     );
@@ -161,9 +161,7 @@ fn typecheck_seq_threading() {
     // AST: [lit(42), wrap{children:[0]}]  — root is wrap (last node)
     let mut ast = Ast::new();
     ast.push(AstNode::new("lit").with_payload(json!(42)));
-    ast.push(
-        AstNode::new("wrap").with_payload(json!({"children": [0]})),
-    );
+    ast.push(AstNode::new("wrap").with_payload(json!({"children": [0]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
@@ -223,7 +221,7 @@ fn typecheck_unify_failure() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure, got {:?}",
         err
     );
@@ -508,16 +506,8 @@ fn typecheck_unify_two_args() {
                 Scheme::arr_judgment(
                     "unify",
                     vec![
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.number"),
-                        ),
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.number"),
-                        ),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 ),
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -551,7 +541,7 @@ fn typecheck_unknown_judgment_op_errors() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("unknown judgment op 'bogus_op'")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("unknown judgment op 'bogus_op'")),
         "expected unknown judgment op error, got {:?}",
         err
     );
@@ -577,7 +567,7 @@ fn typecheck_unsupported_native_op_errors() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("not supported in type rules yet")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("not supported in type rules yet")),
         "expected unsupported native op error, got {:?}",
         err
     );
@@ -854,9 +844,9 @@ fn foreign_op_in_type_rule_rejected() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("foreign op")
-            && msg.contains("fs.read")
-            && msg.contains("pure-eval")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("foreign op")
+            && message.contains("fs.read")
+            && message.contains("pure-eval")),
         "expected foreign-op-in-type-rule rejection, got {:?}",
         err
     );
@@ -963,9 +953,9 @@ fn eval_child_with_foreign_rejected() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("effectful foreign ops")
-            && msg.contains("fs.read")
-            && msg.contains("pure-eval")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("effectful foreign ops")
+            && message.contains("fs.read")
+            && message.contains("pure-eval")),
         "expected effectful-foreign-ops rejection, got {:?}",
         err
     );
@@ -978,8 +968,7 @@ fn eval_child_with_foreign_rejected() {
 
 #[test]
 fn pure_flag_disabled_allows_foreign() {
-    let engine =
-        NbeTypecheckEngine::new(Box::new(TreeWalkEngine::new())).with_pure(false);
+    let engine = NbeTypecheckEngine::new(Box::new(TreeWalkEngine::new())).with_pure(false);
     let mut lang = Language::new();
     // io eval scheme: effectful Foreign op fs.read.
     lang.eval
@@ -1012,11 +1001,11 @@ fn pure_flag_disabled_allows_foreign() {
     let result = engine.typecheck(&lang, &req);
     match result {
         Ok(_) => { /* eval engine ran and succeeded — purity check skipped */ }
-        Err(LangError::Engine(ref msg)) => {
+        Err(LangError::Engine { ref message, .. }) => {
             assert!(
-                !msg.contains("effectful foreign ops"),
+                !message.contains("effectful foreign ops"),
                 "purity check should have been skipped (pure=false), but got: {}",
-                msg
+                message
             );
         }
         Err(other) => {
@@ -1160,10 +1149,7 @@ fn payload_field_extracts_name() {
         ))
         .unwrap();
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("test")
-            .with_payload(json!({"name": "x", "children": [0, 1]})),
-    );
+    ast.push(AstNode::new("test").with_payload(json!({"name": "x", "children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, Value::from("x"));
@@ -1333,9 +1319,7 @@ fn let_rule_extends_gamma_and_synths_body() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
     ast.push(AstNode::new("var").with_payload(json!("x")));
-    ast.push(
-        AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})),
-    );
+    ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     // The body is var("x"), which looks up "x" in Γ → type.int.
@@ -1413,9 +1397,7 @@ fn function_rule_constructs_function_type() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
     ast.push(AstNode::new("value").with_payload(json!("hello")));
-    ast.push(
-        AstNode::new("function").with_payload(json!({"children": [0, 1]})),
-    );
+    ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(
@@ -1514,7 +1496,7 @@ fn unify_tagged_type_values_same_tag_different_fields() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure, got {:?}",
         err
     );
@@ -1547,7 +1529,7 @@ fn unify_tagged_type_values_different_tags() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure, got {:?}",
         err
     );
@@ -1999,7 +1981,7 @@ fn check_json_value_mismatch() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error, got {:?}",
         err
     );
@@ -2232,17 +2214,9 @@ fn check_if_rule_checks_both_branches() {
                                 ],
                             ),
                             Scheme::seq(
-                                Scheme::arr_judgment_lit(
-                                    "synth_child",
-                                    vec![],
-                                    Value::from(1u64),
-                                ),
+                                Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
                                 Scheme::seq(
-                                    Scheme::arr_judgment_lit(
-                                        "bind",
-                                        vec![],
-                                        Value::from("tthen"),
-                                    ),
+                                    Scheme::arr_judgment_lit("bind", vec![], Value::from("tthen")),
                                     Scheme::seq(
                                         Scheme::arr_judgment(
                                             "unify",
@@ -2345,7 +2319,7 @@ fn check_if_rule_checks_both_branches() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error (else branch), got {:?}",
         err
     );
@@ -2364,9 +2338,11 @@ fn occurs_check_prevents_circular_meta() {
     // Build a value that contains the meta itself: {"__meta__": 0} nested
     // inside an array. Unifying the meta with this value must fail.
     let circular = json!([meta_value(id)]);
-    let err = engine.unify(&meta_value(id), &circular, &mut ctx).unwrap_err();
+    let err = engine
+        .unify(&meta_value(id), &circular, &mut ctx)
+        .unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check failed for meta 0")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("occurs-check failed for meta 0")),
         "expected occurs-check error, got {:?}",
         err
     );
@@ -2677,7 +2653,7 @@ fn synth_match_arms_errors_on_mismatched_arms() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure, got {:?}",
         err
     );
@@ -2831,7 +2807,7 @@ fn record_field_type_missing_field_errors() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("field 'email' not found")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("field 'email' not found")),
         "expected missing-field error, got {:?}",
         err
     );
@@ -2885,10 +2861,7 @@ fn field_access_rule_returns_field_type() {
     // AST: [record, field-access{field: "name", children: [0]}]
     let mut ast = Ast::new();
     ast.push(AstNode::new("record"));
-    ast.push(
-        AstNode::new("field-access")
-            .with_payload(json!({"field": "name", "children": [0]})),
-    );
+    ast.push(AstNode::new("field-access").with_payload(json!({"field": "name", "children": [0]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_string());
@@ -3118,7 +3091,11 @@ fn binary_arith_synth() -> Scheme {
                         "unify",
                         vec![
                             Scheme::arr_judgment_lit("synth_child", vec![], Value::from(1u64)),
-                            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                            Scheme::arr_judgment_lit(
+                                "construct",
+                                vec![],
+                                Value::from("type.number"),
+                            ),
                         ],
                     ),
                     Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
@@ -3386,7 +3363,7 @@ fn check_binary_add_against_string_fails() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure (add produces number, not string), got {:?}",
         err
     );
@@ -3445,7 +3422,7 @@ fn check_binary_eq_against_number_fails() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure (eq produces bool, not number), got {:?}",
         err
     );
@@ -3760,9 +3737,7 @@ fn mood_int_rule_returns_body_type() {
     ast.push(AstNode::new("value").with_payload(json!("hello")));
     ast.push(AstNode::new("function").with_payload(json!({"children": [0, 1]})));
     ast.push(AstNode::new("value").with_payload(json!(42)));
-    ast.push(
-        AstNode::new("mood.int").with_payload(json!({"children": [3, 2]})),
-    );
+    ast.push(AstNode::new("mood.int").with_payload(json!({"children": [3, 2]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_string());
@@ -3888,9 +3863,7 @@ fn check_let_rule_checks_body() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
     ast.push(AstNode::new("value").with_payload(json!("hello")));
-    ast.push(
-        AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})),
-    );
+    ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
     ast.push(AstNode::new("wrapper").with_payload(json!({"children": [2]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -4007,14 +3980,12 @@ fn check_let_rule_fails_on_body_mismatch() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(42)));
     ast.push(AstNode::new("value").with_payload(json!("hello")));
-    ast.push(
-        AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})),
-    );
+    ast.push(AstNode::new("let").with_payload(json!({"name": "x", "children": [0, 1]})));
     ast.push(AstNode::new("wrapper").with_payload(json!({"children": [2]})));
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error (body), got {:?}",
         err
     );
@@ -4286,7 +4257,7 @@ fn check_function_rule_fails_on_param_mismatch() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error (param), got {:?}",
         err
     );
@@ -4329,11 +4300,7 @@ fn array_check_lang() -> Language {
                 Scheme::seq(
                     Scheme::arr_judgment("synth_first_child_or_unknown", vec![]),
                     Scheme::seq(
-                        Scheme::arr_judgment_lit(
-                            "bind",
-                            vec![],
-                            Value::from("element_type"),
-                        ),
+                        Scheme::arr_judgment_lit("bind", vec![], Value::from("element_type")),
                         Scheme::arr_judgment_lit(
                             "construct",
                             vec![Scheme::arr_judgment_lit(
@@ -4495,7 +4462,7 @@ fn check_all_children_fails_on_mismatch() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error, got {:?}",
         err
     );
@@ -4585,7 +4552,7 @@ fn check_array_rule_fails_on_element_mismatch() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check_json_value mismatch error (second element), got {:?}",
         err
     );
@@ -4684,9 +4651,7 @@ fn mood_cnd_rule_returns_type_number() {
     ast.push(AstNode::new("value").with_payload(json!(1)));
     ast.push(AstNode::new("value").with_payload(json!(2)));
     ast.push(AstNode::new("value").with_payload(json!(3)));
-    ast.push(
-        AstNode::new("mood.cnd").with_payload(json!({"children": [0, 1, 2]})),
-    );
+    ast.push(AstNode::new("mood.cnd").with_payload(json!({"children": [0, 1, 2]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
@@ -4712,9 +4677,7 @@ fn mood_neg_rule_returns_type_number() {
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(1)));
     ast.push(AstNode::new("value").with_payload(json!(2)));
-    ast.push(
-        AstNode::new("mood.neg").with_payload(json!({"children": [0, 1]})),
-    );
+    ast.push(AstNode::new("mood.neg").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(result.typ, type_number());
@@ -4742,13 +4705,11 @@ fn mood_cnd_rule_fails_on_non_number() {
     ast.push(AstNode::new("value").with_payload(json!(1)));
     ast.push(AstNode::new("value").with_payload(json!("hello")));
     ast.push(AstNode::new("value").with_payload(json!(3)));
-    ast.push(
-        AstNode::new("mood.cnd").with_payload(json!({"children": [0, 1, 2]})),
-    );
+    ast.push(AstNode::new("mood.cnd").with_payload(json!({"children": [0, 1, 2]})));
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected type mismatch error (string vs number), got {:?}",
         err
     );
@@ -4785,14 +4746,12 @@ fn object_synth_returns_type_record() {
     // AST: [object{entries: [{key:"name", value:"hello"},
     //                        {key:"age", value:42}]}]
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "hello"},
-                {"key": "age", "value": 42}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "hello"},
+            {"key": "age", "value": 42}
+        ]
+    })));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
     let mut fields = serde_json::Map::new();
@@ -4832,14 +4791,12 @@ fn object_check_against_matching_record() {
         .unwrap();
     // AST: [object{entries: [...]}, wrapper{children:[0]}]
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "hello"},
-                {"key": "age", "value": 42}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "hello"},
+            {"key": "age", "value": 42}
+        ]
+    })));
     ast.push(AstNode::new("wrapper").with_payload(json!({"children": [0]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -4997,10 +4954,7 @@ fn pi_synth_creates_closure_based_pi() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.pi")
     );
-    assert_eq!(
-        result.typ.get("param"),
-        Some(&type_int())
-    );
+    assert_eq!(result.typ.get("param"), Some(&type_int()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -5033,10 +4987,7 @@ fn sigma_synth_creates_closure_based_sigma() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.sigma")
     );
-    assert_eq!(
-        result.typ.get("param"),
-        Some(&type_int())
-    );
+    assert_eq!(result.typ.get("param"), Some(&type_int()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -5075,11 +5026,7 @@ fn pi_apply_returns_body_type() {
                     Scheme::arr_judgment_lit(
                         "pi_apply",
                         vec![
-                            Scheme::arr_judgment_lit(
-                                "result",
-                                vec![],
-                                Value::from("pitype"),
-                            ),
+                            Scheme::arr_judgment_lit("result", vec![], Value::from("pitype")),
                             Scheme::arr_judgment_lit(
                                 "construct",
                                 vec![],
@@ -5128,11 +5075,7 @@ fn pi_apply_non_dependent_body() {
                     Scheme::arr_judgment_lit(
                         "pi_apply",
                         vec![
-                            Scheme::arr_judgment_lit(
-                                "result",
-                                vec![],
-                                Value::from("pitype"),
-                            ),
+                            Scheme::arr_judgment_lit("result", vec![], Value::from("pitype")),
                             Scheme::arr_judgment_lit(
                                 "construct",
                                 vec![],
@@ -5294,7 +5237,7 @@ fn unify_pi_fails_on_mismatched_params() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unify failure (mismatched params), got {:?}",
         err
     );
@@ -5398,11 +5341,7 @@ fn context_mark_restore_works() {
                         Scheme::arr_judgment_lit(
                             "pi_apply",
                             vec![
-                                Scheme::arr_judgment_lit(
-                                    "result",
-                                    vec![],
-                                    Value::from("pitype"),
-                                ),
+                                Scheme::arr_judgment_lit("result", vec![], Value::from("pitype")),
                                 Scheme::arr_judgment_lit(
                                     "construct",
                                     vec![],
@@ -5412,11 +5351,7 @@ fn context_mark_restore_works() {
                             Value::Null,
                         ),
                         Scheme::seq(
-                            Scheme::arr_judgment_lit(
-                                "bind",
-                                vec![],
-                                Value::from("bodyresult"),
-                            ),
+                            Scheme::arr_judgment_lit("bind", vec![], Value::from("bodyresult")),
                             Scheme::arr_judgment_lit("lookup", vec![], Value::from("x")),
                         ),
                     ),
@@ -5433,7 +5368,7 @@ fn context_mark_restore_works() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("unbound variable 'x'")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("unbound variable 'x'")),
         "expected unbound variable 'x' (context was restored), got {:?}",
         err
     );
@@ -5471,11 +5406,7 @@ fn check_pi_body_succeeds() {
                             )],
                             Value::from(1u64),
                         ),
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.string"),
-                        ),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
                     ),
                 ),
             ),
@@ -5526,11 +5457,7 @@ fn check_pi_body_fails_on_mismatched_body() {
                             )],
                             Value::from(1u64),
                         ),
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.string"),
-                        ),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
                     ),
                 ),
             ),
@@ -5553,7 +5480,7 @@ fn check_pi_body_fails_on_mismatched_body() {
     // match expected type" error when the payload doesn't match the expected
     // type tag.
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("does not match expected type")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("does not match expected type")),
         "expected check failure (body type mismatch), got {:?}",
         err
     );
@@ -5609,10 +5536,7 @@ fn fanout_rule_returns_function_type() {
     ast.push(AstNode::new("fanout").with_payload(json!({"children": [0, 1]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
-    assert_eq!(
-        result.typ,
-        type_function(type_unknown(), type_unknown())
-    );
+    assert_eq!(result.typ, type_function(type_unknown(), type_unknown()));
 }
 
 // ===========================================================================
@@ -6243,10 +6167,7 @@ fn choice_rule_infers_arrow_kind_signature() {
     let result = engine.typecheck(&lang, &req).unwrap();
     assert_eq!(
         result.typ,
-        type_function(
-            type_sum(vec![type_int(), type_bool()]),
-            type_string()
-        )
+        type_function(type_sum(vec![type_int(), type_bool()]), type_string())
     );
 }
 
@@ -6311,10 +6232,7 @@ fn forall_synth_creates_closure_based_forall() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.forall")
     );
-    assert_eq!(
-        result.typ.get("kind"),
-        Some(&type_int())
-    );
+    assert_eq!(result.typ.get("kind"), Some(&type_int()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -6354,11 +6272,7 @@ fn forall_apply_returns_body_type() {
                     Scheme::arr_judgment_lit(
                         "forall_apply",
                         vec![
-                            Scheme::arr_judgment_lit(
-                                "result",
-                                vec![],
-                                Value::from("foralltype"),
-                            ),
+                            Scheme::arr_judgment_lit("result", vec![], Value::from("foralltype")),
                             Scheme::arr_judgment_lit(
                                 "construct",
                                 vec![],
@@ -6413,10 +6327,7 @@ fn vau_synth_creates_closure_based_vau() {
         result.typ.get("__tag__").and_then(|v| v.as_str()),
         Some("type.vau")
     );
-    assert_eq!(
-        result.typ.get("param"),
-        Some(&type_int())
-    );
+    assert_eq!(result.typ.get("param"), Some(&type_int()));
     let body_closure = result.typ.get("body_closure").expect("has body_closure");
     assert_eq!(
         body_closure.get("var_name").and_then(|v| v.as_str()),
@@ -6456,11 +6367,7 @@ fn vau_apply_returns_body_type() {
                     Scheme::arr_judgment_lit(
                         "vau_apply",
                         vec![
-                            Scheme::arr_judgment_lit(
-                                "result",
-                                vec![],
-                                Value::from("vautype"),
-                            ),
+                            Scheme::arr_judgment_lit("result", vec![], Value::from("vautype")),
                             Scheme::arr_judgment_lit(
                                 "construct",
                                 vec![],
@@ -6623,7 +6530,7 @@ fn unify_different_level_universes_fails() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify Type_0 with Type_1")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify Type_0 with Type_1")),
         "expected universe level mismatch, got {:?}",
         err
     );
@@ -6674,10 +6581,7 @@ fn universe_level_extracts_from_universe() {
             "test",
             Scheme::seq(
                 Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
-                Scheme::arr_judgment(
-                    "universe_level",
-                    vec![Scheme::arr_native("id", vec![])],
-                ),
+                Scheme::arr_judgment("universe_level", vec![Scheme::arr_native("id", vec![])]),
             ),
         ))
         .unwrap();
@@ -6703,10 +6607,7 @@ fn universe_level_returns_zero_for_base_type() {
             "test",
             Scheme::seq(
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
-                Scheme::arr_judgment(
-                    "universe_level",
-                    vec![Scheme::arr_native("id", vec![])],
-                ),
+                Scheme::arr_judgment("universe_level", vec![Scheme::arr_native("id", vec![])]),
             ),
         ))
         .unwrap();
@@ -7328,7 +7229,7 @@ fn check_refl_fails_when_sides_differ() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("check_refl: cannot prove")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("check_refl: cannot prove")),
         "expected check_refl failure, got {:?}",
         err
     );
@@ -7455,7 +7356,7 @@ fn unify_eq_types_fails_on_mismatch() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify")),
         "expected unification failure, got {:?}",
         err
     );
@@ -7483,16 +7384,8 @@ fn subtype_same_type_succeeds() {
                 Scheme::arr_judgment(
                     "subtype",
                     vec![
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.number"),
-                        ),
-                        Scheme::arr_judgment_lit(
-                            "construct",
-                            vec![],
-                            Value::from("type.number"),
-                        ),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                        Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
                     ],
                 ),
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -7524,16 +7417,8 @@ fn subtype_universe_lower_to_higher_succeeds() {
                 Scheme::arr_judgment(
                     "subtype",
                     vec![
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(0u64),
-                        ),
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(1u64),
-                        ),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(1u64)),
                     ],
                 ),
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -7565,16 +7450,8 @@ fn subtype_universe_same_level_succeeds() {
                 Scheme::arr_judgment(
                     "subtype",
                     vec![
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(2u64),
-                        ),
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(2u64),
-                        ),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
                     ],
                 ),
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -7615,7 +7492,7 @@ fn subtype_universe_higher_to_lower_fails() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("Type_1 is not a subtype of Type_0")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("Type_1 is not a subtype of Type_0")),
         "expected cumulativity failure, got {:?}",
         err
     );
@@ -7639,16 +7516,8 @@ fn subtype_universe_zero_to_two_succeeds() {
                 Scheme::arr_judgment(
                     "subtype",
                     vec![
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(0u64),
-                        ),
-                        Scheme::arr_judgment_lit(
-                            "construct_universe",
-                            vec![],
-                            Value::from(2u64),
-                        ),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(0u64)),
+                        Scheme::arr_judgment_lit("construct_universe", vec![], Value::from(2u64)),
                     ],
                 ),
                 Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
@@ -7678,16 +7547,8 @@ fn subtype_different_base_types_fails() {
             Scheme::arr_judgment(
                 "subtype",
                 vec![
-                    Scheme::arr_judgment_lit(
-                        "construct",
-                        vec![],
-                        Value::from("type.number"),
-                    ),
-                    Scheme::arr_judgment_lit(
-                        "construct",
-                        vec![],
-                        Value::from("type.string"),
-                    ),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.number")),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ],
             ),
         ))
@@ -7697,7 +7558,7 @@ fn subtype_different_base_types_fails() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("is not a subtype of")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("is not a subtype of")),
         "expected subtyping failure, got {:?}",
         err
     );
@@ -7733,11 +7594,7 @@ fn subtype_meta_solves() {
                             ),
                         ],
                     ),
-                    Scheme::arr_judgment_lit(
-                        "construct",
-                        vec![],
-                        Value::from("type.string"),
-                    ),
+                    Scheme::arr_judgment_lit("construct", vec![], Value::from("type.string")),
                 ),
             ),
         ))
@@ -7885,7 +7742,10 @@ fn row_poly_open_records_different_fields() {
     let solved1_fields = solved1.get("fields").and_then(|f| f.as_object()).unwrap();
     assert!(solved1_fields.contains_key("city"));
     assert_eq!(solved1_fields.get("city"), Some(&type_string()));
-    assert!(solved1.get("rest").is_some(), "r1's solution should have a rest (fresh row var)");
+    assert!(
+        solved1.get("rest").is_some(),
+        "r1's solution should have a rest (fresh row var)"
+    );
     // r2 should be solved to {age: Int | r3} (same fresh meta).
     let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
     let solved2_tag = solved2.get("__tag__").and_then(|t| t.as_str());
@@ -7893,11 +7753,17 @@ fn row_poly_open_records_different_fields() {
     let solved2_fields = solved2.get("fields").and_then(|f| f.as_object()).unwrap();
     assert!(solved2_fields.contains_key("age"));
     assert_eq!(solved2_fields.get("age"), Some(&type_number()));
-    assert!(solved2.get("rest").is_some(), "r2's solution should have a rest (fresh row var)");
+    assert!(
+        solved2.get("rest").is_some(),
+        "r2's solution should have a rest (fresh row var)"
+    );
     // The rest (fresh row var r3) should be the same in both solutions.
     let rest1 = solved1.get("rest").unwrap();
     let rest2 = solved2.get("rest").unwrap();
-    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+    assert_eq!(
+        rest1, rest2,
+        "both solutions should share the same fresh row var"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -7933,7 +7799,7 @@ fn row_poly_closed_records_different_fields_fail() {
     let rec_b = type_record(fields_b);
     let err = engine.unify(&rec_a, &rec_b, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed records")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify closed records")),
         "expected closed-record mismatch, got {:?}",
         err
     );
@@ -7961,7 +7827,7 @@ fn row_poly_open_requires_field_absent_from_closed_fails() {
     let closed_rec = type_record(closed_fields);
     let err = engine.unify(&open_rec, &closed_rec, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("open requires fields")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("open requires fields")),
         "expected open-requires-field error, got {:?}",
         err
     );
@@ -8046,14 +7912,12 @@ fn row_poly_check_object_record_open_expected() {
     //                        {key:"age", value:30}]},
     //       wrapper{children:[0]}]
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "Luis"},
-                {"key": "age", "value": 30}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "Luis"},
+            {"key": "age", "value": 30}
+        ]
+    })));
     ast.push(AstNode::new("wrapper").with_payload(json!({"children": [0]})));
     let req = TypecheckRequest::new(ast);
     let result = engine.typecheck(&lang, &req).unwrap();
@@ -8088,19 +7952,17 @@ fn row_poly_check_object_record_closed_rejects_extra() {
         ))
         .unwrap();
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "Luis"},
-                {"key": "age", "value": 30}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "Luis"},
+            {"key": "age", "value": 30}
+        ]
+    })));
     ast.push(AstNode::new("wrapper").with_payload(json!({"children": [0]})));
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("not found in expected record")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("not found in expected record")),
         "expected field-not-found error, got {:?}",
         err
     );
@@ -8180,12 +8042,15 @@ fn row_poly_occurs_check_rejects_cyclic_row() {
     // Unify r with the cyclic record — should fail the occurs check.
     let err = engine.unify(&r, &cyclic_rec, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("occurs-check")),
         "expected occurs-check failure, got {:?}",
         err
     );
     // The row variable should remain unsolved.
-    assert!(ctx.lookup_meta(r_id).is_none(), "row var should remain unsolved");
+    assert!(
+        ctx.lookup_meta(r_id).is_none(),
+        "row var should remain unsolved"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -8209,11 +8074,14 @@ fn row_poly_occurs_check_nested_row() {
     // Unify r with the nested cyclic record — should fail the occurs check.
     let err = engine.unify(&r, &cyclic_rec, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("occurs-check")),
         "expected occurs-check failure for nested row, got {:?}",
         err
     );
-    assert!(ctx.lookup_meta(r_id).is_none(), "row var should remain unsolved");
+    assert!(
+        ctx.lookup_meta(r_id).is_none(),
+        "row var should remain unsolved"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -8295,14 +8163,12 @@ fn row_poly_function_call_subsumption() {
     // checks the object arg against {name: Str | r} → check_object_record succeeds
     // (extra "age" field absorbed by r), returns body type Str.
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "Luis"},
-                {"key": "age", "value": 30}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "Luis"},
+            {"key": "age", "value": 30}
+        ]
+    })));
     ast.push(AstNode::new("fn_val"));
     ast.push(AstNode::new("call").with_payload(json!({"children": [1, 0]})));
     let req = TypecheckRequest::new(ast);
@@ -8376,20 +8242,18 @@ fn row_poly_function_call_closed_rejects_extra() {
         .unwrap();
     // AST: [object{name:"Luis", age:30}, fn_val, call{children:[1,0]}]
     let mut ast = Ast::new();
-    ast.push(
-        AstNode::new("object").with_payload(json!({
-            "entries": [
-                {"key": "name", "value": "Luis"},
-                {"key": "age", "value": 30}
-            ]
-        })),
-    );
+    ast.push(AstNode::new("object").with_payload(json!({
+        "entries": [
+            {"key": "name", "value": "Luis"},
+            {"key": "age", "value": 30}
+        ]
+    })));
     ast.push(AstNode::new("fn_val"));
     ast.push(AstNode::new("call").with_payload(json!({"children": [1, 0]})));
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("not found in expected record")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("not found in expected record")),
         "expected field-not-found error for closed record, got {:?}",
         err
     );
@@ -8430,16 +8294,25 @@ fn row_poly_open_unifies_open_with_extra_known_field() {
     // r1's solution should carry a fresh row variable as its rest.
     let rest1 = solved1.get("rest").expect("r1 solution should have a rest");
     let rest1_meta = rest1.get("__meta__").and_then(|m| m.as_u64());
-    assert!(rest1_meta.is_some(), "r1's rest should be a fresh row var (meta)");
+    assert!(
+        rest1_meta.is_some(),
+        "r1's rest should be a fresh row var (meta)"
+    );
     // r2 should also be solved (to {} | r3, sharing the same fresh row var).
     let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
     let solved2_tag = solved2.get("__tag__").and_then(|t| t.as_str());
     assert_eq!(solved2_tag, Some("type.record"));
     let solved2_fields = solved2.get("fields").and_then(|f| f.as_object()).unwrap();
-    assert!(solved2_fields.is_empty(), "r2's fields should be empty (a had no extra fields)");
+    assert!(
+        solved2_fields.is_empty(),
+        "r2's fields should be empty (a had no extra fields)"
+    );
     let rest2 = solved2.get("rest").expect("r2 solution should have a rest");
     // Both solutions should share the same fresh row variable.
-    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+    assert_eq!(
+        rest1, rest2,
+        "both solutions should share the same fresh row var"
+    );
 }
 
 // ===========================================================================
@@ -8605,11 +8478,7 @@ fn rec_test_lang() -> Language {
                                     ),
                                 ],
                             ),
-                            Scheme::arr_judgment_lit(
-                                "construct",
-                                vec![],
-                                Value::from("type.bool"),
-                            ),
+                            Scheme::arr_judgment_lit("construct", vec![], Value::from("type.bool")),
                         ),
                     ),
                 ),
@@ -8714,25 +8583,25 @@ fn rec_countdown_is_int() {
     // Build the if expression: if n > 0 then n - 1 else n
     let mut ast = Ast::new();
     ast.push(AstNode::new("value").with_payload(json!(5))); // 0: n initial
-    // n > 0
+                                                            // n > 0
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 1: n in n>0
     ast.push(AstNode::new("value").with_payload(json!(0))); // 2: 0 in n>0
     ast.push(AstNode::new("binary.gt").with_payload(json!({"children": [1, 2]}))); // 3: n>0
-    // n - 1
+                                                                                   // n - 1
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 4: n in n-1
     ast.push(AstNode::new("value").with_payload(json!(1))); // 5: 1 in n-1
     ast.push(AstNode::new("binary.sub").with_payload(json!({"children": [4, 5]}))); // 6: n-1
-    // else: n
+                                                                                    // else: n
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 7: n (else)
     ast.push(AstNode::new("if").with_payload(json!({"children": [3, 6, 7]}))); // 8: if ...
-    // n = if ...
+                                                                               // n = if ...
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 9: LHS n
     ast.push(AstNode::new("assign").with_payload(json!({"children": [9, 8]}))); // 10: n = if ...
-    // result: n
+                                                                                // result: n
     ast.push(AstNode::new("var").with_payload(json!("n"))); // 11: result
-    // rec { n = if ...; n }
+                                                            // rec { n = if ...; n }
     ast.push(AstNode::new("rec").with_payload(json!({"children": [10, 11]}))); // 12: rec
-    // let n = 5 in rec { ... }
+                                                                               // let n = 5 in rec { ... }
     ast.push(
         AstNode::new("let").with_payload(json!({"name": "n", "children": [0, 12]})), // 13: root
     );
@@ -8756,11 +8625,11 @@ fn rec_mutual_dependency_is_int() {
     ast.push(AstNode::new("binary.add").with_payload(json!({"children": [0, 1]}))); // 2: b+1
     ast.push(AstNode::new("var").with_payload(json!("a"))); // 3: LHS a
     ast.push(AstNode::new("assign").with_payload(json!({"children": [3, 2]}))); // 4: a = b+1
-    // b = 0
+                                                                                // b = 0
     ast.push(AstNode::new("value").with_payload(json!(0))); // 5: 0
     ast.push(AstNode::new("var").with_payload(json!("b"))); // 6: LHS b
     ast.push(AstNode::new("assign").with_payload(json!({"children": [6, 5]}))); // 7: b = 0
-    // result: a
+                                                                                // result: a
     ast.push(AstNode::new("var").with_payload(json!("a"))); // 8: result
     ast.push(AstNode::new("rec").with_payload(json!({"children": [4, 7, 8]}))); // 9: root
     let req = TypecheckRequest::new(ast);
@@ -8789,7 +8658,7 @@ fn rec_fuel_limit_errors() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot determine fixpoint type for rec region")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot determine fixpoint type for rec region")),
         "expected fixpoint fuel-limit error, got {:?}",
         err
     );
@@ -8869,7 +8738,7 @@ fn rec_occurs_check_rejects_cyclic_type() {
     let req = TypecheckRequest::new(ast);
     let err = engine.typecheck(&lang, &req).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("occurs-check failed")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("occurs-check failed")),
         "expected occurs-check failure for cyclic type, got {:?}",
         err
     );
@@ -8976,7 +8845,10 @@ fn effect_row_handle_attaches_effects_to_function_type() {
     );
     assert_eq!(result.typ.get("param"), Some(&type_number()));
     assert_eq!(result.typ.get("body"), Some(&type_string()));
-    let effects = result.typ.get("effects").expect("effects field should be present");
+    let effects = result
+        .typ
+        .get("effects")
+        .expect("effects field should be present");
     assert_eq!(
         effects.get("__tag__").and_then(|t| t.as_str()),
         Some("type.effects")
@@ -9012,7 +8884,7 @@ fn unify_effects_closed_different_ops_fails() {
     let b = type_effects_closed(&["map", "serialize"]);
     let err = engine.unify(&a, &b, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed effect rows")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify closed effect rows")),
         "expected closed-effect-row mismatch, got {:?}",
         err
     );
@@ -9061,7 +8933,7 @@ fn unify_effects_open_requires_op_absent_from_closed_fails() {
     let closed = type_effects_closed(&["map"]);
     let err = engine.unify(&open, &closed, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("open requires ops")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("open requires ops")),
         "expected open-requires-ops error, got {:?}",
         err
     );
@@ -9093,7 +8965,10 @@ fn unify_effects_two_open_different_ops() {
     let solved1_ops = solved1.get("ops").and_then(|o| o.as_array()).unwrap();
     assert_eq!(solved1_ops.len(), 1);
     assert_eq!(solved1_ops[0], Value::from("serialize"));
-    assert!(solved1.get("rest").is_some(), "r1's solution should have a rest");
+    assert!(
+        solved1.get("rest").is_some(),
+        "r1's solution should have a rest"
+    );
     // r2 should be solved to type.effects{ops:["map"], rest:<fresh>}.
     let solved2 = ctx.lookup_meta(r2_id).expect("r2 should be solved");
     assert_eq!(
@@ -9103,11 +8978,17 @@ fn unify_effects_two_open_different_ops() {
     let solved2_ops = solved2.get("ops").and_then(|o| o.as_array()).unwrap();
     assert_eq!(solved2_ops.len(), 1);
     assert_eq!(solved2_ops[0], Value::from("map"));
-    assert!(solved2.get("rest").is_some(), "r2's solution should have a rest");
+    assert!(
+        solved2.get("rest").is_some(),
+        "r2's solution should have a rest"
+    );
     // Both solutions should share the same fresh row variable.
     let rest1 = solved1.get("rest").unwrap();
     let rest2 = solved2.get("rest").unwrap();
-    assert_eq!(rest1, rest2, "both solutions should share the same fresh row var");
+    assert_eq!(
+        rest1, rest2,
+        "both solutions should share the same fresh row var"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -9159,7 +9040,7 @@ fn function_with_mismatched_effects_fails() {
     let fun_b = type_function_with_effects(type_number(), type_string(), effects_b);
     let err = engine.unify(&fun_a, &fun_b, &mut ctx).unwrap_err();
     assert!(
-        matches!(err, LangError::Engine(ref msg) if msg.contains("cannot unify closed effect rows")),
+        matches!(err, LangError::Engine { ref message, .. } if message.contains("cannot unify closed effect rows")),
         "expected closed-effect-row mismatch, got {:?}",
         err
     );
@@ -9247,7 +9128,10 @@ fn effect_row_nested_handles_union_ops() {
         result.typ.get("__tag__").and_then(|t| t.as_str()),
         Some("type.function")
     );
-    let effects = result.typ.get("effects").expect("effects field should be present");
+    let effects = result
+        .typ
+        .get("effects")
+        .expect("effects field should be present");
     assert_eq!(
         effects.get("__tag__").and_then(|t| t.as_str()),
         Some("type.effects")
@@ -9257,9 +9141,21 @@ fn effect_row_nested_handles_union_ops() {
         .iter()
         .filter_map(|v| v.as_str().map(String::from))
         .collect();
-    assert!(op_names.contains(&"map".to_string()), "ops should contain 'map': {:?}", op_names);
-    assert!(op_names.contains(&"serialize".to_string()), "ops should contain 'serialize': {:?}", op_names);
-    assert!(op_names.contains(&"log".to_string()), "ops should contain 'log': {:?}", op_names);
+    assert!(
+        op_names.contains(&"map".to_string()),
+        "ops should contain 'map': {:?}",
+        op_names
+    );
+    assert!(
+        op_names.contains(&"serialize".to_string()),
+        "ops should contain 'serialize': {:?}",
+        op_names
+    );
+    assert!(
+        op_names.contains(&"log".to_string()),
+        "ops should contain 'log': {:?}",
+        op_names
+    );
     assert_eq!(op_names.len(), 3);
     assert_eq!(effects.get("rest"), Some(&Value::Null));
 }
