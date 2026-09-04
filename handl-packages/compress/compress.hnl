@@ -5,3 +5,9 @@
 --- concrete compression crates (gzip). There are no callable handl ops
 --- here; the .hnl file exists to declare the library's capability surface
 --- for the plugin system.
+---
+--- ## Capability declarations (ADR-0077 Phase 1)
+--- compress.compress — compress bytes via a Codec.
+--- compress.decompress — decompress bytes via a Codec.
+cap "compress.compress"
+cap "compress.decompress"

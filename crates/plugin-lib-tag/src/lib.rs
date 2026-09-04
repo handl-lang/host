@@ -20,12 +20,11 @@
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
 //! `Module`/`Plugin` trait scaffolding.
 //!
-//! This crate exposes the `tag` module with seven callables:
+//! This crate exposes the `tag` module with six callables:
 //!
 //! | Callable | Role |
 //! |---|---|
 //! | `tag.tag(name, payload)` | **mint** a tagged value (host capability) |
-//! | `tag.match_tag(v, cases)` | **dispatch** on the tag of `v`; cases bind the payload |
 //! | `tag.untag(v)` | return the payload of a tagged value (inspection) |
 //! | `tag.tag_of(v)` | return the tag name of a tagged value (inspection) |
 //! | `tag.is_tag(v)` | test whether `v` is a tagged value (inspection) |
@@ -38,7 +37,10 @@
 //!
 //! `tag.tag` is the minting capability (host-secured); the inspection ops are
 //! available to any code that holds a tagged value — matching the capability
-//! discipline of ADR-0055 §1 (`tag` is restricted; `match_tag` is not).
+//! discipline of ADR-0055 §1 (`tag` is restricted; inspection is not).
+//! Tag dispatch on `__tag__` identity is handled by the native `match`
+//! construct via tag patterns (`ok(v) => ...`), not a dedicated op
+//! (ADR-0077).
 //!
 //! The [`TypeRegistry`] (in [`registry`]) is the type system machinery, not a
 //! callable — it is kept in Rust as pure data.
@@ -70,19 +72,12 @@ const TAG_HNL: &str = include_str!("../../../handl-packages/tag/tag.hnl");
 /// The op names declared in `tag.hnl`.
 const TAG_OPS: &[&str] = &[
     "tag.tag",
-    "tag.match_tag",
     "tag.untag",
     "tag.tag_of",
     "tag.is_tag",
     "tag.construct",
     "tag.match_type",
 ];
-
-/// The reserved default-case key in `tag.match_tag`'s `cases` object.
-///
-/// A case keyed `"_"` is the fallback dispatched when `v`'s tag has no
-/// explicit case.
-pub const DEFAULT_CASE_KEY: &str = "_";
 
 // ---------------------------------------------------------------------------
 // Function impls (the handls — Rust bodies for the `op` declarations)
@@ -91,11 +86,11 @@ pub const DEFAULT_CASE_KEY: &str = "_";
 /// `tag.tag(name, payload)` — mint a tagged value (ADR-0055 §1, §2).
 ///
 /// Mints `{"__tag__": name, ...payload}`. The `payload` object's fields
-/// become the tagged value's payload; a non-object payload (or `null`) is
-/// treated as empty. Returns an error if `name` is not a string, if
-/// `payload` is not an object/null, or if `payload` already contains a
-/// reserved `__tag__` key (a minted value cannot be re-tagged through its
-/// payload — forgery prevention, ADR-0055 §3).
+/// become the tagged value's payload. A `null` payload is treated as empty.
+/// Non-object payloads are wrapped in `{value: payload}` (ADR-0077).
+/// Returns an error if `name` is not a string or if `payload` already
+/// contains a reserved `__tag__` key (a minted value cannot be re-tagged
+/// through its payload — forgery prevention, ADR-0055 §3).
 ///
 /// This is the eval-time `Function` impl registered under the op name
 /// `"tag.tag"` in the [`OpRegistry`].
@@ -115,81 +110,10 @@ impl Function for Tag {
             .ok_or_else(|| EvalError::Other("tag.tag: name must be a string".to_string()))?;
         tag_value(name, &args[1]).ok_or_else(|| {
             EvalError::Other(
-                "tag.tag: payload must be an object (or null) without a reserved __tag__ key"
+                "tag.tag: payload contains a reserved __tag__ key (forgery prevention)"
                     .to_string(),
             )
         })
-    }
-}
-
-/// `tag.match_tag(v, cases)` — dispatch on the tag of `v` (ADR-0055 §1).
-///
-/// `cases` is an object mapping tag names to case arrows (arrow-values). The
-/// tag of `v` is read; the matching case arrow is invoked with the tagged
-/// value's payload. If no case matches, the `"_"` default case (if present)
-/// is invoked. If neither exists, returns `null`.
-///
-/// **Binding the payload fields.** If the matched case arrow has multiple
-/// parameters and the payload is an object, each parameter is bound to the
-/// corresponding payload field by name (mirroring the `loop_step`
-/// destructuring in the eval engine): `match_tag({"__tag__":"unit","m":5,"s":1},
-/// {"unit": (m, s) ~> ...})` binds `m=5, s=1`. Otherwise the payload is passed
-/// as a single argument.
-///
-/// This is the inspection op: any code holding a tagged value can read its
-/// tag and fields (ADR-0055 §1). It is not a restricted capability.
-///
-/// This is the eval-time `Function` impl registered under the op name
-/// `"tag.match_tag"` in the [`OpRegistry`].
-#[derive(Clone, Copy)]
-pub struct MatchTag;
-
-impl Function for MatchTag {
-    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
-        if args.len() != 2 {
-            return Err(EvalError::Other(format!(
-                "tag.match_tag: expected 2 arguments (value, cases), got {}",
-                args.len()
-            )));
-        }
-        let v = &args[0];
-        let cases = args[1]
-            .as_object()
-            .ok_or_else(|| EvalError::Other("tag.match_tag: cases must be an object".to_string()))?;
-
-        // Resolve the case arrow: the tag's case, else the "_" default.
-        let case = match as_tag(v) {
-            Some(tag) => match cases.get(tag) {
-                Some(c) => Some(c),
-                None => cases.get(DEFAULT_CASE_KEY),
-            },
-            None => cases.get(DEFAULT_CASE_KEY),
-        };
-        let Some(case) = case else {
-            // No matching case and no default — return null.
-            return Ok(Value::Null);
-        };
-
-        // Build the call arguments from the payload (v without __tag__).
-        let payload = payload_of(v);
-        let call_args = destructure_args(case, &payload);
-
-        // Invoke the case arrow via the engine's value-callable bridge.
-        match ctx.try_call_value(case, &call_args) {
-            Some(result) => result,
-            None => {
-                // No value-callable wired (e.g. the case isn't an arrow-value).
-                // If the case is a non-arrow value, return it as the result.
-                if is_arrow_value(case) {
-                    Err(EvalError::Other(
-                        "tag.match_tag: case is an arrow-value but no value callable is wired"
-                            .to_string(),
-                    ))
-                } else {
-                    Ok(case.clone())
-                }
-            }
-        }
     }
 }
 
@@ -204,41 +128,6 @@ fn payload_of(v: &Value) -> Value {
         }
     }
     v.clone()
-}
-
-/// Whether `v` is an arrow-value (`{"__arrow__": true, ...}`).
-fn is_arrow_value(v: &Value) -> bool {
-    v.get("__arrow__")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-}
-
-/// Build the argument list for invoking `case` with `payload`.
-///
-/// If `case` is an arrow-value with multiple named params and `payload` is an
-/// object, bind each param to the corresponding payload field by name
-/// (missing fields default to `null`). Otherwise pass `payload` as a single
-/// argument. Mirrors the `loop_step` destructuring in the tree-walk engine.
-fn destructure_args(case: &Value, payload: &Value) -> Vec<Value> {
-    let Some(params) = case
-        .get("params")
-        .and_then(|p| p.as_array())
-    else {
-        return vec![payload.clone()];
-    };
-    if params.len() <= 1 {
-        return vec![payload.clone()];
-    }
-    let Some(obj) = payload.as_object() else {
-        return vec![payload.clone()];
-    };
-    params
-        .iter()
-        .map(|p| {
-            let name = p.as_str().unwrap_or("_");
-            obj.get(name).cloned().unwrap_or(Value::Null)
-        })
-        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -391,7 +280,6 @@ impl Function for MatchType {
 ///
 /// This registry maps:
 /// - `"tag.tag"` → [`Tag`] (no runtime checker; axioms trusted)
-/// - `"tag.match_tag"` → [`MatchTag`] (no runtime checker; axioms trusted)
 /// - `"tag.untag"` → [`Untag`] (no runtime checker; axioms trusted)
 /// - `"tag.tag_of"` → [`TagOf`] (no runtime checker; axioms trusted)
 /// - `"tag.is_tag"` → [`IsTag`] (no runtime checker; axioms trusted)
@@ -400,7 +288,6 @@ impl Function for MatchType {
 pub fn tag_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
     registry.register("tag.tag", Arc::new(Tag));
-    registry.register("tag.match_tag", Arc::new(MatchTag));
     registry.register("tag.untag", Arc::new(Untag));
     registry.register("tag.tag_of", Arc::new(TagOf));
     registry.register("tag.is_tag", Arc::new(IsTag));
@@ -414,7 +301,6 @@ pub fn tag_op_registry() -> OpRegistry {
 // ---------------------------------------------------------------------------
 
 static TAG: Tag = Tag;
-static MATCH_TAG: MatchTag = MatchTag;
 static UNTAG: Untag = Untag;
 static TAG_OF: TagOf = TagOf;
 static IS_TAG: IsTag = IsTag;
@@ -426,9 +312,8 @@ static MATCH_TYPE: MatchType = MatchType;
 ///
 /// This is preserved for backward compatibility with downstream crates
 /// (e.g. [`kit-canonical`]) that register `TagModule` directly. The
-/// module exposes `tag`, `match_tag`, `untag`, `tag_of`, `is_tag`,
-/// `construct`, and `match_type` functions that dispatch to the
-/// [`OpRegistry`].
+/// module exposes `tag`, `untag`, `tag_of`, `is_tag`, `construct`, and
+/// `match_type` functions that dispatch to the [`OpRegistry`].
 #[derive(Clone, Copy)]
 pub struct TagModule;
 
@@ -440,7 +325,6 @@ impl Module for TagModule {
     fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
             "tag" => Some(&TAG),
-            "match_tag" => Some(&MATCH_TAG),
             "untag" => Some(&UNTAG),
             "tag_of" => Some(&TAG_OF),
             "is_tag" => Some(&IS_TAG),
@@ -453,7 +337,6 @@ impl Module for TagModule {
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
         vec![
             ("tag", &TAG as &dyn Function),
-            ("match_tag", &MATCH_TAG as &dyn Function),
             ("untag", &UNTAG as &dyn Function),
             ("tag_of", &TAG_OF as &dyn Function),
             ("is_tag", &IS_TAG as &dyn Function),
@@ -481,8 +364,8 @@ pub use handl_language::is_reserved_value_key;
 /// registry. The generic loader handles module registration.
 ///
 /// Registering this plugin offers the `tag.tag` minting capability (and the
-/// `tag.match_tag` / `tag.untag` / `tag.tag_of` / `tag.is_tag` inspection
-/// ops, plus `tag.construct` / `tag.match_type`) to handl programs. A host
+/// `tag.untag` / `tag.tag_of` / `tag.is_tag` inspection ops, plus
+/// `tag.construct` / `tag.match_type`) to handl programs. A host
 /// that does not register this plugin does not offer tagging — user code
 /// cannot mint tagged values without it, which is the capability boundary
 /// ADR-0055 §1 establishes.

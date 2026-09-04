@@ -5,8 +5,8 @@ use handl_platform::{EvalContext, Function, Module};
 use serde_json::{Value, json};
 
 use crate::{
-    Construct, IsTag, MatchTag, MatchType, Tag, TagModule, TagOf, TypeRegistry, Untag,
-    CANONICAL_REGISTRY_ID, DEFAULT_CASE_KEY,
+    Construct, IsTag, MatchType, Tag, TagModule, TagOf, TypeRegistry, Untag,
+    CANONICAL_REGISTRY_ID,
 };
 
 /// Call a `Function` with a fresh `EvalContext`.
@@ -42,9 +42,12 @@ fn tag_rejects_non_string_name() {
 }
 
 #[test]
-fn tag_rejects_non_object_payload() {
-    let err = call_fn(&Tag, &[json!("unit"), json!(5)]).unwrap_err();
-    assert!(err.to_string().contains("payload must be an object"));
+fn tag_wraps_non_object_payload_in_value() {
+    // ADR-0077: non-object payloads are wrapped in {value: ...} so
+    // that tag.tag("ok", 42) produces {"__tag__": "ok", "value": 42}.
+    let v = call_fn(&Tag, &[json!("ok"), json!(42)]).unwrap();
+    assert_eq!(as_tag(&v), Some("ok"));
+    assert_eq!(v["value"], json!(42));
 }
 
 #[test]
@@ -101,62 +104,6 @@ fn is_tag_recognizes_tagged_value() {
 }
 
 // ---------------------------------------------------------------------------
-// tag.match_tag — dispatch
-// ---------------------------------------------------------------------------
-
-#[test]
-fn match_tag_dispatches_to_matching_case_value() {
-    // Cases are non-arrow values: the matched case value is returned directly.
-    let v = tag_value("unit", &json!({ "m": 5 })).unwrap();
-    let cases = json!({ "unit": "meters", "currency": "usd" });
-    let result = call_fn(&MatchTag, &[v, cases]).unwrap();
-    assert_eq!(result, json!("meters"));
-}
-
-#[test]
-fn match_tag_uses_default_case_when_no_match() {
-    let v = tag_value("currency", &json!({ "code": "usd" })).unwrap();
-    let cases = json!({ "unit": "meters", "_": "other" });
-    let result = call_fn(&MatchTag, &[v, cases]).unwrap();
-    assert_eq!(result, json!("other"));
-}
-
-#[test]
-fn match_tag_default_case_handles_non_tag_value() {
-    // A non-tag value has no tag; the "_" default handles it.
-    let cases = json!({ "unit": "meters", "_": "fallback" });
-    let result = call_fn(&MatchTag, &[json!("plain string"), cases]).unwrap();
-    assert_eq!(result, json!("fallback"));
-}
-
-#[test]
-fn match_tag_returns_null_when_no_match_and_no_default() {
-    let v = tag_value("currency", &json!({})).unwrap();
-    let cases = json!({ "unit": "meters" });
-    let result = call_fn(&MatchTag, &[v, cases]).unwrap();
-    assert_eq!(result, Value::Null);
-}
-
-#[test]
-fn match_tag_non_tag_value_without_default_returns_null() {
-    let cases = json!({ "unit": "meters" });
-    let result = call_fn(&MatchTag, &[json!(42), cases]).unwrap();
-    assert_eq!(result, Value::Null);
-}
-
-#[test]
-fn match_tag_rejects_non_object_cases() {
-    let err = call_fn(&MatchTag, &[json!(42), json!("not cases")]).unwrap_err();
-    assert!(err.to_string().contains("cases must be an object"));
-}
-
-#[test]
-fn match_tag_rejects_wrong_arity() {
-    assert!(call_fn(&MatchTag, &[json!(42)]).is_err());
-    assert!(call_fn(&MatchTag, &[json!(42), json!({}), json!(1)]).is_err());
-}
-
-// ---------------------------------------------------------------------------
 // Module surface
 // ---------------------------------------------------------------------------
 
@@ -165,24 +112,19 @@ fn module_exposes_all_callables() {
     let m = TagModule;
     assert_eq!(m.name(), "tag");
     assert!(m.function("tag").is_some());
-    assert!(m.function("match_tag").is_some());
     assert!(m.function("untag").is_some());
     assert!(m.function("tag_of").is_some());
     assert!(m.function("is_tag").is_some());
     assert!(m.function("construct").is_some());
     assert!(m.function("match_type").is_some());
+    assert!(m.function("match_tag").is_none());
     assert!(m.function("nope").is_none());
     let fns = m.functions();
     let names: Vec<&str> = fns.iter().map(|(n, _)| *n).collect();
     assert_eq!(
         names,
-        vec!["tag", "match_tag", "untag", "tag_of", "is_tag", "construct", "match_type"]
+        vec!["tag", "untag", "tag_of", "is_tag", "construct", "match_type"]
     );
-}
-
-#[test]
-fn default_case_key_is_underscore() {
-    assert_eq!(DEFAULT_CASE_KEY, "_");
 }
 
 // ---------------------------------------------------------------------------

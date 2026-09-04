@@ -1070,6 +1070,7 @@ dependencies = [
  "handl-plugin-lib-lang-parse",
  "handl-plugin-lib-lang-run-compiled",
  "handl-plugin-lib-lang-typecheck",
+ "handl-plugin-lib-result",
  "handl-plugin-lib-tag",
  "handl-plugin-lib-utils",
  "handl-plugin-module",
@@ -2080,6 +2081,16 @@ dependencies = [
  "handl-plugin-lib-handl",
  "handl-plugin-module",
  "rand 0.9.5",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-result"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "handl-plugin-lib-tag",
  "serde_json",
 ]
 

@@ -1308,6 +1308,92 @@ sort = arr("sort")"#;
     }
 }
 
+// ---------------------------------------------------------------------------
+// tag declaration parsing tests (ADR-0077)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_parse_arrow_module_tag_decl() {
+    let src = r#"
+tag ok = Value
+tag err = Error
+result_ok = value ~> value >>> ok
+"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.tags.len(), 2);
+    assert_eq!(parsed.tags[0].name, "ok");
+    assert_eq!(parsed.tags[0].payload_type, "Value");
+    assert_eq!(parsed.tags[1].name, "err");
+    assert_eq!(parsed.tags[1].payload_type, "Error");
+}
+
+#[test]
+fn test_parse_arrow_module_tag_generates_constructor_arrows() {
+    let src = r#"
+tag ok = Value
+tag err = Error
+result_ok = value ~> value >>> ok
+"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    // The tag declarations should generate constructor arrows named
+    // "ok" and "err" in the Named map.
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => {
+            assert!(map.contains_key("ok"), "ok constructor should be generated");
+            assert!(map.contains_key("err"), "err constructor should be generated");
+            assert!(map.contains_key("result_ok"), "result_ok arrow should be parsed");
+        }
+        _ => panic!("expected Named map with tag constructors and arrows"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_tag_only_module() {
+    // A module with only tag declarations and no arrow body should still
+    // parse, with the constructors in the Named map.
+    let src = r#"tag ok = Value
+tag err = Error"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.tags.len(), 2);
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => {
+            assert_eq!(map.len(), 2);
+            assert!(map.contains_key("ok"));
+            assert!(map.contains_key("err"));
+        }
+        _ => panic!("expected Named map with tag constructors"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_tag_does_not_interfere_with_arrows() {
+    let src = r#"tag ok = Value
+sort = arr("sort")"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.tags.len(), 1);
+    assert_eq!(parsed.tags[0].name, "ok");
+    match &parsed.arrows {
+        crate::arrow_parser::ParsedFile::Named(map) => {
+            assert!(map.contains_key("sort"));
+            assert!(map.contains_key("ok"), "ok constructor should be generated");
+        }
+        _ => panic!("expected Named map with arrows and tag constructors"),
+    }
+}
+
+#[test]
+fn test_parse_arrow_module_tag_mixed_with_op_handl_cap() {
+    let src = r#"tag ok = Value
+op "tag.tag" : (String, Value) -> Value
+cap "tag.tag"
+handl "tag.tag" = rust_tag_tag"#;
+    let parsed = parse_arrow_module(src).expect("must parse");
+    assert_eq!(parsed.tags.len(), 1);
+    assert_eq!(parsed.ops.len(), 1);
+    assert_eq!(parsed.caps.len(), 1);
+    assert_eq!(parsed.handls.len(), 1);
+}
+
 #[test]
 fn test_file_resolver_resolves_hnl_file() {
     // Create a temp directory with a .hnl file.

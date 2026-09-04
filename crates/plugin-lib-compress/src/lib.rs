@@ -123,3 +123,37 @@ pub fn compress_handl_plugin() -> HandlLibraryPlugin {
 /// This preserves the old `plugin::LibraryPlugin` API for downstream crates
 /// that import `handl_plugin_lib_compress::LibraryPlugin`.
 pub use CompressLibraryPlugin as LibraryPlugin;
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::Plugin;
+
+    #[test]
+    fn plugin_id_and_name() {
+        let plugin = CompressLibraryPlugin::new();
+        assert_eq!(plugin.id(), "lib.compress");
+        assert_eq!(plugin.name(), "lib-compress");
+    }
+
+    #[test]
+    fn plugin_has_capabilities() {
+        let plugin = CompressLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        let names: Vec<&str> = caps.iter().map(|c| c.as_str()).collect();
+        assert!(names.contains(&"compress.compress"));
+        assert!(names.contains(&"compress.decompress"));
+    }
+
+    #[test]
+    fn handl_plugin_id_and_name() {
+        let plugin = compress_handl_plugin();
+        assert_eq!(plugin.id(), "lib.compress");
+        assert_eq!(plugin.name(), "lib-compress");
+    }
+}

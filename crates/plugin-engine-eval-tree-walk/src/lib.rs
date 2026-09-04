@@ -5434,6 +5434,101 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
+    // tag pattern matching (ADR-0077)
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn match_tag_pattern_binds_value() {
+        // match {"__tag__": "ok", "value": 42} { ok(v): v, err(e): 0 } → 42
+        // The pattern `ok(v)` is a `call` node with callee `var("ok")`
+        // and arg `var("v")`.
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!({"__tag__": "ok", "value": 42})), // 0: scrutinee
+            AstNode::new("var").with_payload(json!("ok")),  // 1: callee (tag name)
+            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
+            AstNode::new("var").with_payload(json!("v")),   // 4: body (returns v)
+            AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("var").with_payload(json!("err")), // 6: callee (tag name)
+            AstNode::new("var").with_payload(json!("e")),   // 7: binder
+            AstNode::new("call").with_payload(json!({"children": [6, 7]})), // 8: pattern err(e)
+            AstNode::new("value").with_payload(json!(0)),   // 9: body (returns 0)
+            AstNode::new("arm").with_payload(json!({"children": [8, 9]})), // 10
+            AstNode::new("block").with_payload(json!({"children": [5, 10]})), // 11
+            AstNode::new("match").with_payload(json!({"children": [0, 11]})), // 12: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn match_tag_pattern_wrong_tag_falls_through() {
+        // match {"__tag__": "err", "value": 99} { ok(v): v, err(e): e } → 99
+        // The first arm (ok(v)) does not match; the second (err(e)) matches.
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!({"__tag__": "err", "value": 99})), // 0: scrutinee
+            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
+            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
+            AstNode::new("var").with_payload(json!("v")),   // 4: body
+            AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("var").with_payload(json!("err")), // 6: callee
+            AstNode::new("var").with_payload(json!("e")),   // 7: binder
+            AstNode::new("call").with_payload(json!({"children": [6, 7]})), // 8: pattern err(e)
+            AstNode::new("var").with_payload(json!("e")),   // 9: body (returns e)
+            AstNode::new("arm").with_payload(json!({"children": [8, 9]})), // 10
+            AstNode::new("block").with_payload(json!({"children": [5, 10]})), // 11
+            AstNode::new("match").with_payload(json!({"children": [0, 11]})), // 12: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(99));
+    }
+
+    #[test]
+    fn match_tag_pattern_wildcard_binder() {
+        // match {"__tag__": "ok", "value": 42} { ok(_): 1 } → 1
+        // The wildcard binder `_` matches without binding.
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!({"__tag__": "ok", "value": 42})), // 0: scrutinee
+            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
+            AstNode::new("var").with_payload(json!("_")),   // 2: wildcard binder
+            AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(_)
+            AstNode::new("value").with_payload(json!(1)),   // 4: body
+            AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("block").with_payload(json!({"children": [5]})), // 6
+            AstNode::new("match").with_payload(json!({"children": [0, 6]})), // 7: root
+        ]);
+        let req = EvalRequest::new(ast);
+        assert_eq!(engine.eval(&lang, &req).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn match_tag_pattern_non_tagged_value_no_match() {
+        // match 42 { ok(v): v } → error (no arm matches)
+        let engine = TreeWalkEngine::new();
+        let lang = match_lang();
+        let ast = make_ast(vec![
+            AstNode::new("value").with_payload(json!(42)), // 0: scrutinee (not tagged)
+            AstNode::new("var").with_payload(json!("ok")),  // 1: callee
+            AstNode::new("var").with_payload(json!("v")),   // 2: binder
+            AstNode::new("call").with_payload(json!({"children": [1, 2]})), // 3: pattern ok(v)
+            AstNode::new("var").with_payload(json!("v")),   // 4: body
+            AstNode::new("arm").with_payload(json!({"children": [3, 4]})), // 5
+            AstNode::new("block").with_payload(json!({"children": [5]})), // 6
+            AstNode::new("match").with_payload(json!({"children": [0, 6]})), // 7: root
+        ]);
+        let req = EvalRequest::new(ast);
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine { .. }));
+    }
+
+    // -----------------------------------------------------------------
     // rec — recursive computation region (ADR-0074)
     // -----------------------------------------------------------------
 

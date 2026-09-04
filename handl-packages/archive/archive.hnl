@@ -5,3 +5,9 @@
 --- archive format crates (tar). There are no callable handl ops here;
 --- the .hnl file exists to declare the library's capability surface for
 --- the plugin system.
+---
+--- ## Capability declarations (ADR-0077 Phase 1)
+--- archive.pack — pack entries into an archive.
+--- archive.unpack — unpack an archive into entries.
+cap "archive.pack"
+cap "archive.unpack"

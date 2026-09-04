@@ -62,6 +62,7 @@ members = [
   "crates/plugin-lib-otlp",
   "crates/plugin-lib-otlp-std",
   "crates/plugin-lib-parse",
+  "crates/plugin-lib-result",
   "crates/plugin-lib-prim",
   "crates/plugin-lib-rand",
   "crates/plugin-lib-serialize",
@@ -220,6 +221,7 @@ handl-plugin-lib-os-std = { path = "crates/plugin-lib-os-std" }
 handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
 handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
 handl-plugin-lib-parse = { path = "crates/plugin-lib-parse" }
+handl-plugin-lib-result = { path = "crates/plugin-lib-result" }
 handl-plugin-lib-prim = { path = "crates/plugin-lib-prim" }
 handl-plugin-lib-rand = { path = "crates/plugin-lib-rand" }
 handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }

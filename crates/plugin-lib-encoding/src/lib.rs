@@ -164,3 +164,37 @@ pub fn encoding_handl_plugin() -> HandlLibraryPlugin {
 /// This preserves the old `plugin::LibraryPlugin` API for downstream crates
 /// that import `handl_plugin_lib_encoding::LibraryPlugin`.
 pub use EncodingLibraryPlugin as LibraryPlugin;
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::Plugin;
+
+    #[test]
+    fn plugin_id_and_name() {
+        let plugin = EncodingLibraryPlugin::new();
+        assert_eq!(plugin.id(), "lib.encoding");
+        assert_eq!(plugin.name(), "lib-encoding");
+    }
+
+    #[test]
+    fn plugin_has_capabilities() {
+        let plugin = EncodingLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        let names: Vec<&str> = caps.iter().map(|c| c.as_str()).collect();
+        assert!(names.contains(&"encoding.encode"));
+        assert!(names.contains(&"encoding.decode"));
+    }
+
+    #[test]
+    fn handl_plugin_id_and_name() {
+        let plugin = encoding_handl_plugin();
+        assert_eq!(plugin.id(), "lib.encoding");
+        assert_eq!(plugin.name(), "lib-encoding");
+    }
+}

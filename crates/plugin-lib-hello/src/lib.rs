@@ -18,8 +18,9 @@
 /// record of arrows. The generic [`HandlModule`] evaluates
 /// `(source).func_name(args)`, which requires a record, so the bare arrow is
 /// wrapped into a single-field record `{ greet: (<greet.hnl>) }` before being
-/// handed to the loader. Comment lines (`--- ...`) are stripped by the
-/// loader's `strip_comment_lines`.
+/// handed to the loader. Comment lines (`--- ...`) and `cap`/`op`/`handl`
+/// declaration lines are stripped by the loader's `strip_comment_lines` and
+/// `strip_declaration_lines`.
 const GREET_HNL_RECORD: &str = concat!(
     "{ greet: (\n",
     include_str!("../../../handl-packages/hello/greet.hnl"),
@@ -72,7 +73,7 @@ impl HelloLibraryPlugin {
     /// Create a new `HelloLibraryPlugin`.
     pub fn new() -> Self {
         Self {
-            inner: HandlLibraryPlugin::new(
+            inner: HandlLibraryPlugin::new_with_caps(
                 "hello",
                 "lib.hello",
                 "lib-hello",
@@ -130,7 +131,13 @@ impl Plugin for HelloLibraryPlugin {
 /// This is provided for consumers that prefer to use the generic plugin
 /// directly instead of [`HelloLibraryPlugin`].
 pub fn hello_handl_plugin() -> HandlLibraryPlugin {
-    HandlLibraryPlugin::new("hello", "lib.hello", "lib-hello", GREET_HNL_RECORD, HELLO_FUNCS)
+    HandlLibraryPlugin::new_with_caps(
+        "hello",
+        "lib.hello",
+        "lib-hello",
+        GREET_HNL_RECORD,
+        HELLO_FUNCS,
+    )
 }
 
 #[cfg(test)]
@@ -177,5 +184,13 @@ mod tests {
         let plugin = hello_handl_plugin();
         assert_eq!(plugin.id(), "lib.hello");
         assert_eq!(plugin.name(), "lib-hello");
+    }
+
+    #[test]
+    fn plugin_exposes_declared_capability() {
+        let plugin = HelloLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].as_str(), "hello.greet");
     }
 }

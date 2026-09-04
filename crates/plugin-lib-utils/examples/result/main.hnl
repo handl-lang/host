@@ -1,4 +1,3 @@
-ok: type.bool = result.is_ok(result.ok(42));
-err: type.bool = result.is_err(result.err("failed"));
-value: type.obj = result.ok(42);
-{ ok: ok, err: err, value: value }
+ok: type.obj = result.ok(42);
+err: type.obj = result.err("failed");
+{ ok: ok, err: err }

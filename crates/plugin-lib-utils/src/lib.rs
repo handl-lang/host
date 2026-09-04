@@ -35,8 +35,6 @@
 //! - [`OptionModule`] — `option.some`, `option.none`, `option.is_some`,
 //!   `option.is_none`, `option.unwrap`, `option.unwrap_or`, `option.map`,
 //!   `option.flat_map`, `option.filter`, `option.or`, `option.and`, `option.xor`
-//! - [`ResultModule`] — `result.ok`, `result.err`, `result.is_ok`,
-//!   `result.is_err`
 //!
 //! ## Usage
 //!
@@ -84,7 +82,6 @@ mod math;
 mod mood;
 mod option;
 mod parse;
-mod result;
 mod serialize;
 pub mod shared;
 mod r#str;
@@ -104,7 +101,6 @@ pub use math::MathModule;
 pub use mood::MoodModule;
 pub use option::OptionModule;
 pub use parse::ParseModule;
-pub use result::ResultModule;
 pub use serialize::SerializeModule;
 pub use r#str::StrModule;
 pub use r#type::TypeModule;
@@ -129,7 +125,7 @@ const UTILS_HNL: &str = include_str!("../../../handl-packages/utils/utils.hnl");
 ///
 /// This is the Phase 4 replacement for the old hand-rolled `LibraryPlugin`.
 /// Because `plugin-lib-utils` is an **aggregator** crate that registers
-/// multiple modules (bool, fn, math, mood, option, parse, result, serialize,
+/// multiple modules (bool, fn, math, mood, option, parse, serialize,
 /// str, typeof, encoding, plus re-exported base64/hex/json/toml/yaml/url
 /// modules), it cannot use a single [`HandlLibraryPlugin`] `contribute`
 /// (which registers exactly one module). Instead, the [`HandlLibraryPlugin`]
@@ -189,7 +185,6 @@ impl Plugin for UtilsLibraryPlugin {
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(FnModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(TypeModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(OptionModule))?;
-        ctx.contribute::<ModuleRuntime>(ModuleRule::new(ResultModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(MoodModule))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(EncodingModule::new()))?;
         ctx.contribute::<ModuleRuntime>(ModuleRule::new(ParseModule::new()))?;

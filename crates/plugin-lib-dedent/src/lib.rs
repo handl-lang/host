@@ -136,7 +136,7 @@ impl DedentLibraryPlugin {
     /// Create a new `DedentLibraryPlugin`.
     pub fn new() -> Self {
         Self {
-            inner: HandlLibraryPlugin::new(
+            inner: HandlLibraryPlugin::new_with_caps(
                 "dedent",
                 "lib.dedent",
                 "lib-dedent",
@@ -196,7 +196,7 @@ impl Plugin for DedentLibraryPlugin {
 /// This is provided for consumers that prefer to use the generic plugin
 /// directly instead of [`DedentLibraryPlugin`].
 pub fn dedent_handl_plugin() -> HandlLibraryPlugin {
-    HandlLibraryPlugin::new("dedent", "lib.dedent", "lib-dedent", DEDENT_HNL, DEDENT_FUNCS)
+    HandlLibraryPlugin::new_with_caps("dedent", "lib.dedent", "lib-dedent", DEDENT_HNL, DEDENT_FUNCS)
         .with_dependency(StrModule)
 }
 
@@ -365,5 +365,13 @@ mod tests {
         let plugin = dedent_handl_plugin();
         assert_eq!(plugin.id(), "lib.dedent");
         assert_eq!(plugin.name(), "lib-dedent");
+    }
+
+    #[test]
+    fn plugin_exposes_declared_capability() {
+        let plugin = DedentLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].as_str(), "dedent.dedent");
     }
 }

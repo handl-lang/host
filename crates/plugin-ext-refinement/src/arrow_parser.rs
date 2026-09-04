@@ -231,8 +231,25 @@ pub struct ParsedModule {
     pub handls: Vec<HandlDecl>,
     /// `cap` declarations (ADR-0077 Phase 5).
     pub caps: Vec<CapDecl>,
+    /// `tag` declarations (ADR-0077). Each tag generates a constructor
+    /// arrow that wraps its input in a tagged value.
+    pub tags: Vec<TagDecl>,
     /// The parsed arrows (single expression or named map).
     pub arrows: ParsedFile,
+}
+
+/// A `tag name = Type` declaration (ADR-0077).
+///
+/// At module load time, each tag declaration generates a constructor
+/// arrow: `name = _0 ~> tag.tag("name", {value: _0})`. The payload type
+/// is recorded for future typechecking but does not affect runtime
+/// behavior.
+#[derive(Debug, Clone)]
+pub struct TagDecl {
+    /// The tag name, e.g. `"ok"` in `tag ok = Value`.
+    pub name: String,
+    /// The payload type expression, e.g. `"Value"` in `tag ok = Value`.
+    pub payload_type: String,
 }
 
 /// Parse a `.hnl` arrow module file's content, extracting import/export
@@ -292,6 +309,7 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
     let mut ops: Vec<OpDecl> = Vec::new();
     let mut handls: Vec<HandlDecl> = Vec::new();
     let mut caps: Vec<CapDecl> = Vec::new();
+    let mut tags: Vec<TagDecl> = Vec::new();
     let mut arrow_lines: Vec<&str> = Vec::new();
 
     // Track the current `op` declaration being built (for indented
@@ -377,6 +395,15 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
             }
         }
 
+        if let Some(rest) = trimmed.strip_prefix("tag") {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                if let Some(decl) = parse_tag_line(trimmed) {
+                    tags.push(decl);
+                    continue;
+                }
+            }
+        }
+
         arrow_lines.push(line);
     }
 
@@ -385,9 +412,52 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
         ops.push(op);
     }
 
+    // Generate constructor arrows for each tag declaration.
+    // Each `tag name = Type` produces: `name = _0 ~> tag.tag("name", {value: _0})`
+    let tag_constructor_src: String = tags
+        .iter()
+        .map(|t| format!("{} = _0 ~> tag.tag(\"{}\", {{value: _0}})", t.name, t.name))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     let arrow_src = arrow_lines.join("\n");
-    let arrows = if arrow_src.trim().is_empty() {
+    let arrows = if arrow_src.trim().is_empty() && tag_constructor_src.is_empty() {
         ParsedFile::Named(HashMap::new())
+    } else if arrow_src.trim().is_empty() {
+        // Only tag constructors, no other arrows.
+        parse_arrow_file(&tag_constructor_src)?
+    } else if !tag_constructor_src.is_empty() {
+        // Both tag constructors and regular arrows — parse separately
+        // and merge into a single Named map. This avoids issues with
+        // concatenating `name = expr` lines with a `{ ... }` record
+        // literal, which parse_arrow_file cannot handle as a single
+        // source.
+        let tag_file = parse_arrow_file(&tag_constructor_src)?;
+        let arrow_file = parse_arrow_file(&arrow_src)?;
+        match (tag_file, arrow_file) {
+            (ParsedFile::Named(mut tag_map), ParsedFile::Named(arrow_map)) => {
+                tag_map.extend(arrow_map);
+                ParsedFile::Named(tag_map)
+            }
+            (ParsedFile::Named(_tag_map), ParsedFile::Single(_expr)) => {
+                // The arrow source is a single expression (e.g. a record
+                // literal). Merge into the tag map under a special key
+                // is not appropriate — instead, wrap both in a record.
+                // For now, if the single expression is a record, its
+                // fields should be merged. But since we can't easily
+                // destructure a Scheme here, we fall back to concatenation
+                // only when the arrow source is a single expression.
+                // This case is uncommon (tag decls + single expr).
+                // Re-parse with concatenation as a fallback.
+                let combined = format!("{}\n{}", tag_constructor_src, arrow_src);
+                parse_arrow_file(&combined)?
+            }
+            (ParsedFile::Single(_), _) => {
+                // Tag constructors didn't parse as Named — shouldn't happen.
+                let combined = format!("{}\n{}", tag_constructor_src, arrow_src);
+                parse_arrow_file(&combined)?
+            }
+        }
     } else {
         parse_arrow_file(&arrow_src)?
     };
@@ -398,6 +468,7 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
         ops,
         handls,
         caps,
+        tags,
         arrows,
     })
 }
@@ -777,6 +848,36 @@ fn parse_cap_line(line: &str) -> Option<CapDecl> {
     }
 
     Some(CapDecl { name })
+}
+
+/// Parse a `tag name = Type` declaration line (ADR-0077).
+///
+/// Returns `Some(TagDecl)` if the line matches the `tag` form with a
+/// valid name and payload type. Returns `None` otherwise.
+///
+/// # Example
+///
+/// ```text
+/// tag ok = Value
+/// tag err = Error
+/// ```
+fn parse_tag_line(line: &str) -> Option<TagDecl> {
+    let rest = line.strip_prefix("tag")?.trim();
+    // Find the `=` separator.
+    let eq_idx = rest.find('=')?;
+    let name = rest[..eq_idx].trim();
+    let payload_type = rest[eq_idx + 1..].trim();
+    if name.is_empty() || payload_type.is_empty() {
+        return None;
+    }
+    // Validate name: alphanumeric + underscores only.
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return None;
+    }
+    Some(TagDecl {
+        name: name.to_string(),
+        payload_type: payload_type.to_string(),
+    })
 }
 
 /// Extract a quoted string from the start of `s`, returning the content and

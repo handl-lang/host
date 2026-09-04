@@ -80,6 +80,68 @@ fn strip_comment_lines(src: &str) -> String {
         .join("\n")
 }
 
+/// Strip `cap`/`op`/`handl` declaration lines (and their indented
+/// continuation lines) from a `.hnl` source, leaving only the handl logic.
+///
+/// This is the companion to [`strip_comment_lines`]: `strip_comment_lines`
+/// removes `--`/`---` comment lines, while this function removes the
+/// ADR-0077 declaration forms (`cap "..."`, `op "..." : ...`,
+/// `handl "..." = ...`) and their indented continuation lines
+/// (`guarantee:`, `requires:`, `termination:`). Together they prepare a
+/// `.hnl` source for evaluation as a bare handl expression.
+///
+/// This is necessary because `.hnl` files may now contain `cap`/`op`/`handl`
+/// declarations (ADR-0077) alongside the handl logic. The [`HandlModule`]
+/// evaluates the source as a single handl expression, so declaration lines
+/// (which are not valid handl expressions) must be removed first.
+///
+/// # Example
+///
+/// ```
+/// use handl_plugin_lib_handl::strip_declaration_lines;
+///
+/// let src = r#"cap "hello.greet"
+/// op "hello.greet" : String -> String
+///   guarantee: True
+/// name ~> "Hello, " + name + "!"
+/// "#;
+/// let cleaned = strip_declaration_lines(src);
+/// assert!(!cleaned.contains("cap"));
+/// assert!(!cleaned.contains("op "));
+/// assert!(cleaned.contains("name ~>"));
+/// ```
+pub fn strip_declaration_lines(src: &str) -> String {
+    src.lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            // Strip indented continuation lines from `op` declarations
+            // (e.g. `guarantee:`, `requires:`, `termination:`).
+            if line.starts_with(' ') || line.starts_with('\t') {
+                if trimmed.starts_with("guarantee")
+                    || trimmed.starts_with("requires")
+                    || trimmed.starts_with("termination")
+                {
+                    return false;
+                }
+            }
+            // Strip `cap "..."`, `op "..."`, and `handl "..." = ...` lines.
+            for kw in ["cap", "op", "handl"] {
+                if let Some(rest) = trimmed.strip_prefix(kw) {
+                    if rest.is_empty()
+                        || rest.starts_with(' ')
+                        || rest.starts_with('\t')
+                        || rest.starts_with('"')
+                    {
+                        return false;
+                    }
+                }
+            }
+            true
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Parse `cap` declarations from a `.hnl` source string (ADR-0077 Phase 5).
 ///
 /// Scans each line for the top-level `cap "name"` form, extracting the
@@ -139,6 +201,142 @@ fn extract_quoted_cap_name(s: &str) -> Option<String> {
     let rest = &s[quote.len_utf8()..];
     let end = rest.find(quote)?;
     Some(rest[..end].to_string())
+}
+
+/// Parse `tag` declarations from a `.hnl` source string (ADR-0077).
+///
+/// Scans each line for the top-level `tag name = Type` form, extracting the
+/// tag name and payload type. Comment lines (`-- ...`) are skipped. Lines
+/// that do not match the `tag` form are silently ignored (resilient
+/// parsing).
+///
+/// This is a lightweight line-based scan that mirrors the `parse_tag_line`
+/// logic in `arrow_parser.rs`. It returns `(name, payload_type)` pairs.
+///
+/// # Example
+///
+/// ```
+/// use handl_plugin_lib_handl::parse_tag_declarations;
+///
+/// let src = r#"
+/// tag ok = Value
+/// tag err = Error
+/// "#;
+/// let tags = parse_tag_declarations(src);
+/// assert_eq!(tags, vec![("ok".to_string(), "Value".to_string()),
+///                       ("err".to_string(), "Error".to_string())]);
+/// ```
+pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
+    let mut tags = Vec::new();
+    for line in src.lines() {
+        let trimmed = line.trim();
+        // Skip comment lines and empty lines.
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+        // Check for `tag` prefix followed by whitespace (whole-word match).
+        let rest = match trimmed.strip_prefix("tag") {
+            Some(rest) if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') => {
+                rest.trim_start()
+            }
+            _ => continue,
+        };
+        // Find the `=` separator.
+        if let Some(eq_idx) = rest.find('=') {
+            let name = rest[..eq_idx].trim().to_string();
+            let payload_type = rest[eq_idx + 1..].trim().to_string();
+            if !name.is_empty()
+                && !payload_type.is_empty()
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
+                tags.push((name, payload_type));
+            }
+        }
+    }
+    tags
+}
+
+/// Expand `tag` declarations in `.hnl` source into constructor bindings
+/// (ADR-0077).
+///
+/// Scans for `tag name = Type` lines, strips them from the source, and
+/// generates constructor bindings: `name = _0 ~> tag.tag("name", {value: _0})`.
+/// If there are tag declarations, the remaining source is wrapped in a
+/// `do { ... }` block with the constructor bindings prepended.
+///
+/// If there are no tag declarations, the source is returned unchanged.
+///
+/// # Example
+///
+/// Input:
+/// ```text
+/// tag ok = Value
+/// tag err = Error
+///
+/// {
+///   result_ok: value ~> value >>> ok,
+/// }
+/// ```
+///
+/// Output:
+/// ```text
+/// do {
+///   ok = _0 ~> tag.tag("ok", {value: _0})
+///   err = _0 ~> tag.tag("err", {value: _0})
+///   {
+///     result_ok: value ~> value >>> ok,
+///   }
+/// }
+/// ```
+pub fn expand_tag_declarations(src: &str) -> String {
+    let tags = parse_tag_declarations(src);
+    if tags.is_empty() {
+        return src.to_string();
+    }
+    // Strip `tag` declaration lines from the source.
+    let remaining: String = src
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with("--") {
+                return true; // Keep comments and blank lines.
+            }
+            // Skip lines that are `tag` declarations.
+            if let Some(rest) = trimmed.strip_prefix("tag") {
+                if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                    if let Some(eq_idx) = rest.find('=') {
+                        let name = rest[..eq_idx].trim();
+                        if !name.is_empty()
+                            && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    // Build the `do { ... }` block with constructor bindings.
+    let mut out = String::from("do {\n");
+    for (name, _payload_type) in &tags {
+        out.push_str(&format!(
+            "  {name} = _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
+        ));
+    }
+    // Append the remaining source, indented by 2 spaces.
+    for line in remaining.lines() {
+        if line.trim().is_empty() {
+            out.push('\n');
+        } else {
+            out.push_str("  ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out.push_str("}");
+    out
 }
 
 /// Escape a Rust string for embedding inside a handl `"..."` string literal.
@@ -375,12 +573,14 @@ impl HandlModule {
     /// function (record field) names.
     ///
     /// The source should evaluate to a record of arrows (functions). Comment
-    /// lines (`-- ...`) are stripped automatically. Each name in `func_names`
+    /// lines (`-- ...`) and `cap`/`op`/`handl` declaration lines
+    /// (ADR-0077) are stripped automatically. Each name in `func_names`
     /// becomes a callable function that evaluates
     /// `(source).name(args)` on call.
     pub fn new(name: impl Into<String>, hnl_source: &str, func_names: &[&str]) -> Self {
         let name = name.into();
-        let source = strip_comment_lines(hnl_source);
+        let stripped = strip_declaration_lines(&strip_comment_lines(hnl_source));
+        let source = expand_tag_declarations(&stripped);
         let module_id = allocate_module_id();
 
         // Initial builder with no dependencies. `with_dependency` will
@@ -562,7 +762,9 @@ impl HandlLibraryPlugin {
             module_name: module_name.into(),
             plugin_id: plugin_id.into(),
             plugin_name: plugin_name.into(),
-            source: strip_comment_lines(hnl_source),
+            source: expand_tag_declarations(&strip_declaration_lines(&strip_comment_lines(
+                hnl_source,
+            ))),
             func_names: func_names.iter().map(|s| s.to_string()).collect(),
             dependencies: Vec::new(),
             op_names: Vec::new(),
@@ -798,6 +1000,34 @@ mod tests {
     }
 
     #[test]
+    fn strip_declaration_lines_removes_cap_op_handl() {
+        let src = "cap \"hello.greet\"\nop \"hello.greet\" : String -> String\n  guarantee: True\nhandl \"hello.greet\" = rust_greet\nname ~> \"Hello, \" + name + \"!\"";
+        let cleaned = strip_declaration_lines(src);
+        assert!(!cleaned.contains("cap"));
+        assert!(!cleaned.contains("op "));
+        assert!(!cleaned.contains("handl "));
+        assert!(!cleaned.contains("guarantee"));
+        assert!(cleaned.contains("name ~>"));
+    }
+
+    #[test]
+    fn strip_declaration_lines_preserves_handl_logic() {
+        let src = "cap \"test.foo\"\n{\n  foo: x ~> x + 1\n}";
+        let cleaned = strip_declaration_lines(src);
+        assert!(cleaned.contains("foo: x ~> x + 1"));
+        assert!(!cleaned.contains("cap"));
+    }
+
+    #[test]
+    fn strip_declaration_lines_preserves_indented_logic() {
+        // Indented lines that are NOT op continuation lines should be kept.
+        let src = "cap \"test.foo\"\n{\n  foo: x ~> {\n    y = x + 1 in\n    y\n  }\n}";
+        let cleaned = strip_declaration_lines(src);
+        assert!(cleaned.contains("y = x + 1 in"));
+        assert!(!cleaned.contains("cap"));
+    }
+
+    #[test]
     fn escape_handl_string_escapes_quotes_and_backslashes() {
         assert_eq!(escape_handl_string(r#"a"b\c"#), r#"a\"b\\c"#);
         assert_eq!(escape_handl_string("plain"), "plain");
@@ -995,5 +1225,103 @@ let x = 1 in x
             "test", "lib.test", "lib-test", TEST_HNL, &["double"],
         );
         assert!(plugin.capabilities().is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0077: tag declaration parsing and expansion tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_tag_declarations_extracts_tags() {
+        let src = r#"
+tag ok = Value
+tag err = Error
+"#;
+        let tags = parse_tag_declarations(src);
+        assert_eq!(
+            tags,
+            vec![
+                ("ok".to_string(), "Value".to_string()),
+                ("err".to_string(), "Error".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_tag_declarations_skips_comments() {
+        let src = "-- tag not = Real\ntag ok = Value\n-- another\ntag err = Error";
+        let tags = parse_tag_declarations(src);
+        assert_eq!(
+            tags,
+            vec![
+                ("ok".to_string(), "Value".to_string()),
+                ("err".to_string(), "Error".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_tag_declarations_ignores_non_tag_lines() {
+        let src = r#"
+op "test.op" : Int -> Int
+handl "test.op" = rust_fn
+let x = 1 in x
+"#;
+        let tags = parse_tag_declarations(src);
+        assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn parse_tag_declarations_empty_source() {
+        let tags = parse_tag_declarations("");
+        assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn parse_tag_declarations_ignores_tag_prefix_in_words() {
+        // "tagged" should not be matched as a `tag` declaration.
+        let src = "tagged value\ntag ok = Value";
+        let tags = parse_tag_declarations(src);
+        assert_eq!(tags, vec![("ok".to_string(), "Value".to_string())]);
+    }
+
+    #[test]
+    fn expand_tag_declarations_no_tags_returns_unchanged() {
+        let src = "{ double: xs ~> xs * 2 }";
+        let expanded = expand_tag_declarations(src);
+        assert_eq!(expanded, src);
+    }
+
+    #[test]
+    fn expand_tag_declarations_wraps_in_do_block() {
+        let src = r#"tag ok = Value
+tag err = Error
+
+{
+  result_ok: value ~> value >>> ok,
+}"#;
+        let expanded = expand_tag_declarations(src);
+        // Should start with "do {"
+        assert!(expanded.starts_with("do {"));
+        // Should contain constructor bindings.
+        assert!(expanded.contains("ok = _0 ~> tag.tag(\"ok\", {value: _0})"));
+        assert!(expanded.contains("err = _0 ~> tag.tag(\"err\", {value: _0})"));
+        // Should contain the remaining source (indented).
+        assert!(expanded.contains("result_ok: value ~> value >>> ok,"));
+        // Should end with "}".
+        assert!(expanded.ends_with("}"));
+        // Should NOT contain the tag declaration lines.
+        assert!(!expanded.contains("tag ok = Value"));
+        assert!(!expanded.contains("tag err = Error"));
+    }
+
+    #[test]
+    fn expand_tag_declarations_single_tag() {
+        let src = "tag ok = Value\n{ f: x ~> x }";
+        let expanded = expand_tag_declarations(src);
+        assert!(expanded.starts_with("do {"));
+        assert!(expanded.contains("ok = _0 ~> tag.tag(\"ok\", {value: _0})"));
+        assert!(expanded.contains("f: x ~> x"));
+        assert!(!expanded.contains("tag ok = Value"));
     }
 }

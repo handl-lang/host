@@ -125,3 +125,37 @@ pub fn archive_handl_plugin() -> HandlLibraryPlugin {
 /// This preserves the old `plugin::LibraryPlugin` API for downstream crates
 /// that import `handl_plugin_lib_archive::LibraryPlugin`.
 pub use ArchiveLibraryPlugin as LibraryPlugin;
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::Plugin;
+
+    #[test]
+    fn plugin_id_and_name() {
+        let plugin = ArchiveLibraryPlugin::new();
+        assert_eq!(plugin.id(), "lib.archive");
+        assert_eq!(plugin.name(), "lib-archive");
+    }
+
+    #[test]
+    fn plugin_has_capabilities() {
+        let plugin = ArchiveLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 2);
+        let names: Vec<&str> = caps.iter().map(|c| c.as_str()).collect();
+        assert!(names.contains(&"archive.pack"));
+        assert!(names.contains(&"archive.unpack"));
+    }
+
+    #[test]
+    fn handl_plugin_id_and_name() {
+        let plugin = archive_handl_plugin();
+        assert_eq!(plugin.id(), "lib.archive");
+        assert_eq!(plugin.name(), "lib-archive");
+    }
+}

@@ -134,3 +134,41 @@ pub fn kv_handl_plugin() -> HandlLibraryPlugin {
 /// This preserves the old `plugin::LibraryPlugin` API for downstream crates
 /// that import `handl_plugin_lib_kv::LibraryPlugin`.
 pub use KvLibraryPlugin as LibraryPlugin;
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_platform::Plugin;
+
+    #[test]
+    fn plugin_id_and_name() {
+        let plugin = KvLibraryPlugin::new();
+        assert_eq!(plugin.id(), "lib.kv");
+        assert_eq!(plugin.name(), "lib-kv");
+    }
+
+    #[test]
+    fn plugin_has_capabilities() {
+        let plugin = KvLibraryPlugin::new();
+        let caps = plugin.capabilities();
+        assert_eq!(caps.len(), 6);
+        let names: Vec<&str> = caps.iter().map(|c| c.as_str()).collect();
+        assert!(names.contains(&"kv.get"));
+        assert!(names.contains(&"kv.set"));
+        assert!(names.contains(&"kv.remove"));
+        assert!(names.contains(&"kv.clear"));
+        assert!(names.contains(&"kv.has"));
+        assert!(names.contains(&"kv.size"));
+    }
+
+    #[test]
+    fn handl_plugin_id_and_name() {
+        let plugin = kv_handl_plugin();
+        assert_eq!(plugin.id(), "lib.kv");
+        assert_eq!(plugin.name(), "lib-kv");
+    }
+}

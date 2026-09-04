@@ -25,8 +25,9 @@ use handl_plugin_lib_lang_typecheck::TypecheckModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_utils::{
     BoolModule, EncodingModule, FnModule, MathModule, MoodModule, OptionModule,
-    ParseModule as UtilsParseModule, ResultModule, SerializeModule, StrModule, TypeModule,
+    ParseModule as UtilsParseModule, SerializeModule, StrModule, TypeModule,
 };
+use handl_plugin_lib_result::result_module;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig, RuntimeFactoryImpl};
@@ -354,7 +355,7 @@ impl Kit {
         stdlib_registry.register(BoolModule);
         stdlib_registry.register(TypeModule);
         stdlib_registry.register(OptionModule);
-        stdlib_registry.register(ResultModule);
+        stdlib_registry.register(result_module());
         stdlib_registry.register(MoodModule);
         stdlib_registry.register(EncodingModule::new());
         stdlib_registry.register(UtilsParseModule::new());

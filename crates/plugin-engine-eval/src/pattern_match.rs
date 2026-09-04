@@ -1,7 +1,7 @@
 //! Shared pattern matching logic for `match`/`handle` prims (ADR-0061).
 //!
 //! Pattern matching interprets a pattern AST node structurally against a
-//! scrutinee value. The five pattern forms are:
+//! scrutinee value. The six pattern forms are:
 //!
 //! 1. **Wildcard** — `var` node named `_` or `_*` → always matches.
 //! 2. **Binder** — `var` node with another name → binds name to scrutinee,
@@ -11,6 +11,9 @@
 //!    optional `rest` node → positional match, `...rest` captures tail.
 //! 5. **Object destructuring** — `object` node with `entry` children +
 //!    optional `rest` node → key match, `...rest` captures unmatched keys.
+//! 6. **Tag pattern** — `call` node with a `var` callee (the tag name) and
+//!    `var` arg nodes (the binders): `ok(v)`, `err(e)`. Dispatches on
+//!    `__tag__` identity and binds args to payload fields (ADR-0077).
 //!
 //! This module is engine-agnostic. Each engine implements
 //! [`PatternMatchCtx`] to provide the two engine-specific operations:
@@ -83,6 +86,12 @@ pub fn try_pattern(
     // Object destructuring pattern: { x: a, y: b, ...rest }
     if pattern_node.kind == "object" {
         return try_object_pattern(ast, pattern_ref, scrut, ctx);
+    }
+    // Tag pattern: `tag_name(binder1, binder2, ...)` — parsed as a `call`
+    // node with a `var` callee. Dispatch on `__tag__` identity, bind args
+    // to payload fields (ADR-0077).
+    if pattern_node.kind == "call" {
+        return try_tag_pattern(ast, pattern_ref, scrut, ctx);
     }
     // Literal pattern — evaluate and compare by equality.
     let pat_val = ctx.eval_pattern_node(ast, pattern_ref)?;
@@ -287,5 +296,101 @@ fn try_object_pattern(
         }
     }
 
+    Ok(true)
+}
+
+/// Tag pattern: `tag_name(binder1, binder2, ...)` (ADR-0077).
+///
+/// The pattern is a `call` node with a `var` callee (the tag name) and
+/// `var` arg nodes (the binders). Matches if the scrutinee is a tagged
+/// value (`__tag__` key) whose tag name equals the callee name. Binds
+/// each binder to the corresponding payload field:
+/// - Single binder + single-field payload (`{value: v}`): bind to `value`.
+/// - Multiple binders + multi-field payload: bind each to the field at
+///   the corresponding position (alphabetical key order, excluding
+///   `__tag__`).
+/// - Wildcard binder (`_`): matches without binding.
+fn try_tag_pattern(
+    ast: &Ast,
+    pattern_ref: AstRef,
+    scrut: &Value,
+    ctx: &mut impl PatternMatchCtx,
+) -> Result<bool, LangError> {
+    let pattern_node = ast.at(pattern_ref)?;
+    let children = pattern_node
+        .payload
+        .get("children")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            LangError::engine_node("tag pattern: missing children".to_string(), &pattern_node)
+        })?;
+    // child 0 = callee (var with tag name), child 1.. = args (binders)
+    let callee_idx = children.first().and_then(|v| v.as_u64()).ok_or_else(|| {
+        LangError::engine_node("tag pattern: missing callee".to_string(), &pattern_node)
+    })? as usize;
+    let callee_node = ast.at(AstRef::new(callee_idx))?;
+    let tag_name = callee_node.payload.as_str().ok_or_else(|| {
+        LangError::engine_node("tag pattern: callee is not a var".to_string(), &pattern_node)
+    })?;
+    // Check scrutinee is a tagged value with matching tag name.
+    let scrut_obj = match scrut.as_object() {
+        Some(o) => o,
+        None => return Ok(false),
+    };
+    let scrut_tag = scrut_obj.get("__tag__").and_then(|v| v.as_str());
+    match scrut_tag {
+        Some(t) if t == tag_name => {}
+        _ => return Ok(false),
+    }
+    // Collect payload fields (excluding __tag__), sorted alphabetically
+    // for deterministic positional binding.
+    let mut payload_fields: Vec<(&String, &Value)> = scrut_obj
+        .iter()
+        .filter(|(k, _)| k.as_str() != "__tag__")
+        .collect();
+    payload_fields.sort_by(|a, b| a.0.cmp(b.0));
+    // Collect binder nodes (children 1..).
+    let binder_indices: Vec<usize> = children
+        .iter()
+        .skip(1)
+        .map(|c| -> Result<usize, LangError> {
+            let idx = c.as_u64().ok_or_else(|| {
+                LangError::engine_node(
+                    "tag pattern: bad binder index".to_string(),
+                    &pattern_node,
+                )
+            })?;
+            Ok(idx as usize)
+        })
+        .collect::<Result<_, _>>()?;
+    // If there's a single binder and a single field, bind directly
+    // (the common case for `ok(v)`, `err(e)`).
+    if binder_indices.len() == 1 && payload_fields.len() == 1 {
+        let binder_idx = binder_indices[0];
+        let binder_node = ast.at(AstRef::new(binder_idx))?;
+        if binder_node.kind == "var" {
+            if let Some(name) = binder_node.payload.as_str() {
+                if name == "_" || name.starts_with('_') {
+                    return Ok(true); // Wildcard
+                }
+                ctx.define_binding(name, payload_fields[0].1.clone());
+                return Ok(true);
+            }
+        }
+    }
+    // General case: positional binding of payload fields to binders.
+    for (i, &binder_idx) in binder_indices.iter().enumerate() {
+        let binder_node = ast.at(AstRef::new(binder_idx))?;
+        if binder_node.kind == "var" {
+            if let Some(name) = binder_node.payload.as_str() {
+                if name == "_" || name.starts_with('_') {
+                    continue; // Wildcard
+                }
+                if let Some(&(_, val)) = payload_fields.get(i) {
+                    ctx.define_binding(name, val.clone());
+                }
+            }
+        }
+    }
     Ok(true)
 }

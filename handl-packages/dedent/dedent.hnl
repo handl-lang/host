@@ -22,6 +22,10 @@
 --- that are empty or contain only whitespace are ignored when computing the
 --- common indentation. Tab and space characters are both counted as
 --- whitespace.
+---
+--- Contract: IsDedented(output) — output has no common leading whitespace
+--- beyond the relative indentation of the input.
+cap "dedent.dedent"
 {
   dedent: text ~> {
     is_blank = line ~> { str.trim(line) == "" }
