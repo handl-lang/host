@@ -3324,7 +3324,10 @@ impl NbeTypecheckEngine {
                 }
                 // The closed row's extra ops go to a's row variable.
                 let extra_effects = self.construct_effects(&extra_b, None, ctx)?;
-                self.unify(rest_a.unwrap(), &extra_effects, ctx)
+                let rest_a = rest_a.ok_or_else(|| {
+                    LangError::Engine("typecheck: unify_effects: rest_a missing for open row".into())
+                })?;
+                self.unify(rest_a, &extra_effects, ctx)
             }
             // a is closed, b is open.
             (false, true) => {
@@ -3336,24 +3339,43 @@ impl NbeTypecheckEngine {
                     )));
                 }
                 let extra_effects = self.construct_effects(&extra_a, None, ctx)?;
-                self.unify(&extra_effects, rest_b.unwrap(), ctx)
+                let rest_b = rest_b.ok_or_else(|| {
+                    LangError::Engine("typecheck: unify_effects: rest_b missing for open row".into())
+                })?;
+                self.unify(&extra_effects, rest_b, ctx)
             }
             // Both open: distribute extra ops to the other's row variable via
             // a shared fresh row variable (Leijen's row unification).
             (true, true) => {
                 if extra_a.is_empty() && extra_b.is_empty() {
                     // No extra ops — just link the two row variables.
-                    return self.unify(rest_a.unwrap(), rest_b.unwrap(), ctx);
+                    let rest_a = rest_a.ok_or_else(|| {
+                        LangError::Engine(
+                            "typecheck: unify_effects: rest_a missing for open row".into(),
+                        )
+                    })?;
+                    let rest_b = rest_b.ok_or_else(|| {
+                        LangError::Engine(
+                            "typecheck: unify_effects: rest_b missing for open row".into(),
+                        )
+                    })?;
+                    return self.unify(rest_a, rest_b, ctx);
                 }
                 // Create a fresh row variable shared by both sides.
                 let fresh_id = ctx.fresh_meta();
                 let fresh_row = meta_value(fresh_id);
                 // rest_a := {extra_b | fresh_row}
                 let effects_b = self.construct_effects(&extra_b, Some(&fresh_row), ctx)?;
-                self.unify(rest_a.unwrap(), &effects_b, ctx)?;
+                let rest_a = rest_a.ok_or_else(|| {
+                    LangError::Engine("typecheck: unify_effects: rest_a missing for open row".into())
+                })?;
+                self.unify(rest_a, &effects_b, ctx)?;
                 // rest_b := {extra_a | fresh_row}
                 let effects_a = self.construct_effects(&extra_a, Some(&fresh_row), ctx)?;
-                self.unify(&effects_a, rest_b.unwrap(), ctx)?;
+                let rest_b = rest_b.ok_or_else(|| {
+                    LangError::Engine("typecheck: unify_effects: rest_b missing for open row".into())
+                })?;
+                self.unify(&effects_a, rest_b, ctx)?;
                 Ok(())
             }
         }

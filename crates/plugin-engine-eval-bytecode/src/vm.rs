@@ -524,7 +524,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // call. When Call receives a single argument that is an
                     // array, unpack it into individual arguments.
                     let actual_args: Vec<TaggedValue> = if args.len() == 1 && args[0].is_array() {
-                        args[0].as_array().unwrap().iter().cloned().collect()
+                        args[0]
+                            .as_array()
+                            .ok_or_else(|| {
+                                LangError::Engine("Call: expected array argument".to_string())
+                            })?
+                            .iter()
+                            .cloned()
+                            .collect()
                     } else {
                         args
                     };
@@ -546,8 +553,14 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     // ADR-0060: unpack single array arg for variable-arity
                     // call.
                     let result = if arg0.is_array() {
-                        let actual: Vec<TaggedValue> =
-                            arg0.as_array().unwrap().iter().cloned().collect();
+                        let actual: Vec<TaggedValue> = arg0
+                            .as_array()
+                            .ok_or_else(|| {
+                                LangError::Engine("Call1: expected array argument".to_string())
+                            })?
+                            .iter()
+                            .cloned()
+                            .collect();
                         self.apply_app(&callee, &actual)?
                     } else {
                         self.apply_app(&callee, std::slice::from_ref(&arg0))?

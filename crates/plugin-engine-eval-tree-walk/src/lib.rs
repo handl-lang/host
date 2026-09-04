@@ -553,7 +553,12 @@ impl TreeWalkEngine {
                 // eval.call scheme where proj_rest packs all call args into
                 // one array value.
                 let actual_args: Vec<TaggedValue> = if arg_vals.len() == 1 && arg_vals[0].is_array() {
-                    arg_vals[0].as_array().unwrap().iter().cloned().collect()
+                    arg_vals[0]
+                        .as_array()
+                        .ok_or_else(|| LangError::Engine("App: expected array argument".to_string()))?
+                        .iter()
+                        .cloned()
+                        .collect()
                 } else {
                     arg_vals
                 };
