@@ -8,7 +8,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ip interface is declared in
-//! `handl-packages/kit-stdlib/ip/ip.hnl` via `op` declarations, and the Rust
+//! `handl-packages/ip/ip.hnl` via `op` declarations, and the Rust
 //! IP/CIDR/socket logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`IpLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -53,7 +53,7 @@ pub use socket::SocketAddr;
 /// The handl source declaring the ip `op` interface — the single source
 /// of truth for the ip API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const IP_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/ip/ip.hnl");
+const IP_HNL: &str = include_str!("../../../handl-packages/ip/ip.hnl");
 
 /// The op names declared in `ip.hnl`.
 const IP_OPS: &[&str] = &[

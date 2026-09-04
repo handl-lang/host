@@ -32,8 +32,8 @@ const ID_COMP: &str = "id >>> id";
 #[test]
 fn type_definition_for_arrow_name_returns_location() {
     let dir = make_temp_dir("arrow");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
 
@@ -78,8 +78,8 @@ fn type_definition_for_non_identifier_returns_none() {
 #[test]
 fn type_definition_for_type_predicate_finds_axiom() {
     let dir = make_temp_dir("pred");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
 

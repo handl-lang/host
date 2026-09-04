@@ -18,7 +18,7 @@ use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
 const PRATT_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/parse-pratt/pratt.hnl");
+    include_str!("../../../handl-packages/parse-pratt/pratt.hnl");
 
 // ============================================================================
 // Hand-built Pratt parser graph (matching the .hnl file)
@@ -320,7 +320,7 @@ fn test_pratt_termination_nested_or_list_length() {
 #[test]
 fn test_load_pratt_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let pratt_path = format!("{}/parse-pratt/pratt.hnl", arrows_dir);
 
     let scheme = load_arrow_file(&pratt_path).expect("load pratt from disk");
@@ -333,7 +333,7 @@ fn test_load_pratt_from_disk() {
 #[test]
 fn test_infer_pratt_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let pratt_path = format!("{}/parse-pratt/pratt.hnl", arrows_dir);
     let registry = ContractRegistry::minimal();
 

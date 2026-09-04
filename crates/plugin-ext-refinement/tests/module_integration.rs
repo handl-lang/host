@@ -8,7 +8,7 @@
 //! Three groups:
 //!   A. Single-file loading from `examples/handl/` on disk.
 //!   B. Multi-file programs written to a temp directory (with imports).
-//!   C. `handl-packages/kit-stdlib/` files loaded from disk.
+//!   C. `handl-packages/` files loaded from disk.
 
 use std::collections::HashSet;
 use std::fs;
@@ -33,9 +33,9 @@ fn examples_dir() -> PathBuf {
     workspace_root().join("examples/handl")
 }
 
-/// The `handl-packages/kit-stdlib/` directory.
+/// The `handl-packages/` directory.
 fn kit_stdlib_arrows_dir() -> PathBuf {
-    workspace_root().join("handl-packages/kit-stdlib")
+    workspace_root().join("handl-packages")
 }
 
 /// Create a unique temp directory for a test, prefixed by the test name and
@@ -368,7 +368,7 @@ fn test_three_file_chain() {
 fn test_file_resolver_kit_stdlib() {
     let dir = kit_stdlib_arrows_dir();
     if !dir.is_dir() {
-        eprintln!("  [skip] handl-packages/kit-stdlib directory not found at {}", dir.display());
+        eprintln!("  [skip] handl-packages directory not found at {}", dir.display());
         return;
     }
     let loader = loader_for(dir);

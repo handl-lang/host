@@ -186,22 +186,22 @@ fn uri_to_path(path: &str) -> String {
     }
 }
 
-/// Compute the kit root directory that is the parent of the `contracts/`
-/// directory containing `contract_path`.
+/// Compute the handl-packages root directory that is the parent of the
+/// `contracts/` directory containing `contract_path`.
 ///
-/// Given `…/handl-packages/kit-stdlib/contracts/list.hnl`, returns
-/// `…/handl-packages/kit-stdlib/` if that directory exists. Falls back to
-/// `find_arrows_root` (which scans for `/handl-packages/<pkg>/` in the path)
+/// Given `…/handl-packages/contracts/list.hnl`, returns
+/// `…/handl-packages/` if that directory exists. Falls back to
+/// `find_arrows_root` (which scans for `/handl-packages/` in the path)
 /// when no `/contracts/` segment is present.
 fn arrows_root_from_contracts_path(contract_path: &str) -> Option<String> {
     if let Some(idx) = contract_path.find("/contracts/") {
-        let kit_root = &contract_path[..idx];
-        let root = format!("{}/", kit_root);
+        let root = &contract_path[..idx];
+        let root = format!("{}/", root);
         if Path::new(&root).is_dir() {
             return Some(root);
         }
     }
-    // Fallback: maybe the path itself is under a kit root (defensive).
+    // Fallback: maybe the path itself is under handl-packages/ (defensive).
     find_arrows_root(contract_path)
 }
 

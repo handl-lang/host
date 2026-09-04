@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The url-whatwg interface is declared in
-//! `handl-packages/kit-stdlib/url_whatwg/url_whatwg.hnl` via `op` declarations, and
+//! `handl-packages/url_whatwg/url_whatwg.hnl` via `op` declarations, and
 //! the Rust parse logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`UrlWhatwgLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the
@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 /// The handl source declaring the url_whatwg `op` interface — the single
 /// source of truth for the url_whatwg API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
-const URL_WHATWG_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/url_whatwg/url_whatwg.hnl");
+const URL_WHATWG_HNL: &str = include_str!("../../../handl-packages/url_whatwg/url_whatwg.hnl");
 
 /// The op names declared in `url_whatwg.hnl`.
 const URL_WHATWG_OPS: &[&str] = &["url_whatwg.parse", "url_whatwg.url_whatwg"];

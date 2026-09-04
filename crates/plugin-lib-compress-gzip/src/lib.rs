@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The gzip interface is declared in
-//! `handl-packages/kit-stdlib/compress_gzip/compress_gzip.hnl` via `op`
+//! `handl-packages/compress_gzip/compress_gzip.hnl` via `op`
 //! declarations, and the Rust compress/decompress logic is registered as
 //! handls (handlers) in an [`OpRegistry`]. The
 //! [`CompressGzipLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`]
@@ -30,7 +30,7 @@ pub use module::{Compress, Decompress, GzipModule};
 /// of truth for the gzip API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
 const COMPRESS_GZIP_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/compress_gzip/compress_gzip.hnl");
+    include_str!("../../../handl-packages/compress_gzip/compress_gzip.hnl");
 
 /// The op names declared in `compress_gzip.hnl`.
 const COMPRESS_GZIP_OPS: &[&str] = &["gzip.compress", "gzip.decompress"];

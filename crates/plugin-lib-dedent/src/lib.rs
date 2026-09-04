@@ -8,7 +8,7 @@
 //! string literals for producing clean multi-line output.
 //!
 //! The dedent *logic* is handl-authored in
-//! `handl-packages/kit-stdlib/dedent/dedent.hnl` (a record of arrows: `dedent`);
+//! `handl-packages/dedent/dedent.hnl` (a record of arrows: `dedent`);
 //! this crate loads and bridges that definition via the generic
 //! [`handl_plugin_lib_handl`] loader. The per-library Rust bridge code has
 //! been eliminated: [`HandlModule`] / [`HandlLibraryPlugin`] evaluate the
@@ -25,7 +25,7 @@
 
 /// The handl source defining the dedent record — the single source of truth
 /// for the dedent logic. Loaded at compile time from the kit-stdlib data dir.
-const DEDENT_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/dedent/dedent.hnl");
+const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 
 /// The function (record field) names exposed by the dedent module.
 const DEDENT_FUNCS: &[&str] = &["dedent"];

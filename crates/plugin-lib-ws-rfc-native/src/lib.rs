@@ -7,8 +7,8 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ws_rfc interface is declared in
-//! `handl-packages/kit-stdlib/ws_rfc/ws_rfc.hnl`, and this crate's `handl` bindings
-//! are declared in `handl-packages/kit-stdlib/ws_rfc_native/ws_rfc_native.hnl`. The
+//! `handl-packages/ws_rfc/ws_rfc.hnl`, and this crate's `handl` bindings
+//! are declared in `handl-packages/ws_rfc_native/ws_rfc_native.hnl`. The
 //! Rust handls (wrapping tokio-tungstenite) are registered in an
 //! [`OpRegistry`] via [`ws_rfc_native_op_registry`]. The
 //! [`WsRfcNativeLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`]
@@ -28,7 +28,7 @@ pub use module::{ws_rfc_native_op_registry, WsRfcNativeModule, WS_RFC_NATIVE_OPS
 /// implementation-side declarations for the ws_rfc ops. Loaded at compile
 /// time from the kit-stdlib data dir.
 const WS_RFC_NATIVE_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/ws_rfc_native/ws_rfc_native.hnl");
+    include_str!("../../../handl-packages/ws_rfc_native/ws_rfc_native.hnl");
 
 // ---------------------------------------------------------------------------
 // WsRfcNativeLibraryPlugin (wraps HandlLibraryPlugin with op registry)

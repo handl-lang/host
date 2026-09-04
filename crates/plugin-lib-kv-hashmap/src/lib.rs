@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The kv-hashmap interface is declared in
-//! `handl-packages/kit-stdlib/kv_hashmap/kv_hashmap.hnl` via `op`/`handl`
+//! `handl-packages/kv_hashmap/kv_hashmap.hnl` via `op`/`handl`
 //! declarations, and the Rust kv logic is registered as handls (handlers)
 //! in an [`OpRegistry`]. The [`KvHashmapLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the
@@ -35,7 +35,7 @@ use handl_plugin_lib_kv::{KeyValueStore, KvError};
 /// source of truth for the kv-hashmap API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
 const KV_HASHMAP_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/kv_hashmap/kv_hashmap.hnl");
+    include_str!("../../../handl-packages/kv_hashmap/kv_hashmap.hnl");
 
 /// The op names declared in `kv_hashmap.hnl`.
 const KV_HASHMAP_OPS: &[&str] = &[

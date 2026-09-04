@@ -121,14 +121,12 @@ pub fn resolve_apps(scheme: &Scheme, graph_map: &HashMap<String, Scheme>) -> Sch
 
 /// Find the arrows root directory from a file path.
 ///
-/// Looks for `/arrows/` in the path and returns everything up to and
-/// including it. Returns `None` if the path doesn't contain `/arrows/`.
+/// Looks for `/handl-packages/` in the path and returns everything up to and
+/// including it. Returns `None` if the path doesn.t contain `/handl-packages/`.
 fn find_arrows_root(path: &str) -> Option<String> {
     let marker = "/handl-packages/";
     let idx = path.find(marker)?;
-    let after_marker = &path[idx + marker.len()..];
-    let next_slash = after_marker.find('/')?;
-    Some(path[..idx + marker.len() + next_slash + 1].to_string())
+    Some(path[..idx + marker.len()].to_string())
 }
 
 // ============================================================================

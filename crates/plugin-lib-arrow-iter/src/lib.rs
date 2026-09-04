@@ -29,7 +29,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The arrow_iter interface is declared in
-//! `handl-packages/kit-stdlib/arrow_iter/arrow_iter.hnl`. The composite step ops
+//! `handl-packages/arrow_iter/arrow_iter.hnl`. The composite step ops
 //! are interpreted by the v2 engine, not by Rust handls, so no
 //! [`OpRegistry`] is needed. The [`ArrowIterLibraryPlugin`] wraps the
 //! generic [`HandlLibraryPlugin`] for capability declaration.
@@ -42,7 +42,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the arrow_iter interface — the single
 /// source of truth for the arrow_iter capability surface. Loaded at
 /// compile time from the kit-stdlib data dir.
-const ARROW_ITER_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/arrow_iter/arrow_iter.hnl");
+const ARROW_ITER_HNL: &str = include_str!("../../../handl-packages/arrow_iter/arrow_iter.hnl");
 
 /// `while cond body` — derived from `Loop` + `Choice`
 /// (ADR-0052 §"Derived forms").

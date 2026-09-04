@@ -83,8 +83,8 @@ fn search_for_file(dir: &Path, file_name: &str) -> Option<String> {
 /// Search for `axiom <name>` in `.hnl` files under the `contracts/`
 /// directory that is a child of the kit root.
 ///
-/// For example, if `arrows_root` is `.../handl-packages/kit-stdlib/`, the
-/// contracts directory is `.../handl-packages/kit-stdlib/contracts/`.
+/// For example, if `arrows_root` is `.../handl-packages/`, the
+/// contracts directory is `.../handl-packages/contracts/`.
 fn find_axiom_definition(name: &str, arrows_root: &str) -> Option<String> {
     let contracts_dir = contracts_dir_from_arrows_root(arrows_root)?;
     let needle = format!("axiom {}", name);
@@ -93,8 +93,8 @@ fn find_axiom_definition(name: &str, arrows_root: &str) -> Option<String> {
 
 /// Compute the `contracts/` directory path that is a child of the kit root.
 ///
-/// Given `.../handl-packages/kit-stdlib/`, returns
-/// `.../handl-packages/kit-stdlib/contracts/`.
+/// Given `.../handl-packages/`, returns
+/// `.../handl-packages/contracts/`.
 fn contracts_dir_from_arrows_root(arrows_root: &str) -> Option<String> {
     let root = Path::new(arrows_root);
     let contracts = root.join("contracts");

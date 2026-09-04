@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The tar interface is declared in
-//! `handl-packages/kit-stdlib/archive_tar/archive_tar.hnl` via `op` declarations,
+//! `handl-packages/archive_tar/archive_tar.hnl` via `op` declarations,
 //! and the Rust pack/unpack logic is registered as handls (handlers) in
 //! an [`OpRegistry`]. The [`ArchiveTarLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the
@@ -28,7 +28,7 @@ pub use tar_archive::TarArchive;
 /// The handl source declaring the tar `op` interface — the single source
 /// of truth for the tar API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const ARCHIVE_TAR_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/archive_tar/archive_tar.hnl");
+const ARCHIVE_TAR_HNL: &str = include_str!("../../../handl-packages/archive_tar/archive_tar.hnl");
 
 /// The op names declared in `archive_tar.hnl`.
 const ARCHIVE_TAR_OPS: &[&str] = &["tar.pack", "tar.unpack"];

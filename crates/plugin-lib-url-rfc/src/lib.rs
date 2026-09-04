@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The url-rfc interface is declared in
-//! `handl-packages/kit-stdlib/url_rfc/url_rfc.hnl` via `op` declarations, and the
+//! `handl-packages/url_rfc/url_rfc.hnl` via `op` declarations, and the
 //! Rust parse logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`UrlRfcLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the
@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 /// The handl source declaring the url_rfc `op` interface — the single
 /// source of truth for the url_rfc API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
-const URL_RFC_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/url_rfc/url_rfc.hnl");
+const URL_RFC_HNL: &str = include_str!("../../../handl-packages/url_rfc/url_rfc.hnl");
 
 /// The op names declared in `url_rfc.hnl`.
 const URL_RFC_OPS: &[&str] = &["url_rfc.parse", "url_rfc.url_rfc"];

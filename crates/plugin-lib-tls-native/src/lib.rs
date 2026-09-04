@@ -4,8 +4,8 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The TLS interface is declared in
-//! `handl-packages/kit-stdlib/tls/tls.hnl`, and this crate's `handl` bindings are
-//! declared in `handl-packages/kit-stdlib/tls_native/tls_native.hnl`. The Rust handls
+//! `handl-packages/tls/tls.hnl`, and this crate's `handl` bindings are
+//! declared in `handl-packages/tls_native/tls_native.hnl`. The Rust handls
 //! (wrapping rustls via [`NativeTls`]) are registered in an [`OpRegistry`]
 //! via [`tls_native_op_registry`], which delegates to the shared
 //! [`tls_op_registry`](handl_plugin_lib_tls::tls_op_registry) builder. The
@@ -396,7 +396,7 @@ mod tests;
 /// The handl source declaring the tls-native `handl` bindings — the
 /// implementation-side declarations for the TLS ops. Loaded at compile
 /// time from the kit-stdlib data dir.
-const TLS_NATIVE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/tls_native/tls_native.hnl");
+const TLS_NATIVE_HNL: &str = include_str!("../../../handl-packages/tls_native/tls_native.hnl");
 
 /// Build the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for
 /// tls-native, registering the Rust handls (wrapping rustls via

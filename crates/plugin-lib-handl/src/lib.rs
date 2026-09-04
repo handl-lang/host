@@ -31,7 +31,7 @@
 //! use handl_plugin_lib_handl::{HandlModule, HandlLibraryPlugin};
 //! use handl_plugin_lib_utils::{MathModule, TypeModule};
 //!
-//! const STATS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/stats/stats.hnl");
+//! const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 //! const STATS_FUNCS: &[&str] = &["sum", "avg", "product", "min", "max", "median", "stddev"];
 //!
 //! let module = HandlModule::new("stats", STATS_HNL, STATS_FUNCS)
@@ -352,7 +352,7 @@ impl Function for HandlFunction {
 /// use handl_plugin_lib_handl::HandlModule;
 /// use handl_plugin_lib_utils::{MathModule, TypeModule};
 ///
-/// const STATS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/stats/stats.hnl");
+/// const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 ///
 /// let module = HandlModule::new("stats", STATS_HNL, &["sum", "avg", "stddev"])
 ///     .with_dependency(MathModule)
@@ -511,7 +511,7 @@ impl Module for HandlModule {
 /// use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// use handl_plugin_lib_utils::{MathModule, TypeModule};
 ///
-/// const STATS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/stats/stats.hnl");
+/// const STATS_HNL: &str = include_str!("../../../handl-packages/stats/stats.hnl");
 ///
 /// let plugin = HandlLibraryPlugin::new(
 ///     "stats", "lib.stats", "lib-stats", STATS_HNL,

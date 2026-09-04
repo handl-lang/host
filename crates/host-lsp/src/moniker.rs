@@ -10,9 +10,9 @@
 //! * **Axioms / contracts** — a symbol defined inside a `contracts/` file
 //!   uses `contracts/<filename>/<axiom_name>`.
 //! * **Arrow files** — the file path relative to the kit root
-//!   (`handl-packages/<pkg>/`) is used, with path separators normalised to
+//!   (`handl-packages/`) is used, with path separators normalised to
 //!   `/` and the `.hnl` extension stripped. For example
-//!   `/repo/handl-packages/kit-stdlib/collection/sort.hnl` yields the
+//!   `/repo/handl-packages/collection/sort.hnl` yields the
 //!   moniker `collection/sort`.
 //! * **Local symbols** — identifiers that are not part of an arrow or
 //!   contract file fall back to `<filename>/<name>`.
@@ -60,7 +60,7 @@ pub fn moniker(source: &str, offset: usize, file_path: Option<&str>) -> Vec<Valu
 ///
 /// * If `path` lives under a `contracts/` directory, the identifier is
 ///   `contracts/<filename>/<name>`.
-/// * If `path` lives under a kit root (`handl-packages/<pkg>/`), the relative
+/// * If `path` lives under a kit root (`handl-packages/`), the relative
 ///   path (minus the `.hnl` extension) is used as the identifier, ignoring
 ///   the symbol name — the file *is* the arrow.
 /// * Otherwise the identifier is `<filename_stem>/<name>`.

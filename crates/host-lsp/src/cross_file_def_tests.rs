@@ -29,7 +29,7 @@ fn make_temp_dir(prefix: &str) -> PathBuf {
 #[test]
 fn find_cross_file_definition_finds_arrow_file() {
     let dir = make_temp_dir("find");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("fn");
+    let arrows_dir = dir.join("handl-packages").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let insert_path = arrows_dir.join("insert.hnl");
     fs::write(&insert_path, "-- insert arrow\n").expect("write insert.hnl");
@@ -37,7 +37,7 @@ fn find_cross_file_definition_finds_arrow_file() {
     // The "current file" lives somewhere under arrows/ so that
     // find_arrows_root can locate the root.
     let current_file = dir
-        .join("handl-packages").join("kit-stdlib")
+        .join("handl-packages")
         .join("collection")
         .join("sort.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
@@ -58,10 +58,10 @@ fn find_cross_file_definition_finds_arrow_file() {
 #[test]
 fn find_cross_file_definition_returns_none_for_nonexistent() {
     let dir = make_temp_dir("none");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("fn");
+    let arrows_dir = dir.join("handl-packages").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
 
-    let current_file = dir.join("handl-packages").join("kit-stdlib").join("sort.hnl");
+    let current_file = dir.join("handl-packages").join("sort.hnl");
     fs::write(&current_file, "-- sort arrow\n").expect("write sort.hnl");
 
     let current_str = current_file.to_string_lossy().to_string();
@@ -74,20 +74,20 @@ fn find_arrows_root_locates_arrows_directory() {
     // Mirror the refinement_tests assertion to keep this module
     // self-documenting about its dependency on find_arrows_root.
     assert_eq!(
-        find_arrows_root("/home/user/platform/handl-packages/kit-stdlib/collection/sort.hnl"),
-        Some("/home/user/platform/handl-packages/kit-stdlib/".to_string())
+        find_arrows_root("/home/user/platform/handl-packages/collection/sort.hnl"),
+        Some("/home/user/platform/handl-packages/".to_string())
     );
 }
 
 #[test]
 fn find_cross_file_definition_uri_returns_location_json() {
     let dir = make_temp_dir("uri");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("fn");
+    let arrows_dir = dir.join("handl-packages").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let map_path = arrows_dir.join("map.hnl");
     fs::write(&map_path, "-- map arrow\n").expect("write map.hnl");
 
-    let current_file = dir.join("handl-packages").join("kit-stdlib").join("collection").join("each.hnl");
+    let current_file = dir.join("handl-packages").join("collection").join("each.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
     fs::write(&current_file, "-- each arrow\n").expect("write each.hnl");
 
@@ -105,14 +105,14 @@ fn find_cross_file_definition_uri_returns_location_json() {
 #[test]
 fn resolve_definition_falls_back_to_cross_file() {
     let dir = make_temp_dir("resolve");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("fn");
+    let arrows_dir = dir.join("handl-packages").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     let insert_path = arrows_dir.join("insert.hnl");
     fs::write(&insert_path, "-- insert arrow\n").expect("write insert.hnl");
 
     // The current file references `insert` but does not define it locally,
     // so resolve_definition should fall back to cross-file resolution.
-    let current_file = dir.join("handl-packages").join("kit-stdlib").join("collection").join("sort.hnl");
+    let current_file = dir.join("handl-packages").join("collection").join("sort.hnl");
     fs::create_dir_all(current_file.parent().unwrap()).expect("create collection dir");
     let source = "insert(input)";
     fs::write(&current_file, source).expect("write sort.hnl");
@@ -136,14 +136,14 @@ fn resolve_definition_falls_back_to_cross_file() {
 #[test]
 fn resolve_definition_prefers_in_file_definition() {
     let dir = make_temp_dir("infile");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("fn");
+    let arrows_dir = dir.join("handl-packages").join("fn");
     fs::create_dir_all(&arrows_dir).expect("create arrows/fn dir");
     // Create a cross-file target that should NOT be chosen because the
     // name is defined locally in the current file.
     let x_path = arrows_dir.join("x.hnl");
     fs::write(&x_path, "-- x arrow\n").expect("write x.hnl");
 
-    let current_file = dir.join("handl-packages").join("kit-stdlib").join("main.hnl");
+    let current_file = dir.join("handl-packages").join("main.hnl");
     fs::write(&current_file, "").expect("write main.hnl");
 
     // `x` is defined locally with `=`, so in-file definition wins.
@@ -167,8 +167,8 @@ fn resolve_definition_prefers_in_file_definition() {
 #[test]
 fn find_cross_file_definition_finds_axiom_in_contracts() {
     let dir = make_temp_dir("axiom");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
 

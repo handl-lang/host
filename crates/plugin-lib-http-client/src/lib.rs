@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The HTTP client interface is declared in
-//! `handl-packages/kit-stdlib/http_client/http_client.hnl` via `op` declarations,
+//! `handl-packages/http_client/http_client.hnl` via `op` declarations,
 //! and the Rust handls (handlers) that delegate to an [`HttpClient`] are
 //! registered in an [`OpRegistry`] via [`http_client_op_registry`]. The
 //! [`HttpClientLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`]
@@ -47,7 +47,7 @@ pub use http_client::http_client_stub::StubHttpClient;
 /// source of truth for the HTTP client API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
 const HTTP_CLIENT_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/http_client/http_client.hnl");
+    include_str!("../../../handl-packages/http_client/http_client.hnl");
 
 /// Build an [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for the
 /// HTTP client ops, registering Rust handls that delegate to the given

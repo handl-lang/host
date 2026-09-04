@@ -6,7 +6,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The crypto interface is declared in
-//! `handl-packages/kit-stdlib/crypto/crypto.hnl` via `op` declarations, and the Rust
+//! `handl-packages/crypto/crypto.hnl` via `op` declarations, and the Rust
 //! hash logic is registered as handls (handlers) in an [`OpRegistry`]. The
 //! [`CryptoLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with the
 //! op registry, eliminating the per-library `Module`/`Plugin` trait
@@ -43,7 +43,7 @@ use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 /// The handl source declaring the crypto `op` interface — the single source
 /// of truth for the crypto API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const CRYPTO_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/crypto/crypto.hnl");
+const CRYPTO_HNL: &str = include_str!("../../../handl-packages/crypto/crypto.hnl");
 
 /// The op names declared in `crypto.hnl`.
 const CRYPTO_OPS: &[&str] = &["crypto.sha256", "crypto.md5"];

@@ -58,7 +58,7 @@ fn prepare_type_hierarchy_for_predicate_returns_item() {
     let offset = 0;
 
     let dir = make_temp_dir("prepare-pred");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
+    let arrows_dir = dir.join("handl-packages");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
     let current_file = arrows_dir.join("sort.hnl");
     fs::write(&current_file, source).expect("write current file");
@@ -117,8 +117,8 @@ fn prepare_type_hierarchy_empty_source_returns_empty() {
 #[test]
 fn supertypes_for_sorted_returns_is_perm() {
     let dir = make_temp_dir("sup-sorted");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
 
     // Contract file defining `axiom IsPerm` (the supertype).
@@ -152,8 +152,8 @@ fn supertypes_for_sorted_returns_is_perm() {
 #[test]
 fn supertypes_for_base_predicate_returns_empty() {
     let dir = make_temp_dir("sup-base");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
     // `LengthEq` is a base predicate with no supertypes.
     write_contract(&contracts_dir, "list", "LengthEq");
@@ -177,8 +177,8 @@ fn supertypes_for_base_predicate_returns_empty() {
 #[test]
 fn subtypes_for_is_perm_returns_sorted() {
     let dir = make_temp_dir("sub-isperm");
-    let arrows_dir = dir.join("handl-packages").join("kit-stdlib");
-    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages");
+    let contracts_dir = dir.join("handl-packages").join("contracts");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
 
     // Contract file defining `axiom Sorted` (the subtype).

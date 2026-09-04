@@ -14,7 +14,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The kv interface is declared in
-//! `handl-packages/kit-stdlib/kv/kv.hnl`. The [`KeyValueStore`] trait and
+//! `handl-packages/kv/kv.hnl`. The [`KeyValueStore`] trait and
 //! [`KeyValueStoreModule`] adapter remain in Rust — they are implemented by
 //! concrete backend crates (e.g. `plugin-lib-kv-hashmap`). The
 //! [`KvLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with the
@@ -44,7 +44,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the kv interface — the single source of
 /// truth for the kv API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const KV_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/kv/kv.hnl");
+const KV_HNL: &str = include_str!("../../../handl-packages/kv/kv.hnl");
 
 // ---------------------------------------------------------------------------
 // KvLibraryPlugin (wraps HandlLibraryPlugin)

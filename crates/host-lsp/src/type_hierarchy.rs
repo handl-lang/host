@@ -413,8 +413,8 @@ fn search_axiom_in_dir(dir: &Path, name: &str) -> Option<(String, u32, u32, u32)
 }
 
 /// Compute the `contracts/` directory path that is a child of the kit root.
-/// Given `.../handl-packages/kit-stdlib/`, returns
-/// `.../handl-packages/kit-stdlib/contracts/`.
+/// Given `.../handl-packages/`, returns
+/// `.../handl-packages/contracts/`.
 fn contracts_dir_from_arrows_root(arrows_root: &str) -> Option<String> {
     let root = Path::new(arrows_root);
     let contracts = root.join("contracts");

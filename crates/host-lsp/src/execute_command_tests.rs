@@ -12,7 +12,7 @@ fn execute_command_unknown_returns_error() {
 
 #[test]
 fn execute_command_run_arrow_returns_placeholder() {
-    let args = vec![json!({ "uri": "file:///repo/handl-packages/kit-stdlib/sort.hnl" })];
+    let args = vec![json!({ "uri": "file:///repo/handl-packages/sort.hnl" })];
     let result = execute_command("handl.runArrow", &args);
     let msg = result["result"].as_str().expect("runArrow should return a result string");
     assert!(

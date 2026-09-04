@@ -9,7 +9,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The OS interface is declared in
-//! `handl-packages/kit-stdlib/os/os.hnl` via `op` declarations, and the Rust handls
+//! `handl-packages/os/os.hnl` via `op` declarations, and the Rust handls
 //! (handlers) that delegate to the service traits are registered in an
 //! [`OpRegistry`] via [`os_op_registry`]. The [`OsLibraryPlugin`]
 //! wraps the generic [`HandlLibraryPlugin`] with the op registry (backed by
@@ -131,7 +131,7 @@ pub use tmp::tmp_stub::StubTmp;
 /// The handl source declaring the os `op` interface — the single source
 /// of truth for the OS API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const OS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/os/os.hnl");
+const OS_HNL: &str = include_str!("../../../handl-packages/os/os.hnl");
 
 /// The op names declared in `os.hnl` — the complete OS interface surface.
 pub const OS_OPS: &[&str] = &[

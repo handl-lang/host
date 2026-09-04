@@ -4,8 +4,8 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The OS interface is declared in
-//! `handl-packages/kit-stdlib/os/os.hnl`, and this crate's `handl` bindings are
-//! declared in `handl-packages/kit-stdlib/os_std/os_std.hnl`. The Rust handls
+//! `handl-packages/os/os.hnl`, and this crate's `handl` bindings are
+//! declared in `handl-packages/os_std/os_std.hnl`. The Rust handls
 //! (wrapping stdlib implementations) are registered in an [`OpRegistry`]
 //! via [`os_std_op_registry`], which delegates to the shared
 //! [`os_op_registry`](handl_plugin_lib_os::os_op_registry) builder. The
@@ -88,7 +88,7 @@ pub use handl_plugin_lib_os::{
 /// The handl source declaring the os-std `handl` bindings — the
 /// implementation-side declarations for the OS ops. Loaded at compile
 /// time from the kit-stdlib data dir.
-const OS_STD_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/os_std/os_std.hnl");
+const OS_STD_HNL: &str = include_str!("../../../handl-packages/os_std/os_std.hnl");
 
 /// Build the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for
 /// os-std, registering the Rust handls (wrapping stdlib implementations)

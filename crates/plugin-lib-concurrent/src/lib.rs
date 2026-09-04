@@ -5,7 +5,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The concurrent interface is declared in
-//! `handl-packages/kit-stdlib/concurrent/concurrent.hnl` via `---` doc comments
+//! `handl-packages/concurrent/concurrent.hnl` via `---` doc comments
 //! and `cap` declarations. The [`ConcurrentLibraryPlugin`] wraps a
 //! generic [`HandlLibraryPlugin`] for the interface declaration (id,
 //! name, capabilities) while contributing the [`ConcurrencyModule`]
@@ -1517,7 +1517,7 @@ mod error_tests;
 /// source of truth for the concurrent API surface. Loaded at compile
 /// time from the kit-stdlib data dir.
 const CONCURRENT_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/concurrent/concurrent.hnl");
+    include_str!("../../../handl-packages/concurrent/concurrent.hnl");
 
 /// A `Library` plugin that registers the `concurrent` module into the
 /// [`ModuleRuntime`] and declares the interface via a

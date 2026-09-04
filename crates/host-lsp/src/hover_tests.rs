@@ -371,13 +371,13 @@ fn hover_arrow_reference_shows_cross_file_docs() {
     // Create a unique temp arrows directory with a target arrow file.
     let n = HOVER_TEMP_COUNTER.fetch_add(1, Ordering::SeqCst);
     let temp = std::env::temp_dir().join(format!("handl_hover_doc_test_{}", n));
-    std::fs::create_dir_all(temp.join("handl-packages").join("kit-stdlib").join("fn")).unwrap();
-    let target = temp.join("handl-packages").join("kit-stdlib").join("fn").join("myarrow.hnl");
+    std::fs::create_dir_all(temp.join("handl-packages").join("fn")).unwrap();
+    let target = temp.join("handl-packages").join("fn").join("myarrow.hnl");
     std::fs::write(&target, "--- myarrow: a test arrow.\n---\n--- It does things.\nrec { } (id)").unwrap();
 
     // The current file references `myarrow` — hover over it.
     let source = "myarrow(state)";
-    let current_file = temp.join("handl-packages").join("kit-stdlib").join("caller.hnl");
+    let current_file = temp.join("handl-packages").join("caller.hnl");
     std::fs::write(&current_file, source).unwrap();
     let file_path = current_file.to_string_lossy().to_string();
 

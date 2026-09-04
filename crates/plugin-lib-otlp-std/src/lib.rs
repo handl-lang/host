@@ -4,8 +4,8 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The OTLP interface is declared in
-//! `handl-packages/kit-stdlib/otlp/otlp.hnl`, and this crate's `handl` bindings are
-//! declared in `handl-packages/kit-stdlib/otlp_std/otlp_std.hnl`. The Rust handls
+//! `handl-packages/otlp/otlp.hnl`, and this crate's `handl` bindings are
+//! declared in `handl-packages/otlp_std/otlp_std.hnl`. The Rust handls
 //! (wrapping [`HttpOtlpState`]) are registered in an [`OpRegistry`] via
 //! [`otlp_std_op_registry`], which delegates to the shared
 //! [`otlp_op_registry`](handl_plugin_lib_otlp::otlp_op_registry) builder.
@@ -32,7 +32,7 @@ pub use http_state::{HttpOtlpState, std_otlp_module};
 /// The handl source declaring the otlp-std `handl` bindings — the
 /// implementation-side declarations for the OTLP ops. Loaded at compile
 /// time from the kit-stdlib data dir.
-const OTLP_STD_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/otlp_std/otlp_std.hnl");
+const OTLP_STD_HNL: &str = include_str!("../../../handl-packages/otlp_std/otlp_std.hnl");
 
 /// Build the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for
 /// otlp-std, registering the Rust handls (wrapping [`HttpOtlpState`])

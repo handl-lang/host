@@ -8,7 +8,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The compress interface is declared in
-//! `handl-packages/kit-stdlib/compress/compress.hnl`. The [`Compressor`],
+//! `handl-packages/compress/compress.hnl`. The [`Compressor`],
 //! [`Decompressor`], and [`Codec`] traits remain in Rust — they are
 //! implemented by concrete compression crates (e.g. `plugin-lib-compress-gzip`).
 //! The [`CompressLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`]
@@ -26,7 +26,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the compress interface — the single source
 /// of truth for the compress API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const COMPRESS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/compress/compress.hnl");
+const COMPRESS_HNL: &str = include_str!("../../../handl-packages/compress/compress.hnl");
 
 // ---------------------------------------------------------------------------
 // CompressLibraryPlugin (wraps HandlLibraryPlugin)

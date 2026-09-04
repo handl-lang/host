@@ -2,7 +2,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ws_whatwg_native interface is declared in
-//! `handl-packages/kit-stdlib/ws_whatwg_native/ws_whatwg_native.hnl` via `---` doc
+//! `handl-packages/ws_whatwg_native/ws_whatwg_native.hnl` via `---` doc
 //! comments and `cap` declarations. The [`WsWhatwgNativeLibraryPlugin`]
 //! wraps a generic [`HandlLibraryPlugin`] for the interface declaration
 //! (id, name, capabilities) while contributing the
@@ -24,7 +24,7 @@ pub use module::WsWhatwgNativeModule;
 /// single source of truth for the ws_whatwg_native API surface. Loaded
 /// at compile time from the kit-stdlib data dir.
 const WS_WHATWG_NATIVE_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/ws_whatwg_native/ws_whatwg_native.hnl");
+    include_str!("../../../handl-packages/ws_whatwg_native/ws_whatwg_native.hnl");
 
 // ---------------------------------------------------------------------------
 // WsWhatwgNativeLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

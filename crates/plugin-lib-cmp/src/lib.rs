@@ -13,7 +13,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The cmp interface is declared in
-//! `handl-packages/kit-stdlib/cmp/cmp.hnl` via `op` declarations, and the Rust
+//! `handl-packages/cmp/cmp.hnl` via `op` declarations, and the Rust
 //! comparison logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`CmpLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -35,7 +35,7 @@ use serde_json::Value as JsonValue;
 /// The handl source declaring the cmp `op` interface — the single source
 /// of truth for the cmp API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const CMP_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/cmp/cmp.hnl");
+const CMP_HNL: &str = include_str!("../../../handl-packages/cmp/cmp.hnl");
 
 /// The op names declared in `cmp.hnl`.
 const CMP_OPS: &[&str] = &[

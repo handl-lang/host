@@ -90,7 +90,7 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
         .map(PathBuf::from);
 
     // Locate the contracts directory. It is a child of the kit root
-    // (`.../handl-packages/kit-stdlib/contracts/`).
+    // (`.../handl-packages/contracts/`).
     let contracts_dir: Option<PathBuf> = arrows_root
         .as_ref()
         .map(|ar| ar.join("contracts"))

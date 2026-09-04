@@ -8,7 +8,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The archive interface is declared in
-//! `handl-packages/kit-stdlib/archive/archive.hnl`. The [`Archive`] trait and
+//! `handl-packages/archive/archive.hnl`. The [`Archive`] trait and
 //! [`ArchiveEntry`] remain in Rust — they are implemented by concrete
 //! archive format crates (e.g. `plugin-lib-archive-tar`). The
 //! [`ArchiveLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
@@ -28,7 +28,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the archive interface — the single source
 /// of truth for the archive API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const ARCHIVE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/archive/archive.hnl");
+const ARCHIVE_HNL: &str = include_str!("../../../handl-packages/archive/archive.hnl");
 
 // ---------------------------------------------------------------------------
 // ArchiveLibraryPlugin (wraps HandlLibraryPlugin)

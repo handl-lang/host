@@ -62,7 +62,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The aggregated utils interface is declared in
-//! `handl-packages/kit-stdlib/utils/utils.hnl` via `---` doc comments and `cap`
+//! `handl-packages/utils/utils.hnl` via `---` doc comments and `cap`
 //! declarations. The [`UtilsLibraryPlugin`] wraps a generic
 //! [`HandlLibraryPlugin`] for the interface declaration (id, name,
 //! capabilities) while contributing multiple [`ModuleRule`]s — one per
@@ -117,7 +117,7 @@ pub use r#type::TypeModule;
 /// and its ops, plus `cap` declarations for the utils-owned modules. The
 /// re-exported crates (base64, hex, json, toml, yaml, url-rfc, url-whatwg)
 /// each have their own `.hnl` files declaring their own op interfaces.
-const UTILS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/utils/utils.hnl");
+const UTILS_HNL: &str = include_str!("../../../handl-packages/utils/utils.hnl");
 
 // ---------------------------------------------------------------------------
 // UtilsLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

@@ -14,7 +14,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The test interface is declared in
-//! `handl-packages/kit-stdlib/test/test.hnl` via `op` declarations, and the Rust
+//! `handl-packages/test/test.hnl` via `op` declarations, and the Rust
 //! test logic is registered as handls (handlers) in an [`OpRegistry`].
 //! The [`TestLibraryPlugin`] wraps 6 [`HandlModule`] instances (one per
 //! module namespace) with the shared op registry.
@@ -53,7 +53,7 @@ mod tests;
 /// The handl source declaring the test `op` interface — the single source
 /// of truth for the test API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const TEST_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/test/test.hnl");
+const TEST_HNL: &str = include_str!("../../../handl-packages/test/test.hnl");
 
 /// The op names declared in `test.hnl`, grouped by module.
 const TEST_OPS: &[&str] = &["test.run"];

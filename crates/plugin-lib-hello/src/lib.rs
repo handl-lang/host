@@ -4,7 +4,7 @@
 //!
 //! Provides the `hello` library as a `Library` plugin.
 //!
-//! The greet *logic* is handl-authored in `handl-packages/kit-stdlib/hello/greet.hnl`;
+//! The greet *logic* is handl-authored in `handl-packages/hello/greet.hnl`;
 //! this crate loads and bridges that definition via the generic
 //! [`handl_plugin_lib_handl`] loader. The per-library Rust bridge code has
 //! been eliminated: [`HandlModule`] / [`HandlLibraryPlugin`] evaluate the
@@ -22,7 +22,7 @@
 /// loader's `strip_comment_lines`.
 const GREET_HNL_RECORD: &str = concat!(
     "{ greet: (\n",
-    include_str!("../../../handl-packages/kit-stdlib/hello/greet.hnl"),
+    include_str!("../../../handl-packages/hello/greet.hnl"),
     "\n) }"
 );
 

@@ -10,7 +10,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ws_rfc interface is declared in
-//! `handl-packages/kit-stdlib/ws_rfc_memory/ws_rfc_memory.hnl` via `op` declarations,
+//! `handl-packages/ws_rfc_memory/ws_rfc_memory.hnl` via `op` declarations,
 //! and the Rust handls (re-exported from `handl_plugin_lib_ws_rfc`) are
 //! registered in an [`OpRegistry`]. The [`WsRfcMemoryLibraryPlugin`] wraps
 //! the generic [`HandlLibraryPlugin`] with the op registry.
@@ -36,7 +36,7 @@ mod tests;
 /// of truth for the ws_rfc API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
 const WS_RFC_MEMORY_HNL: &str =
-    include_str!("../../../handl-packages/kit-stdlib/ws_rfc_memory/ws_rfc_memory.hnl");
+    include_str!("../../../handl-packages/ws_rfc_memory/ws_rfc_memory.hnl");
 
 /// The op names declared in `ws_rfc_memory.hnl`.
 const WS_RFC_OPS: &[&str] = &[

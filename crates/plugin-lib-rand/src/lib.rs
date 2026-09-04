@@ -8,7 +8,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The rand interface is declared in
-//! `handl-packages/kit-stdlib/rand/rand.hnl` via `op` declarations, and the Rust
+//! `handl-packages/rand/rand.hnl` via `op` declarations, and the Rust
 //! random generation logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`RandLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry.
@@ -50,7 +50,7 @@ mod test_helpers;
 /// The handl source declaring the rand `op` interface — the single source
 /// of truth for the rand API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const RAND_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/rand/rand.hnl");
+const RAND_HNL: &str = include_str!("../../../handl-packages/rand/rand.hnl");
 
 /// The op names declared in `rand.hnl`.
 const RAND_OPS: &[&str] = &[
