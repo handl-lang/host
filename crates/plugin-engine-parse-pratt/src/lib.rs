@@ -150,10 +150,23 @@ impl ParserEngine for PrattEngine {
         // Reset the arena for this parse.
         *self.ast.borrow_mut() = Ast::new();
 
-        let tokens = req.tokens.as_slice();
-        if tokens.is_empty() {
+        let raw = req.tokens.as_slice();
+        if raw.is_empty() {
             return Ok(Ast::new());
         }
+
+        // ADR-0044: trivia tokens (e.g. `token.comment`, `token.doc_comment`)
+        // are flagged in `lang.tokens` data. They carry no syntactic meaning,
+        // so the Pratt loop never sees them — the lexer still emits them so
+        // tooling (LSP hover, semantic tokens) can surface comments. Filter
+        // them out of the token slice before driving the grammar. This is a
+        // data-driven decision (lookup in `lang.tokens`), not a hardcoded
+        // `kind == "token.comment"` check.
+        let filtered: Vec<Token> = filter_trivia(lang, raw);
+        if filtered.is_empty() {
+            return Ok(Ast::new());
+        }
+        let tokens = filtered.as_slice();
 
         // Drive the Pratt loop from a local cursor. We do not use
         // ParserContext here because the engine owns the recursion; the
@@ -185,6 +198,28 @@ impl ParserEngine for PrattEngine {
         }
         Ok(result)
     }
+}
+
+/// Filter trivia tokens out of `tokens`.
+///
+/// A token is trivia when its kind is declared with `trivia: true` in
+/// `lang.tokens` (ADR-0044). The decision is data-driven: this performs a
+/// `lang.tokens` lookup per token, never a hardcoded kind-string check.
+fn filter_trivia(lang: &Language, tokens: &[Token]) -> Vec<Token> {
+    tokens
+        .iter()
+        .filter(|t| !is_trivia(lang, &t.kind))
+        .cloned()
+        .collect()
+}
+
+/// Whether `kind` is a trivia token kind (declared `trivia: true` in
+/// `lang.tokens`).
+fn is_trivia(lang: &Language, kind: &str) -> bool {
+    lang.tokens
+        .get_by_identity(kind)
+        .map(|def| def.trivia)
+        .unwrap_or(false)
 }
 
 /// A local cursor over a token slice, used internally by the Pratt loop.

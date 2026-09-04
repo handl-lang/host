@@ -21,8 +21,10 @@
   label: ','
 - id: token.comment
   label: comment
+  trivia: true
 - id: token.doc_comment
   label: doc_comment
+  trivia: true
 - id: token.dot
   label: .
 - id: token.ellipsis

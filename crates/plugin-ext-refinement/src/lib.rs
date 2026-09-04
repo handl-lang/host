@@ -45,6 +45,7 @@ pub mod contracts;
 pub mod inference;
 pub mod loader;
 pub mod loop_invariant;
+pub mod partial_eval;
 pub mod plugin;
 pub mod smt;
 pub mod termination;
