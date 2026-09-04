@@ -334,6 +334,27 @@ pub trait Function: 'static {
     fn as_async(&self) -> Option<&dyn AsyncFunction> {
         None
     }
+
+    /// Downcast this function to a [`TypeSignature`] if it exposes a type
+    /// signature for typechecking (ADR-0083).
+    ///
+    /// The default implementation returns `None`. Functions that also
+    /// implement [`TypeSignature`] override this to return `Some(self)` so
+    /// that [`ModuleLookup::lookup_type_signature`] can retrieve the op's
+    /// declared type without executing it.
+    fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
+        None
+    }
+}
+
+/// A function that exposes its type signature for typechecking (ADR-0083).
+///
+/// `Function` impls that represent declared `op`s (with `op "x" : T -> T`
+/// signatures) implement this trait so the typechecker can look up the op's
+/// type without executing it. The signature is a type value (ADR-0032).
+pub trait TypeSignature: Function {
+    /// The op's type signature as a type value (e.g. a `type.function` value).
+    fn type_signature(&self) -> Value;
 }
 
 /// A callable host function that supports async execution.
@@ -401,6 +422,15 @@ pub trait ModuleLookup: 'static {
     /// Resolve a qualified name (e.g. `math.add`) or flat name (e.g. `add`)
     /// to a callable [`Function`].
     fn lookup(&self, qualified_name: &str) -> Option<&dyn Function>;
+
+    /// Look up the type signature of a qualified op name (ADR-0083).
+    ///
+    /// Returns `None` if the op is not found or does not expose a type
+    /// signature (i.e. its [`Function`] impl does not also implement
+    /// [`TypeSignature`]).
+    fn lookup_type_signature(&self, _qualified_name: &str) -> Option<Value> {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------

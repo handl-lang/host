@@ -110,6 +110,26 @@ const CHOICE_KEY: &str = "__choice__";
 /// The key under which a `Choice` Either's payload value is encoded.
 const CHOICE_VALUE_KEY: &str = "value";
 
+/// FFI marshalling type tags (ADR-0083).
+const FFI_MARSHALLING_TYPES: &[&str] = &[
+    "type.cstr",   // const char* -> String
+    "type.i32",    // int32_t -> Number
+    "type.i64",    // int64_t -> Number
+    "type.f64",    // double -> Number
+    "type.buf",    // void* + size_t -> Array<Byte>
+    "type.ptr",    // void* -> opaque Handle
+    "type.void",   // void -> Unit
+    "type.handle", // void* -> opaque Handle (resource table)
+];
+
+/// Check if a type value's tag is an FFI-marshalable type (ADR-0083).
+fn is_marshalable(registry: &TypeRegistry, ty: &Value) -> bool {
+    registry
+        .as_type_tag(ty)
+        .map(|tag| FFI_MARSHALLING_TYPES.contains(&tag))
+        .unwrap_or(false)
+}
+
 /// A data-driven, normalization-based typecheck engine (ADR-0054).
 ///
 /// Implements [`TypecheckEngine`] by interpreting the arrow-calculus
@@ -131,6 +151,8 @@ pub struct NbeTypecheckEngine {
     /// `Scheme` is **always** enforced regardless of this flag — type
     /// rules themselves must never contain `Foreign` ops.
     pure: bool,
+    /// Module registry for Foreign op type signature lookup (ADR-0083).
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
 }
 
 impl NbeTypecheckEngine {
@@ -145,6 +167,7 @@ impl NbeTypecheckEngine {
             eval_engine,
             registry_id: "handl.canonical".to_string(),
             pure: true,
+            modules: None,
         }
     }
 
@@ -159,7 +182,11 @@ impl NbeTypecheckEngine {
     /// `proj_child` purity check is skipped. The rejection of `Foreign`
     /// ops in type rule schemes is always enforced.
     pub fn with_pure(self, pure: bool) -> Self {
-        Self { pure, ..self }
+        Self {
+            pure,
+            modules: self.modules.clone(),
+            ..self
+        }
     }
 
     /// Synthesize the type of a node by looking up its type rule and
@@ -2481,6 +2508,43 @@ impl NbeTypecheckEngine {
                     .construct("type.collection", &payload)
                     .ok_or_else(|| LangError::engine("construct_collection: construct failed"))
             }
+            "marshalable" => {
+                // Check that the incoming type value is an FFI-marshalable
+                // type (ADR-0083).
+                let ty = incoming.as_ref().ok_or_else(|| {
+                    LangError::engine("typecheck: marshalable requires an incoming type value")
+                })?;
+                if is_marshalable(&ctx.registry, ty) {
+                    Ok(Value::Bool(true))
+                } else {
+                    let tag = ctx.registry.as_type_tag(ty).unwrap_or("unknown");
+                    Err(LangError::engine(format!(
+                        "typecheck: type '{}' is not FFI-marshalable (ADR-0083)",
+                        tag
+                    )))
+                }
+            }
+            "foreign_type" => {
+                // Look up a Foreign op's type signature from the module
+                // registry (ADR-0083). The op name comes from the lit
+                // payload (a string).
+                let op_name = lit.and_then(|v| v.as_str()).ok_or_else(|| {
+                    LangError::engine(
+                        "typecheck: foreign_type requires a string lit (op name)",
+                    )
+                })?;
+                let modules = self.modules.as_ref().ok_or_else(|| {
+                    LangError::engine(
+                        "typecheck: foreign_type requires a module registry (call with_modules)",
+                    )
+                })?;
+                modules.lookup_type_signature(op_name).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "typecheck: foreign op '{}' has no registered type signature",
+                        op_name
+                    ))
+                })
+            }
             other => Err(LangError::engine(format!(
                 "typecheck: unknown judgment op '{}'",
                 other
@@ -3398,6 +3462,7 @@ impl TypecheckEngine for NbeTypecheckEngine {
             eval_engine: self.eval_engine.box_clone(),
             registry_id: self.registry_id.clone(),
             pure: self.pure,
+            modules: self.modules.clone(),
         })
     }
 
@@ -3406,9 +3471,10 @@ impl TypecheckEngine for NbeTypecheckEngine {
         modules: Rc<dyn handl_platform::ModuleLookup>,
     ) -> Box<dyn TypecheckEngine> {
         Box::new(Self {
-            eval_engine: self.eval_engine.with_modules(modules),
+            eval_engine: self.eval_engine.with_modules(modules.clone()),
             registry_id: self.registry_id.clone(),
             pure: self.pure,
+            modules: Some(modules),
         })
     }
 }
