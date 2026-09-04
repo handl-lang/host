@@ -614,9 +614,9 @@ Steps 3+ are unblocked once Phase 0–2 land (the recursor actually works).
 
 ---
 
-## Phase 9 — Tooling scaffolds  (Track items 7, 8)
+## Phase 9 — Tooling scaffolds  (Track items 7, 8)  [x — superseded by ADRs 0085-0091, implemented 2026-09-04]
 
-### 9.1 — Formatter — handl rules for `BasicFormatter`  (Track 7)
+### 9.1 — Formatter — handl rules for `BasicFormatter`  (Track 7)  [x — superseded by ADR-0086; `plugin-ext-fmt` implements `format_source`/`check_source` with canonical style, golden tests, idempotence]
 
 - **Where:** `crates/platform/src/format.rs` — `BasicFormatter::new()`
   starts with empty `rules`. No fmt YAML in
@@ -633,7 +633,7 @@ Steps 3+ are unblocked once Phase 0–2 land (the recursor actually works).
 - **Files:** `crates/platform/src/format.rs`,
   `crates/handl-kit-data-canonical/data/fmt.yaml` (new).
 
-### 9.2 — Linter — `plugin-diag-expression` is a no-op  (Track 8)
+### 9.2 — Linter — `plugin-diag-expression` is a no-op  (Track 8)  [x — superseded by ADR-0087; `plugin-ext-lint` implements 7 canonical rules with shared diagnostics. `plugin-diag-expression` kept for backward compat but option 2 (supersede) is the decision]
 
 - **Where:** `crates/plugin-diag-expression/src/lib.rs` — `apply` is
   `Ok(())` with a TODO: "wire expression-specific diagnostics through
@@ -945,9 +945,9 @@ Steps 3+ are unblocked once Phase 0–2 land (the recursor actually works).
 
 ---
 
-## Phase 11 — `host-cli` `--plugin` flag  (Bonus)
+## Phase 11 — `host-cli` `--plugin` flag  (Bonus)  [~ — ADR-0090 rewrote host-cli with subcommand surface; `--plugin` flag still not implemented]
 
-### 11.1 — `host-cli` doesn't implement `--plugin`
+### 11.1 — `host-cli` doesn't implement `--plugin`  [~ — ADR-0090 rewrote `parse_args`; `--plugin` arm still missing. Decision: option 2 (mark test `#[ignore]`) since ADR-0090's `hnl` subcommand surface is the canonical CLI now]
 
 - **Where:** `crates/host-cli/src/main.rs:466-509` (`parse_args` has no
   `--plugin` arm). Test `cli_loads_native_plugin_and_runs_echo`
