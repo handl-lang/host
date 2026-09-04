@@ -1000,7 +1000,12 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-applier",
+ "handl-plugin-engine-typecheck",
  "handl-plugin-ext-cli",
+ "handl-plugin-ext-diag",
+ "handl-plugin-ext-fmt",
+ "handl-plugin-ext-lint",
+ "handl-plugin-lib-test",
  "serde_json",
 ]
 
