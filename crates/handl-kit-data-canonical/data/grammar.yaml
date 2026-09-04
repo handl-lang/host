@@ -254,20 +254,24 @@
       flatten: false
 # `rec` introduces a recursive region (ADR-0074 Correction 2).
 # Like `do-block` but with recursive feedback semantics.
+# ADR-0079: changed to arrow's `rec { state } ( body )` syntax (arity 2).
+# child 0 = `{ state }` (object literal expression), child 1 = `( body )`
+# (parenthesized, flattened). The `rec` node has kind `rec` and children
+# `[state_object, body_expr]`.
 - id: grammar.rec.prefix
   token: token.keyword.rec
   position: Prefix
   binding_power:
-    - 0
+    - 91
     - 0
   child_shape:
     node_kind: rec
-    arity: 1
+    arity: 2
     delimited:
-      open: token.lbrace
-      close: token.rbrace
-      separator: token.semicolon
-      container_kind: block
+      open: token.lparen
+      close: token.rparen
+      separator: token.comma
+      container_kind: call
       open_is_operator_token: false
       flatten: true
 # `while cond { body }` — pre-test loop (ADR-0074 A.5).

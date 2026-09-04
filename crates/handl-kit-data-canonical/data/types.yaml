@@ -1771,19 +1771,18 @@
     source: Judgment
     lit: 0
 
-# `block` — synth the last child (the block's type is the type of its last
-# statement). An empty block returns `type.unit`. Uses `synth_last_child`
-# (ADR-0054 legacy migration). The `check` rule checks the last child against
-# the expected type (incoming), enabling directed checking through blocks
-# (ADR-0054 directed checking).
+# `block` — graph block (ADR-0079). Binds each `assign` child in Γ, then
+# returns the type of the last child. An empty block returns `type.unit`.
+# Uses `synth_block` / `check_block` which iterate children, bind assigns
+# (including type-annotated ones), and synth/check the last child.
 - id: type.block
   node_kind: block
   synth: !Arr
-    op: synth_last_child
+    op: synth_block
     args: []
     source: Judgment
   check: !Arr
-    op: check_last_child
+    op: check_block
     args: []
     source: Judgment
 

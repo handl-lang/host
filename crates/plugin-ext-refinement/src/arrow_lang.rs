@@ -1,108 +1,105 @@
-//! Loads the arrow DSL language definition into a [`Language`] struct.
+//! Loads the arrow DSL language definition.
 //!
-//! Starting from ADR-0079, the arrow DSL is built on top of the canonical
-//! handl language. The canonical language (`handl-kit-data-canonical`)
-//! provides the base tokens, lexer rules, grammar, eval schemes, and AST
-//! shapes. Arrow-specific fragments (keywords like `arr`/`comp`/`first`,
-//! dotted identifiers, `>>>`→`Seq` eval, `loop_rich`/`rec` grammar) are
-//! merged on top as an overlay.
+//! Since ADR-0079, the arrow dialect uses the canonical handl language
+//! directly. Arrow-specific keywords (`arr`, `comp`, `first`, `choice`,
+//! `loop`, `app`, `id`) are handled as regular identifiers by the parser,
+//! which dispatches on callee names in `materialize_node`.
 //!
-//! This approach unifies the two dialects at the engine level while
-//! preserving arrow-specific lexer behavior (e.g. `.` in identifiers for
-//! `prim.compare` and `state.acc`) that cannot be expressed in the
-//! canonical identifier rule without breaking field-access parsing.
+//! # Precedence override
+//!
+//! The canonical grammar binds `>>>` (flow, bp 25/26) tighter than `|||`
+//! (choice, bp 20/21). The arrow DSL requires the **opposite**: `|||` binds
+//! tighter than `>>>` so that `a >>> b ||| c` parses as `a >>> (b ||| c)`
+//! (= `Seq(a, Choice(b, c))`). We override the two grammar rows after
+//! loading the canonical language to swap their binding powers.
 
 use std::sync::OnceLock;
 
 use handl_language::{
-    AstShapeDef, EvalSchemeDef, GrammarRow, Language, LexerRuleDef, TokenKindDef,
+    AstShapeRef, DelimitedShape, GrammarPosition, GrammarRow, Language, PairShape,
 };
-
-// Embed the arrow-specific overlay YAML data files at compile time.
-// These contain ONLY arrow-specific fragments — the base language comes
-// from `handl_kit_data_canonical::language_from_yaml()`.
-const TOKENS_YAML: &str = include_str!("../data/tokens.yaml");
-const LEXER_RULES_YAML: &str = include_str!("../data/lexer_rules.yaml");
-const GRAMMAR_YAML: &str = include_str!("../data/grammar.yaml");
-const EVAL_YAML: &str = include_str!("../data/eval.yaml");
-const AST_YAML: &str = include_str!("../data/ast.yaml");
-
-/// Build the arrow DSL [`Language`] by loading the canonical language as a
-/// base and merging arrow-specific fragments on top (ADR-0079).
-///
-/// The canonical language provides all base tokens, lexer rules, grammar
-/// rows, eval schemes, and AST shapes. The arrow overlay adds:
-/// - Arrow keywords (`arr`, `comp`, `first`, `choice`, `loop`, `rec`,
-///   `app`, `id`) and their grammar rows
-/// - Dotted identifiers (`prim.compare`, `state.acc`) via a separate
-///   lexer rule
-/// - `>>>` → `Scheme::Seq` eval (replaces canonical's `App`)
-/// - Arrow-specific node kinds (`arr_call`, `first_call`, `loop_rich`,
-///   `arrow_var`, `arrow_match`, etc.)
-///
-/// # Errors
-///
-/// Returns a `String` error message if any YAML file fails to deserialize
-/// or a merge fails.
-fn build_arrow_language() -> Result<Language, String> {
-    // Start with the canonical language as base (ADR-0079 unification).
-    let mut lang = handl_kit_data_canonical::language_from_yaml()
-        .map_err(|e| format!("canonical language: {}", e))?;
-
-    // Merge arrow-specific token kinds (union -- idempotent merge).
-    let tokens: Vec<TokenKindDef> = serde_yaml::from_str(TOKENS_YAML)
-        .map_err(|e| format!("tokens.yaml: {}", e))?;
-    for frag in tokens {
-        lang.tokens.merge(frag).map_err(|e| format!("tokens merge: {e}"))?;
-    }
-
-    // Merge arrow-specific lexer rules (union -- idempotent merge).
-    let lexer_rules: Vec<LexerRuleDef> = serde_yaml::from_str(LEXER_RULES_YAML)
-        .map_err(|e| format!("lexer_rules.yaml: {}", e))?;
-    for frag in lexer_rules {
-        lang.lexer_rules.merge(frag).map_err(|e| format!("lexer_rules merge: {e}"))?;
-    }
-
-    // Merge arrow-specific grammar rows (non-union -- no collisions with
-    // canonical because arrow rows use `token.arrow.*` token names).
-    let grammar: Vec<GrammarRow> = serde_yaml::from_str(GRAMMAR_YAML)
-        .map_err(|e| format!("grammar.yaml: {}", e))?;
-    for frag in grammar {
-        lang.grammar.merge(frag).map_err(|e| format!("grammar merge: {e}"))?;
-    }
-
-    // Merge arrow-specific eval schemes (non-union). The `eval.arrow.flow`
-    // entry uses `replaces: ["eval.flow"]` to override canonical's `App`
-    // with `Seq` for the `>>>` operator.
-    let eval: Vec<EvalSchemeDef> = serde_yaml::from_str(EVAL_YAML)
-        .map_err(|e| format!("eval.yaml: {}", e))?;
-    for frag in eval {
-        lang.eval.merge(frag).map_err(|e| format!("eval merge: {e}"))?;
-    }
-
-    // Merge arrow-specific AST shapes (union -- idempotent merge).
-    let ast: Vec<AstShapeDef> = serde_yaml::from_str(AST_YAML)
-        .map_err(|e| format!("ast.yaml: {}", e))?;
-    for frag in ast {
-        lang.ast.merge(frag).map_err(|e| format!("ast merge: {e}"))?;
-    }
-
-    Ok(lang)
-}
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
 static ARROW_LANG: OnceLock<Language> = OnceLock::new();
 
-/// Return the arrow DSL [`Language`], loading it from the embedded YAML data
-/// files on first call and returning the cached value thereafter.
+/// Return the arrow DSL [`Language`], which is the canonical handl language
+/// (ADR-0079 unification) with arrow-specific precedence overrides for
+/// `>>>` (flow) and `|||` (choice).
 ///
 /// # Panics
 ///
-/// Panics if the YAML data files fail to deserialize (a programming error --
-/// the files are embedded at compile time and should always be valid).
+/// Panics if the canonical YAML data files fail to deserialize or if the
+/// grammar row overrides fail to merge.
 pub fn arrow_language() -> &'static Language {
     ARROW_LANG.get_or_init(|| {
-        build_arrow_language().expect("arrow DSL YAML data files must deserialize")
+        let mut lang = handl_kit_data_canonical::language_from_yaml()
+            .expect("canonical YAML data files must deserialize");
+
+        // Override `>>>` (flow) binding power: lower it so `|||` binds
+        // tighter. Canonical is (25, 26); arrow needs (20, 21).
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.flow.infix.arrow",
+                    "token.flow",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("flow", 2),
+                )
+                .with_binding_power(20, 21)
+                .with_replaces(vec!["grammar.flow.infix".to_string()]),
+            )
+            .expect("override flow grammar row");
+
+        // Override `|||` (choice) binding power: raise it so it binds
+        // tighter than `>>>`. Canonical is (20, 21); arrow needs (25, 26).
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.choice.infix.arrow",
+                    "token.choice",
+                    GrammarPosition::Infix,
+                    AstShapeRef::new("choice", 2),
+                )
+                .with_binding_power(25, 26)
+                .with_replaces(vec!["grammar.choice.infix".to_string()]),
+            )
+            .expect("override choice grammar row");
+
+        // Override `{ ... }` to produce a `block` node (not an `object`).
+        // The arrow DSL uses `{ ... }` for both state blocks (`key: value`
+        // pairs) and code blocks (`name = expr` assignments, `if/else`).
+        // The canonical grammar parses bare `{ ... }` as an `object` (comma-
+        // separated `key: value` entries), which fails on `name = expr`
+        // assignments. We replace it with a block that uses newline
+        // separation (commas tolerated) and `:` as the pair separator,
+        // matching the old arrow-specific grammar's `arrow_block` rule.
+        lang.grammar
+            .merge(
+                GrammarRow::new(
+                    "grammar.block.prefix.arrow",
+                    "token.lbrace",
+                    GrammarPosition::Prefix,
+                    AstShapeRef::new("block", 1)
+                        .with_delimited(DelimitedShape {
+                            open: "token.lbrace".into(),
+                            close: "token.rbrace".into(),
+                            separator: None,
+                            container_kind: "block".into(),
+                            pair: Some(PairShape {
+                                separator: "token.colon".into(),
+                                node_kind: "entry".into(),
+                            }),
+                            open_is_operator_token: true,
+                            flatten: true,
+                            rest_token: None,
+                        }),
+                )
+                .with_binding_power(0, 0)
+                .with_replaces(vec!["grammar.object.prefix".to_string()]),
+            )
+            .expect("override block grammar row");
+
+        lang
     })
 }
 
@@ -113,39 +110,54 @@ mod tests {
     #[test]
     fn arrow_language_loads_successfully() {
         let lang = arrow_language();
-        // Should have token kinds for the arrow DSL.
-        assert!(lang.tokens.get_by_identity("token.arrow.flow").is_some());
-        assert!(lang.tokens.get_by_identity("token.arrow.arr").is_some());
-        // Should have grammar rows.
-        assert!(lang.grammar.get_by_identity("token.arrow.flow@infix").is_some());
-        assert!(lang.grammar.get_by_identity("token.arrow.arr@prefix").is_some());
-        // Should have eval schemes.
+        // Should have canonical token kinds.
+        assert!(lang.tokens.get_by_identity("token.flow").is_some());
+        assert!(lang.tokens.get_by_identity("token.choice").is_some());
+        // Should have canonical grammar rows.
+        assert!(lang.grammar.get_by_identity("token.flow@infix").is_some());
+        // Should have canonical eval schemes.
         assert!(lang.eval.get_by_identity("flow").is_some());
-        assert!(lang.eval.get_by_identity("arr_call").is_some());
-        assert!(lang.eval.get_by_identity("arrow_id").is_some());
-        // Should have lexer rules.
-        assert!(lang.lexer_rules.get_by_identity("lex.arrow.flow").is_some());
     }
 
     #[test]
-    fn flow_eval_is_seq_not_app() {
+    fn arrow_flow_binds_looser_than_choice() {
+        // ADR-0079: in the arrow DSL, `|||` (choice) binds tighter than
+        // `>>>` (flow), so `a >>> b ||| c` parses as `a >>> (b ||| c)`.
+        // The canonical grammar has the opposite precedence; the arrow
+        // language overrides it.
         let lang = arrow_language();
-        let eval = lang.eval.get_by_identity("flow").expect("flow eval scheme");
+        let flow_row = lang
+            .grammar
+            .get_by_identity("token.flow@infix")
+            .expect("flow grammar row");
+        let choice_row = lang
+            .grammar
+            .get_by_identity("token.choice@infix")
+            .expect("choice grammar row");
+        let flow_bp = flow_row.binding_power.expect("flow has binding power");
+        let choice_bp = choice_row.binding_power.expect("choice has binding power");
         assert!(
-            matches!(eval.scheme, handl_language::Scheme::Seq { .. }),
-            ">>> (flow) must lower to Seq in the arrow DSL, got {:?}",
-            eval.scheme
+            choice_bp.0 > flow_bp.0,
+            "choice (bp {:?}) should bind tighter than flow (bp {:?})",
+            choice_bp,
+            flow_bp
         );
     }
 
     #[test]
-    fn choice_op_eval_is_choice() {
+    fn arrow_lbrace_produces_block_not_object() {
+        // ADR-0079: the arrow DSL uses `{ ... }` for blocks (with `=`
+        // assignments and `if/else`), not just objects. The arrow language
+        // overrides the canonical `object` prefix to produce a `block`.
         let lang = arrow_language();
-        let eval = lang.eval.get_by_identity("choice_op").expect("choice_op eval scheme");
-        assert!(
-            matches!(eval.scheme, handl_language::Scheme::Choice { .. }),
-            "||| (choice_op) must lower to Choice, got {:?}",
-            eval.scheme
+        let row = lang
+            .grammar
+            .get_by_identity("token.lbrace@prefix")
+            .expect("lbrace grammar row");
+        assert_eq!(
+            row.child_shape.node_kind, "block",
+            "lbrace should produce 'block' in arrow DSL, got '{}'",
+            row.child_shape.node_kind
         );
     }
 }

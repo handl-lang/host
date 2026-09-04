@@ -1072,6 +1072,222 @@ fn materialize_node(ast: &Ast, idx: usize, lang: &Language) -> Result<Scheme, St
         return rich_loop_to_scheme(ast, node);
     }
 
+    // --- Canonical node-kind handling (ADR-0079) ---
+    //
+    // The arrow dialect now uses the canonical handl language. Arrow
+    // keywords (arr, comp, first, choice, loop, app, id) are no longer
+    // special tokens — they lex as regular identifiers and parse as `var`
+    // or `call` nodes. We intercept these canonical node kinds and produce
+    // the corresponding arrow `Scheme` directly, bypassing the canonical
+    // eval schemes (which produce runtime dispatch IR, not arrow IR).
+
+    // `flow` (>>> operator) → Seq in arrow (canonical eval produces App).
+    if kind == "flow" {
+        let children = get_children(&node.payload)?;
+        let fst_idx = children
+            .get(0)
+            .and_then(|v| v.as_u64())
+            .ok_or("flow: missing left child")? as usize;
+        let snd_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or("flow: missing right child")? as usize;
+        return Ok(Scheme::Seq {
+            fst: Box::new(materialize_node(ast, fst_idx, lang)?),
+            snd: Box::new(materialize_node(ast, snd_idx, lang)?),
+        });
+    }
+
+    // `var` — bare identifier. `id` → arr_native("id"); other names →
+    // App reference (matching the legacy parser's bare-identifier behavior).
+    if kind == "var" {
+        let name = node
+            .payload
+            .as_str()
+            .ok_or("var: payload is not a string")?;
+        if name == "id" {
+            return Ok(Scheme::arr_native("id", vec![]));
+        }
+        return Ok(Scheme::App {
+            callee: Box::new(Scheme::arr_native(name, vec![])),
+            args: vec![],
+        });
+    }
+
+    // `value` — literal (number, string, etc.). Produces a const arr.
+    if kind == "value" {
+        return Ok(Scheme::Arr {
+            op: "const".to_string(),
+            args: vec![],
+            source: ArrSource::Native,
+            lit: Some(node.payload.clone()),
+        });
+    }
+
+    // `binary.lte` / `binary.lt` — comparison operators. Produce App with
+    // the corresponding native op as callee.
+    if kind == "binary.lte" || kind == "binary.lt" {
+        let op_name = if kind == "binary.lte" { "lte" } else { "lt" };
+        let children = get_children(&node.payload)?;
+        let l_idx = children
+            .get(0)
+            .and_then(|v| v.as_u64())
+            .ok_or("binary: missing left child")? as usize;
+        let r_idx = children
+            .get(1)
+            .and_then(|v| v.as_u64())
+            .ok_or("binary: missing right child")? as usize;
+        return Ok(Scheme::App {
+            callee: Box::new(Scheme::arr_native(op_name, vec![])),
+            args: vec![
+                materialize_node(ast, l_idx, lang)?,
+                materialize_node(ast, r_idx, lang)?,
+            ],
+        });
+    }
+
+    // `call` — function call. Dispatch on callee name for arrow combinators.
+    if kind == "call" {
+        let children = get_children(&node.payload)?;
+        let callee_idx = children
+            .first()
+            .and_then(|v| v.as_u64())
+            .ok_or("call: missing callee child")? as usize;
+        let callee_node = ast
+            .nodes()
+            .get(callee_idx)
+            .ok_or("call: callee node out of bounds")?;
+
+        // Extract callee name from a `var` callee.
+        let callee_name = if callee_node.kind == "var" {
+            callee_node.payload.as_str().map(|s| s.to_string())
+        } else {
+            None
+        };
+
+        if let Some(callee_name) = callee_name {
+            match callee_name.as_str() {
+                "arr" => {
+                    // arr("op_name", ...extra_args) → Arr { op, args, Native }
+                    let arg_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("arr: missing string arg")? as usize;
+                    let arg_node = ast
+                        .nodes()
+                        .get(arg_idx)
+                        .ok_or("arr: arg node out of bounds")?;
+                    let op_name = arg_node
+                        .payload
+                        .as_str()
+                        .ok_or("arr: arg payload is not a string")?
+                        .to_string();
+                    let mut args = Vec::new();
+                    for i in 2..children.len() {
+                        let idx = children[i]
+                            .as_u64()
+                            .ok_or("arr: child index not a number")? as usize;
+                        args.push(materialize_node(ast, idx, lang)?);
+                    }
+                    return Ok(Scheme::arr_native(op_name, args));
+                }
+                "comp" => {
+                    // comp(a, b) → Seq { fst: a, snd: b }
+                    let a_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("comp: missing first arg")? as usize;
+                    let b_idx = children
+                        .get(2)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("comp: missing second arg")? as usize;
+                    return Ok(Scheme::Seq {
+                        fst: Box::new(materialize_node(ast, a_idx, lang)?),
+                        snd: Box::new(materialize_node(ast, b_idx, lang)?),
+                    });
+                }
+                "first" => {
+                    // first(a) → First { inner: a }
+                    let a_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("first: missing arg")? as usize;
+                    return Ok(Scheme::First {
+                        inner: Box::new(materialize_node(ast, a_idx, lang)?),
+                    });
+                }
+                "choice" => {
+                    // choice(a, b) → Choice { l: a, r: b }
+                    let a_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("choice: missing first arg")? as usize;
+                    let b_idx = children
+                        .get(2)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("choice: missing second arg")? as usize;
+                    return Ok(Scheme::Choice {
+                        l: Box::new(materialize_node(ast, a_idx, lang)?),
+                        r: Box::new(materialize_node(ast, b_idx, lang)?),
+                    });
+                }
+                "loop" => {
+                    // loop(body) → Loop { body }
+                    let body_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("loop: missing body arg")? as usize;
+                    return Ok(Scheme::Loop {
+                        body: Box::new(materialize_node(ast, body_idx, lang)?),
+                    });
+                }
+                "app" => {
+                    // app("name", ...args) → App { callee: arr_native("name"), args }
+                    let arg_idx = children
+                        .get(1)
+                        .and_then(|v| v.as_u64())
+                        .ok_or("app: missing string arg")? as usize;
+                    let arg_node = ast
+                        .nodes()
+                        .get(arg_idx)
+                        .ok_or("app: arg node out of bounds")?;
+                    let callee_name = arg_node
+                        .payload
+                        .as_str()
+                        .ok_or("app: arg payload is not a string")?
+                        .to_string();
+                    let mut args = Vec::new();
+                    for i in 2..children.len() {
+                        let idx = children[i]
+                            .as_u64()
+                            .ok_or("app: child index not a number")? as usize;
+                        args.push(materialize_node(ast, idx, lang)?);
+                    }
+                    return Ok(Scheme::App {
+                        callee: Box::new(Scheme::arr_native(callee_name, vec![])),
+                        args,
+                    });
+                }
+                _ => {
+                    // Non-combinator call with var callee — treat as App
+                    // reference with materialized arguments (arrow semantics).
+                    let mut args = Vec::new();
+                    for i in 1..children.len() {
+                        let idx = children[i]
+                            .as_u64()
+                            .ok_or("call: child index not a number")? as usize;
+                        args.push(materialize_node(ast, idx, lang)?);
+                    }
+                    return Ok(Scheme::App {
+                        callee: Box::new(Scheme::arr_native(callee_name, vec![])),
+                        args,
+                    });
+                }
+            }
+        }
+        // Non-var callee (e.g. field-access) — fall through to eval scheme.
+    }
+
     // Look up the eval scheme for this node kind.
     let eval_def = lang
         .eval
@@ -1436,11 +1652,14 @@ fn analyze_branch_ast(
     //    and the outer `rich_loop_to_scheme` will wrap this result again,
     //    producing the correct `Loop(Loop(...))` structure.
     if collector.has_nested_loop {
-        if let Some(nested_idx) = find_node_kind(ast, root_idx, "loop_rich") {
+        // Look for either `loop_rich` (pre-v0.1) or `rec` (v0.1 canonical).
+        let nested_idx = find_node_kind(ast, root_idx, "loop_rich")
+            .or_else(|| find_node_kind(ast, root_idx, "rec"));
+        if let Some(nested_idx) = nested_idx {
             let nested_node = ast
                 .nodes()
                 .get(nested_idx)
-                .ok_or("nested loop_rich node out of bounds")?;
+                .ok_or("nested loop_rich/rec node out of bounds")?;
             return rich_loop_to_scheme(ast, nested_node);
         }
     }
@@ -1653,26 +1872,47 @@ impl PatternCollector {
                 // No children to recurse into.
                 return;
             }
-            "arrow_if" => {
+            "field-access" => {
+                // Dotted identifier (e.g. `state.acc`, `prim.compare`) —
+                // build the full dotted name and record it.
+                if let Some(dotted) = extract_dotted_name(ast, idx) {
+                    self.var_names.insert(dotted);
+                }
+                // Still recurse into children for component-level vars.
+            }
+            "arrow_if" | "if" => {
                 // Conditional (if/else) — record its presence.
                 self.has_conditional = true;
             }
-            "named_arrow" => {
-                // `name = expr` let binding. If expr is an arrow_call with
-                // an arrow_var callee, track the callee name as let-bound.
-                // This distinguishes take (y = list.head(...) in ...) from
-                // zip (list.head(...) used directly in state update).
+            "named_arrow" | "assign" => {
+                // `name = expr` let binding. If expr is an arrow_call/call
+                // with a var/field-access callee, track the callee name as
+                // let-bound. This distinguishes take (y = list.head(...) in
+                // ...) from zip (list.head(...) used directly in state
+                // update).
                 if let Ok(children) = get_children(&node.payload) {
                     if let Some(expr_idx) = children.get(1).and_then(|v| v.as_u64()) {
                         if let Some(expr_node) = ast.nodes().get(expr_idx as usize) {
-                            if expr_node.kind == "arrow_call" {
+                            if expr_node.kind == "arrow_call" || expr_node.kind == "call" {
                                 if let Ok(expr_children) = get_children(&expr_node.payload) {
                                     if let Some(callee_idx) = expr_children.first().and_then(|v| v.as_u64()) {
                                         if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
-                                            if callee_node.kind == "arrow_var" || callee_node.kind == "var" {
-                                                if let Some(name) = callee_node.payload.as_str() {
-                                                    self.let_bound_callees.insert(name.to_string());
-                                                }
+                                            // Extract callee name from var,
+                                            // field-access, or arrow_id.
+                                            let callee_name = extract_dotted_name(ast, callee_idx as usize)
+                                                .or_else(|| {
+                                                    if callee_node.kind == "arrow_id" {
+                                                        Some("id".to_string())
+                                                    } else if callee_node.kind == "value" {
+                                                        callee_node.payload.as_str()
+                                                            .filter(|s| *s == "id")
+                                                            .map(|s| s.to_string())
+                                                    } else {
+                                                        None
+                                                    }
+                                                });
+                                            if let Some(name) = callee_name {
+                                                self.let_bound_callees.insert(name);
                                             }
                                         }
                                     }
@@ -1708,26 +1948,30 @@ impl PatternCollector {
                 if let Ok(children) = get_children(&node.payload) {
                     if let Some(callee_idx) = children.first().and_then(|v| v.as_u64()) {
                         if let Some(callee_node) = ast.nodes().get(callee_idx as usize) {
-                            // The callee can be an `arrow_var` (bare identifier
-                            // like `state.f`) or an `arrow_id` (the `id`
-                            // keyword, used in projection patterns like
-                            // `id(state.acc)`).
-                            let callee_name = if callee_node.kind == "arrow_var" || callee_node.kind == "var" {
-                                callee_node.payload.as_str().map(|s| s.to_string())
-                            } else if callee_node.kind == "arrow_id" {
-                                Some("id".to_string())
-                            } else if callee_node.kind == "value" {
-                                // v0.1: `id` may parse as a `value` node with
-                                // payload "id" (keyword-as-identifier fallback).
-                                callee_node.payload.as_str().filter(|s| *s == "id").map(|s| s.to_string())
-                            } else {
-                                None
-                            };
+                            // The callee can be a `var` (bare identifier
+                            // like `state.f`), a `field-access` (dotted
+                            // name like `prim.compare`), or an `arrow_id`
+                            // (the `id` keyword, used in projection patterns
+                            // like `id(state.acc)`).
+                            let callee_name = extract_dotted_name(ast, callee_idx as usize)
+                                .or_else(|| {
+                                    if callee_node.kind == "arrow_id" {
+                                        Some("id".to_string())
+                                    } else if callee_node.kind == "value" {
+                                        // v0.1: `id` may parse as a `value` node with
+                                        // payload "id" (keyword-as-identifier fallback).
+                                        callee_node.payload.as_str()
+                                            .filter(|s| *s == "id")
+                                            .map(|s| s.to_string())
+                                    } else {
+                                        None
+                                    }
+                                });
                             if let Some(callee_name) = callee_name {
                                 // Populate app_left_names for filter/sort/take/map
                                 // pattern detection.
                                 self.app_left_names.insert(callee_name.clone());
-                                // Collect direct arrow_var argument names for
+                                // Collect direct argument names for
                                 // fold/reduce/zip/drop pattern detection.
                                 let mut arg_names = Vec::new();
                                 // Recursively collect var names from all
@@ -1735,15 +1979,15 @@ impl PatternCollector {
                                 let mut all_var_args = HashSet::new();
                                 for i in 1..children.len() {
                                     if let Some(arg_idx) = children[i].as_u64() {
-                                        if let Some(arg_node) =
+                                        if let Some(_arg_node) =
                                             ast.nodes().get(arg_idx as usize)
                                         {
-                                            if arg_node.kind == "arrow_var" || arg_node.kind == "var" {
-                                                if let Some(arg_name) =
-                                                    arg_node.payload.as_str()
-                                                {
-                                                    arg_names.push(arg_name.to_string());
-                                                }
+                                            // Direct argument: extract dotted
+                                            // name from var or field-access.
+                                            if let Some(arg_name) =
+                                                extract_dotted_name(ast, arg_idx as usize)
+                                            {
+                                                arg_names.push(arg_name);
                                             }
                                             // Recursively collect all var names
                                             // from this argument subtree.
@@ -1795,11 +2039,58 @@ fn collect_var_names(ast: &Ast, idx: usize) -> HashSet<String> {
     names
 }
 
+/// Extract a dotted name from a `var` or `field-access` node chain.
+///
+/// For a `var` node, returns its payload string (e.g. `var("state")` →
+/// `"state"`). For a `field-access` node, recursively extracts the base
+/// name and appends the field name (e.g.
+/// `field-access(var("prim"), var("compare"))` → `"prim.compare"`).
+/// Returns `None` if the node is neither a `var` nor a `field-access`.
+fn extract_dotted_name(ast: &Ast, idx: usize) -> Option<String> {
+    let node = ast.nodes().get(idx)?;
+    if node.kind == "var" {
+        return node.payload.as_str().map(|s| s.to_string());
+    }
+    if node.kind == "field-access" {
+        let children = get_children(&node.payload).ok()?;
+        let base_idx = children.first()?.as_u64()? as usize;
+        let field_idx = children.get(1)?.as_u64()? as usize;
+        let base = extract_dotted_name(ast, base_idx)?;
+        let field_node = ast.nodes().get(field_idx)?;
+        // The field name may be in a `var` child (payload is the name
+        // string), or in `payload.name` / `payload.value` / payload-as-string.
+        let field = field_node
+            .payload
+            .get("name")
+            .and_then(|v| v.as_str())
+            .or_else(|| field_node.payload.get("value").and_then(|v| v.as_str()))
+            .or_else(|| field_node.payload.as_str())
+            .or_else(|| {
+                // If the field child is itself a `var`, use its payload.
+                if field_node.kind == "var" {
+                    field_node.payload.as_str()
+                } else {
+                    None
+                }
+            })?;
+        return Some(format!("{}.{}", base, field));
+    }
+    None
+}
+
 fn collect_var_names_recursive(ast: &Ast, idx: usize, names: &mut HashSet<String>) {
     let node = match ast.nodes().get(idx) {
         Some(n) => n,
         None => return,
     };
+
+    // `field-access` — build a dotted name (e.g. `state.acc` → "state.acc")
+    // and also recurse into children for individual component names.
+    if node.kind == "field-access" {
+        if let Some(dotted) = extract_dotted_name(ast, idx) {
+            names.insert(dotted);
+        }
+    }
 
     if node.kind == "arrow_var" || node.kind == "var" {
         if let Some(name) = node.payload.as_str() {

@@ -559,7 +559,7 @@ impl PrattEngine {
                     ));
                 }
                 Some(_) if delim.separator.is_none() => {
-                    if cursor.peek().map(|t| t.kind.as_str() == "token.comma" || t.kind.as_str() == "token.arrow.comma").unwrap_or(false) {
+                    if cursor.peek().map(|t| t.kind.as_str() == "token.comma" || t.kind.as_str() == "token.arrow.comma" || t.kind.as_str() == "token.semicolon").unwrap_or(false) {
                         let _ = cursor.advance()?;
                         if let Some(t2) = cursor.peek() {
                             if t2.kind == delim.close {
