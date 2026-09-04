@@ -22,25 +22,26 @@
 //! balanced by [`compile`] appending a [`Instr::PopScope`] before
 //! `Return`. This mirrors the tree-walk's `did_push` discipline exactly.
 
+use std::rc::Rc;
+
 use handl_language::{ArrSource, Scheme};
-use handl_language::{AstNode, LangError, Value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Value};
 
 use crate::instr::Instr;
 
 /// Compile a [`Scheme`] into a v2 bytecode program.
 ///
-/// The `node` parameter is reserved for future compile-time optimizations.
-/// The current ISA handles all `$payload` conventions at runtime via
-/// dedicated instruction variants, so the node is not inspected during
-/// compilation.
+/// The `ast` and `node` parameters enable compile-time optimizations that
+/// inspect the AST node's payload (e.g. pre-extracting static object keys
+/// for [`Instr::MakeObj`]).
 ///
 /// # Errors
 ///
 /// Returns [`LangError::Engine`] if a sub-scheme fails to compile. In
 /// practice, every well-formed [`Scheme`] variant compiles successfully.
-pub fn compile(scheme: &Scheme, _node: &AstNode) -> Result<Vec<Instr>, LangError> {
+pub fn compile(scheme: &Scheme, ast: &Ast, node: &AstNode) -> Result<Vec<Instr>, LangError> {
     let mut out = Vec::new();
-    let pushed = compile_into(scheme, &mut out)?;
+    let pushed = compile_into(scheme, ast, node, &mut out)?;
     // A bare extend_env (no enclosing Seq to pop it) is balanced here.
     if pushed {
         out.push(Instr::PopScope);
@@ -58,18 +59,23 @@ pub fn compile(scheme: &Scheme, _node: &AstNode) -> Result<Vec<Instr>, LangError
 /// Returns `Ok(true)` if the compiled code pushes a scope that the caller is
 /// responsible for popping (i.e. `extend_env` was emitted). This mirrors the
 /// tree-walk's `did_push` discipline.
-fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError> {
+fn compile_into(
+    scheme: &Scheme,
+    ast: &Ast,
+    node: &AstNode,
+    out: &mut Vec<Instr>,
+) -> Result<bool, LangError> {
     match scheme {
         Scheme::Arr {
             op,
             args,
             source,
             lit,
-        } => compile_arr(op, args, source, lit.as_ref(), out),
+        } => compile_arr(op, args, source, lit.as_ref(), ast, node, out),
 
         Scheme::Seq { fst, snd } => {
-            let fst_pushed = compile_into(fst, out)?;
-            let snd_pushed = compile_into(snd, out)?;
+            let fst_pushed = compile_into(fst, ast, node, out)?;
+            let snd_pushed = compile_into(snd, ast, node, out)?;
             // Pop the scope `fst` reported (e.g. extend_env as fst), matching
             // the tree-walk's Seq scope discipline.
             if fst_pushed {
@@ -89,7 +95,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
             let firstop_pos = out.len();
             out.push(Instr::FirstOp(0, 0)); // placeholder
             let inner_start = out.len();
-            let inner_pushed = compile_into(inner, out)?;
+            let inner_pushed = compile_into(inner, ast, node, out)?;
             if inner_pushed {
                 out.push(Instr::PopScope);
             }
@@ -104,7 +110,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
             out.push(Instr::ChoiceJump(0, 0));
             // Left branch.
             let left_target = out.len();
-            let l_pushed = compile_into(l, out)?;
+            let l_pushed = compile_into(l, ast, node, out)?;
             if l_pushed {
                 out.push(Instr::PopScope);
             }
@@ -112,7 +118,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
             out.push(Instr::Jump(0)); // placeholder -- skip right branch
             // Right branch.
             let right_target = out.len();
-            let r_pushed = compile_into(r, out)?;
+            let r_pushed = compile_into(r, ast, node, out)?;
             if r_pushed {
                 out.push(Instr::PopScope);
             }
@@ -124,6 +130,61 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
         }
 
         Scheme::Loop { body } => {
+            // Optimization: when the body is a `loop_step` Arr, hoist the
+            // body closure evaluation outside the loop. The closure captures
+            // the definition-time env, which doesn't change between iterations
+            // (only the loop state changes, passed as an argument). This
+            // avoids re-creating the closure (and deep-cloning its captured
+            // scope via `capture()`) on every iteration. Mirrors the
+            // tree-walk optimization at
+            // `plugin-engine-eval-tree-walk/src/lib.rs:402-456`.
+            if let Scheme::Arr { op, args, source, .. } = body.as_ref() {
+                if *source == ArrSource::Native && op == "loop_step" && !args.is_empty() {
+                    let body_proc = &args[0];
+                    // Compile the body closure once, before the loop. This
+                    // evaluates the `function`/`closure` child once,
+                    // producing a `TaggedValue::Arrow` on the operand stack.
+                    let bp_pushed = compile_into(body_proc, ast, node, out)?;
+                    if bp_pushed {
+                        out.push(Instr::PopScope);
+                    }
+                    // Store the pre-computed closure in a synthetic local.
+                    // `Store` pushes a scope; we pop it after the loop
+                    // (below) so it persists across all iterations.
+                    out.push(Instr::Store(Rc::from("__loop_closure__")));
+
+                    // Loop prologue: pair(incoming, Null) on the stack.
+                    out.push(Instr::Push(Value::Null));
+                    out.push(Instr::Pair);
+                    let loop_back = out.len();
+
+                    // Loop body: load the hoisted closure instead of
+                    // re-creating it, compile any remaining args, then emit
+                    // the `loop_step` native op. The VM's `loop_step`
+                    // handler receives the pre-computed closure as args[0]
+                    // and the loop pair as `incoming` — identical to the
+                    // non-hoisted path, just without the per-iteration
+                    // closure creation.
+                    out.push(Instr::Load(Rc::from("__loop_closure__")));
+                    for arg in &args[1..] {
+                        let arg_pushed = compile_into(arg, ast, node, out)?;
+                        if arg_pushed {
+                            out.push(Instr::PopScope);
+                        }
+                    }
+                    out.push(Instr::NativeOp("loop_step".to_string(), args.len()));
+                    out.push(Instr::LoopCheck(loop_back));
+
+                    // Pop the scope pushed by `Store("__loop_closure__")`.
+                    // This runs only when the loop terminates (LoopCheck
+                    // falls through); the back-edge jumps over it.
+                    out.push(Instr::PopScope);
+                    return Ok(false);
+                }
+            }
+
+            // Fallback: original loop compilation (non-loop_step body).
+            //
             // Loop layout:
             //   Push(Null)          -- initial state
             //   Pair                -- pair(incoming, Null) on stack
@@ -138,7 +199,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
             out.push(Instr::Push(Value::Null));
             out.push(Instr::Pair);
             let loop_back = out.len();
-            let body_pushed = compile_into(body, out)?;
+            let body_pushed = compile_into(body, ast, node, out)?;
             // The tree-walk pops any scope the body pushed after each
             // iteration. In the VM, we emit PopScope after the body code
             // but before LoopCheck, so it runs each iteration.
@@ -150,17 +211,24 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
         }
 
         Scheme::App { callee, args } => {
-            let callee_pushed = compile_into(callee, out)?;
+            let callee_pushed = compile_into(callee, ast, node, out)?;
             if callee_pushed {
                 out.push(Instr::PopScope);
             }
             for arg in args {
-                let arg_pushed = compile_into(arg, out)?;
+                let arg_pushed = compile_into(arg, ast, node, out)?;
                 if arg_pushed {
                     out.push(Instr::PopScope);
                 }
             }
-            out.push(Instr::Call(args.len()));
+            // Fixed-arity Call variants avoid the per-call `Vec` allocation
+            // in the `Call(n)` handler for the common 1/2/3-arg cases.
+            match args.len() {
+                1 => out.push(Instr::Call1),
+                2 => out.push(Instr::Call2),
+                3 => out.push(Instr::Call3),
+                n => out.push(Instr::Call(n)),
+            }
             Ok(false)
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the
@@ -170,7 +238,7 @@ fn compile_into(scheme: &Scheme, out: &mut Vec<Instr>) -> Result<bool, LangError
         Scheme::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
                 .map_err(|e| LangError::Engine(e.to_string()))?;
-            compile_into(&eliminated, out)
+            compile_into(&eliminated, ast, node, out)
         }
     }
 }
@@ -182,6 +250,8 @@ fn compile_arr(
     args: &[Scheme],
     source: &ArrSource,
     lit: Option<&Value>,
+    ast: &Ast,
+    node: &AstNode,
     out: &mut Vec<Instr>,
 ) -> Result<bool, LangError> {
     // Special-case the lit-bearing ops.
@@ -197,7 +267,7 @@ fn compile_arr(
             if name == "$payload" {
                 out.push(Instr::LoadPayloadVar);
             } else {
-                out.push(Instr::Load(name.to_string()));
+                out.push(Instr::Load(Rc::from(name)));
             }
             return Ok(false);
         }
@@ -215,7 +285,7 @@ fn compile_arr(
             if name == "$payload" {
                 out.push(Instr::StorePayloadName);
             } else {
-                out.push(Instr::Store(name.to_string()));
+                out.push(Instr::Store(Rc::from(name)));
             }
             return Ok(true); // pushed a scope -- caller pops
         }
@@ -223,7 +293,7 @@ fn compile_arr(
         // (the type tag string). Compile the arg, then emit RouteOnType.
         "route_on_type" => {
             for arg in args {
-                let arg_pushed = compile_into(arg, out)?;
+                let arg_pushed = compile_into(arg, ast, node, out)?;
                 if arg_pushed {
                     out.push(Instr::PopScope);
                 }
@@ -255,7 +325,7 @@ fn compile_arr(
         let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(args.len());
         for arg in args {
             let start = out.len();
-            let arg_pushed = compile_into(arg, out)?;
+            let arg_pushed = compile_into(arg, ast, node, out)?;
             if arg_pushed {
                 out.push(Instr::PopScope);
             }
@@ -269,8 +339,50 @@ fn compile_arr(
         return Ok(false);
     }
 
+    // Hot-path optimization for `object` with static keys: when the object
+    // node's payload has a `children` array of entry nodes whose key children
+    // are all `var` or `string` kind (static keys known at compile time),
+    // pre-extract the keys into `Rc<[Rc<str>]>` and emit `EvalNode` for each
+    // value followed by `MakeObj { keys }`. This avoids per-evaluation
+    // `Rc::from(key)` allocation for object field names — the keys are
+    // allocated once at compile time and reused (refcount bump) on every
+    // iteration. Falls back to `NativeOp("object", n)` for dynamic
+    // (computed) keys or the `entries` payload shape.
+    if source == &ArrSource::Native && op == "object" {
+        if let Some(keys) = try_extract_static_object_keys(ast, node)? {
+            // Emit `EvalNode(val_idx)` for each entry's value node, in
+            // source order. The VM evaluates the node at the given absolute
+            // arena index and pushes the result.
+            for &val_idx in keys.value_indices.iter() {
+                out.push(Instr::EvalNode(val_idx));
+            }
+            out.push(Instr::MakeObj {
+                keys: keys.keys,
+            });
+            return Ok(false);
+        }
+    }
+
+    // Hot-path optimization for `closure`: pre-extract the param names and
+    // body node index from the AST node's payload at compile time (they're
+    // static), and emit `Closure { params, body }`. At runtime the handler
+    // only calls `scopes.capture()` and constructs the `TaggedValue::Arrow` —
+    // avoiding the per-call `Vec::with_capacity(n)` for args, the string
+    // `match op` dispatch, and the node payload extraction performed by the
+    // `NativeOp("closure", n)` path. Falls back to `NativeOp("closure", n)`
+    // when the params/body cannot be statically resolved.
+    if source == &ArrSource::Native && op == "closure" {
+        if let Some(closure) = try_extract_closure_params_body(ast, node)? {
+            out.push(Instr::Closure {
+                params: closure.params,
+                body: closure.body,
+            });
+            return Ok(false);
+        }
+    }
+
     for arg in args {
-        let arg_pushed = compile_into(arg, out)?;
+        let arg_pushed = compile_into(arg, ast, node, out)?;
         if arg_pushed {
             out.push(Instr::PopScope);
         }
@@ -339,11 +451,198 @@ fn typed_binary_instr(op: &str) -> Option<Instr> {
     })
 }
 
+/// The result of extracting static keys from an `object` node: the
+/// pre-allocated key strings and the absolute arena indices of the
+/// corresponding value nodes.
+struct StaticObjectKeys {
+    keys: Rc<[Rc<str>]>,
+    value_indices: Vec<usize>,
+}
+
+/// Try to extract static keys from an `object` AST node's `children` payload.
+///
+/// The object node's `payload["children"]` is an array of entry-node arena
+/// indices. Each entry node has `payload["children"] = [key_idx, val_idx]`.
+/// A key is static when its node kind is `"var"` or `"string"` (the payload
+/// string is used directly as the key — see the `object` handler in
+/// `vm.rs`). Computed keys (e.g. `[expr]:` desugared to `paren`) cause this
+/// function to return `None`, so the compiler falls back to
+/// `NativeOp("object", n)`.
+///
+/// Returns `None` if the payload shape is not `children` (e.g. the `entries`
+/// rich-payload shape) or if any key is dynamic.
+fn try_extract_static_object_keys(
+    ast: &Ast,
+    node: &AstNode,
+) -> Result<Option<StaticObjectKeys>, LangError> {
+    // Only the `children` (Pratt-parsed) payload shape is supported.
+    // The `entries` (rich) shape has literal values, not child indices.
+    let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => return Ok(None),
+    };
+
+    let mut keys: Vec<Rc<str>> = Vec::with_capacity(children.len());
+    let mut value_indices: Vec<usize> = Vec::with_capacity(children.len());
+
+    for entry in children {
+        let entry_idx = match entry.as_u64() {
+            Some(idx) => idx as usize,
+            None => return Ok(None),
+        };
+        let entry_node = ast.at(AstRef::new(entry_idx))?;
+        let entry_children = match entry_node.payload.get("children").and_then(|c| c.as_array()) {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+        let key_idx = match entry_children.get(0).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return Ok(None),
+        };
+        let val_idx = match entry_children.get(1).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return Ok(None),
+        };
+
+        let key_node = ast.at(AstRef::new(key_idx))?;
+        // Static keys: `var` (bare identifier) or `string` (string literal).
+        // The key string is the node's payload. Computed keys (e.g. `paren`
+        // from `[expr]:` desugaring) fall back to `NativeOp`.
+        let key_str: String = if key_node.kind == "var" || key_node.kind == "string" {
+            match key_node.payload.as_str() {
+                Some(s) => s.to_string(),
+                None => return Ok(None),
+            }
+        } else {
+            // Dynamic (computed) key — fall back to NativeOp.
+            return Ok(None);
+        };
+
+        // Reject reserved keys (mirrors the `object` native op's check).
+        if handl_language::is_reserved_value_key(&key_str) {
+            return Err(LangError::Engine(format!(
+                "object: key '{}' is reserved",
+                key_str
+            )));
+        }
+
+        keys.push(Rc::from(key_str.as_str()));
+        value_indices.push(val_idx);
+    }
+
+    Ok(Some(StaticObjectKeys {
+        keys: Rc::from(keys),
+        value_indices,
+    }))
+}
+
+/// The result of extracting static closure params and body from a `function`
+/// node: the pre-allocated param-name strings and the body node's absolute
+/// arena index.
+struct StaticClosure {
+    params: Rc<[String]>,
+    body: usize,
+}
+
+/// Try to extract the param names and body node index from a `function`
+/// (closure) AST node's payload at compile time.
+///
+/// Mirrors the two payload shapes handled by the `closure` native op in
+/// `vm.rs`:
+/// - **Rich**: `{"params": ["n", "a", ...], "body": <node_idx>}` — the
+///   params are literal strings and `body` is a node index.
+/// - **Pratt-parsed**: `{"children": [param_idx, body_idx]}` — `param_idx`
+///   points to a node that is either a single `var` (one param) or a
+///   `paren`/`array` of `var` children (multiple params); `body_idx` points
+///   to the body node.
+///
+/// Returns `Ok(None)` if the payload shape is unrecognized or a param node
+/// lacks a string payload, so the compiler falls back to
+/// `NativeOp("closure", n)`. Returns `Err` only for AST lookup failures
+/// (malformed arena indices), matching the runtime handler's behavior.
+fn try_extract_closure_params_body(
+    ast: &Ast,
+    node: &AstNode,
+) -> Result<Option<StaticClosure>, LangError> {
+    let payload = &node.payload;
+
+    // Rich payload shape: `{"params": [...], "body": <idx>}`.
+    if let (Some(p), Some(b)) = (
+        payload.get("params").and_then(|v| v.as_array()),
+        payload.get("body").and_then(|v| v.as_u64()),
+    ) {
+        let mut names: Vec<String> = Vec::with_capacity(p.len());
+        for v in p {
+            let s = match v.as_str() {
+                Some(s) => s,
+                None => return Ok(None),
+            };
+            names.push(s.to_string());
+        }
+        return Ok(Some(StaticClosure {
+            params: Rc::from(names),
+            body: b as usize,
+        }));
+    }
+
+    // Pratt-parsed payload shape: `{"children": [param_idx, body_idx]}`.
+    if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
+        let param_idx = match children.first().and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return Ok(None),
+        };
+        let body_idx = match children.get(1).and_then(|v| v.as_u64()) {
+            Some(idx) => idx as usize,
+            None => return Ok(None),
+        };
+        let param_node = ast.at(AstRef::new(param_idx))?;
+        let names: Vec<String> = if param_node.kind == "paren"
+            || param_node.kind == "array"
+        {
+            let param_children = match param_node
+                .payload
+                .get("children")
+                .and_then(|c| c.as_array())
+            {
+                Some(c) => c,
+                None => return Ok(None),
+            };
+            let mut names = Vec::with_capacity(param_children.len());
+            for pc in param_children {
+                let pidx = match pc.as_u64() {
+                    Some(idx) => idx as usize,
+                    None => return Ok(None),
+                };
+                let pnode = ast.at(AstRef::new(pidx))?;
+                let pname = match pnode.payload.as_str() {
+                    Some(s) => s,
+                    None => return Ok(None),
+                };
+                names.push(pname.to_string());
+            }
+            names
+        } else {
+            let pname = match param_node.payload.as_str() {
+                Some(s) => s,
+                None => return Ok(None),
+            };
+            vec![pname.to_string()]
+        };
+        return Ok(Some(StaticClosure {
+            params: Rc::from(names),
+            body: body_idx,
+        }));
+    }
+
+    // Unrecognized payload shape — fall back to NativeOp.
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use handl_language::Scheme;
-    use handl_language::AstNode;
+    use handl_language::{Ast, AstNode};
     use serde_json::json;
 
     /// A dummy node used by compilation tests (the node is not inspected).
@@ -351,47 +650,54 @@ mod tests {
         AstNode::new("test")
     }
 
+    /// A dummy AST containing a single dummy node, for compilation tests.
+    fn dummy_ast() -> Ast {
+        let mut ast = Ast::new();
+        ast.push(dummy_node());
+        ast
+    }
+
     // --- Arr compilation tests ---
 
     #[test]
     fn compile_const() {
         let s = Scheme::arr_native_lit("const", vec![], json!(42));
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Push(json!(42)), Instr::Return]);
     }
 
     #[test]
     fn compile_const_no_lit() {
         let s = Scheme::arr_native("const", vec![]);
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Push(Value::Null), Instr::Return]);
     }
 
     #[test]
     fn compile_proj_env_named() {
         let s = Scheme::arr_native_lit("proj_env", vec![], "x");
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Load("x".into()), Instr::Return]);
     }
 
     #[test]
     fn compile_proj_env_payload() {
         let s = Scheme::arr_native_lit("proj_env", vec![], "$payload");
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::LoadPayloadVar, Instr::Return]);
     }
 
     #[test]
     fn compile_proj_child() {
         let s = Scheme::arr_native_lit("proj_child", vec![], json!(2));
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::EvalChild(2), Instr::Return]);
     }
 
     #[test]
     fn compile_extend_env_named() {
         let s = Scheme::arr_native_lit("extend_env", vec![], "x");
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::Store("x".into()), Instr::PopScope, Instr::Return]
@@ -401,7 +707,7 @@ mod tests {
     #[test]
     fn compile_extend_env_payload() {
         let s = Scheme::arr_native_lit("extend_env", vec![], "$payload");
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::StorePayloadName, Instr::PopScope, Instr::Return]
@@ -417,7 +723,7 @@ mod tests {
                 Scheme::arr_native_lit("proj_child", vec![], json!(1)),
             ],
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -435,7 +741,7 @@ mod tests {
             "double",
             vec![Scheme::arr_native_lit("proj_child", vec![], json!(0))],
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -454,7 +760,7 @@ mod tests {
             Scheme::arr_native_lit("const", vec![], json!(5)),
             Scheme::arr_native("id", vec![]),
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -478,7 +784,7 @@ mod tests {
             ),
             Scheme::arr_native_lit("proj_env", vec![], "x"),
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -496,7 +802,7 @@ mod tests {
     #[test]
     fn compile_first() {
         let s = Scheme::first(Scheme::arr_native("id", vec![]));
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         // FirstOp(1, 2) — inner sub-program at index 1..2 is the `id` op.
         assert_eq!(
             instrs,
@@ -516,7 +822,7 @@ mod tests {
             Scheme::arr_native_lit("const", vec![], json!(1)),
             Scheme::arr_native_lit("const", vec![], json!(2)),
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -534,7 +840,7 @@ mod tests {
     #[test]
     fn compile_loop() {
         let s = Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![]));
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -555,13 +861,13 @@ mod tests {
             Scheme::arr_native_lit("proj_env", vec![], "f"),
             vec![Scheme::arr_native_lit("const", vec![], json!(41))],
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
                 Instr::Load("f".into()),
                 Instr::Push(json!(41)),
-                Instr::Call(1),
+                Instr::Call1,
                 Instr::Return,
             ]
         );
@@ -573,7 +879,7 @@ mod tests {
             Scheme::arr_native_lit("proj_env", vec![], "f"),
             vec![],
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::Load("f".into()), Instr::Call(0), Instr::Return]
@@ -595,7 +901,7 @@ mod tests {
                 Scheme::arr_native_lit("const", vec![], "no"),
             ),
         );
-        let instrs = compile(&s, &dummy_node()).unwrap();
+        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![

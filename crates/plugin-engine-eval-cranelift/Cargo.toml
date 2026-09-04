@@ -17,6 +17,7 @@ cranelift-module = { workspace = true }
 cranelift-jit = { workspace = true }
 cranelift-object = { workspace = true }
 serde_json = { workspace = true }
+rustc-hash = "2"
 
 [dev-dependencies]
 handl-test-utils = { workspace = true }

@@ -212,8 +212,10 @@ struct HelperIds {
     either_is_left: FuncId,
     either_value: FuncId,
     apply_native: FuncId,
+    int_arith: FuncId,
     loop_check: FuncId,
     derived_step_arg_incoming: FuncId,
+    clone: FuncId,
 }
 
 /// `FuncRef`s for the helpers, declared in a specific function.
@@ -244,8 +246,10 @@ struct HelperRefs {
     either_is_left: FuncRef,
     either_value: FuncRef,
     apply_native: FuncRef,
+    int_arith: FuncRef,
     loop_check: FuncRef,
     derived_step_arg_incoming: FuncRef,
+    clone: FuncRef,
 }
 
 // ---------------------------------------------------------------------------
@@ -365,12 +369,20 @@ pub fn compile_all_nodes_jit(
         crate::helper_v2_apply_native as *const u8,
     );
     builder.symbol(
+        "helper_v2_int_arith",
+        crate::helper_v2_int_arith as *const u8,
+    );
+    builder.symbol(
         "helper_v2_loop_check",
         crate::helper_v2_loop_check as *const u8,
     );
     builder.symbol(
         "helper_v2_derived_step_arg_incoming",
         crate::helper_v2_derived_step_arg_incoming as *const u8,
+    );
+    builder.symbol(
+        "helper_v2_clone",
+        crate::helper_v2_clone as *const u8,
     );
 
     let mut module = JITModule::new(builder);
@@ -602,6 +614,16 @@ fn declare_helper_imports_v2<M: Module>(
     sig_apply_native.params.push(AbiParam::new(ptr_type));
     sig_apply_native.returns.push(AbiParam::new(ptr_type));
 
+    // (ctx, op_code, op_idx, a_ptr, b_ptr, incoming) -> ptr  (int_arith)
+    let mut sig_int_arith = module.make_signature();
+    sig_int_arith.params.push(AbiParam::new(ptr_type));
+    sig_int_arith.params.push(AbiParam::new(types::I64));
+    sig_int_arith.params.push(AbiParam::new(types::I64));
+    sig_int_arith.params.push(AbiParam::new(ptr_type));
+    sig_int_arith.params.push(AbiParam::new(ptr_type));
+    sig_int_arith.params.push(AbiParam::new(ptr_type));
+    sig_int_arith.returns.push(AbiParam::new(ptr_type));
+
     // (ctx, result) -> i8  (loop_check)
     let mut sig_loop_check = module.make_signature();
     sig_loop_check.params.push(AbiParam::new(ptr_type));
@@ -644,12 +666,14 @@ fn declare_helper_imports_v2<M: Module>(
         either_is_left: declare(module, "helper_v2_either_is_left", &sig_is_left)?,
         either_value: declare(module, "helper_v2_either_value", &sig_2arg_ret)?,
         apply_native: declare(module, "helper_v2_apply_native", &sig_apply_native)?,
+        int_arith: declare(module, "helper_v2_int_arith", &sig_int_arith)?,
         loop_check: declare(module, "helper_v2_loop_check", &sig_loop_check)?,
         derived_step_arg_incoming: declare(
             module,
             "helper_v2_derived_step_arg_incoming",
             &sig_derived_step,
         )?,
+        clone: declare(module, "helper_v2_clone", &sig_2arg_ret)?,
     })
 }
 
@@ -709,9 +733,12 @@ fn compile_node<M: Module>(
             either_value: module.declare_func_in_func(helper_ids.either_value, &mut builder.func),
             apply_native: module
                 .declare_func_in_func(helper_ids.apply_native, &mut builder.func),
+            int_arith: module
+                .declare_func_in_func(helper_ids.int_arith, &mut builder.func),
             loop_check: module.declare_func_in_func(helper_ids.loop_check, &mut builder.func),
             derived_step_arg_incoming: module
                 .declare_func_in_func(helper_ids.derived_step_arg_incoming, &mut builder.func),
+            clone: module.declare_func_in_func(helper_ids.clone, &mut builder.func),
         };
 
         // Entry block: two params (ctx, incoming).
@@ -728,7 +755,7 @@ fn compile_node<M: Module>(
             Some(s) => {
                 // Compile the Scheme directly (already v2).
                 let (val, _pushed) =
-                    compile_scheme(&mut builder, s, ctx_param, incoming_param, &helpers, pools, ptr_type);
+                    compile_scheme(&mut builder, s, ctx_param, incoming_param, &helpers, pools, ptr_type)?;
                 val
             }
             None => {
@@ -767,7 +794,7 @@ fn compile_scheme(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-) -> (Value, bool) {
+) -> Result<(Value, bool), LangError> {
     match scheme {
         Scheme::Arr {
             op,
@@ -789,13 +816,13 @@ fn compile_scheme(
 
         Scheme::Seq { fst, snd } => {
             let (fst_val, fst_pushed) =
-                compile_scheme(builder, fst, ctx_param, incoming_val, helpers, pools, ptr_type);
+                compile_scheme(builder, fst, ctx_param, incoming_val, helpers, pools, ptr_type)?;
             let (snd_val, snd_pushed) =
-                compile_scheme(builder, snd, ctx_param, fst_val, helpers, pools, ptr_type);
+                compile_scheme(builder, snd, ctx_param, fst_val, helpers, pools, ptr_type)?;
             if fst_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
-            (snd_val, snd_pushed)
+            Ok((snd_val, snd_pushed))
         }
 
         Scheme::First { inner } => {
@@ -810,13 +837,13 @@ fn compile_scheme(
             // Now that both components are extracted, drop the original pair.
             builder.ins().call(helpers.drop_value, &[incoming_val]);
             let (inner_result, inner_pushed) =
-                compile_scheme(builder, inner, ctx_param, fst, helpers, pools, ptr_type);
+                compile_scheme(builder, inner, ctx_param, fst, helpers, pools, ptr_type)?;
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
             let pair_call = builder.ins().call(helpers.pair, &[ctx_param, inner_result, snd]);
             let result = builder.inst_results(pair_call)[0];
-            (result, false)
+            Ok((result, false))
         }
 
         Scheme::Choice { l, r } => {
@@ -840,7 +867,7 @@ fn compile_scheme(
                 builder.inst_results(call)[0]
             };
             let (l_result, l_pushed) =
-                compile_scheme(builder, l, ctx_param, left_val, helpers, pools, ptr_type);
+                compile_scheme(builder, l, ctx_param, left_val, helpers, pools, ptr_type)?;
             if l_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -854,7 +881,7 @@ fn compile_scheme(
                 builder.inst_results(call)[0]
             };
             let (r_result, r_pushed) =
-                compile_scheme(builder, r, ctx_param, right_val, helpers, pools, ptr_type);
+                compile_scheme(builder, r, ctx_param, right_val, helpers, pools, ptr_type)?;
             if r_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -862,7 +889,7 @@ fn compile_scheme(
 
             builder.seal_block(merge_block);
             builder.switch_to_block(merge_block);
-            (builder.block_params(merge_block)[0], false)
+            Ok((builder.block_params(merge_block)[0], false))
         }
 
         Scheme::Loop { body } => {
@@ -871,29 +898,27 @@ fn compile_scheme(
 
         Scheme::App { callee, args } => {
             let (callee_val, c_pushed) =
-                compile_scheme(builder, callee, ctx_param, incoming_val, helpers, pools, ptr_type);
+                compile_scheme(builder, callee, ctx_param, incoming_val, helpers, pools, ptr_type)?;
             if c_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
             let arg_ptrs =
-                compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type);
+                compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type)?;
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
             let call = builder.ins().call(
                 helpers.apply_closure,
                 &[ctx_param, callee_val, arg_ptrs, n_val],
             );
-            (builder.inst_results(call)[0], false)
+            Ok((builder.inst_results(call)[0], false))
         }
         // `handle body with target = impl_` (ADR-0076): eliminate the
         // handler at compile time, then compile the resulting handler-free
-        // scheme. NOTE: cranelift's `compile_scheme` returns `(Value, bool)`
-        // rather than `Result`, so the `eliminate_and_check` cleanliness
-        // gate is not applied here — it is enforced by the tree-walk,
-        // bytecode, and typecheck engines. The unchecked
-        // `eliminate_handlers` is used; a future refactor of this function
-        // to return `Result` would allow the check here too.
+        // scheme. Uses `eliminate_and_check` to surface unhandled
+        // capabilities as a compile-time error, matching the tree-walk,
+        // bytecode, and typecheck engines.
         Scheme::Handle { .. } => {
-            let eliminated = scheme.eliminate_handlers();
+            let eliminated = handl_language::eliminate_and_check(scheme)
+                .map_err(|e| LangError::Engine(e.to_string()))?;
             compile_scheme(builder, &eliminated, ctx_param, incoming_val, helpers, pools, ptr_type)
         }
     }
@@ -910,18 +935,27 @@ fn compile_loop(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-) -> (Value, bool) {
-    // Save the original incoming value in a stack slot (needed for loop-back
-    // to reconstruct pair(original_input, new_state)).
+) -> Result<(Value, bool), LangError> {
+    // Save a **clone** of the original incoming value in a stack slot (needed
+    // for loop-back to reconstruct pair(original_input, new_state)).  We must
+    // clone because `helper_v2_pair` below **consumes** (frees) `incoming_val`.
+    // Saving the raw pointer and then freeing it would leave a dangling pointer
+    // in the stack slot, causing a double-free on loop-back when the allocator
+    // reuses the address.
+    //
+    // The clone is done via `helper_v2_clone(ctx, incoming)` which reads the
+    // incoming value (clone, not consume) and returns a freshly boxed copy.
     let saved_slot = builder.create_sized_stack_slot(StackSlotData::new(
         StackSlotKind::ExplicitSlot,
         ptr_type.bytes() as u32,
         0,
     ));
     let saved_addr = builder.ins().stack_addr(ptr_type, saved_slot, 0);
+    let clone_call = builder.ins().call(helpers.clone, &[ctx_param, incoming_val]);
+    let cloned_incoming = builder.inst_results(clone_call)[0];
     builder
         .ins()
-        .store(MemFlags::trusted(), incoming_val, saved_addr, 0);
+        .store(MemFlags::trusted(), cloned_incoming, saved_addr, 0);
 
     // Iteration counter slot.
     let counter_slot = builder.create_sized_stack_slot(StackSlotData::new(
@@ -933,7 +967,8 @@ fn compile_loop(
     let zero = builder.ins().iconst(types::I64, 0);
     builder.ins().store(MemFlags::trusted(), zero, counter_addr, 0);
 
-    // Construct the initial pair (incoming, Null).
+    // Construct the initial pair (incoming, Null).  This consumes (frees)
+    // `incoming_val`, which is safe because we saved a clone above.
     let null_lit_idx = pools.add_literal(JsonValue::Null);
     let null_lit_idx_val = builder.ins().iconst(types::I64, null_lit_idx as i64);
     let null_val = {
@@ -991,7 +1026,7 @@ fn compile_loop(
     builder.switch_to_block(body_cont_block);
     builder.seal_block(body_cont_block);
     let (body_result, body_pushed) =
-        compile_scheme(builder, body, ctx_param, current_pair, helpers, pools, ptr_type);
+        compile_scheme(builder, body, ctx_param, current_pair, helpers, pools, ptr_type)?;
     if body_pushed {
         builder.ins().call(helpers.pop_scope, &[ctx_param]);
     }
@@ -1040,10 +1075,18 @@ fn compile_loop(
     let saved_incoming = builder
         .ins()
         .load(ptr_type, MemFlags::trusted(), saved_addr, 0);
+    // Clone the saved incoming before passing it to `pair`, because `pair`
+    // consumes (frees) its inputs.  The stack slot must retain a valid
+    // pointer for subsequent loop-backs; without this clone, the second
+    // loop-back would load a dangling pointer and double-free.
+    let saved_clone = {
+        let call = builder.ins().call(helpers.clone, &[ctx_param, saved_incoming]);
+        builder.inst_results(call)[0]
+    };
     let new_pair = {
         let call = builder
             .ins()
-            .call(helpers.pair, &[ctx_param, saved_incoming, new_state]);
+            .call(helpers.pair, &[ctx_param, saved_clone, new_state]);
         builder.inst_results(call)[0]
     };
     builder.ins().jump(loop_block, &[new_pair]);
@@ -1066,7 +1109,7 @@ fn compile_loop(
     // --- Done ---
     builder.seal_block(done_block);
     builder.switch_to_block(done_block);
-    (builder.block_params(done_block)[0], false)
+    Ok((builder.block_params(done_block)[0], false))
 }
 
 /// Compile an `Arr` combinator. Returns the result `Value` and whether a scope
@@ -1082,7 +1125,7 @@ fn compile_arr(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-) -> (Value, bool) {
+) -> Result<(Value, bool), LangError> {
     // Special-case the lit-bearing ops.
     match op {
         "const" => {
@@ -1092,20 +1135,20 @@ fn compile_arr(
             let call = builder
                 .ins()
                 .call(helpers.push_literal, &[ctx_param, lit_idx_val]);
-            return (builder.inst_results(call)[0], false);
+            return Ok((builder.inst_results(call)[0], false));
         }
         "proj_env" => {
             let name = lit.and_then(|v| v.as_str()).unwrap_or("");
             if name == "$payload" {
                 let call = builder.ins().call(helpers.load_payload_var, &[ctx_param]);
-                return (builder.inst_results(call)[0], false);
+                return Ok((builder.inst_results(call)[0], false));
             }
             let name_idx = pools.add_name(name);
             let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
             let call = builder
                 .ins()
                 .call(helpers.load_var, &[ctx_param, name_idx_val]);
-            return (builder.inst_results(call)[0], false);
+            return Ok((builder.inst_results(call)[0], false));
         }
         "proj_child" => {
             let idx = lit.and_then(|v| v.as_u64()).unwrap_or(0) as i64;
@@ -1113,7 +1156,7 @@ fn compile_arr(
             let call = builder
                 .ins()
                 .call(helpers.eval_child, &[ctx_param, idx_val, incoming_val]);
-            return (builder.inst_results(call)[0], false);
+            return Ok((builder.inst_results(call)[0], false));
         }
         "extend_env" => {
             let name = lit.and_then(|v| v.as_str()).unwrap_or("");
@@ -1121,14 +1164,14 @@ fn compile_arr(
                 let call = builder
                     .ins()
                     .call(helpers.extend_env_payload, &[ctx_param, incoming_val]);
-                return (builder.inst_results(call)[0], true);
+                return Ok((builder.inst_results(call)[0], true));
             }
             let name_idx = pools.add_name(name);
             let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
             let call = builder
                 .ins()
                 .call(helpers.extend_env, &[ctx_param, name_idx_val, incoming_val]);
-            return (builder.inst_results(call)[0], true);
+            return Ok((builder.inst_results(call)[0], true));
         }
         // ADR-0060: route_on_type takes the value from incoming (or args[0])
         // and a type tag lit. Encode the type tag in the op name so
@@ -1146,7 +1189,7 @@ fn compile_arr(
                 helpers.apply_native,
                 &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
             );
-            return (builder.inst_results(call)[0], false);
+            return Ok((builder.inst_results(call)[0], false));
         }
         _ => {}
     }
@@ -1173,27 +1216,59 @@ fn compile_arr(
         );
         let arg_incoming = builder.inst_results(arg_incoming_call)[0];
         let arg_ptrs =
-            compile_args_v2(builder, args, ctx_param, arg_incoming, helpers, pools, ptr_type);
+            compile_args_v2(builder, args, ctx_param, arg_incoming, helpers, pools, ptr_type)?;
         let n_val = builder.ins().iconst(types::I64, args.len() as i64);
         let call = builder.ins().call(
             helpers.apply_native,
             &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
         );
-        return (builder.inst_results(call)[0], false);
+        return Ok((builder.inst_results(call)[0], false));
     }
 
     let arg_ptrs =
-        compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type);
+        compile_args_v2(builder, args, ctx_param, incoming_val, helpers, pools, ptr_type)?;
     let n_val = builder.ins().iconst(types::I64, args.len() as i64);
     match source {
         ArrSource::Native => {
             let op_idx = pools.add_name(op);
             let op_idx_val = builder.ins().iconst(types::I64, op_idx as i64);
+
+            // Fix #7: Fast path for binary arithmetic/comparison ops on
+            // integers. When the op is a known arithmetic op and there are
+            // exactly 2 args, emit a call to `helper_v2_int_arith` instead of
+            // the general `helper_v2_apply_native`. The fast-path helper
+            // checks at runtime whether both args are `Int`; if so it does the
+            // operation directly (no string dispatch, no Vec allocation, no
+            // incoming clone). If either arg is not `Int`, it falls back to
+            // the full `apply_native_v2` path.
+            //
+            // This is a compile-time decision (op name and arg count are
+            // known from the Scheme), so the IR contains only one path.
+            if let Some(op_code) = int_arith_op_code(op) {
+                if args.len() == 2 {
+                    let a_ptr = builder
+                        .ins()
+                        .load(ptr_type, MemFlags::trusted(), arg_ptrs, 0);
+                    let b_ptr = builder.ins().load(
+                        ptr_type,
+                        MemFlags::trusted(),
+                        arg_ptrs,
+                        ptr_type.bytes() as i32,
+                    );
+                    let op_code_val = builder.ins().iconst(types::I64, op_code as i64);
+                    let call = builder.ins().call(
+                        helpers.int_arith,
+                        &[ctx_param, op_code_val, op_idx_val, a_ptr, b_ptr, incoming_val],
+                    );
+                    return Ok((builder.inst_results(call)[0], false));
+                }
+            }
+
             let call = builder.ins().call(
                 helpers.apply_native,
                 &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
             );
-            (builder.inst_results(call)[0], false)
+            Ok((builder.inst_results(call)[0], false))
         }
         ArrSource::Foreign(name) => {
             let name_idx = pools.add_name(name);
@@ -1202,7 +1277,7 @@ fn compile_arr(
                 helpers.call_foreign,
                 &[ctx_param, name_idx_val, arg_ptrs, n_val],
             );
-            (builder.inst_results(call)[0], false)
+            Ok((builder.inst_results(call)[0], false))
         }
         ArrSource::DynamicForeign => {
             // ADR-0060: DynamicForeign ops (e.g. call_host) are dispatched
@@ -1214,7 +1289,7 @@ fn compile_arr(
                 helpers.apply_native,
                 &[ctx_param, op_idx_val, arg_ptrs, n_val, incoming_val],
             );
-            (builder.inst_results(call)[0], false)
+            Ok((builder.inst_results(call)[0], false))
         }
         ArrSource::Judgment => {
             // Judgment ops (ADR-0054) are typecheck engine ops, not eval
@@ -1237,6 +1312,29 @@ fn is_derived_step_op(op: &str) -> bool {
     matches!(op, "while_step" | "for_step" | "fix_step")
 }
 
+/// Map an arithmetic/comparison op name to its integer op code for the
+/// [`helper_v2_int_arith`] fast path (Fix #7). Returns `None` if the op is
+/// not a recognised binary arithmetic op.
+///
+/// The op codes must match the `match op_code` table in
+/// [`crate::helper_v2_int_arith`].
+fn int_arith_op_code(op: &str) -> Option<u64> {
+    match op {
+        "add" => Some(0),
+        "sub" => Some(1),
+        "mul" => Some(2),
+        "div" => Some(3),
+        "mod" => Some(4),
+        "eq" => Some(5),
+        "neq" => Some(6),
+        "lt" => Some(7),
+        "lte" => Some(8),
+        "gt" => Some(9),
+        "gte" => Some(10),
+        _ => None,
+    }
+}
+
 /// Compile a list of argument sub-schemes, packing the result pointers into a
 /// stack-allocated array. Each arg is compiled with the same incoming value.
 ///
@@ -1250,10 +1348,10 @@ fn compile_args_v2(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-) -> Value {
+) -> Result<Value, LangError> {
     let n = args.len();
     if n == 0 {
-        return builder.ins().iconst(ptr_type, 0);
+        return Ok(builder.ins().iconst(ptr_type, 0));
     }
 
     let slot_size = (n * ptr_type.bytes() as usize) as u32;
@@ -1281,7 +1379,7 @@ fn compile_args_v2(
             helpers,
             pools,
             ptr_type,
-        );
+        )?;
         if arg_pushed {
             builder.ins().call(helpers.pop_scope, &[ctx_param]);
         }
@@ -1291,7 +1389,7 @@ fn compile_args_v2(
             .store(MemFlags::trusted(), arg_ptr, slot_addr, offset);
     }
 
-    slot_addr
+    Ok(slot_addr)
 }
 
 // ---------------------------------------------------------------------------

@@ -105,9 +105,29 @@ pub use compile::{
     compile_all_nodes_jit, compile_all_nodes_object,
 };
 
+use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
+
+// ---------------------------------------------------------------------------
+// Null-incoming sentinel (Fix #8)
+// ---------------------------------------------------------------------------
+
+/// Return a null pointer to use as the `incoming` value for closure-body and
+/// child-node calls (Fix #8).
+///
+/// Previously, every closure invocation allocated a fresh
+/// `Box::new(TaggedValue::Null)` — for deeply recursive code like ackermann
+/// this is thousands of heap allocations.  All helpers that receive the
+/// `incoming` pointer already check `ptr.is_null()` and handle it gracefully
+/// (treating null as `TaggedValue::Null`), so passing a raw null pointer is
+/// semantically identical to passing a boxed `Null` but avoids the allocation
+/// entirely.
+#[inline]
+fn null_incoming_ptr() -> *mut TaggedValue {
+    std::ptr::null_mut()
+}
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
@@ -333,8 +353,8 @@ fn run_native(
         .copied()
         .ok_or_else(|| LangError::Engine("no compiled function for root".to_string()))?;
 
-    // Top-level incoming is a boxed Null.
-    let null_incoming = unsafe { box_value(TaggedValue::Null) };
+    // Top-level incoming is a boxed Null (reused sentinel — Fix #8).
+    let null_incoming = null_incoming_ptr();
     let result_ptr: *mut TaggedValue = unsafe {
         root_fn(
             &mut ctx as *mut EvalCtx as *mut u8,
@@ -486,16 +506,22 @@ impl PatternMatchCtx for EvalCtx {
 // Scope stack (identical semantics to tree-walk)
 // ---------------------------------------------------------------------------
 
-/// A scope stack: `Vec<HashMap<String, TaggedValue>>` searched innermost-first.
+/// A scope stack: `Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>` searched
+/// innermost-first.
+///
+/// Scope frames are `Rc`-backed so that a closure's captured environment can be
+/// shared by reference (`Rc::clone`) instead of deep-cloned on every closure
+/// call (Fix #8). The innermost scope is mutated via `Rc::make_mut`, which is
+/// cheap because it is always freshly pushed (refcount 1).
 struct ScopeStack {
     /// The stack of scope frames.
-    scopes: Vec<HashMap<String, TaggedValue>>,
+    scopes: Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
 }
 
 impl ScopeStack {
     fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            scopes: vec![Rc::new(FxHashMap::default())],
         }
     }
 
@@ -507,12 +533,12 @@ impl ScopeStack {
     /// Define a variable in the current (innermost) scope.
     fn define(&mut self, name: &str, value: TaggedValue) {
         let last = self.scopes.last_mut().expect("scope stack is never empty");
-        last.insert(name.to_string(), value);
+        Rc::make_mut(last).insert(Rc::from(name), value);
     }
 
     /// Push a new empty scope.
     fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(Rc::new(FxHashMap::default()));
     }
 
     /// Pop the innermost scope.
@@ -523,10 +549,10 @@ impl ScopeStack {
     }
 
     /// Capture all visible variables into a single flat map.
-    fn capture(&self) -> HashMap<String, TaggedValue> {
-        let mut captured = HashMap::new();
+    fn capture(&self) -> FxHashMap<Rc<str>, TaggedValue> {
+        let mut captured = FxHashMap::default();
         for scope in &self.scopes {
-            for (k, v) in scope {
+            for (k, v) in scope.iter() {
                 captured.insert(k.clone(), v.clone());
             }
         }
@@ -681,6 +707,23 @@ unsafe fn take_value(ptr: *mut TaggedValue) -> TaggedValue {
     unsafe { std::mem::take(&mut *Box::from_raw(ptr)) }
 }
 
+/// Clone a boxed [`TaggedValue`] without consuming the original pointer.
+///
+/// Returns a freshly boxed clone. The input pointer is **not** consumed and
+/// remains valid. If the input is null, returns a boxed `Null`.
+///
+/// Used by the `Loop` combinator to save a clone of the incoming value before
+/// `pair` consumes the original (Fix #8: pre-existing loop double-free fix).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_clone(_ctx: *mut EvalCtx, val: *mut TaggedValue) -> *mut TaggedValue {
+    unsafe {
+        if val.is_null() {
+            return box_value(TaggedValue::Null);
+        }
+        box_value((*val).clone())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Helper functions (extern "C", called from native code)
 // ---------------------------------------------------------------------------
@@ -793,7 +836,7 @@ pub unsafe extern "C" fn helper_eval_child(ctx: *mut EvalCtx, child_n: usize) ->
         // Save and set current_ref for the child evaluation.
         let saved_ref = ctx.current_ref;
         ctx.current_ref = arena_idx;
-        let null_incoming = box_value(TaggedValue::Null);
+        let null_incoming = null_incoming_ptr();
         let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
         // Restore current_ref.
         ctx.current_ref = saved_ref;
@@ -1012,10 +1055,11 @@ pub unsafe extern "C" fn helper_apply_closure(
             arg_vals.push(take_value(arg_ptr));
         }
 
-        // Parse closure.
+        // Parse closure. Share the captured env via Rc::clone instead of
+        // deep-cloning the HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
             TaggedValue::Arrow { params, body, env } => {
-                (params.clone(), *body, (**env).clone())
+                (params.clone(), *body, Rc::clone(env))
             }
             _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
@@ -1051,7 +1095,7 @@ pub unsafe extern "C" fn helper_apply_closure(
         let saved_ref = ctx.current_ref;
         ctx.current_ref = body_idx;
 
-        let null_incoming = box_value(TaggedValue::Null);
+        let null_incoming = null_incoming_ptr();
         let result = func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
 
         // Restore the original scope stack and current_ref.
@@ -1198,7 +1242,7 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
     };
     let saved_ref = ctx.current_ref;
     ctx.current_ref = arena_idx;
-    let null_incoming = unsafe { box_value(TaggedValue::Null) };
+    let null_incoming = null_incoming_ptr();
     let result_ptr = unsafe {
         func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue
     };
@@ -1741,7 +1785,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                     ));
                 }
             };
-            let mut obj = HashMap::new();
+            let mut obj = FxHashMap::default();
             for entry in entries {
                 let key = match entry.get("key").and_then(|v| v.as_str()) {
                     Some(k) => k,
@@ -1764,7 +1808,7 @@ fn apply_prim(ctx: &mut EvalCtx, op: &str, args: &[TaggedValue]) -> *mut TaggedV
                         key
                     )));
                 }
-                obj.insert(key.to_string(), TaggedValue::from(value.clone()));
+                obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
             }
             Ok(TaggedValue::Obj(Rc::new(obj)))
         }
@@ -2265,9 +2309,11 @@ fn apply_closure_value(
         };
 
         // Closure application — must be a TaggedValue::Arrow.
+        // Share the captured env via Rc::clone instead of deep-cloning the
+        // HashMap (Fix #8).
         let (params, body_idx, captured_env) = match &closure_val {
             TaggedValue::Arrow { params, body, env } => {
-                (params.clone(), *body, (**env).clone())
+                (params.clone(), *body, Rc::clone(env))
             }
             _ => return ctx.set_error(LangError::Engine("callee is not an arrow-value".to_string())),
         };
@@ -2304,7 +2350,8 @@ fn apply_closure_value(
         ctx.current_ref = body_idx;
 
         // Closure bodies receive a boxed Null as incoming (fresh computation).
-        let null_incoming = box_value(TaggedValue::Null);
+        // Reuse the shared sentinel to avoid per-call allocation (Fix #8).
+        let null_incoming = null_incoming_ptr();
         let result = func(
             ctx as *mut EvalCtx as *mut u8,
             null_incoming as *mut u8,
@@ -2437,7 +2484,7 @@ fn prim_v2_loop_step(
     // v0.1: `return v` produces a bare value (not wrapped in { out: v }).
     // Recognize bare values as exit signals, and { state: v } as continue.
     // { out: v } is accepted for backward compatibility.
-    match &result {
+    let either_ptr = match &result {
         TaggedValue::Obj(obj) => {
             if let Some(new_state) = obj.get("state") {
                 // Continue with new state.
@@ -2447,14 +2494,16 @@ fn prim_v2_loop_step(
                 unsafe { box_value(TaggedValue::EitherLeft(Rc::new(out.clone()))) }
             } else {
                 // Object without out/state keys — treat as exit value (return).
-                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result))) }
+                unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result.clone()))) }
             }
         }
         _ => {
             // Non-object — exit with the value.
-            unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result))) }
+            unsafe { box_value(TaggedValue::EitherLeft(Rc::new(result.clone()))) }
         }
-    }
+    };
+    drop(result);
+    either_ptr
 }
 
 /// Call a foreign (host) function (by name index).
@@ -2726,6 +2775,148 @@ pub unsafe extern "C" fn helper_v2_apply_native(
     }
 }
 
+/// Fast-path inline arithmetic helper for `Int`/`Int` operands (Fix #7).
+///
+/// This is a specialised alternative to [`helper_v2_apply_native`] for the
+/// common binary arithmetic and comparison ops (`add`, `sub`, `mul`, `div`,
+/// `mod`, `eq`, `neq`, `lt`, `lte`, `gt`, `gte`). It avoids the per-call costs
+/// of the general helper:
+///
+/// - **No string dispatch**: `op_code` is a compile-time-baked integer; the
+///   general helper looks up `ctx.names[op_idx]` and clones the string.
+/// - **No `Vec` allocation**: the two arg pointers are passed directly; the
+///   general helper allocates a `Vec` and pushes each arg.
+/// - **No incoming clone**: arithmetic ops never use `incoming`; the general
+///   helper always clones it.
+///
+/// **Fast path** (both args are `TaggedValue::Int`): reads the `i64` payloads,
+/// performs the operation directly, boxes the result, frees the arg boxes, and
+/// returns. This is semantically identical to the general helper for the
+/// `Int`/`Int` case.
+///
+/// **Slow path** (either arg is not `Int`): falls back to the full
+/// [`helper_v2_apply_native`] path — looks up the op name from `op_idx`,
+/// collects the args into a `Vec`, clones `incoming`, and calls
+/// [`apply_native_v2`].
+///
+/// # Op codes
+///
+/// | code | op   | | code | op  |
+/// |------|------|-|------|-----|
+/// | 0    | add  | | 6    | neq |
+/// | 1    | sub  | | 7    | lt  |
+/// | 2    | mul  | | 8    | lte |
+/// | 3    | div  | | 9    | gt  |
+/// | 4    | mod  | | 10   | gte |
+/// | 5    | eq   | |      |     |
+///
+/// # Safety
+///
+/// `ctx` must be a valid `&mut EvalCtx`. `a_ptr` and `b_ptr` must be valid
+/// pointers returned by [`box_value`] (or null on error). `incoming` may be
+/// null. Both `a_ptr` and `b_ptr` are consumed (freed) on all paths.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn helper_v2_int_arith(
+    ctx: *mut EvalCtx,
+    op_code: usize,
+    op_idx: usize,
+    a_ptr: *mut TaggedValue,
+    b_ptr: *mut TaggedValue,
+    incoming: *mut TaggedValue,
+) -> *mut TaggedValue {
+    unsafe {
+        let ctx = &mut *ctx;
+        // Fast path: read both args without consuming, check if both Int.
+        // Copy the i64 payloads in a separate scope so the borrows are
+        // released before we free the arg boxes below.
+        if !a_ptr.is_null() && !b_ptr.is_null() {
+            let (a_int, b_int): (Option<i64>, Option<i64>) = {
+                let a = &*a_ptr;
+                let b = &*b_ptr;
+                match (a, b) {
+                    (TaggedValue::Int(x), TaggedValue::Int(y)) => (Some(*x), Some(*y)),
+                    _ => (None, None),
+                }
+            };
+            if let (Some(x), Some(y)) = (a_int, b_int) {
+                let result = match op_code {
+                    0 => Some(TaggedValue::Int(x.wrapping_add(y))),
+                    1 => Some(TaggedValue::Int(x.wrapping_sub(y))),
+                    2 => Some(TaggedValue::Int(x.wrapping_mul(y))),
+                    3 => {
+                        if y == 0 {
+                            // Fall back to helper for the error message.
+                            None
+                        } else {
+                            Some(TaggedValue::Int(x.wrapping_div(y)))
+                        }
+                    }
+                    4 => {
+                        if y == 0 {
+                            // Fall back to helper for the error message.
+                            None
+                        } else {
+                            Some(TaggedValue::Int(x.wrapping_rem(y)))
+                        }
+                    }
+                    5 => Some(TaggedValue::Bool(x == y)),
+                    6 => Some(TaggedValue::Bool(x != y)),
+                    // Comparisons use f64 semantics to match cmp_num_v2
+                    // (which converts via Num::to_f64). For integers within
+                    // the f64 safe range (|v| < 2^53) this is identical to
+                    // i64 comparison.
+                    7 => Some(TaggedValue::Bool((x as f64) < (y as f64))),
+                    8 => Some(TaggedValue::Bool((x as f64) <= (y as f64))),
+                    9 => Some(TaggedValue::Bool((x as f64) > (y as f64))),
+                    10 => Some(TaggedValue::Bool((x as f64) >= (y as f64))),
+                    _ => None, // unknown op code — fall back
+                };
+
+                if let Some(result) = result {
+                    // Free the arg boxes (they are consumed by this helper).
+                    let _ = take_value(a_ptr);
+                    let _ = take_value(b_ptr);
+                    return box_value(result);
+                }
+            }
+        }
+
+        // Slow path: fall back to the general apply_native path.
+        // Consume the arg pointers (or free them on error).
+        let mut arg_vals = Vec::with_capacity(2);
+        for ptr in [a_ptr, b_ptr] {
+            if ptr.is_null() {
+                // Error already set; consume remaining args.
+                for remaining in [b_ptr] {
+                    if !remaining.is_null() {
+                        let _ = take_value(remaining);
+                    }
+                }
+                return std::ptr::null_mut();
+            }
+            arg_vals.push(take_value(ptr));
+        }
+
+        // Look up the op name for the slow path.
+        if op_idx >= ctx.names.len() {
+            return ctx.set_error(LangError::Engine(format!(
+                "op index {} out of bounds",
+                op_idx
+            )));
+        }
+        let op = ctx.names[op_idx].clone();
+
+        // Read the incoming value (read-only — do not consume the pointer).
+        let incoming_val = if incoming.is_null() {
+            None
+        } else {
+            Some((*incoming).clone())
+        };
+
+        apply_native_v2(ctx, &op, &arg_vals, incoming_val)
+    }
+}
+
 /// Inspect a `Loop` body result and return a tag indicating the loop action.
 ///
 /// Returns:
@@ -2894,7 +3085,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         Err(e) => return ctx.set_error(e),
     };
     if let Some(entries) = node.payload.get("entries").and_then(|v| v.as_array()) {
-        let mut obj = HashMap::new();
+        let mut obj = FxHashMap::default();
         for entry in entries {
             let key = match entry.get("key").and_then(|v| v.as_str()) {
                 Some(k) => k.to_string(),
@@ -2918,7 +3109,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                     key
                 )));
             }
-            obj.insert(key, TaggedValue::from(value));
+            obj.insert(Rc::from(key.as_str()), TaggedValue::from(value));
         }
         return unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) };
     }
@@ -2997,7 +3188,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
         };
         entries.push((key_idx, val_idx, direct_key));
     }
-    let mut obj = HashMap::new();
+    let mut obj = FxHashMap::default();
     for (key_idx, val_idx, direct_key) in entries {
         let key = match direct_key {
             Some(k) => k,
@@ -3022,7 +3213,7 @@ fn prim_v2_object(ctx: &mut EvalCtx) -> *mut TaggedValue {
                 key
             )));
         }
-        obj.insert(key, value);
+        obj.insert(Rc::from(key.as_str()), value);
     }
     unsafe { box_value(TaggedValue::Obj(Rc::new(obj))) }
 }
@@ -3580,37 +3771,37 @@ fn apply_native_v2(
                 )),
             };
             if matches!(input, TaggedValue::Null) {
-                let mut m = HashMap::new();
-                m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("None")));
+                let mut m = FxHashMap::default();
+                m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
                 Ok(TaggedValue::Obj(Rc::new(m)))
             } else if let TaggedValue::Obj(obj) = &input {
                 let tag = obj.get("_tag").and_then(|t| if let TaggedValue::Str(s) = t { Some(s.as_ref()) } else { None });
                 if tag == Some("Some") {
                     let inner = obj.get("value").cloned().unwrap_or(TaggedValue::Null);
                     let field_val = if let TaggedValue::Obj(inner_obj) = &inner {
-                        inner_obj.get(&field_name).cloned().unwrap_or(TaggedValue::Null)
+                        inner_obj.get(field_name.as_str()).cloned().unwrap_or(TaggedValue::Null)
                     } else {
                         TaggedValue::Null
                     };
-                    let mut m = HashMap::new();
-                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
-                    m.insert("value".to_string(), field_val);
+                    let mut m = FxHashMap::default();
+                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
+                    m.insert(Rc::from("value"), field_val);
                     Ok(TaggedValue::Obj(Rc::new(m)))
                 } else if tag == Some("None") {
-                    let mut m = HashMap::new();
-                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("None")));
+                    let mut m = FxHashMap::default();
+                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("None")));
                     Ok(TaggedValue::Obj(Rc::new(m)))
                 } else {
-                    let field_val = obj.get(&field_name).cloned().unwrap_or(TaggedValue::Null);
-                    let mut m = HashMap::new();
-                    m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
-                    m.insert("value".to_string(), field_val);
+                    let field_val = obj.get(field_name.as_str()).cloned().unwrap_or(TaggedValue::Null);
+                    let mut m = FxHashMap::default();
+                    m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
+                    m.insert(Rc::from("value"), field_val);
                     Ok(TaggedValue::Obj(Rc::new(m)))
                 }
             } else {
-                let mut m = HashMap::new();
-                m.insert("_tag".to_string(), TaggedValue::Str(Rc::from("Some")));
-                m.insert("value".to_string(), TaggedValue::Null);
+                let mut m = FxHashMap::default();
+                m.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
+                m.insert(Rc::from("value"), TaggedValue::Null);
                 Ok(TaggedValue::Obj(Rc::new(m)))
             }
         }

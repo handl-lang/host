@@ -57,12 +57,12 @@
 //!   [`VmFrame::apply_native_v2`]. See the [`instr`](crate::instr) module
 //!   docs for details.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_value::{TaggedValue, tagged_to_value};
+use rustc_hash::FxHashMap;
 
 use crate::compile::compile;
 use crate::instr::Instr;
@@ -71,7 +71,7 @@ use crate::instr::Instr;
 // Scope stack — identical semantics to the tree-walk interpreter
 // ---------------------------------------------------------------------------
 
-/// A scope stack: a flat `Vec<(String, TaggedValue)>` of bindings with
+/// A scope stack: a flat `Vec<(Rc<str>, TaggedValue)>` of bindings with
 /// scope markers, searched innermost-first.
 ///
 /// Mirrors the tree-walk's `ScopeStack` exactly: `push_scope` records a
@@ -82,7 +82,7 @@ use crate::instr::Instr;
 /// than `HashMap` because there is no hashing overhead.
 pub(crate) struct ScopeStack {
     /// Flat list of (name, value) bindings, innermost last.
-    pub(crate) bindings: Vec<(String, TaggedValue)>,
+    pub(crate) bindings: Vec<(Rc<str>, TaggedValue)>,
     /// Stack of mark positions — each `push_scope` records the current
     /// length, each `pop_scope` truncates back to that length.
     pub(crate) marks: Vec<usize>,
@@ -90,7 +90,7 @@ pub(crate) struct ScopeStack {
     /// Searched after `bindings` so user-defined scopes shadow captured
     /// variables. Stored as `Rc` so closure calls avoid deep-cloning the
     /// entire captured `HashMap`.
-    pub(crate) captured_root: Option<Rc<HashMap<String, TaggedValue>>>,
+    pub(crate) captured_root: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
 }
 
 impl ScopeStack {
@@ -107,7 +107,7 @@ impl ScopeStack {
     pub(crate) fn lookup(&self, name: &str) -> Option<&TaggedValue> {
         // Search innermost bindings first (reverse linear scan).
         for (n, v) in self.bindings.iter().rev() {
-            if n == name {
+            if n.as_ref() == name {
                 return Some(v);
             }
         }
@@ -117,7 +117,7 @@ impl ScopeStack {
 
     /// Define a variable in the current (innermost) scope.
     pub(crate) fn define(&mut self, name: &str, value: TaggedValue) {
-        self.bindings.push((name.to_string(), value));
+        self.bindings.push((Rc::from(name), value));
     }
 
     /// Push a new empty scope by recording the current bindings length.
@@ -140,7 +140,7 @@ impl ScopeStack {
     ///
     /// Used by the `closure` primitive to snapshot the current environment.
     /// Inner scopes shadow outer ones (later entries overwrite earlier).
-    pub(crate) fn capture(&self) -> HashMap<String, TaggedValue> {
+    pub(crate) fn capture(&self) -> FxHashMap<Rc<str>, TaggedValue> {
         self.bindings.iter().cloned().collect()
     }
 }
@@ -275,9 +275,17 @@ pub(crate) struct VmFrame<'a, 'h> {
     /// The module registry (for `Foreign` dispatch).
     modules: Option<&'h Rc<dyn handl_platform::ModuleLookup>>,
     /// Per-node v2 compilation cache: `AstRef index -> compiled instructions`.
-    cache: HashMap<usize, Rc<[Instr]>>,
+    cache: FxHashMap<usize, Rc<[Instr]>>,
     /// The scope stack.
     scopes: ScopeStack,
+    /// Reusable operand stack for `exec_instrs_inner`. Taken via
+    /// `mem::take` at the start of each call and returned at the end, so
+    /// the allocation is reused across calls. Reentrant calls (when
+    /// `apply_app`/`exec_node_inner` re-enters `exec_instrs_inner`) find
+    /// `scratch_stack` empty and allocate fresh — this is rare and
+    /// correct (the inner call's stack is discarded when the outer call
+    /// puts its own stack back).
+    scratch_stack: Vec<TaggedValue>,
 }
 
 impl<'a, 'h> VmFrame<'a, 'h> {
@@ -291,8 +299,9 @@ impl<'a, 'h> VmFrame<'a, 'h> {
             ast,
             lang,
             modules,
-            cache: HashMap::new(),
+            cache: FxHashMap::default(),
             scopes: ScopeStack::new(),
+            scratch_stack: Vec::new(),
         }
     }
 
@@ -346,7 +355,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         if !self.cache.contains_key(&node_ref.index()) {
             let scheme_def = self.lang.eval.get_by_identity(&node.kind);
             let instrs = match scheme_def {
-                Some(def) => compile(&def.scheme, node)?,
+                Some(def) => compile(&def.scheme, self.ast, node)?,
                 None => vec![Instr::LoadPayload, Instr::Return],
             };
             self.cache.insert(node_ref.index(), Rc::from(instrs));
@@ -391,7 +400,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         node: &AstNode,
         incoming: Option<TaggedValue>,
     ) -> Result<TaggedValue, LangError> {
-        let mut stack: Vec<TaggedValue> = Vec::new();
+        // Reuse the scratch stack allocation across calls. `mem::take`
+        // leaves `self.scratch_stack` empty, so reentrant calls (via
+        // `apply_app`/`exec_node_inner`) allocate fresh — this is rare and
+        // correct. We put our stack back at the end, overwriting whatever
+        // the inner call left.
+        let mut stack = std::mem::take(&mut self.scratch_stack);
+        stack.clear();
         // Push the incoming value onto the stack so that 0-arg ops using
         // `op_uses_incoming` (like `id`) can pop it. At the top level
         // (incoming = None), the stack starts empty — matching the
@@ -428,7 +443,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         .scopes
                         .lookup(name)
                         .cloned()
-                        .unwrap_or_else(|| TaggedValue::Str(Rc::from(name.as_str())));
+                        .unwrap_or_else(|| TaggedValue::Str(Rc::clone(name)));
                     stack.push(val);
                 }
                 Instr::LoadPayloadVar => {
@@ -514,6 +529,58 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         args
                     };
                     let result = self.apply_app(&callee, &actual_args)?;
+                    stack.push(result);
+                }
+                // Fixed-arity Call variants: avoid the per-call `Vec`
+                // allocation for the common 1/2/3-arg cases. Args are pushed
+                // in source order, so they're popped in reverse order. The
+                // ADR-0060 single-array-arg unpacking is replicated for
+                // `Call1` (the only arity where it can apply).
+                Instr::Call1 => {
+                    let arg0 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call1".to_string()))?;
+                    let callee = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call1".to_string()))?;
+                    // ADR-0060: unpack single array arg for variable-arity
+                    // call.
+                    let result = if arg0.is_array() {
+                        let actual: Vec<TaggedValue> =
+                            arg0.as_array().unwrap().iter().cloned().collect();
+                        self.apply_app(&callee, &actual)?
+                    } else {
+                        self.apply_app(&callee, std::slice::from_ref(&arg0))?
+                    };
+                    stack.push(result);
+                }
+                Instr::Call2 => {
+                    let arg1 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                    let arg0 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                    let callee = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call2".to_string()))?;
+                    let result = self.apply_app(&callee, &[arg0, arg1])?;
+                    stack.push(result);
+                }
+                Instr::Call3 => {
+                    let arg2 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                    let arg1 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                    let arg0 = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                    let callee = stack
+                        .pop()
+                        .ok_or_else(|| LangError::Engine("stack underflow on Call3".to_string()))?;
+                    let result = self.apply_app(&callee, &[arg0, arg1, arg2])?;
                     stack.push(result);
                 }
                 Instr::ChoiceJump(left_target, right_target) => {
@@ -685,9 +752,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     }
                 }
                 Instr::Return => {
-                    return stack
+                    let result = stack
                         .pop()
-                        .ok_or_else(|| LangError::Engine("stack underflow on Return".to_string()));
+                        .ok_or_else(|| LangError::Engine("stack underflow on Return".to_string()))?;
+                    // Return the scratch stack allocation for reuse by the
+                    // next `exec_instrs_inner` call.
+                    self.scratch_stack = stack;
+                    return Ok(result);
                 }
                 // --- Typed arithmetic/comparison bytecodes ---
                 //
@@ -715,6 +786,48 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                     })?;
                     let result = eval_bin_cmp(&instrs[ip], a, b)?;
                     stack.push(result);
+                }
+                // --- Object construction bytecodes ---
+                Instr::EvalNode(idx) => {
+                    // Evaluate the AST node at the given absolute arena index
+                    // and push the result. Used by `MakeObj` to evaluate
+                    // object entry value nodes (which are nested inside
+                    // `entry` nodes, not direct children of the `object`
+                    // node).
+                    let result = self.exec_node_inner(AstRef::new(*idx))?;
+                    stack.push(result);
+                }
+                Instr::MakeObj { keys } => {
+                    // Pop `keys.len()` values (in reverse order — values were
+                    // pushed in source order) and construct an object with
+                    // the pre-allocated keys. The keys are `Rc<str>` stored
+                    // in the instruction (allocated once at compile time),
+                    // so only a refcount bump is needed per use — no
+                    // per-iteration `Rc::from(key)` allocation.
+                    let mut obj =
+                        FxHashMap::with_capacity_and_hasher(keys.len(), Default::default());
+                    for key in keys.iter().rev() {
+                        let val = stack.pop().ok_or_else(|| {
+                            LangError::Engine("stack underflow on MakeObj".to_string())
+                        })?;
+                        obj.insert(Rc::clone(key), val);
+                    }
+                    stack.push(TaggedValue::Obj(Rc::new(obj)));
+                }
+                // --- Closure construction bytecode ---
+                Instr::Closure { params, body } => {
+                    // Capture the current environment and construct a
+                    // `TaggedValue::Arrow`. Identical to the `closure`
+                    // native op, but avoids the per-call `Vec` allocation
+                    // for args, the string `match op` dispatch, and the
+                    // node payload extraction — `params` and `body` are
+                    // pre-computed at compile time.
+                    let captured = self.scopes.capture();
+                    stack.push(TaggedValue::Arrow {
+                        params: Rc::clone(params),
+                        body: *body,
+                        env: Rc::new(captured),
+                    });
                 }
                 Instr::DerivedStepOp(op, ranges) => {
                     // Pop the loop pair (in, state) from the stack — left
@@ -914,7 +1027,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                 if let Some(entries) =
                     node.payload.get("entries").and_then(|v| v.as_array())
                 {
-                    let mut obj = HashMap::new();
+                    let mut obj = FxHashMap::default();
                     for entry in entries {
                         let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
                             LangError::Engine("object: entry missing key".to_string())
@@ -928,13 +1041,13 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 key
                             )));
                         }
-                        obj.insert(key.to_string(), TaggedValue::from(value.clone()));
+                        obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
                     }
                     Ok(TaggedValue::Obj(Rc::new(obj)))
                 } else if let Some(children) =
                     node.payload.get("children").and_then(|c| c.as_array())
                 {
-                    let mut obj = HashMap::new();
+                    let mut obj = FxHashMap::default();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::Engine(
@@ -1006,7 +1119,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                                 key
                             )));
                         }
-                        obj.insert(key, value);
+                        obj.insert(Rc::from(key.as_str()), value);
                     }
                     Ok(TaggedValue::Obj(Rc::new(obj)))
                 } else {
@@ -1908,7 +2021,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(scheme, node)?;
+        let instrs = compile(scheme, &ast, node)?;
         let mut frame = VmFrame::new(&ast, &lang, None);
         frame.exec_instrs(&instrs, node, None)
     }
@@ -1953,7 +2066,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(&s, node).unwrap();
+        let instrs = compile(&s, &ast, node).unwrap();
         let mut frame = VmFrame::new(&ast, &lang, None);
         frame.define_global("x", TaggedValue::from(json!(7)));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
@@ -2283,6 +2396,85 @@ mod tests {
         assert_eq!(result, json!(6));
     }
 
+    /// Object construction with `var` keys exercises the `MakeObj`
+    /// bytecode path (static keys pre-allocated at compile time). Uses the
+    /// same `loop_lang` schemes. The object `{ a: 1, b: 2 }` is built with
+    /// `var` key nodes, so the compiler emits `EvalNode` + `MakeObj`
+    /// instead of `NativeOp("object", 0)`.
+    #[test]
+    fn makeobj_static_var_keys() {
+        let lang = loop_lang();
+        // Arena:
+        //   0: var "a"       (key)
+        //   1: var "b"       (key)
+        //   2: lit 1         (value for a)
+        //   3: lit 2         (value for b)
+        //   4: entry {children: [0, 2]}   (a: 1)
+        //   5: entry {children: [1, 3]}   (b: 2)
+        //   6: object {children: [4, 5]}  ({ a: 1, b: 2 })
+        let ast = make_ast(vec![
+            AstNode::new("var").with_payload(json!("a")),                    // 0
+            AstNode::new("var").with_payload(json!("b")),                    // 1
+            AstNode::new("lit").with_payload(json!(1)),                      // 2
+            AstNode::new("lit").with_payload(json!(2)),                      // 3
+            AstNode::new("entry").with_payload(json!({"children": [0, 2]})), // 4
+            AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
+            AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
+        ]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(6)).unwrap();
+        assert_eq!(result, json!({"a": 1, "b": 2}));
+    }
+
+    /// Object construction with `string` keys also exercises the `MakeObj`
+    /// bytecode path. The keys are `string` kind nodes with string payloads.
+    #[test]
+    fn makeobj_static_string_keys() {
+        let lang = loop_lang();
+        // Arena:
+        //   0: string "x"    (key)
+        //   1: string "y"    (key)
+        //   2: lit 10        (value for x)
+        //   3: lit 20        (value for y)
+        //   4: entry {children: [0, 2]}
+        //   5: entry {children: [1, 3]}
+        //   6: object {children: [4, 5]}
+        let ast = make_ast(vec![
+            AstNode::new("string").with_payload(json!("x")),                 // 0
+            AstNode::new("string").with_payload(json!("y")),                 // 1
+            AstNode::new("lit").with_payload(json!(10)),                     // 2
+            AstNode::new("lit").with_payload(json!(20)),                     // 3
+            AstNode::new("entry").with_payload(json!({"children": [0, 2]})), // 4
+            AstNode::new("entry").with_payload(json!({"children": [1, 3]})), // 5
+            AstNode::new("object").with_payload(json!({"children": [4, 5]})), // 6
+        ]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(6)).unwrap();
+        assert_eq!(result, json!({"x": 10, "y": 20}));
+    }
+
+    /// Object construction with a computed (dynamic) key falls back to
+    /// `NativeOp("object", n)` — the `MakeObj` path is not used. Verifies
+    /// the fallback produces correct results.
+    #[test]
+    fn makeobj_dynamic_key_fallback() {
+        let lang = loop_lang();
+        // Arena:
+        //   0: lit "dyn"     (computed key — `lit` kind, not var/string)
+        //   1: lit 99        (value)
+        //   2: entry {children: [0, 1]}
+        //   3: object {children: [2]}
+        let ast = make_ast(vec![
+            AstNode::new("lit").with_payload(json!("dyn")),                  // 0
+            AstNode::new("lit").with_payload(json!(99)),                     // 1
+            AstNode::new("entry").with_payload(json!({"children": [0, 1]})), // 2
+            AstNode::new("object").with_payload(json!({"children": [2]})),   // 3
+        ]);
+        let mut frame = VmFrame::new(&ast, &lang, None);
+        let result = frame.exec_node(AstRef::new(3)).unwrap();
+        assert_eq!(result, json!({"dyn": 99}));
+    }
+
     // 8d. `while_step` / `for_step` / `fix_step` derived step ops.
     // These use the `DerivedStepOp` instruction which re-evaluates arg
     // sub-programs per iteration with the current value as incoming.
@@ -2410,7 +2602,7 @@ mod tests {
             vec![Scheme::arr_native_lit("const", vec![], json!(41))],
         );
         let node = ast.at(AstRef::new(1)).unwrap();
-        let instrs = compile(&s, node).unwrap();
+        let instrs = compile(&s, &ast, node).unwrap();
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(41));
@@ -2496,7 +2688,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(&s, node).unwrap();
+        let instrs = compile(&s, &ast, node).unwrap();
         let reg = double_registry();
         let mut frame = VmFrame::new(&ast, &lang, Some(&reg));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();

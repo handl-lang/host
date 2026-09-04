@@ -10,6 +10,7 @@ handl-plugin-engine-eval = { workspace = true }
 handl-runtime = { workspace = true }
 handl-value = { workspace = true }
 serde_json = { workspace = true }
+rustc-hash = "2"
 
 [dev-dependencies]
 handl-test-utils = { workspace = true }

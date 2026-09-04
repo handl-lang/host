@@ -28,6 +28,8 @@
 //! | [`LoopCheck`]        | `result -> ...`                       | Inspect loop body result; route single-step vs multi-step (`Loop`). |
 //! | [`DerivedStepOp`]   | `pair -> either`                      | Re-evaluate arg sub-programs per iteration; apply derived step op (`while_step`/`for_step`/`fix_step`). |
 //! | [`Return`]           | `val ->`                              | Pop and return the top of the operand stack. |
+//! | [`EvalNode`]         | `-> val`                              | Evaluate the AST node at an absolute arena index (used by `MakeObj`). |
+//! | [`MakeObj`]          | `val... -> obj`                       | Pop `keys.len()` values, construct an object with pre-allocated keys. |
 //!
 //! ## Combinator → instruction mapping
 //!
@@ -38,6 +40,7 @@
 //! | `Arr { op: "proj_child", lit: Some(idx), .. }` | `EvalChild(idx)` |
 //! | `Arr { op: "extend_env", lit: Some(name), .. }` | `Store(name)` or `StorePayloadName` if name is `"$payload"` |
 //! | `Arr { op, args, source: Native, .. }` (general) | `compile(args)...`, `NativeOp(op, n)` |
+//! | `Arr { op: "object", source: Native, .. }` (static keys) | `EvalNode(val_0)...`, `MakeObj { keys }` |
 //! | `Arr { op: "while_step"/"for_step"/"fix_step", args, source: Native, .. }` | `Jump(derived_pos)`, `<arg sub-programs>`, `DerivedStepOp(op, ranges)` |
 //! | `Arr { op, args, source: Foreign(name), .. }` | `compile(args)...`, `ForeignOp(name, n)` |
 //! | `Seq { fst, snd }` | `compile(fst)`, `compile(snd)`, [`PopScope`] if `fst` pushed a scope |
@@ -69,6 +72,8 @@
 //!   [`VmFrame::apply_native_v2`] with the fresh results and the loop pair
 //!   as incoming. The produced `Either` is pushed for [`LoopCheck`].
 
+use std::rc::Rc;
+
 use handl_language::Value;
 
 /// A single bytecode instruction in the v2 eval VM's instruction set.
@@ -87,7 +92,7 @@ pub enum Instr {
     /// Emitted by `Arr { op: "proj_env", lit: Some(name), .. }` when the
     /// name is not `"$payload"`. If the variable is unbound, the name itself
     /// is pushed as a string value (matching the v2 tree-walk convention).
-    Load(String),
+    Load(Rc<str>),
 
     /// Read the current node's `payload` as a string, look up that variable
     /// name in the scope stack, and push the value.
@@ -115,7 +120,7 @@ pub enum Instr {
     /// Emitted by `Arr { op: "extend_env", lit: Some(name), .. }` when the
     /// name is not `"$payload"`. The matching [`PopScope`] is emitted by the
     /// enclosing `Seq` after its `snd` completes.
-    Store(String),
+    Store(Rc<str>),
 
     /// Pop a value, read `node.payload["name"]` as the bind name, push a new
     /// scope, and bind that name in the new scope.
@@ -138,6 +143,27 @@ pub enum Instr {
     /// (`{"__arrow__": true, ...}`) or a string naming a registered host
     /// function.
     Call(usize),
+
+    /// Fixed-arity variant of [`Call`] for 1-argument applications.
+    ///
+    /// Avoids the per-call `Vec` allocation in the `Call(1)` path. Emitted by
+    /// the compiler when `App` has exactly 1 arg. Produces results identical
+    /// to [`Call`]`(1)`.
+    Call1,
+
+    /// Fixed-arity variant of [`Call`] for 2-argument applications.
+    ///
+    /// Avoids the per-call `Vec` allocation in the `Call(2)` path. Emitted by
+    /// the compiler when `App` has exactly 2 args. Produces results identical
+    /// to [`Call`]`(2)`.
+    Call2,
+
+    /// Fixed-arity variant of [`Call`] for 3-argument applications.
+    ///
+    /// Avoids the per-call `Vec` allocation in the `Call(3)` path. Emitted by
+    /// the compiler when `App` has exactly 3 args. Produces results identical
+    /// to [`Call`]`(3)`.
+    Call3,
 
     /// Pop an Either value, push its carried value, and jump to `left_target`
     /// if the Either is a left, or `right_target` if it is a right.
@@ -277,4 +303,55 @@ pub enum Instr {
     Gt,
     /// Pop two values, push whether the first is >= the second (`gte`).
     Gte,
+
+    // --- Object construction bytecode (hot-path optimization) ---
+
+    /// Evaluate the AST node at the given absolute arena index and push the
+    /// result.
+    ///
+    /// Used by [`MakeObj`] to evaluate object entry value nodes. Object entry
+    /// values are nested inside `entry` nodes (which are children of the
+    /// `object` node), so they cannot be reached via [`EvalChild`] (which
+    /// reads `node.payload["children"][n]` — that yields entry nodes, not
+    /// value nodes). `EvalNode` takes an absolute arena index instead.
+    EvalNode(usize),
+
+    /// Pop `keys.len()` values from the operand stack and construct a
+    /// `TaggedValue::Obj` using the pre-allocated `keys`.
+    ///
+    /// The keys are stored in the instruction itself (allocated once at
+    /// compile time as `Rc<[Rc<str>]>`), so they're reused on every
+    /// iteration — avoiding per-evaluation `Rc::from(key)` allocation for
+    /// object field names. Values are pushed in source order (first key's
+    /// value first); the handler pops in reverse to match keys.
+    ///
+    /// Emitted by the compiler for `Arr { op: "object", source: Native, .. }`
+    /// when all entry keys are static (`var` or `string` kind). Dynamic
+    /// (computed) keys fall back to [`NativeOp`]`("object", n)`.
+    MakeObj {
+        /// Pre-allocated object keys (allocated once at compile time).
+        keys: Rc<[Rc<str>]>,
+    },
+
+    // --- Closure construction bytecode (hot-path optimization) ---
+
+    /// Capture the current environment and push a `TaggedValue::Arrow`
+    /// representing a closure (`closure` native op).
+    ///
+    /// The param names and body node index are pre-extracted at compile
+    /// time from the AST node's payload (they're static), so the runtime
+    /// handler only needs to call `scopes.capture()` and construct the
+    /// `Arrow` value. This avoids the per-call `Vec::with_capacity(n)` for
+    /// args, the string `match op` dispatch, and the node payload
+    /// extraction performed by the `NativeOp("closure", n)` path.
+    ///
+    /// Emitted by the compiler for `Arr { op: "closure", source: Native, .. }`
+    /// when the params/body can be statically resolved from the node
+    /// payload. Falls back to [`NativeOp`]`("closure", n)` otherwise.
+    Closure {
+        /// Pre-extracted parameter names (allocated once at compile time).
+        params: Rc<[String]>,
+        /// AST node index for the closure body.
+        body: usize,
+    },
 }

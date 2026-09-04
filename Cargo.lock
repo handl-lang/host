@@ -1000,11 +1000,8 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-applier",
- "handl-plugin-engine-eval-cranelift",
  "handl-plugin-ext-cli",
- "handl-runtime",
  "serde_json",
- "sha2",
 ]
 
 [[package]]
@@ -1267,6 +1264,7 @@ dependencies = [
  "handl-runtime",
  "handl-test-utils",
  "handl-value",
+ "rustc-hash 2.1.3",
  "serde_json",
 ]
 
@@ -1287,6 +1285,7 @@ dependencies = [
  "handl-runtime",
  "handl-test-utils",
  "handl-value",
+ "rustc-hash 2.1.3",
  "serde_json",
 ]
 
@@ -1300,6 +1299,7 @@ dependencies = [
  "handl-plugin-module",
  "handl-test-utils",
  "handl-value",
+ "rustc-hash 2.1.3",
  "serde_json",
 ]
 
@@ -1615,6 +1615,7 @@ name = "handl-plugin-lib-collections"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -1649,6 +1650,7 @@ dependencies = [
  "crossbeam-deque",
  "handl-platform",
  "handl-plugin-ext-eval",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "loom",
  "mio",
@@ -1801,6 +1803,7 @@ dependencies = [
  "crate-icu4x-extra",
  "fixed_decimal",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "icu",
  "icu_provider",
@@ -1858,6 +1861,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -1869,6 +1873,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -1880,6 +1885,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -1891,6 +1897,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -1902,6 +1909,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -1914,6 +1922,7 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-typecheck",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "handl-runtime",
  "serde_json",
@@ -2089,6 +2098,7 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-type-schema-json",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-typecheck-nbe",
  "serde_json",
 ]
@@ -2154,6 +2164,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -2178,6 +2189,7 @@ dependencies = [
  "futures-util",
  "handl-platform",
  "handl-plugin-ext-eval",
+ "handl-plugin-lib-handl",
  "handl-plugin-lib-ws-rfc",
  "handl-plugin-module",
  "rcgen",
@@ -2196,6 +2208,7 @@ dependencies = [
  "base64",
  "futures-util",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde",
  "serde_json",
@@ -2209,6 +2222,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-platform",
+ "handl-plugin-lib-handl",
  "handl-plugin-module",
  "js-sys",
  "serde",
@@ -2372,6 +2386,7 @@ dependencies = [
 name = "handl-value"
 version = "0.1.0"
 dependencies = [
+ "rustc-hash 2.1.3",
  "serde",
  "serde_json",
 ]

@@ -68,6 +68,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use rustc_hash::FxHashMap;
+
 use handl_language::{ArrSource, Ast, AstNode, AstRef, LangError, Language, Scheme, Value};
 use handl_platform::{ModuleLookup, ValueCallable};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
@@ -84,21 +86,21 @@ thread_local! {
     // Host-provided globals (e.g. `self`), shared via `Rc` so the
     // `TreeWalkCallable` path (host functions calling arrow-values) can
     // re-attach them to a fresh `ScopeStack` without a deep clone.
-    static CURRENT_GLOBALS: RefCell<Option<Rc<HashMap<String, TaggedValue>>>> = RefCell::new(None);
+    static CURRENT_GLOBALS: RefCell<Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>> = RefCell::new(None);
 }
 
 // ---------------------------------------------------------------------------
 // ScopeStack
 // ---------------------------------------------------------------------------
 
-/// A scope stack: `Vec<HashMap<String, TaggedValue>>` searched innermost-first.
+/// A scope stack: `Vec<FxHashMap<Rc<str>, TaggedValue>>` searched innermost-first.
 ///
 /// Used by the tree-walk interpreter for `extend_env` binding and closure
 /// capture/swap-in. The `scopes` field is `pub(crate)` so the engine can
 /// perform the closure-env swap-in.
 ///
 /// Host-provided globals (e.g. `self`) are kept in a separate
-/// `globals` field (a cheaply-cloned `Rc<HashMap>`) rather than in
+/// `globals` field (a cheaply-cloned `Rc<FxHashMap>`) rather than in
 /// `scopes[0]`. This prevents the (potentially massive) globals from
 /// being captured into every closure's env on creation and re-cloned on
 /// every closure call. `lookup()` falls back to `globals` after
@@ -107,12 +109,18 @@ thread_local! {
 pub struct ScopeStack {
     /// The stack of scopes, innermost last. `pub(crate)` so the engine
     /// can perform the closure-env swap-in.
-    pub(crate) scopes: Vec<HashMap<String, TaggedValue>>,
+    pub(crate) scopes: Vec<FxHashMap<Rc<str>, TaggedValue>>,
+    /// The shared captured environment for a closure call, held in a
+    /// cheaply-cloned `Rc` so it is **never deep-cloned** on closure
+    /// invocation. Only set by `apply_app`/`call_value` when applying an
+    /// arrow-value; `None` for ordinary (non-closure) scope stacks.
+    /// `lookup()` consults it after the local scopes but before globals.
+    pub(crate) captured: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
     /// Host-provided globals (e.g. `self`), held in a cheaply-cloned
     /// `Rc` so they are shared — never deep-cloned — across closure
     /// invocations. Accessible via `lookup()` as a fallback but excluded
     /// from `capture()`.
-    pub(crate) globals: Rc<HashMap<String, TaggedValue>>,
+    pub(crate) globals: Rc<FxHashMap<Rc<str>, TaggedValue>>,
 }
 
 #[allow(clippy::new_without_default)]
@@ -121,36 +129,43 @@ impl ScopeStack {
     /// globals.
     pub fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
-            globals: Rc::new(HashMap::new()),
+            scopes: vec![FxHashMap::default()],
+            captured: None,
+            globals: Rc::new(FxHashMap::default()),
         }
     }
 
     /// Set the host-provided globals map (an `Rc` clone, cheap). Globals
     /// are accessible via `lookup()` but excluded from `capture()`.
-    pub fn set_globals(&mut self, globals: Rc<HashMap<String, TaggedValue>>) {
+    pub fn set_globals(&mut self, globals: Rc<FxHashMap<Rc<str>, TaggedValue>>) {
         self.globals = globals;
     }
 
-    /// Look up a variable, searching innermost scope first, then falling
-    /// back to the host-provided globals.
+    /// Look up a variable, searching innermost scope first, then the
+    /// shared captured env (if any), then falling back to the
+    /// host-provided globals.
     pub fn lookup(&self, name: &str) -> Option<&TaggedValue> {
         self.scopes
             .iter()
             .rev()
             .find_map(|s| s.get(name))
+            .or_else(|| {
+                self.captured
+                    .as_ref()
+                    .and_then(|captured| captured.get(name))
+            })
             .or_else(|| self.globals.get(name))
     }
 
     /// Define a variable in the current (innermost) scope.
     pub fn define(&mut self, name: &str, value: TaggedValue) {
         let last = self.scopes.last_mut().expect("scope stack is never empty");
-        last.insert(name.to_string(), value);
+        last.insert(Rc::from(name), value);
     }
 
     /// Push a new empty scope.
     pub fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(FxHashMap::default());
     }
 
     /// Pop the innermost scope.
@@ -160,18 +175,21 @@ impl ScopeStack {
         }
     }
 
-    /// Capture all visible user-created variables into a single flat map.
-    /// Globals (held in the `globals` field) are intentionally excluded:
-    /// they are accessible via `lookup()` at call time and must not be
-    /// deep-cloned into every closure's captured env.
-    pub fn capture(&self) -> HashMap<String, TaggedValue> {
-        let mut captured = HashMap::new();
+    /// Capture all visible user-created variables into a single flat map,
+    /// returned as a cheaply-cloned `Rc`. Globals (held in the `globals`
+    /// field) are intentionally excluded: they are accessible via
+    /// `lookup()` at call time and must not be deep-cloned into every
+    /// closure's captured env. The captured env is shared (via `Rc`) at
+    /// call time — see `apply_app` — so this is the one-time snapshot
+    /// cost paid at closure creation, not on every call.
+    pub fn capture(&self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
+        let mut captured = FxHashMap::default();
         for scope in &self.scopes {
             for (k, v) in scope {
-                captured.insert(k.clone(), v.clone());
+                captured.insert(Rc::clone(k), v.clone());
             }
         }
-        captured
+        Rc::new(captured)
     }
 }
 
@@ -281,14 +299,38 @@ impl TreeWalkEngine {
         incoming: Option<Value>,
     ) -> Result<Value, LangError> {
         let incoming_tagged = incoming.map(TaggedValue::from);
-        let (val, did_push) = self.eval_inner(
+        let val = self.eval_scheme_tagged(
             scheme, ast, node_ref, lang, env, current_node, incoming_tagged,
+        )?;
+        Ok(tagged_to_value(&val))
+    }
+
+    /// Internal tagged counterpart of [`eval_scheme`](Self::eval_scheme).
+    ///
+    /// Same as `eval_scheme` but works entirely in [`TaggedValue`] — no
+    /// Value↔TaggedValue conversion. Takes `Option<TaggedValue>` as
+    /// incoming and returns a `TaggedValue`. Handles scope popping
+    /// internally (a bare `extend_env` with no enclosing `Seq` is balanced
+    /// here, same as `eval_scheme`).
+    #[allow(clippy::too_many_arguments)]
+    fn eval_scheme_tagged(
+        &self,
+        scheme: &Scheme,
+        ast: &Ast,
+        node_ref: AstRef,
+        lang: &Language,
+        env: &mut ScopeStack,
+        current_node: &AstNode,
+        incoming: Option<TaggedValue>,
+    ) -> Result<TaggedValue, LangError> {
+        let (val, did_push) = self.eval_inner(
+            scheme, ast, node_ref, lang, env, current_node, incoming,
         )?;
         // A bare extend_env (no enclosing Seq to pop it) is balanced here.
         if did_push {
             env.pop_scope();
         }
-        Ok(tagged_to_value(&val))
+        Ok(val)
     }
 
     /// Internal recursive interpreter. Returns the value and whether a
@@ -412,10 +454,9 @@ impl TreeWalkEngine {
                             LangError::Engine("loop_step: missing body proc".to_string())
                         })?;
                         // Evaluate the closure once, before the loop.
-                        let closure_val = self.eval_scheme(
+                        let closure_val = self.eval_scheme_tagged(
                             body_proc, ast, node_ref, lang, env, current_node, None,
                         )?;
-                        let closure_val = TaggedValue::from(closure_val);
                         let inc = incoming.unwrap_or(TaggedValue::Null);
                         let mut state = TaggedValue::Null;
                         const MAX_ITERS: usize = 100_000;
@@ -660,15 +701,14 @@ impl TreeWalkEngine {
                     LangError::Engine("while_step: missing body sub-arrow".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let cond_val = self.eval_scheme(
-                    cond, ast, node_ref, lang, env, current_node, Some(tagged_to_value(&current)),
+                let cond_val = self.eval_scheme_tagged(
+                    cond, ast, node_ref, lang, env, current_node, Some(current.clone()),
                 )?;
-                let cond_val = TaggedValue::from(cond_val);
                 if is_truthy(&cond_val) {
-                    let new_val = self.eval_scheme(
-                        body, ast, node_ref, lang, env, current_node, Some(tagged_to_value(&current)),
+                    let new_val = self.eval_scheme_tagged(
+                        body, ast, node_ref, lang, env, current_node, Some(current),
                     )?;
-                    Ok((either_right(TaggedValue::from(new_val)), false))
+                    Ok((either_right(new_val), false))
                 } else {
                     Ok((either_left(current), false))
                 }
@@ -700,11 +740,11 @@ impl TreeWalkEngine {
                 };
                 let count_n = as_num(&counter)?;
                 if count_n > Num::Int(0) {
-                    let new_acc = self.eval_scheme(
-                        body, ast, node_ref, lang, env, current_node, Some(tagged_to_value(&acc)),
+                    let new_acc = self.eval_scheme_tagged(
+                        body, ast, node_ref, lang, env, current_node, Some(acc),
                     )?;
                     let new_counter = num_value(count_n - Num::Int(1));
-                    Ok((either_right(pair(new_counter, TaggedValue::from(new_acc))), false))
+                    Ok((either_right(pair(new_counter, new_acc)), false))
                 } else {
                     Ok((either_left(acc), false))
                 }
@@ -718,10 +758,9 @@ impl TreeWalkEngine {
                     LangError::Engine("fix_step: missing body sub-arrow".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let new_val = self.eval_scheme(
-                    body, ast, node_ref, lang, env, current_node, Some(tagged_to_value(&current)),
+                let new_val = self.eval_scheme_tagged(
+                    body, ast, node_ref, lang, env, current_node, Some(current.clone()),
                 )?;
-                let new_val = TaggedValue::from(new_val);
                 if handl_value::eq(&new_val, &current) {
                     Ok((either_left(new_val), false))
                 } else {
@@ -751,10 +790,9 @@ impl TreeWalkEngine {
                     LangError::Engine("loop_step: missing body proc".to_string())
                 })?;
                 let current = if state.is_null() { in_val } else { state };
-                let closure_val = self.eval_scheme(
+                let closure_val = self.eval_scheme_tagged(
                     body_proc, ast, node_ref, lang, env, current_node, None,
                 )?;
-                let closure_val = TaggedValue::from(closure_val);
                 let args = build_loop_step_args(&closure_val, &current);
                 let result = self.apply_app(
                     &closure_val, &args, ast, lang, env,
@@ -950,7 +988,7 @@ impl TreeWalkEngine {
                 let closure = TaggedValue::Arrow {
                     params: Rc::from(params),
                     body,
-                    env: Rc::new(captured),
+                    env: captured,
                 };
                 Ok((closure, false))
             }
@@ -1008,7 +1046,7 @@ impl TreeWalkEngine {
                     .get("entries")
                     .and_then(|v| v.as_array())
                 {
-                    let mut obj = HashMap::new();
+                    let mut obj = FxHashMap::default();
                     for entry in entries {
                         let key = entry.get("key").and_then(|v| v.as_str()).ok_or_else(|| {
                             LangError::Engine("object: entry missing key".to_string())
@@ -1022,7 +1060,7 @@ impl TreeWalkEngine {
                                 key
                             )));
                         }
-                        obj.insert(key.to_string(), TaggedValue::from(value.clone()));
+                        obj.insert(Rc::from(key), TaggedValue::from(value.clone()));
                     }
                     Ok((TaggedValue::Obj(Rc::new(obj)), false))
                 } else if let Some(children) = current_node
@@ -1054,7 +1092,7 @@ impl TreeWalkEngine {
                         }
                         return Ok((last, false));
                     }
-                    let mut obj = HashMap::new();
+                    let mut obj = FxHashMap::default();
                     for entry in children {
                         let entry_idx = entry.as_u64().ok_or_else(|| {
                             LangError::Engine(
@@ -1070,7 +1108,7 @@ impl TreeWalkEngine {
                                 self.eval_node_inner(ast, AstRef::new(entry_idx), lang, env)?;
                             if let Some(spread_obj) = spread_val.as_object() {
                                 for (k, v) in spread_obj {
-                                    obj.insert(k.clone(), v.clone());
+                                    obj.insert(Rc::clone(k), v.clone());
                                 }
                             }
                             continue;
@@ -1147,7 +1185,7 @@ impl TreeWalkEngine {
                                 key
                             )));
                         }
-                        obj.insert(key.to_string(), value);
+                        obj.insert(Rc::from(key.as_str()), value);
                     }
                     Ok((TaggedValue::Obj(Rc::new(obj)), false))
                 } else {
@@ -1499,12 +1537,64 @@ impl TreeWalkEngine {
                 if children.is_empty() {
                     return Ok((TaggedValue::Null, false));
                 }
+                env.push_scope();
                 let mut result = TaggedValue::Null;
-                for entry in children.iter() {
+                let mut eval_err: Option<LangError> = None;
+                'block: for entry in children.iter() {
                     let idx = entry.as_u64().ok_or_else(|| {
                         LangError::Engine("eval_block: child index must be a number".to_string())
                     })? as usize;
-                    result = self.eval_node_inner(ast, AstRef::new(idx), lang, env)?;
+                    let child_node = ast.at(AstRef::new(idx))?;
+                    if child_node.kind == "assign" {
+                        if let Some(ac) =
+                            child_node.payload.get("children").and_then(|c| c.as_array())
+                        {
+                            if ac.len() == 2 {
+                                let var_idx = ac[0].as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "eval_block: assign var index must be a number".to_string(),
+                                    )
+                                })? as usize;
+                                let value_idx = ac[1].as_u64().ok_or_else(|| {
+                                    LangError::Engine(
+                                        "eval_block: assign value index must be a number"
+                                            .to_string(),
+                                    )
+                                })? as usize;
+                                let var_name = {
+                                    let var_node = ast.at(AstRef::new(var_idx))?;
+                                    var_node.payload.as_str().ok_or_else(|| {
+                                        LangError::Engine(
+                                            "eval_block: assign LHS must be an identifier"
+                                                .to_string(),
+                                        )
+                                    })?
+                                };
+                                match self.eval_node_inner(ast, AstRef::new(value_idx), lang, env) {
+                                    Ok(value) => {
+                                        env.define(var_name, value.clone());
+                                        result = value;
+                                        continue 'block;
+                                    }
+                                    Err(e) => {
+                                        eval_err = Some(e);
+                                        break 'block;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    match self.eval_node_inner(ast, AstRef::new(idx), lang, env) {
+                        Ok(v) => result = v,
+                        Err(e) => {
+                            eval_err = Some(e);
+                            break 'block;
+                        }
+                    }
+                }
+                env.pop_scope();
+                if let Some(e) = eval_err {
+                    return Err(e);
                 }
                 Ok((result, false))
             }
@@ -1716,15 +1806,20 @@ impl TreeWalkEngine {
             )));
         }
         // Arrow-value invocation (ADR-0052): the arrow carries its
-        // definition-time env as data. We construct a fresh env from
-        // that carried env, extend with params, and evaluate the body.
-        // The caller's env is never mutated — no swap/restore hack.
+        // definition-time env as data. We construct a fresh env that
+        // **shares** the carried env via `Rc` (an O(1) refcount bump —
+        // no deep clone of the captured variables on every call), push a
+        // single scope for the params, and evaluate the body. The
+        // caller's env is never mutated — no swap/restore hack.
         // The carried env only contains user-created variables (globals
         // are excluded at capture time), so we re-attach the host globals
         // via the `globals` field — an `Rc` clone, cheap — rather than
-        // relying on them being present in the captured env.
+        // relying on them being present in the captured env. `lookup()`
+        // checks the local param scope first, then the shared captured
+        // env, then globals — so variable shadowing and captured-var
+        // lookup both work correctly.
         let mut arrow_env = ScopeStack::new();
-        arrow_env.scopes[0] = captured_env.as_ref().clone();
+        arrow_env.captured = Some(captured_env);
         arrow_env.set_globals(Rc::clone(&env.globals));
         arrow_env.push_scope();
         for (param, arg) in params.iter().zip(args.iter()) {
@@ -1764,8 +1859,7 @@ impl TreeWalkEngine {
         let scheme_def = lang.eval.get_by_identity(&node.kind);
         match scheme_def {
             Some(def) => {
-                let val = self.eval_scheme(&def.scheme, ast, node_ref, lang, env, node, None)?;
-                Ok(TaggedValue::from(val))
+                self.eval_scheme_tagged(&def.scheme, ast, node_ref, lang, env, node, None)
             }
             None => {
                 // Fallback for `foreign.<name>` node kinds.
@@ -2170,7 +2264,7 @@ impl TreeWalkEngine {
         // Track the previous value of each binding for change detection.
         // Initialize from the enclosing scope so we can detect the first
         // change correctly.
-        let mut prev_values: HashMap<String, TaggedValue> = HashMap::new();
+        let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
         for entry in children {
             let child_idx = entry.as_u64().ok_or_else(|| {
                 LangError::Engine("eval_rec: child index must be a number".to_string())
@@ -2196,7 +2290,7 @@ impl TreeWalkEngine {
                             // empty at this point, so it falls through.
                             let outer_val =
                                 env.lookup(name).cloned().unwrap_or(TaggedValue::Null);
-                            prev_values.insert(name.to_string(), outer_val);
+                            prev_values.insert(Rc::from(name), outer_val);
                         }
                     }
                 }
@@ -2280,7 +2374,7 @@ impl TreeWalkEngine {
                                     if !handl_value::eq(&new_val, &prev) {
                                         changed = true;
                                         prev_values
-                                            .insert(var_name.to_string(), new_val.clone());
+                                            .insert(Rc::from(var_name), new_val.clone());
                                     }
                                     result = new_val;
                                 }
@@ -2347,8 +2441,8 @@ impl EvalEngine for TreeWalkEngine {
         // never captured into closures (see `ScopeStack::capture`), avoiding
         // a deep clone of the (potentially massive) language value on every
         // closure creation and call.
-        let globals_rc: Rc<HashMap<String, TaggedValue>> =
-            Rc::new(self.globals.iter().map(|(k, v)| (k.clone(), TaggedValue::from(v.clone()))).collect());
+        let globals_rc: Rc<FxHashMap<Rc<str>, TaggedValue>> =
+            Rc::new(self.globals.iter().map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone()))).collect());
         env.set_globals(Rc::clone(&globals_rc));
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = Some(Rc::clone(&globals_rc)));
         // The root is the last node in the arena (Pratt convention).
@@ -2413,10 +2507,10 @@ impl ValueCallable for TreeWalkCallable {
             .get("body")
             .and_then(|v| v.as_u64())
             .ok_or_else(|| handl_platform::EvalError::Other("arrow-value missing body".to_string()))?;
-        let captured_env: HashMap<String, TaggedValue> = obj
+        let captured_env: FxHashMap<Rc<str>, TaggedValue> = obj
             .get("env")
             .and_then(|v| v.as_object())
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), TaggedValue::from(v.clone()))).collect())
+            .map(|m| m.iter().map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone()))).collect())
             .unwrap_or_default();
         if params.len() != args.len() {
             return Err(handl_platform::EvalError::Other(format!(
@@ -2425,9 +2519,10 @@ impl ValueCallable for TreeWalkCallable {
                 args.len()
             )));
         }
-        // Build a fresh env from the arrow's captured env + params.
+        // Build a fresh env that **shares** the arrow's captured env via
+        // `Rc` (an O(1) refcount bump — no deep clone on every call).
         let mut arrow_env = ScopeStack::new();
-        arrow_env.scopes[0] = captured_env;
+        arrow_env.captured = Some(Rc::new(captured_env));
         // Re-attach host globals (e.g. `self`) from the thread-local so
         // the closure body can look them up. The captured env only
         // contains user-created variables (globals are excluded at
@@ -3292,7 +3387,7 @@ mod tests {
         // `globals` field (not the root scope) so they are visible via
         // `lookup()` but excluded from `capture()`.
         env.set_globals(Rc::new(
-            engine.globals.iter().map(|(k, v)| (k.clone(), TaggedValue::from(v.clone()))).collect()
+            engine.globals.iter().map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone()))).collect()
         ));
         let s = Scheme::arr_native_lit("proj_env", vec![], "self");
         let result = eval_standalone(&engine, &s, &mut env).unwrap();

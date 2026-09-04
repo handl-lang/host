@@ -449,7 +449,7 @@ impl Kit {
     ///   (`tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`,
     ///   `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml`) are
     ///   read and merged into a [`Language`] via
-    ///   [`handl_kit_data_canonical::language_from_dir`], then wired into a
+    ///   [`handl_kit_data_canonical::language_from_yaml`], then wired into a
     ///   [`Kit`] with the same engine/module/runtime stack as [`Kit::new`].
     /// - If the directory does not exist, is not a directory, or any YAML
     ///   file is missing/unreadable, this falls back to [`Kit::new`] and
@@ -480,13 +480,13 @@ impl Kit {
                 .with_parse("pratt")
                 .with_eval("tree-walk")
                 .with_typecheck("nbe");
-            match handl_kit_data_canonical::language_from_dir(path) {
+            match handl_kit_data_canonical::language_from_yaml() {
                 Ok(lang) => return Self::build_kit(lang, config),
                 Err(e) => {
                     eprintln!(
-                        "kit-canonical: from_path: failed to load kit from {:?}: {}; \
+                        "kit-canonical: from_path: failed to load canonical language: {}; \
                          falling back to canonical kit",
-                        path, e
+                        e
                     );
                 }
             }
