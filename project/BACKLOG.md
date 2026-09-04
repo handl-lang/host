@@ -1,5 +1,36 @@
 # Backlog
 
+## Tooling (low priority — self-hosting, see `project/rfcs/`)
+
+Bootstrap tooling (ADR-0085..0090, `crates/tooling-*`) is high priority and
+tracked in TODO.md. Everything below is the *low priority* self-hosting
+follow-up: rewriting the tooling in handl itself once the language is
+stable, and deleting the bootstrap crates.
+
+- **RFC-0001 — Plugin system in handl.** Extract the Rust plugin system
+  (`platform` crate: Capability/Plugin/Kit/Host) into handl: capabilities
+  and plugins as values, kits as module lists, hosts as handlers.
+- **RFC-0002 — Formatter in handl.** Refactor of bootstrap `tooling-fmt`;
+  formatter as a pure arrow, rules compose by `>>>`, idempotence as a law.
+- **RFC-0003 — Linter in handl.** Refactor of bootstrap `tooling-linter`;
+  rules are pure arrows `Ast ~> [Diagnostic]`, `--fix` as a fixpoint
+  pipeline, cross-module rules over the module graph.
+- **RFC-0004 — Typechecker in handl.** Refactor of bootstrap
+  `tooling-typechecker`; adds the deferred scope (traits, refinements,
+  invariants, row variables). Blocked on compiled backends (perf).
+- **RFC-0005 — Test runner in handl.** Refactor of bootstrap
+  `tooling-test-runner`; adds parallel execution (ADR-0072), properties,
+  benchmarks.
+- **RFC-0006 — LSP server in handl.** Hardest target, intentionally last;
+  session as a fold over the message stream, features as arrows, thin Rust
+  transport adapter. Blocked on RFC-0004 perf.
+- **RFC-0007 — CLI in handl with tool-integration plugins.** Realizes
+  ADR-0029: generic, composable, extensible, replaceable, modular,
+  documented CLI that loads integrations contributed by the tool RFCs and
+  is decoupled from them.
+
+Order: RFC-0001 → 0002/0003 → 0005 → 0007 → 0004 → 0006.
+
 ## Arrow macros (ADR-0084)
 
 - Ref: [ADR-0084 — Arrow Macros](../project/adrs/0084-arrow-macros.md)

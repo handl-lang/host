@@ -67,6 +67,15 @@
     - Serializable
     - Displayable
 
+- id: Bytes
+  description: contiguous byte buffer
+  kind: scalar
+  implements:
+    - Iterable
+    - Lengthable
+    - Serializable
+    - Indexable
+
 # ---------------------------------------------------------------------------
 # Built-in composite types
 # ---------------------------------------------------------------------------

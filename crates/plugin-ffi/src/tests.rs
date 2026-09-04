@@ -10,7 +10,9 @@
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Value, json};
 
-use crate::marshal::{CArg, CRet, marshal_arg, unmarshal_return};
+use crate::marshal::{
+    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, unmarshal_return,
+};
 use crate::FfiOpFunction;
 
 /// Call an [`FfiOpFunction`] with a fresh [`EvalContext`].
@@ -221,4 +223,260 @@ fn marshal_unknown_descriptor_errors() {
     let mut keep_alive = Vec::new();
     let result = marshal_arg("bytes", &json!(42), &mut keep_alive);
     assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+// -------------------------------------------------------------------------
+// Bytes marshalling helpers (no C call needed)
+// -------------------------------------------------------------------------
+
+#[test]
+fn json_to_bytes_accepts_tagged_object() {
+    let v = json!({"__bytes__": [0xDE, 0xAD, 0xBE, 0xEF]});
+    let b = json_to_bytes(&v).expect("tagged bytes decode");
+    assert_eq!(b, vec![0xDE, 0xAD, 0xBE, 0xEF]);
+}
+
+#[test]
+fn json_to_bytes_accepts_plain_array() {
+    let v = json!([1, 2, 3, 255]);
+    let b = json_to_bytes(&v).expect("plain-array bytes decode");
+    assert_eq!(b, vec![1, 2, 3, 255]);
+}
+
+#[test]
+fn json_to_bytes_rejects_out_of_range() {
+    let v = json!({"__bytes__": [256]});
+    assert!(matches!(json_to_bytes(&v), Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn json_to_bytes_rejects_non_object() {
+    let v = json!("not bytes");
+    assert!(matches!(json_to_bytes(&v), Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn bytes_to_json_roundtrips() {
+    let original = vec![0u8, 127, 128, 255];
+    let encoded = bytes_to_json(&original);
+    let decoded = json_to_bytes(&encoded).expect("roundtrip decode");
+    assert_eq!(decoded, original);
+    // Encoding is the canonical {"__bytes__": [...]} form.
+    assert!(encoded.as_object().unwrap().contains_key("__bytes__"));
+}
+
+// -------------------------------------------------------------------------
+// Buffer FFI ops via real Linux syscalls (read / write)
+//
+// Uses memfd_create(2) to obtain an anonymous in-memory file with no path,
+// then exercises write(2) via `in_buf` and read(2) via `out_buf:N`, verifying
+// the bytes round-trip across the FFI boundary.
+// -------------------------------------------------------------------------
+
+/// Open an anonymous memfd for buffer-op tests. Returns the raw fd.
+fn memfd() -> i32 {
+    let memfd = FfiOpFunction::new(
+        "libc.so.6",
+        "memfd_create",
+        vec!["cstr".to_string(), "i32".to_string()],
+        "i32",
+        true,
+    );
+    let fd_val = call(&memfd, &[json!("handl-ffi-bytes-test"), json!(0)])
+        .expect("memfd_create should succeed");
+    let fd = fd_val.as_i64().expect("fd should be an integer") as i32;
+    assert!(fd >= 0, "memfd_create returned invalid fd: {fd}");
+    fd
+}
+
+/// Close a raw fd, panicking on failure.
+fn close_fd(fd: i32) {
+    let close_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "close",
+        vec!["i32".to_string()],
+        "i32",
+        true,
+    );
+    call(&close_fn, &[json!(fd)]).expect("close should succeed");
+}
+
+#[test]
+fn in_buf_write_roundtrips_bytes_to_memfd() {
+    let fd = memfd();
+
+    // write(fd, buf, count) — `in_buf` expands to (ptr, len).
+    let payload = json!({"__bytes__": [0xDE, 0xAD, 0xBE, 0xEF]});
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "in_buf".to_string()],
+        "i64",
+        true,
+    );
+    let written = call(&write_fn, &[json!(fd), payload])
+        .expect("write should succeed");
+    assert_eq!(written.as_i64(), Some(4));
+
+    close_fd(fd);
+}
+
+#[test]
+fn out_buf_read_returns_ret_and_buf_record() {
+    let fd = memfd();
+
+    // Seed the memfd with 4 known bytes via write(2) + in_buf.
+    let payload = json!({"__bytes__": [0xDE, 0xAD, 0xBE, 0xEF]});
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "in_buf".to_string()],
+        "i64",
+        true,
+    );
+    call(&write_fn, &[json!(fd), payload]).expect("write should succeed");
+
+    // Rewind to offset 0: lseek(fd, 0, SEEK_SET=0).
+    let lseek = FfiOpFunction::new(
+        "libc.so.6",
+        "lseek",
+        vec!["i32".to_string(), "i64".to_string(), "i32".to_string()],
+        "i64",
+        true,
+    );
+    call(&lseek, &[json!(fd), json!(0), json!(0)]).expect("lseek should succeed");
+
+    // read(fd, buf, count) — `out_buf:16` allocates 16 bytes, expands to
+    // (ptr, 16), and the return is wrapped as { ret, buf }.
+    let read_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "read",
+        vec!["i32".to_string(), "out_buf:16".to_string()],
+        "i64",
+        true,
+    );
+    // Only one handl arg (fd): out_buf consumes none.
+    let result = call(&read_fn, &[json!(fd)]).expect("read should succeed");
+    let obj = result
+        .as_object()
+        .expect("read result should be a {ret, buf} record");
+    assert_eq!(
+        obj.get("ret").and_then(|v| v.as_i64()),
+        Some(4),
+        "ret should be the byte count read"
+    );
+    let buf = obj.get("buf").expect("buf field should be present");
+    let bytes_arr = buf
+        .get("__bytes__")
+        .and_then(|v| v.as_array())
+        .expect("buf should be a {__bytes__:[...]} value");
+    let got: Vec<u8> = bytes_arr
+        .iter()
+        .map(|v| v.as_i64().unwrap() as u8)
+        .collect();
+    assert_eq!(got, vec![0xDE, 0xAD, 0xBE, 0xEF]);
+
+    close_fd(fd);
+}
+
+#[test]
+fn out_buf_clamps_buf_to_ret_count() {
+    // read into a 16-byte buffer from an empty memfd: ret == 0, buf == [].
+    let fd = memfd();
+    let read_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "read",
+        vec!["i32".to_string(), "out_buf:16".to_string()],
+        "i64",
+        true,
+    );
+    let result = call(&read_fn, &[json!(fd)]).expect("read should succeed");
+    let obj = result.as_object().expect("{ret, buf} record");
+    assert_eq!(obj.get("ret").and_then(|v| v.as_i64()), Some(0));
+    let bytes_arr = obj
+        .get("buf")
+        .and_then(|v| v.get("__bytes__"))
+        .and_then(|v| v.as_array())
+        .expect("buf bytes array");
+    assert!(bytes_arr.is_empty(), "buf should be empty when ret == 0");
+
+    close_fd(fd);
+}
+
+#[test]
+fn cbytes_passes_ptr_len_pair_to_write() {
+    // `cbytes` is semantically identical to `in_buf` for write(2): it passes
+    // (ptr, len) with no NUL termination or UTF-8 validation. Verify a buffer
+    // containing a NUL byte round-trips (cstr would reject this).
+    let fd = memfd();
+    let payload = json!({"__bytes__": [0x00, 0x01, 0x02, 0xFF]});
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "cbytes".to_string()],
+        "i64",
+        true,
+    );
+    let written = call(&write_fn, &[json!(fd), payload]).expect("write should succeed");
+    assert_eq!(written.as_i64(), Some(4));
+
+    // Read it back to confirm the NUL byte survived.
+    let lseek = FfiOpFunction::new(
+        "libc.so.6",
+        "lseek",
+        vec!["i32".to_string(), "i64".to_string(), "i32".to_string()],
+        "i64",
+        true,
+    );
+    call(&lseek, &[json!(fd), json!(0), json!(0)]).expect("lseek should succeed");
+    let read_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "read",
+        vec!["i32".to_string(), "out_buf:16".to_string()],
+        "i64",
+        true,
+    );
+    let result = call(&read_fn, &[json!(fd)]).expect("read should succeed");
+    let bytes_arr = result
+        .get("buf")
+        .and_then(|v| v.get("__bytes__"))
+        .and_then(|v| v.as_array())
+        .expect("buf bytes array");
+    let got: Vec<u8> = bytes_arr.iter().map(|v| v.as_i64().unwrap() as u8).collect();
+    assert_eq!(got, vec![0x00, 0x01, 0x02, 0xFF]);
+
+    close_fd(fd);
+}
+
+#[test]
+fn out_buf_invalid_size_errors() {
+    let read_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "read",
+        vec!["i32".to_string(), "out_buf:notanumber".to_string()],
+        "i64",
+        true,
+    );
+    let result = call(&read_fn, &[json!(0)]);
+    assert!(
+        matches!(result, Err(EvalError::TypeMismatch(_))),
+        "expected TypeMismatch for invalid out_buf size, got {result:?}"
+    );
+}
+
+#[test]
+fn in_buf_wrong_value_type_errors() {
+    let write_fn = FfiOpFunction::new(
+        "libc.so.6",
+        "write",
+        vec!["i32".to_string(), "in_buf".to_string()],
+        "i64",
+        true,
+    );
+    // Passing a string where Bytes is expected.
+    let result = call(&write_fn, &[json!(1), json!("not bytes")]);
+    assert!(
+        matches!(result, Err(EvalError::TypeMismatch(_))),
+        "expected TypeMismatch for non-Bytes in_buf, got {result:?}"
+    );
 }

@@ -30,13 +30,18 @@
 //! | `"cstr"`   | `const char *`    | string (NUL-checked)|
 //! | `"ptr"`    | `void *`          | number (address)    |
 //! | `"void"`   | `void` (return)   | — (returns null)    |
+//! | `"in_buf"` | `const void * + size_t` | `Bytes` (`{__bytes__:[...]}` or `[...]`) |
+//! | `"cbytes"` | `const void * + size_t` | `Bytes` (raw, no NUL termination)        |
+//! | `"out_buf:N"` | `void * + size_t` | — (allocates N; returns `{ ret, buf }`) |
 //!
-//! Buffer and struct descriptors are deferred until a `Bytes` type exists.
+//! Buffer descriptors (`in_buf` / `cbytes` / `out_buf:N`) require the `Bytes`
+//! type (ADR-0078 Phase 2 / ADR-0083 §2.1). Struct descriptors remain
+//! deferred.
 //!
 //! [`OpRegistry`]: handl_plugin_lib_handl::OpRegistry
 
 use std::collections::HashMap;
-use std::ffi::{CString, c_void};
+use std::ffi::c_void;
 use std::sync::{Mutex, OnceLock};
 
 use handl_platform::{EvalContext, EvalError, Function};
@@ -44,7 +49,9 @@ use libloading::Library;
 use serde_json::Value as JsonValue;
 
 use crate::error::last_errno;
-use crate::marshal::{CArg, CRet, CRetKind, marshal_arg, return_kind, unmarshal_return};
+use crate::marshal::{
+    CArg, CRet, CRetKind, marshal_call_args, return_kind, unmarshal_return, wrap_out_buf_return,
+};
 
 mod error;
 mod marshal;
@@ -326,28 +333,18 @@ impl FfiOpFunction {
 
 impl Function for FfiOpFunction {
     fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
-        // Arity check.
-        if args.len() != self.arg_descriptors.len() {
-            return Err(EvalError::TypeMismatch(format!(
-                "expected {} args, got {}",
-                self.arg_descriptors.len(),
-                args.len()
-            )));
-        }
-
         // Resolve symbol (cached dlopen + dlsym).
         let sym = resolve_symbol(&self.library, &self.symbol)?;
 
-        // Marshal args. CStrings for `cstr` args are kept alive here.
-        let mut keep_alive: Vec<CString> = Vec::with_capacity(args.len());
-        let mut c_args: Vec<CArg> = Vec::with_capacity(args.len());
-        for (desc, value) in self.arg_descriptors.iter().zip(args.iter()) {
-            c_args.push(marshal_arg(desc, value, &mut keep_alive)?);
-        }
+        // Marshal args. Buffer descriptors (`in_buf` / `cbytes` / `out_buf:N`)
+        // expand to two C args each; `out_buf:N` consumes no handl arg. The
+        // backing storage (CStrings, source Vec<u8>s, output buffers) is owned
+        // by `marshaled` and stays alive for the duration of the C call.
+        let marshaled = marshal_call_args(&self.arg_descriptors, args)?;
 
         // Determine return kind and call.
         let ret_kind = return_kind(&self.return_descriptor)?;
-        let ret = call_c(sym, ret_kind, &c_args)?;
+        let ret = call_c(sym, ret_kind, &marshaled.c_args)?;
 
         // Error clause: negative integer return → extract errno.
         if self.error_on_lt_zero {
@@ -359,7 +356,13 @@ impl Function for FfiOpFunction {
             }
         }
 
-        // Unmarshal return.
-        unmarshal_return(&self.return_descriptor, &ret)
+        // Unmarshal return, then wrap as `{ ret, buf }` when an `out_buf`
+        // descriptor was used (ADR-0083 §2.1).
+        let raw_ret = unmarshal_return(&self.return_descriptor, &ret)?;
+        if marshaled.out_bufs.is_empty() {
+            Ok(raw_ret)
+        } else {
+            Ok(wrap_out_buf_return(&raw_ret, &marshaled.out_bufs))
+        }
     }
 }
