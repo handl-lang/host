@@ -783,3 +783,13 @@
       source: Native
       lit: 1
     source: Native
+# `desugar-error` — raises a LangError when evaluated. Emitted by the
+# desugar pass when a declaration fails a compile-time check (e.g. strict
+# positivity violation in `data`). The native op `desugar_error` reads the
+# node's payload `{kind, reason}` and returns an error.
+- id: eval.desugar-error
+  node_kind: desugar-error
+  scheme: !Arr
+    op: desugar_error
+    args: []
+    source: Native

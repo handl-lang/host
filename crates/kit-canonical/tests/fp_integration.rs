@@ -7,7 +7,7 @@
 //! correctly evaluated by the tree-walk engine.
 
 use handl_kit_canonical::Kit;
-use handl_language::{Ast, AstNode};
+use handl_language::{Ast, AstNode, AstRef};
 use handl_runtime::desugar_pass;
 use serde_json::json;
 
@@ -21,9 +21,34 @@ use serde_json::json;
 #[test]
 fn data_constructor_substitutes_arg_value() {
     let kit = kit();
+    // The source syntax `data Nat = Zero | Succ(Nat)` can't be lexed yet
+    // (no `|` token), so we construct the `data` AST node manually,
+    // apply the desugar pass, then evaluate.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("data").with_payload(json!({
+        "name": "Nat",
+        "constructors": [
+            {"name": "Zero", "args": []},
+            {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
+        ]
+    })));
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let data_block_idx = desugared.nodes().len() - 1;
+
+    // Build: Succ(Zero) in the same AST arena.
+    let zero_idx = desugared.push(var_node("Zero")).index();
+    let succ_idx = desugared.push(var_node("Succ")).index();
+    let call_idx = desugared.push(call_node(&[succ_idx, zero_idx])).index();
+
+    // Append the expression as a child of the data block (not a new outer
+    // block — that would create a separate scope and the bindings wouldn't
+    // be visible).
+    append_child_to_block(&mut desugared, data_block_idx, call_idx);
+
     let result = kit
-        .run("data Nat = Zero | Succ(Nat)\nSucc(Zero)")
-        .expect("data constructor application must eval");
+        .runtime()
+        .eval(&desugared)
+        .expect("Succ(Zero) must eval");
     assert_eq!(
         result,
         json!({"tag": "Succ", "pred": {"tag": "Zero"}}),
@@ -34,6 +59,55 @@ fn data_constructor_substitutes_arg_value() {
 /// Build a `Kit` for testing.
 fn kit() -> Kit {
     Kit::new().expect("canonical kit must assemble")
+}
+
+/// Helper: append a child to a `block` node's children array and push a
+/// new root block node as the last arena node (so `runtime.eval` evaluates
+/// the block, not the appended child).
+///
+/// `runtime.eval` evaluates the LAST node in the AST arena. After pushing
+/// expression nodes, the original block is no longer last. This helper
+/// modifies the original block's children in-place AND pushes a new block
+/// node (with the same children) as the last arena node.
+fn append_child_to_block(ast: &mut Ast, block_idx: usize, child_idx: usize) {
+    // Get the original block's children.
+    let mut children = ast
+        .get(AstRef::new(block_idx))
+        .expect("block node must exist")
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .cloned()
+        .unwrap_or_default();
+    // Append the new child.
+    children.push(json!(child_idx));
+    // Push a new block node as the last arena node (the eval root).
+    ast.push(AstNode::new("block").with_payload(json!({ "children": children })));
+}
+
+/// Helper: build a `var` node.
+fn var_node(name: &str) -> AstNode {
+    AstNode::new("var").with_payload(json!(name))
+}
+
+/// Helper: build a `call` node with children.
+fn call_node(children: &[usize]) -> AstNode {
+    AstNode::new("call").with_payload(json!({ "children": children }))
+}
+
+/// Helper: build a `lit` node.
+fn lit_node(val: serde_json::Value) -> AstNode {
+    AstNode::new("lit").with_payload(val)
+}
+
+/// Helper: build a `function` node with named params and a body arena index.
+/// Uses the rich payload format (`params` + `body`) which the `closure` eval
+/// primitive reads directly, correctly supporting multi-parameter functions.
+fn function_node(params: &[&str], body_idx: usize) -> AstNode {
+    AstNode::new("function").with_payload(json!({
+        "params": params,
+        "body": body_idx
+    }))
 }
 
 /// Debug helper: parse and print the AST.
@@ -350,4 +424,182 @@ fn json_source_syntax_with_expr_arg() {
         .run("json{\"sum\": $0}(1 + 2)")
         .expect("json with expr arg must eval");
     assert_eq!(result, json!({"sum": 3}));
+}
+
+// ---------------------------------------------------------------------------
+// data recursor eval tests (Bugs 0.2, 0.3)
+// ---------------------------------------------------------------------------
+
+/// Bug 0.2: `Nat.rec(0, step)(Zero)` must return the base value (0).
+/// The recursor dispatch uses nested 3-child `if` nodes. If the `if` had
+/// 5 children, eval would fail.
+#[test]
+fn data_recursor_base_case_zero() {
+    let kit = kit();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("data").with_payload(json!({
+        "name": "Nat",
+        "constructors": [
+            {"name": "Zero", "args": []},
+            {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
+        ]
+    })));
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let data_block_idx = desugared.nodes().len() - 1;
+
+    // Build step function: (pred, rec_pred) -> rec_pred
+    let body = desugared.push(var_node("rec_pred")).index();
+    let step = desugared.push(function_node(&["pred", "rec_pred"], body)).index();
+
+    // Nat.rec(0, step)
+    let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let base_lit = desugared.push(lit_node(json!(0))).index();
+    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+
+    // rec_call(Zero)
+    let zero_var = desugared.push(var_node("Zero")).index();
+    let app = desugared.push(call_node(&[rec_call, zero_var])).index();
+
+    // Append the expression to the data block so it evals in the same scope.
+    append_child_to_block(&mut desugared, data_block_idx, app);
+
+    let result = kit
+        .runtime()
+        .eval(&desugared)
+        .expect("Nat.rec(0, step)(Zero) must eval");
+    assert_eq!(result, json!(0), "base case: Nat.rec(0, step)(Zero) == 0");
+}
+
+/// Bug 0.2 + 0.3: `Nat.rec(0, step)(Succ(Zero))` must return `step(Zero, 0)`.
+/// This tests both the 3-child `if` dispatch (Bug 0.2) and the recursive
+/// self-application (Bug 0.3).
+#[test]
+fn data_recursor_step_case_one() {
+    let kit = kit();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("data").with_payload(json!({
+        "name": "Nat",
+        "constructors": [
+            {"name": "Zero", "args": []},
+            {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
+        ]
+    })));
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let data_block_idx = desugared.nodes().len() - 1;
+
+    // step = (pred, rec_pred) -> rec_pred + 1
+    let rec_pred_var = desugared.push(var_node("rec_pred")).index();
+    let one = desugared.push(lit_node(json!(1))).index();
+    let add = desugared.push(AstNode::new("binary.add").with_payload(json!({
+        "children": [rec_pred_var, one]
+    }))).index();
+    let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
+
+    // Nat.rec(0, step)
+    let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let base_lit = desugared.push(lit_node(json!(0))).index();
+    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+
+    // Succ(Zero)
+    let zero_var = desugared.push(var_node("Zero")).index();
+    let succ_var = desugared.push(var_node("Succ")).index();
+    let succ_zero = desugared.push(call_node(&[succ_var, zero_var])).index();
+
+    // rec_call(Succ(Zero))
+    let app = desugared.push(call_node(&[rec_call, succ_zero])).index();
+
+    // Append the expression to the data block so it evals in the same scope.
+    append_child_to_block(&mut desugared, data_block_idx, app);
+
+    let result = kit
+        .runtime()
+        .eval(&desugared)
+        .expect("Nat.rec(0, step)(Succ(Zero)) must eval");
+    // Nat.rec(0, step)(Succ(Zero)) = step(Zero, Nat.rec(0, step)(Zero)) = 0 + 1 = 1
+    assert_eq!(result, json!(1), "step case: Nat.rec(0, step)(Succ(Zero)) == 1");
+}
+
+/// Bug 0.3: `Nat.rec` can recurse to depth 2.
+/// `Nat.rec(0, step)(Succ(Succ(Zero)))` should return 2.
+/// This verifies the self-application recursion works for depth > 1.
+#[test]
+fn data_recursor_recurse_depth_two() {
+    let kit = kit();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("data").with_payload(json!({
+        "name": "Nat",
+        "constructors": [
+            {"name": "Zero", "args": []},
+            {"name": "Succ", "args": [{"name": "pred", "type": "Nat"}]}
+        ]
+    })));
+    let mut desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+    let data_block_idx = desugared.nodes().len() - 1;
+
+    // step = (pred, rec_pred) -> rec_pred + 1
+    let rec_pred_var = desugared.push(var_node("rec_pred")).index();
+    let one = desugared.push(lit_node(json!(1))).index();
+    let add = desugared.push(AstNode::new("binary.add").with_payload(json!({
+        "children": [rec_pred_var, one]
+    }))).index();
+    let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
+
+    // Nat.rec(0, step)
+    let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let base_lit = desugared.push(lit_node(json!(0))).index();
+    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+
+    // Succ(Succ(Zero))
+    let zero_var = desugared.push(var_node("Zero")).index();
+    let succ_var = desugared.push(var_node("Succ")).index();
+    let succ_zero = desugared.push(call_node(&[succ_var, zero_var])).index();
+    let succ_succ_zero = desugared.push(call_node(&[succ_var, succ_zero])).index();
+
+    // rec_call(Succ(Succ(Zero)))
+    let app = desugared.push(call_node(&[rec_call, succ_succ_zero])).index();
+
+    // Append the expression to the data block so it evals in the same scope.
+    append_child_to_block(&mut desugared, data_block_idx, app);
+
+    let result = kit
+        .runtime()
+        .eval(&desugared)
+        .expect("Nat.rec(0, step)(Succ(Succ(Zero))) must eval");
+    // Nat.rec(0, step)(Succ(Succ(Zero))) = step(Succ(Zero), Nat.rec(0, step)(Succ(Zero)))
+    // = step(Succ(Zero), 1) = 1 + 1 = 2
+    assert_eq!(result, json!(2), "recurse: Nat.rec(0, step)(Succ(Succ(Zero))) == 2");
+}
+
+// ---------------------------------------------------------------------------
+// Bug 0.4: desugar-error raises LangError at eval time
+// ---------------------------------------------------------------------------
+
+/// Bug 0.4: A strict positivity violation must raise a `LangError` at eval
+/// time, not be silently swallowed as a string literal.
+#[test]
+fn data_strict_positivity_violation_raises_error() {
+    let kit = kit();
+    let mut ast = Ast::new();
+    // data Bad = MkBad(Bad -> Int) — negative occurrence
+    ast.push(AstNode::new("data").with_payload(json!({
+        "name": "Bad",
+        "constructors": [
+            {"name": "MkBad", "args": [{"name": "f", "type": "Bad -> Int"}]}
+        ]
+    })));
+    let desugared = desugar_pass::apply_desugar(kit.runtime().lang(), &ast);
+
+    // The desugared AST should contain a `desugar-error` node.
+    let has_error = desugared.nodes().iter().any(|n| n.kind == "desugar-error");
+    assert!(has_error, "desugar should emit a desugar-error node");
+
+    // Evaluating it should return an error, not a string.
+    let result = kit.runtime().eval(&desugared);
+    assert!(result.is_err(), "desugar-error must raise a LangError");
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("strict positivity"),
+        "error should mention strict positivity, got: {}",
+        err_msg
+    );
 }

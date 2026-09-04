@@ -185,8 +185,20 @@ impl ScopeStack {
     /// closure's captured env. The captured env is shared (via `Rc`) at
     /// call time — see `apply_app` — so this is the one-time snapshot
     /// cost paid at closure creation, not on every call.
+    ///
+    /// Includes the parent closure's captured env (if any) so that nested
+    /// closures retain access to bindings from all enclosing closure
+    /// scopes, not just the current scope stack. Current scope bindings
+    /// take priority over parent captured bindings (shadowing).
     pub fn capture(&self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
         let mut captured = FxHashMap::default();
+        // Include parent closure's captured env first (lower priority).
+        if let Some(parent_captured) = &self.captured {
+            for (k, v) in parent_captured.iter() {
+                captured.insert(Rc::clone(k), v.clone());
+            }
+        }
+        // Then include current scopes (higher priority, overwrites parent).
         for scope in &self.scopes {
             for (k, v) in scope {
                 captured.insert(Rc::clone(k), v.clone());
@@ -986,6 +998,29 @@ impl TreeWalkEngine {
                 TaggedValue::from(lit.cloned().unwrap_or(Value::Null)),
                 false,
             )),
+            "desugar_error" => {
+                // Raise a LangError carrying the reason from the node's
+                // payload. This op is the eval scheme for the
+                // `desugar-error` node kind, which the desugar pass emits
+                // when a declaration fails a compile-time check (e.g.
+                // strict positivity violation in `data`). The op name and
+                // node kind are data-driven (declared in eval.yaml /
+                // ast.yaml), not hardcoded kind checks.
+                let reason = current_node
+                    .payload
+                    .get("reason")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown desugar error");
+                let kind = current_node
+                    .payload
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("desugar-error");
+                Err(LangError::engine_node(
+                    format!("{}: {}", kind, reason),
+                    current_node,
+                ))
+            }
             "id" => {
                 // Identity: return the incoming value, or the single arg.
                 Ok((
@@ -2624,7 +2659,7 @@ impl TreeWalkEngine {
                                         .cloned()
                                         .unwrap_or(TaggedValue::Null);
                                     env.define(var_name, new_val.clone());
-                                    if !handl_value::eq(&new_val, &prev) {
+                                    if !rec_value_eq(&new_val, &prev) {
                                         changed = true;
                                         prev_values.insert(Rc::from(var_name), new_val.clone());
                                     }
@@ -3142,6 +3177,30 @@ fn is_assign_node(lang: &Language, node: &AstNode) -> bool {
 fn is_return_node(lang: &Language, node: &AstNode) -> bool {
     (role_declared(lang, &node.kind, "value") && !role_declared(lang, &node.kind, "target"))
         || node.kind == "return"
+}
+
+/// Convergence comparison for `eval_rec` bindings.
+///
+/// Closures (`TaggedValue::Arrow`) are compared by params and body index
+/// only, NOT by their captured env. In a `rec` fixpoint, each pass
+/// re-evaluates a closure binding and creates a new closure that captures
+/// the current scope (which now includes other rec bindings). The captured
+/// env naturally differs each pass even though the closure's code is
+/// identical, so a full structural `eq` would never converge. Comparing
+/// only params + body lets the fixpoint converge after the env stabilizes.
+/// Non-closure values use the standard structural `eq`.
+fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
+    match (a, b) {
+        (
+            TaggedValue::Arrow { params: p1, body: b1, .. },
+            TaggedValue::Arrow { params: p2, body: b2, .. },
+        ) => {
+            p1.len() == p2.len()
+                && p1.iter().zip(p2.iter()).all(|(a, b)| a == b)
+                && b1 == b2
+        }
+        _ => handl_value::eq(a, b),
+    }
 }
 
 // ---------------------------------------------------------------------------
