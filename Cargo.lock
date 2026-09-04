@@ -1028,6 +1028,7 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-diag-expression",
+ "handl-plugin-engine-lint",
  "handl-plugin-load",
  "handl-plugin-loader-native",
  "handl-plugin-lsp-completion",
@@ -1239,7 +1240,10 @@ dependencies = [
 name = "handl-plugin-diag-expression"
 version = "0.1.0"
 dependencies = [
+ "handl-language",
  "handl-platform",
+ "handl-plugin-engine-lint",
+ "serde_json",
 ]
 
 [[package]]
@@ -1318,6 +1322,16 @@ dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-lex",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-engine-lint"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-platform",
+ "serde",
  "serde_json",
 ]
 

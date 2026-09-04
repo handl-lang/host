@@ -122,6 +122,7 @@ members = [
   "crates/plugin-engine-eval-tree-walk",
   "crates/plugin-engine-eval-bytecode",
   "crates/plugin-engine-eval-cranelift",
+  "crates/plugin-engine-lint",
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",
@@ -271,6 +272,7 @@ handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-eval-tree-walk = { path = "crates/plugin-engine-eval-tree-walk" }
 handl-plugin-engine-eval-bytecode = { path = "crates/plugin-engine-eval-bytecode" }
 handl-plugin-engine-eval-cranelift = { path = "crates/plugin-engine-eval-cranelift" }
+handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
