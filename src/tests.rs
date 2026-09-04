@@ -10,14 +10,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use handl_language::{Ast, AstNode, Language, ast_value, language_value};
 use handl_language::LangError;
+use handl_language::{ast_value, language_value, Ast, AstNode, Language};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{
-    CompiledHandle, RuntimeFactory, RuntimeHandle, as_compiled_id, as_compiled_target,
-    compiled_value,
+    as_compiled_id, as_compiled_target, compiled_value, CompiledHandle, RuntimeFactory,
+    RuntimeHandle,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::CompileModule;
 
@@ -236,9 +236,8 @@ fn lang_arg() -> Value {
 fn call_with_raw_ast_and_target_returns_compiled_handle() {
     let factory = Rc::new(MockFactory::new());
     let module = make_module(Rc::clone(&factory));
-    let result =
-        call(&module, &[lang_arg(), raw_ast_arg(), json!("bytecode")])
-            .expect("compile must succeed");
+    let result = call(&module, &[lang_arg(), raw_ast_arg(), json!("bytecode")])
+        .expect("compile must succeed");
     // The result is a tagged compiled-program handle.
     assert_eq!(as_compiled_id(&result), Some(1234));
     assert_eq!(as_compiled_target(&result), Some("bytecode"));
@@ -250,9 +249,8 @@ fn call_with_raw_ast_and_target_returns_compiled_handle() {
 fn call_with_tagged_ast_returns_compiled_handle() {
     let factory = Rc::new(MockFactory::new());
     let module = make_module(Rc::clone(&factory));
-    let result =
-        call(&module, &[lang_arg(), tagged_ast_arg(), json!("native")])
-            .expect("compile must succeed");
+    let result = call(&module, &[lang_arg(), tagged_ast_arg(), json!("native")])
+        .expect("compile must succeed");
     assert_eq!(as_compiled_id(&result), Some(1234));
     assert_eq!(as_compiled_target(&result), Some("native"));
 }
@@ -282,8 +280,7 @@ fn call_result_matches_compiled_value_helper() {
     let factory = Rc::new(MockFactory::new());
     let module = make_module(factory);
     let result =
-        call(&module, &[lang_arg(), raw_ast_arg(), json!("native")])
-            .expect("compile must succeed");
+        call(&module, &[lang_arg(), raw_ast_arg(), json!("native")]).expect("compile must succeed");
     // The returned value is exactly what `compiled_value` produces.
     assert_eq!(result, compiled_value(1234, "native"));
 }
@@ -302,8 +299,11 @@ fn call_with_no_args_errors_about_language() {
 #[test]
 fn call_with_non_language_first_arg_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
-    let err =
-        call(&module, &[json!("not-a-language"), raw_ast_arg(), json!("native")]).unwrap_err();
+    let err = call(
+        &module,
+        &[json!("not-a-language"), raw_ast_arg(), json!("native")],
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("Language value"), "got: {}", err);
 }
 
@@ -323,31 +323,22 @@ fn call_with_non_deserializable_ast_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
     // A plain string is neither a tagged `__ast__` value nor a valid
     // serialized `Ast`.
-    let err =
-        call(&module, &[lang_arg(), json!("not-an-ast"), json!("native")]).unwrap_err();
+    let err = call(&module, &[lang_arg(), json!("not-an-ast"), json!("native")]).unwrap_err();
     assert!(err.to_string().contains("compile:"), "got: {}", err);
 }
 
 #[test]
 fn call_propagates_factory_build_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_build_err(LangError::Engine("build-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_build_err(LangError::engine("build-boom")));
     let module = make_module(factory);
-    let err =
-        call(&module, &[lang_arg(), raw_ast_arg(), json!("native")]).unwrap_err();
+    let err = call(&module, &[lang_arg(), raw_ast_arg(), json!("native")]).unwrap_err();
     assert!(err.to_string().contains("build-boom"), "got: {}", err);
 }
 
 #[test]
 fn call_propagates_handle_compile_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_compile_err(LangError::Engine("compile-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_compile_err(LangError::engine("compile-boom")));
     let module = make_module(factory);
-    let err =
-        call(&module, &[lang_arg(), raw_ast_arg(), json!("native")]).unwrap_err();
+    let err = call(&module, &[lang_arg(), raw_ast_arg(), json!("native")]).unwrap_err();
     assert!(err.to_string().contains("compile-boom"), "got: {}", err);
 }
