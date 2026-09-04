@@ -124,13 +124,11 @@ pub fn resolve_apps(scheme: &Scheme, graph_map: &HashMap<String, Scheme>) -> Sch
 /// Looks for `/arrows/` in the path and returns everything up to and
 /// including it. Returns `None` if the path doesn't contain `/arrows/`.
 fn find_arrows_root(path: &str) -> Option<String> {
-    if let Some(idx) = path.find("/arrows/") {
-        Some(path[..idx + "/arrows/".len()].to_string())
-    } else if path.ends_with("/arrows") {
-        Some(path.to_string())
-    } else {
-        None
-    }
+    let marker = "/handl-packages/";
+    let idx = path.find(marker)?;
+    let after_marker = &path[idx + marker.len()..];
+    let next_slash = after_marker.find('/')?;
+    Some(path[..idx + marker.len() + next_slash + 1].to_string())
 }
 
 // ============================================================================
@@ -151,6 +149,9 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Scheme>) -> Result<(), String> 
         let path = entry.path();
 
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             walk_dir(path.to_str().unwrap_or(""), map)?;
         } else if path.extension().map(|e| e == "hnl").unwrap_or(false) {
             let name = path

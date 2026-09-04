@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The json interface is declared in
-//! `kit-stdlib/data/json/json.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/json/json.hnl` via `op` declarations, and the Rust
 //! parse/stringify logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`JsonLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -27,7 +27,7 @@ use serde_json::Value;
 /// The handl source declaring the json `op` interface — the single source
 /// of truth for the json API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const JSON_HNL: &str = include_str!("../../../kit-stdlib/data/json/json.hnl");
+const JSON_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/json/json.hnl");
 
 /// The op names declared in `json.hnl`.
 const JSON_OPS: &[&str] = &["json.parse", "json.stringify"];

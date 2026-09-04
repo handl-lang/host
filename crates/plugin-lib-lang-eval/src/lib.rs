@@ -139,7 +139,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// The handl source declaring the `lang.eval` interface. Loaded at compile
 /// time from the kit-stdlib data dir. The eval engine stays Rust
 /// (ADR-0077 "Special"); this .hnl declares the interface only.
-const LANG_EVAL_HNL: &str = include_str!("../../../kit-stdlib/data/lang_eval/lang_eval.hnl");
+const LANG_EVAL_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/lang_eval/lang_eval.hnl");
 
 /// A `Library` plugin that registers the `lang.eval` implementation via
 /// the generic [`HandlLibraryPlugin`].

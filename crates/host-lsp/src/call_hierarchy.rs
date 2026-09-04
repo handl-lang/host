@@ -545,6 +545,9 @@ fn collect_arrow_files(dir: &Path, out: &mut Vec<(String, String)>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             collect_arrow_files(&path, out);
         } else if path.extension().and_then(|e| e.to_str()) == Some("hnl") {
             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {

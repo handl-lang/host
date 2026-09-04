@@ -77,7 +77,7 @@ fn rename_updates_references_in_current_file() {
 #[test]
 fn rename_updates_references_across_files() {
     let dir = make_temp_dir("across");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     let fn_dir = arrows_root.join("fn");
     let collection_dir = arrows_root.join("collection");
     fs::create_dir_all(&fn_dir).expect("create arrows/fn");
@@ -133,7 +133,7 @@ fn rename_updates_references_across_files() {
 #[test]
 fn rename_renames_arrow_file() {
     let dir = make_temp_dir("filerename");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     let fn_dir = arrows_root.join("fn");
     let collection_dir = arrows_root.join("collection");
     fs::create_dir_all(&fn_dir).expect("create arrows/fn");
@@ -202,7 +202,7 @@ fn rename_non_arrow_identifier_no_file_rename() {
 #[test]
 fn rename_returns_valid_workspace_edit_json() {
     let dir = make_temp_dir("validjson");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     let fn_dir = arrows_root.join("fn");
     let collection_dir = arrows_root.join("collection");
     fs::create_dir_all(&fn_dir).expect("create arrows/fn");

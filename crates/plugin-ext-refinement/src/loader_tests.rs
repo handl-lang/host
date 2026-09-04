@@ -1799,7 +1799,7 @@ fn test_flatten_program_transitive_bare_name_discovery() {
 // Section 8: ADR-0077 Phase 6 — arrows/ as importable modules
 // ============================================================================
 //
-// These tests verify that `kit-stdlib/data/arrows/*.hnl` files with
+// These tests verify that `handl-packages/kit-stdlib/*.hnl` files with
 // `import`/`export` declarations are loadable via the `ModuleLoader`, and
 // that compositional inference works across the import boundary.
 //
@@ -1807,10 +1807,10 @@ fn test_flatten_program_transitive_bare_name_discovery() {
 // have no filesystem dependency (they use `MemoryResolver`).
 
 /// The source text of `collection/insert.hnl` (with `export insert`).
-const INSERT_SRC: &str = include_str!("../../../kit-stdlib/data/arrows/collection/insert.hnl");
+const INSERT_SRC: &str = include_str!("../../../handl-packages/kit-stdlib/collection/insert.hnl");
 
 /// The source text of `collection/sort.hnl` (with `import insert`).
-const SORT_SRC: &str = include_str!("../../../kit-stdlib/data/arrows/collection/sort.hnl");
+const SORT_SRC: &str = include_str!("../../../handl-packages/kit-stdlib/collection/sort.hnl");
 
 /// Build a `MemoryResolver` populated with the real arrow file contents,
 /// rooted at the arrows directory layout (e.g. `"collection/sort"` →

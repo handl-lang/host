@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The yaml interface is declared in
-//! `kit-stdlib/data/yaml/yaml.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/yaml/yaml.hnl` via `op` declarations, and the Rust
 //! parse/stringify logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`YamlLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -28,7 +28,7 @@ use serde_yaml::Value as YamlValue;
 /// The handl source declaring the yaml `op` interface — the single source
 /// of truth for the yaml API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const YAML_HNL: &str = include_str!("../../../kit-stdlib/data/yaml/yaml.hnl");
+const YAML_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/yaml/yaml.hnl");
 
 /// The op names declared in `yaml.hnl`.
 const YAML_OPS: &[&str] = &["yaml.parse", "yaml.stringify"];

@@ -13,7 +13,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 2). The prim interface is declared in
-//! `kit-stdlib/data/prim/prim.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/prim/prim.hnl` via `op` declarations, and the Rust
 //! atom logic is registered as handls (handlers) in an [`OpRegistry`]. The
 //! [`PrimLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with the
 //! op registry, eliminating the per-library hand-rolled `Plugin` trait
@@ -34,7 +34,7 @@ use ops::{Add, Alloc, Compare};
 /// The handl source declaring the prim `op` interface — the single source
 /// of truth for the prim API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const PRIM_HNL: &str = include_str!("../../../kit-stdlib/data/prim/prim.hnl");
+const PRIM_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/prim/prim.hnl");
 
 /// The op names declared in `prim.hnl`.
 const PRIM_OPS: &[&str] = &["prim.add", "prim.compare", "prim.alloc"];

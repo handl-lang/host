@@ -13,7 +13,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ws_rfc interface is declared in
-//! `kit-stdlib/data/ws_rfc/ws_rfc.hnl` via `---` doc comments and `cap`
+//! `handl-packages/kit-stdlib/ws_rfc/ws_rfc.hnl` via `---` doc comments and `cap`
 //! declarations. The [`WsRfcLibraryPlugin`] wraps a generic
 //! [`HandlLibraryPlugin`] for the interface declaration (id, name,
 //! capabilities). This is an interface crate; concrete implementations
@@ -60,7 +60,7 @@ mod tests;
 /// The handl source declaring the ws_rfc interface — the single source
 /// of truth for the ws_rfc API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const WS_RFC_HNL: &str = include_str!("../../../kit-stdlib/data/ws_rfc/ws_rfc.hnl");
+const WS_RFC_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/ws_rfc/ws_rfc.hnl");
 
 // ---------------------------------------------------------------------------
 // WsRfcLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

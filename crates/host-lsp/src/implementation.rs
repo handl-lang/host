@@ -186,26 +186,27 @@ fn uri_to_path(path: &str) -> String {
     }
 }
 
-/// Compute the `arrows/` root directory that is a sibling of the `contracts/`
+/// Compute the kit root directory that is the parent of the `contracts/`
 /// directory containing `contract_path`.
 ///
-/// Given `…/data/contracts/list.hnl`, returns `…/data/arrows/` if that
-/// directory exists. Falls back to `find_arrows_root` (which scans for
-/// `/arrows/` in the path) when no `/contracts/` segment is present.
+/// Given `…/handl-packages/kit-stdlib/contracts/list.hnl`, returns
+/// `…/handl-packages/kit-stdlib/` if that directory exists. Falls back to
+/// `find_arrows_root` (which scans for `/handl-packages/<pkg>/` in the path)
+/// when no `/contracts/` segment is present.
 fn arrows_root_from_contracts_path(contract_path: &str) -> Option<String> {
     if let Some(idx) = contract_path.find("/contracts/") {
-        let data_dir = &contract_path[..idx];
-        let arrows = format!("{}/arrows/", data_dir);
-        if Path::new(&arrows).is_dir() {
-            return Some(arrows);
+        let kit_root = &contract_path[..idx];
+        let root = format!("{}/", kit_root);
+        if Path::new(&root).is_dir() {
+            return Some(root);
         }
     }
-    // Fallback: maybe the path itself is under arrows/ (defensive).
+    // Fallback: maybe the path itself is under a kit root (defensive).
     find_arrows_root(contract_path)
 }
 
 /// Recursively collect every `.hnl` file under `root`, sorted for stable
-/// output ordering.
+/// output ordering. The `contracts/` subdirectory is skipped.
 fn collect_arrow_files(root: &str) -> Vec<PathBuf> {
     let mut out = Vec::new();
     collect_dir(Path::new(root), &mut out);
@@ -221,6 +222,9 @@ fn collect_dir(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             collect_dir(&path, out);
         } else if path.extension().and_then(|e| e.to_str()) == Some("hnl") {
             out.push(path);

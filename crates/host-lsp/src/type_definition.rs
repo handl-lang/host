@@ -247,14 +247,13 @@ fn search_text_in_contracts(dir: &Path, needle: &str, name: &str) -> Option<Valu
     None
 }
 
-/// Compute the `contracts/` directory path that is a sibling of the arrows
-/// root.
+/// Compute the `contracts/` directory path that is a child of the kit root.
 ///
-/// Given `.../data/arrows/`, returns `.../data/contracts/`.
+/// Given `.../handl-packages/kit-stdlib/`, returns
+/// `.../handl-packages/kit-stdlib/contracts/`.
 fn contracts_dir_from_arrows_root(arrows_root: &str) -> Option<String> {
     let root = Path::new(arrows_root);
-    let parent = root.parent()?;
-    let contracts = parent.join("contracts");
+    let contracts = root.join("contracts");
     if contracts.is_dir() {
         Some(contracts.to_string_lossy().into_owned())
     } else {

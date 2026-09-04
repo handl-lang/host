@@ -114,7 +114,7 @@ fn prepare_call_hierarchy_returns_empty_when_cursor_not_on_identifier() {
 #[test]
 fn outgoing_calls_finds_referenced_arrows() {
     let dir = make_temp_dir("outgoing");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
 
     // `insert.hnl` is a separate arrow file under the same root.
     write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
@@ -154,7 +154,7 @@ fn outgoing_calls_finds_referenced_arrows() {
 fn outgoing_calls_finds_string_literal_references() {
     // A named arrow that references another arrow via `arr("name")`.
     let dir = make_temp_dir("outgoing-str");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     write_arrow(&arrows_root, "fn", "fold_step", "-- fold_step arrow\nid\n");
 
     let reduce_path = write_arrow(
@@ -175,7 +175,7 @@ fn outgoing_calls_finds_string_literal_references() {
 #[test]
 fn outgoing_calls_no_references_returns_empty() {
     let dir = make_temp_dir("outgoing-none");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
 
     // `insert.hnl` exists but is not referenced by `sort.hnl`.
     write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
@@ -192,7 +192,7 @@ fn outgoing_calls_excludes_self_reference() {
     // `insert.hnl` references itself recursively; the self-reference should
     // not appear as an outgoing call.
     let dir = make_temp_dir("outgoing-self");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     let insert_path = write_arrow(
         &arrows_root,
         "collection",
@@ -220,7 +220,7 @@ fn outgoing_calls_without_arrows_root_returns_empty() {
 #[test]
 fn incoming_calls_finds_callers() {
     let dir = make_temp_dir("incoming");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
 
     // `insert.hnl` is the target arrow.
     write_arrow(&arrows_root, "collection", "insert", "-- insert arrow\nloop(id)\n");
@@ -261,7 +261,7 @@ fn incoming_calls_finds_callers() {
 fn incoming_calls_excludes_target_itself() {
     // `insert.hnl` references itself; it should not appear as its own caller.
     let dir = make_temp_dir("incoming-self");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     let insert_path = write_arrow(
         &arrows_root,
         "collection",
@@ -277,7 +277,7 @@ fn incoming_calls_excludes_target_itself() {
 #[test]
 fn incoming_calls_no_callers_returns_empty() {
     let dir = make_temp_dir("incoming-none");
-    let arrows_root = dir.join("arrows");
+    let arrows_root = dir.join("handl-packages").join("kit-stdlib");
     // `insert.hnl` exists but nothing references it.
     write_arrow(&arrows_root, "collection", "insert", "loop(id)\n");
     // `sort.hnl` does not reference insert.

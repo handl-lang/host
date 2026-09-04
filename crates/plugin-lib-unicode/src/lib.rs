@@ -13,7 +13,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The unicode interface is declared in
-//! `kit-stdlib/data/unicode/unicode.hnl` via `op` declarations, and the
+//! `handl-packages/kit-stdlib/unicode/unicode.hnl` via `op` declarations, and the
 //! Rust unicode logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`UnicodeLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry.
@@ -35,7 +35,7 @@ pub use module::UnicodeModule;
 /// The handl source declaring the unicode `op` interface — the single source
 /// of truth for the unicode API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const UNICODE_HNL: &str = include_str!("../../../kit-stdlib/data/unicode/unicode.hnl");
+const UNICODE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/unicode/unicode.hnl");
 
 /// The op names declared in `unicode.hnl`.
 const UNICODE_OPS: &[&str] = &[

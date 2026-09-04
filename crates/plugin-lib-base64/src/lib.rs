@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 2). The base64 interface is declared in
-//! `kit-stdlib/data/base64/base64.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/base64/base64.hnl` via `op` declarations, and the Rust
 //! encode/decode logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`Base64LibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -25,7 +25,7 @@ use serde_json::Value;
 /// The handl source declaring the base64 `op` interface — the single source
 /// of truth for the base64 API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const BASE64_HNL: &str = include_str!("../../../kit-stdlib/data/base64/base64.hnl");
+const BASE64_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/base64/base64.hnl");
 
 /// The op names declared in `base64.hnl`.
 const BASE64_OPS: &[&str] = &["base64.encode", "base64.decode"];

@@ -6,16 +6,16 @@ use crate::file_watcher::{
 fn watched_files_changed_filters_to_hnl() {
     // Non-.hnl files are dropped; .hnl URIs are returned.
     let uris = vec![
-        "file:///repo/arrows/sort.hnl".to_string(),
+        "file:///repo/handl-packages/kit-stdlib/sort.hnl".to_string(),
         "file:///repo/README.md".to_string(),
-        "file:///repo/arrows/map.hnl".to_string(),
+        "file:///repo/handl-packages/kit-stdlib/map.hnl".to_string(),
     ];
     let affected = watched_files_changed(&uris);
     assert_eq!(
         affected,
         vec![
-            "file:///repo/arrows/sort.hnl".to_string(),
-            "file:///repo/arrows/map.hnl".to_string(),
+            "file:///repo/handl-packages/kit-stdlib/sort.hnl".to_string(),
+            "file:///repo/handl-packages/kit-stdlib/map.hnl".to_string(),
         ]
     );
 }
@@ -24,17 +24,17 @@ fn watched_files_changed_filters_to_hnl() {
 fn watched_files_changed_for_finds_referencing_documents() {
     // `main.hnl` references `sort` (the changed file's stem) → affected.
     // `other.hnl` does not → not affected.
-    let changed = vec!["file:///repo/arrows/sort.hnl".to_string()];
+    let changed = vec!["file:///repo/handl-packages/kit-stdlib/sort.hnl".to_string()];
     let main_src = "result = sort ~> map";
     let other_src = "result = filter ~> reduce";
     let docs = vec![
-        OpenDocument { uri: "file:///repo/arrows/main.hnl", source: main_src },
-        OpenDocument { uri: "file:///repo/arrows/other.hnl", source: other_src },
+        OpenDocument { uri: "file:///repo/handl-packages/kit-stdlib/main.hnl", source: main_src },
+        OpenDocument { uri: "file:///repo/handl-packages/kit-stdlib/other.hnl", source: other_src },
     ];
     let affected = watched_files_changed_for(&changed, &docs);
     assert_eq!(
         affected,
-        vec!["file:///repo/arrows/main.hnl".to_string()],
+        vec!["file:///repo/handl-packages/kit-stdlib/main.hnl".to_string()],
         "only the document referencing `sort` should be affected: {affected:?}"
     );
 }
@@ -43,10 +43,10 @@ fn watched_files_changed_for_finds_referencing_documents() {
 fn watched_files_changed_for_excludes_self() {
     // A file changing itself should not be flagged via the reference path
     // (its own changes are handled by didChange/didSave).
-    let changed = vec!["file:///repo/arrows/sort.hnl".to_string()];
+    let changed = vec!["file:///repo/handl-packages/kit-stdlib/sort.hnl".to_string()];
     let src = "sort = sort ~> 1";
     let docs = vec![OpenDocument {
-        uri: "file:///repo/arrows/sort.hnl",
+        uri: "file:///repo/handl-packages/kit-stdlib/sort.hnl",
         source: src,
     }];
     let affected = watched_files_changed_for(&changed, &docs);
@@ -58,7 +58,7 @@ fn watched_files_changed_for_excludes_self() {
 
 #[test]
 fn register_watched_files_builds_glob_pattern() {
-    let opts = register_watched_files("/repo/arrows");
+    let opts = register_watched_files("/repo/handl-packages/kit-stdlib");
     let watchers = opts
         .get("watchers")
         .and_then(|w| w.as_array())
@@ -69,7 +69,7 @@ fn register_watched_files_builds_glob_pattern() {
         pattern.ends_with("/**/*.hnl"),
         "glob pattern should cover all .hnl files: {pattern}"
     );
-    assert!(pattern.starts_with("/repo/arrows"), "pattern should be rooted at arrows root: {pattern}");
+    assert!(pattern.starts_with("/repo/handl-packages/kit-stdlib"), "pattern should be rooted at arrows root: {pattern}");
 }
 
 #[test]

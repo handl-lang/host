@@ -25,26 +25,26 @@ fn parse_module_arrows(src: &str) -> Result<ParsedFile, String> {
 
 // Embed the actual .hnl stdlib files for testing.
 const INSERT_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/collection/insert.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/collection/insert.hnl");
 const SORT_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/collection/sort.hnl");
-const MAP_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/map.hnl");
-const FILTER_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/filter.hnl");
-const FOLD_HNL: &str = include_str!("../../../kit-stdlib/data/arrows/fn/fold.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/collection/sort.hnl");
+const MAP_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/fn/map.hnl");
+const FILTER_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/fn/filter.hnl");
+const FOLD_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/fn/fold.hnl");
 
 // New rich-loop pattern files (scan, take, drop).
 const SCAN_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/fn/scan_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/fn/scan_rich.hnl");
 const TAKE_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/collection/take_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/collection/take_rich.hnl");
 const DROP_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/collection/drop_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/collection/drop_rich.hnl");
 const NESTED_MAP_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/fn/nested_map_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/fn/nested_map_rich.hnl");
 const ZIP_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/fn/zip_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/fn/zip_rich.hnl");
 const REDUCE_RICH_HNL: &str =
-    include_str!("../../../kit-stdlib/data/arrows/fn/reduce_rich.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/fn/reduce_rich.hnl");
 
 // ============================================================================
 // Hand-built graphs (matching e2e_tests.rs) for comparison
@@ -808,7 +808,7 @@ fn test_parsed_drop_rich_matches_handbuilt() {
 #[test]
 fn test_load_new_rich_loops_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     // Load scan_rich.hnl from disk
     let scan_path = format!("{}/fn/scan_rich.hnl", arrows_dir);
@@ -945,7 +945,7 @@ fn test_parsed_zip_rich_matches_handbuilt() {
 #[test]
 fn test_load_zip_rich_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     // Load zip_rich.hnl from disk
     let zip_path = format!("{}/fn/zip_rich.hnl", arrows_dir);
@@ -1048,7 +1048,7 @@ fn test_parsed_reduce_rich_distinct_from_fold() {
 #[test]
 fn test_load_reduce_rich_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     // Load reduce_rich.hnl from disk
     let reduce_path = format!("{}/fn/reduce_rich.hnl", arrows_dir);
@@ -1350,7 +1350,7 @@ fn test_infer_all_five_from_hnl() {
 #[test]
 fn test_load_arrow_file_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     // Load insert.hnl from disk
     let insert_path = format!("{}/collection/insert.hnl", arrows_dir);
@@ -1366,7 +1366,7 @@ fn test_load_arrow_file_from_disk() {
 #[test]
 fn test_load_all_arrows_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     let map = load_all_arrows(&arrows_dir).expect("load all arrows");
     assert!(
@@ -1383,7 +1383,7 @@ fn test_load_all_arrows_from_disk() {
 #[test]
 fn test_infer_file_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
     let registry = ContractRegistry::minimal();
 
     // Infer insert from disk

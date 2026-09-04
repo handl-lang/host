@@ -66,8 +66,8 @@ fn make_temp_dir(prefix: &str) -> PathBuf {
 /// Returns the contract file path.
 fn make_sorted_tree() -> PathBuf {
     let dir = make_temp_dir("sorted");
-    let contracts_dir = dir.join("contracts");
-    let arrows_dir = dir.join("arrows").join("collection");
+    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("collection");
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
     fs::create_dir_all(&arrows_dir).expect("create arrows/collection dir");
 
@@ -147,8 +147,8 @@ fn implementation_empty_source_returns_empty() {
 #[test]
 fn implementation_no_match_returns_empty() {
     let dir = make_temp_dir("nomatch");
-    let contracts_dir = dir.join("contracts");
-    let arrows_dir = dir.join("arrows").join("collection");
+    let contracts_dir = dir.join("handl-packages").join("kit-stdlib").join("contracts");
+    let arrows_dir = dir.join("handl-packages").join("kit-stdlib").join("collection");
     fs::create_dir_all(&contracts_dir).expect("create contracts dir");
     fs::create_dir_all(&arrows_dir).expect("create arrows dir");
 

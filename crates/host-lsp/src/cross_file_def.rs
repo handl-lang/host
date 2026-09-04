@@ -67,6 +67,9 @@ fn search_for_file(dir: &Path, file_name: &str) -> Option<String> {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             if let Some(uri) = search_for_file(&path, file_name) {
                 return Some(uri);
             }
@@ -78,28 +81,23 @@ fn search_for_file(dir: &Path, file_name: &str) -> Option<String> {
 }
 
 /// Search for `axiom <name>` in `.hnl` files under the `contracts/`
-/// directory that is a sibling of `arrows_root`.
+/// directory that is a child of the kit root.
 ///
-/// For example, if `arrows_root` is `.../data/arrows/`, the contracts
-/// directory is `.../data/contracts/`. The identifier `prim.add` would
-/// be searched for as the text `axiom prim.add` within any `.hnl` file
-/// under that contracts directory.
+/// For example, if `arrows_root` is `.../handl-packages/kit-stdlib/`, the
+/// contracts directory is `.../handl-packages/kit-stdlib/contracts/`.
 fn find_axiom_definition(name: &str, arrows_root: &str) -> Option<String> {
     let contracts_dir = contracts_dir_from_arrows_root(arrows_root)?;
     let needle = format!("axiom {}", name);
     search_for_text_in_hnl(Path::new(&contracts_dir), &needle)
 }
 
-/// Compute the `contracts/` directory path that is a sibling of the
-/// arrows root.
+/// Compute the `contracts/` directory path that is a child of the kit root.
 ///
-/// Given `.../data/arrows/`, returns `.../data/contracts/`.
+/// Given `.../handl-packages/kit-stdlib/`, returns
+/// `.../handl-packages/kit-stdlib/contracts/`.
 fn contracts_dir_from_arrows_root(arrows_root: &str) -> Option<String> {
     let root = Path::new(arrows_root);
-    // The arrows root ends with `/arrows/` (or `/arrows`). Its parent is
-    // the data directory; `contracts/` is a sibling.
-    let parent = root.parent()?;
-    let contracts = parent.join("contracts");
+    let contracts = root.join("contracts");
     if contracts.is_dir() {
         Some(contracts.to_string_lossy().into_owned())
     } else {

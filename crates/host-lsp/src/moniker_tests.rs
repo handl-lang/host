@@ -2,12 +2,12 @@ use crate::moniker::moniker;
 
 #[test]
 fn moniker_for_arrow_file_uses_relative_path() {
-    // An arrow file under /repo/arrows/collection/sort.hnl yields the
-    // moniker `arrows/collection/sort` (path relative to the arrows root,
+    // An arrow file under /repo/handl-packages/kit-stdlib/collection/sort.hnl yields the
+    // moniker `collection/sort` (path relative to the kit root,
     // extension stripped).
     let source = "sort = 1";
     let offset = source.find("sort").unwrap();
-    let path = "/repo/arrows/collection/sort.hnl";
+    let path = "/repo/handl-packages/kit-stdlib/collection/sort.hnl";
     let result = moniker(source, offset, Some(path));
     assert_eq!(result.len(), 1, "expected one moniker: {result:?}");
     let m = &result[0];
@@ -15,7 +15,7 @@ fn moniker_for_arrow_file_uses_relative_path() {
     assert_eq!(
         m["identifier"].as_str(),
         Some("collection/sort"),
-        "identifier should be relative to arrows root: {m:?}"
+        "identifier should be relative to kit root: {m:?}"
     );
     assert_eq!(m["unique"].as_str(), Some("identifier"));
 }
@@ -55,7 +55,7 @@ fn moniker_for_local_symbol_uses_filename_stem() {
 fn moniker_on_non_identifier_returns_empty() {
     let source = "x = 42";
     let offset = source.find('4').unwrap();
-    let result = moniker(source, offset, Some("/repo/arrows/x.hnl"));
+    let result = moniker(source, offset, Some("/repo/handl-packages/kit-stdlib/x.hnl"));
     assert!(result.is_empty(), "cursor on a number yields no moniker: {result:?}");
 }
 

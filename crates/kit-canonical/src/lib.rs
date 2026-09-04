@@ -37,7 +37,7 @@ use std::rc::Rc;
 // hello.greet host function + registry
 // ---------------------------------------------------------------------------
 //
-// The greet *logic* is handl-authored in `kit-stdlib/data/hello/greet.hnl`
+// The greet *logic* is handl-authored in `handl-packages/kit-stdlib/hello/greet.hnl`
 // (a single `name ~> "Hello, " + name + "!"` expression). This Rust
 // side is a thin loader/bridge: it `include_str!`s that data file, evaluates
 // it with a minimal module-free runtime (greet uses only the native `+`
@@ -48,7 +48,7 @@ use std::rc::Rc;
 
 /// The handl source defining `greet` — the single source of truth for the
 /// greeting logic. Loaded at compile time from the kit-stdlib data dir.
-const GREET_HNL: &str = include_str!("../../../kit-stdlib/data/hello/greet.hnl");
+const GREET_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/hello/greet.hnl");
 
 thread_local! {
     /// A minimal, module-free runtime for evaluating `greet.hnl`. Cached

@@ -2,7 +2,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The ws_whatwg_wasm interface is declared in
-//! `kit-stdlib/data/ws_whatwg_wasm/ws_whatwg_wasm.hnl` via `---` doc
+//! `handl-packages/kit-stdlib/ws_whatwg_wasm/ws_whatwg_wasm.hnl` via `---` doc
 //! comments and `cap` declarations. The [`WsWhatwgWasmLibraryPlugin`]
 //! wraps a generic [`HandlLibraryPlugin`] for the interface declaration
 //! (id, name, capabilities) while contributing the
@@ -31,7 +31,7 @@ pub use wasm::WsWhatwgWasmModule;
 /// single source of truth for the ws_whatwg_wasm API surface. Loaded
 /// at compile time from the kit-stdlib data dir.
 const WS_WHATWG_WASM_HNL: &str =
-    include_str!("../../../kit-stdlib/data/ws_whatwg_wasm/ws_whatwg_wasm.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/ws_whatwg_wasm/ws_whatwg_wasm.hnl");
 
 // ---------------------------------------------------------------------------
 // WsWhatwgWasmLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

@@ -34,7 +34,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The aggregated collections interface is declared in
-//! `kit-stdlib/data/collections/collections.hnl` via `---` doc comments and
+//! `handl-packages/kit-stdlib/collections/collections.hnl` via `---` doc comments and
 //! `cap` declarations. The [`CollectionsLibraryPlugin`] wraps a generic
 //! [`HandlLibraryPlugin`] for the interface declaration (id, name,
 //! capabilities) while contributing the [`CollectionsModule`] into the
@@ -75,7 +75,7 @@ pub use module::CollectionsModule;
 ///
 /// The `.hnl` file contains `---` doc comments describing every sub-module
 /// and its ops, plus `cap` declarations for the collections-owned modules.
-const COLLECTIONS_HNL: &str = include_str!("../../../kit-stdlib/data/collections/collections.hnl");
+const COLLECTIONS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/collections/collections.hnl");
 
 // ---------------------------------------------------------------------------
 // CollectionsLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

@@ -1,6 +1,6 @@
 //! A minimal arrow-graph parser for `.hnl` arrow files (ADR-0069).
 //!
-//! This parser reads the arrow-graph syntax used in `kit-stdlib/data/arrows/`
+//! This parser reads the arrow-graph syntax used in `handl-packages/kit-stdlib/`
 //! and produces `Scheme` IR. It uses the **data-driven** lexer + Pratt parser
 //! (driven by the YAML language definition in `data/`) to build an AST, then
 //! materializes the AST into a `Scheme` via [`ast_to_scheme`].

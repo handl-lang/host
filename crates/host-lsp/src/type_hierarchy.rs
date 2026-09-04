@@ -412,12 +412,12 @@ fn search_axiom_in_dir(dir: &Path, name: &str) -> Option<(String, u32, u32, u32)
     None
 }
 
-/// Compute the `contracts/` directory path that is a sibling of the arrows
-/// root. Given `.../data/arrows/`, returns `.../data/contracts/`.
+/// Compute the `contracts/` directory path that is a child of the kit root.
+/// Given `.../handl-packages/kit-stdlib/`, returns
+/// `.../handl-packages/kit-stdlib/contracts/`.
 fn contracts_dir_from_arrows_root(arrows_root: &str) -> Option<String> {
     let root = Path::new(arrows_root);
-    let parent = root.parent()?;
-    let contracts = parent.join("contracts");
+    let contracts = root.join("contracts");
     if contracts.is_dir() {
         Some(contracts.to_string_lossy().into_owned())
     } else {
@@ -464,6 +464,9 @@ fn collect_arrow_implementations(
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             collect_arrow_implementations(&path, predicate, engine, out, visited);
         } else if path.extension().and_then(|e| e.to_str()) == Some("hnl") {
             let uri = path_to_uri(&path);

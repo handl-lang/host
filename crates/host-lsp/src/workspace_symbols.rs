@@ -2,7 +2,7 @@
 //!
 //! This module implements the `workspace/symbol` request so that VSCode's
 //! "Go to Symbol in Workspace" (`Ctrl+T`) can search for arrows and axioms
-//! across all `.hnl` files under the arrows root and the contracts directory.
+//! across all `.hnl` files under the kit root and the contracts directory.
 //!
 //! Each matching symbol is returned as a
 //! [`SymbolInformation`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol)
@@ -33,6 +33,9 @@ fn collect_hnl_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             collect_hnl_files(&path, out);
         } else if path.extension().and_then(|e| e.to_str()) == Some("hnl") {
             out.push(path);
@@ -64,7 +67,7 @@ fn path_to_uri(path: &Path) -> String {
     format!("file://{}", abs.to_string_lossy())
 }
 
-/// Search all `.hnl` files under the arrows root (and the sibling contracts
+/// Search all `.hnl` files under the kit root (and the child contracts
 /// directory) for symbols whose name contains `query` (case-insensitive).
 ///
 /// When `query` is empty, every symbol is returned — VSCode shows the full
@@ -81,37 +84,17 @@ pub fn workspace_symbols(query: &str, workspace_root: Option<&str>) -> Vec<Value
 
     let root_path = Path::new(root);
 
-    // Locate the arrows root. `find_arrows_root` looks for `/arrows/` within
-    // the path string; if that fails (e.g. the workspace root *is* the parent
-    // of `arrows/` rather than containing `/arrows/` as a substring), fall
-    // back to a direct `arrows` subdirectory.
+    // Locate the kit root. `find_arrows_root` looks for
+    // `/handl-packages/<pkg>/` within the path string.
     let arrows_root: Option<PathBuf> = find_arrows_root(root)
-        .map(PathBuf::from)
-        .or_else(|| {
-            let candidate = root_path.join("arrows");
-            if candidate.is_dir() {
-                Some(candidate)
-            } else {
-                None
-            }
-        });
+        .map(PathBuf::from);
 
-    // Locate the contracts directory. It is a sibling of the arrows root
-    // (`.../data/arrows` ↔ `.../data/contracts`), or a direct `contracts`
-    // subdirectory of the workspace root.
+    // Locate the contracts directory. It is a child of the kit root
+    // (`.../handl-packages/kit-stdlib/contracts/`).
     let contracts_dir: Option<PathBuf> = arrows_root
         .as_ref()
-        .and_then(|ar| ar.parent())
-        .map(|p| p.join("contracts"))
-        .filter(|p| p.is_dir())
-        .or_else(|| {
-            let candidate = root_path.join("contracts");
-            if candidate.is_dir() {
-                Some(candidate)
-            } else {
-                None
-            }
-        });
+        .map(|ar| ar.join("contracts"))
+        .filter(|p| p.is_dir());
 
     // Gather candidate files from both roots.
     let mut files = Vec::new();

@@ -14,7 +14,7 @@ use handl_plugin_ext_refinement::{
 fn main() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../kit-stdlib/data/arrows", manifest_dir);
+    let arrows_dir = format!("{}/../../handl-packages/kit-stdlib", manifest_dir);
 
     println!("=== ADR-0069: .hnl arrow files → Scheme → inferred contracts ===");
     println!("Atom contracts: {}", registry.len());
@@ -32,7 +32,7 @@ fn main() {
         ("map", "fn/map.hnl"),
         ("filter", "fn/filter.hnl"),
         ("fold", "fn/fold.hnl"),
-        ("pratt", "parse/pratt.hnl"),
+        ("pratt", "parse-pratt/pratt.hnl"),
         ("counter", "state/counter.hnl"),
         ("buffer", "state/buffer.hnl"),
         ("protocol", "state/protocol.hnl"),

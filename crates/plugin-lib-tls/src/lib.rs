@@ -9,7 +9,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The TLS interface is declared in
-//! `kit-stdlib/data/tls/tls.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/tls/tls.hnl` via `op` declarations, and the Rust
 //! handls (handlers) that delegate to a [`TlsService`] are registered in
 //! an [`OpRegistry`] via [`tls_op_registry`]. The [`TlsLibraryPlugin`]
 //! wraps the generic [`HandlLibraryPlugin`] with the op registry (backed
@@ -51,7 +51,7 @@ pub use stub::StubTls;
 /// The handl source declaring the tls `op` interface — the single source
 /// of truth for the TLS API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const TLS_HNL: &str = include_str!("../../../kit-stdlib/data/tls/tls.hnl");
+const TLS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/tls/tls.hnl");
 
 // ---------------------------------------------------------------------------
 // TlsLibraryPlugin (wraps HandlLibraryPlugin with op registry)

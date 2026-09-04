@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 2). The hex interface is declared in
-//! `kit-stdlib/data/hex/hex.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/hex/hex.hnl` via `op` declarations, and the Rust
 //! encode/decode logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`HexLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -24,7 +24,7 @@ use serde_json::Value;
 /// The handl source declaring the hex `op` interface — the single source
 /// of truth for the hex API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const HEX_HNL: &str = include_str!("../../../kit-stdlib/data/hex/hex.hnl");
+const HEX_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/hex/hex.hnl");
 
 /// The op names declared in `hex.hnl`.
 const HEX_OPS: &[&str] = &["hex.encode", "hex.decode"];

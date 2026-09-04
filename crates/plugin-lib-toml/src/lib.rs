@@ -7,7 +7,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The toml interface is declared in
-//! `kit-stdlib/data/toml/toml.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/toml/toml.hnl` via `op` declarations, and the Rust
 //! parse/stringify logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`TomlLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -28,7 +28,7 @@ use toml::Value as TomlValue;
 /// The handl source declaring the toml `op` interface — the single source
 /// of truth for the toml API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const TOML_HNL: &str = include_str!("../../../kit-stdlib/data/toml/toml.hnl");
+const TOML_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/toml/toml.hnl");
 
 /// The op names declared in `toml.hnl`.
 const TOML_OPS: &[&str] = &["toml.parse", "toml.stringify"];

@@ -118,8 +118,8 @@ fn diagnostics_for_unknown_base_arrow_reports_error() {
 #[test]
 fn find_arrows_root_locates_arrows_directory() {
     assert_eq!(
-        find_arrows_root("/home/user/platform/kit-stdlib/data/arrows/collection/sort.hnl"),
-        Some("/home/user/platform/kit-stdlib/data/arrows/".to_string())
+        find_arrows_root("/home/user/platform/handl-packages/kit-stdlib/collection/sort.hnl"),
+        Some("/home/user/platform/handl-packages/kit-stdlib/".to_string())
     );
 }
 

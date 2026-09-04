@@ -8,7 +8,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The intl interface is declared in
-//! `kit-stdlib/data/intl/intl.hnl` via `---` doc comments and `cap`
+//! `handl-packages/kit-stdlib/intl/intl.hnl` via `---` doc comments and `cap`
 //! declarations. The [`IntlLibraryPlugin`] wraps a generic
 //! [`HandlLibraryPlugin`] for the interface declaration (id, name,
 //! capabilities) while contributing the [`IntlModule`] into the
@@ -101,7 +101,7 @@ pub mod traits;
 /// The handl source declaring the intl interface — the single source
 /// of truth for the intl API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const INTL_HNL: &str = include_str!("../../../kit-stdlib/data/intl/intl.hnl");
+const INTL_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/intl/intl.hnl");
 
 // ---------------------------------------------------------------------------
 // IntlLibraryPlugin (wraps HandlLibraryPlugin for interface declaration)

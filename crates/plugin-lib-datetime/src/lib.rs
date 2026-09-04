@@ -9,7 +9,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The datetime interface is declared in
-//! `kit-stdlib/data/datetime/datetime.hnl` via `op` declarations, and the
+//! `handl-packages/kit-stdlib/datetime/datetime.hnl` via `op` declarations, and the
 //! Rust datetime logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`DatetimeLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry.
@@ -29,7 +29,7 @@ pub use error::DatetimeError;
 /// The handl source declaring the datetime `op` interface — the single source
 /// of truth for the datetime API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const DATETIME_HNL: &str = include_str!("../../../kit-stdlib/data/datetime/datetime.hnl");
+const DATETIME_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/datetime/datetime.hnl");
 
 /// The op names declared in `datetime.hnl`.
 const DATETIME_OPS: &[&str] = &[

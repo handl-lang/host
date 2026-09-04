@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The HTTP server interface is declared in
-//! `kit-stdlib/data/http_server/http_server.hnl` via `op` declarations,
+//! `handl-packages/kit-stdlib/http_server/http_server.hnl` via `op` declarations,
 //! and the Rust handls (handlers) that delegate to an [`HttpServer`] are
 //! registered in an [`OpRegistry`] via [`http_server_op_registry`]. The
 //! [`HttpServerLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`]
@@ -49,7 +49,7 @@ pub use response::HttpServerResponse;
 /// source of truth for the HTTP server API surface. Loaded at compile time
 /// from the kit-stdlib data dir.
 const HTTP_SERVER_HNL: &str =
-    include_str!("../../../kit-stdlib/data/http_server/http_server.hnl");
+    include_str!("../../../handl-packages/kit-stdlib/http_server/http_server.hnl");
 
 /// Build an [`OpRegistry`](handl_plugin_lib_handl::OpRegistry) for the
 /// HTTP server ops, registering Rust handls that delegate to

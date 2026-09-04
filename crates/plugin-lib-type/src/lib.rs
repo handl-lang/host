@@ -7,7 +7,7 @@
 //! ## ADR-0077 Phase 4: op/handl migration
 //!
 //! The plugin scaffolding has been migrated to the `op`/`handl` declaration
-//! form. The type interface is declared in `kit-stdlib/data/type/type.hnl`
+//! form. The type interface is declared in `handl-packages/kit-stdlib/type/type.hnl`
 //! via `---` doc comments, `cap` declarations, and `op` declarations. The
 //! [`TypeLibraryPlugin`] wraps a generic [`HandlLibraryPlugin`] for the
 //! interface declaration (id, name, capabilities).
@@ -67,7 +67,7 @@ pub fn typecheck_schema(
 /// truth for the type library API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
 #[cfg(feature = "plugin")]
-const TYPE_HNL: &str = include_str!("../../../kit-stdlib/data/type/type.hnl");
+const TYPE_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/type/type.hnl");
 
 /// A `Library` plugin that declares the `type` interface via the generic
 /// [`HandlLibraryPlugin`] with `cap` declarations.

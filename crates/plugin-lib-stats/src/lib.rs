@@ -4,7 +4,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The stats interface is declared in
-//! `kit-stdlib/data/stats/stats.hnl` via `---` doc comments, `cap`
+//! `handl-packages/kit-stdlib/stats/stats.hnl` via `---` doc comments, `cap`
 //! declarations, and `op` declarations. The [`StatsLibraryPlugin`] wraps a
 //! generic [`HandlLibraryPlugin`] for the interface declaration (id, name,
 //! capabilities) while contributing the [`StatsModule`] into the
@@ -39,7 +39,7 @@ use std::sync::OnceLock;
 /// declarations, and the handl logic (a record of arrows). The `cap`/`op`
 /// declaration lines are stripped before evaluation (see
 /// [`strip_declarations`]).
-const STATS_HNL: &str = include_str!("../../../kit-stdlib/data/stats/stats.hnl");
+const STATS_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/stats/stats.hnl");
 
 /// The function (record field) names exposed by the stats module.
 const STATS_FUNCS: &[&str] = &["sum", "avg", "product", "min", "max", "median", "stddev"];

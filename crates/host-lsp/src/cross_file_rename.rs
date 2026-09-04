@@ -214,6 +214,9 @@ fn search_for_file(dir: &Path, file_name: &str) -> Option<String> {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             if let Some(uri) = search_for_file(&path, file_name) {
                 return Some(uri);
             }
@@ -236,6 +239,9 @@ fn collect_hnl_uris_inner(dir: &Path, out: &mut Vec<String>) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
+                if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                    continue;
+                }
                 collect_hnl_uris_inner(&path, out);
             } else if path.extension().and_then(|e| e.to_str()) == Some("hnl") {
                 out.push(path_to_uri(&path));

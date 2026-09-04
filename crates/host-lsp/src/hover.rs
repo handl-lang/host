@@ -226,6 +226,9 @@ fn search_dir(dir: &Path, file_name: &str) -> Option<std::path::PathBuf> {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
+                continue;
+            }
             if let Some(found) = search_dir(&path, file_name) {
                 return Some(found);
             }

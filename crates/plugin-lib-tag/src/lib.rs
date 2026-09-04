@@ -14,7 +14,7 @@
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The tag interface is declared in
-//! `kit-stdlib/data/tag/tag.hnl` via `op` declarations, and the Rust
+//! `handl-packages/kit-stdlib/tag/tag.hnl` via `op` declarations, and the Rust
 //! tag/match/inspect logic is registered as handls (handlers) in an
 //! [`OpRegistry`]. The [`TagLibraryPlugin`] wraps the generic
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
@@ -65,7 +65,7 @@ mod tests;
 /// The handl source declaring the tag `op` interface — the single source
 /// of truth for the tag API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const TAG_HNL: &str = include_str!("../../../kit-stdlib/data/tag/tag.hnl");
+const TAG_HNL: &str = include_str!("../../../handl-packages/kit-stdlib/tag/tag.hnl");
 
 /// The op names declared in `tag.hnl`.
 const TAG_OPS: &[&str] = &[
