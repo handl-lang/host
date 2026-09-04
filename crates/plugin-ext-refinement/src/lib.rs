@@ -71,6 +71,10 @@ pub use loader::{load_dir, load_standard_axioms, parse_contracts};
 pub use loop_invariant::{
     discover_invariant_fixpoint, discover_invariant_fixpoint_real, weakest_precondition,
 };
+pub use partial_eval::{
+    ArrayRecSpec, Arr, Directive, Pev, Proof, Verdict, check_proposition, prove_array_rec,
+    prove_length_append, prove_length_map, recognize_array_rec,
+};
 pub use plugin::{BasicRefiner, Refine, RefineRequest, RefineResult, RefinementBehavior, RefinementCore};
 pub use smt::{implies, implies_with_report, pred_to_smt, toy_implies, z3_implies, z3_verdict, Z3Verdict};
 pub use termination::{analyze_termination, TerminationResult};
