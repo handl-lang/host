@@ -1,6 +1,430 @@
+//! Rust `Function` impls for the `str` module — the handls (handlers)
+//! for the `op`/`handl` declarations in `str.hnl`.
+//!
+//! All 45 functions are FFI atoms: they call Rust `String`/`str` methods
+//! that cannot be expressed as pure handl arrows without losing the exact
+//! `TypeMismatch` error messages the tests rely on. The `op`/`handl`
+//! declaration form (ADR-0077 Phase 2) declares the interface in
+//! `str.hnl`; these impls provide the logic and are registered in an
+//! [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+
 use handl_platform::{EvalContext, EvalError, Function};
 
-use super::common::{require_one_string, require_string, require_two_strings, s};
+use crate::shared::{b, num};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {
+    arg.as_str()
+        .ok_or(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "string", "non-string",
+        )))
+}
+
+fn require_one_string(args: &[serde_json::Value]) -> Result<&str, EvalError> {
+    let arg = args
+        .first()
+        .ok_or(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0,
+        )))?;
+    require_string(arg)
+}
+
+fn require_two_strings(args: &[serde_json::Value]) -> Result<(&str, &str), EvalError> {
+    if args.len() < 2 {
+        return Err(handl_platform::EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2,
+            args.len(),
+        )));
+    }
+    let a = require_string(&args[0])?;
+    let b = require_string(&args[1])?;
+    Ok((a, b))
+}
+
+fn s(value: impl Into<String>) -> serde_json::Value {
+    serde_json::Value::from(value.into())
+}
+
+macro_rules! string_unary_fn {
+    ($struct_name:ident, $body:expr) => {
+        #[derive(Clone, Copy)]
+        pub struct $struct_name;
+        impl handl_platform::Function for $struct_name {
+            fn call(
+                &self,
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
+                let input = require_one_string(args)?;
+                Ok(s($body(input)))
+            }
+        }
+    };
+}
+
+#[allow(unused_imports)]
+use string_unary_fn;
+
+macro_rules! string_predicate_fn {
+    ($struct_name:ident, $body:expr) => {
+        #[derive(Clone, Copy)]
+        pub struct $struct_name;
+        impl handl_platform::Function for $struct_name {
+            fn call(
+                &self,
+                args: &[serde_json::Value],
+                _ctx: &mut handl_platform::EvalContext,
+            ) -> Result<serde_json::Value, handl_platform::EvalError> {
+                let (input, pattern) = require_two_strings(args)?;
+                Ok(b($body(input, pattern)))
+            }
+        }
+    };
+}
+
+#[allow(unused_imports)]
+use string_predicate_fn;
+
+// ---------------------------------------------------------------------------
+// Basic transforms
+// ---------------------------------------------------------------------------
+
+string_unary_fn!(Upper, |input: &str| input.to_uppercase());
+string_unary_fn!(Lower, |input: &str| input.to_lowercase());
+string_unary_fn!(Trim, |input: &str| input.trim().to_string());
+string_unary_fn!(TrimStart, |input: &str| input.trim_start().to_string());
+string_unary_fn!(TrimEnd, |input: &str| input.trim_end().to_string());
+string_unary_fn!(Reverse, |input: &str| input
+    .chars()
+    .rev()
+    .collect::<String>());
+
+#[derive(Clone, Copy)]
+pub struct Length;
+impl Function for Length {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let input = require_one_string(args)?;
+        Ok(num(input.chars().count() as f64))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Concat;
+impl Function for Concat {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        if args.len() < 2 {
+            return Err(EvalError::TypeMismatch(format!(
+                "expected {} args, got {}",
+                2,
+                args.len(),
+            )));
+        }
+        let mut result = String::new();
+        for arg in args {
+            let s = require_string(arg)?;
+            result.push_str(s);
+        }
+        Ok(s(result))
+    }
+}
+
+string_predicate_fn!(Equals, |input: &str, other: &str| input == other);
+
+#[derive(Clone, Copy)]
+pub struct IsEmpty;
+impl Function for IsEmpty {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let input = require_one_string(args)?;
+        Ok(b(input.is_empty()))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct TrimMatches;
+impl Function for TrimMatches {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (input, chars) = require_two_strings(args)?;
+        if chars.is_empty() {
+            return Ok(s(input.to_string()));
+        }
+        let char_set: Vec<char> = chars.chars().collect();
+        Ok(s(input.trim_matches(|c| char_set.contains(&c)).to_string()))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct IsAlpha;
+impl Function for IsAlpha {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let input = require_one_string(args)?;
+        Ok(b(
+            !input.is_empty() && input.chars().all(|c| c.is_alphabetic())
+        ))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct IsNumeric;
+impl Function for IsNumeric {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let input = require_one_string(args)?;
+        Ok(b(!input.is_empty() && input.chars().all(|c| c.is_numeric())))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct IsAlphanumeric;
+impl Function for IsAlphanumeric {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let input = require_one_string(args)?;
+        Ok(b(
+            !input.is_empty() && input.chars().all(|c| c.is_alphanumeric())
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Case conversion
+// ---------------------------------------------------------------------------
+
+string_unary_fn!(Capitalize, |input: &str| {
+    let mut chars = input.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => {
+            let mut result = String::new();
+            result.extend(first.to_uppercase());
+            result.extend(chars.flat_map(|c| c.to_lowercase()));
+            result
+        }
+    }
+});
+
+string_unary_fn!(TitleCase, |input: &str| {
+    let mut result = String::new();
+    let mut new_word = true;
+    for ch in input.chars() {
+        if ch.is_whitespace() {
+            result.push(ch);
+            new_word = true;
+        } else if new_word {
+            result.extend(ch.to_uppercase());
+            new_word = false;
+        } else {
+            result.extend(ch.to_lowercase());
+        }
+    }
+    result
+});
+
+fn split_words(input: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    for ch in input.chars() {
+        if ch == '-' || ch == '_' || ch == ' ' {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+        } else if ch.is_uppercase() {
+            if !current.is_empty() && current.chars().last().map_or(false, |c| c.is_lowercase()) {
+                words.push(std::mem::take(&mut current));
+            }
+            current.push(ch);
+        } else {
+            if !current.is_empty()
+                && current.chars().last().map_or(false, |c| c.is_uppercase())
+                && current.chars().count() > 1
+            {
+                let last = current.pop().unwrap();
+                words.push(std::mem::take(&mut current));
+                current.push(last);
+            }
+            current.push(ch);
+        }
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words.into_iter().map(|w| w.to_lowercase()).collect()
+}
+
+string_unary_fn!(SnakeCase, |input: &str| split_words(input).join("_"));
+string_unary_fn!(KebabCase, |input: &str| split_words(input).join("-"));
+
+string_unary_fn!(CamelCase, |input: &str| {
+    let words = split_words(input);
+    let mut result = String::new();
+    for (i, word) in words.iter().enumerate() {
+        if i == 0 {
+            result.push_str(word);
+        } else {
+            let mut chars = word.chars();
+            if let Some(first) = chars.next() {
+                result.extend(first.to_uppercase());
+                result.extend(chars);
+            }
+        }
+    }
+    result
+});
+
+string_unary_fn!(PascalCase, |input: &str| {
+    let words = split_words(input);
+    let mut result = String::new();
+    for word in &words {
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            result.extend(first.to_uppercase());
+            result.extend(chars);
+        }
+    }
+    result
+});
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+string_predicate_fn!(Contains, |input: &str, pat: &str| input.contains(pat));
+string_predicate_fn!(StartsWith, |input: &str, pat: &str| input.starts_with(pat));
+string_predicate_fn!(EndsWith, |input: &str, pat: &str| input.ends_with(pat));
+
+#[derive(Clone, Copy)]
+pub struct Count;
+impl Function for Count {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (input, pattern) = require_two_strings(args)?;
+        Ok(num(input.matches(pattern).count() as f64))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Find;
+impl Function for Find {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (input, pattern) = require_two_strings(args)?;
+        let idx = input
+            .find(pattern)
+            .map(|byte_pos| input[..byte_pos].chars().count())
+            .map(|i| i as f64)
+            .unwrap_or(-1.0);
+        Ok(num(idx))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct RFind;
+impl Function for RFind {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (input, pattern) = require_two_strings(args)?;
+        let idx = input
+            .rfind(pattern)
+            .map(|byte_pos| input[..byte_pos].chars().count())
+            .map(|i| i as f64)
+            .unwrap_or(-1.0);
+        Ok(num(idx))
+    }
+}
+
+fn levenshtein(a: &[char], b: &[char]) -> usize {
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    let mut curr: Vec<usize> = vec![0; b.len() + 1];
+    for i in 1..=a.len() {
+        curr[0] = i;
+        for j in 1..=b.len() {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b.len()]
+}
+
+#[derive(Clone, Copy)]
+pub struct Levenshtein;
+impl Function for Levenshtein {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_strings(args)?;
+        let a_chars: Vec<char> = a.chars().collect();
+        let b_chars: Vec<char> = b.chars().collect();
+        let dist = levenshtein(&a_chars, &b_chars);
+        Ok(num(dist as f64))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Similarity;
+impl Function for Similarity {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_strings(args)?;
+        let a_chars: Vec<char> = a.chars().collect();
+        let b_chars: Vec<char> = b.chars().collect();
+        let dist = levenshtein(&a_chars, &b_chars);
+        let max_len = a_chars.len().max(b_chars.len());
+        if max_len == 0 {
+            return Ok(num(1.0));
+        }
+        Ok(num(1.0 - (dist as f64 / max_len as f64)))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Transform
+// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
 pub struct Split;
