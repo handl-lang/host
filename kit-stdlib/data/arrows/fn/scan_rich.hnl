@@ -19,8 +19,8 @@ rec {
   state ~> match state.remaining {
     []: return state.out,
 
-    [h, ...t]:
-      y = state.f({ acc: state.acc, h: h }) in
+    [h, ...t]: {
+      y = state.f({ acc: state.acc, h: h })
       {
         state: {
           remaining: t,
@@ -29,5 +29,6 @@ rec {
           out:       [y, ...state.out]
         }
       }
+    }
   }
 )

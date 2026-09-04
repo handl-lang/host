@@ -22,70 +22,66 @@
 --- that are empty or contain only whitespace are ignored when computing the
 --- common indentation. Tab and space characters are both counted as
 --- whitespace.
-let
-is_blank = line ~> str.trim(line) == ""
-in
-let
-count_leading_ws = line ~>
-while { i: 0, n: str.length(line), line: line } {
-  [i, n, line] ~>
-  if i < n {
-    match str.char_at(line, i) {
-      " ": { state: { i: i + 1, n: n, line: line } },
-      "\t": { state: { i: i + 1, n: n, line: line } },
-      _: { out: i }
-    }
-  } else {
-    { out: i }
-  }
-}
-in
-let
-strip_leading_ws = [line, n] ~>
-if count_leading_ws(line) >= n {
-  str.slice(line, n, str.length(line))
-} else {
-  line
-}
-in
-let
-reverse = xs ~>
-while { xs: xs, acc: [] } {
-  [xs, acc] ~> match xs {
-    []: { out: acc },
-    [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
-  }
-}
-in
 {
-  dedent: text ~>
-  let trimmed = str.trim_matches(text, "\n") in
-  if str.is_empty(trimmed) {
-    ""
-  } else {
-    let lines = str.lines(trimmed) in
-    let common_indent = while { lines: lines, min: 0, seen: false } {
-      [lines, min, seen] ~> match lines {
-        []: { out: min },
-        [h, ...t]: if is_blank(h) {
-          { state: { lines: t, min: min, seen: seen } }
+  dedent: text ~> {
+    is_blank = line ~> { str.trim(line) == "" }
+    count_leading_ws = line ~> {
+      while { i: 0, n: str.length(line), line: line } {
+        [i, n, line] ~>
+        if i < n {
+          match str.char_at(line, i) {
+            " ": { state: { i: i + 1, n: n, line: line } },
+            "\t": { state: { i: i + 1, n: n, line: line } },
+            _: { out: i }
+          }
         } else {
-          let c = count_leading_ws(h) in
-          if seen {
-            { state: { lines: t, min: if c < min { c } else { min }, seen: true } }
+          { out: i }
+        }
+      }
+    }
+    strip_leading_ws = [line, n] ~> {
+      if count_leading_ws(line) >= n {
+        str.slice(line, n, str.length(line))
+      } else {
+        line
+      }
+    }
+    reverse = xs ~> {
+      while { xs: xs, acc: [] } {
+        [xs, acc] ~> match xs {
+          []: { out: acc },
+          [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+        }
+      }
+    }
+    trimmed = str.trim_matches(text, "\n")
+    if str.is_empty(trimmed) {
+      ""
+    } else {
+      lines = str.lines(trimmed)
+      common_indent = while { lines: lines, min: 0, seen: false } {
+        [lines, min, seen] ~> match lines {
+          []: { out: min },
+          [h, ...t]: if is_blank(h) {
+            { state: { lines: t, min: min, seen: seen } }
           } else {
-            { state: { lines: t, min: c, seen: true } }
+            c = count_leading_ws(h)
+            if seen {
+              { state: { lines: t, min: if c < min { c } else { min }, seen: true } }
+            } else {
+              { state: { lines: t, min: c, seen: true } }
+            }
           }
         }
       }
-    } in
-    let stripped_rev = while { lines: lines, indent: common_indent, acc: [] } {
-      [lines, indent, acc] ~> match lines {
-        []: { out: acc },
-        [h, ...t]: { state: { lines: t, indent: indent, acc: [strip_leading_ws(h, indent), ...acc] } }
+      stripped_rev = while { lines: lines, indent: common_indent, acc: [] } {
+        [lines, indent, acc] ~> match lines {
+          []: { out: acc },
+          [h, ...t]: { state: { lines: t, indent: indent, acc: [strip_leading_ws(h, indent), ...acc] } }
+        }
       }
-    } in
-    let stripped = reverse(stripped_rev) in
-    str.join(stripped, "\n")
+      stripped = reverse(stripped_rev)
+      str.join(stripped, "\n")
+    }
   }
 }

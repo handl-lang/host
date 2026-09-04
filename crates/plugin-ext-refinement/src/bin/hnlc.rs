@@ -239,6 +239,16 @@ fn pretty_scheme_inner(scheme: &Scheme, depth: usize) -> String {
             out.push('}');
             out
         }
+        Scheme::Handle { body, target, impl_ } => {
+            let mut out = format!("{}handle({}) {{\n", indent, target);
+            out.push_str(&pretty_scheme_inner(body, depth + 1));
+            out.push('\n');
+            out.push_str(&pretty_scheme_inner(impl_, depth + 1));
+            out.push('\n');
+            out.push_str(&indent);
+            out.push('}');
+            out
+        }
     }
 }
 

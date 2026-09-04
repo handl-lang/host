@@ -66,6 +66,16 @@ fn strip_declarations(src: &str) -> String {
             if trimmed.starts_with("--") {
                 return false;
             }
+            // Strip indented continuation lines from `op` declarations
+            // (e.g. `guarantee:`, `requires:`, `termination:`).
+            if line.starts_with(' ') || line.starts_with('\t') {
+                if trimmed.starts_with("guarantee")
+                    || trimmed.starts_with("requires")
+                    || trimmed.starts_with("termination")
+                {
+                    return false;
+                }
+            }
             // Strip `cap "..."`, `op "..."`, and `handl "..." = ...` lines.
             for kw in ["cap", "op", "handl"] {
                 if let Some(rest) = trimmed.strip_prefix(kw) {

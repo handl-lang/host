@@ -969,6 +969,9 @@ fn parse_named_arrows_data_driven(
         if trimmed.is_empty() {
             continue;
         }
+        if line.starts_with(char::is_whitespace) {
+            continue;
+        }
 
         // Find ` = ` (top-level assignment)
         if let Some(eq_idx) = trimmed.find(" = ") {
@@ -1893,7 +1896,13 @@ fn strip_comments(src: &str) -> String {
 fn has_named_arrows(src: &str) -> bool {
     src.lines().any(|line| {
         let trimmed = line.trim();
-        !trimmed.is_empty() && trimmed.contains(" = ") && !trimmed.starts_with("==")
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            return false;
+        }
+        if line.starts_with(char::is_whitespace) {
+            return false;
+        }
+        trimmed.contains(" = ") && !trimmed.starts_with("==")
     })
 }
 

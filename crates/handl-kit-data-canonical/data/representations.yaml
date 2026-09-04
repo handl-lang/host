@@ -1,0 +1,323 @@
+# representations.yaml — Target Representations (ADR-0078)
+#
+# Declares how value types are concretely represented on each compilation
+# target, and how capabilities are implemented for each (type, target)
+# pair.
+#
+# This is the data form of ADR-0076's impls. The compiler reads it to
+# generate target-specific code: inline expressions, foreign function
+# calls, or lowered arrow-calculus schemes.
+#
+# Fragment type: RepresentationDef (merges into Language.representations
+# via ADR-0044 §5 merge policy — override with `replaces`, collision is
+# error, union for idempotent re-declaration).
+#
+# Operation implementation forms:
+#   inline:    "expression"        — the compiler inlines this expression
+#   foreign:   "function_name"     — calls a host-provided function
+#   lowered:   !Seq/!Arr/...       — an arrow-calculus scheme to inline
+
+# ===========================================================================
+# native target (cranelift / Rust FFI)
+# ===========================================================================
+
+# --- Scalar types ---
+
+- target: native
+  type: Int
+  layout: i64
+  operations:
+    Addable.add: { inline: "a + b" }
+    Subtractable.sub: { inline: "a - b" }
+    Multiplicable.mul: { inline: "a * b" }
+    Divisible.div: { inline: "a / b" }
+    Comparable.compare: { inline: "a.cmp(&b) as i64" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.lte: { inline: "a <= b" }
+    Comparable.gt: { inline: "a > b" }
+    Comparable.gte: { inline: "a >= b" }
+    Comparable.eq: { inline: "a == b" }
+    Hashable.hash:
+      { inline: "use std::hash::{Hash, Hasher}; a.hash(&mut hasher); hasher.finish() as i64" }
+    Serializable.serialize: { inline: "Value::from(a)" }
+    Serializable.deserialize: { inline: "a.as_i64().ok_or(type_error)?" }
+    Displayable.display: { inline: "a.to_string()" }
+    Zero.zero: { inline: "0" }
+
+- target: native
+  type: Float
+  layout: f64
+  operations:
+    Addable.add: { inline: "a + b" }
+    Subtractable.sub: { inline: "a - b" }
+    Multiplicable.mul: { inline: "a * b" }
+    Divisible.div: { inline: "a / b" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.lte: { inline: "a <= b" }
+    Comparable.gt: { inline: "a > b" }
+    Comparable.gte: { inline: "a >= b" }
+    Comparable.eq: { inline: "a == b" }
+    Hashable.hash: { inline: "a.to_bits() as i64" }
+    Serializable.serialize: { inline: "Value::from(a)" }
+    Serializable.deserialize: { inline: "a.as_f64().ok_or(type_error)?" }
+    Displayable.display: { inline: "a.to_string()" }
+    Zero.zero: { inline: "0.0" }
+
+- target: native
+  type: String
+  layout: "Rc<str>"
+  operations:
+    Concatenable.concat: { inline: 'Rc::from(format!("{a}{b}"))' }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.lte: { inline: "a <= b" }
+    Comparable.gt: { inline: "a > b" }
+    Comparable.gte: { inline: "a >= b" }
+    Comparable.eq: { inline: "a == b" }
+    Hashable.hash:
+      { inline: "use std::hash::{Hash, Hasher}; a.hash(&mut hasher); hasher.finish() as i64" }
+    Iterable.iterate:
+      { inline: "a.chars().map(|c| TaggedValue::Str(Rc::from(c.to_string()))).collect::<Vec<_>>()" }
+    Iterable.length: { inline: "a.len() as i64" }
+    Serializable.serialize: { inline: "Value::from(a.as_ref())" }
+    Serializable.deserialize: { inline: "a.as_str().map(|s| Rc::from(s)).ok_or(type_error)?" }
+    Displayable.display: { inline: "a.to_string()" }
+
+- target: native
+  type: Bool
+  layout: bool
+  operations:
+    Logical.and: { inline: "a && b" }
+    Logical.or: { inline: "a || b" }
+    Logical.not: { inline: "!a" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.eq: { inline: "a == b" }
+    Hashable.hash: { inline: "a as i64" }
+    Serializable.serialize: { inline: "Value::from(a)" }
+    Serializable.deserialize: { inline: "a.as_bool().ok_or(type_error)?" }
+    Displayable.display: { inline: "a.to_string()" }
+
+- target: native
+  type: Null
+  layout: "()"
+  operations:
+    Serializable.serialize: { inline: "Value::Null" }
+    Serializable.deserialize: { inline: "if a.is_null() { () } else { Err(type_error)? }" }
+    Displayable.display: { inline: '"null".to_string()' }
+
+# --- Composite types ---
+
+- target: native
+  type: Array
+  layout: "Rc<[TaggedValue]>"
+  operations:
+    Iterable.iterate: { inline: "a.iter().cloned().collect::<Vec<_>>()" }
+    Iterable.length: { inline: "a.len() as i64" }
+    Indexable.get: { inline: "a.get(idx as usize).cloned().ok_or(index_error)?" }
+    Serializable.serialize: { inline: "Value::Array(a.iter().map(TaggedValue::into).collect())" }
+    Serializable.deserialize:
+      {
+        inline: "a.as_array().map(|arr| Rc::from(arr.iter().cloned().map(TaggedValue::from).collect::<Vec<_>>())).ok_or(type_error)?",
+      }
+
+- target: native
+  type: Object
+  layout: "Rc<HashMap<String, TaggedValue>>"
+  operations:
+    Iterable.iterate:
+      {
+        inline: "a.iter().map(|(k, v)| TaggedValue::Pair(Box::new(TaggedValue::Str(Rc::from(k.as_str())), Box::new(v.clone()))).collect::<Vec<_>>()",
+      }
+    Iterable.length: { inline: "a.len() as i64" }
+    Indexable.get: { inline: "a.get(key).cloned().ok_or(key_error)?" }
+    Serializable.serialize:
+      { inline: "Value::Object(a.iter().map(|(k, v)| (k.clone(), v.clone().into())).collect())" }
+    Serializable.deserialize:
+      {
+        inline: "a.as_object().map(|m| Rc::from(m.iter().map(|(k, v)| (k.clone(), TaggedValue::from(v.clone()))).collect::<HashMap<_,_>>())).ok_or(type_error)?",
+      }
+
+# --- Arrow-calculus kernel types ---
+
+- target: native
+  type: Pair
+  layout: "Box<(TaggedValue, TaggedValue)>"
+  operations:
+    Serializable.serialize:
+      lowered: !Seq
+        fst: !Arr { op: proj_child, args: [], source: Native, lit: 0 }
+        snd: !Arr { op: proj_child, args: [], source: Native, lit: 1 }
+
+- target: native
+  type: Either
+  layout: "Box<EitherValue>" # enum { Left(Box<TaggedValue>), Right(Box<TaggedValue>) }
+  operations:
+    Serializable.serialize:
+      lowered: !Choice
+        l: !Arr { op: construct_either_left, args: [], source: Native }
+        r: !Arr { op: construct_either_right, args: [], source: Native }
+
+- target: native
+  type: Arrow
+  layout: "Box<ArrowValue>" # { params: Rc<[String]>, body: usize, env: Rc<HashMap<String, TaggedValue>> }
+  operations:
+    Callable.apply: { foreign: "arrow_apply" }
+
+# ===========================================================================
+# js target (JavaScript / TypeScript)
+# ===========================================================================
+
+- target: js
+  type: Int
+  layout: "Number"
+  operations:
+    Addable.add: { inline: "a + b" }
+    Subtractable.sub: { inline: "a - b" }
+    Multiplicable.mul: { inline: "a * b" }
+    Divisible.div: { inline: "Math.trunc(a / b)" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.eq: { inline: "a === b" }
+    Hashable.hash: { foreign: "hashInt" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+    Displayable.display: { inline: "String(a)" }
+    Zero.zero: { inline: "0" }
+  conversions:
+    from_native:
+      source: i64
+      lossiness: checked
+      guard: "a <= 9007199254740991 && a >= -9007199254740991"
+      note: "JS Number is f64; integers > 2^53 lose precision"
+
+- target: js
+  type: Float
+  layout: "Number"
+  operations:
+    Addable.add: { inline: "a + b" }
+    Subtractable.sub: { inline: "a - b" }
+    Multiplicable.mul: { inline: "a * b" }
+    Divisible.div: { inline: "a / b" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.eq: { inline: "a === b" }
+    Hashable.hash: { foreign: "hashFloat" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+    Displayable.display: { inline: "String(a)" }
+
+- target: js
+  type: String
+  layout: "string"
+  operations:
+    Concatenable.concat: { inline: "a + b" }
+    Comparable.lt: { inline: "a < b" }
+    Comparable.eq: { inline: "a === b" }
+    Hashable.hash: { foreign: "hashString" }
+    Iterable.iterate: { inline: "[...a]" }
+    Iterable.length: { inline: "a.length" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+    Displayable.display: { inline: "a" }
+
+- target: js
+  type: Bool
+  layout: "boolean"
+  operations:
+    Logical.and: { inline: "a && b" }
+    Logical.or: { inline: "a || b" }
+    Logical.not: { inline: "!a" }
+    Comparable.eq: { inline: "a === b" }
+    Hashable.hash: { foreign: "hashBool" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+    Displayable.display: { inline: "String(a)" }
+
+- target: js
+  type: Array
+  layout: "Array"
+  operations:
+    Iterable.iterate: { inline: "[...a]" }
+    Iterable.length: { inline: "a.length" }
+    Indexable.get: { inline: "a[idx]" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+
+- target: js
+  type: Object
+  layout: "Record<string, any>"
+  operations:
+    Iterable.iterate: { inline: "Object.entries(a)" }
+    Iterable.length: { inline: "Object.keys(a).length" }
+    Indexable.get: { inline: "a[key]" }
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+
+- target: js
+  type: Pair
+  layout: "{ __pair__: [a, b] }"
+  operations:
+    Serializable.serialize: { inline: "{ __pair__: [a, b] }" }
+    Serializable.deserialize: { inline: "a" }
+
+- target: js
+  type: Either
+  layout: "{ __either__: 'left'|'right', value: v }"
+  operations:
+    Serializable.serialize: { inline: "a" }
+    Serializable.deserialize: { inline: "a" }
+
+- target: js
+  type: Arrow
+  layout: "Function"
+  operations:
+    Callable.apply: { inline: "a(...args)" }
+
+# ===========================================================================
+# wasm target (WebAssembly)
+# ===========================================================================
+
+- target: wasm
+  type: Int
+  layout: "i64"
+  operations:
+    Addable.add: { inline: "i64.add" }
+    Subtractable.sub: { inline: "i64.sub" }
+    Multiplicable.mul: { inline: "i64.mul" }
+    Divisible.div: { inline: "i64.div_s" }
+    Comparable.lt: { inline: "i64.lt_s" }
+    Comparable.eq: { inline: "i64.eq" }
+    Hashable.hash: { foreign: "hash_i64" }
+    Serializable.serialize: { foreign: "i64_to_json" }
+    Serializable.deserialize: { foreign: "json_to_i64" }
+    Displayable.display: { foreign: "i64_to_string" }
+    Zero.zero: { inline: "i64.const 0" }
+
+- target: wasm
+  type: Float
+  layout: "f64"
+  operations:
+    Addable.add: { inline: "f64.add" }
+    Subtractable.sub: { inline: "f64.sub" }
+    Multiplicable.mul: { inline: "f64.mul" }
+    Divisible.div: { inline: "f64.div" }
+    Comparable.lt: { inline: "f64.lt" }
+    Comparable.eq: { inline: "f64.eq" }
+    Hashable.hash: { foreign: "hash_f64" }
+    Serializable.serialize: { foreign: "f64_to_json" }
+    Serializable.deserialize: { foreign: "json_to_f64" }
+    Displayable.display: { foreign: "f64_to_string" }
+
+- target: wasm
+  type: Bool
+  layout: "i32"
+  operations:
+    Logical.and: { inline: "i32.and" }
+    Logical.or: { inline: "i32.or" }
+    Logical.not: { inline: "i32.eqz" }
+    Comparable.eq: { inline: "i32.eq" }
+    Hashable.hash: { inline: "i64.extend_i32_u" }
+    Serializable.serialize: { foreign: "bool_to_json" }
+    Serializable.deserialize: { foreign: "json_to_bool" }
+    Displayable.display: { foreign: "bool_to_string" }
+
+# String, Array, Object, Pair, Either, Arrow on WASM require
+# linear-memory layouts — declared in a later phase with foreign
+# allocators.

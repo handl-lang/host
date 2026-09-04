@@ -214,6 +214,8 @@ pub fn weakest_precondition(
 
         // app(callee, args): conservative -- not used by inference
         Scheme::App { .. } => post.clone(),
+        // Handle nodes are eliminated before inference; treat as identity.
+        Scheme::Handle { .. } => post.clone(),
     }
 }
 
@@ -251,6 +253,10 @@ pub fn collect_guarantees(
                 collect_guarantees(arg, registry, out);
             }
         }
+        Scheme::Handle { body, impl_, .. } => {
+            collect_guarantees(body, registry, out);
+            collect_guarantees(impl_, registry, out);
+        }
     }
 }
 
@@ -274,6 +280,9 @@ pub fn graph_contains(scheme: &Scheme, op: &str) -> bool {
         Scheme::Loop { body } => graph_contains(body, op),
         Scheme::App { callee, args } => {
             graph_contains(callee, op) || args.iter().any(|a| graph_contains(a, op))
+        }
+        Scheme::Handle { body, impl_, .. } => {
+            graph_contains(body, op) || graph_contains(impl_, op)
         }
     }
 }

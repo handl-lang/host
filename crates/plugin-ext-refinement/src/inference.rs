@@ -198,6 +198,12 @@ pub fn infer_r(
             RefTy::Plain(BaseTy::Var("b".to_string())),
             Pred::True,
         )),
+        // Handle nodes are eliminated before inference; treat as identity.
+        Scheme::Handle { .. } => Ok((
+            RefTy::Plain(BaseTy::Var("a".to_string())),
+            RefTy::Plain(BaseTy::Var("a".to_string())),
+            Pred::True,
+        )),
     }
 }
 
@@ -219,6 +225,9 @@ pub fn format_scheme(scheme: &Scheme) -> String {
         }
         Scheme::App { callee, .. } => {
             format!("app({})", format_scheme(callee))
+        }
+        Scheme::Handle { body, target, .. } => {
+            format!("handle({}, {})", format_scheme(body), target)
         }
     }
 }

@@ -28,8 +28,8 @@
   token: token.and
   position: Infix
   binding_power:
-  - 48
-  - 49
+    - 48
+    - 49
   child_shape:
     node_kind: binary.and
     arity: 2
@@ -37,19 +37,21 @@
   token: token.arrow
   position: Infix
   binding_power:
-  - 10
-  - 9
+    - 10
+    - 9
   child_shape:
     node_kind: function
     arity: 2
+    block_children:
+    - 1
 # `not.prefix` uses `token.bang` (`!`) — the v0.1 negation operator.
 # The `not` keyword infix (`grammar.not.infix`) is removed in v0.1.
 - id: grammar.not.prefix
   token: token.bang
   position: Prefix
   binding_power:
-  - 70
-  - 0
+    - 70
+    - 0
   child_shape:
     node_kind: unary.not
     arity: 1
@@ -63,8 +65,8 @@
   token: token.colon
   position: Infix
   binding_power:
-  - 12
-  - 13
+    - 12
+    - 13
   child_shape:
     node_kind: type-annot
     arity: 2
@@ -72,8 +74,8 @@
   token: token.dot
   position: Infix
   binding_power:
-  - 90
-  - 91
+    - 90
+    - 91
   child_shape:
     node_kind: field-access
     arity: 2
@@ -81,8 +83,8 @@
   token: token.eqeq
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.eq
     arity: 2
@@ -90,8 +92,8 @@
   token: token.ellipsis
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: rest
     arity: 1
@@ -99,8 +101,8 @@
   token: token.equal
   position: Infix
   binding_power:
-  - 5
-  - 6
+    - 5
+    - 6
   child_shape:
     node_kind: assign
     arity: 2
@@ -108,8 +110,8 @@
   token: token.fanout
   position: Infix
   binding_power:
-  - 35
-  - 36
+    - 35
+    - 36
   child_shape:
     node_kind: fanout
     arity: 2
@@ -117,8 +119,8 @@
   token: token.choice
   position: Infix
   binding_power:
-  - 20
-  - 21
+    - 20
+    - 21
   child_shape:
     node_kind: choice
     arity: 2
@@ -126,8 +128,8 @@
   token: token.flow
   position: Infix
   binding_power:
-  - 25
-  - 26
+    - 25
+    - 26
   child_shape:
     node_kind: flow
     arity: 2
@@ -135,8 +137,8 @@
   token: token.product
   position: Infix
   binding_power:
-  - 35
-  - 36
+    - 35
+    - 36
   child_shape:
     node_kind: product
     arity: 2
@@ -144,8 +146,8 @@
   token: token.nullish
   position: Infix
   binding_power:
-  - 45
-  - 46
+    - 45
+    - 46
   child_shape:
     node_kind: nullish
     arity: 2
@@ -153,8 +155,8 @@
   token: token.opt_chain
   position: Infix
   binding_power:
-  - 45
-  - 46
+    - 45
+    - 46
   child_shape:
     node_kind: opt-chain
     arity: 2
@@ -162,8 +164,8 @@
   token: token.gt
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.gt
     arity: 2
@@ -171,8 +173,8 @@
   token: token.gte
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.gte
     arity: 2
@@ -202,20 +204,23 @@
   token: token.keyword.if
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: if
     arity: 3
+    block_children:
+    - 1
+    - 2
     child_separators:
-    - !Optional token.keyword.then
-    - !Required token.keyword.else
+      - !Optional token.keyword.then
+      - !Required token.keyword.else
 - id: grammar.stmt-export.prefix
   token: token.keyword.export
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: stmt.export
     arity: 1
@@ -223,8 +228,8 @@
   token: token.keyword.import
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: stmt.import
     arity: 1
@@ -232,8 +237,8 @@
   token: token.keyword.match
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: match
     arity: 2
@@ -253,8 +258,8 @@
   token: token.keyword.rec
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: rec
     arity: 1
@@ -273,8 +278,8 @@
   token: token.keyword.while
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: while
     arity: 2
@@ -294,13 +299,13 @@
   token: token.keyword.for
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: for
     arity: 3
     child_separators:
-    - !Required token.keyword.in
+      - !Required token.keyword.in
     delimited:
       open: token.lbrace
       close: token.rbrace
@@ -313,8 +318,8 @@
   token: token.keyword.return
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: return
     arity: 1
@@ -324,8 +329,8 @@
   token: token.keyword.law
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: law
     arity: 2
@@ -334,8 +339,8 @@
   token: token.keyword.trait
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: trait
     arity: 1
@@ -344,8 +349,8 @@
   token: token.keyword.impl
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: impl
     arity: 1
@@ -354,8 +359,8 @@
   token: token.keyword.infer
   position: Prefix
   binding_power:
-  - 70
-  - 0
+    - 70
+    - 0
   child_shape:
     node_kind: infer
     arity: 1
@@ -379,8 +384,8 @@
   token: token.keyword.type
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: var
     arity: 0
@@ -388,8 +393,8 @@
   token: token.lbrace
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: object
     arity: 1
@@ -408,8 +413,8 @@
   token: token.lbracket
   position: Infix
   binding_power:
-  - 90
-  - 0
+    - 90
+    - 0
   child_shape:
     node_kind: index
     arity: 2
@@ -417,8 +422,8 @@
   token: token.lbracket
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: array
     arity: 1
@@ -430,30 +435,21 @@
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
-- id: grammar.let.prefix
-  token: token.let
-  position: Prefix
-  binding_power:
-  - 0
-  - 0
-  child_shape:
-    node_kind: let
-    arity: 2
-    child_separators:
-    - !Required token.keyword.in
+# ADR-0079: `let ... in` removed. Graph blocks `{ x = y; ... }` replace it.
+# The `let` grammar row is deleted; `eval_let` remains as dead code.
 - id: grammar.do-block.prefix
   token: token.keyword.do
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: block
     arity: 1
     delimited:
       open: token.lbrace
       close: token.rbrace
-      separator: token.semicolon
+      separator: ~
       container_kind: block
       open_is_operator_token: false
       flatten: true
@@ -465,8 +461,8 @@
   token: token.keyword.while
   position: Infix
   binding_power:
-  - 5
-  - 6
+    - 5
+    - 6
   child_shape:
     node_kind: do-while
     arity: 2
@@ -474,8 +470,8 @@
   token: token.lparen
   position: Infix
   binding_power:
-  - 90
-  - 91
+    - 90
+    - 91
   child_shape:
     node_kind: call
     arity: 1
@@ -490,8 +486,8 @@
   token: token.lparen
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: paren
     arity: 1
@@ -506,8 +502,8 @@
   token: token.lt
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.lt
     arity: 2
@@ -515,8 +511,8 @@
   token: token.lte
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.lte
     arity: 2
@@ -524,8 +520,8 @@
   token: token.minus
   position: Infix
   binding_power:
-  - 55
-  - 56
+    - 55
+    - 56
   child_shape:
     node_kind: binary.sub
     arity: 2
@@ -533,8 +529,8 @@
   token: token.minus
   position: Prefix
   binding_power:
-  - 70
-  - 0
+    - 70
+    - 0
   child_shape:
     node_kind: unary.neg
     arity: 1
@@ -542,8 +538,8 @@
   token: token.neq
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.neq
     arity: 2
@@ -563,8 +559,8 @@
   token: token.or
   position: Infix
   binding_power:
-  - 46
-  - 47
+    - 46
+    - 47
   child_shape:
     node_kind: binary.or
     arity: 2
@@ -572,8 +568,8 @@
   token: token.percent
   position: Infix
   binding_power:
-  - 60
-  - 61
+    - 60
+    - 61
   child_shape:
     node_kind: binary.mod
     arity: 2
@@ -581,8 +577,8 @@
   token: token.plus
   position: Infix
   binding_power:
-  - 55
-  - 56
+    - 55
+    - 56
   child_shape:
     node_kind: binary.add
     arity: 2
@@ -590,8 +586,8 @@
   token: token.pow
   position: Infix
   binding_power:
-  - 65
-  - 64
+    - 65
+    - 64
   child_shape:
     node_kind: binary.pow
     arity: 2
@@ -599,19 +595,19 @@
   token: token.question
   position: Infix
   binding_power:
-  - 15
-  - 16
+    - 15
+    - 16
   child_shape:
     node_kind: ternary
     arity: 3
     child_separators:
-    - !Required token.colon
+      - !Required token.colon
 - id: grammar.div.infix
   token: token.slash
   position: Infix
   binding_power:
-  - 60
-  - 61
+    - 60
+    - 61
   child_shape:
     node_kind: binary.div
     arity: 2
@@ -619,8 +615,8 @@
   token: token.spaceship
   position: Infix
   binding_power:
-  - 50
-  - 51
+    - 50
+    - 51
   child_shape:
     node_kind: binary.compare
     arity: 2
@@ -628,8 +624,8 @@
   token: token.star
   position: Infix
   binding_power:
-  - 60
-  - 61
+    - 60
+    - 61
   child_shape:
     node_kind: binary.mul
     arity: 2

@@ -18,7 +18,7 @@ rec {
   state ~> match state.remaining {
     []: return state.acc,
 
-    [h, ...t]:
+    [h, ...t]: {
       mapped = rec {
         remaining: h,
         f:         state.f,
@@ -27,8 +27,8 @@ rec {
         inner_state ~> match inner_state.remaining {
           []: return inner_state.acc,
 
-          [h2, ...t2]:
-            y = inner_state.f(h2) in
+          [h2, ...t2]: {
+            y = inner_state.f(h2)
             {
               state: {
                 remaining: t2,
@@ -36,8 +36,9 @@ rec {
                 acc:       [y, ...inner_state.acc]
               }
             }
+          }
         }
-      ) in
+      )
       {
         state: {
           remaining: t,
@@ -45,5 +46,6 @@ rec {
           acc:       [mapped, ...state.acc]
         }
       }
+    }
   }
 )

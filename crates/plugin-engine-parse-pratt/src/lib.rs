@@ -261,7 +261,36 @@ impl PrattEngine {
                 None => arity,
             };
             for i in 0..normal {
-                let child = self.expression_inner(lang, cursor, prefix_rbp)?;
+                let child = if shape.block_children.contains(&i)
+                    && cursor.peek().map(|t| t.kind.as_str() == "token.lbrace").unwrap_or(false)
+                {
+                    let block_delim = DelimitedShape {
+                        open: "token.lbrace".into(),
+                        close: "token.rbrace".into(),
+                        separator: None,
+                        container_kind: "block".into(),
+                        pair: None,
+                        open_is_operator_token: false,
+                        flatten: false,
+                        rest_token: None,
+                    };
+                    let result = self.parse_delimited_block(lang, cursor, &block_delim)?;
+                    let idx = match result {
+                        DelimitedResult::Container(idx) => idx,
+                        DelimitedResult::Elements(indices) => {
+                            if indices.is_empty() {
+                                let node = AstNode::new("block")
+                                    .with_payload(serde_json::json!({ "children": [] }));
+                                self.ast.borrow_mut().push(node).index()
+                            } else {
+                                indices[0]
+                            }
+                        }
+                    };
+                    AstRef::new(idx)
+                } else {
+                    self.expression_inner(lang, cursor, prefix_rbp)?
+                };
                 children.push(child.index());
                 // Consume separator between children (not after the last
                 // normal child — the delimited block follows).
@@ -321,7 +350,37 @@ impl PrattEngine {
             let mut children: Vec<usize> = Vec::with_capacity(infix_arity);
             children.push(left.index());
             for i in 0..normal {
-                let child = self.expression_inner(lang, cursor, rbp_right)?;
+                let child_idx = i + 1;
+                let child = if shape.block_children.contains(&child_idx)
+                    && cursor.peek().map(|t| t.kind.as_str() == "token.lbrace").unwrap_or(false)
+                {
+                    let block_delim = DelimitedShape {
+                        open: "token.lbrace".into(),
+                        close: "token.rbrace".into(),
+                        separator: None,
+                        container_kind: "block".into(),
+                        pair: None,
+                        open_is_operator_token: false,
+                        flatten: false,
+                        rest_token: None,
+                    };
+                    let result = self.parse_delimited_block(lang, cursor, &block_delim)?;
+                    let idx = match result {
+                        DelimitedResult::Container(idx) => idx,
+                        DelimitedResult::Elements(indices) => {
+                            if indices.is_empty() {
+                                let node = AstNode::new("block")
+                                    .with_payload(serde_json::json!({ "children": [] }));
+                                self.ast.borrow_mut().push(node).index()
+                            } else {
+                                indices[0]
+                            }
+                        }
+                    };
+                    AstRef::new(idx)
+                } else {
+                    self.expression_inner(lang, cursor, rbp_right)?
+                };
                 children.push(child.index());
                 // Consume separator between children (not after the last).
                 if i + 1 < normal {
@@ -416,11 +475,15 @@ impl PrattEngine {
         // pair separator's infix left binding power (so the separator is not
         // consumed by the infix loop). Falls back to a high value if the
         // separator has no infix row.
-        let pair_lhs_rbp = delim.pair.as_ref().map(|p| {
-            Self::lookup_row(lang, &p.separator, GrammarPosition::Infix)
-                .and_then(|r| r.binding_power.map(|(l, _)| l))
-                .map(|lbp| lbp.saturating_add(1))
-                .unwrap_or(u8::MAX)
+        let pair_lhs_rbp = delim.pair.as_ref().and_then(|p| {
+            if delim.separator.is_none() {
+                Some(0u8)
+            } else {
+                Self::lookup_row(lang, &p.separator, GrammarPosition::Infix)
+                    .and_then(|r| r.binding_power.map(|(l, _)| l))
+                    .map(|lbp| lbp.saturating_add(1))
+                    .or(Some(u8::MAX))
+            }
         });
 
         let mut elements: Vec<usize> = Vec::new();
@@ -490,6 +553,22 @@ impl PrattEngine {
                     continue;
                 }
                 Some(t) if t.kind == delim.close => break,
+                None => {
+                    return Err(LangError::Engine(
+                        "unexpected end of input in delimited block".to_string(),
+                    ));
+                }
+                Some(_) if delim.separator.is_none() => {
+                    if cursor.peek().map(|t| t.kind.as_str() == "token.comma" || t.kind.as_str() == "token.arrow.comma").unwrap_or(false) {
+                        let _ = cursor.advance()?;
+                        if let Some(t2) = cursor.peek() {
+                            if t2.kind == delim.close {
+                                break;
+                            }
+                        }
+                    }
+                    continue;
+                }
                 Some(t) => {
                     return Err(LangError::Engine(format!(
                         "expected separator {} or closing {}, got {}",
@@ -497,11 +576,6 @@ impl PrattEngine {
                         delim.close,
                         t.kind
                     )));
-                }
-                None => {
-                    return Err(LangError::Engine(
-                        "unexpected end of input in delimited block".to_string(),
-                    ));
                 }
             }
         }

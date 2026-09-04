@@ -1,0 +1,153 @@
+# value_types.yaml — Value Type Definitions (ADR-0078)
+#
+# Declares the semantic types available in the language. Each type
+# declares its structure, which capabilities it implements, optional
+# invariants, and explicit conversions to/from other types.
+#
+# This is data, not Rust. The compiler reads it to resolve capabilities
+# and select target representations (see representations.yaml).
+#
+# Fragment type: ValueTypeDef (merges into Language.value_types via
+# ADR-0044 §5 merge policy — override with `replaces`, collision is error,
+# union for idempotent re-declaration).
+
+# ---------------------------------------------------------------------------
+# Built-in scalar types
+# ---------------------------------------------------------------------------
+
+- id: Int
+  description: 64-bit signed integer
+  kind: scalar
+  implements:
+    - Addable
+    - Subtractable
+    - Multiplicable
+    - Comparable
+    - Hashable
+    - Serializable
+    - Displayable
+
+- id: Float
+  description: 64-bit IEEE 754 floating point
+  kind: scalar
+  implements:
+    - Addable
+    - Subtractable
+    - Multiplicable
+    - Divisible
+    - Comparable
+    - Serializable
+    - Displayable
+
+- id: String
+  description: UTF-8 string
+  kind: scalar
+  implements:
+    - Concatenable
+    - Comparable
+    - Hashable
+    - Serializable
+    - Displayable
+    - Iterable
+
+- id: Bool
+  description: boolean
+  kind: scalar
+  implements:
+    - Logical
+    - Comparable
+    - Hashable
+    - Serializable
+    - Displayable
+
+- id: Null
+  description: null/unit
+  kind: scalar
+  implements:
+    - Serializable
+    - Displayable
+
+# ---------------------------------------------------------------------------
+# Built-in composite types
+# ---------------------------------------------------------------------------
+
+- id: Array
+  description: ordered, indexable sequence
+  kind: parameterized
+  type_params: [T]
+  implements:
+    - Iterable
+    - Indexable
+    - Lengthable
+    - Serializable
+
+- id: Object
+  description: string-keyed map / record
+  kind: parameterized
+  type_params: [V]
+  implements:
+    - Indexable
+    - Iterable
+    - Lengthable
+    - Serializable
+
+# ---------------------------------------------------------------------------
+# Arrow-calculus kernel types (ADR-0052)
+# ---------------------------------------------------------------------------
+
+- id: Pair
+  description: arrow-calculus pair (a, b) — used by First/Loop
+  kind: product
+  fields:
+    - { name: fst, type: Any }
+    - { name: snd, type: Any }
+  implements:
+    - Serializable
+
+- id: Either
+  description: arrow-calculus sum type (left a | right b) — used by Choice/Loop
+  kind: sum
+  variants:
+    - { name: left, type: Any }
+    - { name: right, type: Any }
+  implements:
+    - Serializable
+
+- id: Arrow
+  description: arrow-calculus closure value — the result of ~> abstraction
+  kind: product
+  fields:
+    - { name: params, type: Array<String> }
+    - { name: body, type: Int } # AST node index
+    - { name: env, type: Object } # captured environment
+  implements:
+    - Callable
+
+# ---------------------------------------------------------------------------
+# User-defined types (example — not in the canonical kit yet)
+# ---------------------------------------------------------------------------
+
+# - id: Money
+#   description: monetary amount with currency
+#   kind: product
+#   fields:
+#     - { name: amount, type: Decimal }
+#     - { name: currency, type: Currency }
+#   implements:
+#     - Addable
+#     - Subtractable
+#     - Comparable
+#     - Hashable
+#     - Serializable
+#     - Displayable
+#   invariants:
+#     - "amount >= 0"
+#   conversions:
+#     - from: Int
+#       to: Money
+#       lossiness: lossy
+#       note: "requires currency context"
+#     - from: Money
+#       to: Int
+#       lossiness: lossy
+#       note: "truncates decimal portion"

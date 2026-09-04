@@ -110,6 +110,13 @@ pub fn analyze_termination(scheme: &Scheme, registry: &ContractRegistry) -> Term
             measure: Measure::None,
             reason: "app -- direct termination (no loop)".to_string(),
         },
+
+        // Handle nodes are eliminated before analysis; treat as terminating.
+        Scheme::Handle { .. } => TerminationResult {
+            terminates: true,
+            measure: Measure::None,
+            reason: "handle -- eliminated before analysis".to_string(),
+        },
     }
 }
 
@@ -195,6 +202,13 @@ fn analyze_loop_termination(body: &Scheme, registry: &ContractRegistry) -> Termi
             terminates: false,
             measure: Measure::None,
             reason: "loop(choice(...)): no structural decreasing measure on C".to_string(),
+        },
+
+        // --- loop(handle(...)): eliminated before analysis ---
+        Scheme::Handle { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "loop(handle(...)): handle eliminated before analysis".to_string(),
         },
     }
 }
@@ -388,6 +402,13 @@ fn analyze_comp_loop_termination(
             measure: Measure::None,
             reason: "seq(_, app): app does not decrease C".to_string(),
         },
+
+        // right is handle: eliminated before analysis.
+        Scheme::Handle { .. } => TerminationResult {
+            terminates: false,
+            measure: Measure::None,
+            reason: "seq(_, handle): handle eliminated before analysis".to_string(),
+        },
     }
 }
 
@@ -424,6 +445,8 @@ fn find_decreasing_measure_in(
             .or_else(|| find_decreasing_measure_in(r, registry)),
         Scheme::Loop { body } => find_decreasing_measure_in(body, registry),
         Scheme::App { .. } => None,
+        Scheme::Handle { body, impl_, .. } => find_decreasing_measure_in(body, registry)
+            .or_else(|| find_decreasing_measure_in(impl_, registry)),
     }
 }
 

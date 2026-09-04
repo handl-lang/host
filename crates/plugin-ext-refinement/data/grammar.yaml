@@ -28,8 +28,8 @@
   token: token.arrow.flow
   position: Infix
   binding_power:
-  - 20
-  - 21
+    - 20
+    - 21
   child_shape:
     node_kind: flow
     arity: 2
@@ -43,8 +43,8 @@
   token: token.arrow.choice_op
   position: Infix
   binding_power:
-  - 23
-  - 24
+    - 23
+    - 24
   child_shape:
     node_kind: choice_op
     arity: 2
@@ -57,8 +57,8 @@
   token: token.arrow.eq
   position: Infix
   binding_power:
-  - 5
-  - 6
+    - 5
+    - 6
   child_shape:
     node_kind: named_arrow
     arity: 2
@@ -77,8 +77,8 @@
   token: token.arrow.arr
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arr_call
     arity: 1
@@ -96,8 +96,8 @@
   token: token.arrow.comp
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: comp_call
     arity: 1
@@ -114,8 +114,8 @@
   token: token.arrow.first
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: first_call
     arity: 1
@@ -132,8 +132,8 @@
   token: token.arrow.choice
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: choice_call
     arity: 1
@@ -160,8 +160,8 @@
   token: token.arrow.loop
   position: Prefix
   binding_power:
-  - 91
-  - 0
+    - 91
+    - 0
   child_shape:
     node_kind: loop_rich
     arity: 2
@@ -179,8 +179,8 @@
   token: token.arrow.rec
   position: Prefix
   binding_power:
-  - 91
-  - 0
+    - 91
+    - 0
   child_shape:
     node_kind: loop_rich
     arity: 2
@@ -198,8 +198,8 @@
   token: token.arrow.app
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: app_call
     arity: 1
@@ -247,8 +247,8 @@
   token: token.arrow.lparen
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_paren
     arity: 1
@@ -268,8 +268,8 @@
   token: token.arrow.lparen
   position: Infix
   binding_power:
-  - 90
-  - 91
+    - 90
+    - 91
   child_shape:
     node_kind: arrow_call
     arity: 2
@@ -299,15 +299,15 @@
   token: token.arrow.lbrace
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_block
     arity: 1
     delimited:
       open: token.arrow.lbrace
       close: token.arrow.rbrace
-      separator: token.arrow.comma
+      separator: ~
       container_kind: block
       pair:
         separator: token.arrow.colon
@@ -324,8 +324,8 @@
   token: token.arrow.lbracket
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_array
     arity: 1
@@ -344,8 +344,8 @@
   token: token.arrow.ellipsis
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_rest
     arity: 1
@@ -358,8 +358,8 @@
   token: token.arrow.arrow
   position: Infix
   binding_power:
-  - 1
-  - 0
+    - 1
+    - 0
   child_shape:
     node_kind: arrow_proc
     arity: 2
@@ -372,8 +372,8 @@
   token: token.arrow.match
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_match
     arity: 2
@@ -396,14 +396,14 @@
   token: token.arrow.if
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_if
     arity: 3
     child_separators:
-    - !Optional token.arrow.then
-    - !Required token.arrow.else
+      - !Optional token.arrow.then
+      - !Required token.arrow.else
 
 # `do { stmt; stmt }` — do block. Arity 1: a delimited `{ }` block with `;`
 # separator. flatten: true so statements splice into the `do` node.
@@ -411,8 +411,8 @@
   token: token.arrow.do
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_do
     arity: 1
@@ -429,8 +429,8 @@
   token: token.keyword.return
   position: Prefix
   binding_power:
-  - 0
-  - 0
+    - 0
+    - 0
   child_shape:
     node_kind: arrow_return
     arity: 1
@@ -454,31 +454,22 @@
   token: token.arrow.colon
   position: Infix
   binding_power:
-  - 12
-  - 13
+    - 12
+    - 13
   child_shape:
     node_kind: arrow_colon
     arity: 2
 
-# `in` — let-in separator. `cmp = expr in body`. BP (3, 4) — binds looser
-# than `=` (5, 6) so the whole `cmp = expr` is the left operand.
-- id: grammar.arrow.in.infix
-  token: token.arrow.in
-  position: Infix
-  binding_power:
-  - 3
-  - 4
-  child_shape:
-    node_kind: arrow_let_in
-    arity: 2
+# ADR-0079: `in` let-in separator removed. Graph blocks replace it.
+# The `grammar.arrow.in.infix` row is deleted.
 
 # `<=` — less-than-or-equal comparison. `cmp <= 0`. BP (15, 16).
 - id: grammar.arrow.le.infix
   token: token.arrow.le
   position: Infix
   binding_power:
-  - 15
-  - 16
+    - 15
+    - 16
   child_shape:
     node_kind: arrow_le
     arity: 2
@@ -487,8 +478,8 @@
   token: token.arrow.lt
   position: Infix
   binding_power:
-  - 15
-  - 16
+    - 15
+    - 16
   child_shape:
     node_kind: arrow_lt
     arity: 2

@@ -20,12 +20,13 @@ rec {
   state ~> match state.remaining {
     []: return state.acc,
 
-    [h, ...t]:
-    inserted = insert({ elem: h, acc: state.acc }) in
-    {
-      state: {
-        remaining: t,
-        acc      : inserted
+    [h, ...t]: {
+      inserted = insert({ elem: h, acc: state.acc })
+      {
+        state: {
+          remaining: t,
+          acc      : inserted
+        }
       }
     }
   }

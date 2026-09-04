@@ -18,8 +18,8 @@ rec {
   state ~> match state.count {
     []: return state.acc,
 
-    [h, ...t]:
-      y = list.head(state.remaining) in
+    [h, ...t]: {
+      y = list.head(state.remaining)
       {
         state: {
           remaining: list.tail(state.remaining),
@@ -27,5 +27,6 @@ rec {
           acc:       [y, ...state.acc]
         }
       }
+    }
   }
 )

@@ -20,8 +20,8 @@ rec {
   state ~> match state.remaining {
     []: return state.acc,
 
-    [h, ...t]:
-      keep = state.p(h) in
+    [h, ...t]: {
+      keep = state.p(h)
       if keep
         {
           state: {
@@ -38,5 +38,6 @@ rec {
             acc:       state.acc
           }
         }
+    }
   }
 )

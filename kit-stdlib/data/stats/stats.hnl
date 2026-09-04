@@ -58,150 +58,154 @@ op "stats.median" : Array -> Number
 op "stats.stddev" : Array -> Number
   guarantee: NonNeg(output)
 
-let
-filter_nums = xs ~>
-while { xs: xs, acc: [] } {
-  [xs, acc] ~> match xs {
-    []: { out: acc },
-    [h, ...t]: if typeof.type_of(h) == "num" {
-      { state: { xs: t, acc: [h, ...acc] } }
-    } else {
-      { state: { xs: t, acc: acc } }
-    }
-  }
-}
-in
-let
-insert = [self, elem, sorted] ~>
-match sorted {
-  []: [elem],
-  [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
-}
-in
-let
-sort = [self, xs] ~>
-match xs {
-  []: [],
-  [h, ...t]: insert(insert, h, self(self, t))
-}
-in
-let
-length = xs ~>
-while { xs: xs, n: 0 } {
-  [xs, n] ~> match xs {
-    []: { out: n },
-    [h, ...t]: { state: { xs: t, n: n + 1 } }
-  }
-}
-in
-let
-nth = [xs, i] ~>
-while { xs: xs, i: i } {
-  [xs, i] ~> match xs {
-    []: { out: null },
-    [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
-  }
-}
-in
-{
-  sum: xs ~>
-  while { xs: xs, acc: 0 } {
-    [xs, acc] ~> match xs {
-      []: { out: acc },
-      [h, ...t]: if typeof.type_of(h) == "num" {
-        { state: { xs: t, acc: acc + h } }
-      } else {
-        { state: { xs: t, acc: acc } }
-      }
-    }
-  },
-
-  product: xs ~>
-  while { xs: xs, acc: 1 } {
-    [xs, acc] ~> match xs {
-      []: { out: acc },
-      [h, ...t]: if typeof.type_of(h) == "num" {
-        { state: { xs: t, acc: acc * h } }
-      } else {
-        { state: { xs: t, acc: acc } }
-      }
-    }
-  },
-
-  avg: xs ~>
-  while { xs: xs, sum: 0, count: 0 } {
-    [xs, sum, count] ~> match xs {
-      []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
-      [h, ...t]: if typeof.type_of(h) == "num" {
-        { state: { xs: t, sum: sum + h, count: count + 1 } }
-      } else {
-        { state: { xs: t, sum: sum, count: count } }
-      }
-    }
-  },
-
-  min: xs ~>
-  while { xs: xs, best: 0, seen: false } {
-    [xs, best, seen] ~> match xs {
-      []: { out: if seen { best } else { null } },
-      [h, ...t]: if typeof.type_of(h) == "num" {
-        if seen {
-          { state: { xs: t, best: if h < best { h } else { best }, seen: true } }
-        } else {
-          { state: { xs: t, best: h, seen: true } }
-        }
-      } else {
-        { state: { xs: t, best: best, seen: seen } }
-      }
-    }
-  },
-
-  max: xs ~>
-  while { xs: xs, best: 0, seen: false } {
-    [xs, best, seen] ~> match xs {
-      []: { out: if seen { best } else { null } },
-      [h, ...t]: if typeof.type_of(h) == "num" {
-        if seen {
-          { state: { xs: t, best: if h > best { h } else { best }, seen: true } }
-        } else {
-          { state: { xs: t, best: h, seen: true } }
-        }
-      } else {
-        { state: { xs: t, best: best, seen: seen } }
-      }
-    }
-  },
-
-  median: xs ~>
-  let nums = filter_nums(xs) in
-  let sorted = sort(sort, nums) in
-  let n = length(sorted) in
-  if n == 0 { 0 } else {
-    if n % 2 == 1 {
-      nth(sorted, n / 2)
-    } else {
-      (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0
-    }
-  },
-
-  stddev: xs ~>
-  let nums = filter_nums(xs) in
-  let n = length(nums) in
-  if n < 2 { 0 } else {
-    let total = while { xs: nums, acc: 0 } {
+do {
+  filter_nums = xs ~> {
+    while { xs: xs, acc: [] } {
       [xs, acc] ~> match xs {
         []: { out: acc },
-        [h, ...t]: { state: { xs: t, acc: acc + h } }
+        [h, ...t]: if typeof.type_of(h) == "num" {
+          { state: { xs: t, acc: [h, ...acc] } }
+        } else {
+          { state: { xs: t, acc: acc } }
+        }
       }
-    } in
-    let mean = total / (n + 0.0) in
-    let sq_sum = while { xs: nums, acc: 0 } {
-      [xs, acc] ~> match xs {
-        []: { out: acc },
-        [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
+    }
+  }
+  insert = [self, elem, sorted] ~> {
+    match sorted {
+      []: [elem],
+      [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
+    }
+  }
+  sort = [self, xs] ~> {
+    match xs {
+      []: [],
+      [h, ...t]: insert(insert, h, self(self, t))
+    }
+  }
+  length = xs ~> {
+    while { xs: xs, n: 0 } {
+      [xs, n] ~> match xs {
+        []: { out: n },
+        [h, ...t]: { state: { xs: t, n: n + 1 } }
       }
-    } in
-    let variance = sq_sum / (n + 0.0) in
-    math.sqrt(variance)
+    }
+  }
+  nth = [xs, i] ~> {
+    while { xs: xs, i: i } {
+      [xs, i] ~> match xs {
+        []: { out: null },
+        [h, ...t]: if i == 0 { { out: h } } else { { state: { xs: t, i: i - 1 } } }
+      }
+    }
+  }
+  {
+    sum: xs ~> {
+      while { xs: xs, acc: 0 } {
+        [xs, acc] ~> match xs {
+          []: { out: acc },
+          [h, ...t]: if typeof.type_of(h) == "num" {
+            { state: { xs: t, acc: acc + h } }
+          } else {
+            { state: { xs: t, acc: acc } }
+          }
+        }
+      }
+    },
+
+    product: xs ~> {
+      while { xs: xs, acc: 1 } {
+        [xs, acc] ~> match xs {
+          []: { out: acc },
+          [h, ...t]: if typeof.type_of(h) == "num" {
+            { state: { xs: t, acc: acc * h } }
+          } else {
+            { state: { xs: t, acc: acc } }
+          }
+        }
+      }
+    },
+
+    avg: xs ~> {
+      while { xs: xs, sum: 0, count: 0 } {
+        [xs, sum, count] ~> match xs {
+          []: { out: if count == 0 { 0 } else { sum / (count + 0.0) } },
+          [h, ...t]: if typeof.type_of(h) == "num" {
+            { state: { xs: t, sum: sum + h, count: count + 1 } }
+          } else {
+            { state: { xs: t, sum: sum, count: count } }
+          }
+        }
+      }
+    },
+
+    min: xs ~> {
+      while { xs: xs, best: 0, seen: false } {
+        [xs, best, seen] ~> match xs {
+          []: { out: if seen { best } else { null } },
+          [h, ...t]: if typeof.type_of(h) == "num" {
+            if seen {
+              { state: { xs: t, best: if h < best { h } else { best }, seen: true } }
+            } else {
+              { state: { xs: t, best: h, seen: true } }
+            }
+          } else {
+            { state: { xs: t, best: best, seen: seen } }
+          }
+        }
+      }
+    },
+
+    max: xs ~> {
+      while { xs: xs, best: 0, seen: false } {
+        [xs, best, seen] ~> match xs {
+          []: { out: if seen { best } else { null } },
+          [h, ...t]: if typeof.type_of(h) == "num" {
+            if seen {
+              { state: { xs: t, best: if h > best { h } else { best }, seen: true } }
+            } else {
+              { state: { xs: t, best: h, seen: true } }
+            }
+          } else {
+            { state: { xs: t, best: best, seen: seen } }
+          }
+        }
+      }
+    },
+
+    median: xs ~> {
+      nums = filter_nums(xs)
+      sorted = sort(sort, nums)
+      n = length(sorted)
+      if n == 0 { 0 } else {
+        if n % 2 == 1 {
+          nth(sorted, n / 2)
+        } else {
+          (nth(sorted, n / 2 - 1) + nth(sorted, n / 2)) / 2.0
+        }
+      }
+    },
+
+    stddev: xs ~> {
+      nums = filter_nums(xs)
+      n = length(nums)
+      if n < 2 { 0 } else {
+        total = while { xs: nums, acc: 0 } {
+          [xs, acc] ~> match xs {
+            []: { out: acc },
+            [h, ...t]: { state: { xs: t, acc: acc + h } }
+          }
+        }
+        mean = total / (n + 0.0)
+        sq_sum = while { xs: nums, acc: 0 } {
+          [xs, acc] ~> match xs {
+            []: { out: acc },
+            [h, ...t]: { state: { xs: t, acc: acc + (h - mean) ** 2 } }
+          }
+        }
+        variance = sq_sum / (n + 0.0)
+        math.sqrt(variance)
+      }
+    }
   }
 }

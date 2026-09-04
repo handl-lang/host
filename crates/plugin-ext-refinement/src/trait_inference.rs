@@ -213,6 +213,7 @@ pub fn uses_first(scheme: &Scheme) -> bool {
             uses_first(callee) || args.iter().any(uses_first)
         }
         Scheme::Arr { args, .. } => args.iter().any(uses_first),
+        Scheme::Handle { body, impl_, .. } => uses_first(body) || uses_first(impl_),
     }
 }
 
@@ -266,6 +267,7 @@ pub fn uses_left(scheme: &Scheme) -> bool {
             uses_left(callee) || args.iter().any(uses_left)
         }
         Scheme::Arr { args, .. } => args.iter().any(uses_left),
+        Scheme::Handle { body, impl_, .. } => uses_left(body) || uses_left(impl_),
     }
 }
 

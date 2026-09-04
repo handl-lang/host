@@ -1,0 +1,185 @@
+# capabilities.yaml — Capability Definitions (ADR-0078)
+#
+# Declares behavioral contracts that value types can implement. A
+# capability is a named bundle of arrow operations plus optional
+# equational laws. The stdlib operates on capabilities, not concrete
+# types: `sum<T: Addable + Zero>`, `sort<T: Comparable>`.
+#
+# This is the data form of ADR-0076's trait declarations. The
+# representation implementations live in representations.yaml.
+#
+# Fragment type: CapabilityDef (merges into Language.capabilities via
+# ADR-0044 §5 merge policy — override with `replaces`, collision is error,
+# union for idempotent re-declaration).
+
+# ---------------------------------------------------------------------------
+# Arithmetic capabilities
+# ---------------------------------------------------------------------------
+
+- id: Addable
+  description: values that can be added
+  type_params: [T]
+  operations:
+    - name: add
+      signature: "[T, T] ~> T"
+  laws:
+    - commutative: "add(a, b) == add(b, a)"
+    - associative: "add(add(a, b), c) == add(a, add(b, c))"
+
+- id: Subtractable
+  description: values that can be subtracted
+  type_params: [T]
+  operations:
+    - name: sub
+      signature: "[T, T] ~> T"
+
+- id: Multiplicable
+  description: values that can be multiplied
+  type_params: [T]
+  operations:
+    - name: mul
+      signature: "[T, T] ~> T"
+
+- id: Divisible
+  description: values that can be divided
+  type_params: [T]
+  operations:
+    - name: div
+      signature: "[T, T] ~> T"
+
+- id: Zero
+  description: additive identity
+  type_params: [T]
+  operations:
+    - name: zero
+      signature: "Unit ~> T"
+  laws:
+    - identity: "add(zero(), a) == a"
+
+# ---------------------------------------------------------------------------
+# Comparison capabilities
+# ---------------------------------------------------------------------------
+
+- id: Comparable
+  description: values with a total order
+  type_params: [T]
+  operations:
+    - name: compare
+      signature: "[T, T] ~> Int"
+      note: "returns -1, 0, or 1"
+    - name: lt
+      signature: "[T, T] ~> Bool"
+    - name: lte
+      signature: "[T, T] ~> Bool"
+    - name: gt
+      signature: "[T, T] ~> Bool"
+    - name: gte
+      signature: "[T, T] ~> Bool"
+    - name: eq
+      signature: "[T, T] ~> Bool"
+  laws:
+    - antisymmetric: "lt(a, b) && lt(b, a) == false"
+    - total: "lt(a, b) || lt(b, a) || eq(a, b)"
+    - transitive: "lt(a, b) && lt(b, c) => lt(a, c)"
+
+- id: Equatable
+  description: values with structural equality (weaker than Comparable)
+  type_params: [T]
+  operations:
+    - name: eq
+      signature: "[T, T] ~> Bool"
+  laws:
+    - reflexive: "eq(a, a)"
+    - symmetric: "eq(a, b) == eq(b, a)"
+    - transitive: "eq(a, b) && eq(b, c) => eq(a, c)"
+
+# ---------------------------------------------------------------------------
+# String/collection capabilities
+# ---------------------------------------------------------------------------
+
+- id: Concatenable
+  description: values that can be concatenated
+  type_params: [T]
+  operations:
+    - name: concat
+      signature: "[T, T] ~> T"
+  laws:
+    - associative: "concat(concat(a, b), c) == concat(a, concat(b, c))"
+
+- id: Iterable
+  description: values that can be iterated
+  type_params: [T]
+  operations:
+    - name: iterate
+      signature: "T ~> Array<Any>"
+    - name: length
+      signature: "T ~> Int"
+
+- id: Indexable
+  description: values that support indexed access
+  type_params: [T, K, V]
+  operations:
+    - name: get
+      signature: "[T, K] ~> V"
+    - name: set
+      signature: "[T, K, V] ~> T"
+
+- id: Lengthable
+  description: values with a length
+  type_params: [T]
+  operations:
+    - name: length
+      signature: "T ~> Int"
+
+# ---------------------------------------------------------------------------
+# Functional capabilities
+# ---------------------------------------------------------------------------
+
+- id: Callable
+  description: values that can be invoked (arrow application)
+  type_params: [A, B]
+  operations:
+    - name: apply
+      signature: "[A, A~>B] ~> B"
+
+# ---------------------------------------------------------------------------
+# System capabilities
+# ---------------------------------------------------------------------------
+
+- id: Hashable
+  description: values that can be hashed
+  type_params: [T]
+  operations:
+    - name: hash
+      signature: "T ~> Int"
+  laws:
+    - consistent: "eq(a, b) => hash(a) == hash(b)"
+
+- id: Serializable
+  description: values that can be serialized to/from JSON
+  type_params: [T]
+  operations:
+    - name: serialize
+      signature: "T ~> Value"
+    - name: deserialize
+      signature: "Value ~> T"
+  laws:
+    - roundtrip: "deserialize(serialize(x)) == x"
+
+- id: Displayable
+  description: values that have a string representation
+  type_params: [T]
+  operations:
+    - name: display
+      signature: "T ~> String"
+
+- id: Logical
+  description: values that support boolean logic
+  type_params: [T]
+  operations:
+    - name: and
+      signature: "[T, T] ~> T"
+    - name: or
+      signature: "[T, T] ~> T"
+    - name: not
+      signature: "T ~> T"
