@@ -1,0 +1,3 @@
+-- A module with no test bindings.
+helper = 10
+greeting = "hello"
