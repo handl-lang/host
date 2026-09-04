@@ -1,0 +1,20 @@
+[package]
+name = "handl-plugin-ext-diag"
+version.workspace = true
+edition.workspace = true
+
+[features]
+# Enables conversions from `handl_language::Span` (a low-level data crate).
+# Off by default so the crate depends only on `platform` contracts unless a
+# consumer needs the language-span bridge.
+lang-span = ["dep:handl-language"]
+
+[dependencies]
+handl-platform = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+handl-language = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
