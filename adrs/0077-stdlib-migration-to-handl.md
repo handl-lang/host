@@ -83,6 +83,267 @@ stated in handl, and the Rust body is trusted to honor it. This is the
 FFI boundary: handl declares and verifies the contract; Rust implements
 it.
 
+### Requirement: pure-handl `result` library for error handling
+
+**This is a hard requirement, not a nice-to-have.** The stdlib cannot be
+written in handl without a pure-handl `result` type for graceful error
+handling. Today the `result` pattern (`result.ok`, `result.err`,
+`result.is_ok`, `result.is_err`) is implemented in **Rust** —
+`ResultModule` in `plugin-lib-utils/src/result/module.rs` constructs
+`{"_tag": "Ok", "value": <T>}` / `{"_tag": "Err", "error": <E>}` JSON
+objects via Rust `Function` impls. The `.hnl` file
+(`handl-packages/utils/utils.hnl`) carries doc comments and `cap`
+declarations for these, but the implementation is Rust.
+
+This blocks the migration: every handl-authored stdlib function that can
+fail (parse, lookup, conversion, FFI calls) needs `result` to return
+errors structurally instead of crashing. If `result` stays Rust, then
+handl stdlib code depends on a Rust module for error handling —
+defeating the point of the migration and creating a circular dependency
+(handl stdlib -> Rust result module -> handl stdlib for its own logic).
+
+**The `result` library must be migrated to pure handl as part of Phase
+1, before any other stdlib function that uses error handling is
+migrated.**
+
+### Requirement: language-level tag declarations (prerequisite for `result`)
+
+The pure-handl `result` library requires a **language-level tag system**
+-- a nominal identity registry so that `Ok` and `Err` are first-class
+tags with structural identity, not hand-built `{"_tag": "Ok", ...}` JSON
+objects that rely on string-matching conventions.
+
+**What already exists -- `plugin-lib-tag`:**
+
+The tag system already exists as a host-exposed library
+(`crates/plugin-lib-tag/`, ADR-0055). It exposes seven arrows declared
+in `handl-packages/tag/tag.hnl` via the `op`/`handl` form:
+
+| Arrow | Role |
+|---|---|
+| `tag.tag(name, payload)` | **mint** a tagged value `{"__tag__": name, ...payload}` |
+| `tag.untag(v)` | return the payload of a tagged value |
+| `tag.tag_of(v)` | return the tag name string, or null |
+| `tag.is_tag(v)` | test whether `v` is a tagged value |
+| `tag.construct(name, payload)` | mint a registry-scoped type value (ADR-0054) |
+| `tag.match_type(v, cases)` | dispatch on the type tag (ADR-0054) |
+
+`tag.match_tag` is **not needed** -- the language already has a `match`
+construct that dispatches on tag identity. The tag sugar's
+`match r { ok(v) => ... }` desugars to the native `match`, not to a
+library arrow. `tag.match_tag` can be removed from `plugin-lib-tag`.
+
+The `__tag__` key is **reserved** -- user object literals cannot produce
+it (the eval engines reject it), so the only way a value acquires a
+`__tag__` key is through `tag.tag` (forgery prevention, ADR-0055 S3).
+This is already a nominal identity system: `tag.tag("ok", {value: 5})`
+and `tag.tag("err", {value: 5})` are distinguishable by tag name, not by
+string-matching a user field.
+
+**What is missing -- surface syntax sugar:**
+
+The tag library arrows exist, but there is no surface syntax to declare
+and use them ergonomically. Today you'd need to manually compose arrows
+that construct `tag.tag` payloads -- verbose and error-prone (tag names
+are string literals, not declared entities). The `tag` keyword is
+**sugar** that generates the constructor arrows at the Scheme level --
+no new primitive, no engine change, no surface-syntax `tag.tag(...)`
+calls.
+
+**What the sugar looks like:**
+
+Declaring tags:
+
+```handl
+tag ok = Value
+tag err = Error
+```
+
+This desugars at the **Scheme level**, not in surface syntax. The
+desugar pass registers `ok` and `err` in the tag registry (a
+data-driven `Language` entry, per ADR-0044) and generates constructor
+arrows directly as arrow-calculus `Scheme` -- composing `arr` (lift the
+payload construction) with `&&&` (fanout: tag name constant + payload)
+and `>>>` (flow into the `tag.tag` host arrow). No surface-syntax call
+to `tag.tag(...)` -- that would be function application, not arrow
+composition.
+
+The declaration also registers the tag name + payload type in the
+`Language` tag registry so the typechecker can enforce tag identity
+nominally (an `ok` value is not an `err` value, even if the payload
+type is the same).
+
+Constructing a tagged value -- compose via `>>>` (arrow flow):
+
+```handl
+42 >>> ok        -- ok is an arrow: Value -> Tagged ok Value
+"nope" >>> err   -- err is an arrow: Error -> Tagged err Error
+```
+
+`ok` and `err` are arrows. You compose them in a pipeline, you don't
+apply them like functions. This is arrow calculus, not lambda calculus.
+The `tag.tag` host arrow is wired in at the Scheme level during
+desugar -- the user never writes `tag.tag(...)` call syntax.
+
+Checking tag identity (sugar for `tag.tag_of` + compare):
+
+```handl
+r is ok(_)    -- desugars to: tag.tag_of(r) == "ok"
+r is err(_)   -- desugars to: tag.tag_of(r) == "err"
+```
+
+Pattern matching uses the language's native `match` -- no library
+arrow needed:
+
+```handl
+match r {
+  ok(v)  => on_ok(v),
+  err(e) => on_err(e),
+}
+```
+
+The native `match` dispatches on tag identity and binds the payload
+fields by name, so `ok(v)` binds `v` to the `value` field of the
+`ok`-tagged payload. No `tag.match_tag` library arrow required.
+
+**Relationship to ADR-0082 (`data`):**
+
+`data` declarations (ADR-0082) generate predicates, constructors, and
+recursors for inductive types. The constructors today use
+`{ tag: "Zero" }` string-keyed JSON objects -- unregistered, no nominal
+identity, forgeable by user code. With the tag sugar, `data` constructors
+would desugar to `tag.tag` calls instead:
+
+```handl
+data Nat = Zero | Succ(Nat)
+```
+
+Would generate constructors like:
+
+```handl
+tag zero = Unit
+tag succ = Nat
+
+-- Constructors are arrows, composed via >>>:
+-- () >>> zero   -- zero is an arrow: Unit -> Tagged zero Unit
+-- n >>> succ    -- succ is an arrow: Nat -> Tagged succ Nat
+```
+
+This gives `data` constructors the same nominal identity + forgery
+prevention as user-declared tags. The `data` desugar (ADR-0082) would
+emit `tag` declarations instead of string-keyed object literals.
+However, `data` is a larger feature (recursors, predicates, strict
+positivity); the tag sugar is the simpler prerequisite that both
+`result` and `data` build on.
+
+**Design notes:**
+
+- The `tag` keyword is **pure sugar** -- it desugars to calls to
+  `tag.tag` (construction) and `tag.tag_of` (inspection). Pattern
+  matching uses the language's native `match`, not a library arrow. No
+  new native op, no engine change, no new `TaggedValue` variant. The
+  host capability (`plugin-lib-tag`) already does the work.
+- Tags are a **nominal** type system feature: identity is by tag name,
+  not by structural shape. `ok(5)` and `err(5)` have the same payload
+  but different tag identity. The `__tag__` key is reserved so user
+  code can't forge tagged values.
+- Tag declarations are **data-driven**: a `tag` declaration adds an
+  entry to the `Language` tag registry (tag name + payload type). No
+  engine recompile. This is consistent with ADR-0044 ("language as
+  data") and the engine-genericity rule.
+- Tag declarations should be **exportable** (via the `export` mechanism,
+  Phase 6) so that `result`'s `ok`/`err` tags are importable by any
+  stdlib module that needs error handling.
+
+**Implementation plan:**
+
+1. Add `tag` declaration syntax to the grammar (`grammar.yaml`) and AST
+   (`ast.yaml`): `tag <name> = <payload_type>` as a top-level form.
+2. Add a tag registry to `Language` (data-driven): a map from tag name
+   to its payload type. Tags are registered when a `.hnl` file declaring
+   them is loaded.
+3. Desugar `tag <name> = <type>` to a constructor arrow at the Scheme
+   level -- compose `arr` (payload construction) with `&&&` (fanout:
+   constant tag name + payload) and `>>>` (flow into `tag.tag` host
+   arrow). The constructor is an arrow `<name> : Payload -> Tagged`,
+   composed via `>>>`, never called via function-application syntax.
+   Field names match the payload type's fields if it's a record.
+4. Desugar `expr is <tag_name>(<var>)` to `tag.tag_of(expr) == "<tag_name>"`.
+5. `match expr { <tag>(<var>) => body, ... }` uses the language's
+   native `match` -- no desugar needed, just ensure `match` recognizes
+   tag patterns (dispatch on `__tag__` identity, bind payload fields).
+6. Remove `tag.match_tag` from `plugin-lib-tag` -- it's redundant with
+   the native `match`.
+7. Migrate `result` to use `tag ok` / `tag err` sugar instead of
+   `{"_tag": "Ok", ...}` JSON objects.
+8. Migrate `data` constructors (ADR-0082) to desugar to `tag`
+   declarations (generating constructor arrows at the Scheme level)
+   instead of `{ tag: "..." }` string-keyed objects.
+
+**Done when:** `tag ok = Value` / `tag err = Error` can be declared in
+`.hnl` source; `v >>> ok` / `e >>> err` compose with the constructor
+arrows (which wire into `tag.tag` at the Scheme level); `r is ok(_)`
+checks via `tag.tag_of`;
+`match r { ok(v) => ..., err(e) => ... }` dispatches via the native
+`match`; `tag.match_tag` is removed from `plugin-lib-tag`; the
+typechecker recognizes tag identity; `result` is implemented using the
+tag sugar, not JSON objects. This is a prerequisite for the pure-handl
+`result` library, which is itself a prerequisite for Phase 1.
+
+**The pure-handl `result` implementation using tag sugar:**
+
+Only the constructors need to migrate. Predicates (`is_ok`, `is_err`),
+extraction (`unwrap_or`), and dispatch (`match`) are already covered by
+`mood` (the core interrogative feature) and native `match` -- no
+wrappers needed.
+
+`mood` is the core language feature for interrogatives:
+- `mood.int(r, ok)` -- is r an ok-tagged value? (replaces `result.is_ok`)
+- `mood.int(r, err)` -- is r an err-tagged value? (replaces `result.is_err`)
+- `mood.norm(r, ok)` -- project ok payload or return err result
+- `mood.ind(r, ok)` -- project ok payload or error
+- `match r { ok(v) => ..., err(e) => ... }` -- native language match (replaces `result.match`)
+
+Combinators like `map` and `and_then` are pure handl stdlib functions
+built on `mood` + native `match` -- they don't need to be part of this
+migration.
+
+```handl
+-- Declare the tags (desugars to tag.tag constructor arrows).
+-- Exported so importers get the tag identity too.
+tag ok = Value
+tag err = Error
+
+--- result.ok -- construct an Ok result wrapping a value.
+--- Contract: IsOk(output)
+result.ok = value ~> value >>> ok
+
+--- result.err -- construct an Err result wrapping an error.
+--- Contract: IsErr(output)
+result.err = error ~> error >>> err
+```
+
+`ok` and `err` are arrows (`Value -> Tagged`). `result.ok` composes
+the input through `ok` via `>>>` (arrow flow). No function application.
+
+That's it -- two one-liner arrows. The Rust `ResultModule`
+(`plugin-lib-utils/src/result/module.rs`) is deleted; its `ok`/`err`
+`Function` impls are replaced by the two arrows above. Its
+`is_ok`/`is_err` impls are deleted entirely -- use `mood.int(r, ok)` /
+`mood.int(r, err)` directly. The combinator functions, if they exist in
+Rust today, are already or will be pure handl using `mood` and
+native `match`.
+
+Each of the two arrows composes with the `ok`/`err` constructor arrows
+(generated at the Scheme level from the `tag` declarations, which wire
+in the `tag.tag` host arrow). No surface-syntax `tag.tag(...)` calls.
+No new primitive.
+
+**Done when:** `result.ok`/`err` are pure handl arrows composing with
+the `ok`/`err` tag constructor arrows via `>>>`; the Rust
+`ResultModule` and its `Function` impls are deleted; `mood.int(r, ok)`
+/ `mood.int(r, err)` cover predicate checks; all tests pass.
+
 ## Decision
 
 Migrate the entire `plugin-lib-*` stdlib to handl-authored `.hnl` files,
@@ -145,6 +406,16 @@ Migrate all pure-logic libs (`hello`, `collections`, `utils`, `parse`,
 …) to `.hnl` files loaded by the generic `plugin-lib-handl` crate
 (`HandlModule` / `HandlLibraryPlugin`), following the proven
 `plugin-lib-stats` migration.
+
+**Prerequisites:** The language-level tag system (see "Requirement:
+language-level tag declarations" above) and the pure-handl `result`
+library built on it (see "Requirement: pure-handl `result` library for
+error handling" above) must land first. Every other stdlib function
+that can fail needs `result` for error handling — migrating them before
+`result` is pure handl would leave them dependent on the Rust
+`ResultModule`, creating a circular dependency. And `result` itself
+needs the tag system so that `Ok`/`Err` are nominal tags, not
+string-keyed JSON objects.
 
 Each `.hnl` file carries:
 
