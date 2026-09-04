@@ -127,6 +127,19 @@ impl<'a> FormatCtx<'a> {
     fn format_node(&self, r: AstRef, indent: usize) -> Result<String, LangError> {
         let node = self.ast.at(r)?;
 
+        // Atoms: a node with no children and a scalar (non-object, non-null,
+        // non-array) payload is a leaf whose surface text IS the payload,
+        // regardless of which grammar row the kind-index happens to map to.
+        // The grammar index is a HashMap keyed by `child_shape.node_kind`;
+        // multiple rows can share a node_kind (e.g. `var` maps to both
+        // `grammar.identifier.prefix` and `grammar.type.prefix`), and the
+        // last-inserted row wins. For atoms the payload is authoritative, so
+        // we short-circuit before consulting the grammar row. This is a
+        // structural check (arity + payload shape), not a kind-string match.
+        if has_scalar_payload(node) && self.children_of(node).is_empty() {
+            return Ok(self.format_leaf(node));
+        }
+
         if let Some(row) = self.index.get(&node.kind) {
             return self.format_grammar_node(node, row, indent);
         }
@@ -447,6 +460,17 @@ impl<'a> FormatCtx<'a> {
             return value_to_text(&node.payload);
         }
         node.kind.clone()
+    }
+}
+
+/// Check whether a node's payload is a scalar value (string, number, or
+/// bool) — i.e. the payload IS the surface text of an atom. Object and null
+/// payloads are not scalar (objects carry `children`/structured data; null
+/// means no payload).
+fn has_scalar_payload(node: &AstNode) -> bool {
+    match &node.payload {
+        Value::String(_) | Value::Number(_) | Value::Bool(_) => true,
+        _ => false,
     }
 }
 

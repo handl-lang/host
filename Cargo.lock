@@ -1527,9 +1527,14 @@ dependencies = [
 name = "handl-plugin-ext-fmt"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-fmt",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-ext-diag",
  "serde_json",
 ]
 
