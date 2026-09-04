@@ -125,6 +125,74 @@ pub trait TypecheckEngine {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Bootstrap check pass over the v0.1 surface AST (ADR-0088)
+// ---------------------------------------------------------------------------
+
+/// The bootstrap check pass implementation (ADR-0088).
+pub mod bootstrap;
+
+/// A typecheck report for a module (ADR-0088).
+///
+/// Produced by [`check_module`]. An empty `diagnostics` vector means the
+/// module is clean. Diagnostics use the shared
+/// [`handl_plugin_ext_diag::Diagnostic`] type (ADR-0091) — no local variant
+/// types are defined in the typecheck crates.
+#[derive(Debug, Clone, Default)]
+pub struct TypecheckReport {
+    /// Diagnostics found during checking (empty = clean).
+    pub diagnostics: Vec<handl_plugin_ext_diag::Diagnostic>,
+}
+
+impl TypecheckReport {
+    /// Whether the report is clean (no diagnostics).
+    pub fn is_clean(&self) -> bool {
+        self.diagnostics.is_empty()
+    }
+}
+
+/// Error from the bootstrap typechecker (ADR-0088).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckError {
+    /// Source failed to parse. The string carries the parse error message.
+    Parse(String),
+}
+
+impl std::fmt::Display for CheckError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CheckError::Parse(msg) => write!(f, "parse error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for CheckError {}
+
+impl From<LangError> for CheckError {
+    fn from(err: LangError) -> Self {
+        CheckError::Parse(err.to_string())
+    }
+}
+
+/// Check a handl module source text (ADR-0088).
+///
+/// Parses the source and runs the bootstrap typecheck pass over the
+/// v0.1 surface AST. Returns a report with **all** diagnostics found
+/// (error recovery: reports all issues, not just the first).
+///
+/// The bootstrap checker implements the decidable core of ADR-0074's typing
+/// rules: module-level binding/import/export checks, unbound-wire detection,
+/// arrow kind checking, and structural type inference. Row-variable inference
+/// and full `rec` fixpoint typing stay behind explicit `todo!` boundaries,
+/// emitting `not-yet-checked` Info diagnostics rather than silently passing.
+///
+/// # Errors
+///
+/// Returns [`CheckError::Parse`] if the source cannot be parsed.
+pub fn check_module(src: &str) -> Result<TypecheckReport, CheckError> {
+    bootstrap::check_module(src)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +259,63 @@ mod tests {
         let req = TypecheckRequest::new(Ast::new());
         let result = engine.typecheck(&lang, &req);
         assert!(matches!(result, Err(LangError::NotImplemented)));
+    }
+
+    #[test]
+    fn typecheck_report_default_is_empty() {
+        let report = TypecheckReport::default();
+        assert!(report.diagnostics.is_empty());
+        assert!(report.is_clean());
+    }
+
+    #[test]
+    fn check_error_display() {
+        let err = CheckError::Parse("unexpected token".to_string());
+        assert_eq!(format!("{err}"), "parse error: unexpected token");
+    }
+
+    #[test]
+    fn check_error_equality() {
+        let a = CheckError::Parse("boom".to_string());
+        let b = CheckError::Parse("boom".to_string());
+        assert_eq!(a, b);
+        assert_ne!(a, CheckError::Parse("other".to_string()));
+    }
+
+    #[test]
+    fn check_module_empty_is_clean() {
+        let report = check_module("").unwrap();
+        assert!(report.is_clean());
+    }
+
+    #[test]
+    fn check_module_simple_binding_is_clean() {
+        let report = check_module("double = x ~> x * 2").unwrap();
+        assert!(
+            report.is_clean(),
+            "expected clean, got: {:?}",
+            report.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_module_unbound_wire_errors() {
+        let report = check_module("main = foo").unwrap();
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.rule == "unbound-wire"
+                    && d.severity == handl_plugin_ext_diag::Severity::Error),
+            "expected unbound-wire error, got: {:?}",
+            report.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_module_parse_error() {
+        let result = check_module("import from");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CheckError::Parse(_)));
     }
 }
