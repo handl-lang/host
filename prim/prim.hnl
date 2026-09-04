@@ -10,7 +10,12 @@ op "prim.compare" : (a * b) -> Int
 cap "prim.alloc"
 op "prim.alloc" : Int -> List a
   guarantee: LengthEq(output, 0)
+--- prim.or — bitwise OR on integers (irreducible atom, flag composition).
+cap "prim.or"
+op "prim.or" : (Int * Int) -> Int
+  guarantee: True
 
 handl "prim.add" = rust_prim_add
 handl "prim.compare" = rust_prim_compare
 handl "prim.alloc" = rust_prim_alloc
+handl "prim.or" = rust_prim_or
