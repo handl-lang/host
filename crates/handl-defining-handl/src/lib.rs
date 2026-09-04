@@ -10,7 +10,7 @@
 //! This crate produces a [`Language`] value that describes the **subset** of
 //! handl the data-driven engines can evaluate — the constructs migrated to
 //! the data-driven model in Phases 4–5 (value, var, the binary arithmetic /
-//! comparison ops, unary not, let / stmt.let / stmt.const, if, ternary,
+//! comparison ops, unary not, let / stmt.let, if, ternary,
 //! function, call, pipe, paren, apply). It is the "handl defining
 //! handl": the language spec as data.
 //!
@@ -140,7 +140,6 @@ pub struct CorpusCase {
 /// | `not_false`          | `!true`                               | value, unary.not                    |
 /// | `let_var`            | `let x = 5 in x`                        | value, let, var                     |
 /// | `stmt_let`           | `let x = 6 in x`                        | value, stmt.let, var                |
-/// | `stmt_const`         | `const x = 7; x`                      | value, stmt.const, var              |
 /// | `if_true`            | `if (true) 1 else 2`                  | value, if                           |
 /// | `if_false`           | `if (false) 1 else 2`                 | value, if                           |
 /// | `ternary_true`       | `true ? 1 : 2`                        | value, ternary                      |
@@ -359,24 +358,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(6),
             tree_walk_only: false,
         },
-        // 15. stmt.const + var: const x = 7; x  (stmt.const uses the same Bind scheme)
-        CorpusCase {
-            name: "stmt_const",
-            source: "const x = 7; x",
-            ast: {
-                let mut a = Ast::new();
-                a.push(AstNode::new("value").with_payload(json!(7)));
-                a.push(AstNode::new("var").with_payload(json!("x")));
-                a.push(
-                    AstNode::new("stmt.const")
-                        .with_payload(json!({"name": "x", "children": [0, 1]})),
-                );
-                a
-            },
-            expected: json!(7),
-            tree_walk_only: false,
-        },
-        // 16. If true: if (true) 1 else 2
+        // 15. If true: if (true) 1 else 2
         CorpusCase {
             name: "if_true",
             source: "if (true) 1 else 2",
@@ -391,7 +373,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(1),
             tree_walk_only: false,
         },
-        // 17. If false: if (false) 1 else 2
+        // 16. If false: if (false) 1 else 2
         CorpusCase {
             name: "if_false",
             source: "if (false) 1 else 2",
@@ -406,7 +388,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(2),
             tree_walk_only: false,
         },
-        // 18. Ternary true: true ? 1 : 2  (ternary uses the same Branch scheme as if)
+        // 17. Ternary true: true ? 1 : 2  (ternary uses the same Branch scheme as if)
         CorpusCase {
             name: "ternary_true",
             source: "true ? 1 : 2",
@@ -421,7 +403,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(1),
             tree_walk_only: false,
         },
-        // 19. Ternary false: false ? 1 : 2
+        // 18. Ternary false: false ? 1 : 2
         CorpusCase {
             name: "ternary_false",
             source: "false ? 1 : 2",
@@ -436,7 +418,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(2),
             tree_walk_only: false,
         },
-        // 20. Paren: (42)  (paren is a Child 0 passthrough)
+        // 19. Paren: (42)  (paren is a Child 0 passthrough)
         CorpusCase {
             name: "paren",
             source: "(42)",
@@ -449,7 +431,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 21. Apply: apply 42  (apply is a Child 0 passthrough)
+        // 20. Apply: apply 42  (apply is a Child 0 passthrough)
         CorpusCase {
             name: "apply",
             source: "apply 42",
@@ -462,12 +444,12 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(42),
             tree_walk_only: false,
         },
-        // 22. Mood (stale — removed in ADR-0026): the `42!` postfix mood
+        // 21. Mood (stale — removed in ADR-0026): the `42!` postfix mood
         // marker was replaced by infix keyword syntax (`is`, `must`, `may`,
         // `not`, `when`). The `mood` node kind no longer exists; only
         // `mood.int`, `mood.pot`, `mood.norm`, `mood.neg`, `mood.cnd` remain.
         // This case is intentionally omitted from the corpus.
-        // 23. Function + call: let f = [x, y] ~> x + y in f(3, 4)
+        // 22. Function + call: let f = [x, y] ~> x + y in f(3, 4)
         //     The canonical call emitter targets 2-arg calls, so the function
         //     takes two params.
         CorpusCase {
@@ -501,7 +483,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(7),
             tree_walk_only: false,
         },
-        // 24. Pipe: let f = (x ~> x + 1) in 5 | f
+        // 23. Pipe: let f = (x ~> x + 1) in 5 | f
         //     pipe scheme is App { callee: Child 1, args: [Child 0] } —
         //     applies the right child (function) to the left child (value).
         CorpusCase {
@@ -534,7 +516,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(6),
             tree_walk_only: false,
         },
-        // 25. Nested let + add: let x = 3 in let y = 4 in x + y
+        // 24. Nested let + add: let x = 3 in let y = 4 in x + y
         CorpusCase {
             name: "nested_let",
             source: "let x = 3 in let y = 4 in x + y",
@@ -561,7 +543,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(7),
             tree_walk_only: false,
         },
-        // 26. If with let in branch: if (true) (let x = 1 in x) else 0
+        // 25. If with let in branch: if (true) (let x = 1 in x) else 0
         CorpusCase {
             name: "if_with_let",
             source: "if (true) (let x = 1 in x) else 0",
@@ -584,7 +566,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(1),
             tree_walk_only: false,
         },
-        // 27. Greater-than-or-equal true: 2 >= 2
+        // 26. Greater-than-or-equal true: 2 >= 2
         CorpusCase {
             name: "gte_true",
             source: "2 >= 2",
@@ -598,7 +580,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(true),
             tree_walk_only: false,
         },
-        // 28. Greater-than-or-equal false: 1 >= 3
+        // 27. Greater-than-or-equal false: 1 >= 3
         CorpusCase {
             name: "gte_false",
             source: "1 >= 3",
@@ -612,7 +594,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(false),
             tree_walk_only: false,
         },
-        // 29. Less-than-or-equal true: 2 <= 2
+        // 28. Less-than-or-equal true: 2 <= 2
         CorpusCase {
             name: "lte_true",
             source: "2 <= 2",
@@ -626,7 +608,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(true),
             tree_walk_only: false,
         },
-        // 30. Less-than-or-equal false: 3 <= 1
+        // 29. Less-than-or-equal false: 3 <= 1
         CorpusCase {
             name: "lte_false",
             source: "3 <= 1",
@@ -640,7 +622,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(false),
             tree_walk_only: false,
         },
-        // 31. Not-equal true: 3 != 4
+        // 30. Not-equal true: 3 != 4
         CorpusCase {
             name: "neq_true",
             source: "3 != 4",
@@ -654,7 +636,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(true),
             tree_walk_only: false,
         },
-        // 32. Not-equal false: 3 != 3
+        // 31. Not-equal false: 3 != 3
         CorpusCase {
             name: "neq_false",
             source: "3 != 3",
@@ -668,7 +650,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(false),
             tree_walk_only: false,
         },
-        // 33. Compare less: 1 <=> 2 → -1
+        // 32. Compare less: 1 <=> 2 → -1
         CorpusCase {
             name: "compare_less",
             source: "1 <=> 2",
@@ -682,7 +664,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(-1),
             tree_walk_only: false,
         },
-        // 34. Compare equal: 2 <=> 2 → 0
+        // 33. Compare equal: 2 <=> 2 → 0
         CorpusCase {
             name: "compare_equal",
             source: "2 <=> 2",
@@ -696,7 +678,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(0),
             tree_walk_only: false,
         },
-        // 35. Compare greater: 3 <=> 2 → 1
+        // 34. Compare greater: 3 <=> 2 → 1
         CorpusCase {
             name: "compare_greater",
             source: "3 <=> 2",
@@ -710,7 +692,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(1),
             tree_walk_only: false,
         },
-        // 36. typeof number: typeof 42 → "number"
+        // 35. typeof number: typeof 42 → "number"
         CorpusCase {
             name: "typeof_number",
             source: "typeof 42",
@@ -723,7 +705,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!("number"),
             tree_walk_only: false,
         },
-        // 37. typeof string: typeof "hi" → "string"
+        // 36. typeof string: typeof "hi" → "string"
         CorpusCase {
             name: "typeof_string",
             source: "typeof \"hi\"",
@@ -736,7 +718,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!("string"),
             tree_walk_only: false,
         },
-        // 38. typeof bool: typeof true → "bool"
+        // 37. typeof bool: typeof true → "bool"
         CorpusCase {
             name: "typeof_bool",
             source: "typeof true",
@@ -749,7 +731,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!("bool"),
             tree_walk_only: false,
         },
-        // 39. Array literal: [1, 2, 3] → [1, 2, 3]
+        // 38. Array literal: [1, 2, 3] → [1, 2, 3]
         //     The `array` prim reads `elements` directly from the payload.
         CorpusCase {
             name: "array_literal",
@@ -762,7 +744,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!([1, 2, 3]),
             tree_walk_only: false,
         },
-        // 40. Array index: [10, 20, 30][1] → 20
+        // 39. Array index: [10, 20, 30][1] → 20
         //     The `index` prim reads `target` and `index` from the payload.
         CorpusCase {
             name: "array_index",
@@ -777,7 +759,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(20),
             tree_walk_only: false,
         },
-        // 41. Object literal: {"a": 1, "b": 2} → {"a": 1, "b": 2}
+        // 40. Object literal: {"a": 1, "b": 2} → {"a": 1, "b": 2}
         //     The `object` prim reads `entries` (array of {key, value}) from
         //     the payload and builds a JSON object.
         CorpusCase {
@@ -796,7 +778,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!({"a": 1, "b": 2}),
             tree_walk_only: false,
         },
-        // 42. Object index: {"x": 5}["x"] → 5
+        // 41. Object index: {"x": 5}["x"] → 5
         //     The `index` prim with an object target and string key.
         CorpusCase {
             name: "object_index",
@@ -811,7 +793,7 @@ pub fn corpus() -> Vec<CorpusCase> {
             expected: json!(5),
             tree_walk_only: false,
         },
-        // 43. Assign: x = 42 → 42
+        // 42. Assign: x = 42 → 42
         //     The `assign` prim reads `value` from the payload and returns it.
         CorpusCase {
             name: "assign_value",

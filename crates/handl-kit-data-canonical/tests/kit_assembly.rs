@@ -17,20 +17,20 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // then retained for optional if-then backward compat.
     assert_eq!(lang.tokens.len(), 69);
 
-    // Grammar rows: 57 — v0.1 surface syntax (ADR-0074).
+    // Grammar rows: 56 — v0.1 surface syntax (ADR-0074).
     // Removed 15 old rules (arrow-app, arrow-bind, returnA, loop, pipe,
     // handle, typeof, stmt-const, stmt-module, is, may, must, not.infix,
-    // when, vau) and added 14 new rules (product, nullish, opt-chain, rec,
+    // when, vau) and added 13 new rules (product, nullish, opt-chain, rec,
     // while, for, return, law, trait, impl, infer, type, do-while).
-    assert_eq!(lang.grammar.len(), 57);
+    assert_eq!(lang.grammar.len(), 56);
 
-    // Eval schemes: 60 — v0.1 surface syntax (ADR-0074).
-    // Removed 9 old schemes (arrow_bind, returnA, loop, handle,
-    // stmt-module, mood.cnd, mood.int, mood.neg,
+    // Eval schemes: 58 — v0.1 surface syntax (ADR-0074).
+    // Removed 11 old schemes (arrow_bind, returnA, loop, handle,
+    // stmt-const, stmt-module, mood.cnd, mood.int, mood.neg,
     // mood.norm, mood.pot) and added 12 new schemes (rec, while, for,
     // return, law, trait, impl, infer, type, product, nullish, opt-chain).
-    // stmt-const, pipe, typeof retained for corpus compatibility.
-    assert_eq!(lang.eval.len(), 60);
+    // pipe, typeof retained for corpus compatibility.
+    assert_eq!(lang.eval.len(), 58);
 
     // AST shapes: 56 — v0.1 surface syntax (ADR-0074).
     // Removed 15 old shapes (arrow_app, arrow_bind, returnA, loop, pipe,
@@ -71,7 +71,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
     assert_eq!(rt.lang().tokens.len(), 69);
-    assert_eq!(rt.lang().grammar.len(), 57);
+    assert_eq!(rt.lang().grammar.len(), 56);
 }
 
 #[test]

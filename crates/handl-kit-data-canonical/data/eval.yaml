@@ -519,25 +519,6 @@
       args: []
       source: Native
       lit: 1
-- id: eval.stmt-const
-  node_kind: stmt.const
-  scheme: !Seq
-    fst: !Seq
-      fst: !Arr
-        op: proj_child
-        args: []
-        source: Native
-        lit: 0
-      snd: !Arr
-        op: extend_env
-        args: []
-        source: Native
-        lit: $payload
-    snd: !Arr
-      op: proj_child
-      args: []
-      source: Native
-      lit: 1
 - id: eval.template
   node_kind: template
   scheme: !Arr

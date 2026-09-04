@@ -14,7 +14,7 @@
 //! The corpus covers the data-driven constructs that all three engines can
 //! evaluate: value, var, the binary arithmetic / comparison ops (add, sub,
 //! mul, div, pow, eq, neq, lt, gt, lte, gte, compare), typeof, unary not,
-//! let / stmt.let / stmt.const, if, ternary, function, call, pipe, paren,
+//! let / stmt.let, if, ternary, function, call, pipe, paren,
 //! apply, mood, type-annot, array, object, index, assign. Cases flagged via
 //! [`CorpusCase::tree_walk_only`] (if any) use a `Prim` op implemented in
 //! the tree-walk engine but not yet in the bytecode or cranelift engines;
