@@ -1,0 +1,142 @@
+--- fn — function combinator utilities for the handl runtime.
+---
+--- Single source of truth for the `fn` stdlib interface: 25 function
+--- combinators covering composition, control flow, collection iteration,
+--- and function manipulation. The Rust bridge in `plugin-lib-utils` loads
+--- this file via `include_str!`, parses the `cap` declarations for the
+--- plugin capability surface, and registers the Rust handls (handlers) in
+--- an `OpRegistry` that dispatches each `op` to its native Rust impl.
+---
+--- All 25 functions are FFI atoms (they manipulate `serde_json::Value`
+--- callables via `apply_fn` from `crate::shared` and cannot be expressed
+--- as pure handl arrows without losing the exact `TypeMismatch` error
+--- messages the tests rely on). The `op`/`handl` declaration form
+--- (ADR-0077 Phase 2) declares the interface; the Rust `Function` impls
+--- in `ops.rs` provide the logic.
+---
+--- ## Capability declarations (ADR-0077 Phase 4)
+--- fn.pipe — pipe a value through a sequence of functions left-to-right.
+--- fn.flow — compose functions left-to-right into a single inlined function.
+--- fn.compose — compose functions right-to-left into a single inlined function.
+--- fn.fanout — apply a value to each of several functions, collecting results into a list.
+--- fn.fanout_fn — lazy fanout: return a function that splits its input across branches.
+--- fn.choice — conditional branching: apply one of two functions based on a predicate.
+--- fn.apply — apply a function to an array of arguments.
+--- fn.map — map a function over a list.
+--- fn.filter — filter a list by a predicate.
+--- fn.reduce — fold a list with a function and an initial value.
+--- fn.flat_map — map a function over a list and flatten the results.
+--- fn.find — find the first element of a list satisfying a predicate.
+--- fn.some — test whether any element of a list satisfies a predicate.
+--- fn.every — test whether all elements of a list satisfy a predicate.
+--- fn.group_by — group elements of a list by a key function.
+--- fn.partition — split a list into matching and non-matching elements.
+--- fn.count_by — count elements of a list grouped by a key function.
+--- fn.tap — call a function for its side effect, returning the original value.
+--- fn.match — pattern-match a value against a sequence of pattern/handler branches.
+--- fn.constantly — return a function that always yields a fixed value.
+--- fn.flip — swap the first two parameters of a function.
+--- fn.partial — partially apply a function by binding its leading arguments.
+--- fn.when — apply a transform when a predicate holds, otherwise return the value unchanged.
+--- fn.unless — apply a transform unless a predicate holds, otherwise return the value unchanged.
+--- fn.converge — apply branches to a value, then combine the results with a combiner.
+cap "fn.pipe"
+cap "fn.flow"
+cap "fn.compose"
+cap "fn.fanout"
+cap "fn.fanout_fn"
+cap "fn.choice"
+cap "fn.apply"
+cap "fn.map"
+cap "fn.filter"
+cap "fn.reduce"
+cap "fn.flat_map"
+cap "fn.find"
+cap "fn.some"
+cap "fn.every"
+cap "fn.group_by"
+cap "fn.partition"
+cap "fn.count_by"
+cap "fn.tap"
+cap "fn.match"
+cap "fn.constantly"
+cap "fn.flip"
+cap "fn.partial"
+cap "fn.when"
+cap "fn.unless"
+cap "fn.converge"
+op "fn.pipe" : (Value * Value) -> Value
+  guarantee: True
+op "fn.flow" : Value -> Value
+  guarantee: True
+op "fn.compose" : Value -> Value
+  guarantee: True
+op "fn.fanout" : (Value * Value) -> Value
+  guarantee: True
+op "fn.fanout_fn" : Value -> Value
+  guarantee: True
+op "fn.choice" : (Value * Value * Value * Value) -> Value
+  guarantee: True
+op "fn.apply" : (Value * Value) -> Value
+  guarantee: True
+op "fn.map" : (Value * Value) -> Value
+  guarantee: True
+op "fn.filter" : (Value * Value) -> Value
+  guarantee: True
+op "fn.reduce" : (Value * Value * Value) -> Value
+  guarantee: True
+op "fn.flat_map" : (Value * Value) -> Value
+  guarantee: True
+op "fn.find" : (Value * Value) -> Value
+  guarantee: True
+op "fn.some" : (Value * Value) -> Value
+  guarantee: True
+op "fn.every" : (Value * Value) -> Value
+  guarantee: True
+op "fn.group_by" : (Value * Value) -> Value
+  guarantee: True
+op "fn.partition" : (Value * Value) -> Value
+  guarantee: True
+op "fn.count_by" : (Value * Value) -> Value
+  guarantee: True
+op "fn.tap" : (Value * Value) -> Value
+  guarantee: True
+op "fn.match" : (Value * Value) -> Value
+  guarantee: True
+op "fn.constantly" : Value -> Value
+  guarantee: True
+op "fn.flip" : Value -> Value
+  guarantee: True
+op "fn.partial" : (Value * Value) -> Value
+  guarantee: True
+op "fn.when" : (Value * Value * Value) -> Value
+  guarantee: True
+op "fn.unless" : (Value * Value * Value) -> Value
+  guarantee: True
+op "fn.converge" : (Value * Value * Value) -> Value
+  guarantee: True
+handl "fn.pipe" = rust_fn_pipe
+handl "fn.flow" = rust_fn_flow
+handl "fn.compose" = rust_fn_compose
+handl "fn.fanout" = rust_fn_fanout
+handl "fn.fanout_fn" = rust_fn_fanout_fn
+handl "fn.choice" = rust_fn_choice
+handl "fn.apply" = rust_fn_apply
+handl "fn.map" = rust_fn_map
+handl "fn.filter" = rust_fn_filter
+handl "fn.reduce" = rust_fn_reduce
+handl "fn.flat_map" = rust_fn_flat_map
+handl "fn.find" = rust_fn_find
+handl "fn.some" = rust_fn_some
+handl "fn.every" = rust_fn_every
+handl "fn.group_by" = rust_fn_group_by
+handl "fn.partition" = rust_fn_partition
+handl "fn.count_by" = rust_fn_count_by
+handl "fn.tap" = rust_fn_tap
+handl "fn.match" = rust_fn_match
+handl "fn.constantly" = rust_fn_constantly
+handl "fn.flip" = rust_fn_flip
+handl "fn.partial" = rust_fn_partial
+handl "fn.when" = rust_fn_when
+handl "fn.unless" = rust_fn_unless
+handl "fn.converge" = rust_fn_converge
