@@ -159,6 +159,9 @@ impl ScopeStack {
 
     /// Define a variable in the current (innermost) scope.
     pub fn define(&mut self, name: &str, value: TaggedValue) {
+        // INFALLIBLE: the scope stack is initialized with one frame in
+        // `new()` and `pop_scope` only pops when len > 1, so it is never
+        // empty during evaluation.
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         last.insert(Rc::from(name), value);
     }

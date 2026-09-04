@@ -355,6 +355,9 @@ fn run_native(
 
     // Top-level incoming is a boxed Null (reused sentinel — Fix #8).
     let null_incoming = null_incoming_ptr();
+    // SAFETY: root_fn is a valid function pointer into JIT-allocated memory
+    // that remains alive for the duration of this call (held by the
+    // CompiledResult's backend). ctx is a valid &mut EvalCtx on the stack.
     let result_ptr: *mut TaggedValue = unsafe {
         root_fn(
             &mut ctx as *mut EvalCtx as *mut u8,
@@ -365,6 +368,8 @@ fn run_native(
     // Check for deferred error.
     if let Some(err) = ctx.error.take() {
         if !result_ptr.is_null() {
+            // SAFETY: result_ptr was boxed by a helper via box_value; reclaim
+            // it to avoid leaking on the error path.
             unsafe {
                 let _ = take_value(result_ptr);
             }
@@ -429,11 +434,15 @@ pub struct EvalCtx {
 impl EvalCtx {
     /// Get the current node being evaluated.
     fn current_node(&self) -> Result<&AstNode, LangError> {
+        // SAFETY: self.ast is a valid pointer set by the engine; it outlives
+        // the EvalCtx (guaranteed by run_native / for_standalone).
         unsafe { (*self.ast).at(AstRef::new(self.current_ref)) }
     }
 
     /// Get a node by arena index (ADR-0060).
     fn ast_at(&self, node_ref: AstRef) -> Result<&AstNode, LangError> {
+        // SAFETY: self.ast is a valid pointer set by the engine; it outlives
+        // the EvalCtx (guaranteed by run_native / for_standalone).
         unsafe { (*self.ast).at(node_ref) }
     }
 
@@ -534,6 +543,8 @@ impl ScopeStack {
 
     /// Define a variable in the current (innermost) scope.
     fn define(&mut self, name: &str, value: TaggedValue) {
+        // SAFETY: `ScopeStack::new` always pushes one frame and `pop_scope`
+        // only pops when `len > 1`, so the stack is never empty.
         let last = self.scopes.last_mut().expect("scope stack is never empty");
         Rc::make_mut(last).insert(Rc::from(name), value);
     }
@@ -759,6 +770,8 @@ unsafe fn box_value(value: TaggedValue) -> *mut TaggedValue {
 /// `Box::into_raw`).
 unsafe fn take_value(ptr: *mut TaggedValue) -> TaggedValue {
     debug_track_free(ptr);
+    // SAFETY: ptr was produced by box_value (Box::into_raw) and has not been
+    // freed yet. Box::from_raw reclaims the allocation exactly once.
     unsafe { std::mem::take(&mut *Box::from_raw(ptr)) }
 }
 
@@ -778,6 +791,9 @@ pub unsafe extern "C" fn helper_v2_clone(
         if val.is_null() {
             return box_value(TaggedValue::Null);
         }
+        // SAFETY: val is a valid non-null pointer to a boxed TaggedValue. We
+        // only read (clone) it — the original is NOT consumed, preventing
+        // double-free when the caller later frees val.
         box_value((*val).clone())
     }
 }
@@ -1315,6 +1331,8 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
     let saved_ref = ctx.current_ref;
     ctx.current_ref = arena_idx;
     let null_incoming = null_incoming_ptr();
+    // SAFETY: func is a valid compiled function pointer for node arena_idx,
+    // held alive by the CompiledResult's backend. ctx is a valid &mut EvalCtx.
     let result_ptr = unsafe {
         func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue
     };
@@ -1325,6 +1343,8 @@ fn eval_child_node(ctx: &mut EvalCtx, arena_idx: usize) -> Result<TaggedValue, L
             .take()
             .unwrap_or_else(|| LangError::engine("eval_child_node: null result".to_string())));
     }
+    // SAFETY: result_ptr is non-null and was boxed by the child function via
+    // box_value. We reclaim it to avoid leaking.
     Ok(unsafe { take_value(result_ptr) })
 }
 
@@ -3614,6 +3634,7 @@ fn apply_native_v2(
                         let idx = match entry.as_u64() {
                             Some(v) => v as usize,
                             None => {
+                                ctx.current_ref = saved_ref;
                                 return ctx.set_error(LangError::engine(
                                     "json: child index must be a number".to_string(),
                                 ))
@@ -3622,6 +3643,7 @@ fn apply_native_v2(
                         let func = match ctx.compiled.get(&idx).copied() {
                             Some(f) => f,
                             None => {
+                                ctx.current_ref = saved_ref;
                                 return ctx.set_error(LangError::engine(format!(
                                     "json: no compiled function for node {}",
                                     idx
@@ -3632,11 +3654,25 @@ fn apply_native_v2(
                         let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
                         let result_ptr =
                             unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
+                        if result_ptr.is_null() {
+                            ctx.current_ref = saved_ref;
+                            let err = ctx.error.take().unwrap_or_else(|| {
+                                LangError::engine("json: child returned null".to_string())
+                            });
+                            return ctx.set_error(err);
+                        }
+                        // SAFETY: result_ptr is non-null and was boxed by the
+                        // child function via box_value. Clone the value then
+                        // reclaim the box to avoid leaking it.
                         let val = unsafe { (*result_ptr).clone() };
+                        unsafe {
+                            let _ = take_value(result_ptr);
+                        }
                         let val_json = handl_value::tagged_to_value(&val);
                         let replacement = match serde_json::to_string(&val_json) {
                             Ok(r) => r,
                             Err(e) => {
+                                ctx.current_ref = saved_ref;
                                 return ctx.set_error(LangError::engine(format!("json: {}", e)))
                             }
                         };
@@ -3813,6 +3849,7 @@ fn apply_native_v2(
                 let idx = match entry.as_u64() {
                     Some(i) => i as usize,
                     None => {
+                        ctx.current_ref = saved_ref;
                         return ctx.set_error(LangError::engine(
                             "proj_rest: child index must be a number".to_string(),
                         ))
@@ -3821,6 +3858,7 @@ fn apply_native_v2(
                 let func = match ctx.compiled.get(&idx).copied() {
                     Some(f) => f,
                     None => {
+                        ctx.current_ref = saved_ref;
                         return ctx.set_error(LangError::engine(format!(
                             "proj_rest: no compiled function for node {}",
                             idx
@@ -3830,7 +3868,20 @@ fn apply_native_v2(
                 ctx.current_ref = idx;
                 let ctx_ptr = ctx as *mut EvalCtx as *mut u8;
                 let result_ptr = unsafe { func(ctx_ptr, std::ptr::null_mut()) as *mut TaggedValue };
+                if result_ptr.is_null() {
+                    ctx.current_ref = saved_ref;
+                    let err = ctx.error.take().unwrap_or_else(|| {
+                        LangError::engine("proj_rest: child returned null".to_string())
+                    });
+                    return ctx.set_error(err);
+                }
+                // SAFETY: result_ptr is non-null and was boxed by the child
+                // function via box_value. Clone the value then reclaim the
+                // box to avoid leaking it.
                 let val = unsafe { (*result_ptr).clone() };
+                unsafe {
+                    let _ = take_value(result_ptr);
+                }
                 vals.push(val);
             }
             ctx.current_ref = saved_ref;

@@ -395,6 +395,10 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     let mut compiled = HashMap::new();
     for (i, func_id) in &func_ids {
         let ptr = module.get_finalized_function(*func_id);
+        // SAFETY: ptr is the start address of JIT-compiled machine code with
+        // signature fn(*mut u8, *mut u8) -> *mut u8, as defined by the
+        // cranelift signature above. The JITModule is kept alive in
+        // CompiledBackend::Jit so the code remains valid.
         compiled.insert(*i, unsafe {
             std::mem::transmute::<*const u8, CompiledFn>(ptr)
         });
@@ -1397,11 +1401,11 @@ fn compile_arr(
         ArrSource::Judgment => {
             // Judgment ops (ADR-0054) are typecheck engine ops, not eval
             // engine ops — the eval engine does not dispatch them. This arm
-            // should never be reached; fail fast at compile time.
-            unreachable!(
+            // should never be reached; return a compile-time error.
+            return Err(LangError::engine(format!(
                 "compile: judgment op '{}' is not supported by the eval engine (ADR-0054: judgment ops are dispatched by the typecheck engine)",
                 op
-            );
+            )));
         }
     }
 }

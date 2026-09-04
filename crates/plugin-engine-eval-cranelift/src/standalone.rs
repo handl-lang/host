@@ -111,12 +111,15 @@ fn standalone_init_inner(
     n_fns: usize,
 ) -> Result<StandaloneCtx, LangError> {
     // Parse the JSON strings.
+    // SAFETY: caller guarantees ast_json is a valid null-terminated C string.
     let ast_str = unsafe { CStr::from_ptr(ast_json) }
         .to_str()
         .map_err(|e| LangError::engine(format!("ast_json not valid UTF-8: {}", e)))?;
+    // SAFETY: caller guarantees literals_json is a valid null-terminated C string.
     let lit_str = unsafe { CStr::from_ptr(literals_json) }
         .to_str()
         .map_err(|e| LangError::engine(format!("literals_json not valid UTF-8: {}", e)))?;
+    // SAFETY: caller guarantees names_json is a valid null-terminated C string.
     let names_str = unsafe { CStr::from_ptr(names_json) }
         .to_str()
         .map_err(|e| LangError::engine(format!("names_json not valid UTF-8: {}", e)))?;
@@ -135,6 +138,8 @@ fn standalone_init_inner(
     // Build the compiled function-pointer map from the C arrays.
     let mut compiled = HashMap::with_capacity(n_fns);
     for i in 0..n_fns {
+        // SAFETY: caller guarantees fn_ptrs and fn_indices each contain at
+        // least n_fns valid entries.
         let ptr = unsafe { *fn_ptrs.add(i) };
         let idx = unsafe { *fn_indices.add(i) } as usize;
         // SAFETY: the caller guarantees ptr is the address of a node_N
@@ -177,7 +182,10 @@ pub extern "C" fn handl_standalone_run(ctx: *mut c_void, root_idx: u64) -> *mut 
     let standalone = unsafe { &mut *(ctx as *mut StandaloneCtx) };
     match standalone_run_inner(standalone, root_idx as usize) {
         Ok(json) => CString::into_raw(CString::new(json).unwrap_or_else(|_| {
-            CString::new("handl_standalone_run: result contains NUL byte").unwrap()
+            // SAFETY: this fallback string literal contains no NUL bytes, so
+            // CString::new is infallible here.
+            CString::new("handl_standalone_run: result contains NUL byte")
+                .expect("fallback string literal contains no NUL bytes")
         })),
         Err(e) => {
             eprintln!("handl_standalone_run error: {}", e);
@@ -203,7 +211,10 @@ fn standalone_run_inner(
     ctx.current_ref = root_idx;
 
     // Call the root native function (v2 signature: ctx + incoming).
+    // SAFETY: box_value allocates a boxed Null for the incoming value.
     let null_incoming = unsafe { crate::box_value(TaggedValue::Null) };
+    // SAFETY: root_fn is a valid function pointer linked from the emitted .o
+    // file. ctx is a valid &mut EvalCtx whose ast pointer is stable (boxed).
     let result_ptr: *mut TaggedValue = unsafe {
         root_fn(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue
     };
@@ -212,6 +223,8 @@ fn standalone_run_inner(
     if let Some(err) = ctx.error.take() {
         // Reclaim the result pointer if non-null (avoid leak).
         if !result_ptr.is_null() {
+            // SAFETY: result_ptr was boxed by a helper via box_value; reclaim
+            // it to avoid leaking on the error path.
             unsafe {
                 let _ = take_value(result_ptr);
             }

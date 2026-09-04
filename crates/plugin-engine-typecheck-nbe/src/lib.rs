@@ -3343,8 +3343,12 @@ impl NbeTypecheckEngine {
                 // fields.  We use `get` (not `as_object`) because the type
                 // value is always a JSON object (the registry guarantees
                 // this).
-                let obj_a = a.as_object().expect("type value is an object");
-                let obj_b = b.as_object().expect("type value is an object");
+                let obj_a = a
+                    .as_object()
+                    .ok_or_else(|| LangError::engine("typecheck: type value is not an object"))?;
+                let obj_b = b
+                    .as_object()
+                    .ok_or_else(|| LangError::engine("typecheck: type value is not an object"))?;
                 // Collect field keys from both objects, excluding the
                 // `__tag__` and `__registry__` structural keys and the
                 // `body_closure` field (which is an engine-internal closure

@@ -366,6 +366,8 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         let instrs = self
             .cache
             .get(&node_ref.index())
+            // INFALLIBLE: we just inserted this key (or it was cached from a
+            // prior call) on the line above, so the lookup cannot miss.
             .expect("just inserted or cached")
             .clone();
         self.exec_instrs_inner(&instrs, node, None)
