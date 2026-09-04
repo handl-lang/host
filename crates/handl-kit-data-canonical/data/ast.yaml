@@ -769,3 +769,20 @@
     required:
     - children
     type: object
+# `desugar-error` — error node emitted by the desugar pass when a
+# declaration fails a compile-time check (e.g. strict positivity violation
+# in `data`). The payload carries `{kind, reason}`. The eval scheme
+# (`eval.desugar-error`) raises a `LangError` when evaluated, so the error
+# surfaces at eval time instead of being silently swallowed.
+- id: ast.desugar-error
+  node_kind: desugar-error
+  payload_schema:
+    properties:
+      kind:
+        type: string
+      reason:
+        type: string
+    required:
+    - kind
+    - reason
+    type: object

@@ -320,6 +320,21 @@ fn push_node(out: &mut Ast, kind: &str, children: Vec<usize>) -> usize {
         .index()
 }
 
+/// Push a `function` node with the given parameter names and body index.
+/// Uses the rich payload format (`params` + `body`) which the `closure`
+/// eval primitive reads directly. This correctly supports multi-parameter
+/// functions, unlike the `children` array format which only supports a
+/// single param node at `children[0]`.
+fn push_function(out: &mut Ast, params: &[&str], body_idx: usize) -> usize {
+    let params_arr: Vec<Value> = params.iter().map(|s| Value::from(*s)).collect();
+    let payload = serde_json::json!({
+        "params": params_arr,
+        "body": body_idx
+    });
+    out.push(AstNode::new("function").with_payload(payload))
+        .index()
+}
+
 /// Check if `original`'s child `i` has the given kind in the original AST.
 fn child_is_kind(ast: &Ast, original: &AstNode, i: usize, kind: &str) -> bool {
     let old_idx = original
@@ -763,12 +778,16 @@ fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
 
     // Step 2: strict positivity check.
     if let Err(reason) = check_strict_positivity(&type_name, &constructors) {
-        // On positivity violation, emit a single node that will cause a
-        // runtime error when evaluated. The desugar pass is not the right
-        // place to surface compile errors (it's a pure Ast→Ast transform),
-        // so we encode the error as a `lit` node with an error payload.
-        // The typechecker/eval will surface it.
-        let err_idx = push_leaf(out, "lit", Value::from(format!("__data_error__: {}", reason)));
+        // On positivity violation, emit a `desugar-error` node. The
+        // `desugar-error` node kind is data-driven (declared in
+        // ast.yaml/eval.yaml). Its eval scheme raises a `LangError` when
+        // evaluated, so the error surfaces at eval time instead of being
+        // silently swallowed as a string literal.
+        let err_payload = serde_json::json!({
+            "kind": "data-error",
+            "reason": reason
+        });
+        let err_idx = push_leaf(out, "desugar-error", err_payload);
         return Some(AstRef::new(err_idx));
     }
 
@@ -779,7 +798,7 @@ fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
     //    For multiple: v.tag == "C1" or (v.tag == "C2" and <recursive checks>)
     let pred_var = push_leaf(out, "var", Value::from("v"));
     let pred_body = build_predicate_body(out, &type_name, &constructors, pred_var);
-    let pred_fn = push_node(out, "function", vec![pred_var, pred_body]);
+    let pred_fn = push_function(out, &["v"], pred_body);
     let pred_target = push_leaf(out, "var", Value::from(type_name.clone()));
     let pred_assign = push_node(out, "assign", vec![pred_target, pred_fn]);
     stmts.push(pred_assign);
@@ -818,11 +837,8 @@ fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
             let mut body_children = vec![template_idx];
             body_children.extend(arg_vars.iter().copied());
             let body_idx = push_node(out, "json", body_children);
-            let cons_fn = push_node(out, "function", {
-                let mut children = arg_vars.clone();
-                children.push(body_idx);
-                children
-            });
+            let param_names: Vec<&str> = cons.args.iter().map(|(n, _)| n.as_str()).collect();
+            let cons_fn = push_function(out, &param_names, body_idx);
             cons_fn
         };
         let cons_assign = push_node(out, "assign", vec![cons_target, cons_value]);
@@ -833,14 +849,47 @@ fn desugar_data(original: &AstNode, out: &mut Ast) -> Option<AstRef> {
     //    if n.tag == "Zero" then base
     //    else step(n.pred, Type.rec(base, step)(n.pred))
     //
-    // For the general case with multiple constructors, the recursor
-    // dispatches on n.tag. For the initial implementation, we generate
-    // a two-constructor recursor (base + step) which covers Nat, Bool,
-    // Maybe, Either patterns.
+    // The recursor needs to reference itself recursively. A plain `assign`
+    // is non-recursive (the binding is not in scope inside its own body).
+    // We use a `rec` region with a self-application (Y-combinator) technique:
+    //
+    //   rec {
+    //     __rec_inner = (self) -> (base, step) -> (n) ->
+    //       if n.tag == "Zero" then base
+    //       else step(n.pred, self(self)(base, step)(n.pred))
+    //     Type.rec = __rec_inner(__rec_inner)
+    //   }
+    //
+    // The `rec` region allows the bindings to see each other. The
+    // self-application `__rec_inner(__rec_inner)` binds `self` to
+    // `__rec_inner`, so the recursive call `self(self)` re-applies
+    // `__rec_inner` to itself, creating a fresh closure at each recursion
+    // level. This works for arbitrary recursion depth.
+    //
+    // The `rec` region's result (the value of the last binding,
+    // `Type.rec = __rec_inner(__rec_inner)`) is the recursor closure. We
+    // wrap the `rec` in an `assign` so `Type.rec` is defined in the
+    // enclosing block scope.
     let rec_name = format!("{}.rec", type_name);
-    let rec_target = push_leaf(out, "var", Value::from(rec_name));
-    let rec_fn = build_recursor(out, &type_name, &constructors);
-    let rec_assign = push_node(out, "assign", vec![rec_target, rec_fn]);
+    let rec_target = push_leaf(out, "var", Value::from(rec_name.clone()));
+    let rec_inner_fn = build_recursor(out, &type_name, &constructors);
+
+    // rec region: { __rec_inner = inner_fn, Type.rec = __rec_inner(__rec_inner) }
+    let inner_name = format!("__rec_inner_{}", type_name);
+    let inner_target = push_leaf(out, "var", Value::from(inner_name.clone()));
+    let inner_assign = push_node(out, "assign", vec![inner_target, rec_inner_fn]);
+
+    // Type.rec = __rec_inner(__rec_inner)
+    let inner_var1 = push_leaf(out, "var", Value::from(inner_name.clone()));
+    let inner_var2 = push_leaf(out, "var", Value::from(inner_name));
+    let self_app = push_node(out, "call", vec![inner_var1, inner_var2]);
+    let rec_inner_target = push_leaf(out, "var", Value::from(rec_name));
+    let rec_inner_assign = push_node(out, "assign", vec![rec_inner_target, self_app]);
+
+    let rec_region = push_node(out, "rec", vec![inner_assign, rec_inner_assign]);
+
+    // assign { var("Type.rec"), rec { ... } }
+    let rec_assign = push_node(out, "assign", vec![rec_target, rec_region]);
     stmts.push(rec_assign);
 
     // Wrap all statements in a block.
@@ -905,18 +954,22 @@ fn build_cons_check(
     expr
 }
 
-/// Build the recursor function: (base, step) -> (n) ->
-///   if n.tag == "<first_cons>" then base
-///   else step(n.<arg>, Type.rec(base, step)(n.<arg>))
+/// Build the recursor inner function (self-application form):
+///   (self) -> (base, step) -> (n) ->
+///     if n.tag == "<first_cons>" then base
+///     else step(n.<arg>, self(self)(base, step)(n.<arg>))
 ///
-/// For the initial implementation, this handles the common two-constructor
-/// pattern (base + step). For types with more constructors, the recursor
-/// dispatches via nested `if` on `n.tag`.
+/// The `self` parameter is the recursor's own inner function. The recursive
+/// call uses `self(self)(base, step)(n.arg)` instead of naming the recursor
+/// directly, enabling recursion via self-application (Y-combinator style).
+/// This avoids the need for a self-referential binding.
 fn build_recursor(
     out: &mut Ast,
     type_name: &str,
     constructors: &[DataConstructor],
 ) -> usize {
+    // Parameter: self (the inner function, applied to itself for recursion)
+    let self_var = push_leaf(out, "var", Value::from("self"));
     // Parameters: (base, step)
     let base_var = push_leaf(out, "var", Value::from("base"));
     let step_var = push_leaf(out, "var", Value::from("step"));
@@ -925,23 +978,26 @@ fn build_recursor(
     let n_var = push_leaf(out, "var", Value::from("n"));
 
     // Build the dispatch on n.tag for each constructor.
-    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, base_var, step_var);
+    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, base_var, step_var, self_var);
 
-    let inner_fn = push_node(out, "function", vec![n_var, dispatch]);
-    // Outer function: (base, step) -> inner_fn
-    push_node(out, "function", vec![base_var, step_var, inner_fn])
+    let inner_fn = push_function(out, &["n"], dispatch);
+    // Middle function: (base, step) -> inner_fn
+    let mid_fn = push_function(out, &["base", "step"], inner_fn);
+    // Outer function: (self) -> mid_fn
+    push_function(out, &["self"], mid_fn)
 }
 
 /// Build the recursor body: dispatch on n.tag.
 /// - First constructor (nullary): `if n.tag == "C0" then base`
-/// - Other constructors: `else if n.tag == "Ci" then step_i(n.arg, Type.rec(base, step)(n.arg))`
+/// - Other constructors: `else if n.tag == "Ci" then step_i(n.arg, self(self)(base, step)(n.arg))`
 fn build_recursor_dispatch(
     out: &mut Ast,
-    type_name: &str,
+    _type_name: &str,
     constructors: &[DataConstructor],
     n_idx: usize,
     base_idx: usize,
     step_idx: usize,
+    self_idx: usize,
 ) -> usize {
     if constructors.is_empty() {
         return push_leaf(out, "lit", Value::Null);
@@ -978,18 +1034,22 @@ fn build_recursor_dispatch(
         let (arg_name, _) = &second.args[0];
         let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
         let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
-        // Type.rec(base, step) — recursive call
-        let rec_var = push_leaf(out, "var", Value::from(format!("{}.rec", type_name)));
-        let rec_call = push_node(out, "call", vec![rec_var, base_idx, step_idx]);
-        // Type.rec(base, step)(n.arg) — apply to the recursive arg
-        let rec_app = push_node(out, "call", vec![rec_call, n_arg]);
-        // step(n.arg, Type.rec(base, step)(n.arg))
-        push_node(out, "call", vec![step_idx, n_arg, rec_app])
+        // self(self) — recursive self-application
+        let rec_call = push_node(out, "call", vec![self_idx, self_idx]);
+        // self(self)(base, step) — apply to base and step
+        let rec_app = push_node(out, "call", vec![rec_call, base_idx, step_idx]);
+        // self(self)(base, step)(n.arg) — apply to the recursive arg
+        let rec_full = push_node(out, "call", vec![rec_app, n_arg]);
+        // step(n.arg, self(self)(base, step)(n.arg))
+        push_node(out, "call", vec![step_idx, n_arg, rec_full])
     };
 
-    // if n.tag == "C0" then base else if n.tag == "C1" then step_expr else null
+    // if n.tag == "C0" then base else if{n.tag == "C1", step_expr, null}
+    // The `if` eval scheme expects exactly 3 children [cond, then, else].
+    // Nest the else-if chain so every `if` node has 3 children.
     let null_lit = push_leaf(out, "lit", Value::Null);
-    push_node(out, "if", vec![first_tag_eq, base_idx, second_tag_eq, step_expr, null_lit])
+    let inner_if = push_node(out, "if", vec![second_tag_eq, step_expr, null_lit]);
+    push_node(out, "if", vec![first_tag_eq, base_idx, inner_if])
 }
 
 // ---------------------------------------------------------------------------
@@ -1923,19 +1983,17 @@ mod tests {
         ast.push(data_node("Bad", &[("MkBad", &[("f", "Bad -> Int")])]));
         let out = apply_desugar(&lang, &ast);
 
-        // Should produce a `lit` node with an error message, not a `block`.
+        // Should produce a `desugar-error` node, not a `lit` with
+        // `__data_error__` prefix (Bug 0.4).
         let root = out.nodes().last().unwrap();
-        assert_eq!(root.kind, "lit");
-        let msg = root.payload.as_str().unwrap_or("");
+        assert_eq!(root.kind, "desugar-error");
+        let reason = root.payload.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+        let kind = root.payload.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+        assert_eq!(kind, "data-error");
         assert!(
-            msg.contains("__data_error__"),
-            "expected data error, got: {}",
-            msg
-        );
-        assert!(
-            msg.contains("strict positivity"),
+            reason.contains("strict positivity"),
             "expected strict positivity error, got: {}",
-            msg
+            reason
         );
     }
 
@@ -1998,7 +2056,8 @@ mod tests {
         let root = out.nodes().last().unwrap();
         let children = root.payload.get("children").unwrap().as_array().unwrap();
 
-        // Last statement: Nat.rec = (base, step) -> (n) -> ...
+        // Last statement: Nat.rec = rec { ... }
+        // (Bug 0.3: recursor is wrapped in a rec region for self-reference)
         let rec_assign = out.get(AstRef::new(children[3].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(rec_assign.kind, "assign");
         let rec_children = rec_assign.payload.get("children").unwrap().as_array().unwrap();
@@ -2006,8 +2065,88 @@ mod tests {
         let target = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(target.kind, "var");
         assert_eq!(target.payload, json!("Nat.rec"));
-        // Value: function (outer: base, step)
+        // Value: rec region (containing the self-application bindings)
         let value = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
-        assert_eq!(value.kind, "function");
+        assert_eq!(value.kind, "rec");
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug 0.1: Constructor json node references arg variables, not string lits
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn data_constructor_references_arg_var_node() {
+        // Desugaring `data Nat = Zero | Succ(Nat)` should produce a Succ
+        // constructor whose body is a `json` template that references the
+        // `pred` *var node* (not a string literal "pred").
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        let root = out.nodes().last().unwrap();
+        assert_eq!(root.kind, "block");
+        let children = root.payload.get("children").unwrap().as_array().unwrap();
+
+        // Statement 2: Succ = (pred) -> json{...}
+        let succ_assign = out.get(AstRef::new(children[2].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(succ_assign.kind, "assign");
+        let succ_children = succ_assign.payload.get("children").unwrap().as_array().unwrap();
+        // Value: function (rich payload: params + body)
+        let succ_fn = out.get(AstRef::new(succ_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(succ_fn.kind, "function");
+        // params: ["pred"]
+        let params = succ_fn.payload.get("params").unwrap().as_array().unwrap();
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], json!("pred"));
+        // body: json node with children [template, pred_var]
+        let body_idx = succ_fn.payload.get("body").unwrap().as_u64().unwrap() as usize;
+        let body = out.get(AstRef::new(body_idx)).unwrap();
+        assert_eq!(body.kind, "json");
+        let body_children = body.payload.get("children").unwrap().as_array().unwrap();
+        // Child 0: template json node (string payload)
+        let template = out.get(AstRef::new(body_children[0].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(template.kind, "json");
+        let template_str = template.payload.as_str().expect("template must be a string");
+        assert!(template_str.contains("\"pred\""), "template must contain pred field: {}", template_str);
+        assert!(template_str.contains("$0"), "template must contain $0 placeholder: {}", template_str);
+        // Child 1: the arg var node (pred), NOT a string literal
+        let arg_node = out.get(AstRef::new(body_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(arg_node.kind, "var", "arg must be a var node, not a lit");
+        assert_eq!(arg_node.payload, json!("pred"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug 0.2: Recursor if nodes are binary-nested (3 children each)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn data_recursor_if_nodes_are_binary_nested() {
+        // The recursor dispatch should use nested 3-child `if` nodes,
+        // not a flat 5-child `if`.
+        let mut lang = Language::new();
+        lang.ast
+            .merge(AstShapeDef::new("ast.data", "data"))
+            .unwrap();
+        let mut ast = Ast::new();
+        ast.push(data_node("Nat", &[("Zero", &[]), ("Succ", &[("pred", "Nat")])]));
+        let out = apply_desugar(&lang, &ast);
+
+        // Walk the AST and verify every `if` node has exactly 3 children.
+        for node in out.nodes() {
+            if node.kind == "if" {
+                let children = node.payload.get("children").unwrap().as_array().unwrap();
+                assert_eq!(
+                    children.len(),
+                    3,
+                    "if node must have exactly 3 children, got {}: payload={}",
+                    children.len(),
+                    node.payload
+                );
+            }
+        }
     }
 }
