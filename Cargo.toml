@@ -23,6 +23,7 @@ members = [
   "crates/kit-hello",
   "crates/plugin-load",
   "crates/plugin-loader-native",
+  "crates/plugin-loader-native/tests/fixtures/native-echo",
   "crates/plugin-loader-wasm",
   "crates/plugin-loader-web",
   "crates/plugin-lib-archive",
@@ -87,7 +88,6 @@ members = [
   "crates/plugin-lsp-completion",
   "crates/plugin-lsp-goto",
   "crates/plugin-lsp-symbol",
-  "crates/plugin-target-native-example",
   "crates/plugin-exec-cache",
   "crates/plugin-exec-trace",
   "crates/plugin-exec-counter",
@@ -240,7 +240,6 @@ handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-lsp-completion = { path = "crates/plugin-lsp-completion" }
 handl-plugin-lsp-goto = { path = "crates/plugin-lsp-goto" }
 handl-plugin-lsp-symbol = { path = "crates/plugin-lsp-symbol" }
-handl-plugin-target-native-example = { path = "crates/plugin-target-native-example" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
 handl-plugin-exec-trace = { path = "crates/plugin-exec-trace" }
 handl-plugin-exec-counter = { path = "crates/plugin-exec-counter" }

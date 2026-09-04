@@ -1,7 +1,8 @@
 [package]
-name = "handl-plugin-target-native-example"
+name = "handl-plugin-loader-native-fixture-echo"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [lib]
 crate-type = ["cdylib"]

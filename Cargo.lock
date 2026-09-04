@@ -2263,6 +2263,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-loader-native-fixture-echo"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-loader-wasm"
 version = "0.1.0"
 dependencies = [
@@ -2320,14 +2328,6 @@ dependencies = [
 name = "handl-plugin-source"
 version = "0.1.0"
 dependencies = [
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-target-native-example"
-version = "0.1.0"
-dependencies = [
- "serde",
  "serde_json",
 ]
 

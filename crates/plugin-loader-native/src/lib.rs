@@ -190,12 +190,9 @@ mod tests {
         }
 
         let candidates: &[&str] = &[
-            "libnative_plugin_example.so",
-            "libhandl-plugin-target-native-example.so",
-            "libnative_plugin_example.dylib",
-            "libhandl-plugin-target-native-example.dylib",
-            "native_plugin_example.dll",
-            "handl-plugin-target-native-example.dll",
+            "libhandl_plugin_loader_native_fixture_echo.so",
+            "libhandl_plugin_loader_native_fixture_echo.dylib",
+            "handl_plugin_loader_native_fixture_echo.dll",
         ];
 
         for name in candidates {
@@ -211,12 +208,12 @@ mod tests {
     #[test]
     fn load_native_example_echo() {
         let Some(cdylib) = find_example_cdylib() else {
-            eprintln!("handl-plugin-target-native-example cdylib not found; skipping load test");
+            eprintln!("native-echo fixture cdylib not found; skipping load test");
             return;
         };
 
         let manifest = PluginManifest {
-            id: "handl-plugin-target-native-example".to_string(),
+            id: "handl-plugin-loader-native-fixture-echo".to_string(),
             version: "0.1.0".to_string(),
             provides: vec!["echo".into()],
             requires: vec![],
