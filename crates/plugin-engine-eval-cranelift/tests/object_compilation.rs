@@ -120,8 +120,13 @@ fn compile_mode_object_dispatch_produces_file() {
     let mode = CompileMode::Object {
         output_path: path.clone(),
     };
-    let result = compile_all_nodes(&case.lang, &case.ast, &mode)
-        .expect("dispatched object compilation must succeed");
+    let result = compile_all_nodes(
+        &case.lang,
+        &case.ast,
+        &mode,
+        &std::collections::HashMap::new(),
+    )
+    .expect("dispatched object compilation must succeed");
     assert!(
         result.compiled.is_empty(),
         "object mode should produce no function pointers"

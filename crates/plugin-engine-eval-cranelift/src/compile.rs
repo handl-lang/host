@@ -204,6 +204,7 @@ struct HelperIds {
     drop_value: FuncId,
     apply_closure: FuncId,
     call_foreign: FuncId,
+    call_ffi_raw: FuncId,
     pair: FuncId,
     unpair_fst: FuncId,
     unpair_snd: FuncId,
@@ -238,6 +239,7 @@ struct HelperRefs {
     drop_value: FuncRef,
     apply_closure: FuncRef,
     call_foreign: FuncRef,
+    call_ffi_raw: FuncRef,
     pair: FuncRef,
     unpair_fst: FuncRef,
     unpair_snd: FuncRef,
@@ -271,9 +273,10 @@ pub fn compile_all_nodes(
     lang: &Language,
     ast: &Ast,
     mode: &CompileMode,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<CompiledResult, LangError> {
     match mode {
-        CompileMode::Jit => compile_all_nodes_jit(lang, ast),
+        CompileMode::Jit => compile_all_nodes_jit(lang, ast, ffi_bindings),
         CompileMode::Object { output_path } => {
             let obj = compile_all_nodes_object(lang, ast, output_path)?;
             Ok(CompiledResult {
@@ -297,7 +300,11 @@ pub fn compile_all_nodes(
 ///
 /// Returns [`LangError`] on unsupported scheme version or cranelift JIT
 /// setup/compilation failure.
-pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResult, LangError> {
+pub fn compile_all_nodes_jit(
+    lang: &Language,
+    ast: &Ast,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+) -> Result<CompiledResult, LangError> {
     let mut builder = JITBuilder::new(default_libcall_names())
         .map_err(|e| LangError::engine(format!("JIT setup error: {}", e)))?;
     // Register all helper symbols.
@@ -341,6 +348,10 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     builder.symbol(
         "helper_v2_call_foreign",
         crate::helper_v2_call_foreign as *const u8,
+    );
+    builder.symbol(
+        "helper_v2_call_ffi_raw",
+        crate::helper_v2_call_ffi_raw as *const u8,
     );
     builder.symbol("helper_v2_pair", crate::helper_v2_pair as *const u8);
     builder.symbol(
@@ -386,7 +397,7 @@ pub fn compile_all_nodes_jit(lang: &Language, ast: &Ast) -> Result<CompiledResul
     builder.symbol("helper_v2_clone", crate::helper_v2_clone as *const u8);
 
     let mut module = JITModule::new(builder);
-    let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Local)?;
+    let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Local, ffi_bindings)?;
 
     module
         .finalize_definitions()
@@ -429,7 +440,13 @@ pub fn compile_all_nodes_object(
         .map_err(|e| LangError::engine(format!("object builder error: {}", e)))?;
     let mut module = ObjectModule::new(builder);
 
-    let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Export)?;
+    let (func_ids, pools) = compile_core_v2(
+        &mut module,
+        lang,
+        ast,
+        Linkage::Export,
+        &std::collections::HashMap::new(),
+    )?;
 
     let function_names: HashMap<usize, String> = func_ids
         .iter()
@@ -482,6 +499,7 @@ fn compile_core_v2<M: Module>(
     lang: &Language,
     ast: &Ast,
     node_linkage: Linkage,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
     // Scheme version check — v2 engine accepts v1 AND v2.
     if !SchemeVersion::v2().supports(&lang.scheme_version) {
@@ -523,6 +541,7 @@ fn compile_core_v2<M: Module>(
             &mut pools,
             ptr_type,
             &mut func_ctx,
+            ffi_bindings,
         )?;
     }
 
@@ -653,6 +672,7 @@ fn declare_helper_imports_v2<M: Module>(
         drop_value: declare(module, "helper_v2_drop_value", &sig_drop)?,
         apply_closure: declare(module, "helper_v2_apply_closure", &sig_apply_closure)?,
         call_foreign: declare(module, "helper_v2_call_foreign", &sig_apply_closure)?,
+        call_ffi_raw: declare(module, "helper_v2_call_ffi_raw", &sig_apply_closure)?,
         pair: declare(module, "helper_v2_pair", &sig_pair)?,
         unpair_fst: declare(module, "helper_v2_unpair_fst", &sig_2arg_ret)?,
         unpair_snd: declare(module, "helper_v2_unpair_snd", &sig_2arg_ret)?,
@@ -688,6 +708,7 @@ fn compile_node<M: Module>(
     pools: &mut ConstantPools,
     ptr_type: types::Type,
     func_ctx: &mut FunctionBuilderContext,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<(), LangError> {
     let mut ctx = module.make_context();
     ctx.func.signature = {
@@ -716,6 +737,7 @@ fn compile_node<M: Module>(
             drop_value: module.declare_func_in_func(helper_ids.drop_value, &mut builder.func),
             apply_closure: module.declare_func_in_func(helper_ids.apply_closure, &mut builder.func),
             call_foreign: module.declare_func_in_func(helper_ids.call_foreign, &mut builder.func),
+            call_ffi_raw: module.declare_func_in_func(helper_ids.call_ffi_raw, &mut builder.func),
             pair: module.declare_func_in_func(helper_ids.pair, &mut builder.func),
             unpair_fst: module.declare_func_in_func(helper_ids.unpair_fst, &mut builder.func),
             unpair_snd: module.declare_func_in_func(helper_ids.unpair_snd, &mut builder.func),
@@ -753,6 +775,7 @@ fn compile_node<M: Module>(
                     &helpers,
                     pools,
                     ptr_type,
+                    ffi_bindings,
                 )?;
                 val
             }
@@ -792,6 +815,7 @@ fn compile_scheme(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<(Value, bool), LangError> {
     match scheme {
         Scheme::Arr {
@@ -810,6 +834,7 @@ fn compile_scheme(
             helpers,
             pools,
             ptr_type,
+            ffi_bindings,
         ),
 
         Scheme::Seq { fst, snd } => {
@@ -821,9 +846,18 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
+                ffi_bindings,
             )?;
-            let (snd_val, snd_pushed) =
-                compile_scheme(builder, snd, ctx_param, fst_val, helpers, pools, ptr_type)?;
+            let (snd_val, snd_pushed) = compile_scheme(
+                builder,
+                snd,
+                ctx_param,
+                fst_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_bindings,
+            )?;
             if fst_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -845,8 +879,16 @@ fn compile_scheme(
             };
             // Now that both components are extracted, drop the original pair.
             builder.ins().call(helpers.drop_value, &[incoming_val]);
-            let (inner_result, inner_pushed) =
-                compile_scheme(builder, inner, ctx_param, fst, helpers, pools, ptr_type)?;
+            let (inner_result, inner_pushed) = compile_scheme(
+                builder,
+                inner,
+                ctx_param,
+                fst,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_bindings,
+            )?;
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -881,8 +923,16 @@ fn compile_scheme(
                     .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (l_result, l_pushed) =
-                compile_scheme(builder, l, ctx_param, left_val, helpers, pools, ptr_type)?;
+            let (l_result, l_pushed) = compile_scheme(
+                builder,
+                l,
+                ctx_param,
+                left_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_bindings,
+            )?;
             if l_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -897,8 +947,16 @@ fn compile_scheme(
                     .call(helpers.either_value, &[ctx_param, incoming_val]);
                 builder.inst_results(call)[0]
             };
-            let (r_result, r_pushed) =
-                compile_scheme(builder, r, ctx_param, right_val, helpers, pools, ptr_type)?;
+            let (r_result, r_pushed) = compile_scheme(
+                builder,
+                r,
+                ctx_param,
+                right_val,
+                helpers,
+                pools,
+                ptr_type,
+                ffi_bindings,
+            )?;
             if r_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
             }
@@ -917,6 +975,7 @@ fn compile_scheme(
             helpers,
             pools,
             ptr_type,
+            ffi_bindings,
         ),
 
         Scheme::App { callee, args } => {
@@ -941,6 +1000,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
+                ffi_bindings,
             )?;
             if c_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -953,6 +1013,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
+                ffi_bindings,
             )?;
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
             let call = builder.ins().call(
@@ -977,6 +1038,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
+                ffi_bindings,
             )
         }
     }
@@ -993,6 +1055,7 @@ fn compile_loop(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<(Value, bool), LangError> {
     // Save a **clone** of the original incoming value in a stack slot (needed
     // for loop-back to reconstruct pair(original_input, new_state)).  We must
@@ -1100,6 +1163,7 @@ fn compile_loop(
         helpers,
         pools,
         ptr_type,
+        ffi_bindings,
     )?;
     if body_pushed {
         builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -1207,6 +1271,7 @@ fn compile_arr(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<(Value, bool), LangError> {
     // Special-case the lit-bearing ops.
     match op {
@@ -1305,6 +1370,7 @@ fn compile_arr(
             helpers,
             pools,
             ptr_type,
+            ffi_bindings,
         )?;
         let n_val = builder.ins().iconst(types::I64, args.len() as i64);
         let call = builder.ins().call(
@@ -1322,6 +1388,7 @@ fn compile_arr(
         helpers,
         pools,
         ptr_type,
+        ffi_bindings,
     )?;
     let n_val = builder.ins().iconst(types::I64, args.len() as i64);
     match source {
@@ -1374,13 +1441,45 @@ fn compile_arr(
             Ok((builder.inst_results(call)[0], false))
         }
         ArrSource::Foreign(name) => {
-            let name_idx = pools.add_name(name);
-            let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
-            let call = builder.ins().call(
-                helpers.call_foreign,
-                &[ctx_param, name_idx_val, arg_ptrs, n_val],
-            );
-            Ok((builder.inst_results(call)[0], false))
+            // ADR-0083 §4: If this Foreign op name matches a registered FFI
+            // binding, compile to `helper_v2_call_ffi_raw` (direct C ABI via
+            // dlsym) instead of `helper_v2_call_foreign` (ModuleLookup trait
+            // object dispatch). This is the "raw C ABI / dlsym" fast path.
+            //
+            // The FFI binding's index in the ffi_table is determined at
+            // compile time — the table is built deterministically (sorted by
+            // symbol) so the index is stable between compile and run.
+            if ffi_bindings.contains_key(name) {
+                // Compute the FFI table index. The table is sorted by symbol
+                // at runtime (in run_native), so we replicate that ordering
+                // here to find the correct index.
+                let mut sorted_bindings: Vec<&String> = ffi_bindings.keys().collect();
+                sorted_bindings.sort_by(|a, b| {
+                    let ba = &ffi_bindings[*a];
+                    let bb = &ffi_bindings[*b];
+                    ba.symbol.cmp(&bb.symbol)
+                });
+                let ffi_idx = sorted_bindings
+                    .iter()
+                    .position(|k| *k == name)
+                    .unwrap_or(0);
+
+                let ffi_idx_val = builder.ins().iconst(types::I64, ffi_idx as i64);
+                let call = builder.ins().call(
+                    helpers.call_ffi_raw,
+                    &[ctx_param, ffi_idx_val, arg_ptrs, n_val],
+                );
+                Ok((builder.inst_results(call)[0], false))
+            } else {
+                // Fall back to the existing ModuleLookup dispatch path.
+                let name_idx = pools.add_name(name);
+                let name_idx_val = builder.ins().iconst(types::I64, name_idx as i64);
+                let call = builder.ins().call(
+                    helpers.call_foreign,
+                    &[ctx_param, name_idx_val, arg_ptrs, n_val],
+                );
+                Ok((builder.inst_results(call)[0], false))
+            }
         }
         ArrSource::DynamicForeign => {
             // ADR-0060: DynamicForeign ops (e.g. call_host) are dispatched
@@ -1451,6 +1550,7 @@ fn compile_args_v2(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
+    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
 ) -> Result<Value, LangError> {
     let n = args.len();
     if n == 0 {
@@ -1494,6 +1594,7 @@ fn compile_args_v2(
             helpers,
             pools,
             ptr_type,
+            ffi_bindings,
         )?;
         if arg_pushed {
             builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -1539,7 +1640,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("c")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1554,7 +1655,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("v")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1579,7 +1680,7 @@ mod tests {
             AstNode::new("lit").with_payload(json!(2)),
             AstNode::new("binary.add").with_payload(json!({"children": [0, 1]})),
         ]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1607,7 +1708,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("let")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1631,7 +1732,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("if")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1649,7 +1750,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("app")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1665,7 +1766,7 @@ mod tests {
             ))
             .unwrap();
         let ast = make_ast(vec![AstNode::new("loop")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_ok());
     }
 
@@ -1674,7 +1775,7 @@ mod tests {
         let mut lang = Language::new();
         lang.scheme_version = SchemeVersion::new("v3");
         let ast = make_ast(vec![AstNode::new("c")]);
-        let result = compile_all_nodes_jit(&lang, &ast);
+        let result = compile_all_nodes_jit(&lang, &ast, &std::collections::HashMap::new());
         assert!(result.is_err());
     }
 }

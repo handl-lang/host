@@ -1,0 +1,14 @@
+[package]
+name = "handl-plugin-ffi"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+libloading = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
