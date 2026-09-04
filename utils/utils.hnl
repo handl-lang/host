@@ -1,7 +1,7 @@
 --- utils — standard library utility modules for the handl runtime.
 ---
 --- This is an aggregator crate: it bundles many small modules (bool, fn,
---- math, mood, option, parse, result, serialize, str, typeof, encoding)
+--- math, mood, option, parse, serialize, str, typeof, encoding)
 --- and re-exports modules from other crates (base64, hex, json, toml,
 --- yaml, url-rfc, url-whatwg). The Rust Module/Function impls live in
 --- plugin-lib-utils; this .hnl file declares the aggregated interface
@@ -133,12 +133,6 @@
 ---
 --- ## parse module
 --- parse.parse — parse a string with a named parser (url_rfc, url_whatwg).
----
---- ## result module
---- result.ok — construct an Ok result wrapping a value.
---- result.err — construct an Err result wrapping an error.
---- result.is_ok — test whether a result is Ok.
---- result.is_err — test whether a result is Err.
 ---
 --- ## serialize module
 --- serialize.serialize — serialize a value to a string with a named format.
@@ -340,10 +334,6 @@ cap "option.or_else"
 cap "option.and"
 cap "option.xor"
 cap "parse.parse"
-cap "result.ok"
-cap "result.err"
-cap "result.is_ok"
-cap "result.is_err"
 cap "serialize.serialize"
 cap "serialize.deserialize"
 cap "str.upper"

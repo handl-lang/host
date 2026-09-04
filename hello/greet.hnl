@@ -5,4 +5,7 @@
 --- `include_str!`, evaluates it to obtain the greet closure, and applies it
 --- to the caller's argument. Handl's `+` operator natively concatenates
 --- strings (`prim.add` / `bin_add`), so no module registry is required.
+---
+--- Contract: IsGreeting(output) — output matches "Hello, <input>!"
+cap "hello.greet"
 name ~> "Hello, " + name + "!"

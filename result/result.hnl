@@ -1,0 +1,26 @@
+--- result — constructors for the Result type (ADR-0077).
+---
+--- The result library provides `result.ok` and `result.err`, the
+--- constructors for the `Result` type. They are pure handl arrows built
+--- on the nominal tag system (ADR-0055): an `Ok` result is a tagged value
+--- `{"__tag__": "ok", "value": <T>}` and an `Err` result is
+--- `{"__tag__": "err", "value": <E>}`.
+---
+--- Predicates (`is_ok`, `is_err`) are not provided — use `mood.int(r, ok)`
+--- and `mood.int(r, err)` directly, or pattern match with
+--- `match r { ok(v) => ..., err(e) => ... }`.
+
+--- result.ok — construct an Ok result wrapping a value.
+--- The value is tagged with the `ok` nominal tag (ADR-0055/0077).
+--- Contract: IsOk(output)
+tag ok = Value
+
+--- result.err — construct an Err result wrapping an error.
+--- The error is tagged with the `err` nominal tag (ADR-0055/0077).
+--- Contract: IsErr(output)
+tag err = Error
+
+{
+  ok: ok,
+  err: err,
+}
