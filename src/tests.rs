@@ -8,11 +8,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use handl_language::{Language, Source, Token, Tokens, language_value};
 use handl_language::LangError;
+use handl_language::{language_value, Language, Source, Token, Tokens};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_runtime::{RuntimeFactory, RuntimeHandle};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::LexModule;
 
@@ -77,10 +77,7 @@ impl RuntimeHandle for MockHandle {
         Err(LangError::NotImplemented)
     }
 
-    fn run_compiled(
-        &self,
-        _handle: &handl_runtime::CompiledHandle,
-    ) -> Result<Value, LangError> {
+    fn run_compiled(&self, _handle: &handl_runtime::CompiledHandle) -> Result<Value, LangError> {
         Err(LangError::NotImplemented)
     }
 }
@@ -275,22 +272,27 @@ fn call_with_non_language_first_arg_errors() {
 fn call_with_missing_text_arg_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
     let err = call(&module, &[lang_arg()]).unwrap_err();
-    assert!(err.to_string().contains("expected (lang, text)"), "got: {}", err);
+    assert!(
+        err.to_string().contains("expected (lang, text)"),
+        "got: {}",
+        err
+    );
 }
 
 #[test]
 fn call_with_non_string_text_arg_errors() {
     let module = make_module(Rc::new(MockFactory::new()));
     let err = call(&module, &[lang_arg(), json!(42)]).unwrap_err();
-    assert!(err.to_string().contains("expected (lang, text)"), "got: {}", err);
+    assert!(
+        err.to_string().contains("expected (lang, text)"),
+        "got: {}",
+        err
+    );
 }
 
 #[test]
 fn call_propagates_factory_build_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_build_err(LangError::Engine("build-boom".into())),
-    );
+    let factory = Rc::new(MockFactory::new().with_build_err(LangError::engine("build-boom")));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), json!("1 + 2")]).unwrap_err();
     assert!(err.to_string().contains("build-boom"), "got: {}", err);
@@ -298,13 +300,10 @@ fn call_propagates_factory_build_error() {
 
 #[test]
 fn call_propagates_handle_lex_error() {
-    let factory = Rc::new(
-        MockFactory::new()
-            .with_lex_err(LangError::LexError {
-                position: 3,
-                message: "bad char".into(),
-            }),
-    );
+    let factory = Rc::new(MockFactory::new().with_lex_err(LangError::LexError {
+        position: 3,
+        message: "bad char".into(),
+    }));
     let module = make_module(factory);
     let err = call(&module, &[lang_arg(), json!("1 + 2")]).unwrap_err();
     assert!(err.to_string().contains("bad char"), "got: {}", err);
