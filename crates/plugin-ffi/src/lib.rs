@@ -107,8 +107,24 @@ fn resolve_library(name: &str) -> Result<(), EvalError> {
     if cache.contains_key(name) {
         return Ok(());
     }
-    let lib = unsafe { Library::new(name) }
-        .map_err(|e| EvalError::Other(format!("dlopen failed for {name}: {e}")))?;
+    let lib = if name == "self" {
+        // Special name: load the current process's symbol table so tests
+        // can call `#[no_mangle] extern "C"` functions via the platform's
+        // `this()` constructor (libloading 0.8: `os::unix::Library::this()`).
+        #[cfg(unix)]
+        {
+            Library::from(libloading::os::unix::Library::this())
+        }
+        #[cfg(not(unix))]
+        {
+            return Err(EvalError::Other(
+                "library \"self\" is not supported on this platform".to_string(),
+            ));
+        }
+    } else {
+        unsafe { Library::new(name) }
+            .map_err(|e| EvalError::Other(format!("dlopen failed for {name}: {e}")))?
+    };
     cache.insert(name.to_string(), lib);
     Ok(())
 }

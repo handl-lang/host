@@ -273,10 +273,10 @@ pub fn compile_all_nodes(
     lang: &Language,
     ast: &Ast,
     mode: &CompileMode,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<CompiledResult, LangError> {
     match mode {
-        CompileMode::Jit => compile_all_nodes_jit(lang, ast, ffi_bindings),
+        CompileMode::Jit => compile_all_nodes_jit(lang, ast, ffi_ops),
         CompileMode::Object { output_path } => {
             let obj = compile_all_nodes_object(lang, ast, output_path)?;
             Ok(CompiledResult {
@@ -303,7 +303,7 @@ pub fn compile_all_nodes(
 pub fn compile_all_nodes_jit(
     lang: &Language,
     ast: &Ast,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<CompiledResult, LangError> {
     let mut builder = JITBuilder::new(default_libcall_names())
         .map_err(|e| LangError::engine(format!("JIT setup error: {}", e)))?;
@@ -397,7 +397,7 @@ pub fn compile_all_nodes_jit(
     builder.symbol("helper_v2_clone", crate::helper_v2_clone as *const u8);
 
     let mut module = JITModule::new(builder);
-    let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Local, ffi_bindings)?;
+    let (func_ids, pools) = compile_core_v2(&mut module, lang, ast, Linkage::Local, ffi_ops)?;
 
     module
         .finalize_definitions()
@@ -503,7 +503,7 @@ fn compile_core_v2<M: Module>(
     lang: &Language,
     ast: &Ast,
     node_linkage: Linkage,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(HashMap<usize, FuncId>, ConstantPools), LangError> {
     // Scheme version check — v2 engine accepts v1 AND v2.
     if !SchemeVersion::v2().supports(&lang.scheme_version) {
@@ -545,7 +545,7 @@ fn compile_core_v2<M: Module>(
             &mut pools,
             ptr_type,
             &mut func_ctx,
-            ffi_bindings,
+            ffi_ops,
         )?;
     }
 
@@ -712,7 +712,7 @@ fn compile_node<M: Module>(
     pools: &mut ConstantPools,
     ptr_type: types::Type,
     func_ctx: &mut FunctionBuilderContext,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(), LangError> {
     let mut ctx = module.make_context();
     ctx.func.signature = {
@@ -779,7 +779,7 @@ fn compile_node<M: Module>(
                     &helpers,
                     pools,
                     ptr_type,
-                    ffi_bindings,
+                    ffi_ops,
                 )?;
                 val
             }
@@ -819,7 +819,7 @@ fn compile_scheme(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
     match scheme {
         Scheme::Arr {
@@ -838,7 +838,7 @@ fn compile_scheme(
             helpers,
             pools,
             ptr_type,
-            ffi_bindings,
+            ffi_ops,
         ),
 
         Scheme::Seq { fst, snd } => {
@@ -850,7 +850,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             let (snd_val, snd_pushed) = compile_scheme(
                 builder,
@@ -860,7 +860,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             if fst_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -891,7 +891,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             if inner_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -935,7 +935,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             if l_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -959,7 +959,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             if r_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -979,7 +979,7 @@ fn compile_scheme(
             helpers,
             pools,
             ptr_type,
-            ffi_bindings,
+            ffi_ops,
         ),
 
         Scheme::App { callee, args } => {
@@ -1004,7 +1004,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             if c_pushed {
                 builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -1017,7 +1017,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )?;
             let n_val = builder.ins().iconst(types::I64, args.len() as i64);
             let call = builder.ins().call(
@@ -1042,7 +1042,7 @@ fn compile_scheme(
                 helpers,
                 pools,
                 ptr_type,
-                ffi_bindings,
+                ffi_ops,
             )
         }
     }
@@ -1059,7 +1059,7 @@ fn compile_loop(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
     // Save a **clone** of the original incoming value in a stack slot (needed
     // for loop-back to reconstruct pair(original_input, new_state)).  We must
@@ -1167,7 +1167,7 @@ fn compile_loop(
         helpers,
         pools,
         ptr_type,
-        ffi_bindings,
+        ffi_ops,
     )?;
     if body_pushed {
         builder.ins().call(helpers.pop_scope, &[ctx_param]);
@@ -1275,7 +1275,7 @@ fn compile_arr(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<(Value, bool), LangError> {
     // Special-case the lit-bearing ops.
     match op {
@@ -1374,7 +1374,7 @@ fn compile_arr(
             helpers,
             pools,
             ptr_type,
-            ffi_bindings,
+            ffi_ops,
         )?;
         let n_val = builder.ins().iconst(types::I64, args.len() as i64);
         let call = builder.ins().call(
@@ -1392,7 +1392,7 @@ fn compile_arr(
         helpers,
         pools,
         ptr_type,
-        ffi_bindings,
+        ffi_ops,
     )?;
     let n_val = builder.ins().iconst(types::I64, args.len() as i64);
     match source {
@@ -1453,17 +1453,13 @@ fn compile_arr(
             // The FFI binding's index in the ffi_table is determined at
             // compile time — the table is built deterministically (sorted by
             // symbol) so the index is stable between compile and run.
-            if ffi_bindings.contains_key(name) {
-                // Compute the FFI table index. The table is sorted by symbol
-                // at runtime (in run_native), so we replicate that ordering
-                // here to find the correct index.
-                let mut sorted_bindings: Vec<&String> = ffi_bindings.keys().collect();
-                sorted_bindings.sort_by(|a, b| {
-                    let ba = &ffi_bindings[*a];
-                    let bb = &ffi_bindings[*b];
-                    ba.symbol.cmp(&bb.symbol)
-                });
-                let ffi_idx = sorted_bindings
+            if ffi_ops.contains_key(name) {
+                // Compute the FFI table index. The table is sorted by op
+                // name at runtime (in run_native), so we replicate that
+                // ordering here to find the correct index.
+                let mut sorted_names: Vec<&String> = ffi_ops.keys().collect();
+                sorted_names.sort();
+                let ffi_idx = sorted_names
                     .iter()
                     .position(|k| *k == name)
                     .unwrap_or(0);
@@ -1554,7 +1550,7 @@ fn compile_args_v2(
     helpers: &HelperRefs,
     pools: &mut ConstantPools,
     ptr_type: types::Type,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<Value, LangError> {
     let n = args.len();
     if n == 0 {
@@ -1598,7 +1594,7 @@ fn compile_args_v2(
             helpers,
             pools,
             ptr_type,
-            ffi_bindings,
+            ffi_ops,
         )?;
         if arg_pushed {
             builder.ins().call(helpers.pop_scope, &[ctx_param]);

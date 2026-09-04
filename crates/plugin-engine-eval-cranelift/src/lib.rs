@@ -130,7 +130,6 @@ fn null_incoming_ptr() -> *mut TaggedValue {
 }
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language, SchemeVersion, Value};
-use handl_platform::Function;
 use handl_plugin_engine_eval::pattern_match::{self, PatternMatchCtx};
 use handl_plugin_engine_eval::{EvalEngine, EvalRequest};
 use handl_value::{tagged_to_value, TaggedValue};
@@ -157,7 +156,7 @@ pub struct CraneliftEngine {
     /// matches an entry here, the compiler emits a call to
     /// `helper_v2_call_ffi_raw` (direct C ABI) instead of
     /// `helper_v2_call_foreign` (ModuleLookup trait object dispatch).
-    ffi_bindings: HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 }
 
 impl CraneliftEngine {
@@ -165,7 +164,7 @@ impl CraneliftEngine {
     pub fn new() -> Self {
         Self {
             modules: None,
-            ffi_bindings: HashMap::new(),
+            ffi_ops: HashMap::new(),
         }
     }
 
@@ -173,7 +172,7 @@ impl CraneliftEngine {
     pub fn with_modules(modules: Rc<dyn handl_platform::ModuleLookup>) -> Self {
         Self {
             modules: Some(modules),
-            ffi_bindings: HashMap::new(),
+            ffi_ops: HashMap::new(),
         }
     }
 
@@ -186,16 +185,16 @@ impl CraneliftEngine {
     ///
     /// Non-FFI Foreign ops continue to use the existing `ModuleLookup` path,
     /// preserving backward compatibility.
-    pub fn register_ffi(&mut self, op_name: &str, binding: handl_plugin_ffi::FfiBinding) {
-        self.ffi_bindings.insert(op_name.to_string(), binding);
+    pub fn register_ffi(&mut self, op_name: &str, op: handl_plugin_ffi::FfiOpFunction) {
+        self.ffi_ops.insert(op_name.to_string(), op);
     }
 
-    /// Attach FFI bindings (builder style).
-    pub fn with_ffi_bindings(
+    /// Attach FFI ops (builder style).
+    pub fn with_ffi_ops(
         mut self,
-        bindings: HashMap<String, handl_plugin_ffi::FfiBinding>,
+        ops: HashMap<String, handl_plugin_ffi::FfiOpFunction>,
     ) -> Self {
-        self.ffi_bindings = bindings;
+        self.ffi_ops = ops;
         self
     }
 
@@ -292,7 +291,7 @@ impl CraneliftEngine {
             &result.literals,
             &result.names,
             self.modules.as_ref(),
-            &self.ffi_bindings,
+            &self.ffi_ops,
         )
     }
 }
@@ -320,7 +319,7 @@ impl EvalEngine for CraneliftEngine {
         // Compile all nodes in the AST to native functions.
         // The scheme lookup (lang.eval[node.kind]) happens here, at compile
         // time — it is erased from the compiled code (ADR §7).
-        let compile_result = compile_all_nodes_jit(lang, ast, &self.ffi_bindings)?;
+        let compile_result = compile_all_nodes_jit(lang, ast, &self.ffi_ops)?;
 
         run_native(
             lang,
@@ -329,7 +328,7 @@ impl EvalEngine for CraneliftEngine {
             &compile_result.literals,
             &compile_result.names,
             self.modules.as_ref(),
-            &self.ffi_bindings,
+            &self.ffi_ops,
         )
     }
 
@@ -364,16 +363,18 @@ fn run_native(
     literals: &[Value],
     names: &[String],
     modules: Option<&Rc<dyn handl_platform::ModuleLookup>>,
-    ffi_bindings: &HashMap<String, handl_plugin_ffi::FfiBinding>,
+    ffi_ops: &HashMap<String, handl_plugin_ffi::FfiOpFunction>,
 ) -> Result<Value, LangError> {
     // Build the evaluation context.
     // Convert literals from serde_json::Value to TaggedValue at the boundary.
     let literals: Vec<TaggedValue> = literals.iter().cloned().map(TaggedValue::from).collect();
 
-    // Build the FFI table from the registered bindings, in a deterministic
+    // Build the FFI table from the registered ops, in a deterministic
     // order (sorted by op name) so indices are stable.
-    let mut ffi_table: Vec<handl_plugin_ffi::FfiBinding> = ffi_bindings.values().cloned().collect();
-    ffi_table.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+    let mut ffi_table: Vec<(&String, &handl_plugin_ffi::FfiOpFunction)> = ffi_ops.iter().collect();
+    ffi_table.sort_by(|a, b| a.0.cmp(b.0));
+    let ffi_table: Vec<handl_plugin_ffi::FfiOpFunction> =
+        ffi_table.iter().map(|(_, op)| (*op).clone()).collect();
 
     let mut ctx = EvalCtx {
         lang: lang as *const Language,
@@ -386,7 +387,6 @@ fn run_native(
         names: names.to_vec(),
         error: None,
         ffi_table,
-        ffi_cache: handl_plugin_ffi::FfiLibraryCache::new(),
     };
 
     // Call the root node's compiled native function.
@@ -481,9 +481,7 @@ pub struct EvalCtx {
     /// code calls `helper_v2_call_ffi_raw` with the binding's index instead
     /// of the general `helper_v2_call_foreign` path (which goes through
     /// `ModuleLookup` trait object dispatch).
-    ffi_table: Vec<handl_plugin_ffi::FfiBinding>,
-    /// Shared FFI library cache (ADR-0083 §4: "dlopen once, reuse").
-    ffi_cache: handl_plugin_ffi::FfiLibraryCache,
+    ffi_table: Vec<handl_plugin_ffi::FfiOpFunction>,
 }
 
 impl EvalCtx {
@@ -548,7 +546,6 @@ impl EvalCtx {
             names,
             error: None,
             ffi_table: Vec::new(),
-            ffi_cache: handl_plugin_ffi::FfiLibraryCache::new(),
         }
     }
 }
@@ -1403,12 +1400,12 @@ pub unsafe extern "C" fn helper_v2_call_ffi_raw(
             arg_vals.push(take_value(arg_ptr));
         }
 
-        // Look up the FFI binding from the table.
-        let binding = match ctx.ffi_table.get(ffi_idx) {
-            Some(b) => b.clone(),
+        // Look up the FFI op from the table.
+        let ffi_op = match ctx.ffi_table.get(ffi_idx) {
+            Some(op) => op.clone(),
             None => {
                 return ctx.set_error(LangError::engine(format!(
-                    "ffi: binding index {} out of bounds (table has {} entries)",
+                    "ffi: op index {} out of bounds (table has {} entries)",
                     ffi_idx,
                     ctx.ffi_table.len()
                 )));
@@ -1418,10 +1415,10 @@ pub unsafe extern "C" fn helper_v2_call_ffi_raw(
         // Convert TaggedValue args to serde_json::Value for the FFI boundary.
         let val_args: Vec<Value> = arg_vals.iter().map(tagged_to_value).collect();
 
-        // Create an FfiDispatcher sharing the ctx's library cache and call it.
-        let dispatcher = ctx.ffi_cache.dispatcher(binding);
+        // Call the FfiOpFunction directly (raw C ABI / dlsym internally).
         let mut pctx = handl_platform::EvalContext::new();
-        match dispatcher.call(&val_args, &mut pctx) {
+        use handl_platform::Function;
+        match ffi_op.call(&val_args, &mut pctx) {
             Ok(v) => box_value(TaggedValue::from(v)),
             Err(e) => ctx.set_error(LangError::engine(e.to_string())),
         }
@@ -6747,7 +6744,7 @@ mod tests {
     /// result comes from the raw C function.
     #[test]
     fn ffi_fast_path_dispatches_to_raw_c_symbol() {
-        use handl_plugin_ffi::{FfiBinding, MarshalType};
+        use handl_plugin_ffi::FfiOpFunction;
         use std::collections::HashMap;
 
         // Build a language with a single node kind "test" whose eval scheme
@@ -6766,19 +6763,15 @@ mod tests {
 
         let ast = make_ast(vec![AstNode::new("test")]);
 
-        // Register the FFI binding.
-        let mut ffi_bindings = HashMap::new();
-        ffi_bindings.insert(
+        // Register the FFI op (uses "self" = Library::this() to find the
+        // #[no_mangle] test function in the current process).
+        let mut ffi_ops = HashMap::new();
+        ffi_ops.insert(
             "ffi.double".to_string(),
-            FfiBinding {
-                library: "self".to_string(),
-                symbol: "ffi_cranelift_test_double_i32".to_string(),
-                arg_types: vec![MarshalType::I32],
-                return_type: MarshalType::I32,
-            },
+            FfiOpFunction::new("self", "ffi_cranelift_test_double_i32", vec!["i32".to_string()], "i32", false),
         );
 
-        let engine = CraneliftEngine::new().with_ffi_bindings(ffi_bindings);
+        let engine = CraneliftEngine::new().with_ffi_ops(ffi_ops);
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));
@@ -6788,7 +6781,7 @@ mod tests {
     /// (backward compatibility).
     #[test]
     fn non_ffi_foreign_ops_use_module_lookup_path() {
-        use handl_plugin_ffi::{FfiBinding, MarshalType};
+        use handl_plugin_ffi::FfiOpFunction;
         use std::collections::HashMap;
 
         // Build a language with a node kind "test" whose eval scheme
@@ -6807,24 +6800,19 @@ mod tests {
 
         let ast = make_ast(vec![AstNode::new("test")]);
 
-        // Register an FFI binding for a DIFFERENT op name — "double" should
+        // Register an FFI op for a DIFFERENT op name — "double" should
         // still go through ModuleLookup.
-        let mut ffi_bindings = HashMap::new();
-        ffi_bindings.insert(
+        let mut ffi_ops = HashMap::new();
+        ffi_ops.insert(
             "ffi.other".to_string(),
-            FfiBinding {
-                library: "self".to_string(),
-                symbol: "ffi_cranelift_test_double_i32".to_string(),
-                arg_types: vec![MarshalType::I32],
-                return_type: MarshalType::I32,
-            },
+            FfiOpFunction::new("self", "ffi_cranelift_test_double_i32", vec!["i32".to_string()], "i32", false),
         );
 
         // Set up the module registry with "double".
         let modules: Rc<dyn handl_platform::ModuleLookup> =
             Rc::new(ModuleRegistry::new().with(ConformanceModule));
 
-        let engine = CraneliftEngine::with_modules(modules).with_ffi_bindings(ffi_bindings);
+        let engine = CraneliftEngine::with_modules(modules).with_ffi_ops(ffi_ops);
         let req = EvalRequest::new(ast);
         let result = engine.eval(&lang, &req).unwrap();
         assert_eq!(result, json!(42));

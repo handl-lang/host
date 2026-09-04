@@ -11,6 +11,26 @@ use handl_language::{Ast, AstNode};
 use handl_runtime::desugar_pass;
 use serde_json::json;
 
+// ---------------------------------------------------------------------------
+// json — Prim op: parse a JSON template from payload
+// ---------------------------------------------------------------------------
+
+/// Bug #1: constructing `Succ(Zero)` via a `data` declaration must produce
+/// `{"tag": "Succ", "pred": {"tag": "Zero"}}` — the `pred` field holds the
+/// argument's value, not the literal string "pred".
+#[test]
+fn data_constructor_substitutes_arg_value() {
+    let kit = kit();
+    let result = kit
+        .run("data Nat = Zero | Succ(Nat)\nSucc(Zero)")
+        .expect("data constructor application must eval");
+    assert_eq!(
+        result,
+        json!({"tag": "Succ", "pred": {"tag": "Zero"}}),
+        "pred field must hold the evaluated argument, not the string \"pred\""
+    );
+}
+
 /// Build a `Kit` for testing.
 fn kit() -> Kit {
     Kit::new().expect("canonical kit must assemble")
