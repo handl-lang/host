@@ -7,6 +7,7 @@ edition = "2024"
 members = [
   "crates/plugin-ext-build",
   "crates/plugin-ext-cli",
+  "crates/plugin-ext-diag",
   "crates/plugin-ext-compile",
   "crates/plugin-ext-eval",
   "crates/plugin-ext-fmt",
@@ -164,6 +165,7 @@ cranelift-object = "0.115"
 
 handl-plugin-ext-build = { path = "crates/plugin-ext-build" }
 handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
+handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
 handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
 handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
