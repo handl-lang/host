@@ -14,3 +14,18 @@ cap "ws_whatwg_native.connect"
 cap "ws_whatwg_native.send"
 cap "ws_whatwg_native.recv"
 cap "ws_whatwg_native.close"
+op "ws_whatwg_native.ws_whatwg_native" : -> Value
+  guarantee: True
+op "ws_whatwg_native.connect" : String -> Value
+  guarantee: True
+op "ws_whatwg_native.send" : (Value, Value) -> Value
+  guarantee: True
+op "ws_whatwg_native.recv" : Value -> Value
+  guarantee: True
+op "ws_whatwg_native.close" : Value -> Value
+  guarantee: True
+handl "ws_whatwg_native.ws_whatwg_native" = rust_ws_whatwg_native_name
+handl "ws_whatwg_native.connect" = rust_ws_whatwg_native_connect
+handl "ws_whatwg_native.send" = rust_ws_whatwg_native_send
+handl "ws_whatwg_native.recv" = rust_ws_whatwg_native_recv
+handl "ws_whatwg_native.close" = rust_ws_whatwg_native_close
