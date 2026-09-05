@@ -11,6 +11,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
+    "vite-plus": "0.2.9",
     "vitepress": "next"
   },
   "devEngines": {
