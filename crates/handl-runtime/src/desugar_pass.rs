@@ -388,17 +388,22 @@ fn push_function_with_termination(
 
 /// Find the first recursive field name across all constructors of a type.
 ///
-/// A recursive field is a constructor argument whose type equals the type
-/// being defined. Returns the first such field name (e.g. "pred" for Nat),
-/// or `None` if the type has no recursive constructors.
+/// A recursive field is a constructor argument whose type expression is the
+/// type being defined, either bare (`Nat`) or applied (`Vec(n - 1, a)`).
 fn find_first_recursive_field(
     constructors: &[DataConstructor],
     type_name: &str,
 ) -> Option<String> {
     for cons in constructors {
         for (arg_name, arg_type) in &cons.args {
-            if arg_type == type_name {
-                return Some(arg_name.clone());
+            let mut parser = TypeExprParser::new(arg_type);
+            if let Some(expr) = parser.parse() {
+                match &expr {
+                    TypeExpr::Atom(name) | TypeExpr::App(name, _) if name == type_name => {
+                        return Some(arg_name.clone());
+                    }
+                    _ => {}
+                }
             }
         }
     }
@@ -748,14 +753,25 @@ fn desugar_for(
 
 /// A constructor specification parsed from a `data` node's payload.
 #[derive(Debug, Clone)]
-struct DataConstructor {
+struct DataParam {
     name: String,
-    args: Vec<(String, String)>, // (arg_name, arg_type_name)
+    typ: String,
 }
 
-/// Parse a `data` node's payload into the type name and constructor list.
+#[derive(Debug, Clone)]
+struct DataConstructor {
+    name: String,
+    args: Vec<(String, String)>, // (arg_name, arg_type_string)
+    /// For each type parameter, an optional result-index expression string.
+    /// Used by the predicate to check that the value was built with the
+    /// requested indices (e.g. `Nil` in `Vec` satisfies `n == 0`).
+    result_indices: Vec<Option<String>>,
+}
+
+/// Parse a `data` node's payload into the type name, optional type parameters,
+/// and constructor list.
 ///
-/// Supports two payload shapes:
+/// Supports three payload shapes:
 ///
 /// **Hand-built (backward compat):** structured JSON payload:
 /// ```json
@@ -768,20 +784,20 @@ struct DataConstructor {
 /// }
 /// ```
 ///
-/// **Parser-produced (ADR-0082):** `payload.name` (string from
-/// `payload_tokens`) + one child (the constructor list expression). The
-/// child is an `alt` tree (from `|` pipe infix) or a single constructor
-/// node. Each constructor is either:
-/// - A `var` node: nullary constructor (name = var payload, no args).
-/// - A `call` node: N-ary constructor (callee child 0 is a `var` with the
-///   name; children 1+ are type expressions, each a `var` whose payload is
-///   the type name). Arg names are derived from the lowercased type name.
-fn parse_data_payload(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataConstructor>)> {
-    let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
-
+/// **Parser-produced (ADR-0082 Phase 6.3):** two children:
+/// - child 0 is the type expression (`var Name` or `call(Name, params...)`)
+/// - child 1 is the constructor list (`alt` tree or single constructor).
+///
+/// **Legacy parser-produced:** `payload.name` + one child (constructor list).
+fn parse_data_payload(
+    lang: &Language,
+    node: &AstNode,
+    ast: &Ast,
+) -> Option<(String, Vec<DataParam>, Vec<DataConstructor>)> {
     // Backward compatibility: if `payload.constructors` exists (hand-built
     // test nodes), use the old structured-JSON path.
     if let Some(constructors) = node.payload.get("constructors").and_then(|c| c.as_array()) {
+        let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
         let cons = constructors
             .iter()
             .map(|c| {
@@ -799,132 +815,391 @@ fn parse_data_payload(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(Str
                             .collect()
                     })
                     .unwrap_or_default();
-                DataConstructor { name: cname, args }
+                let result_indices = c
+                    .get("result_indices")
+                    .and_then(|r| r.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .map(|v| v.as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                DataConstructor {
+                    name: cname,
+                    args,
+                    result_indices,
+                }
             })
             .collect();
-        return Some((name, cons));
+        return Some((name, Vec::new(), cons));
     }
 
-    // Parser-produced path: extract constructors from the child AST.
-    // The `data` node has one child (the constructor list expression).
-    let child_idx = node
-        .payload
-        .get("children")
-        .and_then(|c| c.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|v| v.as_u64())
-        .map(|v| v as usize)?;
-    let child = ast.get(AstRef::new(child_idx))?;
+    let children = node.payload.get("children").and_then(|c| c.as_array())?;
+    let (name, params) = if children.len() >= 2 {
+        // New parser form: child 0 = type expression with optional indices.
+        let type_idx = children[0].as_u64()? as usize;
+        let type_node = ast.get(AstRef::new(type_idx))?;
+        parse_type_expr(lang, type_node, ast)?
+    } else {
+        // Legacy form: name in payload, no parameters.
+        (node.payload.get("name").and_then(|v| v.as_str())?.to_string(), Vec::new())
+    };
+
+    // The constructor list is the last child for both new and legacy forms.
+    let cons_idx = children.last()?.as_u64()? as usize;
+    let cons_node = ast.get(AstRef::new(cons_idx))?;
     let mut constructors = Vec::new();
-    collect_constructors(lang, child, ast, &mut constructors);
-    Some((name, constructors))
+    collect_constructors(lang, cons_node, ast, &mut constructors, &params);
+    Some((name, params, constructors))
+}
+
+/// Parse a type expression node into the type name and its parameters.
+///
+/// - `var("Name")` -> ("Name", [])
+/// - `call(var("Name"), type-annot(n, Nat), type-annot(a, Type), ...)`
+///      -> ("Name", [("n","Nat"), ("a","Type"), ...])
+fn parse_type_expr(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataParam>)> {
+    match node.kind.as_str() {
+        "var" => {
+            let name = node.payload.as_str()?.to_string();
+            Some((name, Vec::new()))
+        }
+        "call" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array())?;
+            let callee_idx = children.first()?.as_u64()? as usize;
+            let callee = ast.get(AstRef::new(callee_idx))?;
+            let name = callee.payload.as_str()?.to_string();
+            let mut params = Vec::new();
+            for param_val in children.iter().skip(1) {
+                let param_idx = param_val.as_u64()? as usize;
+                let param_node = ast.get(AstRef::new(param_idx))?;
+                if let Some((name, typ)) = parse_type_param(lang, param_node, ast) {
+                    params.push(DataParam { name, typ });
+                }
+            }
+            Some((name, params))
+        }
+        _ => None,
+    }
+}
+
+/// Parse a single type parameter node, which is either a bare `var` (name
+/// only, type unknown) or a `type-annot(var(name), type)`.
+fn parse_type_param(_lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, String)> {
+    match node.kind.as_str() {
+        "var" => {
+            let name = node.payload.as_str()?.to_string();
+            Some((name, "_".to_string()))
+        }
+        "type-annot" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array())?;
+            let name_idx = children.first()?.as_u64()? as usize;
+            let name_node = ast.get(AstRef::new(name_idx))?;
+            let name = name_node.payload.as_str()?.to_string();
+            let type_idx = children.get(1)?.as_u64()? as usize;
+            let type_node = ast.get(AstRef::new(type_idx))?;
+            let typ = node_to_type_string(ast, type_node);
+            Some((name, typ))
+        }
+        _ => None,
+    }
 }
 
 /// Recursively collect constructors from an `alt` tree or a single
 /// constructor node.
 ///
-/// - `alt` node: recurse on both children (left and right).
-/// - `var` node: nullary constructor (name = payload string, no args).
-/// - `call` node: N-ary constructor (callee = child 0 `var`, args =
-///   children 1+ type expressions). Arg names are derived from the
-///   lowercased type name; arg types from the `var` payload. Non-`var`
-///   args get a placeholder type `"_"`.
-fn collect_constructors(lang: &Language, node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor>) {
+/// A constructor may be wrapped in a `type-annot` that gives its result type
+/// (e.g. `Nil : Vec(0, a)`). The result type's arguments become the
+/// constructor's `result_indices`.
+fn collect_constructors(
+    lang: &Language,
+    node: &AstNode,
+    ast: &Ast,
+    out: &mut Vec<DataConstructor>,
+    params: &[DataParam],
+) {
     match node.kind.as_str() {
         "alt" => {
-            // Recurse on both children.
             let children = node.payload.get("children").and_then(|c| c.as_array());
             if let Some(arr) = children {
                 for child_val in arr {
                     if let Some(idx) = child_val.as_u64() {
                         if let Some(child) = ast.get(AstRef::new(idx as usize)) {
-                            collect_constructors(lang, child, ast, out);
+                            collect_constructors(lang, child, ast, out, params);
                         }
                     }
                 }
             }
         }
+        "type-annot" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            if let Some(ta_arr) = children {
+                if ta_arr.len() >= 2 {
+                    let cons_idx = ta_arr[0].as_u64().map(|v| v as usize);
+                    let result_idx = ta_arr[1].as_u64().map(|v| v as usize);
+                    let result_indices = result_idx
+                        .and_then(|idx| ast.get(AstRef::new(idx)))
+                        .map(|n| extract_result_indices_from_type(n, ast, params.len()))
+                        .unwrap_or_else(|| vec![None; params.len()]);
+                    if let Some(cons_idx) = cons_idx {
+                        if let Some(cons_node) = ast.get(AstRef::new(cons_idx)) {
+                            collect_constructor_leaf(
+                                lang,
+                                cons_node,
+                                ast,
+                                out,
+                                params,
+                                result_indices,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            collect_constructor_leaf(lang, node, ast, out, params, vec![None; params.len()]);
+        }
+    }
+}
+
+/// Extract a list of result-index strings from a type expression node.
+///
+/// - `var("Name")` with `expected` params -> empty (all `None`).
+/// - `call(var("Name"), e0, e1, ...)` -> `Some(node_to_type_string(ei))` for
+///   each argument, padded with `None` up to `expected`.
+fn extract_result_indices_from_type(
+    node: &AstNode,
+    ast: &Ast,
+    expected: usize,
+) -> Vec<Option<String>> {
+    match node.kind.as_str() {
+        "call" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            if let Some(arr) = children {
+                let mut out: Vec<Option<String>> = arr
+                    .iter()
+                    .skip(1)
+                    .map(|v| {
+                        v.as_u64()
+                            .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                            .map(|n| node_to_type_string(ast, n))
+                            .filter(|s| !s.is_empty())
+                            .map(Some)
+                            .unwrap_or(None)
+                    })
+                    .collect();
+                while out.len() < expected {
+                    out.push(None);
+                }
+                out.truncate(expected);
+                return out;
+            }
+        }
+        _ => {}
+    }
+    vec![None; expected]
+}
+
+/// Collect a single constructor leaf (`var` or `call`), optionally with
+/// pre-computed result indices.
+fn collect_constructor_leaf(
+    lang: &Language,
+    node: &AstNode,
+    ast: &Ast,
+    out: &mut Vec<DataConstructor>,
+    params: &[DataParam],
+    mut result_indices: Vec<Option<String>>,
+) {
+    match node.kind.as_str() {
         "var" => {
-            // Nullary constructor: name = payload string, no args.
             let cname = node.payload.as_str().unwrap_or("").to_string();
+            // Bootstrap: nullary constructors with no explicit result type get
+            // `0` for the first `Nat` parameter (the canonical base index).
+            if result_indices.iter().all(|r| r.is_none()) {
+                if let Some(i) = params.iter().position(|p| p.typ == "Nat") {
+                    result_indices[i] = Some("0".to_string());
+                }
+            }
             out.push(DataConstructor {
                 name: cname,
                 args: Vec::new(),
+                result_indices,
             });
         }
         "call" => {
-            // N-ary constructor: callee (child 0) is a `var` with the name,
-            // children 1+ are type expression args.
             let children = node.payload.get("children").and_then(|c| c.as_array());
             let arr = match children {
                 Some(a) => a,
                 None => return,
             };
-            // Child 0: callee (var with constructor name).
             let callee_idx = arr.first().and_then(|v| v.as_u64()).map(|v| v as usize);
             let cname = callee_idx
                 .and_then(|idx| ast.get(AstRef::new(idx)))
                 .and_then(|n| n.payload.as_str())
                 .unwrap_or("")
                 .to_string();
-            // Children 1+: type expression args. Each arg is either:
-            // - A `var` node: implicit arg name (lowercased type name), e.g.
-            //   `Succ(Nat)` → arg name "nat", type "Nat".
-            // - A `type-annot` node: explicit arg name, e.g.
-            //   `Just(value : Nat)` → arg name "value", type "Nat". The
-            //   `type-annot` node has children [subject(var), annot(var)].
             let mut args = Vec::new();
             for (i, arg_val) in arr.iter().enumerate().skip(1) {
                 if let Some(arg_idx) = arg_val.as_u64() {
                     if let Some(arg_node) = ast.get(AstRef::new(arg_idx as usize)) {
-                        let (arg_name, arg_type) = if arg_node.kind == "var" {
-                            // Implicit arg: `Succ(Nat)` → name "nat", type "Nat".
-                            let type_name = arg_node.payload.as_str().unwrap_or("_").to_string();
-                            let lower = type_name.to_lowercase();
-                            (lower, type_name)
-                        } else if lang.child_role_index(&arg_node.kind, "annot").ok().flatten().is_some()
-                            || arg_node.kind == "type-annot"
-                        {
-                            // Explicit arg: `Just(value : Nat)` → name "value",
-                            // type "Nat". The type-annot node has children
-                            // [subject, annot] where subject is a var with the
-                            // arg name and annot is a var with the type name.
-                            let ta_children = arg_node
-                                .payload
-                                .get("children")
-                                .and_then(|c| c.as_array());
-                            let (name, typ) = match ta_children {
-                                Some(ta_arr) if ta_arr.len() >= 2 => {
-                                    let subject_name = ta_arr[0]
-                                        .as_u64()
-                                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                                        .and_then(|n| n.payload.as_str())
-                                        .unwrap_or("_")
-                                        .to_string();
-                                    let type_name = ta_arr[1]
-                                        .as_u64()
-                                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                                        .and_then(|n| n.payload.as_str())
-                                        .unwrap_or("_")
-                                        .to_string();
-                                    (subject_name, type_name)
-                                }
-                                _ => (format!("_{}", i - 1), "_".to_string()),
-                            };
-                            (name, typ)
-                        } else {
-                            // Non-var, non-type-annot: use placeholder.
-                            (format!("_{}", i - 1), "_".to_string())
-                        };
+                        let (arg_name, arg_type) = parse_constructor_arg(lang, ast, arg_node, i);
                         args.push((arg_name, arg_type));
                     }
                 }
             }
-            out.push(DataConstructor { name: cname, args });
+            out.push(DataConstructor {
+                name: cname,
+                args,
+                result_indices,
+            });
         }
-        _ => {
-            // Unknown node kind: skip (or could be a single constructor).
+        _ => {}
+    }
+}
+
+/// Parse a single constructor argument node into (arg_name, arg_type_string).
+fn parse_constructor_arg(
+    lang: &Language,
+    ast: &Ast,
+    arg_node: &AstNode,
+    position: usize,
+) -> (String, String) {
+    if lang.child_role_index(&arg_node.kind, "annot").ok().flatten().is_some()
+        || arg_node.kind == "type-annot"
+    {
+        let ta_children = arg_node.payload.get("children").and_then(|c| c.as_array());
+        if let Some(ta_arr) = ta_children {
+            if ta_arr.len() >= 2 {
+                let subject_idx = ta_arr[0].as_u64().map(|v| v as usize);
+                let annot_idx = ta_arr[1].as_u64().map(|v| v as usize);
+                let name = subject_idx
+                    .and_then(|idx| ast.get(AstRef::new(idx)))
+                    .and_then(|n| n.payload.as_str())
+                    .unwrap_or("_")
+                    .to_string();
+                let typ = annot_idx
+                    .and_then(|idx| ast.get(AstRef::new(idx)))
+                    .map(|n| node_to_type_string(ast, n))
+                    .unwrap_or_else(|| "_".to_string());
+                return (name, typ);
+            }
         }
+    }
+    let typ = node_to_type_string(ast, arg_node);
+    let name = if typ.is_empty() {
+        format!("_{}", position - 1)
+    } else {
+        derive_arg_name_from_type(&typ)
+    };
+    (name, typ)
+}
+
+/// Derive a default argument name from a type string by lowercasing the head
+/// identifier.
+fn derive_arg_name_from_type(type_str: &str) -> String {
+    type_str
+        .split(|c: char| c == '(' || c == ' ' || c == '.' || c == '-' || c == '+')
+        .next()
+        .unwrap_or("_")
+        .to_lowercase()
+}
+
+/// Reconstruct a source-like string for a type/index expression AST node.
+fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
+    match node.kind.as_str() {
+        "var" => node.payload.as_str().unwrap_or("").to_string(),
+        "value" => node.payload.to_string(),
+        "lit" => node.payload.to_string(),
+        "call" => {
+            let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+                Some(a) => a,
+                None => return String::new(),
+            };
+            let callee = children
+                .first()
+                .and_then(|v| v.as_u64())
+                .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                .map(|n| node_to_type_string(ast, n))
+                .unwrap_or_default();
+            let args: Vec<String> = children
+                .iter()
+                .skip(1)
+                .filter_map(|v| {
+                    v.as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|n| node_to_type_string(ast, n))
+                })
+                .collect();
+            format!("{}({})", callee, args.join(", "))
+        }
+        "type-annot" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            if let Some(arr) = children {
+                if arr.len() >= 2 {
+                    let left = arr[0]
+                        .as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|n| node_to_type_string(ast, n))
+                        .unwrap_or_default();
+                    let right = arr[1]
+                        .as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|n| node_to_type_string(ast, n))
+                        .unwrap_or_default();
+                    return format!("{} : {}", left, right);
+                }
+            }
+            String::new()
+        }
+        "field-access" => {
+            let children = node.payload.get("children").and_then(|c| c.as_array());
+            if let Some(arr) = children {
+                if arr.len() >= 2 {
+                    let left = arr[0]
+                        .as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|n| node_to_type_string(ast, n))
+                        .unwrap_or_default();
+                    let right = arr[1]
+                        .as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|n| node_to_type_string(ast, n))
+                        .unwrap_or_default();
+                    return format!("{}.{}", left, right);
+                }
+            }
+            String::new()
+        }
+        kind if kind.starts_with("binary.") => {
+            let children = match node.payload.get("children").and_then(|c| c.as_array()) {
+                Some(a) => a,
+                None => return String::new(),
+            };
+            if children.len() >= 2 {
+                let op = kind.strip_prefix("binary.").unwrap_or("");
+                let op_symbol = match op {
+                    "add" => "+",
+                    "sub" => "-",
+                    "mul" => "*",
+                    "div" => "/",
+                    "mod" => "%",
+                    _ => op,
+                };
+                let left = children[0]
+                    .as_u64()
+                    .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                    .map(|n| node_to_type_string(ast, n))
+                    .unwrap_or_default();
+                let right = children[1]
+                    .as_u64()
+                    .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                    .map(|n| node_to_type_string(ast, n))
+                    .unwrap_or_default();
+                return format!("{} {} {}", left, op_symbol, right);
+            }
+            String::new()
+        }
+        _ => String::new(),
     }
 }
 
@@ -968,16 +1243,18 @@ fn check_strict_positivity(type_name: &str, constructors: &[DataConstructor]) ->
 /// A parsed type expression.
 #[derive(Debug, Clone)]
 enum TypeExpr {
-    /// A bare type name, e.g. `Nat`.
+    /// A bare atom (identifier or number), e.g. `Nat` or `0`.
     Atom(String),
-    /// A parameterized type application, e.g. `List(Nat)`.
+    /// A parameterized type application, e.g. `Vec(n - 1, a)`.
     App(String, Vec<TypeExpr>),
     /// A function type `A -> B`.
     Func(Box<TypeExpr>, Box<TypeExpr>),
+    /// An arithmetic operator, e.g. `n - 1`.
+    Op(String, Box<TypeExpr>, Box<TypeExpr>),
 }
 
-/// Tokenize a type-expression string into `->`, `(`, `)`, `,`, and
-/// identifiers (alphanumeric + `_`).
+/// Tokenize a type-expression string into `->`, `(`, `)`, `,`, `+`, `-`,
+/// `*`, `/`, `%`, numbers, and identifiers.
 fn tokenize_type_expr(s: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut chars = s.chars().peekable();
@@ -991,7 +1268,21 @@ fn tokenize_type_expr(s: &str) -> Vec<String> {
         } else if c == '(' || c == ')' || c == ',' {
             tokens.push(c.to_string());
             chars.next();
-        } else if c.is_alphanumeric() || c == '_' {
+        } else if c.is_ascii_digit() {
+            let mut num = String::new();
+            while let Some(&c2) = chars.peek() {
+                if c2.is_ascii_digit() {
+                    num.push(c2);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            tokens.push(num);
+        } else if c == '+' || c == '-' || c == '*' || c == '/' || c == '%' {
+            tokens.push(c.to_string());
+            chars.next();
+        } else if c.is_alphabetic() || c == '_' {
             let mut ident = String::new();
             while let Some(&c2) = chars.peek() {
                 if c2.is_alphanumeric() || c2 == '_' {
@@ -1010,14 +1301,17 @@ fn tokenize_type_expr(s: &str) -> Vec<String> {
     tokens
 }
 
-/// A simple recursive-descent parser for type expressions.
+/// A simple recursive-descent parser for type expressions that also handles
+/// arithmetic index expressions like `n - 1` in `Vec(n - 1, a)`.
 ///
 /// Grammar:
 /// ```text
 /// TypeExpr     = FuncType
-/// FuncType     = AppType ('->' FuncType)?
+/// FuncType     = AddType ('->' FuncType)?
+/// AddType      = MulType (('+' | '-') MulType)*
+/// MulType      = AppType (('*' | '/' | '%') AppType)*
 /// AppType      = AtomType ('(' TypeExprList ')')?
-/// AtomType     = identifier | '(' FuncType ')'
+/// AtomType     = identifier | number | '(' FuncType ')'
 /// TypeExprList = FuncType (',' FuncType)*
 /// ```
 struct TypeExprParser {
@@ -1048,7 +1342,7 @@ impl TypeExprParser {
     }
 
     fn parse_func_type(&mut self) -> Option<TypeExpr> {
-        let left = self.parse_app_type()?;
+        let left = self.parse_add_type()?;
         if self.peek() == Some("->") {
             self.advance(); // consume `->`
             let right = self.parse_func_type()?;
@@ -1056,6 +1350,36 @@ impl TypeExprParser {
         } else {
             Some(left)
         }
+    }
+
+    fn parse_add_type(&mut self) -> Option<TypeExpr> {
+        let mut left = self.parse_mul_type()?;
+        while let Some(op) = self.peek() {
+            if op == "+" || op == "-" {
+                let op = op.to_string();
+                self.advance();
+                let right = self.parse_mul_type()?;
+                left = TypeExpr::Op(op, Box::new(left), Box::new(right));
+            } else {
+                break;
+            }
+        }
+        Some(left)
+    }
+
+    fn parse_mul_type(&mut self) -> Option<TypeExpr> {
+        let mut left = self.parse_app_type()?;
+        while let Some(op) = self.peek() {
+            if op == "*" || op == "/" || op == "%" {
+                let op = op.to_string();
+                self.advance();
+                let right = self.parse_app_type()?;
+                left = TypeExpr::Op(op, Box::new(left), Box::new(right));
+            } else {
+                break;
+            }
+        }
+        Some(left)
     }
 
     fn parse_app_type(&mut self) -> Option<TypeExpr> {
@@ -1098,11 +1422,71 @@ impl TypeExprParser {
                 // Parentheses just unwrap — return the inner type directly.
                 Some(inner)
             }
-            Some(tok) if tok != "->" && tok != ")" && tok != "," => {
+            Some(tok) if tok.chars().all(|c| c.is_ascii_digit()) => {
+                self.advance();
+                Some(TypeExpr::Atom(tok.to_string()))
+            }
+            Some(tok)
+                if tok != "->"
+                    && tok != ")"
+                    && tok != ","
+                    && tok != "+"
+                    && tok != "-"
+                    && tok != "*"
+                    && tok != "/"
+                    && tok != "%" =>
+            {
                 self.advance();
                 Some(TypeExpr::Atom(tok.to_string()))
             }
             _ => None,
+        }
+    }
+}
+
+/// Convert a `TypeExpr` into an AST node index in the output arena.
+///
+/// Used to embed index expressions (e.g. `n - 1`, `0`, `a`) inside the
+/// generated predicate and recursor bodies.
+fn type_expr_to_ast(out: &mut Ast, expr: &TypeExpr) -> usize {
+    match expr {
+        TypeExpr::Atom(s) => {
+            if let Ok(n) = s.parse::<i64>() {
+                push_leaf(out, "value", Value::from(n))
+            } else if s.parse::<f64>().is_ok() {
+                push_leaf(out, "value", Value::from(s.as_str()))
+            } else {
+                push_leaf(out, "var", Value::from(s.clone()))
+            }
+        }
+        TypeExpr::App(name, args) => {
+            let callee = push_leaf(out, "var", Value::from(name.clone()));
+            let mut children = vec![callee];
+            for arg in args {
+                children.push(type_expr_to_ast(out, arg));
+            }
+            push_node(out, "call", children)
+        }
+        TypeExpr::Func(domain, codomain) => {
+            // Function types do not occur as index expressions; build an
+            // application of `->` as a last-resort placeholder.
+            let arrow = push_leaf(out, "var", Value::from("->"));
+            let lhs = type_expr_to_ast(out, domain);
+            let rhs = type_expr_to_ast(out, codomain);
+            push_node(out, "call", vec![arrow, lhs, rhs])
+        }
+        TypeExpr::Op(op, lhs, rhs) => {
+            let kind = match op.as_str() {
+                "+" => "binary.add",
+                "-" => "binary.sub",
+                "*" => "binary.mul",
+                "/" => "binary.div",
+                "%" => "binary.mod",
+                _ => "binary.add",
+            };
+            let left = type_expr_to_ast(out, lhs);
+            let right = type_expr_to_ast(out, rhs);
+            push_node(out, kind, vec![left, right])
         }
     }
 }
@@ -1114,6 +1498,7 @@ impl TypeExprParser {
 /// - `App(name, args)`: recurse into each arg (all positive positions).
 /// - `Func(domain, codomain)`: the type must not occur **at all** in
 ///   `domain`; it must be strictly positive in `codomain`.
+/// - `Op(op, l, r)`: recurse into both sides (arithmetic is positive).
 fn check_strict_positivity_rec(expr: &TypeExpr, type_name: &str) -> Result<(), String> {
     match expr {
         TypeExpr::Atom(_) => Ok(()),
@@ -1133,6 +1518,10 @@ fn check_strict_positivity_rec(expr: &TypeExpr, type_name: &str) -> Result<(), S
                 check_strict_positivity_rec(codomain, type_name)
             }
         }
+        TypeExpr::Op(_, l, r) => {
+            check_strict_positivity_rec(l, type_name)?;
+            check_strict_positivity_rec(r, type_name)
+        }
     }
 }
 
@@ -1146,31 +1535,26 @@ fn occurs_in(expr: &TypeExpr, type_name: &str) -> bool {
         TypeExpr::Func(domain, codomain) => {
             occurs_in(domain, type_name) || occurs_in(codomain, type_name)
         }
+        TypeExpr::Op(_, l, r) => occurs_in(l, type_name) || occurs_in(r, type_name),
     }
 }
 
 /// Desugar a `data` declaration into a `block` of definitions:
-/// the predicate, each constructor, and the recursor (ADR-0082 §1).
+/// the predicate, each constructor, and the recursor (ADR-0082 §1,
+/// extended for Phase 6.3 inductive families).
 ///
-/// `data Nat = Zero | Succ(Nat)` desugars to a `block` containing:
-/// - `Nat = (v) -> v.tag == "Zero" or (v.tag == "Succ" and Nat(v.pred))`
-/// - `Zero = { tag: "Zero" }`
-/// - `Succ = (pred) -> { tag: "Succ", pred: pred }`
-/// - `Nat.rec = (base, step) -> (n) -> if n.tag == "Zero" then base \
-///   else step(n.pred, Nat.rec(base, step)(n.pred))`
-///
-/// The recursor is structurally recursive on `n` (decreasing via `n.pred`),
-/// consistent with ADR-0068's `array.rec` approach.
+/// `data Vec(n : Nat, a : Type) = Nil | Cons(a, Vec(n - 1, a))` desugars
+/// to a `block` containing:
+/// - `Vec = (n, a, v) -> (v.tag == "Nil" and n == 0) or
+///     (v.tag == "Cons" and Vec(n - 1, a)(v.xs))`
+/// - `Nil = { tag: "Nil" }`
+/// - `Cons = (x, xs) -> { tag: "Cons", x: x, xs: xs }`
+/// - `Vec.rec = (motive, base, step) -> (n, a, v) -> ...`
 fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -> Option<AstRef> {
-    let (type_name, constructors) = parse_data_payload(lang, original, ast)?;
+    let (type_name, params, constructors) = parse_data_payload(lang, original, ast)?;
 
     // Step 2: strict positivity check.
     if let Err(reason) = check_strict_positivity(&type_name, &constructors) {
-        // On positivity violation, emit a `desugar-error` node. The
-        // `desugar-error` node kind is data-driven (declared in
-        // ast.yaml/eval.yaml). Its eval scheme raises a `LangError` when
-        // evaluated, so the error surfaces at eval time instead of being
-        // silently swallowed as a string literal.
         let err_payload = serde_json::json!({
             "kind": "data-error",
             "reason": reason
@@ -1181,37 +1565,27 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
 
     let mut stmts: Vec<usize> = Vec::new();
 
-    // 1. Predicate: Type = (v) -> <checks>
-    //    For a single constructor with no args: v.tag == "Cons"
-    //    For multiple: v.tag == "C1" or (v.tag == "C2" and <recursive checks>)
-    let pred_var = push_leaf(out, "var", Value::from("v"));
-    let pred_body = build_predicate_body(out, &type_name, &constructors, pred_var);
-    let pred_fn = push_function(out, &["v"], pred_body);
+    // 1. Predicate: Type = (params..., v) -> <checks>
+    let mut pred_param_refs: Vec<&str> = params.iter().map(|p| p.name.as_str()).collect();
+    pred_param_refs.push("v");
+    let v_var = push_leaf(out, "var", Value::from("v"));
+    let pred_body = build_predicate_body(out, &type_name, &params, &constructors, v_var);
+    let pred_fn = push_function(out, &pred_param_refs, pred_body);
     let pred_target = push_leaf(out, "var", Value::from(type_name.clone()));
     let pred_assign = push_node(out, "assign", vec![pred_target, pred_fn]);
     stmts.push(pred_assign);
 
-    // 2. Constructors: Cons = { tag: "Cons" } or (args) -> { tag: "Cons", arg: arg, ... }
+    // 2. Constructors.
     for cons in &constructors {
         let cons_target = push_leaf(out, "var", Value::from(cons.name.clone()));
         let cons_value = if cons.args.is_empty() {
-            // Nullary constructor: { tag: "ConsName" }
             push_leaf(out, "lit", serde_json::json!({ "tag": cons.name }))
         } else {
-            // N-ary constructor: (arg1, arg2, ...) -> { tag: "ConsName", arg1: arg1, ... }
             let arg_vars: Vec<usize> = cons
                 .args
                 .iter()
                 .map(|(name, _)| push_leaf(out, "var", Value::from(name.clone())))
                 .collect();
-            // Build the body as a `json` template node (ADR-0053/0060): the
-            // template references the arg variables via `$0, $1, ...`
-            // placeholders, and the json node's children are the template
-            // node followed by the arg `var` nodes. Engines substitute the
-            // evaluated arg values into the template at eval time, so the
-            // object fields hold the actual argument values (not the arg
-            // names as strings). The `json` kind is data-driven
-            // (ast.yaml/eval.yaml), per the engine-genericity rule.
             let mut template = String::from("{\"tag\": ");
             template.push_str(&serde_json::to_string(&cons.name).unwrap_or_default());
             for (i, (arg_name, _)) in cons.args.iter().enumerate() {
@@ -1226,48 +1600,22 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
             body_children.extend(arg_vars.iter().copied());
             let body_idx = push_node(out, "json", body_children);
             let param_names: Vec<&str> = cons.args.iter().map(|(n, _)| n.as_str()).collect();
-            let cons_fn = push_function(out, &param_names, body_idx);
-            cons_fn
+            push_function(out, &param_names, body_idx)
         };
         let cons_assign = push_node(out, "assign", vec![cons_target, cons_value]);
         stmts.push(cons_assign);
     }
 
-    // 3. Recursor: Type.rec = (base, step) -> (n) ->
-    //    if n.tag == "Zero" then base
-    //    else step(n.pred, Type.rec(base, step)(n.pred))
-    //
-    // The recursor needs to reference itself recursively. A plain `assign`
-    // is non-recursive (the binding is not in scope inside its own body).
-    // We use a `rec` region with a self-application (Y-combinator) technique:
-    //
-    //   rec {
-    //     __rec_inner = (self) -> (base, step) -> (n) ->
-    //       if n.tag == "Zero" then base
-    //       else step(n.pred, self(self)(base, step)(n.pred))
-    //     Type.rec = __rec_inner(__rec_inner)
-    //   }
-    //
-    // The `rec` region allows the bindings to see each other. The
-    // self-application `__rec_inner(__rec_inner)` binds `self` to
-    // `__rec_inner`, so the recursive call `self(self)` re-applies
-    // `__rec_inner` to itself, creating a fresh closure at each recursion
-    // level. This works for arbitrary recursion depth.
-    //
-    // The `rec` region's result (the value of the last binding,
-    // `Type.rec = __rec_inner(__rec_inner)`) is the recursor closure. We
-    // wrap the `rec` in an `assign` so `Type.rec` is defined in the
-    // enclosing block scope.
+    // 3. Recursor with optional motive parameter:
+    //    Type.rec = (motive, c0, ..., c_{N-1}) -> (params..., v) -> dispatch
     let rec_name = format!("{}.rec", type_name);
     let rec_target = push_leaf(out, "var", Value::from(rec_name.clone()));
-    let rec_inner_fn = build_recursor(out, &type_name, &constructors);
+    let rec_inner_fn = build_recursor(out, &type_name, &params, &constructors);
 
-    // rec region: { __rec_inner = inner_fn, Type.rec = __rec_inner(__rec_inner) }
     let inner_name = format!("__rec_inner_{}", type_name);
     let inner_target = push_leaf(out, "var", Value::from(inner_name.clone()));
     let inner_assign = push_node(out, "assign", vec![inner_target, rec_inner_fn]);
 
-    // Type.rec = __rec_inner(__rec_inner)
     let inner_var1 = push_leaf(out, "var", Value::from(inner_name.clone()));
     let inner_var2 = push_leaf(out, "var", Value::from(inner_name));
     let self_app = push_node(out, "call", vec![inner_var1, inner_var2]);
@@ -1275,21 +1623,18 @@ fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -
     let rec_inner_assign = push_node(out, "assign", vec![rec_inner_target, self_app]);
 
     let rec_region = push_node(out, "rec", vec![inner_assign, rec_inner_assign]);
-
-    // assign { var("Type.rec"), rec { ... } }
     let rec_assign = push_node(out, "assign", vec![rec_target, rec_region]);
     stmts.push(rec_assign);
 
-    // Wrap all statements in a block.
     let block = push_node(out, "block", stmts);
     Some(AstRef::new(block))
 }
 
-/// Build the predicate body: a boolean expression checking `v.tag == "C1"`
-/// (and recursive arg checks) `or` `v.tag == "C2"` ...
+/// Build the predicate body: a disjunction over constructor checks.
 fn build_predicate_body(
     out: &mut Ast,
     type_name: &str,
+    params: &[DataParam],
     constructors: &[DataConstructor],
     v_idx: usize,
 ) -> usize {
@@ -1297,22 +1642,24 @@ fn build_predicate_body(
         return push_leaf(out, "lit", Value::Bool(false));
     }
     if constructors.len() == 1 {
-        return build_cons_check(out, type_name, &constructors[0], v_idx);
+        return build_cons_check(out, type_name, params, &constructors[0], v_idx);
     }
-    // Multiple constructors: fold with `or`.
-    let mut expr = build_cons_check(out, type_name, &constructors[0], v_idx);
+    let mut expr = build_cons_check(out, type_name, params, &constructors[0], v_idx);
     for cons in &constructors[1..] {
-        let next = build_cons_check(out, type_name, cons, v_idx);
+        let next = build_cons_check(out, type_name, params, cons, v_idx);
         expr = push_node(out, "binary.or", vec![expr, next]);
     }
     expr
 }
 
-/// Build a check for a single constructor: `v.tag == "ConsName"` and
-/// optionally `Type(v.arg)` for each recursive arg.
+/// Build a check for a single constructor:
+///   `v.tag == "ConsName"`
+///   and `param_i == result_index_i` for each supplied result index
+///   and `Type(index_exprs...)(v.arg)` for each recursive argument.
 fn build_cons_check(
     out: &mut Ast,
     type_name: &str,
+    params: &[DataParam],
     cons: &DataConstructor,
     v_idx: usize,
 ) -> usize {
@@ -1320,101 +1667,121 @@ fn build_cons_check(
     let tag_lit = push_leaf(out, "lit", Value::from("tag"));
     let tag_access = push_node(out, "field-access", vec![v_idx, tag_lit]);
     let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
-    let tag_eq = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
+    let mut expr = push_node(out, "binary.eq", vec![tag_access, cons_name_lit]);
 
-    if cons.args.is_empty() {
-        return tag_eq;
+    // Result-index checks.
+    for (i, param) in params.iter().enumerate() {
+        if let Some(index_expr) = cons.result_indices.get(i).and_then(|r| r.as_ref()) {
+            let mut parser = TypeExprParser::new(index_expr);
+            if let Some(idx_expr) = parser.parse() {
+                let idx_ast = type_expr_to_ast(out, &idx_expr);
+                // Skip tautological checks like `n == n`.
+                if let Some(idx_node) = out.get(AstRef::new(idx_ast)) {
+                    if idx_node.kind == "var"
+                        && idx_node.payload.as_str() == Some(param.name.as_str())
+                    {
+                        continue;
+                    }
+                }
+                let param_var = push_leaf(out, "var", Value::from(param.name.clone()));
+                let eq = push_node(out, "binary.eq", vec![param_var, idx_ast]);
+                expr = push_node(out, "binary.and", vec![expr, eq]);
+            }
+        }
     }
 
-    // Add recursive checks: and Type(v.arg) for each arg whose type is type_name.
-    let mut expr = tag_eq;
+    // Recursive-argument checks.
     for (arg_name, arg_type) in &cons.args {
-        if arg_type == type_name {
-            // v.arg
-            let arg_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-            let field_access = push_node(out, "field-access", vec![v_idx, arg_lit]);
-            // Type(v.arg) — call the predicate on the field
-            let type_var = push_leaf(out, "var", Value::from(type_name));
-            let call = push_node(out, "call", vec![type_var, field_access]);
-            expr = push_node(out, "binary.and", vec![expr, call]);
+        let mut parser = TypeExprParser::new(arg_type);
+        if let Some(type_expr) = parser.parse() {
+            let is_recursive = match &type_expr {
+                TypeExpr::Atom(name) => name == type_name,
+                TypeExpr::App(name, _) => name == type_name,
+                _ => false,
+            };
+            if is_recursive {
+                let arg_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+                let field_access = push_node(out, "field-access", vec![v_idx, arg_lit]);
+                let type_var = push_leaf(out, "var", Value::from(type_name));
+
+                let call = match type_expr {
+                    TypeExpr::App(_, index_exprs) => {
+                        let mut call_children = vec![type_var];
+                        for idx_expr in &index_exprs {
+                            call_children.push(type_expr_to_ast(out, idx_expr));
+                        }
+                        call_children.push(field_access);
+                        push_node(out, "call", call_children)
+                    }
+                    _ => push_node(out, "call", vec![type_var, field_access]),
+                };
+                expr = push_node(out, "binary.and", vec![expr, call]);
+            }
         }
     }
     expr
 }
 
 /// Build the recursor inner function (self-application form):
-///   (self) -> (c0, c1, ..., c_{N-1}) -> (n) ->
-///     if n.tag == "C0" then <c0-branch>
-///     else if n.tag == "C1" then <c1-branch>
-///     ...
-///     else null
+///   (self) -> (motive, c0, ..., c_{N-1}) -> (params..., v) -> dispatch
 ///
-/// The recursor takes one parameter per constructor. For a nullary
-/// constructor `Ci`, the branch returns `ci` directly. For a non-nullary
-/// constructor `Ci(a1, ..., ak)`, the branch calls `ci(n.a1, ..., n.ak,
-/// rec_1, ..., rec_m)` where `rec_j` is the recursive result for each
-/// recursive arg (arg whose type equals the type being defined).
-///
-/// The `self` parameter is the recursor's own inner function. The recursive
-/// call uses `self(self)(c0, ..., c_{N-1})(n.arg)` instead of naming the
-/// recursor directly, enabling recursion via self-application (Y-combinator
-/// style). This avoids the need for a self-referential binding.
+/// `motive` is the first method argument; it is carried through recursive
+/// calls but is not used by the runtime dispatch. The desugar pass fills it
+/// with a user-supplied return motive for `match` expressions, or `null`
+/// for bare recursor calls.
 fn build_recursor(
     out: &mut Ast,
     type_name: &str,
+    params: &[DataParam],
     constructors: &[DataConstructor],
 ) -> usize {
-    // Parameter: self (the inner function, applied to itself for recursion)
     let self_var = push_leaf(out, "var", Value::from("self"));
+    let motive_var = push_leaf(out, "var", Value::from("motive"));
 
-    // Generate one parameter per constructor: c0, c1, ..., c_{N-1}.
     let param_names: Vec<String> = (0..constructors.len()).map(|i| format!("c{}", i)).collect();
     let param_vars: Vec<usize> = param_names
         .iter()
         .map(|name| push_leaf(out, "var", Value::from(name.clone())))
         .collect();
 
-    // Inner function: (n) -> <dispatch>
-    let n_var = push_leaf(out, "var", Value::from("n"));
+    let mut inner_param_names: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
+    inner_param_names.push("v".to_string());
+    let v_var = push_leaf(out, "var", Value::from("v"));
 
-    // Build the dispatch on n.tag for each constructor.
-    let dispatch = build_recursor_dispatch(out, type_name, constructors, n_var, &param_vars, self_var);
+    let dispatch = build_recursor_dispatch(
+        out,
+        type_name,
+        params,
+        constructors,
+        v_var,
+        motive_var,
+        &param_vars,
+        self_var,
+    );
 
-    // ADR-0082 step 3: if the type has recursive constructors, attach
-    // termination metadata to the inner function. The recursor decreases
-    // on `n` (param 0) via the first recursive field (e.g. "pred" for Nat).
-    // The typechecker reads this metadata to recognize structural recursion
-    // without hardcoded name matching.
+    let inner_param_refs: Vec<&str> = inner_param_names.iter().map(|s| s.as_str()).collect();
     let inner_fn = match find_first_recursive_field(constructors, type_name) {
-        Some(field) => push_function_with_termination(out, &["n"], dispatch, 0, &field),
-        None => push_function(out, &["n"], dispatch),
+        Some(field) => {
+            let decreasing_arg = params.len();
+            push_function_with_termination(out, &inner_param_refs, dispatch, decreasing_arg, &field)
+        }
+        None => push_function(out, &inner_param_refs, dispatch),
     };
-    // Middle function: (c0, c1, ..., c_{N-1}) -> inner_fn
-    let mid_param_refs: Vec<&str> = param_names.iter().map(|s| s.as_str()).collect();
-    let mid_fn = push_function(out, &mid_param_refs, inner_fn);
-    // Outer function: (self) -> mid_fn
+
+    let mut mid_param_names = vec!["motive"];
+    mid_param_names.extend(param_names.iter().map(|s| s.as_str()));
+    let mid_fn = push_function(out, &mid_param_names, inner_fn);
     push_function(out, &["self"], mid_fn)
 }
 
-/// Build the recursor body: dispatch on `n.tag` across all constructors,
-/// building a right-nested `if` tree.
-///
-/// For each constructor `Ci`:
-/// - **Nullary** (`Ci` with no args): the branch is `ci` (the parameter
-///   returned directly).
-/// - **Non-nullary** (`Ci(a1, ..., ak)`): the branch is
-///   `ci(n.a1, ..., n.ak, rec_1, ..., rec_m)` where `rec_j` is
-///   `self(self)(c0, ..., c_{N-1})(n.aj)` for each recursive arg `aj`
-///   (whose type equals `type_name`).
-///
-/// The `if` eval scheme expects exactly 3 children `[cond, then, else]`,
-/// so we nest the else-if chain right-to-left, with `null` as the
-/// final fallback.
+/// Build the recursor dispatch.
 fn build_recursor_dispatch(
     out: &mut Ast,
     type_name: &str,
+    _params: &[DataParam],
     constructors: &[DataConstructor],
-    n_idx: usize,
+    v_idx: usize,
+    motive_var: usize,
     param_vars: &[usize],
     self_idx: usize,
 ) -> usize {
@@ -1422,55 +1789,62 @@ fn build_recursor_dispatch(
         return push_leaf(out, "lit", Value::Null);
     }
 
-    // Build `self(self)` — the recursive self-application. Shared across
-    // all recursive calls (multiple nodes can reference the same arena index).
     let self_self = push_node(out, "call", vec![self_idx, self_idx]);
-    // Build `self(self)(c0, c1, ..., c_{N-1})` — the recursor closure,
-    // shared across all recursive calls.
-    let mut rec_app_children = vec![self_self];
+    let mut rec_app_children = vec![self_self, motive_var];
     rec_app_children.extend(param_vars.iter().copied());
     let rec_app = push_node(out, "call", rec_app_children);
 
-    // Fold right-to-left over constructors, building a right-nested if tree.
-    // The last constructor's else branch is `null`.
     let mut else_branch = push_leaf(out, "lit", Value::Null);
 
     for i in (0..constructors.len()).rev() {
         let cons = &constructors[i];
 
-        // n.tag == "Ci"
         let tag_lit = push_leaf(out, "lit", Value::from("tag"));
-        let n_tag = push_node(out, "field-access", vec![n_idx, tag_lit]);
+        let n_tag = push_node(out, "field-access", vec![v_idx, tag_lit]);
         let cons_name_lit = push_leaf(out, "lit", Value::from(cons.name.clone()));
         let tag_eq = push_node(out, "binary.eq", vec![n_tag, cons_name_lit]);
 
-        // Build the then-branch for constructor Ci.
         let then_branch = if cons.args.is_empty() {
-            // Nullary constructor: return the param directly.
             param_vars[i]
         } else {
-            // Non-nullary: call ci(n.a1, ..., n.ak, rec_1, ..., rec_m)
             let mut call_children = vec![param_vars[i]];
-            // Pass all constructor args: n.a1, n.a2, ...
+            // Pass all constructor args.
             for (arg_name, _) in &cons.args {
                 let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-                let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
+                let n_arg = push_node(out, "field-access", vec![v_idx, arg_name_lit]);
                 call_children.push(n_arg);
             }
             // Pass recursive results for each recursive arg.
             for (arg_name, arg_type) in &cons.args {
-                if arg_type == type_name {
-                    let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
-                    let n_arg = push_node(out, "field-access", vec![n_idx, arg_name_lit]);
-                    // self(self)(c0, ..., c_{N-1})(n.arg)
-                    let rec_full = push_node(out, "call", vec![rec_app, n_arg]);
-                    call_children.push(rec_full);
+                let mut parser = TypeExprParser::new(arg_type);
+                if let Some(type_expr) = parser.parse() {
+                    let is_recursive = match &type_expr {
+                        TypeExpr::Atom(name) => name == type_name,
+                        TypeExpr::App(name, _) => name == type_name,
+                        _ => false,
+                    };
+                    if is_recursive {
+                        let arg_name_lit = push_leaf(out, "lit", Value::from(arg_name.clone()));
+                        let n_arg = push_node(out, "field-access", vec![v_idx, arg_name_lit]);
+
+                        let rec_full = match type_expr {
+                            TypeExpr::App(_, index_exprs) => {
+                                let mut rec_children = vec![rec_app];
+                                for idx_expr in &index_exprs {
+                                    rec_children.push(type_expr_to_ast(out, idx_expr));
+                                }
+                                rec_children.push(n_arg);
+                                push_node(out, "call", rec_children)
+                            }
+                            _ => push_node(out, "call", vec![rec_app, n_arg]),
+                        };
+                        call_children.push(rec_full);
+                    }
                 }
             }
             push_node(out, "call", call_children)
         };
 
-        // if n.tag == "Ci" then then_branch else else_branch
         else_branch = push_node(out, "if", vec![tag_eq, then_branch, else_branch]);
     }
 
@@ -1548,21 +1922,21 @@ fn parse_arm_pattern(out: &Ast, pattern: &AstNode) -> Option<MatchArm> {
 }
 
 /// Desugar an inductive `match` expression into a recursor application
-/// (ADR-0082 step 4).
+/// (ADR-0082 step 4, Phase 6.3 optional motives).
 ///
 /// `match n { Zero => 0, Succ(pred) => 1 }` becomes
-/// `Nat.rec(0, (pred, __rec_0) => 1)(n)`.
+/// `Nat.rec(null, 0, (pred, __rec_0) => 1)(n)`.
+///
+/// `match v return (i) -> T with { ... }` becomes
+/// `Type.rec(motive, ...)(v)` where the motive is passed as the first
+/// recursor argument.
 ///
 /// **Guard:** Only fires when ALL arms have constructor-like patterns
 /// (var nodes that aren't `_`, or call nodes with a var callee). If any
-/// arm uses a wildcard (`_`) or non-constructor pattern (lit, object,
-/// array, etc.), the match is a conditional match (from `if`/`nullish`/
-/// `opt-chain`/`for` desugaring) and is left unchanged.
-///
-/// **Type inference:** The inductive type is determined by looking up the
-/// constructor names in `data` nodes from the original AST. All arms must
-/// correspond to constructors of the same type, and all constructors of
-/// that type must be covered.
+/// arm uses a wildcard (`_`) or non-constructor pattern, the match is left
+/// unchanged. Indexed family matches (non-empty type parameters) are also
+/// left unchanged; the runtime `match` primitive or user code can call
+/// the indexed recursor explicitly.
 fn desugar_match_to_recursor(
     lang: &Language,
     original: &AstNode,
@@ -1570,11 +1944,20 @@ fn desugar_match_to_recursor(
     out: &mut Ast,
     remap: &[Option<usize>],
 ) -> Option<AstRef> {
-    // match node has children [scrutinee, block_of_arms]
-    let scrutinee = remap_child(original, remap, 0)?;
-    let block_idx = remap_child(original, remap, 1)?;
+    let children = original.payload.get("children").and_then(|c| c.as_array())?;
+    if children.len() < 2 {
+        return None;
+    }
 
-    // Get the block's children (arms) from the output arena.
+    let has_motive = children.len() >= 3;
+    let scrutinee = remap_child(original, remap, 0)?;
+    let motive_idx = if has_motive {
+        Some(remap_child(original, remap, 1)?)
+    } else {
+        None
+    };
+    let block_idx = remap_child(original, remap, if has_motive { 2 } else { 1 })?;
+
     let block_node = out.get(AstRef::new(block_idx))?;
     let arm_indices: Vec<usize> = block_node
         .payload
@@ -1588,7 +1971,6 @@ fn desugar_match_to_recursor(
         return None;
     }
 
-    // Parse each arm's pattern and body from the output arena.
     let mut arms: Vec<MatchArm> = Vec::new();
     for &arm_idx in &arm_indices {
         let arm_node = out.get(AstRef::new(arm_idx))?;
@@ -1608,77 +1990,81 @@ fn desugar_match_to_recursor(
         arms.push(arm);
     }
 
-    // Build a constructor→type map by scanning the original AST for `data`
-    // nodes. This is data-driven: we read the `data` node payloads, not
-    // hardcoded constructor names.
-    let mut cons_to_type: std::collections::HashMap<String, (String, Vec<DataConstructor>)> =
-        std::collections::HashMap::new();
+    let mut cons_to_type: std::collections::HashMap<
+        String,
+        (String, Vec<DataParam>, Vec<DataConstructor>),
+    > = std::collections::HashMap::new();
     for node in ast.nodes() {
         if node.kind == "data" {
-            if let Some((type_name, constructors)) = parse_data_payload(lang, node, ast) {
+            if let Some((type_name, params, constructors)) = parse_data_payload(lang, node, ast) {
                 for cons in &constructors {
-                    cons_to_type
-                        .insert(cons.name.clone(), (type_name.clone(), constructors.clone()));
+                    cons_to_type.insert(
+                        cons.name.clone(),
+                        (type_name.clone(), params.clone(), constructors.clone()),
+                    );
                 }
             }
         }
     }
 
-    // Determine the type from the first arm's constructor name.
     let first_cons_name = &arms[0].cons_name;
-    let (type_name, constructors) = cons_to_type.get(first_cons_name)?;
+    let (type_name, params, constructors) = cons_to_type.get(first_cons_name)?;
 
-    // All arms must correspond to constructors of this type, and all
-    // constructors must be covered (exhaustive match).
+    // Indexed family matches are not desugared here because the source-level
+    // `match` does not carry the scrutinee's index values.
+    if !params.is_empty() {
+        return None;
+    }
+
     if arms.len() != constructors.len() {
         return None;
     }
 
-    // Build a map from constructor name → arm, checking for duplicates and
-    // unknown constructors.
     let mut arm_map: std::collections::HashMap<&str, &MatchArm> = std::collections::HashMap::new();
     for arm in &arms {
         if !constructors.iter().any(|c| c.name == arm.cons_name) {
-            return None; // unknown constructor
+            return None;
         }
         if arm_map.insert(arm.cons_name.as_str(), arm).is_some() {
-            return None; // duplicate arm
+            return None;
         }
     }
 
-    // Build recursor arguments in constructor declaration order.
     let rec_name = format!("{}.rec", type_name);
     let rec_var = push_leaf(out, "var", Value::from(rec_name));
 
     let mut rec_args: Vec<usize> = Vec::new();
+    // Optional motive as the first recursor argument.
+    rec_args.push(motive_idx.unwrap_or_else(|| push_leaf(out, "lit", Value::Null)));
     for cons in constructors {
         let arm = arm_map.get(cons.name.as_str())?;
         if cons.args.is_empty() {
-            // Nullary constructor: the arm body is the recursor argument
-            // (base case) — passed directly.
             rec_args.push(arm.body_idx);
         } else {
-            // Non-nullary constructor: build a step function
-            // (p1, ..., pk, __rec_0, ..., __rec_m) => body
-            // where __rec_j is the recursive result for each recursive arg.
-            let mut params: Vec<String> = arm.arg_names.clone();
+            let mut step_params: Vec<String> = arm.arg_names.clone();
             for (_arg_name, arg_type) in &cons.args {
-                if arg_type == type_name {
-                    params.push(format!("__rec_{}", params.len() - arm.arg_names.len()));
+                let mut parser = TypeExprParser::new(arg_type);
+                let is_recursive = parser
+                    .parse()
+                    .map(|expr| match &expr {
+                        TypeExpr::Atom(name) | TypeExpr::App(name, _) => name == type_name,
+                        _ => false,
+                    })
+                    .unwrap_or(false);
+                if is_recursive {
+                    step_params.push(format!("__rec_{}", step_params.len() - arm.arg_names.len()));
                 }
             }
-            let param_refs: Vec<&str> = params.iter().map(|s| s.as_str()).collect();
+            let param_refs: Vec<&str> = step_params.iter().map(|s| s.as_str()).collect();
             let step_fn = push_function(out, &param_refs, arm.body_idx);
             rec_args.push(step_fn);
         }
     }
 
-    // Build: Type.rec(arg0, arg1, ..., argN)
     let mut call_children = vec![rec_var];
     call_children.extend(rec_args);
     let rec_call = push_node(out, "call", call_children);
 
-    // Build: Type.rec(...)(scrutinee)
     let full_call = push_node(out, "call", vec![rec_call, scrutinee]);
 
     Some(AstRef::new(full_call))
@@ -3186,36 +3572,33 @@ mod tests {
         out.nodes().iter().filter(|n| n.kind == kind).count()
     }
 
-    /// Extract the recursor's middle-function param count from a desugared
-    /// `data` block. The recursor is the last `assign` in the block; its
-    /// value is a `rec` region whose first binding (`__rec_inner_<T>`) holds
-    /// the outer function `(self) -> (c0, ..., c_{N-1}) -> (n) -> ...`. We
-    /// walk down: assign → rec → assign[0] → function → body(function) →
-    /// function (middle) → params.len().
+    /// Extract the recursor's middle-function constructor-param count from a
+    /// desugared `data` block. The recursor is the last `assign` in the
+    /// block; its value is a `rec` region whose first binding
+    /// (`__rec_inner_<T>`) holds the outer function
+    /// `(self) -> (motive, c0, ..., c_{N-1}) -> (n) -> ...`. We walk down:
+    /// assign → rec → assign[0] → function → body(function) → function
+    /// (middle) → params.len() - 1 (the leading `motive` param is not a
+    /// constructor argument).
     fn recursor_param_count(out: &Ast, block_children: &[Value]) -> Option<usize> {
-        // Last child is the recursor assign.
         let rec_assign_idx = block_children.last()?.as_u64()? as usize;
         let rec_assign = out.get(AstRef::new(rec_assign_idx))?;
         let rec_children = rec_assign.payload.get("children")?.as_array()?;
-        // rec_assign value (child 1) is the `rec` region.
         let rec_region_idx = rec_children.get(1)?.as_u64()? as usize;
         let rec_region = out.get(AstRef::new(rec_region_idx))?;
         assert_eq!(rec_region.kind, "rec");
         let rec_region_children = rec_region.payload.get("children")?.as_array()?;
-        // First binding: __rec_inner_<T> = <outer function>
         let inner_assign_idx = rec_region_children.first()?.as_u64()? as usize;
         let inner_assign = out.get(AstRef::new(inner_assign_idx))?;
         let inner_children = inner_assign.payload.get("children")?.as_array()?;
-        // Value (child 1) is the outer function: (self) -> mid_fn
         let outer_fn_idx = inner_children.get(1)?.as_u64()? as usize;
         let outer_fn = out.get(AstRef::new(outer_fn_idx))?;
         assert_eq!(outer_fn.kind, "function");
-        // Body is the middle function: (c0, ..., c_{N-1}) -> inner_fn
         let mid_fn_idx = outer_fn.payload.get("body")?.as_u64()? as usize;
         let mid_fn = out.get(AstRef::new(mid_fn_idx))?;
         assert_eq!(mid_fn.kind, "function");
         let params = mid_fn.payload.get("params")?.as_array()?;
-        Some(params.len())
+        Some(params.len().saturating_sub(1))
     }
 
     #[test]
@@ -3559,25 +3942,30 @@ mod tests {
         assert_eq!(scrut.kind, "var");
         assert_eq!(scrut.payload, json!("n"));
 
-        // Child 0 is the inner call: Nat.rec(0, (pred, __rec_0) => 1)
+        // Child 0 is the inner call: Nat.rec(null, 0, (pred, __rec_0) => 1)
         let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(rec_call.kind, "call");
         let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
-        // [Nat.rec, base_case, step_fn] = 3 children
-        assert_eq!(rec_children.len(), 3);
+        // [Nat.rec, motive, base_case, step_fn] = 4 children
+        assert_eq!(rec_children.len(), 4);
 
         // Child 0: var("Nat.rec")
         let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(rec_var.kind, "var");
         assert_eq!(rec_var.payload, json!("Nat.rec"));
 
-        // Child 1: base case = lit(0)
-        let base = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        // Child 1: omitted motive = lit(null)
+        let motive = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(motive.kind, "lit");
+        assert_eq!(motive.payload, json!(null));
+
+        // Child 2: base case = lit(0)
+        let base = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(base.kind, "lit");
         assert_eq!(base.payload, json!(0));
 
-        // Child 2: step function (pred, __rec_0) => lit(1)
-        let step = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
+        // Child 3: step function (pred, __rec_0) => lit(1)
+        let step = out.get(AstRef::new(rec_children[3].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(step.kind, "function");
         let params = step.payload.get("params").unwrap().as_array().unwrap();
         assert_eq!(params.len(), 2, "step function should have 2 params (pred, __rec_0)");
@@ -3672,13 +4060,15 @@ mod tests {
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         assert_eq!(children.len(), 2);
 
-        // Inner call: Bool.rec(1, 0)
+        // Inner call: Bool.rec(null, 1, 0)
         let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
         let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
-        // [Bool.rec, 1, 0] = 3 children (both constructors are nullary → no step functions)
-        assert_eq!(rec_children.len(), 3);
+        // [Bool.rec, null, 1, 0] = 4 children (motive + 2 nullary constructor args)
+        assert_eq!(rec_children.len(), 4);
         let rec_var = out.get(AstRef::new(rec_children[0].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(rec_var.payload, json!("Bool.rec"));
+        let motive = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        assert_eq!(motive.payload, json!(null), "default motive is null");
     }
 
     #[test]
@@ -3714,18 +4104,18 @@ mod tests {
         let root = out.nodes().last().unwrap();
         assert_eq!(root.kind, "call", "out-of-order match should desugar to call");
 
-        // Inner call: Nat.rec(0, (pred, __rec_0) => 1)
+        // Inner call: Nat.rec(null, 0, (pred, __rec_0) => 1)
         let children = root.payload.get("children").unwrap().as_array().unwrap();
         let rec_call = out.get(AstRef::new(children[0].as_u64().unwrap() as usize)).unwrap();
         let rec_children = rec_call.payload.get("children").unwrap().as_array().unwrap();
-        assert_eq!(rec_children.len(), 3);
+        assert_eq!(rec_children.len(), 4);
 
-        // First arg (Zero's base case) should be lit(0), not lit(1).
-        let base = out.get(AstRef::new(rec_children[1].as_u64().unwrap() as usize)).unwrap();
+        // Child 1 is the omitted motive; child 2 is Zero's base case.
+        let base = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(base.payload, json!(0), "Zero base case should be 0 regardless of arm order");
 
-        // Second arg (Succ's step fn) should be a function with params [pred, __rec_0].
-        let step = out.get(AstRef::new(rec_children[2].as_u64().unwrap() as usize)).unwrap();
+        // Child 3 is Succ's step fn, a function with params [pred, __rec_0].
+        let step = out.get(AstRef::new(rec_children[3].as_u64().unwrap() as usize)).unwrap();
         assert_eq!(step.kind, "function");
         let params = step.payload.get("params").unwrap().as_array().unwrap();
         assert_eq!(params[0], json!("pred"));

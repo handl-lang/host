@@ -236,6 +236,11 @@
   pattern: !Literal
     text: while
   priority: 15
+- id: lex.keyword.with
+  token_kind: token.keyword.with
+  pattern: !Literal
+    text: with
+  priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
   pattern: !Literal

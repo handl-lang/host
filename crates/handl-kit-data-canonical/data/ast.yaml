@@ -447,6 +447,16 @@
           - body
           type: object
         type: array
+      children:
+        description: positional children [scrutinee, (motive,) arms]
+        items:
+          type: integer
+        minItems: 2
+        maxItems: 3
+        type: array
+      motive:
+        description: optional return motive function (return (i) ~> T)
+        type: object
       scrutinee:
         type: object
     required:
@@ -789,25 +799,34 @@
     required:
     - children
     type: object
-# `data` — inductive type declaration (ADR-0082). Has one named child
-# role `constructors` (the constructor list expression, an `alt` tree or
-# a single constructor). The type name is carried in `payload.name`
-# (extracted by `grammar.data.prefix` payload_tokens). The desugar pass
-# (`desugar_data`) reads the child AST to extract constructors.
+# `data` — inductive type declaration (ADR-0082). Has two named children:
+#   0. `type`   — the family name/parameter expression (`var(Name)` or
+#                 `call(var(Name), params...)`) that carries the type name.
+#   1. `constructors` — the constructor list expression (an `alt` tree or a
+#                        single constructor).
+# The type name is extracted from the `type` child. The desugar pass
+# (`desugar_data`) reads the children to obtain the family and constructors.
 - id: ast.data
   node_kind: data
   children:
+  - role: type
   - role: constructors
   payload_schema:
     properties:
       children:
+        description: positional children [type_expr, constructors_expr]
         items:
           type: integer
-        maxItems: 1
+        maxItems: 2
         minItems: 1
         type: array
       name:
         type: string
+      params:
+        description: optional type parameters (indices) for inductive families
+        items:
+          type: string
+        type: array
     required:
     - children
     - name

@@ -452,10 +452,11 @@ fn data_recursor_base_case_zero() {
     let body = desugared.push(var_node("rec_pred")).index();
     let step = desugared.push(function_node(&["pred", "rec_pred"], body)).index();
 
-    // Nat.rec(0, step)
+    // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
 
     // rec_call(Zero)
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -467,8 +468,8 @@ fn data_recursor_base_case_zero() {
     let result = kit
         .runtime()
         .eval(&desugared)
-        .expect("Nat.rec(0, step)(Zero) must eval");
-    assert_eq!(result, json!(0), "base case: Nat.rec(0, step)(Zero) == 0");
+        .expect("Nat.rec(null, 0, step)(Zero) must eval");
+    assert_eq!(result, json!(0), "base case: Nat.rec(null, 0, step)(Zero) == 0");
 }
 
 /// Bug 0.2 + 0.3: `Nat.rec(0, step)(Succ(Zero))` must return `step(Zero, 0)`.
@@ -496,10 +497,11 @@ fn data_recursor_step_case_one() {
     }))).index();
     let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
 
-    // Nat.rec(0, step)
+    // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
 
     // Succ(Zero)
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -515,9 +517,9 @@ fn data_recursor_step_case_one() {
     let result = kit
         .runtime()
         .eval(&desugared)
-        .expect("Nat.rec(0, step)(Succ(Zero)) must eval");
-    // Nat.rec(0, step)(Succ(Zero)) = step(Zero, Nat.rec(0, step)(Zero)) = 0 + 1 = 1
-    assert_eq!(result, json!(1), "step case: Nat.rec(0, step)(Succ(Zero)) == 1");
+        .expect("Nat.rec(null, 0, step)(Succ(Zero)) must eval");
+    // Nat.rec(null, 0, step)(Succ(Zero)) = step(Zero, Nat.rec(null, 0, step)(Zero)) = 0 + 1 = 1
+    assert_eq!(result, json!(1), "step case: Nat.rec(null, 0, step)(Succ(Zero)) == 1");
 }
 
 /// Bug 0.3: `Nat.rec` can recurse to depth 2.
@@ -545,10 +547,11 @@ fn data_recursor_recurse_depth_two() {
     }))).index();
     let step = desugared.push(function_node(&["pred", "rec_pred"], add)).index();
 
-    // Nat.rec(0, step)
+    // Nat.rec(null, 0, step)
     let rec_var = desugared.push(var_node("Nat.rec")).index();
+    let motive = desugared.push(lit_node(json!(null))).index();
     let base_lit = desugared.push(lit_node(json!(0))).index();
-    let rec_call = desugared.push(call_node(&[rec_var, base_lit, step])).index();
+    let rec_call = desugared.push(call_node(&[rec_var, motive, base_lit, step])).index();
 
     // Succ(Succ(Zero))
     let zero_var = desugared.push(var_node("Zero")).index();
@@ -565,10 +568,10 @@ fn data_recursor_recurse_depth_two() {
     let result = kit
         .runtime()
         .eval(&desugared)
-        .expect("Nat.rec(0, step)(Succ(Succ(Zero))) must eval");
-    // Nat.rec(0, step)(Succ(Succ(Zero))) = step(Succ(Zero), Nat.rec(0, step)(Succ(Zero)))
+        .expect("Nat.rec(null, 0, step)(Succ(Succ(Zero))) must eval");
+    // Nat.rec(null, 0, step)(Succ(Succ(Zero))) = step(Succ(Zero), Nat.rec(null, 0, step)(Succ(Zero)))
     // = step(Succ(Zero), 1) = 1 + 1 = 2
-    assert_eq!(result, json!(2), "recurse: Nat.rec(0, step)(Succ(Succ(Zero))) == 2");
+    assert_eq!(result, json!(2), "recurse: Nat.rec(null, 0, step)(Succ(Succ(Zero))) == 2");
 }
 
 // ---------------------------------------------------------------------------
@@ -630,16 +633,22 @@ fn data_parses_from_source_to_data_node() {
     // payload.name should be "Nat".
     let name = root.payload.get("name").and_then(|v| v.as_str()).unwrap_or("");
     assert_eq!(name, "Nat", "data node payload.name should be 'Nat'");
-    // payload.children should have exactly 1 child (the constructor list).
+    // payload.children should have 2 children: [type_expr, constructors_expr].
     let children = root
         .payload
         .get("children")
         .and_then(|c| c.as_array())
         .expect("data node must have children");
-    assert_eq!(children.len(), 1, "data node should have 1 child (constructor list)");
+    assert_eq!(children.len(), 2, "data node should have 2 children [type, constructors]");
 
-    // The child should be an `alt` node: alt(var("Zero"), call(var("Succ"), var("Nat"))).
-    let alt_idx = children[0].as_u64().unwrap() as usize;
+    // Child 0 is the type expression: var("Nat").
+    let type_idx = children[0].as_u64().unwrap() as usize;
+    let type_node = ast.get(AstRef::new(type_idx)).unwrap();
+    assert_eq!(type_node.kind, "var");
+    assert_eq!(type_node.payload, json!("Nat"));
+
+    // Child 1 should be an `alt` node: alt(var("Zero"), call(var("Succ"), var("Nat"))).
+    let alt_idx = children[1].as_u64().unwrap() as usize;
     let alt_node = ast.get(AstRef::new(alt_idx)).unwrap();
     assert_eq!(alt_node.kind, "alt");
 
@@ -807,4 +816,128 @@ fn data_typecheck_sees_desugared_block() {
     // If we get here without panic, the typechecker accepted the desugared
     // AST. The desugar pass successfully eliminated the `data` node before
     // the typechecker saw it.
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6.3: indexed inductive families and dependent match motives
+// ---------------------------------------------------------------------------
+
+/// An indexed family with parameters and arithmetic result indices desugars
+/// into a block containing the predicate, constructors, and recursor.
+#[test]
+fn data_vec_parses_and_desugars_from_source() {
+    let kit = kit();
+    let src = "data Vec(n : Nat, a : Type) = Nil | Cons(a, Vec(n - 1, a))";
+    let ast = kit.parse(src).expect("Vec declaration must parse and desugar");
+
+    // Root should be the desugared `block` of assignments.
+    let root = ast.nodes().last().expect("ast must have a root");
+    assert_eq!(root.kind, "block");
+    let children = root
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .expect("block must have children");
+    assert_eq!(children.len(), 4, "expected pred + 2 cons + recursor");
+
+    // Helper to inspect an assignment value.
+    let assign_value = |idx: usize| -> &handl_language::AstNode {
+        let assign = ast
+            .get(AstRef::new(children[idx].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(assign.kind, "assign");
+        let ac = assign.payload.get("children").and_then(|c| c.as_array()).unwrap();
+        ast.get(AstRef::new(ac[1].as_u64().unwrap() as usize))
+            .unwrap()
+    };
+
+    // Vec predicate is a function with parameters [n, a, v].
+    let pred = assign_value(0);
+    assert_eq!(pred.kind, "function");
+    let pred_params = pred.payload.get("params").and_then(|p| p.as_array()).unwrap();
+    assert_eq!(pred_params, json!(["n", "a", "v"]).as_array().unwrap());
+
+    // Nil is a nullary constructor (literal object).
+    let nil = assign_value(1);
+    assert_eq!(nil.kind, "lit");
+
+    // Cons is a function with two arguments.
+    let cons = assign_value(2);
+    assert_eq!(cons.kind, "function");
+    let cons_params = cons.payload.get("params").and_then(|p| p.as_array()).unwrap();
+    assert_eq!(cons_params.len(), 2);
+
+    // The recursor assignment exists.
+    let rec = assign_value(3);
+    assert_eq!(rec.kind, "rec");
+}
+
+/// `match v return (i) -> T with { ... }` parses into a `match` node with
+/// three children: [scrutinee, motive, block].
+#[test]
+fn match_motive_parses_to_three_children() {
+    let kit = kit();
+    let pratt = handl_plugin_engine_parse_pratt::PrattEngine::new();
+    let src = "match v return (i) ~> Type with { a: 1 }";
+    let tokens = kit.lex(src).expect("lex must succeed");
+    let ast = pratt
+        .parse(kit.runtime().lang(), &ParserRequest::new(tokens))
+        .expect("parse must succeed");
+
+    let root = ast.nodes().last().expect("ast must have a root");
+    assert_eq!(root.kind, "match");
+    let children = root
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .expect("match must have children");
+    assert_eq!(children.len(), 3, "match with motive should have 3 children");
+
+    // Scrutinee is child 0: var("v").
+    let scrutinee = ast
+        .get(AstRef::new(children[0].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(scrutinee.kind, "var");
+    assert_eq!(scrutinee.payload, json!("v"));
+
+    // Motive is child 1: a function (i) ~> Type.
+    let motive = ast
+        .get(AstRef::new(children[1].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(motive.kind, "function");
+    let motive_children = motive
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .unwrap();
+    assert_eq!(motive_children.len(), 2);
+    let param = ast
+        .get(AstRef::new(motive_children[0].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(param.kind, "paren");
+    let param_children = param.payload.get("children").and_then(|c| c.as_array()).unwrap();
+    assert_eq!(param_children.len(), 1);
+    let inner = ast
+        .get(AstRef::new(param_children[0].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(inner.kind, "var");
+    assert_eq!(inner.payload, json!("i"));
+
+    // Arms block is child 2.
+    let block = ast
+        .get(AstRef::new(children[2].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(block.kind, "block");
+}
+
+/// The runtime `match` primitive ignores the optional motive at evaluation.
+#[test]
+fn match_motive_is_ignored_at_runtime() {
+    let kit = kit();
+    // Non-constructor arms prevent desugaring to a recursor, so the runtime
+    // `match` primitive handles the 3-child node directly.
+    let result = kit
+        .eval("match 7 return (i) ~> i with { 1: \"a\", x: x }")
+        .expect("match with motive must eval");
+    assert_eq!(result, json!(7));
 }
