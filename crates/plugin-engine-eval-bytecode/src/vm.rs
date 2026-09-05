@@ -358,7 +358,7 @@ impl<'a, 'h> VmFrame<'a, 'h> {
         if !self.cache.contains_key(&node_ref.index()) {
             let scheme_def = self.lang.eval.get_by_identity(&node.kind);
             let instrs = match scheme_def {
-                Some(def) => compile(&def.scheme, self.ast, node)?,
+                Some(def) => compile(&def.scheme, self.lang, self.ast, node)?,
                 None => vec![Instr::LoadPayload, Instr::Return],
             };
             self.cache.insert(node_ref.index(), Rc::from(instrs));
@@ -972,7 +972,12 @@ impl<'a, 'h> VmFrame<'a, 'h> {
                         LangError::engine_node("closure: missing body child".to_string(), node)
                     })? as usize;
                     let param_node = self.ast.at(AstRef::new(param_idx))?;
-                    let param_names: Vec<String> = if param_node.kind == "paren"
+                    // Collection-vs-single params is a shape question
+                    // (ADR-0081): a shape declaring a variadic role (e.g.
+                    // `params`) is a param list; the legacy `paren`/`array`
+                    // kinds remain only as the role-less fallback.
+                    let param_names: Vec<String> = if self.lang.has_variadic_role(&param_node.kind)
+                        || param_node.kind == "paren"
                         || param_node.kind == "array"
                     {
                         let param_children = param_node
@@ -2113,7 +2118,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(scheme, &ast, node)?;
+        let instrs = compile(scheme, &lang, &ast, node)?;
         let mut frame = VmFrame::new(&ast, &lang, None);
         frame.exec_instrs(&instrs, node, None)
     }
@@ -2158,7 +2163,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(&s, &ast, node).unwrap();
+        let instrs = compile(&s, &lang, &ast, node).unwrap();
         let mut frame = VmFrame::new(&ast, &lang, None);
         frame.define_global("x", TaggedValue::from(json!(7)));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
@@ -2696,7 +2701,7 @@ mod tests {
             vec![Scheme::arr_native_lit("const", vec![], json!(41))],
         );
         let node = ast.at(AstRef::new(1)).unwrap();
-        let instrs = compile(&s, &ast, node).unwrap();
+        let instrs = compile(&s, &lang, &ast, node).unwrap();
         let mut frame = VmFrame::new(&ast, &lang, None);
         let result = frame.exec_instrs(&instrs, node, None).unwrap();
         assert_eq!(result, json!(41));
@@ -2784,7 +2789,7 @@ mod tests {
         let ast = make_ast(vec![dummy_node()]);
         let lang = Language::new();
         let node = ast.at(AstRef::new(0)).unwrap();
-        let instrs = compile(&s, &ast, node).unwrap();
+        let instrs = compile(&s, &lang, &ast, node).unwrap();
         let reg = double_registry();
         let mut frame = VmFrame::new(&ast, &lang, Some(&reg));
         let result = frame.exec_instrs(&instrs, node, None).unwrap();

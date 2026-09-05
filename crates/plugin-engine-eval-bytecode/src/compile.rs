@@ -24,7 +24,7 @@
 
 use std::rc::Rc;
 
-use handl_language::{ArrSource, Scheme};
+use handl_language::{ArrSource, Language, Scheme};
 use handl_language::{Ast, AstNode, AstRef, LangError, Value};
 
 use crate::instr::Instr;
@@ -39,9 +39,9 @@ use crate::instr::Instr;
 ///
 /// Returns [`LangError::Engine`] if a sub-scheme fails to compile. In
 /// practice, every well-formed [`Scheme`] variant compiles successfully.
-pub fn compile(scheme: &Scheme, ast: &Ast, node: &AstNode) -> Result<Vec<Instr>, LangError> {
+pub fn compile(scheme: &Scheme, lang: &Language, ast: &Ast, node: &AstNode) -> Result<Vec<Instr>, LangError> {
     let mut out = Vec::new();
-    let pushed = compile_into(scheme, ast, node, &mut out)?;
+    let pushed = compile_into(scheme, lang, ast, node, &mut out)?;
     // A bare extend_env (no enclosing Seq to pop it) is balanced here.
     if pushed {
         out.push(Instr::PopScope);
@@ -61,6 +61,7 @@ pub fn compile(scheme: &Scheme, ast: &Ast, node: &AstNode) -> Result<Vec<Instr>,
 /// tree-walk's `did_push` discipline.
 fn compile_into(
     scheme: &Scheme,
+    lang: &Language,
     ast: &Ast,
     node: &AstNode,
     out: &mut Vec<Instr>,
@@ -71,11 +72,11 @@ fn compile_into(
             args,
             source,
             lit,
-        } => compile_arr(op, args, source, lit.as_ref(), ast, node, out),
+        } => compile_arr(op, args, source, lit.as_ref(), lang, ast, node, out),
 
         Scheme::Seq { fst, snd } => {
-            let fst_pushed = compile_into(fst, ast, node, out)?;
-            let snd_pushed = compile_into(snd, ast, node, out)?;
+            let fst_pushed = compile_into(fst, lang, ast, node, out)?;
+            let snd_pushed = compile_into(snd, lang, ast, node, out)?;
             // Pop the scope `fst` reported (e.g. extend_env as fst), matching
             // the tree-walk's Seq scope discipline.
             if fst_pushed {
@@ -95,7 +96,7 @@ fn compile_into(
             let firstop_pos = out.len();
             out.push(Instr::FirstOp(0, 0)); // placeholder
             let inner_start = out.len();
-            let inner_pushed = compile_into(inner, ast, node, out)?;
+            let inner_pushed = compile_into(inner, lang, ast, node, out)?;
             if inner_pushed {
                 out.push(Instr::PopScope);
             }
@@ -110,7 +111,7 @@ fn compile_into(
             out.push(Instr::ChoiceJump(0, 0));
             // Left branch.
             let left_target = out.len();
-            let l_pushed = compile_into(l, ast, node, out)?;
+            let l_pushed = compile_into(l, lang, ast, node, out)?;
             if l_pushed {
                 out.push(Instr::PopScope);
             }
@@ -118,7 +119,7 @@ fn compile_into(
             out.push(Instr::Jump(0)); // placeholder -- skip right branch
                                       // Right branch.
             let right_target = out.len();
-            let r_pushed = compile_into(r, ast, node, out)?;
+            let r_pushed = compile_into(r, lang, ast, node, out)?;
             if r_pushed {
                 out.push(Instr::PopScope);
             }
@@ -147,7 +148,7 @@ fn compile_into(
                     // Compile the body closure once, before the loop. This
                     // evaluates the `function`/`closure` child once,
                     // producing a `TaggedValue::Arrow` on the operand stack.
-                    let bp_pushed = compile_into(body_proc, ast, node, out)?;
+                    let bp_pushed = compile_into(body_proc, lang, ast, node, out)?;
                     if bp_pushed {
                         out.push(Instr::PopScope);
                     }
@@ -170,7 +171,7 @@ fn compile_into(
                     // closure creation.
                     out.push(Instr::Load(Rc::from("__loop_closure__")));
                     for arg in &args[1..] {
-                        let arg_pushed = compile_into(arg, ast, node, out)?;
+                        let arg_pushed = compile_into(arg, lang, ast, node, out)?;
                         if arg_pushed {
                             out.push(Instr::PopScope);
                         }
@@ -202,7 +203,7 @@ fn compile_into(
             out.push(Instr::Push(Value::Null));
             out.push(Instr::Pair);
             let loop_back = out.len();
-            let body_pushed = compile_into(body, ast, node, out)?;
+            let body_pushed = compile_into(body, lang, ast, node, out)?;
             // The tree-walk pops any scope the body pushed after each
             // iteration. In the VM, we emit PopScope after the body code
             // but before LoopCheck, so it runs each iteration.
@@ -214,12 +215,12 @@ fn compile_into(
         }
 
         Scheme::App { callee, args } => {
-            let callee_pushed = compile_into(callee, ast, node, out)?;
+            let callee_pushed = compile_into(callee, lang, ast, node, out)?;
             if callee_pushed {
                 out.push(Instr::PopScope);
             }
             for arg in args {
-                let arg_pushed = compile_into(arg, ast, node, out)?;
+                let arg_pushed = compile_into(arg, lang, ast, node, out)?;
                 if arg_pushed {
                     out.push(Instr::PopScope);
                 }
@@ -241,7 +242,7 @@ fn compile_into(
         Scheme::Handle { .. } => {
             let eliminated = handl_language::eliminate_and_check(scheme)
                 .map_err(|e| LangError::engine_node(e.to_string(), node))?;
-            compile_into(&eliminated, ast, node, out)
+            compile_into(&eliminated, lang, ast, node, out)
         }
     }
 }
@@ -253,6 +254,7 @@ fn compile_arr(
     args: &[Scheme],
     source: &ArrSource,
     lit: Option<&Value>,
+    lang: &Language,
     ast: &Ast,
     node: &AstNode,
     out: &mut Vec<Instr>,
@@ -296,7 +298,7 @@ fn compile_arr(
         // (the type tag string). Compile the arg, then emit RouteOnType.
         "route_on_type" => {
             for arg in args {
-                let arg_pushed = compile_into(arg, ast, node, out)?;
+                let arg_pushed = compile_into(arg, lang, ast, node, out)?;
                 if arg_pushed {
                     out.push(Instr::PopScope);
                 }
@@ -326,7 +328,7 @@ fn compile_arr(
         let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(args.len());
         for arg in args {
             let start = out.len();
-            let arg_pushed = compile_into(arg, ast, node, out)?;
+            let arg_pushed = compile_into(arg, lang, ast, node, out)?;
             if arg_pushed {
                 out.push(Instr::PopScope);
             }
@@ -371,7 +373,7 @@ fn compile_arr(
     // `NativeOp("closure", n)` path. Falls back to `NativeOp("closure", n)`
     // when the params/body cannot be statically resolved.
     if source == &ArrSource::Native && op == "closure" {
-        if let Some(closure) = try_extract_closure_params_body(ast, node)? {
+        if let Some(closure) = try_extract_closure_params_body(lang, ast, node)? {
             out.push(Instr::Closure {
                 params: closure.params,
                 body: closure.body,
@@ -381,7 +383,7 @@ fn compile_arr(
     }
 
     for arg in args {
-        let arg_pushed = compile_into(arg, ast, node, out)?;
+        let arg_pushed = compile_into(arg, lang, ast, node, out)?;
         if arg_pushed {
             out.push(Instr::PopScope);
         }
@@ -564,6 +566,7 @@ struct StaticClosure {
 /// `NativeOp("closure", n)`. Returns `Err` only for AST lookup failures
 /// (malformed arena indices), matching the runtime handler's behavior.
 fn try_extract_closure_params_body(
+    lang: &Language,
     ast: &Ast,
     node: &AstNode,
 ) -> Result<Option<StaticClosure>, LangError> {
@@ -599,7 +602,14 @@ fn try_extract_closure_params_body(
             None => return Ok(None),
         };
         let param_node = ast.at(AstRef::new(param_idx))?;
-        let names: Vec<String> = if param_node.kind == "paren" || param_node.kind == "array" {
+        // Collection-vs-single params is a shape question (ADR-0081): a
+        // shape declaring a variadic role (e.g. `params`) is a param list;
+        // the legacy `paren`/`array` kinds remain only as the role-less
+        // fallback.
+        let names: Vec<String> = if lang.has_variadic_role(&param_node.kind)
+            || param_node.kind == "paren"
+            || param_node.kind == "array"
+        {
             let param_children = match param_node
                 .payload
                 .get("children")
@@ -643,7 +653,7 @@ fn try_extract_closure_params_body(
 mod tests {
     use super::*;
     use handl_language::Scheme;
-    use handl_language::{Ast, AstNode};
+    use handl_language::{Ast, AstNode, Language};
     use serde_json::json;
 
     /// A dummy node used by compilation tests (the node is not inspected).
@@ -663,42 +673,42 @@ mod tests {
     #[test]
     fn compile_const() {
         let s = Scheme::arr_native_lit("const", vec![], json!(42));
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Push(json!(42)), Instr::Return]);
     }
 
     #[test]
     fn compile_const_no_lit() {
         let s = Scheme::arr_native("const", vec![]);
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Push(Value::Null), Instr::Return]);
     }
 
     #[test]
     fn compile_proj_env_named() {
         let s = Scheme::arr_native_lit("proj_env", vec![], "x");
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::Load("x".into()), Instr::Return]);
     }
 
     #[test]
     fn compile_proj_env_payload() {
         let s = Scheme::arr_native_lit("proj_env", vec![], "$payload");
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::LoadPayloadVar, Instr::Return]);
     }
 
     #[test]
     fn compile_proj_child() {
         let s = Scheme::arr_native_lit("proj_child", vec![], json!(2));
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(instrs, vec![Instr::EvalChild(2), Instr::Return]);
     }
 
     #[test]
     fn compile_extend_env_named() {
         let s = Scheme::arr_native_lit("extend_env", vec![], "x");
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::Store("x".into()), Instr::PopScope, Instr::Return]
@@ -708,7 +718,7 @@ mod tests {
     #[test]
     fn compile_extend_env_payload() {
         let s = Scheme::arr_native_lit("extend_env", vec![], "$payload");
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::StorePayloadName, Instr::PopScope, Instr::Return]
@@ -724,7 +734,7 @@ mod tests {
                 Scheme::arr_native_lit("proj_child", vec![], json!(1)),
             ],
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -742,7 +752,7 @@ mod tests {
             "double",
             vec![Scheme::arr_native_lit("proj_child", vec![], json!(0))],
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -761,7 +771,7 @@ mod tests {
             Scheme::arr_native_lit("const", vec![], json!(5)),
             Scheme::arr_native("id", vec![]),
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -785,7 +795,7 @@ mod tests {
             ),
             Scheme::arr_native_lit("proj_env", vec![], "x"),
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -803,7 +813,7 @@ mod tests {
     #[test]
     fn compile_first() {
         let s = Scheme::first(Scheme::arr_native("id", vec![]));
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         // FirstOp(1, 2) — inner sub-program at index 1..2 is the `id` op.
         assert_eq!(
             instrs,
@@ -823,7 +833,7 @@ mod tests {
             Scheme::arr_native_lit("const", vec![], json!(1)),
             Scheme::arr_native_lit("const", vec![], json!(2)),
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -841,7 +851,7 @@ mod tests {
     #[test]
     fn compile_loop() {
         let s = Scheme::loop_feedback(Scheme::arr_native("inc_fst", vec![]));
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -862,7 +872,7 @@ mod tests {
             Scheme::arr_native_lit("proj_env", vec![], "f"),
             vec![Scheme::arr_native_lit("const", vec![], json!(41))],
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![
@@ -877,7 +887,7 @@ mod tests {
     #[test]
     fn compile_app_no_args() {
         let s = Scheme::app(Scheme::arr_native_lit("proj_env", vec![], "f"), vec![]);
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![Instr::Load("f".into()), Instr::Call(0), Instr::Return]
@@ -899,7 +909,7 @@ mod tests {
                 Scheme::arr_native_lit("const", vec![], "no"),
             ),
         );
-        let instrs = compile(&s, &dummy_ast(), &dummy_node()).unwrap();
+        let instrs = compile(&s, &Language::new(), &dummy_ast(), &dummy_node()).unwrap();
         assert_eq!(
             instrs,
             vec![

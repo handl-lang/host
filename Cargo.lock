@@ -1313,6 +1313,7 @@ dependencies = [
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-eval",
+ "handl-plugin-engine-eval-bytecode",
  "handl-plugin-module",
  "handl-test-utils",
  "handl-value",

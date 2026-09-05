@@ -85,7 +85,7 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Ast {
         // opt-chain, if). These forms require fresh-name generation,
         // pattern construction, or recursive structure building that the
         // declarative `DesugarRule` format cannot express.
-        if let Some(new_ref) = try_rust_desugar(node, ast, &mut out, &remap) {
+        if let Some(new_ref) = try_rust_desugar(lang, node, ast, &mut out, &remap) {
             remap[i] = Some(new_ref.index());
             continue;
         }
@@ -774,7 +774,7 @@ struct DataConstructor {
 /// - A `call` node: N-ary constructor (callee child 0 is a `var` with the
 ///   name; children 1+ are type expressions, each a `var` whose payload is
 ///   the type name). Arg names are derived from the lowercased type name.
-fn parse_data_payload(node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataConstructor>)> {
+fn parse_data_payload(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataConstructor>)> {
     let name = node.payload.get("name").and_then(|v| v.as_str())?.to_string();
 
     // Backward compatibility: if `payload.constructors` exists (hand-built
@@ -814,7 +814,7 @@ fn parse_data_payload(node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataCons
         .map(|v| v as usize)?;
     let child = ast.get(AstRef::new(child_idx))?;
     let mut constructors = Vec::new();
-    collect_constructors(child, ast, &mut constructors);
+    collect_constructors(lang, child, ast, &mut constructors);
     Some((name, constructors))
 }
 
@@ -827,7 +827,7 @@ fn parse_data_payload(node: &AstNode, ast: &Ast) -> Option<(String, Vec<DataCons
 ///   children 1+ type expressions). Arg names are derived from the
 ///   lowercased type name; arg types from the `var` payload. Non-`var`
 ///   args get a placeholder type `"_"`.
-fn collect_constructors(node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor>) {
+fn collect_constructors(lang: &Language, node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor>) {
     match node.kind.as_str() {
         "alt" => {
             // Recurse on both children.
@@ -836,7 +836,7 @@ fn collect_constructors(node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor
                 for child_val in arr {
                     if let Some(idx) = child_val.as_u64() {
                         if let Some(child) = ast.get(AstRef::new(idx as usize)) {
-                            collect_constructors(child, ast, out);
+                            collect_constructors(lang, child, ast, out);
                         }
                     }
                 }
@@ -880,7 +880,9 @@ fn collect_constructors(node: &AstNode, ast: &Ast, out: &mut Vec<DataConstructor
                             let type_name = arg_node.payload.as_str().unwrap_or("_").to_string();
                             let lower = type_name.to_lowercase();
                             (lower, type_name)
-                        } else if arg_node.kind == "type-annot" {
+                        } else if lang.child_role_index(&arg_node.kind, "annot").ok().flatten().is_some()
+                            || arg_node.kind == "type-annot"
+                        {
                             // Explicit arg: `Just(value : Nat)` → name "value",
                             // type "Nat". The type-annot node has children
                             // [subject, annot] where subject is a var with the
@@ -1157,8 +1159,8 @@ fn occurs_in(expr: &TypeExpr, type_name: &str) -> bool {
 ///
 /// The recursor is structurally recursive on `n` (decreasing via `n.pred`),
 /// consistent with ADR-0068's `array.rec` approach.
-fn desugar_data(original: &AstNode, ast: &Ast, out: &mut Ast) -> Option<AstRef> {
-    let (type_name, constructors) = parse_data_payload(original, ast)?;
+fn desugar_data(lang: &Language, original: &AstNode, ast: &Ast, out: &mut Ast) -> Option<AstRef> {
+    let (type_name, constructors) = parse_data_payload(lang, original, ast)?;
 
     // Step 2: strict positivity check.
     if let Err(reason) = check_strict_positivity(&type_name, &constructors) {
@@ -1560,6 +1562,7 @@ fn parse_arm_pattern(out: &Ast, pattern: &AstNode) -> Option<MatchArm> {
 /// correspond to constructors of the same type, and all constructors of
 /// that type must be covered.
 fn desugar_match_to_recursor(
+    lang: &Language,
     original: &AstNode,
     ast: &Ast,
     out: &mut Ast,
@@ -1610,7 +1613,7 @@ fn desugar_match_to_recursor(
         std::collections::HashMap::new();
     for node in ast.nodes() {
         if node.kind == "data" {
-            if let Some((type_name, constructors)) = parse_data_payload(node, ast) {
+            if let Some((type_name, constructors)) = parse_data_payload(lang, node, ast) {
                 for cons in &constructors {
                     cons_to_type
                         .insert(cons.name.clone(), (type_name.clone(), constructors.clone()));
@@ -1689,6 +1692,7 @@ fn desugar_match_to_recursor(
 /// if a Rust desugar fired, or `None` if the node kind is not a v0.1
 /// sugar form (or the guard condition skipped it).
 fn try_rust_desugar(
+    lang: &Language,
     original: &AstNode,
     ast: &Ast,
     out: &mut Ast,
@@ -1708,12 +1712,12 @@ fn try_rust_desugar(
         "while" => desugar_while(original, ast, out, remap),
         "do-while" => Some(desugar_do_while(original, ast, out, remap)),
         "for" => Some(desugar_for(original, ast, out, remap)),
-        "data" => desugar_data(original, ast, out),
+        "data" => desugar_data(lang, original, ast, out),
         // ADR-0082 step 4: `match` with constructor patterns desugars to
         // recursor application. Returns `None` (no desugar) for conditional
         // matches (wildcard `_` or non-constructor patterns) — those pass
         // through unchanged and are evaluated by the `match` eval primitive.
-        "match" => desugar_match_to_recursor(original, ast, out, remap),
+        "match" => desugar_match_to_recursor(lang, original, ast, out, remap),
         _ => None,
     }
 }
