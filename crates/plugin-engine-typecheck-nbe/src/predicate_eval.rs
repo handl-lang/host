@@ -639,7 +639,7 @@ fn call_children(node: &AstNode) -> (usize, Vec<usize>) {
 ///   payload is the param name.
 ///
 /// Returns `(param_names, body_idx)`.
-fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)> {
+fn function_param_body(ast: &Ast, node: &AstNode, lang: &Language) -> Option<(Vec<String>, usize)> {
     // Rich format: {params: ["name", ...], body: idx}
     if let (Some(params), Some(body)) = (
         node.payload.get("params").and_then(|v| v.as_array()),
@@ -651,7 +651,12 @@ fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)
             .collect();
         return Some((names, body as usize));
     }
-    // Legacy format: {children: [param_idx, body_idx]}
+    // Legacy format: {children: [param_idx, body_idx]} — only for `function`
+    // nodes (a core calculus primitive). A `call` node also has `children`
+    // but is not a function.
+    if node.kind != "function" {
+        return None;
+    }
     let children = node.payload.get("children").and_then(|c| c.as_array())?;
     if children.len() < 2 {
         return None;
@@ -773,7 +778,7 @@ impl super::NbeTypecheckEngine {
             usize,
             String,
             Option<Value>,
-        ) = if let Some((param_names, body_idx)) = function_param_body(ast, pred_node) {
+        ) = if let Some((param_names, body_idx)) = function_param_body(ast, pred_node, lang) {
             // Phase 3.2: handle both children-array and params/body shapes.
             let param_name = param_names.into_iter().next().unwrap_or_else(|| "_".to_string());
             (ast.clone(), body_idx, param_name, None)

@@ -158,6 +158,10 @@ pub struct NbeTypecheckEngine {
     pure: bool,
     /// Module registry for Foreign op type signature lookup (ADR-0083).
     modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
+    /// Globals injected into the root typing context (e.g. `hello`, `self`).
+    globals: HashMap<String, Value>,
+    /// Type registry used to mint type values (matches `registry_id`).
+    registry: TypeRegistry,
 }
 
 impl NbeTypecheckEngine {
@@ -168,17 +172,22 @@ impl NbeTypecheckEngine {
     /// The registry id defaults to `"handl.canonical"`. The engine defaults
     /// to `pure: true` (ADR-0054 pure-eval path).
     pub fn new(eval_engine: Box<dyn EvalEngine>) -> Self {
+        let registry_id = "handl.canonical".to_string();
+        let registry = TypeRegistry::new(&registry_id);
         Self {
             eval_engine,
-            registry_id: "handl.canonical".to_string(),
+            registry_id,
             pure: true,
             modules: None,
+            globals: HashMap::new(),
+            registry,
         }
     }
 
     /// Builder: set the type registry id (stamped into minted type values).
     pub fn with_registry_id(mut self, id: impl Into<String>) -> Self {
         self.registry_id = id.into();
+        self.registry = TypeRegistry::new(&self.registry_id);
         self
     }
 
@@ -190,7 +199,61 @@ impl NbeTypecheckEngine {
         Self {
             pure,
             modules: self.modules.clone(),
+            registry: self.registry,
             ..self
+        }
+    }
+
+    /// Convert a runtime global value into a type value for the root typing
+    /// context. Object globals whose string fields name module-qualified ops
+    /// are given record types with the op's registered signature; all other
+    /// values map to their primitive types.
+    fn value_to_type(&self, val: &Value) -> Value {
+        use serde_json::json;
+        match val {
+            Value::Null => self
+                .registry
+                .construct("type.null", &Value::Null)
+                .unwrap_or(Value::Null),
+            Value::Bool(_) => self
+                .registry
+                .construct("type.bool", &Value::Null)
+                .unwrap_or(Value::Null),
+            Value::Number(_) => self
+                .registry
+                .construct("type.number", &Value::Null)
+                .unwrap_or(Value::Null),
+            Value::String(s) => {
+                let ty = self
+                    .modules
+                    .as_ref()
+                    .and_then(|m| m.lookup_type_signature(s))
+                    .or_else(|| self.registry.construct("type.string", &Value::Null))
+                    .unwrap_or_else(|| Value::String(s.clone()));
+                eprintln!("DEBUG value_to_type string {:?} -> {:?}", s, ty);
+                ty
+            }
+            Value::Array(_) => self
+                .registry
+                .construct("type.array", &json!({"element": self.value_to_type(&Value::Null)}))
+                .unwrap_or(Value::Null),
+            Value::Object(o) => {
+                // Tagged engine/runtime values (e.g. `self`) are not record
+                // types; treat them as unknown.
+                if o.keys().any(|k| k.starts_with("__")) {
+                    self.registry
+                        .construct("type.unknown", &Value::Null)
+                        .unwrap_or(Value::Null)
+                } else {
+                    let fields: serde_json::Map<String, Value> = o
+                        .iter()
+                        .map(|(k, v)| (k.clone(), self.value_to_type(v)))
+                        .collect();
+                    self.registry
+                        .construct("type.record", &json!({"fields": fields}))
+                        .unwrap_or(Value::Null)
+                }
+            }
         }
     }
 
@@ -3659,7 +3722,7 @@ impl TypecheckEngine for NbeTypecheckEngine {
         }
         // The root node is the LAST node in the arena (Pratt convention).
         let root_ref = AstRef::new(req.ast.len() - 1);
-        let mut ctx = TypecheckContext::new(&self.registry_id);
+        let mut ctx = TypecheckContext::new(&self.registry_id, self.globals.clone());
         let typ = self.synth_node(lang, &req.ast, root_ref, &mut ctx)?;
         Ok(TypecheckResult {
             typ,
@@ -3673,6 +3736,8 @@ impl TypecheckEngine for NbeTypecheckEngine {
             registry_id: self.registry_id.clone(),
             pure: self.pure,
             modules: self.modules.clone(),
+            globals: self.globals.clone(),
+            registry: self.registry.clone(),
         })
     }
 
@@ -3685,6 +3750,22 @@ impl TypecheckEngine for NbeTypecheckEngine {
             registry_id: self.registry_id.clone(),
             pure: self.pure,
             modules: Some(modules),
+            globals: self.globals.clone(),
+            registry: self.registry.clone(),
+        })
+    }
+
+    fn with_global(&self, name: &str, val: Value) -> Box<dyn TypecheckEngine> {
+        let mut globals = self.globals.clone();
+        let ty = self.value_to_type(&val);
+        globals.insert(name.to_string(), ty);
+        Box::new(Self {
+            eval_engine: self.eval_engine.box_clone(),
+            registry_id: self.registry_id.clone(),
+            pure: self.pure,
+            modules: self.modules.clone(),
+            globals,
+            registry: self.registry.clone(),
         })
     }
 }
@@ -3707,17 +3788,20 @@ struct TypecheckContext {
     /// Non-fatal diagnostics accumulated during typechecking (ADR-0068:
     /// runtime-assert requirements from `Blocked` predicate annotations).
     diagnostics: Vec<TypecheckDiagnostic>,
+    /// Globals injected at the root (e.g. `hello`, `self`).
+    globals: HashMap<String, Value>,
 }
 
 impl TypecheckContext {
-    /// Create a fresh context with the given registry id.
-    fn new(registry_id: &str) -> Self {
+    /// Create a fresh context with the given registry id and globals.
+    fn new(registry_id: &str, globals: HashMap<String, Value>) -> Self {
         Self {
             metas: Vec::new(),
             gamma: Vec::new(),
             results: HashMap::new(),
             registry: TypeRegistry::new(registry_id),
             diagnostics: Vec::new(),
+            globals,
         }
     }
 
@@ -3750,13 +3834,15 @@ impl TypecheckContext {
         self.gamma.push((name, ty));
     }
 
-    /// Look up a variable's type in Γ (reverse order — innermost first).
+    /// Look up a variable's type in Γ (reverse order — innermost first),
+    /// then fall back to injected globals.
     fn lookup(&self, name: &str) -> Option<&Value> {
         self.gamma
             .iter()
             .rev()
             .find(|(n, _)| n == name)
             .map(|(_, v)| v)
+            .or_else(|| self.globals.get(name))
     }
 
     /// Look up a binding by index in Γ (0 = outermost).

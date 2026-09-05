@@ -11,6 +11,7 @@ use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::json;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Build an [`NbeTypecheckEngine`] backed by a fresh [`TreeWalkEngine`].
@@ -795,7 +796,7 @@ fn typecheck_eval_child_delegates_to_eval() {
 
 #[test]
 fn typecheck_context_meta_store() {
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let id = ctx.fresh_meta();
     assert_eq!(id, 0);
     assert!(ctx.lookup_meta(id).is_none());
@@ -809,7 +810,7 @@ fn typecheck_context_meta_store() {
 
 #[test]
 fn typecheck_context_gamma_lookup() {
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     ctx.extend("x".into(), type_number());
     ctx.extend("y".into(), type_string());
     assert_eq!(ctx.lookup("x"), Some(&type_number()));
@@ -2333,7 +2334,7 @@ fn check_if_rule_checks_both_branches() {
 #[test]
 fn occurs_check_prevents_circular_meta() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     // Allocate a fresh meta (id 0).
     let id = ctx.fresh_meta();
     // Build a value that contains the meta itself: {"__meta__": 0} nested
@@ -2358,7 +2359,7 @@ fn occurs_check_prevents_circular_meta() {
 #[test]
 fn occurs_check_allows_non_circular() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let id = ctx.fresh_meta();
     // A value that does NOT contain the meta → unify should succeed and
     // solve the meta.
@@ -7630,7 +7631,7 @@ fn type_record_open(fields: serde_json::Map<String, Value>, rest: &Value) -> Val
 #[test]
 fn row_poly_open_unifies_closed_with_extra_fields() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     // Row variable r = meta 0.
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
@@ -7660,7 +7661,7 @@ fn row_poly_open_unifies_closed_with_extra_fields() {
 #[test]
 fn row_poly_open_unifies_closed_no_extra_fields() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     // Open record: {name: Str | r}
@@ -7686,7 +7687,7 @@ fn row_poly_open_unifies_closed_no_extra_fields() {
 #[test]
 fn row_poly_two_open_records_unify() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r1_id = ctx.fresh_meta();
     let r1 = meta_value(r1_id);
     let r2_id = ctx.fresh_meta();
@@ -7719,7 +7720,7 @@ fn row_poly_two_open_records_unify() {
 #[test]
 fn row_poly_open_records_different_fields() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r1_id = ctx.fresh_meta();
     let r1 = meta_value(r1_id);
     let r2_id = ctx.fresh_meta();
@@ -7774,7 +7775,7 @@ fn row_poly_open_records_different_fields() {
 #[test]
 fn row_poly_closed_records_same_fields_unify() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let mut fields = serde_json::Map::new();
     fields.insert("name".to_string(), type_string());
     fields.insert("age".to_string(), type_number());
@@ -7790,7 +7791,7 @@ fn row_poly_closed_records_same_fields_unify() {
 #[test]
 fn row_poly_closed_records_different_fields_fail() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let mut fields_a = serde_json::Map::new();
     fields_a.insert("name".to_string(), type_string());
     let rec_a = type_record(fields_a);
@@ -7814,7 +7815,7 @@ fn row_poly_closed_records_different_fields_fail() {
 #[test]
 fn row_poly_open_requires_field_absent_from_closed_fails() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     // Open record: {name: Str, age: Int | r}
@@ -8004,7 +8005,7 @@ fn fresh_row_meta_creates_meta() {
 #[test]
 fn row_poly_closed_unifies_open_reversed() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     // Closed record: {name: Str, age: Int}
@@ -8032,7 +8033,7 @@ fn row_poly_closed_unifies_open_reversed() {
 #[test]
 fn row_poly_occurs_check_rejects_cyclic_row() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     // Build a record that contains r in its own rest field:
@@ -8061,7 +8062,7 @@ fn row_poly_occurs_check_rejects_cyclic_row() {
 #[test]
 fn row_poly_occurs_check_nested_row() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     // Inner record: {b: Int | r}  — contains r.
@@ -8268,7 +8269,7 @@ fn row_poly_function_call_closed_rejects_extra() {
 #[test]
 fn row_poly_open_unifies_open_with_extra_known_field() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r1_id = ctx.fresh_meta();
     let r1 = meta_value(r1_id);
     let r2_id = ctx.fresh_meta();
@@ -8879,7 +8880,7 @@ fn effect_row_handle_attaches_effects_to_function_type() {
 #[test]
 fn unify_effects_closed_same_ops_succeeds() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let a = type_effects_closed(&["map", "serialize"]);
     let b = type_effects_closed(&["map", "serialize"]);
     engine.unify(&a, &b, &mut ctx).unwrap();
@@ -8892,7 +8893,7 @@ fn unify_effects_closed_same_ops_succeeds() {
 #[test]
 fn unify_effects_closed_different_ops_fails() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let a = type_effects_closed(&["map"]);
     let b = type_effects_closed(&["map", "serialize"]);
     let err = engine.unify(&a, &b, &mut ctx).unwrap_err();
@@ -8912,7 +8913,7 @@ fn unify_effects_closed_different_ops_fails() {
 #[test]
 fn unify_effects_open_with_closed_assigns_extra_ops() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     let open = type_effects_open(&["map"], &r);
@@ -8939,7 +8940,7 @@ fn unify_effects_open_with_closed_assigns_extra_ops() {
 #[test]
 fn unify_effects_open_requires_op_absent_from_closed_fails() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r_id = ctx.fresh_meta();
     let r = meta_value(r_id);
     let open = type_effects_open(&["map", "log"], &r);
@@ -8961,7 +8962,7 @@ fn unify_effects_open_requires_op_absent_from_closed_fails() {
 #[test]
 fn unify_effects_two_open_different_ops() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let r1_id = ctx.fresh_meta();
     let r1 = meta_value(r1_id);
     let r2_id = ctx.fresh_meta();
@@ -9013,7 +9014,7 @@ fn unify_effects_two_open_different_ops() {
 #[test]
 fn function_with_effects_unifies_effects_field() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let effects_a = type_effects_closed(&["map"]);
     let effects_b = type_effects_closed(&["map"]);
     let fun_a = type_function_with_effects(type_number(), type_string(), effects_a);
@@ -9030,7 +9031,7 @@ fn function_with_effects_unifies_effects_field() {
 #[test]
 fn function_with_effects_vs_without_effects_skips_effect_unify() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let effects = type_effects_closed(&["map"]);
     let fun_with = type_function_with_effects(type_number(), type_string(), effects);
     let fun_without = type_function(type_number(), type_string());
@@ -9046,7 +9047,7 @@ fn function_with_effects_vs_without_effects_skips_effect_unify() {
 #[test]
 fn function_with_mismatched_effects_fails() {
     let engine = engine();
-    let mut ctx = TypecheckContext::new("handl.canonical");
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
     let effects_a = type_effects_closed(&["map"]);
     let effects_b = type_effects_closed(&["serialize"]);
     let fun_a = type_function_with_effects(type_number(), type_string(), effects_a);
@@ -9297,6 +9298,13 @@ fn predicate_lang() -> Language {
         ))
         .unwrap();
 
+    // AST shape roles: function has params/body (ADR-0081).
+    lang.ast
+        .merge(AstShapeDef::new("ast.function", "function").with_children(vec![
+            ChildRoleSpec { role: "params".into(), variadic: false },
+            ChildRoleSpec { role: "body".into(), variadic: false },
+        ]))
+        .unwrap();
     lang
 }
 
