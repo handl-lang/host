@@ -3,8 +3,7 @@
 //! Generic bounded-job scheduler for the handl platform.
 //!
 //! Executes a collection of independent jobs under a [`SchedulePolicy`],
-//! limiting parallelism and recording a per-job timeout for future
-//! enforcement. The scheduler is intentionally generic: callers supply job
+//! limiting parallelism and enforcing a per-job timeout. The scheduler is intentionally generic: callers supply job
 //! IDs and closures, and receive results keyed by those IDs. Ordering of
 //! results reflects completion order; callers that need deterministic
 //! ordering (such as the test runner) re-collect results into their own
@@ -28,10 +27,13 @@ use std::time::Duration;
 pub struct SchedulePolicy {
     /// Maximum number of jobs that may run concurrently.
     pub max_concurrency: usize,
-    /// Optional soft timeout for each individual job.
+    /// Optional timeout for each individual job.
     ///
-    /// **Note:** The initial implementation records this value but does not
-    /// hard-kill jobs that exceed it. Future versions will enforce it.
+    /// When `Some`, `BoundedScheduler::run` reports `JobError::Timeout` for
+    /// any job that does not complete within the given duration. The worker
+    /// spawns the job on its own thread and waits up to the timeout; if the
+    /// timeout elapses, the overdue job thread is detached so the scheduler
+    /// can return promptly.
     pub per_job_timeout: Option<Duration>,
 }
 
@@ -71,7 +73,8 @@ pub enum JobError {
     Panic,
     /// The job exceeded its allotted time.
     ///
-    /// **Note:** Not enforced by the initial implementation.
+    /// Emitted by `BoundedScheduler::run` when a job does not finish before
+    /// its `per_job_timeout`.
     Timeout,
 }
 
@@ -127,20 +130,18 @@ impl BoundedScheduler {
         for _ in 0..n_workers {
             let queue = Arc::clone(&queue);
             let result_tx = result_tx.clone();
-            let handle = thread::spawn(move || {
-                loop {
-                    let next = {
-                        let mut q = queue.lock().unwrap();
-                        q.pop_front()
-                    };
-                    match next {
-                        Some((id, Some(job))) => {
-                            let result = Self::execute(job, policy.per_job_timeout);
-                            let _ = result_tx.send((id, result));
-                        }
-                        Some((_, None)) => {}
-                        None => break,
+            let handle = thread::spawn(move || loop {
+                let next = {
+                    let mut q = queue.lock().unwrap();
+                    q.pop_front()
+                };
+                match next {
+                    Some((id, Some(job))) => {
+                        let result = Self::execute(job, policy.per_job_timeout);
+                        let _ = result_tx.send((id, result));
                     }
+                    Some((_, None)) => {}
+                    None => break,
                 }
             });
             handles.push(handle);
@@ -161,16 +162,54 @@ impl BoundedScheduler {
         results
     }
 
-    fn execute<J, R>(job: J, _timeout: Option<Duration>) -> JobResult<R>
+    fn execute<J, R>(job: J, timeout: Option<Duration>) -> JobResult<R>
     where
         J: FnOnce() -> R + Send + 'static,
         R: Send + 'static,
     {
-        // catch_unwind requires UnwindSafe; AssertUnwindSafe is appropriate
-        // because we consume the closure immediately and do not share it.
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)) {
-            Ok(value) => JobResult::ok(value),
-            Err(_) => JobResult::err(JobError::Panic),
+        match timeout {
+            None => {
+                // No timeout: run the job directly on the worker thread.
+                // catch_unwind requires UnwindSafe; AssertUnwindSafe is
+                // appropriate because we consume the closure immediately
+                // and do not share it.
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)) {
+                    Ok(value) => JobResult::ok(value),
+                    Err(_) => JobResult::err(JobError::Panic),
+                }
+            }
+            Some(timeout) => {
+                // Spawn a dedicated thread for the job so the worker can
+                // return a Timeout result without blocking on the job. If
+                // the timeout fires we drop the handle, detaching the
+                // overdue job thread; it may run to completion in the
+                // background, but its result is discarded.
+                let (tx, rx) = mpsc::channel::<JobResult<R>>();
+                let handle = thread::spawn(move || {
+                    let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)) {
+                        Ok(value) => JobResult::ok(value),
+                        Err(_) => JobResult::err(JobError::Panic),
+                    };
+                    // Ignore send errors: the receiver may have been dropped
+                    // because the job timed out.
+                    let _ = tx.send(result);
+                });
+
+                match rx.recv_timeout(timeout) {
+                    Ok(result) => {
+                        let _ = handle.join();
+                        result
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        drop(handle);
+                        JobResult::err(JobError::Timeout)
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => {
+                        let _ = handle.join();
+                        JobResult::err(JobError::Panic)
+                    }
+                }
+            }
         }
     }
 }
@@ -178,8 +217,8 @@ impl BoundedScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::time::Instant;
 
     #[test]
@@ -263,5 +302,62 @@ mod tests {
         let results = BoundedScheduler::run(jobs, &SchedulePolicy::parallel(2));
         assert_eq!(results[0].0, "fast");
         assert_eq!(results[1].0, "slow");
+    }
+
+    #[test]
+    fn per_job_timeout_fires_on_slow_job() {
+        let jobs: Vec<(String, Box<dyn FnOnce() -> () + Send>)> = vec![(
+            "slow".to_string(),
+            Box::new(|| {
+                thread::sleep(Duration::from_millis(1_000));
+            }),
+        )];
+        let mut policy = SchedulePolicy::sequential();
+        policy.per_job_timeout = Some(Duration::from_millis(20));
+        let results = BoundedScheduler::run(jobs, &policy);
+        assert_eq!(results.len(), 1);
+        let (_id, result) = &results[0];
+        assert_eq!(result.output, Err(JobError::Timeout));
+    }
+
+    #[test]
+    fn per_job_timeout_allows_fast_jobs() {
+        let jobs: Vec<(String, Box<dyn FnOnce() -> usize + Send>)> =
+            vec![("fast".to_string(), Box::new(|| 42))];
+        let mut policy = SchedulePolicy::sequential();
+        policy.per_job_timeout = Some(Duration::from_millis(100));
+        let results = BoundedScheduler::run(jobs, &policy);
+        assert_eq!(results.len(), 1);
+        let (_id, result) = &results[0];
+        assert_eq!(result.output, Ok(42));
+    }
+
+    #[test]
+    fn per_job_timeout_does_not_block_other_jobs() {
+        let jobs: Vec<(String, Box<dyn FnOnce() -> usize + Send>)> = vec![
+            (
+                "slow".to_string(),
+                Box::new(|| {
+                    thread::sleep(Duration::from_millis(1_000));
+                    1
+                }),
+            ),
+            ("fast".to_string(), Box::new(|| 2)),
+        ];
+        let mut policy = SchedulePolicy::parallel(2);
+        policy.per_job_timeout = Some(Duration::from_millis(30));
+        let start = Instant::now();
+        let results = BoundedScheduler::run(jobs, &policy);
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(200),
+            "scheduler returned too slowly: {:?}",
+            elapsed
+        );
+
+        let mut by_id: std::collections::HashMap<String, JobResult<usize>> =
+            results.into_iter().collect();
+        assert_eq!(by_id.remove("slow").unwrap().output, Err(JobError::Timeout));
+        assert_eq!(by_id.remove("fast").unwrap().output, Ok(2));
     }
 }

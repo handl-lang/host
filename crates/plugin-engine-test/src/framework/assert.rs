@@ -6,7 +6,8 @@ use serde_json::Value;
 
 use crate::framework::error::TestError;
 use crate::framework::shared::{b, call_function, require_bool, require_function, require_len};
-use crate::framework::{test_op_registry, TEST_HNL};
+use crate::framework::{set_last_assert_failure, test_op_registry, TEST_HNL};
+use crate::runner::FailureDetail;
 
 /// The op names declared in `test.hnl` for the `assert` module.
 const ASSERT_OPS: &[&str] = &[
@@ -56,12 +57,17 @@ impl Function for Equal {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
         if args[0] != args[1] {
+            let actual = serde_json::to_string(&args[0]).unwrap_or_default();
+            let expected = serde_json::to_string(&args[1]).unwrap_or_default();
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.equal".to_string()),
+                expected: Some(expected.clone()),
+                actual: Some(actual.clone()),
+                diff: None,
+                cause: None,
+            });
             return Err(TestError::AssertionFailed {
-                message: format!(
-                    "expected {} to equal {}",
-                    serde_json::to_string(&args[0]).unwrap_or_default(),
-                    serde_json::to_string(&args[1]).unwrap_or_default()
-                ),
+                message: format!("expected {actual} to equal {expected}"),
             }
             .into());
         }
@@ -75,14 +81,17 @@ impl Function for NotEqual {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         require_len(args, 2)?;
         if args[0] == args[1] {
-            return Err(TestError::AssertionFailed {
-                message: format!(
-                    "expected {} to not equal {}",
-                    serde_json::to_string(&args[0]).unwrap_or_default(),
-                    serde_json::to_string(&args[1]).unwrap_or_default()
-                ),
-            }
-            .into());
+            let actual = serde_json::to_string(&args[0]).unwrap_or_default();
+            let disallowed = serde_json::to_string(&args[1]).unwrap_or_default();
+            let message = format!("expected {actual} to not equal {disallowed}");
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.not_equal".to_string()),
+                expected: Some(format!("not equal to {disallowed}")),
+                actual: Some(actual),
+                diff: None,
+                cause: None,
+            });
+            return Err(TestError::AssertionFailed { message }.into());
         }
         Ok(b(true))
     }
@@ -95,6 +104,14 @@ impl Function for True {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if !value {
+            let actual = serde_json::to_string(&Value::Bool(value)).unwrap_or_default();
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.true".to_string()),
+                expected: Some("true".to_string()),
+                actual: Some(actual),
+                diff: None,
+                cause: None,
+            });
             return Err(TestError::AssertionFailed {
                 message: "expected true".to_string(),
             }
@@ -111,6 +128,14 @@ impl Function for False {
         require_len(args, 1)?;
         let value = require_bool(&args[0])?;
         if value {
+            let actual = serde_json::to_string(&Value::Bool(value)).unwrap_or_default();
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.false".to_string()),
+                expected: Some("false".to_string()),
+                actual: Some(actual),
+                diff: None,
+                cause: None,
+            });
             return Err(TestError::AssertionFailed {
                 message: "expected false".to_string(),
             }
@@ -140,6 +165,15 @@ impl Function for Contains {
         };
 
         if !found {
+            let actual = serde_json::to_string(haystack).unwrap_or_default();
+            let expected = serde_json::to_string(needle).unwrap_or_default();
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.contains".to_string()),
+                expected: Some(expected),
+                actual: Some(actual),
+                diff: None,
+                cause: None,
+            });
             return Err(TestError::AssertionFailed {
                 message: format!("expected {haystack} to contain {needle}"),
             }
@@ -162,6 +196,13 @@ impl Function for Throws {
             if result.is_err() {
                 return Ok(b(true));
             }
+            set_last_assert_failure(FailureDetail {
+                assertion: Some("assert.throws".to_string()),
+                expected: Some("function throws".to_string()),
+                actual: Some("function did not throw".to_string()),
+                diff: None,
+                cause: None,
+            });
             return Err(TestError::AssertionFailed {
                 message: "expected function to throw, but it did not".to_string(),
             }
@@ -173,6 +214,13 @@ impl Function for Throws {
         if call_function(ctx, &func, &[]).is_err() {
             return Ok(b(true));
         }
+        set_last_assert_failure(FailureDetail {
+            assertion: Some("assert.throws".to_string()),
+            expected: Some("function throws".to_string()),
+            actual: Some("function did not throw".to_string()),
+            diff: None,
+            cause: None,
+        });
         Err(TestError::AssertionFailed {
             message: "expected function to throw, but it did not".to_string(),
         }

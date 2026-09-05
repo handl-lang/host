@@ -1,0 +1,2 @@
+-- A module with a failing assert.equal test.
+test_fail = assert.equal(1, 2)

@@ -3,8 +3,7 @@
 //!
 //! The runner emits a [`TestEvent`] for every stage transition a consumer
 //! might care about: run lifecycle (`RunStarted`/`RunFinished`), suite
-//! lifecycle (`SuiteStarted`/`SuiteFinished` — reserved for the future
-//! `TestSuite` grouping), discovery (`TestDiscovered`), selection
+//! lifecycle (`SuiteStarted`/`SuiteFinished`), discovery (`TestDiscovered`), selection
 //! (`TestSelected`), execution (`TestStarted`/`TestFinished`), and outcome
 //! refinements (`TestCached`, `TestSkipped`, `TestFailed`).
 //!
@@ -33,8 +32,8 @@ use crate::runner::TestResult;
 /// A structured event in the test-runner pipeline (ADR-0089).
 ///
 /// The variants cover the full ADR event vocabulary. `SuiteStarted` and
-/// `SuiteFinished` are part of the stable vocabulary but are not yet
-/// emitted — the runner has no `TestSuite` grouping yet.
+/// `SuiteFinished` are emitted once per module, bracketing that module's
+/// test events.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TestEvent {
     /// A run began.
@@ -53,14 +52,14 @@ pub enum TestEvent {
         /// Wall-clock duration of the whole run.
         duration: Duration,
     },
-    /// A suite of tests began. Reserved; not yet emitted.
+    /// A suite of tests began.
     SuiteStarted {
-        /// Suite name.
+        /// Suite name. Currently the module path that contains the suite.
         name: String,
     },
-    /// A suite of tests completed. Reserved; not yet emitted.
+    /// A suite of tests completed.
     SuiteFinished {
-        /// Suite name.
+        /// Suite name. Currently the module path that contains the suite.
         name: String,
     },
     /// A test was discovered by a provider.

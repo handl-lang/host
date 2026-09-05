@@ -1,5 +1,6 @@
 //! Integration tests for the bootstrap test runner (ADR-0089).
 
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use handl_plugin_engine_test::config::{run_with_config, RunConfig};
@@ -7,9 +8,8 @@ use handl_plugin_engine_test::events::TestEvent;
 use handl_plugin_engine_test::provider::{discover_with, FileSystemProvider, TestProvider};
 use handl_plugin_engine_test::report::{summarize, HumanReporter, JsonReporter, Reporter};
 use handl_plugin_engine_test::runner::{
-    discover, filter_predicate, format_report_human, format_report_json, run,
-    run_selected, run_selected_cached, run_with_filter, DiscoverError, TestPlan,
-    TestResult, TestRunCache,
+    discover, filter_predicate, format_report_human, format_report_json, run, run_selected,
+    run_selected_cached, run_with_filter, DiscoverError, TestPlan, TestResult, TestRunCache,
 };
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
@@ -48,11 +48,21 @@ fn discover_test_language_decls() {
     // ADR-0089 §4: `test`/`property`/`integration_test`/`bench` declarations
     // from the test-language fragment merged onto the canonical kit.
     let plan = discover(&[fixture("decls.handl")]).unwrap();
-    assert!(plan.parse_errors.is_empty(), "parse errors: {:?}", plan.parse_errors);
+    assert!(
+        plan.parse_errors.is_empty(),
+        "parse errors: {:?}",
+        plan.parse_errors
+    );
     let names: Vec<&str> = plan.tests.iter().map(|t| t.name.as_str()).collect();
     assert_eq!(
         names,
-        vec!["literal_pass", "literal_fail", "identity", "end_to_end", "small"]
+        vec![
+            "literal_pass",
+            "literal_fail",
+            "identity",
+            "end_to_end",
+            "small"
+        ]
     );
     // Body source is the expression after `=`.
     assert_eq!(plan.tests[0].body_source, "1 + 1");
@@ -96,7 +106,11 @@ fn run_selected_parallel_matches_sequential_order() {
 #[test]
 fn filter_predicate_glob() {
     let plan = discover(&[fixture("decls.handl")]).unwrap();
-    let report = run_selected(&plan, &filter_predicate("literal_*"), &SchedulePolicy::sequential());
+    let report = run_selected(
+        &plan,
+        &filter_predicate("literal_*"),
+        &SchedulePolicy::sequential(),
+    );
     assert_eq!(report.total(), 5);
     assert_eq!(report.passed() + report.failed(), 2);
     assert_eq!(report.skipped(), 3);
@@ -131,10 +145,7 @@ fn discover_directory() {
 fn discover_nonexistent_path() {
     let result = discover(&[PathBuf::from("/nonexistent/path/file.handl")]);
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        DiscoverError::NotFound(_)
-    ));
+    assert!(matches!(result.unwrap_err(), DiscoverError::NotFound(_)));
 }
 
 #[test]
@@ -209,18 +220,9 @@ fn run_mixed() {
     assert!(report.has_failures());
 
     // The middle test (test_fail) should be the failing one.
-    assert!(matches!(
-        report.outcomes[0].result,
-        TestResult::Pass
-    ));
-    assert!(matches!(
-        report.outcomes[1].result,
-        TestResult::Fail { .. }
-    ));
-    assert!(matches!(
-        report.outcomes[2].result,
-        TestResult::Pass
-    ));
+    assert!(matches!(report.outcomes[0].result, TestResult::Pass));
+    assert!(matches!(report.outcomes[1].result, TestResult::Fail { .. }));
+    assert!(matches!(report.outcomes[2].result, TestResult::Pass));
 }
 
 #[test]
@@ -453,7 +455,10 @@ fn events_run_lifecycle_ordering() {
     assert_eq!(report.total(), 3);
 
     let events = &config.events;
-    assert!(matches!(events.first(), Some(TestEvent::RunStarted { total: 3 })));
+    assert!(matches!(
+        events.first(),
+        Some(TestEvent::RunStarted { total: 3 })
+    ));
     assert!(matches!(
         events.last(),
         Some(TestEvent::RunFinished {
@@ -465,15 +470,18 @@ fn events_run_lifecycle_ordering() {
     ));
 
     for name in ["test_pass", "test_fail", "test_pass_two"] {
-        let sel = event_positions(events, |e| {
-            matches!(e, TestEvent::TestSelected { name: n, .. } if n == name)
-        });
-        let start = event_positions(events, |e| {
-            matches!(e, TestEvent::TestStarted { name: n, .. } if n == name)
-        });
-        let fin = event_positions(events, |e| {
-            matches!(e, TestEvent::TestFinished { name: n, .. } if n == name)
-        });
+        let sel = event_positions(
+            events,
+            |e| matches!(e, TestEvent::TestSelected { name: n, .. } if n == name),
+        );
+        let start = event_positions(
+            events,
+            |e| matches!(e, TestEvent::TestStarted { name: n, .. } if n == name),
+        );
+        let fin = event_positions(
+            events,
+            |e| matches!(e, TestEvent::TestFinished { name: n, .. } if n == name),
+        );
         assert_eq!(sel.len(), 1, "TestSelected for {name}");
         assert_eq!(start.len(), 1, "TestStarted for {name}");
         assert_eq!(fin.len(), 1, "TestFinished for {name}");
@@ -481,13 +489,15 @@ fn events_run_lifecycle_ordering() {
     }
 
     // The failing test also emits TestFailed after its TestFinished.
-    let failed = event_positions(events, |e| {
-        matches!(e, TestEvent::TestFailed { name: n, .. } if n == "test_fail")
-    });
+    let failed = event_positions(
+        events,
+        |e| matches!(e, TestEvent::TestFailed { name: n, .. } if n == "test_fail"),
+    );
     assert_eq!(failed.len(), 1);
-    let fin_fail = event_positions(events, |e| {
-        matches!(e, TestEvent::TestFinished { name: n, .. } if n == "test_fail")
-    });
+    let fin_fail = event_positions(
+        events,
+        |e| matches!(e, TestEvent::TestFinished { name: n, .. } if n == "test_fail"),
+    );
     assert!(failed[0] > fin_fail[0]);
 
     // Parallel runs emit the same canonical event order.
@@ -539,17 +549,129 @@ fn events_skipped_tests_emit_test_skipped() {
     let mut config = RunConfig::new().with_filter("test_pass*");
     let report = run_with_config(&plan, &mut config);
     assert_eq!(report.skipped(), 1);
-    let skipped = event_positions(&config.events, |e| {
-        matches!(e, TestEvent::TestSkipped { name: n, .. } if n == "test_fail")
-    });
+    let skipped = event_positions(
+        &config.events,
+        |e| matches!(e, TestEvent::TestSkipped { name: n, .. } if n == "test_fail"),
+    );
     assert_eq!(skipped.len(), 1);
+}
+
+#[test]
+fn events_suite_lifecycle_brackets_modules() {
+    // Two modules, in lexicographic order: mixed.handl, pass.handl.
+    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let mut config = RunConfig::new();
+    let report = run_with_config(&plan, &mut config);
+    assert_eq!(report.total(), 6);
+    let events = &config.events;
+
+    assert!(matches!(
+        events.first(),
+        Some(TestEvent::RunStarted { total: 6 })
+    ));
+    assert!(matches!(events.last(), Some(TestEvent::RunFinished { .. })));
+
+    let mut suite_starts: HashMap<String, usize> = HashMap::new();
+    let mut suite_finishes: HashMap<String, usize> = HashMap::new();
+    let mut test_event_positions: HashMap<String, Vec<usize>> = HashMap::new();
+
+    for (i, e) in events.iter().enumerate() {
+        match e {
+            TestEvent::SuiteStarted { name } => {
+                assert!(
+                    !suite_starts.contains_key(name),
+                    "duplicate SuiteStarted for {name}"
+                );
+                suite_starts.insert(name.clone(), i);
+            }
+            TestEvent::SuiteFinished { name } => {
+                assert!(
+                    !suite_finishes.contains_key(name),
+                    "duplicate SuiteFinished for {name}"
+                );
+                suite_finishes.insert(name.clone(), i);
+            }
+            TestEvent::TestSelected { module, .. }
+            | TestEvent::TestStarted { module, .. }
+            | TestEvent::TestCached { module, .. }
+            | TestEvent::TestSkipped { module, .. }
+            | TestEvent::TestFinished { module, .. }
+            | TestEvent::TestFailed { module, .. } => {
+                test_event_positions
+                    .entry(module.display().to_string())
+                    .or_default()
+                    .push(i);
+            }
+            _ => {}
+        }
+    }
+
+    let mut module_order: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for case in &plan.tests {
+        let m = case.module.display().to_string();
+        if seen.insert(m.clone()) {
+            module_order.push(m);
+        }
+    }
+
+    assert_eq!(module_order.len(), 2, "expected two modules");
+    for m in &module_order {
+        let &start = suite_starts
+            .get(m)
+            .unwrap_or_else(|| panic!("missing SuiteStarted for {m}"));
+        let &finish = suite_finishes
+            .get(m)
+            .unwrap_or_else(|| panic!("missing SuiteFinished for {m}"));
+        assert!(start < finish, "SuiteStarted after SuiteFinished for {m}");
+
+        let positions = test_event_positions
+            .get(m)
+            .unwrap_or_else(|| panic!("no test events for {m}"));
+        assert!(!positions.is_empty(), "module {m} had no test events");
+        assert!(
+            start < *positions.first().unwrap(),
+            "SuiteStarted for {m} not before first test event"
+        );
+        assert!(
+            finish > *positions.last().unwrap(),
+            "SuiteFinished for {m} not after last test event"
+        );
+    }
+
+    // Suite events are nested and in module order.
+    let suite_events: Vec<(usize, &str, bool)> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| match e {
+            TestEvent::SuiteStarted { name } => Some((i, name.as_str(), true)),
+            TestEvent::SuiteFinished { name } => Some((i, name.as_str(), false)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        suite_events.len(),
+        4,
+        "expected two suite starts and finishes"
+    );
+    assert!(suite_events[0].2, "expected SuiteStarted");
+    assert!(!suite_events[1].2, "expected SuiteFinished");
+    assert!(suite_events[2].2, "expected SuiteStarted");
+    assert!(!suite_events[3].2, "expected SuiteFinished");
+    assert!(suite_events[0].0 < suite_events[1].0);
+    assert!(suite_events[1].0 < suite_events[2].0);
+    assert!(suite_events[2].0 < suite_events[3].0);
 }
 
 #[test]
 fn discovery_emits_test_discovered() {
     let mut events = Vec::new();
-    let plan = discover_with(&FileSystemProvider, &[fixture("pass.handl")], Some(&mut events))
-        .unwrap();
+    let plan = discover_with(
+        &FileSystemProvider,
+        &[fixture("pass.handl")],
+        Some(&mut events),
+    )
+    .unwrap();
     assert_eq!(plan.tests.len(), 3);
     let discovered: Vec<&str> = events
         .iter()
@@ -558,7 +680,10 @@ fn discovery_emits_test_discovered() {
             _ => None,
         })
         .collect();
-    assert_eq!(discovered, vec!["test_addition", "test_number", "test_string"]);
+    assert_eq!(
+        discovered,
+        vec!["test_addition", "test_number", "test_string"]
+    );
     // `discover` is equivalent to the default provider without events.
     assert_eq!(FileSystemProvider.name(), "filesystem");
 }
@@ -584,6 +709,19 @@ fn duration_is_populated_for_executed_tests() {
 }
 
 #[test]
+fn structured_failure_detail_for_assert_equal() {
+    let plan = discover(&[fixture("equal_fail.handl")]).unwrap();
+    let report = run(&plan);
+    assert_eq!(report.total(), 1);
+    assert_eq!(report.failed(), 1);
+
+    let failure = &report.outcomes[0].failure;
+    assert_eq!(failure.assertion.as_deref(), Some("assert.equal"));
+    assert_eq!(failure.actual.as_deref(), Some("1"));
+    assert_eq!(failure.expected.as_deref(), Some("2"));
+}
+
+#[test]
 fn cached_hit_emits_test_cached() {
     let plan = discover(&[fixture("mixed.handl")]).unwrap();
     let mut config = RunConfig::new()
@@ -598,14 +736,16 @@ fn cached_hit_emits_test_cached() {
     });
     assert_eq!(cached.len(), 3, "every test replayed from cache");
     // Cached tests are not dispatched: no TestStarted/TestFinished.
-    assert!(
-        event_positions(&config.events, |e| matches!(e, TestEvent::TestStarted { .. }))
-            .is_empty()
-    );
-    assert!(
-        event_positions(&config.events, |e| matches!(e, TestEvent::TestFinished { .. }))
-            .is_empty()
-    );
+    assert!(event_positions(&config.events, |e| matches!(
+        e,
+        TestEvent::TestStarted { .. }
+    ))
+    .is_empty());
+    assert!(event_positions(&config.events, |e| matches!(
+        e,
+        TestEvent::TestFinished { .. }
+    ))
+    .is_empty());
 }
 
 // ---------------------------------------------------------------------------

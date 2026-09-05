@@ -49,7 +49,7 @@ use handl_language::{
     LexerRuleDef, Source, TokenKindDef, Value,
 };
 
-
+use handl_platform::{Function, Module, ModuleLookup};
 use handl_plugin_engine_eval_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
@@ -59,7 +59,6 @@ use handl_plugin_ext_diag::Span;
 use handl_plugin_lib_predicate::{glob_matches, Predicate};
 use handl_plugin_lib_scheduler::{BoundedScheduler, JobError, SchedulePolicy};
 use handl_runtime::Runtime;
-use handl_platform::{Function, Module, ModuleLookup};
 
 use crate::framework::AssertModule;
 
@@ -135,9 +134,9 @@ pub enum TestResult {
 /// [`TestOutcome::case`] and the error message on
 /// [`TestResult::Fail::message`]; `duration` lives on [`TestOutcome`].
 ///
-/// Today's assertion primitives raise unstructured errors, so these fields
-/// are `None` unless the error carries them — the fields exist so the
-/// structured contract is stable before assertion reporting is enriched.
+/// Assertion primitives in `plugin-engine-test::framework` store these
+/// fields in a thread-local side-channel when they fail; `eval_test_body`
+/// consumes the channel on failure and returns it alongside the result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FailureDetail {
     /// The assertion that failed (e.g. `assert.equal`), when known.
@@ -211,6 +210,17 @@ impl RunReport {
             .iter()
             .any(|o| matches!(o.result, TestResult::Fail { .. }))
     }
+}
+
+/// Internal plan-state for a test during a run.
+#[derive(Debug, Clone)]
+enum TestState {
+    /// The test was filtered out.
+    Skip,
+    /// The test was served from the result cache.
+    Cached(TestResult, FailureDetail),
+    /// The test will be executed by the scheduler.
+    Run,
 }
 
 // ---------------------------------------------------------------------------
@@ -411,8 +421,8 @@ struct TestLanguageYaml {
 /// Returns an error string if the embedded YAML fails to deserialize or a
 /// fragment merge fails (should not happen — the fragment is self-contained).
 fn test_language_fragment() -> Result<Language, String> {
-    let doc: TestLanguageYaml = serde_yaml::from_str(TEST_LANGUAGE_YAML)
-        .map_err(|e| format!("test-language.yaml: {e}"))?;
+    let doc: TestLanguageYaml =
+        serde_yaml::from_str(TEST_LANGUAGE_YAML).map_err(|e| format!("test-language.yaml: {e}"))?;
     let mut frag = Language::new();
     for f in doc.tokens {
         frag.tokens.merge(f).map_err(|e| e.to_string())?;
@@ -539,9 +549,7 @@ fn discover_tests_in_module(
         let (target_idx, value_idx) = binding_roles(lang, &root.kind);
         if let (Some(ti), Some(vi)) = (target_idx, value_idx) {
             let children = children_of(root);
-            if let (Some(&target_raw), Some(&value_raw)) =
-                (children.get(ti), children.get(vi))
-            {
+            if let (Some(&target_raw), Some(&value_raw)) = (children.get(ti), children.get(vi)) {
                 if let (Ok(target_node), Ok(_value_node)) = (
                     ast.at(AstRef::new(target_raw)),
                     ast.at(AstRef::new(value_raw)),
@@ -585,11 +593,7 @@ fn extract_body_source(text: &str) -> String {
     while i < bytes.len() {
         if bytes[i] == b'=' {
             let prev = if i > 0 { bytes[i - 1] } else { 0 };
-            let next = if i + 1 < bytes.len() {
-                bytes[i + 1]
-            } else {
-                0
-            };
+            let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
             // Skip `==`, `>=`, `<=`, `!=`, `=>`
             if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
                 i += 1;
@@ -687,9 +691,8 @@ pub(crate) fn discover_inner(
 
     // Discover tests in each file.
     for file in &files {
-        let src = std::fs::read_to_string(file).map_err(|e| {
-            DiscoverError::Io(format!("{}: {e}", file.display()))
-        })?;
+        let src = std::fs::read_to_string(file)
+            .map_err(|e| DiscoverError::Io(format!("{}: {e}", file.display())))?;
 
         match discover_tests_in_module(&lang, &src, file) {
             Ok(tests) => {
@@ -805,7 +808,11 @@ pub fn run(plan: &TestPlan) -> RunReport {
 /// [`filter_predicate`] (substring or glob match on the test name; an
 /// empty pattern selects all) and the run is sequential.
 pub fn run_with_filter(plan: &TestPlan, filter: &str) -> RunReport {
-    run_selected(plan, &filter_predicate(filter), &SchedulePolicy::sequential())
+    run_selected(
+        plan,
+        &filter_predicate(filter),
+        &SchedulePolicy::sequential(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -854,10 +861,12 @@ thread_local! {
 
 /// Evaluate a single test body on the calling thread's cached runtime.
 ///
-/// Returns the [`TestResult`] plus the measured duration. The `Instant`
-/// is taken inside the job closure (i.e. on the worker thread), so the
+/// Returns the [`TestResult`], measured duration, and any structured
+/// failure detail captured from the assert framework. The `Instant` is
+/// taken inside the job closure (i.e. on the worker thread), so the
 /// measurement is parallel-safe and independent of dispatch order.
-fn eval_test_body(body_source: &str) -> (TestResult, Duration) {
+fn eval_test_body(body_source: &str) -> (TestResult, Duration, FailureDetail) {
+    crate::framework::clear_last_assert_failure();
     let start = Instant::now();
     let result = TEST_RUNTIME.with(|cell| {
         let mut borrow = cell.borrow_mut();
@@ -879,18 +888,31 @@ fn eval_test_body(body_source: &str) -> (TestResult, Duration) {
             },
         }
     });
-    (result, start.elapsed())
+    let failure = if matches!(result, TestResult::Fail { .. }) {
+        crate::framework::take_last_assert_failure().unwrap_or_default()
+    } else {
+        FailureDetail::default()
+    };
+    (result, start.elapsed(), failure)
 }
 
-/// Convert a scheduler [`JobError`] into a [`TestResult::Fail`].
-fn job_error_result(err: JobError) -> TestResult {
+/// Convert a scheduler [`JobError`] into a run result.
+fn job_error_result(err: JobError) -> (TestResult, Duration, FailureDetail) {
     match err {
-        JobError::Panic => TestResult::Fail {
-            message: "test job panicked".to_string(),
-        },
-        JobError::Timeout => TestResult::Fail {
-            message: "test job timed out".to_string(),
-        },
+        JobError::Panic => (
+            TestResult::Fail {
+                message: "test job panicked".to_string(),
+            },
+            Duration::ZERO,
+            FailureDetail::default(),
+        ),
+        JobError::Timeout => (
+            TestResult::Fail {
+                message: "test job timed out".to_string(),
+            },
+            Duration::ZERO,
+            FailureDetail::default(),
+        ),
     }
 }
 
@@ -918,11 +940,11 @@ pub fn run_selected(
 /// and [`crate::config::run_with_config`].
 ///
 /// When `events` is supplied, the coordinator emits the ADR-0089 event
-/// vocabulary: `RunStarted`, `TestSelected`/`TestSkipped` during the
-/// selection pass, `TestStarted` at dispatch, `TestCached` on cache hits,
-/// `TestFinished` (+ `TestFailed` on failures) in canonical plan order at
-/// collection, and `RunFinished` last. Events are emitted only on this
-/// thread, so ordering is deterministic under any `--jobs`.
+/// vocabulary: `RunStarted`, then per module `SuiteStarted`, the module's
+/// test events in canonical plan order (`TestSelected`/`TestSkipped`/
+/// `TestCached`/`TestStarted`/`TestFinished` + `TestFailed`),
+/// `SuiteFinished`, and `RunFinished` last. Events are emitted only on
+/// this thread, so ordering is deterministic under any `--jobs`.
 pub(crate) fn run_selected_impl(
     plan: &TestPlan,
     predicate: &Predicate<TestCase>,
@@ -938,128 +960,176 @@ pub(crate) fn run_selected_impl(
         },
     );
 
-    // Slot per plan index; `None` until decided (skip, cache hit, or job).
-    // Selected tests get a measured duration; skipped/cached tests are
-    // recorded with zero duration.
-    let mut results: Vec<Option<(TestResult, Duration)>> = vec![None; plan.tests.len()];
-    let mut jobs: Vec<(usize, Box<dyn FnOnce() -> (TestResult, Duration) + Send>)> = Vec::new();
+    // Selection / cache lookup pass: decide, for each plan index, whether
+    // it is skipped, served from cache, or must be executed. Build the
+    // scheduler jobs for the tests that need to run.
+    let mut states: Vec<TestState> = Vec::with_capacity(plan.tests.len());
+    let mut jobs: Vec<(
+        usize,
+        Box<dyn FnOnce() -> (TestResult, Duration, FailureDetail) + Send>,
+    )> = Vec::new();
 
     for (i, case) in plan.tests.iter().enumerate() {
         if !predicate.eval(case) {
-            results[i] = Some((TestResult::Skip, Duration::ZERO));
-            emit(
-                &mut events,
-                TestEvent::TestSkipped {
-                    module: case.module.clone(),
-                    name: case.name.clone(),
-                },
-            );
+            states.push(TestState::Skip);
             continue;
         }
-        emit(
-            &mut events,
-            TestEvent::TestSelected {
-                module: case.module.clone(),
-                name: case.name.clone(),
-            },
-        );
-        // Opt-in result cache: a hit replays the recorded result without
-        // re-evaluating the body (ADR-0089 §"Cache domains").
+
         if let Some(c) = cache.as_deref_mut() {
-            if let Some(cached) = c.lookup(case) {
+            if let Some((cached, failure)) = c.lookup(case) {
                 c.record_hit();
-                results[i] = Some((cached, Duration::ZERO));
-                emit(
-                    &mut events,
-                    TestEvent::TestCached {
-                        module: case.module.clone(),
-                        name: case.name.clone(),
-                    },
-                );
+                states.push(TestState::Cached(cached, failure));
                 continue;
             }
             c.record_miss();
         }
+
+        states.push(TestState::Run);
         let body = case.body_source.clone();
         jobs.push((i, Box::new(move || eval_test_body(&body))));
     }
 
-    // Which plan indices were actually dispatched as scheduler jobs (as
-    // opposed to skipped or cache-replayed). Used to emit `TestFinished`
-    // only for executed tests at collection time.
-    let mut executed = vec![false; plan.tests.len()];
-    for (i, _) in &jobs {
-        executed[*i] = true;
+    // Plan tests are already sorted by module. Capture each module's range
+    // so suite events can bracket the module's test events.
+    let mut module_ranges: Vec<(PathBuf, usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < plan.tests.len() {
+        let module = plan.tests[i].module.clone();
+        let start = i;
+        i += 1;
+        while i < plan.tests.len() && plan.tests[i].module == module {
+            i += 1;
+        }
+        module_ranges.push((module, start, i));
     }
 
-    // Emit TestStarted for each dispatched job, in plan order, before the
-    // scheduler runs — keeps the event log deterministic regardless of
-    // worker scheduling.
-    for (i, _) in &jobs {
-        let case = &plan.tests[*i];
+    // Dispatch uncached, selected tests to the generic bounded scheduler.
+    let mut results: Vec<Option<(TestResult, Duration, FailureDetail)>> =
+        vec![None; plan.tests.len()];
+    for (i, job_result) in BoundedScheduler::run(jobs, policy) {
+        let (result, duration, failure) = match job_result.output {
+            Ok(triple) => triple,
+            Err(e) => job_error_result(e),
+        };
+        if let Some(c) = cache.as_deref_mut() {
+            c.store(&plan.tests[i], &result, &failure);
+        }
+        results[i] = Some((result, duration, failure));
+    }
+
+    // Emit events and build the report in canonical plan order, one module
+    // at a time, so `SuiteStarted`/`SuiteFinished` bracket each module's
+    // test events.
+    let mut report = RunReport::default();
+    for (module, start, end) in &module_ranges {
         emit(
             &mut events,
-            TestEvent::TestStarted {
-                module: case.module.clone(),
-                name: case.name.clone(),
+            TestEvent::SuiteStarted {
+                name: module.display().to_string(),
+            },
+        );
+        for i in *start..*end {
+            let case = &plan.tests[i];
+            match &states[i] {
+                TestState::Skip => {
+                    emit(
+                        &mut events,
+                        TestEvent::TestSkipped {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+                    report.outcomes.push(TestOutcome {
+                        case: case.clone(),
+                        result: TestResult::Skip,
+                        duration: Duration::ZERO,
+                        failure: FailureDetail::default(),
+                    });
+                }
+                TestState::Cached(result, failure) => {
+                    emit(
+                        &mut events,
+                        TestEvent::TestSelected {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+                    emit(
+                        &mut events,
+                        TestEvent::TestCached {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+                    report.outcomes.push(TestOutcome {
+                        case: case.clone(),
+                        result: result.clone(),
+                        duration: Duration::ZERO,
+                        failure: failure.clone(),
+                    });
+                }
+                TestState::Run => {
+                    emit(
+                        &mut events,
+                        TestEvent::TestSelected {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+                    emit(
+                        &mut events,
+                        TestEvent::TestStarted {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                        },
+                    );
+
+                    let (result, duration, failure) = results[i].take().unwrap_or_else(|| {
+                        (
+                            TestResult::Fail {
+                                message: "internal error: test result not collected".to_string(),
+                            },
+                            Duration::ZERO,
+                            FailureDetail::default(),
+                        )
+                    });
+
+                    emit(
+                        &mut events,
+                        TestEvent::TestFinished {
+                            module: case.module.clone(),
+                            name: case.name.clone(),
+                            result: result.clone(),
+                            duration,
+                        },
+                    );
+                    if let TestResult::Fail { message } = &result {
+                        emit(
+                            &mut events,
+                            TestEvent::TestFailed {
+                                module: case.module.clone(),
+                                name: case.name.clone(),
+                                message: message.clone(),
+                            },
+                        );
+                    }
+                    report.outcomes.push(TestOutcome {
+                        case: case.clone(),
+                        result,
+                        duration,
+                        failure,
+                    });
+                }
+            }
+        }
+        emit(
+            &mut events,
+            TestEvent::SuiteFinished {
+                name: module.display().to_string(),
             },
         );
     }
 
-    // Dispatch uncached, selected tests to the generic bounded scheduler.
-    for (i, job_result) in BoundedScheduler::run(jobs, policy) {
-        let (result, duration) = match job_result.output {
-            Ok(pair) => pair,
-            Err(e) => (job_error_result(e), Duration::ZERO),
-        };
-        if let Some(c) = cache.as_deref_mut() {
-            c.store(&plan.tests[i], &result);
-        }
-        results[i] = Some((result, duration));
-    }
-
-    // Re-collect into canonical plan order (determinism invariant).
-    let mut report = RunReport::default();
-    for (i, case) in plan.tests.iter().enumerate() {
-        let (result, duration) = results[i].take().unwrap_or_else(|| {
-            (
-                TestResult::Fail {
-                    message: "internal error: test result not collected".to_string(),
-                },
-                Duration::ZERO,
-            )
-        });
-        // Emit completion events in canonical plan order, only for tests
-        // that actually executed — skipped and cache-replayed tests
-        // already emitted `TestSkipped`/`TestCached` during selection.
-        if executed[i] {
-            emit(
-                &mut events,
-                TestEvent::TestFinished {
-                    module: case.module.clone(),
-                    name: case.name.clone(),
-                    result: result.clone(),
-                    duration,
-                },
-            );
-            if let TestResult::Fail { message } = &result {
-                emit(
-                    &mut events,
-                    TestEvent::TestFailed {
-                        module: case.module.clone(),
-                        name: case.name.clone(),
-                        message: message.clone(),
-                    },
-                );
-            }
-        }
-        report.outcomes.push(TestOutcome {
-            case: case.clone(),
-            result,
-            duration,
-            failure: FailureDetail::default(),
-        });
-    }
     emit(
         &mut events,
         TestEvent::RunFinished {
@@ -1083,7 +1153,7 @@ pub(crate) fn run_selected_impl(
 /// reuse the generic fingerprint machinery — an [`AstKey`] whose `kind` is
 /// `"test.result"` and whose `payload_json` serializes the test identity
 /// (`module` path + `name` + `body_source`), so a test is re-evaluated when
-/// its source changes. Values are the recorded [`TestResult`]s.
+/// its source changes. Values are recorded `(TestResult, FailureDetail)` pairs.
 ///
 /// For pure tests `same test + same source + same runtime = same result`,
 /// so a cached second run replays `Pass`/`Fail` outcomes without
@@ -1095,7 +1165,7 @@ pub(crate) fn run_selected_impl(
 #[derive(Debug, Default)]
 pub struct TestRunCache {
     /// Recorded results keyed by test identity fingerprint.
-    entries: HashMap<AstKey, TestResult>,
+    entries: HashMap<AstKey, (TestResult, FailureDetail)>,
     /// Number of lookups served from the cache.
     hits: usize,
     /// Number of lookups that had to execute.
@@ -1150,13 +1220,14 @@ impl TestRunCache {
     }
 
     /// Look up the recorded result for a test case.
-    fn lookup(&self, case: &TestCase) -> Option<TestResult> {
+    fn lookup(&self, case: &TestCase) -> Option<(TestResult, FailureDetail)> {
         self.entries.get(&Self::key_for(case)).cloned()
     }
 
     /// Record a freshly computed result for a test case.
-    fn store(&mut self, case: &TestCase, result: &TestResult) {
-        self.entries.insert(Self::key_for(case), result.clone());
+    fn store(&mut self, case: &TestCase, result: &TestResult, failure: &FailureDetail) {
+        self.entries
+            .insert(Self::key_for(case), (result.clone(), failure.clone()));
     }
 
     /// Record a cache hit (stats only).

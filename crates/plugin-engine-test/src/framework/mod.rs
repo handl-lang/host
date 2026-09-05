@@ -35,10 +35,13 @@
 //! All modules are stateless, `Copy`, and follow the `Function`
 //! contract used by the rest of the standard library.
 
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use handl_plugin_lib_handl::{parse_cap_declarations, HandlModule, OpRegistry};
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
+
+use crate::runner::FailureDetail;
 
 mod assert;
 mod benchmark;
@@ -57,6 +60,31 @@ pub use fuzz::FuzzModule;
 pub use property::PropertyModule;
 pub use snapshot::SnapshotModule;
 pub use test::TestModule;
+
+thread_local! {
+    /// Last assert failure detail for the current worker thread.
+    ///
+    /// The assert functions set this as a side-channel so the runner can
+    /// populate [`FailureDetail`] without parsing the human-readable error
+    /// message. It is cleared before each test body and taken when the test
+    /// fails.
+    static LAST_ASSERT_FAILURE: RefCell<Option<FailureDetail>> = RefCell::new(None);
+}
+
+/// Set the last assert failure detail for the current worker thread.
+pub(crate) fn set_last_assert_failure(detail: FailureDetail) {
+    LAST_ASSERT_FAILURE.with(|f| *f.borrow_mut() = Some(detail));
+}
+
+/// Clear any stale assert failure detail before evaluating a test body.
+pub(crate) fn clear_last_assert_failure() {
+    LAST_ASSERT_FAILURE.with(|f| f.borrow_mut().take());
+}
+
+/// Take the last assert failure detail, if any, for the current worker thread.
+pub(crate) fn take_last_assert_failure() -> Option<FailureDetail> {
+    LAST_ASSERT_FAILURE.with(|f| f.borrow_mut().take())
+}
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -141,7 +169,8 @@ impl TestLibraryPlugin {
             HandlModule::new("test", source, &[]).with_ops(TEST_OPS, Arc::clone(&registry)),
             HandlModule::new("assert", source, &[]).with_ops(ASSERT_OPS, Arc::clone(&registry)),
             HandlModule::new("property", source, &[]).with_ops(PROPERTY_OPS, Arc::clone(&registry)),
-            HandlModule::new("benchmark", source, &[]).with_ops(BENCHMARK_OPS, Arc::clone(&registry)),
+            HandlModule::new("benchmark", source, &[])
+                .with_ops(BENCHMARK_OPS, Arc::clone(&registry)),
             HandlModule::new("fuzz", source, &[]).with_ops(FUZZ_OPS, Arc::clone(&registry)),
             HandlModule::new("snapshot", source, &[]).with_ops(SNAPSHOT_OPS, Arc::clone(&registry)),
         ]
