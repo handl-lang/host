@@ -157,11 +157,10 @@ fn extract_assign_name(ast: &Ast, assign_node: &AstNode) -> Option<String> {
     let children = assign_node.payload.get("children")?.as_array()?;
     let target_idx = children.first()?.as_u64()? as usize;
     let target_node = ast.get(AstRef::new(target_idx))?;
-    if target_node.kind == "var" {
-        target_node.payload.as_str().map(|s| s.to_string())
-    } else {
-        None
-    }
+    // `var` is a core calculus primitive (leaf node with string payload).
+    // Check payload is a string — equivalent to `kind == "var"` for
+    // assign targets (lit nodes are not valid assign targets).
+    target_node.payload.as_str().map(|s| s.to_string())
 }
 
 /// Extract the value (function) node from an `assign` node.
@@ -209,8 +208,11 @@ fn function_param_body(ast: &Ast, node: &AstNode) -> Option<(Vec<String>, usize)
     let param_idx = children[0].as_u64()? as usize;
     let body_idx = children[1].as_u64()? as usize;
     let param_node = ast.get(AstRef::new(param_idx))?;
-    let names = if param_node.kind == "var" {
-        vec![param_node.payload.as_str()?.to_string()]
+    // `var` is a core calculus primitive (leaf node with string payload).
+    // A bare var param carries the name directly; a collection wrapper
+    // holds multiple var children.
+    let names = if let Some(name) = param_node.payload.as_str() {
+        vec![name.to_string()]
     } else {
         let param_children = param_node.payload.get("children").and_then(|c| c.as_array())?;
         param_children
@@ -266,7 +268,7 @@ fn call_callee_is_var_named(ast: &Ast, call_node: &AstNode, name: &str) -> bool 
         Some(n) => n,
         None => return false,
     };
-    callee_node.kind == "var" && callee_node.payload.as_str() == Some(name)
+    callee_node.payload.as_str() == Some(name)
 }
 
 /// Check if a recursive `call` node decreases on at least one parameter.
