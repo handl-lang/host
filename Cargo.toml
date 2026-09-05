@@ -31,6 +31,7 @@ members = [
   "crates/plugin-lib-archive",
   "crates/plugin-lib-archive-tar",
   "crates/plugin-lib-base64",
+  "crates/plugin-lib-char-native",
   "crates/plugin-lib-collections",
   "crates/plugin-lib-compress",
   "crates/plugin-lib-cmp",
@@ -191,6 +192,7 @@ handl-plugin-loader-web = { path = "crates/plugin-loader-web" }
 handl-plugin-lib-archive = { path = "crates/plugin-lib-archive" }
 handl-plugin-lib-archive-tar = { path = "crates/plugin-lib-archive-tar" }
 handl-plugin-lib-base64 = { path = "crates/plugin-lib-base64" }
+handl-plugin-lib-char-native = { path = "crates/plugin-lib-char-native" }
 handl-plugin-lib-collections = { path = "crates/plugin-lib-collections" }
 handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
 handl-plugin-lib-cmp = { path = "crates/plugin-lib-cmp" }
