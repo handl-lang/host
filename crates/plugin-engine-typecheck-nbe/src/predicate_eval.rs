@@ -639,7 +639,7 @@ fn call_children(node: &AstNode) -> (usize, Vec<usize>) {
 ///   payload is the param name.
 ///
 /// Returns `(param_names, body_idx)`.
-fn function_param_body(ast: &Ast, node: &AstNode, lang: &Language) -> Option<(Vec<String>, usize)> {
+fn function_param_body(ast: &Ast, node: &AstNode, _lang: &Language) -> Option<(Vec<String>, usize)> {
     // Rich format: {params: ["name", ...], body: idx}
     if let (Some(params), Some(body)) = (
         node.payload.get("params").and_then(|v| v.as_array()),
