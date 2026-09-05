@@ -32,185 +32,185 @@
 
 axiom str.upper : String -> String
 -- LAW: IsUpper(output) && LengthEq(output, input)
-guarantee: LengthEq(output, input)
+  guarantee: LengthEq(output, input)
 
 axiom str.lower : String -> String
 -- LAW: IsLower(output) && LengthEq(output, input)
-guarantee: LengthEq(output, input)
+  guarantee: LengthEq(output, input)
 
 axiom str.trim : String -> String
 -- LAW: IsTrimmed(output) && LengthLe(output, input)
-guarantee: LengthLe(output, input)
+  guarantee: LengthLe(output, input)
 
 axiom str.trim_start : String -> String
 -- LAW: IsTrimmedStart(output) && LengthLe(output, input)
-guarantee: LengthLe(output, input)
+  guarantee: LengthLe(output, input)
 
 axiom str.trim_end : String -> String
 -- LAW: IsTrimmedEnd(output) && LengthLe(output, input)
-guarantee: LengthLe(output, input)
+  guarantee: LengthLe(output, input)
 
 axiom str.trim_matches : (String * String) -> String
 -- LAW: IsTrimmed(output) && LengthLe(output, input.0)
-guarantee: LengthLe(output, input.0)
+  guarantee: LengthLe(output, input.0)
 
 axiom str.reverse : String -> String
 -- LAW: IsReversed(output, input) && IsPerm(output, input)
-guarantee: LengthEq(output, input) && IsPerm(output, input)
+  guarantee: LengthEq(output, input) && IsPerm(output, input)
 
 axiom str.length : String -> Int
-guarantee: Le(0, output)
+  guarantee: Le(0, output)
 
 axiom str.concat : (String * String) -> String
 -- LAW: LengthEq(output, input.0 + input.1)
 -- (sum not expressible; length is monotone in each part)
-guarantee: LengthLe(input.0, output) && LengthLe(input.1, output)
+  guarantee: LengthLe(input.0, output) && LengthLe(input.1, output)
 
 axiom str.is_empty : String -> Bool
 -- LAW: output <=> IsEmpty(input)
-guarantee: True
+  guarantee: True
 
 axiom str.equals : (String * String) -> Bool
 -- LAW: output <=> CharEq(input.0, input.1)
-guarantee: True
+  guarantee: True
 
 axiom str.is_alpha : String -> Bool
 -- LAW: output <=> AllSatisfy(input, IsAlpha)
-guarantee: True
+  guarantee: True
 
 axiom str.is_numeric : String -> Bool
 -- LAW: output <=> AllSatisfy(input, IsNumeric)
-guarantee: True
+  guarantee: True
 
 axiom str.is_alphanumeric : String -> Bool
 -- LAW: output <=> AllSatisfy(input, IsAlnum)
-guarantee: True
+  guarantee: True
 
 -- ---------------------------------------------------------------------------
 -- Case conversion
 -- ---------------------------------------------------------------------------
 
 axiom str.capitalize : String -> String
-guarantee: LengthEq(output, input)
+  guarantee: LengthEq(output, input)
 
 axiom str.title_case : String -> String
-guarantee: LengthEq(output, input)
+  guarantee: LengthEq(output, input)
 
 axiom str.snake_case : String -> String
-guarantee: True
+  guarantee: True
 
 axiom str.camel_case : String -> String
-guarantee: True
+  guarantee: True
 
 axiom str.pascal_case : String -> String
-guarantee: True
+  guarantee: True
 
 axiom str.kebab_case : String -> String
-guarantee: True
+  guarantee: True
 
 -- ---------------------------------------------------------------------------
 -- Search
 -- ---------------------------------------------------------------------------
 
 axiom str.contains : (String * String) -> Bool
-guarantee: True
+  guarantee: True
 
 axiom str.starts_with : (String * String) -> Bool
 -- LAW: output <=> IsPrefix(input.1, input.0)
-guarantee: True
+  guarantee: True
 
 axiom str.ends_with : (String * String) -> Bool
 -- LAW: output <=> IsSuffix(input.1, input.0)
-guarantee: True
+  guarantee: True
 
 axiom str.count : (String * String) -> Int
 -- LAW: Le(0, output) && CountEq(input.0, input.1, output)
-guarantee: Le(0, output)
+  guarantee: Le(0, output)
 
 axiom str.find : (String * String) -> Int
-guarantee: True
+  guarantee: True
 
 axiom str.rfind : (String * String) -> Int
-guarantee: True
+  guarantee: True
 
 axiom str.levenshtein : (String * String) -> Int
 -- LAW: Le(0, output) && EditDistance(input.0, input.1, output)
-guarantee: Le(0, output)
+  guarantee: Le(0, output)
 
 axiom str.similarity : (String * String) -> Int
 -- LAW: Le(0, output) && Le(output, 1) && Similarity(input.0, input.1, output)
 -- (typed Int since Float is not a base type; ratio in [0, 1])
-guarantee: Le(0, output) && Le(output, 1)
+  guarantee: Le(0, output) && Le(output, 1)
 
 -- ---------------------------------------------------------------------------
 -- Transform
 -- ---------------------------------------------------------------------------
 
 axiom str.split : (String * String) -> List String
-guarantee: True
+  guarantee: True
 
 axiom str.join : (List String * String) -> String
-guarantee: True
+  guarantee: True
 
 axiom str.replace : (String * (String * String)) -> String
 -- LAW: NoOccurrence(output, input.1.0)
-guarantee: True
+  guarantee: True
 
 axiom str.replace_first : (String * (String * String)) -> String
 -- LAW: CountEq(output, input.1.0, Count(input, input.1.0) - 1)
-guarantee: True
+  guarantee: True
 
 axiom str.repeat : (String * Int) -> String
-requires: Le(0, input.1)
+  requires: Le(0, input.1)
 -- LAW: LengthEq(output, input.0 * input.1)
 -- (product not expressible; monotone in count)
-guarantee: Le(0, input.1)
+  guarantee: Le(0, input.1)
 
 axiom str.char_at : (String * Int) -> String
-requires: Le(0, input.1) && Le(input.1, input.0)
+  requires: Le(0, input.1) && Le(input.1, input.0)
 -- LAW: LengthEq(output, 1)
-guarantee: True
+  guarantee: True
 
 axiom str.slice : (String * (Int * Int)) -> String
-requires: Le(0, input.1.0) && Le(input.1.0, input.1.1)
+  requires: Le(0, input.1.0) && Le(input.1.0, input.1.1)
 -- LAW: LengthEq(output, input.1.1 - input.1.0)
-guarantee: LengthLe(output, input.1.1)
+  guarantee: LengthLe(output, input.1.1)
 
 axiom str.pad_left : (String * (Int * String)) -> String
-requires: Le(0, input.1.0)
+  requires: Le(0, input.1.0)
 -- LAW: LengthEq(output, input.1.0) || LengthGe(output, input.0)
-guarantee: True
+  guarantee: True
 
 axiom str.pad_right : (String * (Int * String)) -> String
-requires: Le(0, input.1.0)
+  requires: Le(0, input.1.0)
 -- LAW: LengthEq(output, input.1.0) || LengthGe(output, input.0)
-guarantee: True
+  guarantee: True
 
 axiom str.strip_prefix : (String * String) -> String
-guarantee: LengthLe(output, input.0)
+  guarantee: LengthLe(output, input.0)
 
 axiom str.strip_suffix : (String * String) -> String
-guarantee: LengthLe(output, input.0)
+  guarantee: LengthLe(output, input.0)
 
 axiom str.lines : String -> List String
-guarantee: True
+  guarantee: True
 
 axiom str.split_at : (String * Int) -> List String
-requires: Le(0, input.1)
+  requires: Le(0, input.1)
 -- LAW: LengthEq(output.0 + output.1, input.0)
-guarantee: True
+  guarantee: True
 
 axiom str.split_whitespace : String -> List String
-guarantee: True
+  guarantee: True
 
 axiom str.truncate : (String * Int) -> String
-requires : Le(0, input.1)
-guarantee: LengthLe(output, input.1)
+  requires: Le(0, input.1)
+  guarantee: LengthLe(output, input.1)
 
 axiom str.slugify : String -> String
 -- LAW: IsSlug(output)
-guarantee: True
+  guarantee: True
 
 axiom str.word_wrap : (String * Int) -> String
-requires : Le(1, input.1)
-guarantee: True
+  requires: Le(1, input.1)
+  guarantee: True
