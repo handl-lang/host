@@ -1627,6 +1627,9 @@ dependencies = [
 name = "handl-plugin-ffi"
 version = "0.1.0"
 dependencies = [
+ "cranelift",
+ "cranelift-jit",
+ "cranelift-module",
  "handl-platform",
  "handl-value",
  "libloading",
