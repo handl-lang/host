@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Abstract signal service.
 ///
@@ -17,17 +20,20 @@ pub trait Sig: Send + Sync {
 }
 
 /// Module adapter for [`Sig`] — exposes `sig.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct SigModule {
-    send: SendFn,
-    list: ListFn,
+    module: HandlModule,
 }
 
 impl SigModule {
     pub fn new(sig: impl Sig + 'static) -> Self {
-        let sig = Arc::new(sig);
-        SigModule {
-            send: SendFn { sig: sig.clone() },
-            list: ListFn { sig },
+        let mut registry = OpRegistry::new();
+        register_sig_ops(&mut registry, sig);
+        Self {
+            module: HandlModule::new("sig", OS_HNL, &[]).with_ops(SIG_OPS, Arc::new(registry)),
         }
     }
 }
@@ -38,11 +44,11 @@ impl Module for SigModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "send" => Some(&self.send),
-            "list" => Some(&self.list),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

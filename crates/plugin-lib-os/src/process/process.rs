@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Snapshot of a managed child process.
 #[derive(Debug, Clone)]
@@ -29,27 +32,20 @@ pub trait Process: Send + Sync {
 }
 
 /// Module adapter for [`Process`] — exposes `process.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct ProcessModule {
-    spawn: SpawnFn,
-    kill: KillFn,
-    wait: WaitFn,
-    status: StatusFn,
+    module: HandlModule,
 }
 
 impl ProcessModule {
     pub fn new(process: impl Process + 'static) -> Self {
-        let process = Arc::new(process);
-        ProcessModule {
-            spawn: SpawnFn {
-                process: process.clone(),
-            },
-            kill: KillFn {
-                process: process.clone(),
-            },
-            wait: WaitFn {
-                process: process.clone(),
-            },
-            status: StatusFn { process },
+        let mut registry = OpRegistry::new();
+        register_process_ops(&mut registry, process);
+        Self {
+            module: HandlModule::new("process", OS_HNL, &[]).with_ops(PROCESS_OPS, Arc::new(registry)),
         }
     }
 }
@@ -60,13 +56,11 @@ impl Module for ProcessModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "spawn" => Some(&self.spawn),
-            "kill" => Some(&self.kill),
-            "wait" => Some(&self.wait),
-            "status" => Some(&self.status),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

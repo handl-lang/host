@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 use crate::error::OsError;
+
+/// The handl source declaring the os `op` interface.
+const OS_HNL: &str = include_str!("../../../../handl-packages/os/os.hnl");
 
 /// Abstract time service.
 ///
@@ -19,17 +22,20 @@ pub trait Time: Send + Sync {
 }
 
 /// Module adapter for [`Time`] — exposes `time.*` functions.
+///
+/// The interface is declared in `os.hnl` via `op`/`handl` declarations
+/// and loaded via the generic [`HandlModule`]; this struct delegates
+/// [`Module`] lookups to the [`HandlModule`] built from the service.
 pub struct TimeModule {
-    now: NowFn,
-    epoch: EpochFn,
+    module: HandlModule,
 }
 
 impl TimeModule {
     pub fn new(time: impl Time + 'static) -> Self {
-        let time = Arc::new(time);
-        TimeModule {
-            now: NowFn { time: time.clone() },
-            epoch: EpochFn { time },
+        let mut registry = OpRegistry::new();
+        register_time_ops(&mut registry, time);
+        Self {
+            module: HandlModule::new("time", OS_HNL, &[]).with_ops(TIME_OPS, Arc::new(registry)),
         }
     }
 }
@@ -40,11 +46,11 @@ impl Module for TimeModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "now" => Some(&self.now),
-            "epoch" => Some(&self.epoch),
-            _ => None,
-        }
+        self.module.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.module.functions()
     }
 }
 

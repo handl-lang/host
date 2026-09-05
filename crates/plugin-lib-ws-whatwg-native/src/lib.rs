@@ -18,7 +18,7 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 pub mod module;
-pub use module::WsWhatwgNativeModule;
+pub use module::{WsWhatwgNativeModule, ws_whatwg_native_op_registry, WS_WHATWG_NATIVE_OPS};
 
 /// The handl source declaring the ws_whatwg_native interface — the
 /// single source of truth for the ws_whatwg_native API surface. Loaded

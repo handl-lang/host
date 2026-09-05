@@ -4,6 +4,7 @@ use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_platform::Module;
 use handl_platform::{EvalContext, EvalError, Function};
+use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -353,6 +354,48 @@ impl Function for ConnectionClose {
     }
 }
 
+/// The handl source declaring the ws_whatwg_native `op` interface.
+const WS_WHATWG_NATIVE_HNL: &str =
+    include_str!("../../../handl-packages/ws_whatwg_native/ws_whatwg_native.hnl");
+
+/// The op names declared in `ws_whatwg_native.hnl`.
+pub const WS_WHATWG_NATIVE_OPS: &[&str] = &[
+    "ws_whatwg_native.ws_whatwg_native",
+    "ws_whatwg_native.connect",
+    "ws_whatwg_native.send",
+    "ws_whatwg_native.recv",
+    "ws_whatwg_native.close",
+];
+
+/// Build the [`OpRegistry`] for ws_whatwg_native, registering the Rust
+/// handls under their op names.
+pub fn ws_whatwg_native_op_registry() -> OpRegistry {
+    let mut registry = OpRegistry::new();
+    registry.register("ws_whatwg_native.ws_whatwg_native", Arc::new(WebsocketWhatwgName));
+    registry.register("ws_whatwg_native.connect", Arc::new(ConnectionConnect));
+    registry.register("ws_whatwg_native.send", Arc::new(ConnectionSend));
+    registry.register("ws_whatwg_native.recv", Arc::new(ConnectionRecv));
+    registry.register("ws_whatwg_native.close", Arc::new(ConnectionClose));
+    registry
+}
+
+/// A thread-safe lazy-initialized [`HandlModule`] for ws_whatwg_native.
+static WS_WHATWG_NATIVE_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for ws_whatwg_native.
+fn ws_whatwg_native_module() -> &'static HandlModule {
+    WS_WHATWG_NATIVE_MODULE.get_or_init(|| {
+        let registry = Arc::new(ws_whatwg_native_op_registry());
+        HandlModule::new("ws_whatwg_native", WS_WHATWG_NATIVE_HNL, &[])
+            .with_ops(WS_WHATWG_NATIVE_OPS, registry)
+    })
+}
+
+/// The `ws_whatwg_native` module — native WHATWG-style WebSocket client.
+///
+/// The interface is declared in `ws_whatwg_native.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// only delegates [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct WsWhatwgNativeModule;
 
@@ -362,13 +405,10 @@ impl Module for WsWhatwgNativeModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "ws_whatwg_native" => Some(&WebsocketWhatwgName),
-            "connect" => Some(&ConnectionConnect),
-            "send" => Some(&ConnectionSend),
-            "recv" => Some(&ConnectionRecv),
-            "close" => Some(&ConnectionClose),
-            _ => None,
-        }
+        ws_whatwg_native_module().function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        ws_whatwg_native_module().functions()
     }
 }

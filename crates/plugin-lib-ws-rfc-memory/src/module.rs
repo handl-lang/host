@@ -18,13 +18,30 @@
 
 use handl_platform::Function;
 use handl_platform::Module;
-use handl_plugin_lib_ws_rfc::{
-    ClientClose, ClientConnect, ClientNew, ClientRecv, ClientSend, FrameDecode, FrameEncode,
-    MessageFromFrame, MessageToFrame, ServerListen, ServerNew, ServerStop,
-};
+use handl_plugin_lib_handl::HandlModule;
+use std::sync::OnceLock;
+
+/// The handl source declaring the ws_rfc `op` interface.
+const WS_RFC_MEMORY_HNL: &str =
+    include_str!("../../../handl-packages/ws_rfc_memory/ws_rfc_memory.hnl");
+
+/// A thread-safe lazy-initialized [`HandlModule`] for ws_rfc.
+static WS_RFC_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for ws_rfc.
+fn ws_rfc_module() -> &'static HandlModule {
+    WS_RFC_MODULE.get_or_init(|| {
+        let registry = std::sync::Arc::new(crate::ws_rfc_op_registry());
+        HandlModule::new("ws_rfc", WS_RFC_MEMORY_HNL, &[]).with_ops(crate::WS_RFC_OPS, registry)
+    })
+}
 
 /// The `ws_rfc` runtime module — WebSocket frame, message and in-process
 /// client/server primitives.
+///
+/// The interface is declared in `ws_rfc_memory.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// only delegates [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct WsRfcModule;
 
@@ -34,20 +51,20 @@ impl Module for WsRfcModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        match name {
-            "client" => Some(&ClientNew),
-            "connect" => Some(&ClientConnect),
-            "send" => Some(&ClientSend),
-            "recv" => Some(&ClientRecv),
-            "close" => Some(&ClientClose),
-            "server" => Some(&ServerNew),
-            "listen" => Some(&ServerListen),
-            "stop" => Some(&ServerStop),
-            "frame.encode" => Some(&FrameEncode),
-            "frame.decode" => Some(&FrameDecode),
-            "message.from_frame" => Some(&MessageFromFrame),
-            "message.to_frame" => Some(&MessageToFrame),
-            _ => None,
+        // Try the full local name first (handles "client", "connect", etc.).
+        if let Some(f) = ws_rfc_module().function(name) {
+            return Some(f);
         }
+        // HandlModule stores ops by their last segment (e.g. "encode" for
+        // "ws_rfc.frame.encode"), but callers use the dotted local name
+        // (e.g. "frame.encode"). Fall back to the last segment.
+        if let Some((_, last)) = name.rsplit_once('.') {
+            return ws_rfc_module().function(last);
+        }
+        None
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        ws_rfc_module().functions()
     }
 }

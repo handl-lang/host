@@ -7,6 +7,7 @@ use crate::function_value::FunctionValue;
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_ws_rfc::{FrameDecode, FrameEncode, MessageFromFrame, MessageToFrame};
 use serde_json::Value;
 use serde_json::Value as JsonValue;
@@ -94,8 +95,28 @@ impl Inner {
     }
 }
 
+/// The handl source declaring the ws_rfc_native `handl` bindings.
+const WS_RFC_NATIVE_HNL: &str =
+    include_str!("../../../handl-packages/ws_rfc_native/ws_rfc_native.hnl");
+
+/// A thread-safe lazy-initialized [`HandlModule`] for ws_rfc_native.
+static WS_RFC_NATIVE_MODULE: OnceLock<HandlModule> = OnceLock::new();
+
+/// Get the shared [`HandlModule`] for ws_rfc_native.
+fn ws_rfc_native_module() -> &'static HandlModule {
+    WS_RFC_NATIVE_MODULE.get_or_init(|| {
+        let registry = Arc::new(ws_rfc_native_op_registry());
+        HandlModule::new("ws_rfc_native", WS_RFC_NATIVE_HNL, &[])
+            .with_ops(WS_RFC_NATIVE_OPS, registry)
+    })
+}
+
 /// The `ws_rfc_native` runtime module with a real `tokio-tungstenite`
 /// client/server backend.
+///
+/// The interface is declared in `ws_rfc_native.hnl` via `op`/`handl`
+/// declarations and loaded via the generic [`HandlModule`]; this struct
+/// only delegates [`Module`] lookups to the shared [`HandlModule`].
 #[derive(Clone, Copy)]
 pub struct WsRfcNativeModule;
 
@@ -105,39 +126,21 @@ impl Module for WsRfcNativeModule {
     }
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
-        #[cfg(feature = "client")]
-        let client: Option<&dyn Function> = match name {
-            "client" => Some(&ClientNew),
-            "connect" => Some(&ClientConnect),
-            "send" => Some(&ClientSend),
-            "recv" => Some(&ClientRecv),
-            "close" => Some(&ClientClose),
-            _ => None,
-        };
-        #[cfg(feature = "server")]
-        let server: Option<&dyn Function> = match name {
-            "server" => Some(&ServerNew),
-            "listen" => Some(&ServerListen),
-            "stop" => Some(&ServerStop),
-            _ => None,
-        };
+        // Try the full local name first (handles "client", "connect", etc.).
+        if let Some(f) = ws_rfc_native_module().function(name) {
+            return Some(f);
+        }
+        // HandlModule stores ops by their last segment (e.g. "encode" for
+        // "ws_rfc.frame.encode"), but callers use the dotted local name
+        // (e.g. "frame.encode"). Fall back to the last segment.
+        if let Some((_, last)) = name.rsplit_once('.') {
+            return ws_rfc_native_module().function(last);
+        }
+        None
+    }
 
-        #[cfg(feature = "client")]
-        if client.is_some() {
-            return client;
-        }
-        #[cfg(feature = "server")]
-        if server.is_some() {
-            return server;
-        }
-
-        match name {
-            "frame.encode" => Some(&FrameEncode),
-            "frame.decode" => Some(&FrameDecode),
-            "message.from_frame" => Some(&MessageFromFrame),
-            "message.to_frame" => Some(&MessageToFrame),
-            _ => None,
-        }
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        ws_rfc_native_module().functions()
     }
 }
 
