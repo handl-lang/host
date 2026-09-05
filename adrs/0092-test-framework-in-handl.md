@@ -2,7 +2,15 @@
 
 ## Status
 
-Proposed. Part of the bootstrap tooling strategy
+Partially implemented. `plugin-lib-test` is **deleted**: the framework
+contract remains in `handl-packages/test/test.hnl` (`op`/`handl`
+declarations) and the 12 Rust handls moved into
+`handl-plugin-engine-test::framework` as the temporary bridge this ADR
+prescribes. No op moved to pure handl yet — see the addendum at the bottom
+for the blockers discovered during the migration (error raise/capture are
+required in addition to the RNG/clock prerequisites listed below).
+
+Part of the bootstrap tooling strategy
 ([ADR-0085](./0085-bootstrap-tooling-strategy.md)) and an instance of the
 stdlib-migration program ([ADR-0077](./0077-stdlib-migration-to-handl.md)).
 Companion to [ADR-0089](./0089-bootstrap-test-runner.md), which extracts
@@ -170,5 +178,30 @@ Rust handls in `plugin-engine-test` until then.
 
 ## Status
 
-Proposed. ADR-0089 (runner extraction) is the prerequisite; this ADR
-follows once the runner has its own crate.
+Partially implemented (see top). ADR-0089 landed first; the runner lives in
+`plugin-engine-test`.
+
+### Implementation addendum (migration pass 1)
+
+- `plugin-lib-test` deleted: removed from workspace `members` and
+  `[workspace.dependencies]`; its only dependent was `plugin-engine-test`.
+- All framework code (assert/property/benchmark/fuzz/snapshot/test Rust
+  handls, `OpRegistry`, `HandlModule`s, `TestLibraryPlugin`, tests) moved
+  verbatim to `crates/plugin-engine-test/src/framework/`. `test.hnl`
+  remains the contract; the `handl "..." = rust_*` bindings resolve to
+  these handls.
+- The runner's `TestModuleLookup` resolves `assert.*` via
+  `crate::framework::AssertModule`; test bodies such as
+  `assert.true(false)` still fail properly.
+- **Newly discovered blockers for the pure-handl phase** (beyond the
+  prerequisites listed above): the language currently has (a) no
+  **error-raising** primitive callable from handl — `assert.*` and
+  `snapshot.match` exist to fail loudly, so they cannot be pure handl yet;
+  and (b) no **error capture** — `assert.throws` and `test.run` must call
+  a function value and observe failure, which today only exists host-side
+  as `EvalContext::try_call_value`. The `rand.seeded_*` ops exist in
+  `plugin-lib-rand` but are not wired into the canonical module chain, and
+  no `time.*` clock primitive exists. The pure-handl `assert.hnl`/
+  `property.hnl`/`fuzz.hnl`/`snapshot.hnl`/`benchmark.hnl`/`test.hnl`
+  implementation files land once `error.*` (raise + capture), `random.*`
+  (seeded), and `time.*` (clock) primitives are available.
